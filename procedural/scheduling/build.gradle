@@ -1,0 +1,55 @@
+import org.jetbrains.kotlin.gradle.dsl.jvm.JvmTargetValidationMode
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
+
+plugins {
+  id 'com.github.johnrengelman.shadow' version '8.1.1'
+  id "org.jetbrains.kotlin.jvm" version "1.9.22"
+  id 'java-library'
+  id 'org.jetbrains.dokka' version '1.9.10'
+}
+
+repositories {
+  mavenCentral()
+}
+
+dependencies {
+  implementation project(':procedural:timeline')
+  implementation project(':merlin-driver')
+
+  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+  testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
+  testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.withType(KotlinJvmCompile.class).configureEach {
+  jvmTargetValidationMode = JvmTargetValidationMode.WARNING
+}
+
+tasks.named('test') {
+  useJUnitPlatform()
+}
+
+kotlin {
+  jvmToolchain(21)
+}
+
+var timelineSource = "${project(":procedural:timeline").projectDir}/src/main/kotlin"
+
+dokkaHtmlPartial.configure {
+  dokkaSourceSets {
+    configureEach {
+      // used as project name in the header
+      moduleName.set("Scheduling")
+
+      reportUndocumented.set(true)
+      failOnWarning.set(true)
+
+      // contains descriptions for the module and the packages
+      includes.from("MODULE_DOCS.md")
+
+      sourceRoots.from(timelineSource)
+      suppressedFiles.from(timelineSource)
+    }
+  }
+}
+

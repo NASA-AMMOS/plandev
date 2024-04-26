@@ -10,6 +10,7 @@ import gov.nasa.jpl.aerie.timeline.util.coalesceList
 import gov.nasa.jpl.aerie.timeline.util.map2ParallelLists
 import gov.nasa.jpl.aerie.timeline.util.sorted
 import gov.nasa.jpl.aerie.timeline.util.truncateList
+import java.util.function.Consumer
 
 /**
  * General operations mixin for all timeline types.
@@ -72,9 +73,9 @@ interface GeneralOps<V: IntervalLike<V>, THIS: GeneralOps<V, THIS>>: Timeline<V,
    *
    * @param f a function that receives a list of timeline objects and does nothing to them
    */
-  fun inspect(f: (List<V>) -> Unit) = BaseTimeline(ctor) {
+  fun inspect(f: Consumer<List<V>>) = BaseTimeline(ctor) {
     val list = collect(it)
-    f(list)
+    f.accept(list)
     list
   }.specialize()
 

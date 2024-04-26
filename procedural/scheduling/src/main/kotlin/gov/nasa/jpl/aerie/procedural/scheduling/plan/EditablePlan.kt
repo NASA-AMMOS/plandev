@@ -1,6 +1,9 @@
 package gov.nasa.jpl.aerie.procedural.scheduling.plan
 
+import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
 import gov.nasa.jpl.aerie.procedural.scheduling.simulation.SimulateOptions
+import gov.nasa.jpl.aerie.timeline.payloads.activities.AnyDirective
+import gov.nasa.jpl.aerie.timeline.payloads.activities.DirectiveStart
 import gov.nasa.jpl.aerie.timeline.plan.Plan
 import gov.nasa.jpl.aerie.timeline.plan.SimulationResults
 
@@ -16,6 +19,19 @@ interface EditablePlan: Plan {
    * @return a long, the directive id this activity will have.
    */
   fun create(directive: NewDirective): Long
+
+  /** A simplified version of [create] with minimal arguments. */
+  fun create(
+      type: String,
+      start: DirectiveStart,
+      arguments: Map<String, SerializedValue>
+  ) = create(NewDirective(
+      AnyDirective(arguments),
+      "Unnamed Activity",
+      type,
+      start
+  ))
+
 
   /** Commit plan edits, making them final. */
   fun commit()

@@ -16,6 +16,7 @@ include 'permissions'
 include 'procedural:timeline'
 include 'procedural:constraints'
 include 'procedural:scheduling'
+include 'procedural:remote'
 
 // Services for deployment within the Aerie infrastructure
 include 'merlin-server'

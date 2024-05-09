@@ -1,38 +1,43 @@
-package gov.nasa.jpl.aerie.timeline.plan
+package gov.nasa.jpl.aerie.procedural.remote
 
-import gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser
+import gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
 import gov.nasa.jpl.aerie.timeline.BaseTimeline
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.jpl.aerie.timeline.BoundsTransformer
 import gov.nasa.jpl.aerie.timeline.Interval.Companion.between
-import gov.nasa.jpl.aerie.timeline.payloads.activities.Directive
 import gov.nasa.jpl.aerie.timeline.collections.Directives
+import gov.nasa.jpl.aerie.timeline.payloads.activities.Directive
 import gov.nasa.jpl.aerie.timeline.payloads.activities.DirectiveStart
-import gov.nasa.jpl.aerie.timeline.util.duration.minus
+import gov.nasa.jpl.aerie.timeline.plan.Plan
 import gov.nasa.jpl.aerie.timeline.util.duration.plus
+import gov.nasa.jpl.aerie.timeline.util.duration.minus
 import java.io.StringReader
 import java.sql.Connection
 import java.time.Instant
 import javax.json.Json
 
-/** A connection to Aerie's database for a particular simulation result. */
-class AeriePostgresPlan(
-    /** A connection to Aerie's database. */
+/**
+ * A connection to Aerie's database for a particular simulation result.
+ *
+ * @param c A connection to Aerie's database
+ * @param planId The ID of the plan as specified by in the postgres database
+ */
+data class AeriePostgresPlan(
     private val c: Connection,
-    private val id: Int
+    private val planId: Int
 ): Plan {
 
   private val planInfo by lazy {
     val statement = c.prepareStatement("select start_time, duration from merlin.plan where id = ?;")
-    statement.setInt(1, id)
+    statement.setInt(1, planId)
     intervalStyleStatement(c).execute()
     val response = statement.executeQuery()
     if (!response.next()) throw DatabaseError("Expected exactly one result for query, found none: $statement")
     val result = object {
       val startTime = response.getTimestamp(1).toInstant()
       val duration = Duration.parseISO8601(response.getString(2))
-      val id = this@AeriePostgresPlan.id
+      val id = this@AeriePostgresPlan.planId
     }
     if (response.next()) throw DatabaseError("Expected exactly one result for query, found more than one: $statement")
     result
@@ -48,7 +53,7 @@ class AeriePostgresPlan(
 
   private fun parseJson(jsonStr: String): SerializedValue = Json.createReader(StringReader(jsonStr)).use { reader ->
     val requestJson = reader.readValue()
-    val result = SerializedValueJsonParser.serializedValueP.parse(requestJson)
+    val result = serializedValueP.parse(requestJson)
     return result.getSuccessOrThrow { DatabaseError(it.toString()) }
   }
 
@@ -94,15 +99,15 @@ class AeriePostgresPlan(
       while (unresolved.size != 0) {
         val sizeAtStartOfStep = unresolved.size
         unresolved = unresolved.filterNot {
-          when (it.start) {
+          when (val s = it.start) {
             is DirectiveStart.Absolute -> {
               result.add(it)
             }
             is DirectiveStart.Anchor -> {
-              val index = result.binarySearch { a -> a.id.compareTo(it.start.parentId) }
+              val index = result.binarySearch { a -> a.id.compareTo(s.parentId) }
               if (index >= 0) {
                 val parent = result[index]
-                it.start.estimatedStart = parent.startTime + it.start.offset
+                s.estimatedStart = parent.startTime + s.offset
                 result.add(it)
               } else false
             }

@@ -55,6 +55,7 @@ task e2eTest(type: Test) {
 
 dependencies {
   testImplementation project(":procedural:timeline")
+  testImplementation project(":procedural:remote")
   testImplementation "com.zaxxer:HikariCP:5.1.0"
   testImplementation("org.postgresql:postgresql:42.6.0")
   testImplementation project(':merlin-driver')

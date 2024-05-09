@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.timeline.plan
+package gov.nasa.jpl.aerie.procedural.remote
 
-import gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser
+import gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.jpl.aerie.timeline.Interval.Companion.between
@@ -10,14 +10,23 @@ import gov.nasa.jpl.aerie.timeline.collections.Instances
 import gov.nasa.jpl.aerie.timeline.ops.coalesce.CoalesceSegmentsOp
 import gov.nasa.jpl.aerie.timeline.payloads.Segment
 import gov.nasa.jpl.aerie.timeline.payloads.activities.Instance
+import gov.nasa.jpl.aerie.timeline.plan.Plan
+import gov.nasa.jpl.aerie.timeline.plan.SimulationResults
 import java.io.StringReader
 import java.sql.Connection
 import javax.json.Json
 import kotlin.jvm.optionals.getOrNull
 
-/** A connection to Aerie's database for a particular simulation result. */
+/**
+ * A connection to Aerie's database for a particular simulation result.
+ *
+ * @param c A connection to Aerie's database
+ * @param simDatasetId The simulation dataset id to query for (this is different from the dataset id)
+ * @param plan a plan object representing the plan associated with this simulation dataset
+ * @param stale whether these results are not up-to-date
+ */
 data class AeriePostgresSimulationResults(
-    /** A connection to Aerie's database. */
+    /**  */
     private val c: Connection,
     /** The particular simulation dataset to query. */
     private val simDatasetId: Int,
@@ -126,7 +135,7 @@ data class AeriePostgresSimulationResults(
 
   private fun parseJson(jsonStr: String): SerializedValue = Json.createReader(StringReader(jsonStr)).use { reader ->
       val requestJson = reader.readValue()
-      val result = SerializedValueJsonParser.serializedValueP.parse(requestJson)
+      val result = serializedValueP.parse(requestJson)
       return result.getSuccessOrThrow { DatabaseError(it.toString()) }
   }
 

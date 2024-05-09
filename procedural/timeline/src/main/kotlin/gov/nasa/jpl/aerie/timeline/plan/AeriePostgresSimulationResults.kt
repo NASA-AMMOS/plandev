@@ -2,7 +2,7 @@ package gov.nasa.jpl.aerie.timeline.plan
 
 import gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
-import gov.nasa.jpl.aerie.timeline.Duration
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.jpl.aerie.timeline.Interval.Companion.between
 import gov.nasa.jpl.aerie.timeline.Interval.Inclusivity.Exclusive
 import gov.nasa.jpl.aerie.timeline.Interval.Inclusivity.Inclusive

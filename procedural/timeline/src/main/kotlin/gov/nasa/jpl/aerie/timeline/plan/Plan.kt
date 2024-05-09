@@ -1,7 +1,7 @@
 package gov.nasa.jpl.aerie.timeline.plan
 
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
-import gov.nasa.jpl.aerie.timeline.Duration
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.jpl.aerie.timeline.Interval
 import gov.nasa.jpl.aerie.timeline.payloads.activities.AnyDirective
 import gov.nasa.jpl.aerie.timeline.collections.Directives

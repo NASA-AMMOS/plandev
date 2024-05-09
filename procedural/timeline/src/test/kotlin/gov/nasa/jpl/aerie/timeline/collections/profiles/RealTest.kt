@@ -1,9 +1,10 @@
 package gov.nasa.jpl.aerie.timeline.collections.profiles
 
-import gov.nasa.jpl.aerie.timeline.Duration.Companion.seconds
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration.seconds
 import gov.nasa.jpl.aerie.timeline.payloads.LinearEquation
 import gov.nasa.jpl.aerie.timeline.payloads.Segment
 import org.junit.jupiter.api.Assertions.assertIterableEquals
+import gov.nasa.jpl.aerie.timeline.util.duration.rangeTo
 import org.junit.jupiter.api.Test
 
 class RealTest {

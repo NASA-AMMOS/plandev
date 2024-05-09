@@ -1,11 +1,12 @@
 package gov.nasa.jpl.aerie.timeline.payloads
 
-import gov.nasa.jpl.aerie.timeline.Duration
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.jpl.aerie.timeline.Interval
 import gov.nasa.jpl.aerie.timeline.Interval.Inclusivity.Exclusive
 import gov.nasa.jpl.aerie.timeline.Interval.Inclusivity.Inclusive
 import gov.nasa.jpl.aerie.timeline.collections.profiles.Real
 import gov.nasa.jpl.aerie.timeline.collections.profiles.Booleans
+import gov.nasa.jpl.aerie.timeline.util.duration.div
 import java.util.function.BiFunction
 import kotlin.math.abs
 import kotlin.math.absoluteValue

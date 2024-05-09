@@ -1,8 +1,9 @@
 package gov.nasa.jpl.aerie.timeline.ops
 
-import gov.nasa.jpl.aerie.timeline.Duration
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.jpl.aerie.timeline.Interval
 import gov.nasa.jpl.aerie.timeline.collections.Intervals
+import gov.nasa.jpl.aerie.timeline.util.duration.rangeTo
 
 /**
  * Operations mixin for timelines of booleans.

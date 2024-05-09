@@ -1,12 +1,14 @@
 package gov.nasa.jpl.aerie.timeline.collections
 
 import gov.nasa.jpl.aerie.timeline.CollectOptions
-import gov.nasa.jpl.aerie.timeline.Duration
-import gov.nasa.jpl.aerie.timeline.Duration.Companion.milliseconds
-import gov.nasa.jpl.aerie.timeline.Duration.Companion.seconds
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration.milliseconds
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration.seconds
 import gov.nasa.jpl.aerie.timeline.Interval.Companion.at
 import gov.nasa.jpl.aerie.timeline.Interval.Companion.between
 import gov.nasa.jpl.aerie.timeline.Interval.Inclusivity.Exclusive
+import gov.nasa.jpl.aerie.timeline.util.duration.rangeTo
+import gov.nasa.jpl.aerie.timeline.util.duration.rangeUntil
 import org.junit.jupiter.api.Assertions.assertIterableEquals
 import org.junit.jupiter.api.Test
 

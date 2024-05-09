@@ -1,9 +1,10 @@
 package gov.nasa.jpl.aerie.timeline.ops
 
 import gov.nasa.jpl.aerie.timeline.CollectOptions
-import gov.nasa.jpl.aerie.timeline.Duration
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.jpl.aerie.timeline.Interval
 import gov.nasa.jpl.aerie.timeline.Interval.Inclusivity.Exclusive
+import gov.nasa.jpl.aerie.timeline.util.duration.div
 import gov.nasa.jpl.aerie.timeline.payloads.IntervalLike
 import gov.nasa.jpl.aerie.timeline.util.truncateList
 

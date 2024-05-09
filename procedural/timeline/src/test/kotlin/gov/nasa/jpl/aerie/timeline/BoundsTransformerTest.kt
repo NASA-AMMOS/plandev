@@ -1,6 +1,6 @@
 package gov.nasa.jpl.aerie.timeline
 
-import gov.nasa.jpl.aerie.timeline.Duration.Companion.seconds
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration.seconds
 import gov.nasa.jpl.aerie.timeline.Interval.Companion.between
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

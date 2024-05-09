@@ -1,11 +1,10 @@
 package gov.nasa.jpl.aerie.timeline.collections.profiles
 
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
-import gov.nasa.jpl.aerie.timeline.BaseTimeline
-import gov.nasa.jpl.aerie.timeline.Duration
-import gov.nasa.jpl.aerie.timeline.Interval
+import gov.nasa.jpl.aerie.timeline.*
+import gov.nasa.jpl.aerie.timeline.util.duration.unaryMinus
 import gov.nasa.jpl.aerie.timeline.payloads.Segment
-import gov.nasa.jpl.aerie.timeline.Timeline
 import gov.nasa.jpl.aerie.timeline.ops.SerialConstantOps
 import gov.nasa.jpl.aerie.timeline.ops.numeric.PrimitiveNumberOps
 import gov.nasa.jpl.aerie.timeline.ops.numeric.SerialNumericOps
@@ -201,7 +200,7 @@ data class Numbers<N: Number>(private val timeline: Timeline<Segment<N>, Numbers
   // This unchecked cast is OK because the difference between two primitives of different type
   // will never be a third type.
   @Suppress("UNCHECKED_CAST")
-  override fun shiftedDifference(range: Duration) = shift(range.negate()).minus(this) as Numbers<N>
+  override fun shiftedDifference(range: Duration) = (shift(-range) - this) as Numbers<N>
 
   /***/ companion object {
     /**

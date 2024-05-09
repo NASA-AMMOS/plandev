@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.timeline.collections.profiles
 
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
 import gov.nasa.jpl.aerie.timeline.*
 import gov.nasa.jpl.aerie.timeline.ops.numeric.LinearOps
@@ -9,6 +10,7 @@ import gov.nasa.jpl.aerie.timeline.payloads.LinearEquation
 import gov.nasa.jpl.aerie.timeline.payloads.transpose
 import gov.nasa.jpl.aerie.timeline.util.preprocessList
 import gov.nasa.jpl.aerie.timeline.util.truncateList
+import gov.nasa.jpl.aerie.timeline.util.duration.unaryMinus
 import kotlin.jvm.optionals.getOrNull
 import kotlin.math.pow
 
@@ -173,7 +175,7 @@ data class Real(private val timeline: Timeline<Segment<LinearEquation>, Real>):
       { l, r, i -> l.valueAt(i.start) == from && r.valueAt(i.start) == to }
   ))
 
-  override fun shiftedDifference(range: Duration) = shift(range.negate()).minus(this)
+  override fun shiftedDifference(range: Duration) = shift(-range).minus(this)
 
   /**
    * An exception for linear profile operations; usually thrown in contexts that

@@ -1,6 +1,6 @@
 package gov.nasa.jpl.aerie.timeline.ops.numeric
 
-import gov.nasa.jpl.aerie.timeline.Duration
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.jpl.aerie.timeline.collections.profiles.Numbers
 import gov.nasa.jpl.aerie.timeline.payloads.Segment
 import gov.nasa.jpl.aerie.timeline.collections.profiles.Real

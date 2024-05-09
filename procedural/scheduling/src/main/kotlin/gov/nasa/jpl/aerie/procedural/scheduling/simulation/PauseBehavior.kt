@@ -1,6 +1,6 @@
 package gov.nasa.jpl.aerie.procedural.scheduling.simulation
 
-import gov.nasa.jpl.aerie.timeline.Duration
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 
 sealed interface PauseBehavior {
   data class AfterDuration(val dur: Duration): PauseBehavior

@@ -1,5 +1,7 @@
 package gov.nasa.jpl.aerie.timeline
 
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
+import gov.nasa.jpl.aerie.timeline.util.duration.rangeTo
 import gov.nasa.jpl.aerie.timeline.payloads.IntervalLike
 
 /**

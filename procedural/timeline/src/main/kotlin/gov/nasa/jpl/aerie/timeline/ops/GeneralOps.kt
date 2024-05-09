@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.timeline.ops
 
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.jpl.aerie.timeline.*
 import gov.nasa.jpl.aerie.timeline.collections.Intervals
 import gov.nasa.jpl.aerie.timeline.collections.Windows

@@ -1,11 +1,12 @@
 package gov.nasa.jpl.aerie.timeline.util
 
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration.seconds
 import gov.nasa.jpl.aerie.timeline.CollectOptions
-import gov.nasa.jpl.aerie.timeline.Duration.Companion.seconds
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import gov.nasa.jpl.aerie.timeline.Interval.Companion.between
 import gov.nasa.jpl.aerie.timeline.collections.Intervals
+import gov.nasa.jpl.aerie.timeline.util.duration.rangeTo
 
 val bounds = (seconds(0) .. seconds(10))
 

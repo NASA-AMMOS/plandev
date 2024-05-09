@@ -1,7 +1,7 @@
 package gov.nasa.jpl.aerie.timeline.ops.numeric
 
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.jpl.aerie.timeline.BoundsTransformer
-import gov.nasa.jpl.aerie.timeline.Duration
 import gov.nasa.jpl.aerie.timeline.collections.profiles.Numbers
 import gov.nasa.jpl.aerie.timeline.payloads.Segment
 import gov.nasa.jpl.aerie.timeline.payloads.LinearEquation
@@ -32,7 +32,7 @@ interface LinearOps<THIS: LinearOps<THIS>>: NumericOps<LinearEquation, THIS> {
    */
   fun rate(unit: Duration = Duration.SECOND) =
       if (unit == Duration.SECOND) mapValues(::Numbers) { it.value.rate }
-      else mapValues(::Numbers) { it.value.rate / (Duration.SECOND ratioOver unit) }
+      else mapValues(::Numbers) { it.value.rate / (Duration.SECOND.ratioOver(unit)) }
 
   override fun shift(dur: Duration) = unsafeMap(BoundsTransformer.shift(dur), false) { v ->
     Segment(v.interval.shiftBy(dur), LinearEquation(v.value.initialTime.plus(dur), v.value.initialValue, v.value.rate))

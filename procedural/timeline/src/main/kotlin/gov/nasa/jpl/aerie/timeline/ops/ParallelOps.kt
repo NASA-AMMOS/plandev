@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.timeline.ops
 
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.jpl.aerie.timeline.*
 import gov.nasa.jpl.aerie.timeline.collections.Intervals
 import gov.nasa.jpl.aerie.timeline.collections.profiles.Numbers
@@ -10,6 +11,7 @@ import gov.nasa.jpl.aerie.timeline.payloads.IntervalLike
 import gov.nasa.jpl.aerie.timeline.payloads.Segment
 import gov.nasa.jpl.aerie.timeline.util.map2SegmentLists
 import gov.nasa.jpl.aerie.timeline.util.truncateList
+import gov.nasa.jpl.aerie.timeline.util.duration.rangeTo
 
 /**
  * Operations mixin for timelines of potentially overlapping objects.

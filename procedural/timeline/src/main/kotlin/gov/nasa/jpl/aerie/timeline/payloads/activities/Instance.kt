@@ -1,6 +1,6 @@
 package gov.nasa.jpl.aerie.timeline.payloads.activities
 
-import gov.nasa.jpl.aerie.timeline.Duration
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.jpl.aerie.timeline.Interval
 
 /** A wrapper of any type of activity instance containing common data. */

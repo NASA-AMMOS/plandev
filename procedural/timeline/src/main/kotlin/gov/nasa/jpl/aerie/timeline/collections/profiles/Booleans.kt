@@ -1,7 +1,9 @@
 package gov.nasa.jpl.aerie.timeline.collections.profiles
 
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
 import gov.nasa.jpl.aerie.timeline.*
+import gov.nasa.jpl.aerie.timeline.util.duration.unaryMinus
 import gov.nasa.jpl.aerie.timeline.ops.BooleanOps
 import gov.nasa.jpl.aerie.timeline.payloads.Segment
 import gov.nasa.jpl.aerie.timeline.ops.SerialConstantOps
@@ -65,8 +67,8 @@ data class Booleans(private val timeline: Timeline<Segment<Boolean>, Booleans>):
       unsafeMapIntervals(
           { i ->
             Interval.between(
-                Duration.min(i.start.saturatingMinus(shiftRising), i.start.saturatingMinus(shiftFalling)),
-                Duration.max(i.end.saturatingMinus(shiftRising), i.end.saturatingMinus(shiftFalling)),
+                Duration.min(Duration.saturatingAdd(i.start, -shiftRising), Duration.saturatingAdd(i.start, -shiftFalling)),
+                Duration.max(Duration.saturatingAdd(i.end, -shiftRising), Duration.saturatingAdd(i.end, -shiftFalling)),
                 i.startInclusivity,
                 i.endInclusivity
             )

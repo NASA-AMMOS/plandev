@@ -5,14 +5,13 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
-import gov.nasa.jpl.aerie.timeline.Duration;
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.timeline.Interval;
 import gov.nasa.jpl.aerie.timeline.collections.profiles.Real;
 import gov.nasa.jpl.aerie.timeline.payloads.LinearEquation;
 import gov.nasa.jpl.aerie.timeline.payloads.Segment;
 import gov.nasa.jpl.aerie.timeline.plan.AeriePostgresPlan;
 import gov.nasa.jpl.aerie.timeline.plan.AeriePostgresSimulationResults;
-import gov.nasa.jpl.aerie.timeline.plan.Plan;
 import gov.nasa.jpl.aerie.timeline.plan.SimulatedPlan;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -100,8 +99,10 @@ public class TimelineRemoteTests {
         Json.createObjectBuilder().add("biteSize", 1).build());
     int simDatasetId = hasura.awaitSimulation(planId).simDatasetId();
 
-    plan = new AeriePostgresPlan(connection, simDatasetId);
-    final var simResults = new AeriePostgresSimulationResults(connection, simDatasetId, plan);
+    // Connect to the database
+
+    final var plan = new AeriePostgresPlan(connection, planId);
+    final var simResults = new AeriePostgresSimulationResults(connection, simDatasetId, plan, false);
     simulatedPlan = new SimulatedPlan(plan, simResults);
   }
 

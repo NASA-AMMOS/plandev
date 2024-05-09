@@ -1,11 +1,14 @@
 package gov.nasa.jpl.aerie.timeline
 
-import gov.nasa.jpl.aerie.timeline.Duration.Companion.seconds
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration.seconds
 import gov.nasa.jpl.aerie.timeline.Interval.Companion.EMPTY
 import gov.nasa.jpl.aerie.timeline.Interval.Companion.at
 import gov.nasa.jpl.aerie.timeline.Interval.Companion.between
 import gov.nasa.jpl.aerie.timeline.Interval.Companion.betweenClosedOpen
 import gov.nasa.jpl.aerie.timeline.Interval.Inclusivity.*
+import gov.nasa.jpl.aerie.timeline.util.duration.rangeTo
+import gov.nasa.jpl.aerie.timeline.util.duration.rangeUntil
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test

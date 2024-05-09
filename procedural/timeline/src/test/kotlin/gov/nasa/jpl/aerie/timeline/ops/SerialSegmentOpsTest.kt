@@ -1,8 +1,8 @@
 package gov.nasa.jpl.aerie.timeline.ops
 
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration.milliseconds
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration.seconds
 import gov.nasa.jpl.aerie.timeline.NullBinaryOperation
-import gov.nasa.jpl.aerie.timeline.Duration.Companion.milliseconds
-import gov.nasa.jpl.aerie.timeline.Duration.Companion.seconds
 import gov.nasa.jpl.aerie.timeline.Interval.Companion.at
 import gov.nasa.jpl.aerie.timeline.Interval.Companion.between
 import gov.nasa.jpl.aerie.timeline.Interval.Companion.betweenClosedOpen
@@ -10,6 +10,7 @@ import gov.nasa.jpl.aerie.timeline.Interval.Inclusivity.Exclusive
 import gov.nasa.jpl.aerie.timeline.Interval.Inclusivity.Inclusive
 import gov.nasa.jpl.aerie.timeline.payloads.Segment
 import gov.nasa.jpl.aerie.timeline.collections.profiles.Constants
+import gov.nasa.jpl.aerie.timeline.util.duration.rangeTo
 import org.junit.jupiter.api.Assertions.assertIterableEquals
 import org.junit.jupiter.api.Test
 

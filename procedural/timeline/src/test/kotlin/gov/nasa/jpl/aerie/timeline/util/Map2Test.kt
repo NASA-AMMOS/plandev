@@ -1,7 +1,8 @@
 package gov.nasa.jpl.aerie.timeline.util
 
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration.seconds
 import gov.nasa.jpl.aerie.timeline.NullBinaryOperation
-import gov.nasa.jpl.aerie.timeline.Duration.Companion.seconds
+import gov.nasa.jpl.aerie.timeline.durationUtils.*
 import gov.nasa.jpl.aerie.timeline.Interval
 import gov.nasa.jpl.aerie.timeline.Interval.Companion.between
 import gov.nasa.jpl.aerie.timeline.Interval.Inclusivity.*

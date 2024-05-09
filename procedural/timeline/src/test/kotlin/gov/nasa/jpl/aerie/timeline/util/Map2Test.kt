@@ -2,11 +2,12 @@ package gov.nasa.jpl.aerie.timeline.util
 
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration.seconds
 import gov.nasa.jpl.aerie.timeline.NullBinaryOperation
-import gov.nasa.jpl.aerie.timeline.durationUtils.*
 import gov.nasa.jpl.aerie.timeline.Interval
 import gov.nasa.jpl.aerie.timeline.Interval.Companion.between
 import gov.nasa.jpl.aerie.timeline.Interval.Inclusivity.*
 import gov.nasa.jpl.aerie.timeline.payloads.Segment
+import gov.nasa.jpl.aerie.timeline.util.duration.rangeTo
+import gov.nasa.jpl.aerie.timeline.util.duration.rangeUntil
 import org.junit.jupiter.api.Test
 
 import org.junit.jupiter.api.Assertions.*

@@ -7,6 +7,7 @@ import kotlin.jvm.optionals.getOrNull
 data class AnyDirective(
     /***/ @JvmField val arguments: Map<String, SerializedValue>
 ) {
+  /** Serialize this directive into a [SerializedValue]. */
   fun serialize(): SerializedValue = SerializedValue.of(arguments)
   /***/ companion object {
     /** Converts a [SerializedValue] object containing activity arguments into an [AnyDirective] object. */

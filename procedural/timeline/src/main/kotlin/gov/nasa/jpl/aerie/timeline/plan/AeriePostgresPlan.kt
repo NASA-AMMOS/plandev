@@ -5,11 +5,12 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
 import gov.nasa.jpl.aerie.timeline.BaseTimeline
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.jpl.aerie.timeline.BoundsTransformer
-import gov.nasa.jpl.aerie.timeline.durationUtils.*
 import gov.nasa.jpl.aerie.timeline.Interval.Companion.between
 import gov.nasa.jpl.aerie.timeline.payloads.activities.Directive
 import gov.nasa.jpl.aerie.timeline.collections.Directives
 import gov.nasa.jpl.aerie.timeline.payloads.activities.DirectiveStart
+import gov.nasa.jpl.aerie.timeline.util.duration.minus
+import gov.nasa.jpl.aerie.timeline.util.duration.plus
 import java.io.StringReader
 import java.sql.Connection
 import java.time.Instant
@@ -101,7 +102,7 @@ class AeriePostgresPlan(
               val index = result.binarySearch { a -> a.id.compareTo(it.start.parentId) }
               if (index >= 0) {
                 val parent = result[index]
-                it.start.updateEstimate(parent.startTime + it.start.offset)
+                it.start.estimatedStart = parent.startTime + it.start.offset
                 result.add(it)
               } else false
             }

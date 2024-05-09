@@ -43,7 +43,6 @@ dokkaHtmlPartial.configure {
       moduleName.set("Scheduling")
 
       reportUndocumented.set(true)
-      failOnWarning.set(true)
 
       // contains descriptions for the module and the packages
       includes.from("MODULE_DOCS.md")

@@ -9,6 +9,7 @@ import gov.nasa.jpl.aerie.timeline.collections.Instances
 
 /** An interface for querying plan information and simulation results. */
 interface SimulationResults {
+  /** Whether these results are up-to-date with all changes. */
   fun isStale(): Boolean
 
   /** Bounds on which the plan was most recently simulated. */

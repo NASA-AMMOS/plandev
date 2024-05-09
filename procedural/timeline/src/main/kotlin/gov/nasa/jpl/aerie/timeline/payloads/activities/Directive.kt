@@ -16,6 +16,7 @@ data class Directive<A: Any>(
 
     override val type: String,
 
+    /** The start behavior for this directive. */
     val start: DirectiveStart,
 ): Activity<Directive<A>> {
   override val startTime: Duration
@@ -32,13 +33,12 @@ data class Directive<A: Any>(
     else throw Exception("Cannot change directive time to a non-instantaneous interval.")
   }
 
-  fun <R: Any> mapInner(f: (A) -> R) = Directive(
+  /** Transform the inner payload with a function, returning a new directive object. */
+  fun <R: Any> mapInner(/***/ f: (A) -> R) = Directive(
       f(inner),
       name,
       id,
       type,
       start
   )
-
-  fun withNewAnchor(anchor: DirectiveStart.Anchor) = Directive(inner, name, id, type, anchor)
 }

@@ -11,7 +11,9 @@ import gov.nasa.jpl.aerie.timeline.collections.profiles.Real;
 import gov.nasa.jpl.aerie.timeline.payloads.LinearEquation;
 import gov.nasa.jpl.aerie.timeline.payloads.Segment;
 import gov.nasa.jpl.aerie.timeline.plan.AeriePostgresPlan;
+import gov.nasa.jpl.aerie.timeline.plan.AeriePostgresSimulationResults;
 import gov.nasa.jpl.aerie.timeline.plan.Plan;
+import gov.nasa.jpl.aerie.timeline.plan.SimulatedPlan;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -38,9 +40,8 @@ public class TimelineRemoteTests {
   private int modelId;
   private int planId;
   private int activityId;
-  private int simDatasetId;
 
-  private Plan plan;
+  private SimulatedPlan simulatedPlan;
   private Connection connection;
   private HikariDataSource dataSource;
   @BeforeAll
@@ -97,9 +98,11 @@ public class TimelineRemoteTests {
         "BiteBanana",
         "1h",
         Json.createObjectBuilder().add("biteSize", 1).build());
-    simDatasetId = hasura.awaitSimulation(planId).simDatasetId();
+    int simDatasetId = hasura.awaitSimulation(planId).simDatasetId();
 
     plan = new AeriePostgresPlan(connection, simDatasetId);
+    final var simResults = new AeriePostgresSimulationResults(connection, simDatasetId, plan);
+    simulatedPlan = new SimulatedPlan(plan, simResults);
   }
 
   @AfterEach
@@ -110,7 +113,7 @@ public class TimelineRemoteTests {
 
   @Test
   void queryActivityInstances() {
-    final var instances = plan.instances().collect();
+    final var instances = simulatedPlan.instances().collect();
     assertEquals(1, instances.size());
     final var instance = instances.get(0);
     assertEquals("BiteBanana", instance.getType());
@@ -121,7 +124,7 @@ public class TimelineRemoteTests {
 
   @Test
   void queryActivityDirectives() {
-    final var directives = plan.directives().collect();
+    final var directives = simulatedPlan.directives().collect();
     assertEquals(1, directives.size());
     final var directive = directives.get(0);
     assertEquals("BiteBanana", directive.getType());
@@ -131,7 +134,7 @@ public class TimelineRemoteTests {
 
   @Test
   void queryResources() {
-    final var fruit = plan.resource("/fruit", Real::deserialize).collect();
+    final var fruit = simulatedPlan.resource("/fruit", Real::deserialize).collect();
     assertIterableEquals(
         List.of(
             Segment.of(Interval.betweenClosedOpen(Duration.ZERO, Duration.HOUR), new LinearEquation(4.0)),

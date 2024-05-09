@@ -15,13 +15,30 @@ data class Directive<A: Any>(
     @JvmField val id: Long,
 
     override val type: String,
-    override val startTime: Duration
+
+    val start: DirectiveStart,
 ): Activity<Directive<A>> {
+  override val startTime: Duration
+    get() = when (start) {
+      is DirectiveStart.Absolute -> start.time
+      is DirectiveStart.Anchor -> start.estimatedStart
+    }
+
   override val interval: Interval
     get() = Interval.at(startTime)
 
   override fun withNewInterval(i: Interval): Directive<A> {
-    if (i.isPoint()) return Directive(inner, name, id, type, i.start)
+    if (i.isPoint()) return Directive(inner, name, id, type, start.atNewTime(i.start))
     else throw Exception("Cannot change directive time to a non-instantaneous interval.")
   }
+
+  fun <R: Any> mapInner(f: (A) -> R) = Directive(
+      f(inner),
+      name,
+      id,
+      type,
+      start
+  )
+
+  fun withNewAnchor(anchor: DirectiveStart.Anchor) = Directive(inner, name, id, type, anchor)
 }

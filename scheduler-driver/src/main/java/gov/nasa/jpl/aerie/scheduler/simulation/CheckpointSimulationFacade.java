@@ -329,6 +329,9 @@ public class CheckpointSimulationFacade implements SimulationFacade {
 
   @Override
   public Optional<SimulationData> getLatestSimulationData() {
-    return Optional.ofNullable(this.latestSimulationData);
+    if (this.latestSimulationData == null)
+      return Optional.ofNullable(this.initialSimulationResults);
+    else
+      return Optional.ofNullable(this.latestSimulationData);
   }
 }

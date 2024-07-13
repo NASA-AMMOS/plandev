@@ -2,7 +2,6 @@ package gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete;
 
 import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
 import gov.nasa.jpl.aerie.contrib.streamline.core.Resources;
-import gov.nasa.jpl.aerie.merlin.framework.Registrar;
 import gov.nasa.jpl.aerie.merlin.framework.junit.MerlinExtension;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import org.junit.jupiter.api.Test;
@@ -26,8 +25,10 @@ import static org.junit.jupiter.api.Assertions.*;
 @ExtendWith(MerlinExtension.class)
 @TestInstance(Lifecycle.PER_CLASS)
 public class PrecomputedTest {
-    public PrecomputedTest(final Registrar registrar) {
-        Resources.init();
+    {
+        // We need to initialize this up front, so we can use in-line initializers for other resources after.
+        // I think in-line initializers for the other resources make the tests easier to read.
+        Resources.init(Instant.EPOCH);
     }
 
     final Resource<Discrete<Integer>> precomputedAsAConstant =

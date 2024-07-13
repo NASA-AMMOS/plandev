@@ -1,7 +1,7 @@
 package gov.nasa.jpl.aerie.contrib.streamline.debugging;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
 import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
+import gov.nasa.jpl.aerie.contrib.streamline.core.Resources;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial;
@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
+
+import java.time.Instant;
 
 import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.resource;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.ResourceMonad.*;
@@ -21,12 +23,22 @@ import static org.junit.jupiter.api.Assertions.*;
 @ExtendWith(MerlinExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class DependenciesTest {
-  Resource<Discrete<Boolean>> constantTrue = DiscreteResources.constant(true);
-  Resource<Polynomial> constant1234 = constant(1234);
-  Resource<Polynomial> constant5678 = constant(5678);
-  Resource<Polynomial> polynomialCell = resource(polynomial(1));
-  Resource<Polynomial> derived = map(constantTrue, constant1234, constant5678,
-                                     (b, x, y) -> b.extract() ? x : y);
+  public DependenciesTest() {
+    Resources.init(Instant.EPOCH);
+
+    constantTrue = DiscreteResources.constant(true);
+    constant1234 = constant(1234);
+    constant5678 = constant(5678);
+    polynomialCell = resource(polynomial(1));
+    derived = map(constantTrue, constant1234, constant5678,
+                                       (b, x, y) -> b.extract() ? x : y);
+  }
+
+  Resource<Discrete<Boolean>> constantTrue;
+  Resource<Polynomial> constant1234;
+  Resource<Polynomial> constant5678;
+  Resource<Polynomial> polynomialCell;
+  Resource<Polynomial> derived;
 
   @Test
   void constants_are_named_by_their_value() {

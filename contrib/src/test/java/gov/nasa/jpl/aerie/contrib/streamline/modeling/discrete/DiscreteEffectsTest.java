@@ -5,13 +5,14 @@ import gov.nasa.jpl.aerie.contrib.streamline.core.ErrorCatching;
 import gov.nasa.jpl.aerie.contrib.streamline.core.Resources;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.Clock;
 import gov.nasa.jpl.aerie.contrib.streamline.unit_aware.UnitAware;
-import gov.nasa.jpl.aerie.merlin.framework.Registrar;
 import gov.nasa.jpl.aerie.merlin.framework.junit.MerlinExtension;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.api.extension.ExtendWith;
+
+import java.time.Instant;
 
 import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.resource;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentTime;
@@ -40,8 +41,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @ExtendWith(MerlinExtension.class)
 @TestInstance(Lifecycle.PER_CLASS)
 class DiscreteEffectsTest {
-  public DiscreteEffectsTest(final Registrar registrar) {
-    Resources.init();
+  {
+    // We need to initialize this up front, so we can use in-line initializers for other resources after.
+    // I think in-line initializers for the other resources make the tests easier to read.
+    Resources.init(Instant.EPOCH);
   }
 
   private final MutableResource<Discrete<Integer>> settable = resource(discrete(42));

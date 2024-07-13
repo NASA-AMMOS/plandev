@@ -5,13 +5,14 @@ import gov.nasa.jpl.aerie.contrib.streamline.core.Expiry;
 import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
 import gov.nasa.jpl.aerie.contrib.streamline.core.Resources;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
-import gov.nasa.jpl.aerie.merlin.framework.Registrar;
 import gov.nasa.jpl.aerie.merlin.framework.junit.MerlinExtension;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.api.extension.ExtendWith;
+
+import java.time.Instant;
 
 import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.resource;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.set;
@@ -28,22 +29,26 @@ import static org.junit.jupiter.api.Assertions.*;
 @ExtendWith(MerlinExtension.class)
 @TestInstance(Lifecycle.PER_CLASS)
 public class ComparisonsTest {
-  public ComparisonsTest(final Registrar registrar) {
-    Resources.init();
+  public ComparisonsTest() {
+    Resources.init(Instant.EPOCH);
+
+    p = resource(polynomial(0));
+    q = resource(polynomial(0));
+
+    p_lt_q = lessThan(p, q);
+    p_lte_q = lessThanOrEquals(p, q);
+    p_gt_q = greaterThan(p, q);
+    p_gte_q = greaterThanOrEquals(p, q);
+
+    min_p_q = min(p, q);
+    min_q_p = min(q, p);
+    max_p_q = max(p, q);
+    max_q_p = max(q, p);
   }
 
-  private final MutableResource<Polynomial> p = resource(polynomial(0));
-  private final MutableResource<Polynomial> q = resource(polynomial(0));
-
-  private final Resource<Discrete<Boolean>> p_lt_q = lessThan(p, q);
-  private final Resource<Discrete<Boolean>> p_lte_q = lessThanOrEquals(p, q);
-  private final Resource<Discrete<Boolean>> p_gt_q = greaterThan(p, q);
-  private final Resource<Discrete<Boolean>> p_gte_q = greaterThanOrEquals(p, q);
-
-  private final Resource<Polynomial> min_p_q = min(p, q);
-  private final Resource<Polynomial> min_q_p = min(q, p);
-  private final Resource<Polynomial> max_p_q = max(p, q);
-  private final Resource<Polynomial> max_q_p = max(q, p);
+  private final MutableResource<Polynomial> p, q;
+  private final Resource<Discrete<Boolean>> p_lt_q, p_lte_q, p_gt_q, p_gte_q;
+  private final Resource<Polynomial> min_p_q, min_q_p, max_p_q, max_q_p;
 
   @Test
   void comparing_distinct_constants() {

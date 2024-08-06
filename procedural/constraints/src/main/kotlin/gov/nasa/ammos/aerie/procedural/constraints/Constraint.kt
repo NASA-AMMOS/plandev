@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.procedural.constraints
+package gov.nasa.ammos.aerie.procedural.constraints
 
 import gov.nasa.ammos.aerie.procedural.timeline.CollectOptions
 import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulatedPlan

@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.procedural.constraints
+package gov.nasa.ammos.aerie.procedural.constraints
 
-import gov.nasa.jpl.aerie.procedural.constraints.ActivityId.DirectiveId
-import gov.nasa.jpl.aerie.procedural.constraints.ActivityId.InstanceId
+import gov.nasa.ammos.aerie.procedural.constraints.ActivityId.DirectiveId
+import gov.nasa.ammos.aerie.procedural.constraints.ActivityId.InstanceId
 import gov.nasa.ammos.aerie.procedural.timeline.BaseTimeline
 import gov.nasa.ammos.aerie.procedural.timeline.BoundsTransformer
 import gov.nasa.ammos.aerie.procedural.timeline.Timeline

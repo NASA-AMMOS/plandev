@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.procedural.scheduling.simulation
+package gov.nasa.ammos.aerie.procedural.scheduling.simulation
 
 /** Configuration for simulation. */
 /* data */ class SimulateOptions(

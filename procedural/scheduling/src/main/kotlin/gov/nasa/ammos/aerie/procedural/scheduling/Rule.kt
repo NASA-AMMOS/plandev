@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.procedural.scheduling
+package gov.nasa.ammos.aerie.procedural.scheduling
 
-import gov.nasa.jpl.aerie.procedural.scheduling.plan.EditablePlan
+import gov.nasa.ammos.aerie.procedural.scheduling.plan.EditablePlan
 
 /** The interface that all scheduling rules must satisfy. */
 interface Rule {

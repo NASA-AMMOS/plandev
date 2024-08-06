@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.procedural.scheduling.plan
+package gov.nasa.ammos.aerie.procedural.scheduling.plan
 
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive

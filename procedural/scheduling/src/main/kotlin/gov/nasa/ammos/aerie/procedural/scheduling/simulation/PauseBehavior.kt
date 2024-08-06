@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.procedural.scheduling.simulation
+package gov.nasa.ammos.aerie.procedural.scheduling.simulation
 
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 

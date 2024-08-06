@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.procedural.scheduling.plan
+package gov.nasa.ammos.aerie.procedural.scheduling.plan
 
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
-import gov.nasa.jpl.aerie.procedural.scheduling.simulation.SimulateOptions
+import gov.nasa.ammos.aerie.procedural.scheduling.simulation.SimulateOptions
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart
 import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan

@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.procedural.remote
+package gov.nasa.ammos.aerie.procedural.remote
 
 import gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue

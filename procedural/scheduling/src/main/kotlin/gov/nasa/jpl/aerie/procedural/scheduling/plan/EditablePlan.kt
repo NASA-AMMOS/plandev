@@ -2,10 +2,10 @@ package gov.nasa.jpl.aerie.procedural.scheduling.plan
 
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
 import gov.nasa.jpl.aerie.procedural.scheduling.simulation.SimulateOptions
-import gov.nasa.jpl.aerie.timeline.payloads.activities.AnyDirective
-import gov.nasa.jpl.aerie.timeline.payloads.activities.DirectiveStart
-import gov.nasa.jpl.aerie.timeline.plan.Plan
-import gov.nasa.jpl.aerie.timeline.plan.SimulationResults
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart
+import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan
+import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults
 
 /** A plan representation that can be edited and simulated. */
 interface EditablePlan: Plan {

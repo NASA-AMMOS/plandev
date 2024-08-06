@@ -2,18 +2,18 @@ package gov.nasa.jpl.aerie.procedural.constraints
 
 import gov.nasa.jpl.aerie.procedural.constraints.ActivityId.DirectiveId
 import gov.nasa.jpl.aerie.procedural.constraints.ActivityId.InstanceId
-import gov.nasa.jpl.aerie.timeline.BaseTimeline
-import gov.nasa.jpl.aerie.timeline.BoundsTransformer
-import gov.nasa.jpl.aerie.timeline.Timeline
-import gov.nasa.jpl.aerie.timeline.collections.Intervals
-import gov.nasa.jpl.aerie.timeline.collections.Windows
-import gov.nasa.jpl.aerie.timeline.collections.profiles.Real
-import gov.nasa.jpl.aerie.timeline.ops.*
-import gov.nasa.jpl.aerie.timeline.ops.coalesce.CoalesceNoOp
-import gov.nasa.jpl.aerie.timeline.payloads.IntervalLike
-import gov.nasa.jpl.aerie.timeline.payloads.activities.Directive
-import gov.nasa.jpl.aerie.timeline.payloads.activities.Instance
-import gov.nasa.jpl.aerie.timeline.util.preprocessList
+import gov.nasa.ammos.aerie.procedural.timeline.BaseTimeline
+import gov.nasa.ammos.aerie.procedural.timeline.BoundsTransformer
+import gov.nasa.ammos.aerie.procedural.timeline.Timeline
+import gov.nasa.ammos.aerie.procedural.timeline.collections.Intervals
+import gov.nasa.ammos.aerie.procedural.timeline.collections.Windows
+import gov.nasa.ammos.aerie.procedural.timeline.collections.profiles.Real
+import gov.nasa.ammos.aerie.procedural.timeline.ops.*
+import gov.nasa.ammos.aerie.procedural.timeline.ops.coalesce.CoalesceNoOp
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.IntervalLike
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Instance
+import gov.nasa.ammos.aerie.procedural.timeline.util.preprocessList
 
 /** A timeline of [Violations][Violation]. */
 data class Violations(private val timeline: Timeline<Violation, Violations>):

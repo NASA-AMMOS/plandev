@@ -1,8 +1,8 @@
 package gov.nasa.jpl.aerie.procedural.scheduling.plan
 
-import gov.nasa.jpl.aerie.timeline.payloads.activities.AnyDirective
-import gov.nasa.jpl.aerie.timeline.payloads.activities.Directive
-import gov.nasa.jpl.aerie.timeline.payloads.activities.DirectiveStart
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart
 
 /** A new directive to be created, which doesn't have an id yet. */
 data class NewDirective(

@@ -12,6 +12,8 @@ import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Instance
 import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan
 import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults
+import gov.nasa.jpl.aerie.merlin.driver.ActivityDirectiveId
+import gov.nasa.jpl.aerie.merlin.driver.ActivityInstanceId
 import java.io.StringReader
 import java.sql.Connection
 import javax.json.Json
@@ -164,8 +166,8 @@ data class AeriePostgresSimulationResults(
       result.add(Instance(
           deserializer(attributes),
           response.getString(4),
-          id,
-          directiveId,
+          ActivityInstanceId(id),
+          directiveId?.let { ActivityDirectiveId(it) },
           between(start, start.plus(Duration.parseISO8601(response.getString(2))))
       ))
     }

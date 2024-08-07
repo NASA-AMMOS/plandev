@@ -1,5 +1,6 @@
 package gov.nasa.ammos.aerie.procedural.timeline.payloads.activities
 
+import gov.nasa.jpl.aerie.merlin.driver.ActivityDirectiveId
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 
 /** Start behavior for an activity directive. */
@@ -14,16 +15,16 @@ sealed interface DirectiveStart {
 
   /** For activities that are anchored to another activity. */
   data class Anchor @JvmOverloads constructor(
-      /** Id of the parent it is anchored to. */
-      val parentId: Long,
+    /** Id of the parent it is anchored to. */
+      val parentId: ActivityDirectiveId,
 
-      /** Duration to offset from the parent (negative durations mean before the parent). */
+    /** Duration to offset from the parent (negative durations mean before the parent). */
       val offset: Duration,
 
-      /** Which end of the parent to anchor to. */
+    /** Which end of the parent to anchor to. */
       val anchorPoint: AnchorPoint,
 
-      /**
+    /**
        * When the activity is estimated to start (approximate, and automatically set by [EditablePlan] implementations).
        *
        * Defaults to [Duration.ZERO] (plan start).

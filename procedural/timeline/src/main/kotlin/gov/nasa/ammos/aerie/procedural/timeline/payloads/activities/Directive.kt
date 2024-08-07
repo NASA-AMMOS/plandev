@@ -2,21 +2,22 @@ package gov.nasa.ammos.aerie.procedural.timeline.payloads.activities
 
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.ammos.aerie.procedural.timeline.Interval
+import gov.nasa.jpl.aerie.merlin.driver.ActivityDirectiveId
 
 /** A wrapper of any type of activity directive containing common data. */
 data class Directive<A: Any>(
-    /** The inner payload, typically either [AnyDirective] or a mission model activity type. */
+  /** The inner payload, typically either [AnyDirective] or a mission model activity type. */
     @JvmField val inner: A,
 
-    /** The name of this specific directive. */
+  /** The name of this specific directive. */
     @JvmField val name: String,
 
-    /** The directive id. */
-    @JvmField val id: Long,
+  /** The directive id. */
+    @JvmField val id: ActivityDirectiveId,
 
-    override val type: String,
+  override val type: String,
 
-    /** The start behavior for this directive. */
+  /** The start behavior for this directive. */
     val start: DirectiveStart,
 ): Activity<Directive<A>> {
   override val startTime: Duration

@@ -14,6 +14,7 @@ repositories {
 
 dependencies {
   implementation project(':procedural:timeline')
+  implementation project(':merlin-driver')
 
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
   testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'

@@ -3,6 +3,7 @@ package gov.nasa.ammos.aerie.procedural.scheduling.plan
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart
+import gov.nasa.jpl.aerie.merlin.driver.ActivityDirectiveId
 
 /** A new directive to be created, which doesn't have an id yet. */
 data class NewDirective(
@@ -27,7 +28,7 @@ data class NewDirective(
    * @param id The id for the new directive.
    * @param parent The activity this activity is anchored to, if applicable.
    */
-  fun resolve(id: Long, parent: Directive<*>?): Directive<AnyDirective> {
+  fun resolve(id: ActivityDirectiveId, parent: Directive<*>?): Directive<AnyDirective> {
     if (start is DirectiveStart.Anchor) {
       if (parent == null) throw IllegalArgumentException("Parent must provided when anchor is not null")
       start.estimatedStart = parent.startTime + start.offset

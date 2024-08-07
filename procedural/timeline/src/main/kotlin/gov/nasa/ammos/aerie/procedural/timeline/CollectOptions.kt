@@ -16,4 +16,11 @@ data class CollectOptions @JvmOverloads constructor(
 ) {
   /** Creates a new options object with a [BoundsTransformer] applied. */
   fun transformBounds(boundsTransformer: BoundsTransformer) = CollectOptions(boundsTransformer(bounds), truncateMarginal)
+
+  /**
+   * Whether the results of collecting a timeline with [other] options are guaranteed to be contained in
+   * the results of collecting a timeline with these options.
+   */
+  fun contains(other: CollectOptions) = bounds == Interval.MIN_MAX ||
+      (bounds.contains(other.bounds) && (!truncateMarginal || other.truncateMarginal))
 }

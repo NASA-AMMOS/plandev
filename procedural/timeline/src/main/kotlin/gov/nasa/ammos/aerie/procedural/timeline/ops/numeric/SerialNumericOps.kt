@@ -1,6 +1,7 @@
 package gov.nasa.ammos.aerie.procedural.timeline.ops.numeric
 
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
+import gov.nasa.ammos.aerie.procedural.timeline.collections.profiles.Booleans
 import gov.nasa.ammos.aerie.procedural.timeline.collections.profiles.Numbers
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment
 import gov.nasa.ammos.aerie.procedural.timeline.collections.profiles.Real
@@ -56,4 +57,18 @@ interface SerialNumericOps<V: Any, THIS: SerialNumericOps<V, THIS>>: SerialSegme
    * If this is a function `f(t)`, the result is `f(t+range) - f(t)`.
    */
   fun shiftedDifference(range: Duration): THIS
+
+  /**
+   * [(DOC)][increases] Returns a [Booleans] that is true whenever this profile increases, and false or gap everywhere else.
+   *
+   * This includes both continuous and discontinuous increases.
+   */
+  fun increases(): Booleans
+
+  /**
+   * [(DOC)][decreases] Returns a [Booleans] that is true whenever this profile decreases, and false or gap everywhere else.
+   *
+   * This includes both continuous and discontinuous increases.
+   */
+  fun decreases(): Booleans
 }

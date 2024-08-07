@@ -167,7 +167,7 @@ interface GeneralOps<V: IntervalLike<V>, THIS: GeneralOps<V, THIS>>: Timeline<V,
   fun <R: IntervalLike<R>, RESULT: GeneralOps<R, RESULT>> unsafeMap(ctor: (Timeline<R, RESULT>) -> RESULT, boundsTransformer: BoundsTransformer, truncate: Boolean, f: (V) -> R) =
       unsafeOperate(ctor) { opts ->
         val mapped = collect(opts.transformBounds(boundsTransformer)).map { f(it) }
-        if (truncate) truncateList(mapped, opts)
+        if (truncate) truncateList(mapped, opts, false, false)
         else mapped
       }
 
@@ -195,7 +195,7 @@ interface GeneralOps<V: IntervalLike<V>, THIS: GeneralOps<V, THIS>>: Timeline<V,
           val nested = f(it)
           nested.value.collect(nested.interval)
         }
-        if (truncate) truncateList(mapped, opts)
+        if (truncate) truncateList(mapped, opts, false, false)
         else mapped
       }
 
@@ -227,7 +227,7 @@ interface GeneralOps<V: IntervalLike<V>, THIS: GeneralOps<V, THIS>>: Timeline<V,
    */
   fun filter(preserveMargin: Boolean = false, f: (V) -> Boolean) = unsafeOperate { opts ->
     val result = collect(CollectOptions(opts.bounds, !preserveMargin && opts.truncateMarginal)).filter(f)
-    if (preserveMargin && opts.truncateMarginal) truncateList(result, opts)
+    if (preserveMargin && opts.truncateMarginal) truncateList(result, opts, false, false)
     else result
   }
 

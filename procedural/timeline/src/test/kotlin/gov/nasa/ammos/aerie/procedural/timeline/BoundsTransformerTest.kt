@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test
 class BoundsTransformerTest {
   @Test
   fun shift() {
-    val transformer = BoundsTransformer.shift(seconds(1))
+    val transformer = BoundsTransformer.Companion.shift(seconds(1))
 
     assertEquals(
         between(seconds(-1), seconds(1)),

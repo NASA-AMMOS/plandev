@@ -108,7 +108,7 @@ interface ParallelOps<T: IntervalLike<T>, THIS: ParallelOps<T, THIS>>: GeneralOp
           remaining = partitioned.second
           acc = map2SegmentLists(batch, acc, op)
         }
-        if (!opts.truncateMarginal) truncateList(acc, opts)
+        if (opts.truncateMarginal) truncateList(acc, opts, true, true)
         else acc
       }
 
@@ -163,7 +163,7 @@ interface ParallelOps<T: IntervalLike<T>, THIS: ParallelOps<T, THIS>>: GeneralOp
   fun starts() = unsafeOperate { opts ->
     val result = collect(CollectOptions(opts.bounds, false))
         .map { it.withNewInterval(Interval.at(it.interval.start)) }
-    truncateList(result, opts)
+    truncateList(result, opts, false, false)
   }
 
   /**
@@ -175,7 +175,7 @@ interface ParallelOps<T: IntervalLike<T>, THIS: ParallelOps<T, THIS>>: GeneralOp
   fun ends() = unsafeOperate { opts ->
     val result = collect(CollectOptions(opts.bounds, false))
         .map { it.withNewInterval(Interval.at(it.interval.end)) }
-    truncateList(result, opts)
+    truncateList(result, opts, false, false)
   }
 
   /**

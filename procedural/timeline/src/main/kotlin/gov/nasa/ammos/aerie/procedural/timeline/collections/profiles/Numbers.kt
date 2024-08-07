@@ -129,17 +129,18 @@ data class Numbers<N: Number>(private val timeline: Timeline<Segment<N>, Numbers
   /** Raises this to the power of a linear profile. */
   infix fun pow(other: Real) = this pow other.toNumbers("Cannot apply a non-piecewise-constant exponent.")
 
+  private fun <L: Number, R: Number> lessThanInternal(l: L, r: R) =
+    if (l is Double || r is Double) l.toDouble() < r.toDouble()
+    else if (l is Float || r is Float) l.toFloat() < r.toFloat()
+    else if (l is Long || r is Long) l.toLong() < r.toLong()
+    else if (l is Int || r is Int) l.toInt() < r.toInt()
+    else if (l is Short || r is Short) l.toShort() < r.toShort()
+    else if (l is Byte || r is Byte) l.toByte() < r.toByte()
+    else throw PrimitiveNumberOps.UnreachablePrimitiveNumberException()
+
   /** Returns a [Booleans] that is true when this is less than another primitive numeric profile. */
   infix fun lessThan(other: Numbers<*>) =
-      map2Values(::Booleans, other) { l, r, _ ->
-        if (l is Double || r is Double) l.toDouble() < r.toDouble()
-        else if (l is Float || r is Float) l.toFloat() < r.toFloat()
-        else if (l is Long || r is Long) l.toLong() < r.toLong()
-        else if (l is Int || r is Int) l.toInt() < r.toInt()
-        else if (l is Short || r is Short) l.toShort() < r.toShort()
-        else if (l is Byte || r is Byte) l.toByte() < r.toByte()
-        else throw PrimitiveNumberOps.UnreachablePrimitiveNumberException()
-      }
+      map2Values(::Booleans, other) { l, r, _ -> lessThanInternal(l, r) }
 
   /** Returns a [Booleans] that is true when this is less than a constant number. */
   infix fun lessThan(n: Number) = lessThan(Numbers(n))
@@ -163,17 +164,18 @@ data class Numbers<N: Number>(private val timeline: Timeline<Segment<N>, Numbers
   /** Returns a [Booleans] that is true when this is less than or equal to a linear profile. */
   infix fun lessThanOrEqualTo(other: Real) = other greaterThanOrEqualTo this
 
+  private fun <L: Number, R: Number> greaterThanInternal(l: L, r: R) =
+    if (l is Double || r is Double) l.toDouble() > r.toDouble()
+    else if (l is Float || r is Float) l.toFloat() > r.toFloat()
+    else if (l is Long || r is Long) l.toLong() > r.toLong()
+    else if (l is Int || r is Int) l.toInt() > r.toInt()
+    else if (l is Short || r is Short) l.toShort() > r.toShort()
+    else if (l is Byte || r is Byte) l.toByte() > r.toByte()
+    else throw PrimitiveNumberOps.UnreachablePrimitiveNumberException()
+
   /** Returns a [Booleans] that is true when this is greater than another primitive numeric profile. */
   infix fun greaterThan(other: Numbers<*>) =
-      map2Values(::Booleans, other) { l, r, _ ->
-        if (l is Double || r is Double) l.toDouble() > r.toDouble()
-        else if (l is Float || r is Float) l.toFloat() > r.toFloat()
-        else if (l is Long || r is Long) l.toLong() > r.toLong()
-        else if (l is Int || r is Int) l.toInt() > r.toInt()
-        else if (l is Short || r is Short) l.toShort() > r.toShort()
-        else if (l is Byte || r is Byte) l.toByte() > r.toByte()
-        else throw PrimitiveNumberOps.UnreachablePrimitiveNumberException()
-      }
+      map2Values(::Booleans, other) { l, r, _ -> greaterThanInternal(l, r) }
 
   /** Returns a [Booleans] that is true when this is greater than a constant number. */
   infix fun greaterThan(n: Number) = greaterThan(Numbers(n))
@@ -201,6 +203,9 @@ data class Numbers<N: Number>(private val timeline: Timeline<Segment<N>, Numbers
   // will never be a third type.
   @Suppress("UNCHECKED_CAST")
   override fun shiftedDifference(range: Duration) = (shift(-range) - this) as Numbers<N>
+
+  override fun increases() = detectEdges(NullBinaryOperation.combineOrNull { l, r, _ -> lessThanInternal(l, r) })
+  override fun decreases() = detectEdges(NullBinaryOperation.combineOrNull { l, r, _ -> greaterThanInternal(l, r) })
 
   /***/ companion object {
     /**

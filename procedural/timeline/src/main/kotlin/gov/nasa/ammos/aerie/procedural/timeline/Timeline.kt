@@ -58,4 +58,21 @@ interface Timeline<V: IntervalLike<V>, THIS: Timeline<V, THIS>> {
 
   /** @suppress */
   fun specialize() = ctor(this)
+
+  /**
+   * Caches the result of collecting this timeline, to be reused for future collect requests if possible.
+   */
+  fun cache(opts: CollectOptions)
+
+  /**
+   * [(DOC)][cache] A simplified version of [cache].
+   *
+   * Uses defaults for all other [CollectOptions] fields.
+   *
+   * @param bounds bounds of evaluation (defaults to [Interval.MIN_MAX] if not provided).
+   */
+  fun cache(bounds: Interval) = cache(CollectOptions(bounds))
+
+  /** [(DOC)][collect] Caches the timeline for all available time. */
+  fun cache() = cache(Interval.MIN_MAX)
 }

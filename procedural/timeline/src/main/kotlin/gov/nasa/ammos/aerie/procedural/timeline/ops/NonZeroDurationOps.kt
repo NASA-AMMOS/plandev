@@ -53,7 +53,7 @@ interface NonZeroDurationOps<T: IntervalLike<T>, THIS: NonZeroDurationOps<T, THI
         result
       }
     }
-    truncateList(result, opts)
+    truncateList(result, opts, false, false)
   }
 
   /** @see [split] */

@@ -146,7 +146,7 @@ interface SerialSegmentOps<V : Any, THIS: SerialSegmentOps<V, THIS>>: SerialOps<
               Segment(rightEdgeInterval, rightEdge).transpose()
           )
         }
-    truncateList(coalesceList(result, Segment<Boolean>::valueEquals), opts)
+    truncateList(coalesceList(result, Segment<Boolean>::valueEquals), opts, true, true)
   }
 
   /**

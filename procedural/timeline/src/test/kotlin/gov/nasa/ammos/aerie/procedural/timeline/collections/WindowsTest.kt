@@ -16,10 +16,10 @@ class WindowsTest {
   @Test
   fun constructorCoalesce() {
     val result = Windows(
-        seconds(2) .. seconds(3),
-        seconds(0) ..< seconds(2),
+        seconds(2)..seconds(3),
+        seconds(0)..<seconds(2),
         at(seconds(5)),
-        seconds(4) .. seconds(6)
+        seconds(4)..seconds(6)
     ).collect()
 
     assertIterableEquals(
@@ -34,8 +34,8 @@ class WindowsTest {
   @Test
   fun complement() {
     val windows = Windows(
-        seconds(1) .. seconds(3),
-        seconds(5) ..< seconds(8)
+        seconds(1)..seconds(3),
+        seconds(5)..<seconds(8)
     ).complement()
 
     // testing how complement works on different bounds
@@ -79,16 +79,16 @@ class WindowsTest {
   @Test
   fun union() {
     val w1 = Windows(
-        seconds(0) ..< seconds(1),
+        seconds(0)..<seconds(1),
         at(milliseconds(3500)),
-        seconds(5) .. seconds(7),
-        seconds(8) .. seconds(10)
+        seconds(5)..seconds(7),
+        seconds(8)..seconds(10)
     )
 
     val w2 = Windows(
-        seconds(1) .. seconds(2),
-        seconds(3) .. seconds(4),
-        seconds(6) .. seconds(9)
+        seconds(1)..seconds(2),
+        seconds(3)..seconds(4),
+        seconds(6)..seconds(9)
     )
 
     val result = (w1 union w2).collect()
@@ -106,15 +106,15 @@ class WindowsTest {
   @Test
   fun intersection() {
     val w1 = Windows(
-        seconds(1) .. seconds(2),
-        seconds(5) ..< seconds(7)
+        seconds(1)..seconds(2),
+        seconds(5)..<seconds(7)
     )
 
     val w2 = Windows(
-        seconds(0) ..< seconds(1),
-        seconds(2) .. seconds(3),
+        seconds(0)..<seconds(1),
+        seconds(2)..seconds(3),
         at(seconds(5)),
-        seconds(6) .. seconds(8)
+        seconds(6)..seconds(8)
     )
 
     val result = (w1 intersection w2).collect()

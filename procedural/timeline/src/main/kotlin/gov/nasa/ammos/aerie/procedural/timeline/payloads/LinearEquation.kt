@@ -21,7 +21,7 @@ data class LinearEquation(
     @JvmField val rate: Double
 ) {
   /** Creates a constant linear equation at a given value. */
-  constructor(constant: Double): this(Duration.ZERO, constant, 0.0)
+  constructor(constant: Number): this(Duration.ZERO, constant.toDouble(), 0.0)
 
   /** Calculates the value at a given time. */
   fun valueAt(time: Duration): Double {

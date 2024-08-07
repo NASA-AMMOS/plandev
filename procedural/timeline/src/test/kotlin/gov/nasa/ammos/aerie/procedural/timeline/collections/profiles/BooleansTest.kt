@@ -13,9 +13,9 @@ class BooleansTest {
   @Test
   fun shiftEdgesBasic() {
     val result = Booleans(
-        Segment(seconds(0) .. seconds(4), false),
-        Segment(seconds(4) .. seconds(8), true),
-        Segment(seconds(8) .. seconds(12), false)
+        Segment(seconds(0)..seconds(4), false),
+        Segment(seconds(4)..seconds(8), true),
+        Segment(seconds(8)..seconds(12), false)
     ).shiftEdges(seconds(1), seconds(-1)).collect()
 
     assertIterableEquals(
@@ -40,7 +40,7 @@ class BooleansTest {
     )
 
     val shiftLeftResult = Booleans(
-        Segment(seconds(2) .. seconds(4), true),
+        Segment(seconds(2)..seconds(4), true),
     ).shiftEdges(seconds(-2), seconds(0)).collect(between(seconds(-2), seconds(1)))
 
     assertIterableEquals(
@@ -61,7 +61,7 @@ class BooleansTest {
     )
 
     val shiftLeftResult = Booleans(
-        Segment(seconds(2) .. seconds(4), true),
+        Segment(seconds(2)..seconds(4), true),
     ).shiftEdges(seconds(-2), seconds(0)).collect(CollectOptions(between(seconds(-2), seconds(1)), false))
 
     assertIterableEquals(

@@ -1,5 +1,6 @@
 package gov.nasa.ammos.aerie.procedural.timeline.ops
 
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.ammos.aerie.procedural.timeline.*
 import gov.nasa.ammos.aerie.procedural.timeline.collections.profiles.Booleans
 import gov.nasa.ammos.aerie.procedural.timeline.collections.profiles.Constants
@@ -35,4 +36,14 @@ interface SerialConstantOps<V: Any, THIS: SerialConstantOps<V, THIS>>: SerialSeg
       { r, _ -> if (r == to) null else false },
       { l, r, _ -> l == from && r == to }
   ))
+
+  private class UnreachableValueAtException: Exception("internal error. a serial profile had multiple values at the same time.")
+
+  /** [(DOC)][sample] Calculates the value of the profile at the given time. */
+  fun sample(time: Duration): V? {
+    val list = collect(CollectOptions(Interval.at(time), true))
+    if (list.isEmpty()) return null
+    if (list.size > 1) throw UnreachableValueAtException()
+    return list[0].value
+  }
 }

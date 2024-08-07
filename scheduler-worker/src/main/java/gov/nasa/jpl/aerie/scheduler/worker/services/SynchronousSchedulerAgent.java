@@ -259,7 +259,9 @@ public record SynchronousSchedulerAgent(
             planMetadataAfterChanges,
             uploadIdMap
         );
-      } else if (simulationFacade.getLatestSimulationData().isPresent() && simulationFacade.getLatestSimulationData() != problem.getInitialSimulationResults()) {
+      } else if (simulationFacade.getLatestSimulationData().isPresent()
+                 && problem.getInitialSimulationResults().isPresent()
+                 && simulationFacade.getLatestSimulationData().get() != problem.getInitialSimulationResults().get()) {
         final var latest = simulationFacade.getLatestSimulationData().get();
         datasetId = storeSimulationResults(
             latest,

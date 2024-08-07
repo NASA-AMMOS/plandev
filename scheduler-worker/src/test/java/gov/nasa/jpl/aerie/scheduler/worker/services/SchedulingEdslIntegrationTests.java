@@ -41,6 +41,7 @@ import gov.nasa.jpl.aerie.scheduler.model.PlanningHorizon;
 import gov.nasa.jpl.aerie.scheduler.server.config.PlanOutputMode;
 import gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers;
 import gov.nasa.jpl.aerie.scheduler.server.models.ExternalProfiles;
+import gov.nasa.jpl.aerie.scheduler.server.models.GoalType;
 import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingConditionId;
 import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingConditionRecord;
 import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingConditionSource;
@@ -2197,7 +2198,7 @@ public class SchedulingEdslIntegrationTests {
     final var goalsByPriority = new ArrayList<GoalRecord>();
 
     for (final var goal : goals) {
-      goalsByPriority.add(new GoalRecord(goal.goalId(), "test goal", new GoalSource(goal.definition()), goal.simulateAfter()));
+      goalsByPriority.add(new GoalRecord(goal.goalId(), "test goal", new GoalType.EDSL(goal.definition()), goal.simulateAfter()));
     }
     final var specificationService = new SpecificationService(new MockSpecificationRepository(Map.of(new SpecificationId(1L), new Specification(
         new SpecificationId(1L),

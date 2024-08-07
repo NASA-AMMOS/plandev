@@ -3,17 +3,20 @@ package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
 import gov.nasa.jpl.aerie.scheduler.server.models.GoalId;
 import gov.nasa.jpl.aerie.scheduler.server.models.GoalRecord;
 import gov.nasa.jpl.aerie.scheduler.server.models.GoalSource;
+import gov.nasa.jpl.aerie.scheduler.server.models.GoalType;
 import org.intellij.lang.annotations.Language;
 
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /*package-local*/ final class GetSpecificationGoalsAction implements AutoCloseable {
   private final @Language("SQL") String sql = """
-      select s.goal_id, gd.revision, gm.name, gd.definition, s.goal_invocation_id, s.simulate_after
+      select s.goal_id, gd.revision, gm.name, gd.definition, s.goal_invocation_id, s.simulate_after, gd.type, encode(f.path, 'escape') as path, s.arguments
       from scheduler.scheduling_specification_goals s
       left join scheduler.scheduling_goal_definition gd using (goal_id)
       left join scheduler.scheduling_goal_metadata gm on s.goal_id = gm.id
@@ -46,7 +49,15 @@ import java.util.List;
       final var name = resultSet.getString("name");
       final var definition = resultSet.getString("definition");
       final var simulateAfter = resultSet.getBoolean("simulate_after");
-      goals.add(new GoalRecord(new GoalId(id, revision, goalInvocationId), name, new GoalSource(definition), simulateAfter));
+      final var type = resultSet.getString("type");
+      final var path = resultSet.getString("path");
+      final var args = resultSet.getString("arguments");
+      goals.add(new GoalRecord(
+            new GoalId(id, revision, Optional.of(goalInvocationId)),
+            name,
+            type.equals("JAR") ? new GoalType.JAR(Path.of(path), args) : new GoalType.EDSL(definition),
+            simulateAfter
+      ));
     }
 
     return goals;

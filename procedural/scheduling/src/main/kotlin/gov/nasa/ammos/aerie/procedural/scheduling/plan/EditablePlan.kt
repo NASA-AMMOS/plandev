@@ -6,6 +6,7 @@ import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart
 import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan
 import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults
+import gov.nasa.jpl.aerie.merlin.driver.ActivityDirectiveId
 
 /** A plan representation that can be edited and simulated. */
 interface EditablePlan: Plan {
@@ -18,7 +19,7 @@ interface EditablePlan: Plan {
    * @param directive a directive without a directive id.
    * @return a long, the directive id this activity will have.
    */
-  fun create(directive: NewDirective): Long
+  fun create(directive: NewDirective): ActivityDirectiveId
 
   /** A simplified version of [create] with minimal arguments. */
   fun create(
@@ -31,7 +32,6 @@ interface EditablePlan: Plan {
       type,
       start
   ))
-
 
   /** Commit plan edits, making them final. */
   fun commit()

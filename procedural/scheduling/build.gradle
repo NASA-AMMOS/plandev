@@ -6,6 +6,7 @@ plugins {
   id "org.jetbrains.kotlin.jvm" version "1.9.22"
   id 'java-library'
   id 'org.jetbrains.dokka' version '1.9.10'
+  id 'maven-publish'
 }
 
 repositories {
@@ -52,3 +53,24 @@ dokkaHtmlPartial.configure {
   }
 }
 
+publishing {
+  publications {
+    library(MavenPublication) {
+      version = findProperty("publishing.version")
+      from components.java
+    }
+  }
+
+  publishing {
+    repositories {
+      maven {
+        name = findProperty("publishing.name")
+        url = findProperty("publishing.url")
+        credentials {
+          username = System.getenv(findProperty("publishing.usernameEnvironmentVariable"))
+          password = System.getenv(findProperty("publishing.passwordEnvironmentVariable"))
+        }
+      }
+    }
+  }
+}

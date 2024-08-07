@@ -22,6 +22,7 @@ import gov.nasa.jpl.aerie.scheduler.goals.CoexistenceGoal;
 import gov.nasa.jpl.aerie.scheduler.goals.CompositeAndGoal;
 import gov.nasa.jpl.aerie.scheduler.goals.Goal;
 import gov.nasa.jpl.aerie.scheduler.goals.OptionGoal;
+import gov.nasa.jpl.aerie.scheduler.goals.Procedure;
 import gov.nasa.jpl.aerie.scheduler.goals.RecurrenceGoal;
 import gov.nasa.jpl.aerie.scheduler.model.ActivityType;
 import gov.nasa.jpl.aerie.scheduler.model.PersistentTimeAnchor;
@@ -157,6 +158,10 @@ public class GoalBuilder {
           builder.match(buildActivityExpression(g.activityFinder().get(), lookupActivityType));
         }
         return builder.build();
+      }
+
+      case SchedulingDSL.GoalSpecifier.Procedure g -> {
+        return new Procedure(planningHorizon, g.jarPath(), g.arguments(), simulateAfter);
       }
     }
   }

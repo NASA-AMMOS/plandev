@@ -61,13 +61,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -463,20 +457,29 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
     return ids;
   }
 
-@Override
+  @Override
   public void updatePlanActivityDirectiveAnchors(final PlanId planId, final Plan plan, final Map<ActivityDirectiveId, ActivityDirectiveId> uploadIdMap)
   throws MerlinServiceException, IOException
   {
-    for (final SchedulingActivity act: plan.getActivities()) {
+    final var request = new StringBuilder();
+    final var acts = plan.getActivities();
+    request.append("mutation {");
+    var hasUpdate = false;
+    for (final SchedulingActivity act: acts) {
       if (act.isNew() && act.anchorId() != null) {
-        final var request = """
-            mutation {
-              update_activity_directive_by_pk(pk_columns: {id: %d, plan_id: %d}, _set: {anchor_id: %d}) {
-                id
-              }
-            }""".formatted(uploadIdMap.get(act.id()).id(), planId.id(), uploadIdMap.get(act.anchorId()).id());
-        final var response = postRequest(request);
+        hasUpdate = true;
+        final var id = uploadIdMap.get(act.id()).id();
+        request.append("""
+                           update_%d: update_activity_directive_by_pk(pk_columns: {id: %d, plan_id: %d}, _set: {anchor_id: %d}) {
+                             id
+                           }
+                           """.formatted(id, id, planId.id(), uploadIdMap.get(act.anchorId()).id())
+        );
       }
+    }
+    if (hasUpdate) {
+      request.append("}");
+      postRequest(request.toString());
     }
   }
 
@@ -577,7 +580,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           .add("plan_id", planId.id())
           .add("type", act.getType().getName())
           .add("start_offset", act.startOffset().toString())
-          .add("anchored_to_start", act.anchoredToStart());
+          .add("anchored_to_start", act.anchorId() == null || act.anchoredToStart());
 
       //add duration to parameters if controllable
       final var insertionObjectArguments = Json.createObjectBuilder();

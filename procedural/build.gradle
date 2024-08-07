@@ -3,6 +3,10 @@ plugins {
   id 'org.jetbrains.dokka' version '1.9.10'
 }
 
+subprojects {
+  group = "gov.nasa.ammos.aerie.procedural"
+}
+
 repositories {
   mavenCentral()
 }

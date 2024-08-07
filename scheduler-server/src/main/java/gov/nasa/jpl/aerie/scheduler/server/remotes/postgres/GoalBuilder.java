@@ -47,111 +47,117 @@ public class GoalBuilder {
         horizonStartTimestamp.toInstant(),
         horizonEndTimestamp.toInstant());
     final var hor = planningHorizon.getHor();
-    if (goalSpecifier instanceof SchedulingDSL.GoalSpecifier.RecurrenceGoalDefinition g) {
-      final var builder = new RecurrenceGoal.Builder()
-          .forAllTimeIn(new WindowsWrapperExpression(new Windows(false).set(hor, true)))
-          .repeatingEvery(g.interval())
-          .shouldRollbackIfUnsatisfied(g.shouldRollbackIfUnsatisfied())
-          .thereExistsOne(makeActivityTemplate(g.activityTemplate(), lookupActivityType))
-          .withinPlanHorizon(planningHorizon)
-          .simulateAfter(simulateAfter);
-      if(g.activityFinder().isPresent()){
-        builder.match(buildActivityExpression(g.activityFinder().get(), lookupActivityType));
-      }
-      return builder.build();
-    } else if (goalSpecifier instanceof SchedulingDSL.GoalSpecifier.CoexistenceGoalDefinition g) {
-      var builder = new CoexistenceGoal.Builder()
-          .forAllTimeIn(new WindowsWrapperExpression(new Windows(false).set(hor, true)))
-          .createPersistentAnchor(g.persistentAnchor().isPresent()? g.persistentAnchor().get() : PersistentTimeAnchor.DISABLED)
-          .forEach(spansOfConstraintExpression(
-              g.forEach()))
-          .thereExistsOne(makeActivityTemplate(g.activityTemplate(), lookupActivityType))
-          .withinPlanHorizon(planningHorizon)
-          .simulateAfter(simulateAfter)
-          .shouldRollbackIfUnsatisfied(g.shouldRollbackIfUnsatisfied())
-          .aliasForAnchors(g.alias());
-      if (g.startConstraint().isPresent()) {
-        final var startConstraint = g.startConstraint().get();
-        if (startConstraint instanceof SchedulingDSL.TimingConstraint.ActivityTimingConstraint s) {
-          builder.startsAt(makeTimeExpressionRelativeSimple(s));
-        } else if (startConstraint instanceof SchedulingDSL.TimingConstraint.ActivityTimingConstraintFlexibleRange s) {
-          builder.startsAt(new TimeExpressionRelativeBinary(makeTimeExpressionRelativeSimple(s.lowerBound()), makeTimeExpressionRelativeSimple(s.upperBound())));
-        } else {
-          throw new UnexpectedSubtypeError(SchedulingDSL.TimingConstraint.class, startConstraint);
+    switch (goalSpecifier) {
+      case SchedulingDSL.GoalSpecifier.RecurrenceGoalDefinition g -> {
+        final var builder = new RecurrenceGoal.Builder()
+            .forAllTimeIn(new WindowsWrapperExpression(new Windows(false).set(hor, true)))
+            .repeatingEvery(g.interval())
+            .shouldRollbackIfUnsatisfied(g.shouldRollbackIfUnsatisfied())
+            .thereExistsOne(makeActivityTemplate(g.activityTemplate(), lookupActivityType))
+            .withinPlanHorizon(planningHorizon)
+            .simulateAfter(simulateAfter);
+        if (g.activityFinder().isPresent()) {
+          builder.match(buildActivityExpression(g.activityFinder().get(), lookupActivityType));
         }
+        return builder.build();
       }
-      if (g.endConstraint().isPresent()) {
-        final var endConstraint = g.endConstraint().get();
-        if (endConstraint instanceof SchedulingDSL.TimingConstraint.ActivityTimingConstraint e) {
-          builder.endsAt(makeTimeExpressionRelativeSimple(e));
-        } else if (endConstraint instanceof SchedulingDSL.TimingConstraint.ActivityTimingConstraintFlexibleRange e) {
-          builder.endsAt(new TimeExpressionRelativeBinary(makeTimeExpressionRelativeSimple(e.lowerBound()), makeTimeExpressionRelativeSimple(e.upperBound())));
-        } else {
-          throw new UnexpectedSubtypeError(SchedulingDSL.TimingConstraint.class, endConstraint);
+
+      case SchedulingDSL.GoalSpecifier.CoexistenceGoalDefinition g -> {
+        var builder = new CoexistenceGoal.Builder()
+            .forAllTimeIn(new WindowsWrapperExpression(new Windows(false).set(hor, true)))
+            .createPersistentAnchor(g.persistentAnchor().isPresent()? g.persistentAnchor().get() : PersistentTimeAnchor.DISABLED)
+            .forEach(spansOfConstraintExpression(
+                g.forEach()))
+            .thereExistsOne(makeActivityTemplate(g.activityTemplate(), lookupActivityType))
+            .withinPlanHorizon(planningHorizon)
+            .simulateAfter(simulateAfter)
+            .shouldRollbackIfUnsatisfied(g.shouldRollbackIfUnsatisfied())
+            .aliasForAnchors(g.alias());
+        if (g.startConstraint().isPresent()) {
+          final var startConstraint = g.startConstraint().get();
+          if (startConstraint instanceof SchedulingDSL.TimingConstraint.ActivityTimingConstraint s) {
+            builder.startsAt(makeTimeExpressionRelativeSimple(s));
+          } else if (startConstraint instanceof SchedulingDSL.TimingConstraint.ActivityTimingConstraintFlexibleRange s) {
+            builder.startsAt(new TimeExpressionRelativeBinary(makeTimeExpressionRelativeSimple(s.lowerBound()), makeTimeExpressionRelativeSimple(s.upperBound())));
+          } else {
+            throw new UnexpectedSubtypeError(SchedulingDSL.TimingConstraint.class, startConstraint);
+          }
         }
+        if (g.endConstraint().isPresent()) {
+          final var endConstraint = g.endConstraint().get();
+          if (endConstraint instanceof SchedulingDSL.TimingConstraint.ActivityTimingConstraint e) {
+            builder.endsAt(makeTimeExpressionRelativeSimple(e));
+          } else if (endConstraint instanceof SchedulingDSL.TimingConstraint.ActivityTimingConstraintFlexibleRange e) {
+            builder.endsAt(new TimeExpressionRelativeBinary(makeTimeExpressionRelativeSimple(e.lowerBound()), makeTimeExpressionRelativeSimple(e.upperBound())));
+          } else {
+            throw new UnexpectedSubtypeError(SchedulingDSL.TimingConstraint.class, endConstraint);
+          }
+        }
+        if (g.startConstraint().isEmpty() && g.endConstraint().isEmpty()) {
+          throw new Error("Both start and end constraints were empty. This should have been disallowed at the type level.");
+        }
+        if(g.activityFinder().isPresent()){
+          builder.match(buildActivityExpression(g.activityFinder().get(), lookupActivityType));
+        }
+        return builder.build();
       }
-      if (g.startConstraint().isEmpty() && g.endConstraint().isEmpty()) {
-        throw new Error("Both start and end constraints were empty. This should have been disallowed at the type level.");
-      }
-      if(g.activityFinder().isPresent()){
-        builder.match(buildActivityExpression(g.activityFinder().get(), lookupActivityType));
-      }
-      return builder.build();
-    } else if (goalSpecifier instanceof SchedulingDSL.GoalSpecifier.GoalAnd g) {
-      var builder = new CompositeAndGoal.Builder();
-      for (final var subGoalSpecifier : g.goals()) {
-        builder = builder.and(goalOfGoalSpecifier(subGoalSpecifier,
-                                                  horizonStartTimestamp,
-                                                  horizonEndTimestamp,
-                                                  lookupActivityType,
-                                                  simulateAfter));
-      }
-      builder.simulateAfter(simulateAfter);
-      builder.withinPlanHorizon(planningHorizon);
-      builder.forAllTimeIn(new WindowsWrapperExpression(new Windows(false).set(hor, true)));
-      builder.shouldRollbackIfUnsatisfied(g.shouldRollbackIfUnsatisfied());
-      return builder.build();
-    } else if (goalSpecifier instanceof SchedulingDSL.GoalSpecifier.GoalOr g) {
-      var builder = new OptionGoal.Builder();
-      for (final var subGoalSpecifier : g.goals()) {
-        builder = builder.or(goalOfGoalSpecifier(subGoalSpecifier,
-                                                 horizonStartTimestamp,
-                                                 horizonEndTimestamp,
-                                                 lookupActivityType,
-                                                 simulateAfter));
-      }
-      builder.simulateAfter(simulateAfter);
-      builder.withinPlanHorizon(planningHorizon);
-      builder.forAllTimeIn(new WindowsWrapperExpression(new Windows(false).set(hor, true)));
-      builder.shouldRollbackIfUnsatisfied(g.shouldRollbackIfUnsatisfied());
-      return builder.build();
-    }
 
-    else if (goalSpecifier instanceof SchedulingDSL.GoalSpecifier.GoalApplyWhen g) {
-      var goal = goalOfGoalSpecifier(g.goal(), horizonStartTimestamp, horizonEndTimestamp, lookupActivityType, simulateAfter);
-      goal.setTemporalContext(g.windows());
-      return goal;
-    }
+      case SchedulingDSL.GoalSpecifier.GoalAnd g -> {
+        var builder = new CompositeAndGoal.Builder();
+        for (final var subGoalSpecifier : g.goals()) {
+          builder = builder.and(goalOfGoalSpecifier(subGoalSpecifier,
+                                                    horizonStartTimestamp,
+                                                    horizonEndTimestamp,
+                                                    lookupActivityType,
+                                                    simulateAfter));
+        }
+        builder.simulateAfter(simulateAfter);
+        builder.withinPlanHorizon(planningHorizon);
+        builder.forAllTimeIn(new WindowsWrapperExpression(new Windows(false).set(hor, true)));
+        builder.shouldRollbackIfUnsatisfied(g.shouldRollbackIfUnsatisfied());
+        return builder.build();
+      }
 
-    else if(goalSpecifier instanceof SchedulingDSL.GoalSpecifier.CardinalityGoalDefinition g){
-      final var builder = new CardinalityGoal.Builder()
-          .thereExistsOne(makeActivityTemplate(g.activityTemplate(), lookupActivityType))
-          .simulateAfter(simulateAfter)
-           .forAllTimeIn(new WindowsWrapperExpression(new Windows(false).set(hor, true)))
-          .withinPlanHorizon(planningHorizon)
-          .shouldRollbackIfUnsatisfied(g.shouldRollbackIfUnsatisfied());
-      if(g.specification().duration().isPresent()){
-        builder.duration(Interval.between(g.specification().duration().get(), Duration.MAX_VALUE));
+      case SchedulingDSL.GoalSpecifier.GoalOr g -> {
+        var builder = new OptionGoal.Builder();
+        for (final var subGoalSpecifier : g.goals()) {
+          builder = builder.or(goalOfGoalSpecifier(subGoalSpecifier,
+                                                   horizonStartTimestamp,
+                                                   horizonEndTimestamp,
+                                                   lookupActivityType,
+                                                   simulateAfter));
+        }
+        builder.simulateAfter(simulateAfter);
+        builder.withinPlanHorizon(planningHorizon);
+        builder.forAllTimeIn(new WindowsWrapperExpression(new Windows(false).set(hor, true)));
+        builder.shouldRollbackIfUnsatisfied(g.shouldRollbackIfUnsatisfied());
+        return builder.build();
       }
-      if(g.specification().occurrence().isPresent()){
-        builder.occurences(new Range<>(g.specification().occurrence().get(), Integer.MAX_VALUE));
+
+      case SchedulingDSL.GoalSpecifier.GoalApplyWhen g -> {
+        var goal = goalOfGoalSpecifier(g.goal(), horizonStartTimestamp, horizonEndTimestamp, lookupActivityType, simulateAfter);
+        goal.setTemporalContext(g.windows());
+        return goal;
       }
-      if(g.activityFinder().isPresent()){
-        builder.match(buildActivityExpression(g.activityFinder().get(), lookupActivityType));
+
+      case SchedulingDSL.GoalSpecifier.CardinalityGoalDefinition g -> {
+        final var builder = new CardinalityGoal.Builder()
+            .thereExistsOne(makeActivityTemplate(g.activityTemplate(), lookupActivityType))
+            .simulateAfter(simulateAfter)
+            .forAllTimeIn(new WindowsWrapperExpression(new Windows(false).set(hor, true)))
+            .withinPlanHorizon(planningHorizon)
+            .shouldRollbackIfUnsatisfied(g.shouldRollbackIfUnsatisfied());
+        if (g.specification().duration().isPresent()) {
+          builder.duration(Interval.between(g.specification().duration().get(), Duration.MAX_VALUE));
+        }
+        if (g.specification().occurrence().isPresent()) {
+          builder.occurences(new Range<>(g.specification().occurrence().get(), Integer.MAX_VALUE));
+        }
+        if (g.activityFinder().isPresent()) {
+          builder.match(buildActivityExpression(g.activityFinder().get(), lookupActivityType));
+        }
+        return builder.build();
       }
-      return builder.build();
-    } else {
-      throw new Error("Unhandled variant of GoalSpecifier:" + goalSpecifier);
     }
   }
 

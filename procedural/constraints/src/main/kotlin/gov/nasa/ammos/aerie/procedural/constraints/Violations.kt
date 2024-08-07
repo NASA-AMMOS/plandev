@@ -1,7 +1,5 @@
 package gov.nasa.ammos.aerie.procedural.constraints
 
-import gov.nasa.ammos.aerie.procedural.constraints.ActivityId.DirectiveId
-import gov.nasa.ammos.aerie.procedural.constraints.ActivityId.InstanceId
 import gov.nasa.ammos.aerie.procedural.timeline.BaseTimeline
 import gov.nasa.ammos.aerie.procedural.timeline.BoundsTransformer
 import gov.nasa.ammos.aerie.procedural.timeline.Timeline
@@ -14,6 +12,7 @@ import gov.nasa.ammos.aerie.procedural.timeline.payloads.IntervalLike
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Instance
 import gov.nasa.ammos.aerie.procedural.timeline.util.preprocessList
+import gov.nasa.jpl.aerie.merlin.driver.ActivityId
 
 /** A timeline of [Violations][Violation]. */
 data class Violations(private val timeline: Timeline<Violation, Violations>):
@@ -69,11 +68,11 @@ data class Violations(private val timeline: Timeline<Violation, Violations>):
                 l.getActivityId(),
                 r.getActivityId()
             )
-        )}
+        ) }
 
-    private fun <V: IntervalLike<V>> V.getActivityId() = when (this) {
-      is Instance<*> -> InstanceId(id.id)
-      is Directive<*> -> DirectiveId(id.id)
+    private fun <V: IntervalLike<V>> V.getActivityId(): ActivityId? = when (this) {
+      is Instance<*> -> if (directiveId != null) directiveId else id
+      is Directive<*> -> id
       else -> null
     }
   }

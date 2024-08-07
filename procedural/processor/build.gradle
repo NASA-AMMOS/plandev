@@ -1,0 +1,42 @@
+plugins {
+  id 'java-library'
+  id 'maven-publish'
+  id 'io.github.goooler.shadow' version '8.1.7'
+}
+
+java {
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(21)
+  }
+}
+
+dependencies {
+  implementation project(':merlin-sdk')
+  implementation project(':merlin-framework')
+  implementation project(':contrib')
+  implementation project(':procedural:scheduling')
+  implementation 'org.apache.commons:commons-lang3:3.13.0'
+  implementation 'com.squareup:javapoet:1.13.0'
+}
+
+publishing {
+  publications {
+    library(MavenPublication) {
+      version = findProperty('publishing.version')
+      from components.java
+    }
+  }
+
+  publishing {
+    repositories {
+      maven {
+        name = findProperty("publishing.name")
+        url = findProperty("publishing.url")
+        credentials {
+          username = System.getenv(findProperty("publishing.usernameEnvironmentVariable"))
+          password = System.getenv(findProperty("publishing.passwordEnvironmentVariable"))
+        }
+      }
+    }
+  }
+}

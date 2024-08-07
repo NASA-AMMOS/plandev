@@ -13,6 +13,7 @@ include 'parsing-utilities'
 include 'permissions'
 
 // Procedural post-simulation libraries
+include 'procedural:processor'
 include 'procedural:timeline'
 include 'procedural:constraints'
 include 'procedural:scheduling'

@@ -62,6 +62,7 @@ public final class SchedulerAppDriver {
 
     //establish bindings to the service layers
     final var bindings = new SchedulerBindings(
+        specificationService,
         schedulerService,
         scheduleAction,
         generateSchedulingLibAction,

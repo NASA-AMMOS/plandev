@@ -92,3 +92,20 @@ delete_permissions:
         {"_or":[
           {"author": {"_eq": "X-Hasura-User-Id"}},
           {"metadata":{"owner":{"_eq":"X-Hasura-User-Id"}}}]}
+
+event_triggers:
+  - definition:
+      enable_manual: false
+      insert:
+        columns: "*"
+      update:
+        columns:
+          - goal_id
+          - revision
+          - uploaded_jar_id
+    name: refreshSchedulingProcedureParameterTypes
+    retry_conf:
+      interval_sec: 10
+      num_retries: 0
+      timeout_sec: 300
+    webhook: "{{AERIE_SCHEDULER_URL}}/refreshSchedulingProcedureParameterTypes"

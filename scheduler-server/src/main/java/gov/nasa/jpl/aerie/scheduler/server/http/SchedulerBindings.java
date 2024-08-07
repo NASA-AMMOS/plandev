@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Objects;
 import static gov.nasa.jpl.aerie.scheduler.server.http.ResponseSerializers.*;
 import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.hasuraSchedulingDSLTypescriptActionP;
+import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.hasuraSchedulingGoalEventTriggerP;
 import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.hasuraSpecificationActionP;
 import static io.javalin.apibuilder.ApiBuilder.*;
 import gov.nasa.jpl.aerie.json.JsonParser;
@@ -23,6 +24,7 @@ import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSpecificationExcepti
 import gov.nasa.jpl.aerie.scheduler.server.services.GenerateSchedulingLibAction;
 import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleAction;
 import gov.nasa.jpl.aerie.scheduler.server.services.SchedulerService;
+import gov.nasa.jpl.aerie.scheduler.server.services.SpecificationService;
 import io.javalin.Javalin;
 import io.javalin.http.Context;
 import io.javalin.plugin.Plugin;
@@ -37,12 +39,14 @@ import org.slf4j.LoggerFactory;
  * @param permissionsService service that authorizes action requests
  */
 public record SchedulerBindings(
+    SpecificationService specificationService,
     SchedulerService schedulerService,
     ScheduleAction scheduleAction,
     GenerateSchedulingLibAction generateSchedulingLibAction,
     PermissionsService permissionsService
 ) implements Plugin {
   public SchedulerBindings {
+    Objects.requireNonNull(specificationService);
     Objects.requireNonNull(schedulerService);
     Objects.requireNonNull(scheduleAction);
     Objects.requireNonNull(generateSchedulingLibAction);
@@ -64,6 +68,7 @@ public record SchedulerBindings(
       path("schedule", () -> post(this::schedule));
       path("health", () -> get(ctx -> ctx.status(200)));
       path("schedulingDslTypescript", () -> post(this::getSchedulingDslTypescript));
+      path("refreshSchedulingProcedureParameterTypes", () -> post(this::refreshSchedulingProcedureParameterTypes));
     });
   }
 
@@ -145,6 +150,27 @@ public record SchedulerBindings(
         throw new Error("Unhandled variant of Response: " + response);
       }
       ctx.result(resultString);
+    } catch (final InvalidEntityException ex) {
+      ctx.status(400).result(serializeInvalidEntityException(ex).toString());
+    } catch (final InvalidJsonException ex) {
+      ctx.status(400).result(serializeInvalidJsonException(ex).toString());
+    }
+  }
+
+  /**
+   * action bound to the /refreshSchedulingProcedureParameterTypes endpoint
+   *
+   * Responsible for loading an uploaded procedure jar, asking for its parameter value schema and saving that to the database
+   *
+   * @param ctx the http context of the request from which to read input or post results
+   */
+  private void refreshSchedulingProcedureParameterTypes(final Context ctx) {
+    try {
+      final var body = parseJson(ctx.body(), hasuraSchedulingGoalEventTriggerP);
+      final var goalId = body.goalId();
+      final var revision = body.revision();
+      this.specificationService.refreshSchedulingProcedureParameterTypes(goalId, revision);
+      ctx.status(200);
     } catch (final InvalidEntityException ex) {
       ctx.status(400).result(serializeInvalidEntityException(ex).toString());
     } catch (final InvalidJsonException ex) {

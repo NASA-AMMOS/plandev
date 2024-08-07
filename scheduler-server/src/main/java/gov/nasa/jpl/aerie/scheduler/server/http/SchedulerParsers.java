@@ -106,4 +106,19 @@ public final class SchedulerParsers {
       .map(
           untuple((missionModelId, planId) -> new HasuraAction.MissionModelIdInput(missionModelId, planId.flatMap($->$))),
           input -> tuple(input.missionModelId(), Optional.of(input.planId()))));
+
+  public static final JsonParser<HasuraAction.HasuraSchedulingGoalEvent> hasuraSchedulingGoalEventTriggerP
+      = productP
+      .field("event", productP
+          .field("data", productP
+              .field("new", productP
+                  .field("goal_id", longP)
+                  .field("revision", longP)
+                  .rest())
+              .rest())
+          .rest())
+      .rest()
+      .map(
+          untuple(HasuraAction.HasuraSchedulingGoalEvent::new),
+          $ -> tuple($.goalId(), $.revision()));
 }

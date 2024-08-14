@@ -280,6 +280,29 @@ data class Interval @JvmOverloads constructor(
     return listOf(left, right).filterNot { it.isEmpty() }
   }
 
+  /**
+   * Creates an iterable that produces durations spread out over the interval, separated by `stride`.
+   *
+   * Respects inclusivity; if the start or end is not included then it will not be produced by the iterator.
+   *
+   * If the length of the interval is not a multiple of the stride, the endpoint will not be produced.
+   *
+   * @return an iterable over durations in the interval separated by `stride`
+   */
+  infix fun step(stride: Duration) = object : Iterable<Duration> {
+    override fun iterator() = object : Iterator<Duration> {
+      var nextTime = if (includesStart()) start else start + stride
+
+      override fun hasNext() = contains(nextTime)
+
+      override fun next(): Duration {
+        val result = if (hasNext()) nextTime else throw NoSuchElementException()
+        nextTime += stride
+        return result
+      }
+    }
+  }
+
   /***/
   override fun toString(): String {
     return if (isEmpty()) {

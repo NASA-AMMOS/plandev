@@ -2214,7 +2214,6 @@ public class SchedulingIntegrationTests {
         specificationService,
         mockMerlinService,
         desc.libPath(),
-        Path.of(""),
         PlanOutputMode.UpdateInputPlanWithNewActivities,
         schedulingDSLCompiler);
     // Scheduling Goals -> Scheduling Specification

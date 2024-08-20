@@ -80,7 +80,6 @@ import org.slf4j.LoggerFactory;
  *
  * @param merlinDatabaseService interface for querying plan and mission model details from merlin
  * @param modelJarsDir path to parent directory for mission model jars (interim backdoor jar file access)
- * @param goalsJarPath path to jar file to load scheduling goals from (interim solution for user input goals)
  * @param outputMode how the scheduling output should be returned to aerie (eg overwrite or new container)
  */
 //TODO: will eventually need scheduling goal service arg to pull goals from scheduler's own data store
@@ -88,7 +87,6 @@ public record SynchronousSchedulerAgent(
     SpecificationService specificationService,
     MerlinDatabaseService.OwnerRole merlinDatabaseService,
     Path modelJarsDir,
-    Path goalsJarPath,
     PlanOutputMode outputMode,
     SchedulingDSLCompilationService schedulingDSLCompilationService
 )
@@ -99,7 +97,6 @@ public record SynchronousSchedulerAgent(
   public SynchronousSchedulerAgent {
     Objects.requireNonNull(merlinDatabaseService);
     Objects.requireNonNull(modelJarsDir);
-    Objects.requireNonNull(goalsJarPath);
     Objects.requireNonNull(schedulingDSLCompilationService);
   }
 

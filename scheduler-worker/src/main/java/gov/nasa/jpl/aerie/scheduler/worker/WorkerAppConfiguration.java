@@ -9,7 +9,6 @@ public record WorkerAppConfiguration(
     Store store,
     URI merlinGraphqlURI,
     Path merlinFileStore,
-    Path missionRuleJarPath,
     PlanOutputMode outputMode,
     String hasuraGraphQlAdminSecret,
     int maxCachedSimulationEngines

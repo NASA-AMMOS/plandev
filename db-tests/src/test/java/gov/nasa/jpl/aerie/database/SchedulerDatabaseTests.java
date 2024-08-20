@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.database;
 
 import org.junit.jupiter.api.*;
+import org.postgresql.util.PSQLException;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -94,6 +95,28 @@ class SchedulerDatabaseTests {
           from metadata m
           returning goal_id as id;
           """);
+      res.next();
+      return res.getInt("id");
+    }
+  }
+
+  int insertSchedulingProcedure() throws SQLException {
+    var jarId = merlinHelper.insertFileUpload();
+
+    try (final var statement = connection.createStatement()) {
+      final var res = statement.executeQuery(
+          //language=sql
+          """
+          with metadata(id, owner) as (
+            insert into scheduler.scheduling_goal_metadata(name, description, owner, updated_by)
+            values ('test procedure', 'no-op', 'scheduler db tests', 'scheduler db tests')
+            returning id, owner
+          )
+          insert into scheduler.scheduling_goal_definition(goal_id, uploaded_jar_id, type, author)
+          select m.id, %d, 'JAR', m.owner
+          from metadata m
+          returning goal_id as id;
+          """.formatted(jarId));
       res.next();
       return res.getInt("id");
     }
@@ -527,6 +550,66 @@ class SchedulerDatabaseTests {
             values (%d, %d);
             """.formatted(specificationIds[0], goalIds[1]));
         checkPriorities(0, new int[] {0, 2, 1}, new int[] {0, 1, 2});
+      }
+    }
+  }
+
+  @Nested
+  class ProceduralSchedulingTests {
+    int specId;
+    int[] goalIds;
+    @BeforeEach
+    void beforeEach() throws SQLException {
+      final int modelId = merlinHelper.insertMissionModel(merlinHelper.insertFileUpload());
+      specId = getSpecificationId(merlinHelper.insertPlan(modelId));
+      goalIds = new int[]{insertGoal(), insertSchedulingProcedure()};
+    }
+
+    @AfterEach
+    void afterEach() throws SQLException {
+      helper.clearSchema("merlin");
+      helper.clearSchema("scheduler");
+    }
+
+    @Test
+    void testCantPartiallyChangeProcedureToEDSLGoal() throws SQLException {
+      try (final var statement = connection.createStatement()) {
+        final var exception = assertThrowsExactly(
+            PSQLException.class,
+            () -> statement.executeUpdate(
+              //language=sql
+              """
+              update scheduler.scheduling_goal_definition
+              set type = 'EDSL'
+              where goal_id = %d
+              """.formatted(goalIds[1])
+            )
+        );
+
+        assertTrue(exception.getMessage().contains(
+            "new row for relation \"scheduling_goal_definition\" violates check constraint \"check_goal_definition_type_consistency\"")
+        );
+      }
+    }
+
+    @Test
+    void testCantPartiallyChangeEDSLGoalToProcedure() throws SQLException {
+      try (final var statement = connection.createStatement()) {
+        final var exception = assertThrowsExactly(
+            PSQLException.class,
+            () -> statement.executeUpdate(
+              //language=sql
+              """
+              update scheduler.scheduling_goal_definition
+              set type = 'JAR'
+              where goal_id = %d
+              """.formatted(goalIds[0])
+            )
+        );
+
+        assertTrue(exception.getMessage().contains(
+            "new row for relation \"scheduling_goal_definition\" violates check constraint \"check_goal_definition_type_consistency\"")
+        );
       }
     }
   }

@@ -52,7 +52,6 @@ import gov.nasa.jpl.aerie.scheduler.server.models.DatasetId;
 import gov.nasa.jpl.aerie.scheduler.server.models.ExternalProfiles;
 import gov.nasa.jpl.aerie.scheduler.server.models.GoalId;
 import gov.nasa.jpl.aerie.scheduler.server.models.GoalRecord;
-import gov.nasa.jpl.aerie.scheduler.server.models.GoalSource;
 import gov.nasa.jpl.aerie.scheduler.server.models.MerlinPlan;
 import gov.nasa.jpl.aerie.scheduler.server.models.PlanId;
 import gov.nasa.jpl.aerie.scheduler.server.models.PlanMetadata;
@@ -192,7 +191,7 @@ public record SynchronousSchedulerAgent(
           final var result = compileGoalDefinition(
               merlinDatabaseService,
               planMetadata.planId(),
-              goalRecord.definition(),
+              goalRecord.definition().source(),
               schedulingDSLCompilationService,
               externalProfiles.resourceTypes());
           if (result instanceof SchedulingDSLCompilationService.SchedulingDSLCompilationResult.Success<SchedulingDSL.GoalSpecifier> r) {
@@ -342,14 +341,14 @@ public record SynchronousSchedulerAgent(
   private static SchedulingDSLCompilationService.SchedulingDSLCompilationResult<SchedulingDSL.GoalSpecifier> compileGoalDefinition(
       final MerlinDatabaseService.ReaderRole merlinDatabaseService,
       final PlanId planId,
-      final GoalSource goalDefinition,
+      final String source,
       final SchedulingDSLCompilationService schedulingDSLCompilationService,
       final Collection<ResourceType> additionalResourceTypes)
   {
     return schedulingDSLCompilationService.compileSchedulingGoalDSL(
         merlinDatabaseService,
         planId,
-        goalDefinition.source(),
+        source,
         additionalResourceTypes
     );
   }

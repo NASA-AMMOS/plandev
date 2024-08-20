@@ -11,8 +11,8 @@ import java.util.Map;
 
 /*package-local*/ final class InsertGoalSatisfactionAction implements AutoCloseable {
   private static final @Language("SQL") String sql = """
-    insert into scheduler.scheduling_goal_analysis (analysis_id, goal_id, goal_revision, satisfied)
-    values (?, ?, ?, ?)
+    insert into scheduler.scheduling_goal_analysis (analysis_id, goal_id, goal_invocation_id, goal_revision, satisfied)
+    values (?, ?, ?, ?, ?)
     """;
 
   private final PreparedStatement statement;
@@ -26,8 +26,9 @@ import java.util.Map;
       final var goal = entry.getKey();
       this.statement.setLong(1, analysisId);
       this.statement.setLong(2, goal.id());
-      this.statement.setLong(3, goal.revision());
-      this.statement.setBoolean(4, entry.getValue());
+      this.statement.setLong(3, goal.goalInvocationId().get());
+      this.statement.setLong(4, goal.revision());
+      this.statement.setBoolean(5, entry.getValue());
       this.statement.addBatch();
     }
 

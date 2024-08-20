@@ -35,11 +35,11 @@ select_permissions:
 insert_permissions:
   - role: aerie_admin
     permission:
-      columns: [specification_id, goal_id, goal_revision, priority, enabled, simulate_after]
+      columns: [specification_id, goal_id, goal_revision, priority, enabled, simulate_after, goal_invocation_id]
       check: {}
   - role: user
     permission:
-      columns: [specification_id, goal_id, goal_revision, priority, enabled, simulate_after]
+      columns: [specification_id, goal_id, goal_revision, priority, enabled, simulate_after, goal_invocation_id]
       check: {}
 update_permissions:
   - role: aerie_admin

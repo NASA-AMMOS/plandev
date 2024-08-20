@@ -25,7 +25,7 @@ array_relationships:
   using:
     manual_configuration:
       column_mapping:
-        goal_id: goal_id
+        goal_invocation_id: goal_invocation_id
         analysis_id: analysis_id
       remote_table:
         name: scheduling_goal_analysis_satisfying_activities

@@ -7,6 +7,11 @@ object_relationships:
 - name: analysis
   using:
     foreign_key_constraint_on: analysis_id
+- name: goal_analysis
+  using:
+    foreign_key_constraint_on:
+      - goal_invocation_id
+      - analysis_id
 select_permissions:
   - role: aerie_admin
     permission:

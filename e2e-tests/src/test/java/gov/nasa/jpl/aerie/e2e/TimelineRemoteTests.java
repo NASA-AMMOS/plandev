@@ -118,7 +118,8 @@ public class TimelineRemoteTests {
     assertEquals(1, instances.size());
     final var instance = instances.get(0);
     assertEquals("BiteBanana", instance.getType());
-    assertEquals(activityId, instance.directiveId);
+    assert instance.directiveId != null;
+    assertEquals(activityId, instance.directiveId.id());
     assertEquals(1, instance.inner.arguments.get("biteSize").asInt().get());
     assertEquals(Duration.ZERO, instance.getInterval().duration());
   }
@@ -129,7 +130,7 @@ public class TimelineRemoteTests {
     assertEquals(1, directives.size());
     final var directive = directives.get(0);
     assertEquals("BiteBanana", directive.getType());
-    assertEquals(activityId, directive.id);
+    assertEquals(activityId, directive.id.id());
     assertEquals(1, directive.inner.arguments.get("biteSize").asInt().get());
   }
 

@@ -3,6 +3,7 @@ package gov.nasa.jpl.aerie.e2e;
 import com.microsoft.playwright.Playwright;
 import gov.nasa.jpl.aerie.e2e.types.ExternalDataset.ProfileInput;
 import gov.nasa.jpl.aerie.e2e.types.ExternalDataset.ProfileInput.ProfileSegmentInput;
+import gov.nasa.jpl.aerie.e2e.types.GoalInvocationId;
 import gov.nasa.jpl.aerie.e2e.types.Plan;
 import gov.nasa.jpl.aerie.e2e.types.ProfileSegment;
 import gov.nasa.jpl.aerie.e2e.types.SchedulingRequest.SchedulingStatus;
@@ -31,6 +32,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -188,7 +190,7 @@ public class SchedulingTests {
         "BakeBanana Scheduling Test Goal",
         bakeBananaGoalDefinition,
         schedulingSpecId,
-        0);
+        0).goalId();
     try {
       // Schedule and get Plan
       hasura.awaitScheduling(schedulingSpecId);
@@ -219,7 +221,7 @@ public class SchedulingTests {
         "Recurrence Scheduling Test Goal",
         recurrenceGoalDefinition,
         schedulingSpecId,
-        0);
+        0).goalId();
     try {
       // Schedule and get Plan
       hasura.awaitScheduling(schedulingSpecId, 100000000);
@@ -243,7 +245,7 @@ public class SchedulingTests {
         "Coexistence Scheduling Test Goal",
         coexistenceGoalDefinition,
         schedulingSpecId,
-        0);
+        0).goalId();
 
     try {
       // Schedule and get Plan
@@ -314,12 +316,12 @@ public class SchedulingTests {
         "Recurrence Scheduling Test Goal",
         recurrenceGoalDefinition,
         schedulingSpecId,
-        0);
+        0).goalId();
     final int coexistenceGoalId = hasura.createSchedulingSpecGoal(
         "Coexistence Scheduling Test Goal",
         coexistenceGoalDefinition,
         schedulingSpecId,
-        1);
+        1).goalId();
     try {
       // Schedule and get Plan
       hasura.awaitScheduling(schedulingSpecId);
@@ -373,7 +375,7 @@ public class SchedulingTests {
         "Coexistence Scheduling Test Goal",
         coexistenceGoalDefinition,
         schedulingSpecId,
-        0);
+        0).goalId();
 
     try {
       // Schedule and get Plan
@@ -469,12 +471,12 @@ public class SchedulingTests {
         "Coexistence Scheduling Test Goal",
         coexistenceGoalDefinition,
         schedulingSpecId,
-        0);
+        0).goalId();
     try{
       final var response = hasura.awaitSimulation(planId);
       final var simDataset = hasura.getSimulationDataset(response.simDatasetId());
       final var schedulingResults = hasura.awaitScheduling(schedulingSpecId);
-      assertEquals(schedulingResults.datasetId(), simDataset.datasetId());
+      assertEquals(simDataset.datasetId(), schedulingResults.datasetId());
     } finally {
       // Teardown: Delete Goal
       hasura.deleteSchedulingGoal(coexistenceGoalId);
@@ -505,7 +507,7 @@ public class SchedulingTests {
           "Coexistence Scheduling Test Goal",
           coexistenceGoalDefinition,
           schedulingSpecId,
-          0);
+          0).goalId();
 
       try {
         hasura.updatePlanRevisionSchedulingSpec(planId);
@@ -556,7 +558,7 @@ public class SchedulingTests {
           "Scheduling Test: When Plant < 300",
           plantCountGoalDefinition,
           schedulingSpecId,
-          0);
+          0).goalId();
 
       try {
         hasura.awaitScheduling(schedulingSpecId);
@@ -603,7 +605,7 @@ public class SchedulingTests {
           "Scheduling Test: When Plant < 300",
           plantCountGoalDefinition,
           schedulingSpecId,
-          0);
+          0).goalId();
 
       try {
         hasura.awaitScheduling(schedulingSpecId);
@@ -631,7 +633,7 @@ public class SchedulingTests {
           "Coexistence Scheduling Test Goal",
           coexistenceGoalDefinition,
           schedulingSpecId,
-          0);
+          0).goalId();
 
       try {
         // Schedule and get Plan
@@ -686,7 +688,7 @@ public class SchedulingTests {
               specification: { duration: Temporal.Duration.from({ seconds: 10 }) },
           });}""",
           schedulingSpecId,
-          0);
+          0).goalId();
     }
 
     @AfterEach
@@ -776,7 +778,7 @@ public class SchedulingTests {
             })
           }""",
           schedulingSpecId,
-          0);
+          0).goalId();
     }
 
     @AfterEach
@@ -883,7 +885,7 @@ public class SchedulingTests {
             });
           }""",
           fooSchedulingSpecId,
-          0);
+          0).goalId();
     }
 
     @AfterEach
@@ -924,15 +926,17 @@ public class SchedulingTests {
   class VersioningSchedulingGoals {
     @Test
     void goalVersionLocking() throws IOException {
-      final int goalId = hasura.createSchedulingSpecGoal(
+      final var goalInvocationId = hasura.createSchedulingSpecGoal(
           "coexistence goal",
           coexistenceGoalDefinition,
           schedulingSpecId,
           0);
+      final var goalId = goalInvocationId.goalId();
+      final var invocationId = goalInvocationId.invocationId();
 
       try {
         // Update the plan's constraint specification to use a specific version
-        hasura.updateSchedulingSpecVersion(schedulingSpecId, goalId, 0);
+        hasura.updateSchedulingSpecVersion(invocationId, 0);
 
         // Update definition to have invalid syntax
         final int newRevision = hasura.updateGoalDefinition(
@@ -944,7 +948,7 @@ public class SchedulingTests {
         assertEquals("complete", initResults.status());
 
         // Update scheduling spec to use invalid definition
-        hasura.updateSchedulingSpecVersion(schedulingSpecId, goalId, newRevision);
+        hasura.updateSchedulingSpecVersion(invocationId, newRevision);
 
         // Schedule -- should fail
         final var error = Assertions.assertThrows(
@@ -964,21 +968,23 @@ public class SchedulingTests {
     @Test
     void schedulingIgnoreDisabledGoals() throws IOException {
       // Add a problematic goal to the spec, then disable it
-      final int problemGoalId = hasura.createSchedulingSpecGoal(
+      final var problemGoalInvocationId = hasura.createSchedulingSpecGoal(
           "bad goal",
           "error :-(",
           "Goal that won't compile",
           schedulingSpecId,
           0);
+      final var problemGoalId = problemGoalInvocationId.goalId();
+      final var problemInvocationId = problemGoalInvocationId.invocationId();
       try {
-        hasura.updateSchedulingSpecEnabled(schedulingSpecId, problemGoalId, false);
+        hasura.updateSchedulingSpecEnabled(problemInvocationId, false);
 
         // Schedule -- Validate that the plan didn't change
         hasura.awaitScheduling(schedulingSpecId);
         assertEquals(0, hasura.getPlan(planId).activityDirectives().size());
 
         // Enable disabled constraint
-        hasura.updateSchedulingSpecEnabled(schedulingSpecId, problemGoalId, true);
+        hasura.updateSchedulingSpecEnabled(problemInvocationId, true);
 
         // Schedule -- Assert Fail
         final var error = Assertions.assertThrows(
@@ -993,6 +999,93 @@ public class SchedulingTests {
       } finally {
         hasura.deleteSchedulingGoal(problemGoalId);
       }
+    }
+  }
+
+  @Nested
+  class ProceduralSchedulingTests {
+    private int modelId;
+    private int planId;
+    private int specId;
+    private int procedureJarId;
+    private GoalInvocationId procedureId;
+
+    @BeforeEach
+    void beforeEach() throws IOException, InterruptedException {
+      try (final var gateway = new GatewayRequests(playwright)) {
+        modelId = hasura.createMissionModel(
+            gateway.uploadJarFile(),
+            "Banananation (e2e tests)",
+            "aerie_e2e_tests",
+            "Proc Scheduling Tests");
+
+        procedureJarId = gateway.uploadJarFile("../procedural/examples/foo-procedures/build/libs/SampleProcedure.jar");
+      }
+      // Insert the Plan
+      planId = hasura.createPlan(
+          modelId,
+          "Proc Sched Plan - Proc Scheduling Tests",
+          "48:00:00",
+          planStartTimestamp);
+      specId = hasura.getSchedulingSpecId(planId);
+
+      // Add Scheduling Procedure
+      procedureId = hasura.createSchedulingSpecProcedure(
+          "Test Scheduling Procedure",
+          procedureJarId,
+          specId,
+          0);
+    }
+
+    @AfterEach
+    void afterEach() throws IOException {
+      hasura.deleteSchedulingGoal(procedureId.goalId());
+      hasura.deletePlan(planId);
+      hasura.deleteMissionModel(modelId);
+    }
+
+    /**
+     * Upload a procedure jar and add to spec
+     */
+    @Test
+    void proceduralUploadWorks() throws IOException {
+      final var ids = hasura.getSchedulingSpecGoalIds(specId);
+
+      assertEquals(1, ids.size());
+      assertEquals(procedureId.goalId(), ids.getFirst());
+    }
+
+    /**
+     * Run a spec with one procedure in it with required params but no args set
+     * Should fail scheduling run
+     */
+    @Test
+    void executeSchedulingRunWithoutArguments() throws IOException {
+      assertThrows(AssertionFailedError.class, () -> hasura.awaitScheduling(specId));
+    }
+
+    /**
+     * Run a spec with one procedure in it
+     */
+    @Test
+    void executeSchedulingRunWithArguments() throws IOException {
+      final var args = Json.createObjectBuilder().add("quantity", 2).build();
+
+      hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
+
+      final var resp = hasura.awaitScheduling(specId);
+
+      final var plan = hasura.getPlan(planId);
+      final var activities = plan.activityDirectives();
+
+      assertEquals(2, activities.size());
+      final var first = activities.getFirst();
+      assertEquals(first.type(), "BiteBanana");
+      assertEquals(first.startOffset(), "24:00:00");
+
+      final var second = activities.getLast();
+      assertEquals(second.type(), "BiteBanana");
+      assertEquals(second.startOffset(), "30:00:00");
     }
   }
 }

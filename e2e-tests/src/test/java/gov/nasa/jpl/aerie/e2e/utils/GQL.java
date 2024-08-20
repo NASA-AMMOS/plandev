@@ -99,6 +99,7 @@ public enum GQL {
     mutation CreateSchedulingSpecGoal($spec_goal: scheduling_specification_goals_insert_input!) {
       insert_scheduling_specification_goals_one(object: $spec_goal) {
         goal_id
+        goal_invocation_id
         priority
         specification_id
       }
@@ -419,6 +420,12 @@ public enum GQL {
         id
       }
     }"""),
+  GET_SCHEDULING_SPECIFICATION_GOALS("""
+    query GetSchedulingSpecGoals($specId: Int!) {
+      goals: scheduling_specification_goals(where: {specification_id: {_eq: $specId}}) {
+        goal_id
+      }
+    }"""),
   GET_SIMULATION_CONFIGURATION("""
     query GetSimConfig($planId: Int!) {
       sim_config: simulation(where: {plan_id: {_eq:$planId}}) {
@@ -607,10 +614,20 @@ public enum GQL {
         action_permissions
       }
     }"""),
-  UPDATE_SCHEDULING_SPEC_GOALS_ENABLED("""
-		mutation updateSchedulingSpecGoalVersion($spec_id: Int!, $goal_id: Int!, $enabled: Boolean!) {
+  UPDATE_SCHEDULING_SPEC_GOALS_ARGUMENTS("""
+		mutation updateSchedulingSpecGoalArguments($goal_invocation_id: Int!, $arguments: jsonb!) {
 			update_scheduling_specification_goals_by_pk(
-			  pk_columns: {specification_id: $spec_id, goal_id: $goal_id},
+			  pk_columns: {goal_invocation_id: $goal_invocation_id},
+			  _set: {arguments: $arguments})
+			{
+				goal_revision
+				arguments
+			}
+		}"""),
+  UPDATE_SCHEDULING_SPEC_GOALS_ENABLED("""
+		mutation updateSchedulingSpecGoalVersion($goal_invocation_id: Int!, $enabled: Boolean!) {
+			update_scheduling_specification_goals_by_pk(
+			  pk_columns: {goal_invocation_id: $goal_invocation_id},
 			  _set: {enabled: $enabled})
 			{
 				goal_revision
@@ -618,9 +635,9 @@ public enum GQL {
 			}
 		}"""),
   UPDATE_SCHEDULING_SPEC_GOALS_VERSION("""
-		mutation updateSchedulingSpecGoalVersion($spec_id: Int!, $goal_id: Int!, $goal_revision: Int!) {
+		mutation updateSchedulingSpecGoalVersion($goal_invocation_id: Int!, $goal_revision: Int!) {
 			update_scheduling_specification_goals_by_pk(
-				pk_columns: {specification_id: $spec_id, goal_id: $goal_id},
+				pk_columns: {goal_invocation_id: $goal_invocation_id},
 				_set: {goal_revision: $goal_revision})
 			{
 				goal_revision

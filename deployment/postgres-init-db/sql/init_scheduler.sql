@@ -6,6 +6,9 @@
     - Views must be loaded after all their dependent tables and functions
  */
 begin;
+  -- Types
+  \ir types/scheduler/goal_type.sql
+
   -- Tables
   -- Scheduling Goals
   \ir tables/scheduler/scheduling_goal_metadata.sql

@@ -267,6 +267,7 @@ jobs:
       - name: Compare Databases
         id: dbcmp
         run: |
+          cp ./.github/scripts/explanations pgcmp
           cp ./.github/scripts/compareDatabasesUp.sh pgcmp/compareDatabases.sh
           cd pgcmp
           ./compareDatabases.sh
@@ -328,6 +329,7 @@ jobs:
       - name: Compare Databases
         id: dbcmp
         run: |
+          cp ./.github/scripts/explanations pgcmp
           cp ./.github/scripts/compareDatabasesDown.sh pgcmp/compareDatabases.sh
           cd pgcmp
           ./compareDatabases.sh

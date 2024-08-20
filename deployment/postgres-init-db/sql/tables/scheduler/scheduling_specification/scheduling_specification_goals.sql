@@ -5,6 +5,7 @@ create table scheduler.scheduling_specification_goals (
   goal_revision integer, -- latest is null
   priority integer not null,
   enabled boolean not null default true,
+  arguments jsonb not null default '{}'::jsonb,
 
   simulate_after boolean not null default true,
 
@@ -46,6 +47,10 @@ comment on column scheduler.scheduling_specification_goals.priority is e''
   'scheduling goals within the same specification.';
 comment on column scheduler.scheduling_specification_goals.enabled is e''
   'Whether to run a given goal. Defaults to TRUE.';
+comment on column scheduler.scheduling_specification_goals.arguments is e''
+  'The arguments that will be passed to this goal when invoked.'
+  'Follows scheduler.scheduling_goal_definition.parameter_schema.'
+  'Only valid for procedural goals.';
 comment on column scheduler.scheduling_specification_goals.simulate_after is e''
   'Whether to re-simulate after evaluating this goal and before the next goal.';
 

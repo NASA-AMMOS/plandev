@@ -7,6 +7,9 @@ object_relationships:
   - name: metadata
     using:
       foreign_key_constraint_on: goal_id
+  - name: uploaded_jar
+    using:
+      foreign_key_constraint_on: uploaded_jar_id
 array_relationships:
   - name: analyses
     using:
@@ -64,13 +67,13 @@ select_permissions:
 insert_permissions:
   - role: aerie_admin
     permission:
-      columns: [goal_id, definition]
+      columns: [goal_id, definition, type, uploaded_jar_id, parameter_schema]
       check: {}
       set:
         author: "x-hasura-user-id"
   - role: user
     permission:
-      columns: [goal_id, definition]
+      columns: [goal_id, definition, type, uploaded_jar_id, parameter_schema]
       check: {"_or":[{"metadata":{"public":{"_eq":true}}},{"metadata":{"owner":{"_eq":"X-Hasura-User-Id"}}}]}
       set:
         author: "x-hasura-user-id"

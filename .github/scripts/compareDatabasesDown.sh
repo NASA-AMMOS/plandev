@@ -13,6 +13,7 @@ PGCBADEXPLAIN=./comparison/badexplanations.txt \
 PGDB=postgres \
 PGBINDIR=/usr/bin \
 PGCOMITSCHEMAS="('hdb_catalog'),('pg_catalog'),('information_schema')" \
+PGCEXPLANATIONS=./explanations \
 ./pgcmp
 return_code=$?
 

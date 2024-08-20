@@ -4,6 +4,7 @@ create table scheduler.scheduling_goal_analysis (
   goal_invocation_id integer not null,
   goal_revision integer not null,
   satisfied boolean not null,
+  arguments jsonb not null default '{}'::jsonb,
 
   constraint scheduling_goal_analysis_primary_key
     primary key (analysis_id, goal_invocation_id),
@@ -31,3 +32,6 @@ comment on column scheduler.scheduling_goal_analysis.goal_revision is e''
   'The associated version of the goal definition used.';
 comment on column scheduler.scheduling_goal_analysis.satisfied is e''
   'Whether the associated goal was satisfied by the scheduling run.';
+comment on column scheduler.scheduling_goal_analysis.arguments is e''
+  'The "as run" arguments passed to this goal during the scheduling run.'
+  'Follows scheduler.scheduling_goal_definition.parameter_schema.';

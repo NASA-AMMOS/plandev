@@ -45,10 +45,10 @@ import java.util.function.Function;
  */
 public class TypeUtilsEditablePlan implements EditablePlan {
 
-  private DirectiveIdGenerator idGenerator;
-  private TypeUtilsProceduralPlan plan;
-  private SimulationFacade simFacade;
-  private Function<String, ActivityType> lookupActivityType;
+  private final DirectiveIdGenerator idGenerator;
+  private final TypeUtilsProceduralPlan plan;
+  private final SimulationFacade simFacade;
+  private final Function<String, ActivityType> lookupActivityType;
 
   public TypeUtilsEditablePlan(
       DirectiveIdGenerator idGenerator,

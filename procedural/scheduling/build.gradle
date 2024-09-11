@@ -1,5 +1,6 @@
 import org.jetbrains.kotlin.gradle.dsl.jvm.JvmTargetValidationMode
 import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 
 plugins {
   id "org.jetbrains.kotlin.jvm" version "2.0.20"
@@ -32,6 +33,12 @@ tasks.named('test') {
 
 kotlin {
   jvmToolchain(21)
+  compilerOptions {
+    freeCompilerArgs.add("-Xjvm-default=all")
+  }
+}
+
+tasks.named('compileKotlin', KotlinCompilationTask) {
   compilerOptions {
     freeCompilerArgs.add("-Xjvm-default=all")
   }

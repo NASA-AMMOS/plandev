@@ -21,6 +21,10 @@ jar {
   dependsOn(':constraints:jar')
   dependsOn(':merlin-driver:jar')
   dependsOn(':merlin-sdk:jar')
+  dependsOn(':merlin-framework:jar')
+  dependsOn(':scheduler-driver:jar')
+  dependsOn(':procedural:timeline:jar')
+  dependsOn(':procedural:scheduling:jar')
 
   duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 

@@ -36,8 +36,12 @@ jacocoTestReport {
 dependencies {
   implementation project(':merlin-server')
   implementation project(':merlin-driver')
+  implementation project(':merlin-sdk')
   implementation project(':parsing-utilities')
   implementation project(':type-utils')
+  implementation project(':procedural:timeline')
+  implementation project(':procedural:scheduling')
+  implementation project(':scheduler-driver')
   implementation 'commons-cli:commons-cli:1.8.0'
 
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'

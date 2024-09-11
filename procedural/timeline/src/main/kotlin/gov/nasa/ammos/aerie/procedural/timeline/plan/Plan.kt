@@ -11,6 +11,7 @@ import gov.nasa.ammos.aerie.procedural.timeline.collections.ExternalEvents
 import java.time.Instant
 
 /** An interface for querying plan information and simulation results. */
+@JvmDefaultWithoutCompatibility
 interface Plan {
   /** Total extent of the plan's bounds, whether it was simulated on the full extent or not. */
   fun totalBounds(): Interval

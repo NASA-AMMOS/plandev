@@ -1,7 +1,6 @@
 package gov.nasa.jpl.aerie.scheduler.goals;
 
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
-import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.ammos.aerie.procedural.scheduling.ProcedureMapper;
 import gov.nasa.ammos.aerie.procedural.scheduling.plan.Edit;
@@ -41,7 +40,6 @@ public class Procedure extends Goal {
       final Problem problem,
       final Evaluation eval,
       final Plan plan,
-      final MissionModel<?> missionModel,
       final Function<String, ActivityType> lookupActivityType,
       final SimulationFacade simulationFacade,
       final DirectiveIdGenerator idGenerator,
@@ -65,7 +63,6 @@ public class Procedure extends Goal {
     );
 
     final var editablePlan = new InMemoryEditablePlan(
-        missionModel,
         idGenerator,
         planAdapter,
         simulationFacade,

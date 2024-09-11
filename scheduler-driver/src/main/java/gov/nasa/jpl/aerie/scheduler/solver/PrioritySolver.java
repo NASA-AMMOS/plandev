@@ -326,7 +326,6 @@ public class PrioritySolver implements Solver {
             problem,
             plan.getEvaluation(),
             plan,
-            problem.getMissionModel(),
             this.problem::getActivityType,
             this.simulationFacade,
             this.idGenerator,

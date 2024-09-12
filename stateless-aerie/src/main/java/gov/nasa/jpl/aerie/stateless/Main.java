@@ -35,6 +35,18 @@ public class Main {
         Optional<Path> outputFilePath,
         long extentUpdatePeriod
     ) implements Arguments {}
+
+    record SchedulingArguments<Model> (
+        MissionModel<Model> missionModel,
+        Plan plan,
+        Path goalSpecification, // TODO: update
+        Optional<Path> outputPlanPath,
+        Optional<Path> outputSimResultsPath,
+        Optional<Path> outputGoalSatisfactionPath,
+        boolean simulateAfter,
+        boolean verbose,
+        long maxEngines
+    ) implements Arguments {}
   }
 
   public static void main(String[] args) {
@@ -48,6 +60,10 @@ public class Main {
     switch (command.toLowerCase()) {
       case "simulate": {
         simulate(parseSimulationArgs(args));
+        break;
+      }
+      case "schedule": {
+        schedule(parseSchedulingArgs(args));
         break;
       }
       case "-h":
@@ -77,18 +93,11 @@ public class Main {
       modelJarPath = cmd.getParsedOptionValue('m');
       planJsonPath = cmd.getParsedOptionValue('p');
       verbose = cmd.hasOption("verbose");
-      // Parser sets unused fields to 'null'
       configJsonPath = cmd.getParsedOptionValue('s', Optional.empty());
       outputFilePath = cmd.getParsedOptionValue('f', Optional.empty());
       extentUpdatePeriod = cmd.getParsedOptionValue('i', 500L);
     } catch (ParseException e) {
-      simulationOptions.addOption(HELP_OPTION);
-      new HelpFormatter().printHelp(
-          "stateless-aerie simulate",
-          "Simulate a plan using the specified model and configuration",
-          simulationOptions,
-          FOOTER,
-          true);
+      printHelp(simulationOptions, "simulate", "Simulate a plan using the specified model and configuration");
       System.exit(2);
       // The below is included as java doesn't recognize System.exit() as stopping the method,
       // which causes compilation methods when trying to use the values assigned above
@@ -192,6 +201,69 @@ public class Main {
     }
   }
 
+  private static Arguments.SchedulingArguments<?> parseSchedulingArgs(String[] args) {
+    final Path modelJarPath;
+    final Path planJsonPath;
+    final Optional<Path> simConfigJsonPath;
+    final Optional<Path> schedulingSpecJsonPath;
+    final Optional<Path> initialSimResultJsonPath;
+
+    final boolean verbose;
+    final boolean simulateAfter;
+    final long maxEngines;
+
+    final Optional<Path> outputPlanPath;
+    final Optional<Path> outputSimResultsPath;
+    final Optional<Path> outputGoalSatisfactionPath;
+
+    // Parse the command line arguments
+    final Options schedulingOptions = createSchedulingOptions();
+    try {
+      checkForHelp(args, schedulingOptions, "schedule", "Schedule a plan using the specified model, configuration, and procedural goal specification");
+
+      final CommandLineParser parser = new DefaultParser();
+      final CommandLine cmd = parser.parse(schedulingOptions, args);
+
+      modelJarPath = cmd.getParsedOptionValue('m');
+      planJsonPath = cmd.getParsedOptionValue('p');
+      schedulingSpecJsonPath = cmd.getParsedOptionValue('g');
+      simConfigJsonPath = cmd.getParsedOptionValue('s');
+      initialSimResultJsonPath = cmd.getParsedOptionValue('r');
+
+      verbose = cmd.hasOption("verbose");
+      simulateAfter = cmd.hasOption("simulate_after");
+      maxEngines = cmd.getParsedOptionValue('e', 1);
+
+      outputPlanPath = cmd.getParsedOptionValue("op");
+      outputSimResultsPath = cmd.getParsedOptionValue("or");
+      outputGoalSatisfactionPath = cmd.getParsedOptionValue("og");
+
+
+      // TODO: DEBUG PRINTS
+      System.out.println(String.join(", ", args));
+      System.out.println("modelJar "+ modelJarPath);
+      System.out.println("planJson "+ planJsonPath);
+      System.out.println("schedspec "+schedulingSpecJsonPath);
+      System.out.println("simconfig "+simConfigJsonPath);
+      System.out.println("initResults "+initialSimResultJsonPath);
+      System.out.println("outputPlanPath "+outputPlanPath);
+      System.out.println("outputSimResultsPath "+outputSimResultsPath);
+      System.out.println("outputGoalSatisfactionPath "+outputGoalSatisfactionPath);
+      System.out.println("verbose "+verbose);
+      System.out.println("simulateAfter "+simulateAfter);
+      System.out.println("maxEngines "+maxEngines);
+
+    } catch (ParseException e) {
+      printHelp(schedulingOptions, "schedule", "Schedule a plan using the specified model, configuration, and procedural goal specification");
+      System.exit(2);
+    }
+
+    return null;
+  }
+
+  private static void schedule(Arguments.SchedulingArguments<?> schedArgs){
+  }
+
   /**
    * Display top-level help for the application
    */
@@ -202,6 +274,7 @@ public class Main {
 
     Available commands:
      - simulate: Simulate a plan using the specified model and configuration
+     - schedule: Schedule a plan using the specified model, configuration, and procedural goal specification
     %s
     %n""", FOOTER);
   }
@@ -246,6 +319,70 @@ public class Main {
   }
 
   /**
+   * Build the parser options for the "schedule" command.
+   */
+  private static Options createSchedulingOptions() {
+    // Required Args
+    final Option modelPath = new Option("m", "model", true, "path to model jar");
+    modelPath.setRequired(true);
+    modelPath.setConverter(Path::of);
+
+    final Option planPath = new Option("p", "plan", true, "path to plan json");
+    planPath.setRequired(true);
+    planPath.setConverter(Path::of);
+
+    // TODO: REMOVE THIS COMMENT
+    //[{goaljar: file.jar, order: 1, params: {}, simulateAfter: bool}]
+    final Option goalSpecPath = new Option("g", "goals", true, "path to goal specification json");
+    goalSpecPath.setRequired(true);
+    goalSpecPath.setConverter(Path::of);
+
+    // Optional Input Args
+    final Option simConfigPath = new Option("s", "sim_config", true, "path to simulation configuration json");
+    simConfigPath.setRequired(false);
+    simConfigPath.setConverter(s -> Optional.of(Path.of(s)));
+
+    final Option simResultsPath = new Option("r", "initial_sim_results", true, "path to a simulation results json to be used as the initial sim results");
+    simResultsPath.setRequired(false);
+    simConfigPath.setConverter(s -> Optional.of(Path.of(s)));
+
+    final Option simulateAfter = new Option("a", "simulate_after", false, "ensure a final simulation is run after scheduling has completed but before simulation results are returned");
+
+    final Option verbose = new Option("v", "verbose", false, "verbosity of scheduling");
+
+    final Option maxEngineCount = new Option("e", "max_engine_count", true, "maximum number of parallel engines permitted. defaults to 1" );
+    maxEngineCount.setRequired(false);
+    maxEngineCount.setConverter(Long::parseLong);
+
+    // Optional Output Args
+    final Option outputPlanPath = new Option("op", "output_plan", true, "output plan file");
+    outputPlanPath.setRequired(false);
+    outputPlanPath.setConverter(f -> Optional.of(Path.of(f)));
+
+    final Option outputSimResultsPath = new Option("or", "output_sim_results", true, "output simulation results file");
+    outputSimResultsPath.setRequired(false);
+    outputSimResultsPath.setConverter(f -> Optional.of(Path.of(f)));
+
+    final Option outputGoalSatisfactionPath = new Option("og", "output_goal_satisfaction", true, "output goal satisfaction file");
+    outputGoalSatisfactionPath.setRequired(false);
+    outputGoalSatisfactionPath.setConverter(f -> Optional.of(Path.of(f)));
+
+    final Options schedulingOptions = new Options();
+    schedulingOptions.addOption(modelPath);
+    schedulingOptions.addOption(planPath);
+    schedulingOptions.addOption(goalSpecPath);
+    schedulingOptions.addOption(simConfigPath);
+    schedulingOptions.addOption(simResultsPath);
+    schedulingOptions.addOption(simulateAfter);
+    schedulingOptions.addOption(verbose);
+    schedulingOptions.addOption(maxEngineCount);
+    schedulingOptions.addOption(outputPlanPath);
+    schedulingOptions.addOption(outputSimResultsPath);
+    schedulingOptions.addOption(outputGoalSatisfactionPath);
+    return schedulingOptions;
+  }
+
+  /**
    * Check if the "help" option was passed for a given command
    *   and, if so, print the command's help message and exit the program with status code 0.
    * Checked independently to avoid required args for the command causing parsing issues.
@@ -262,15 +399,19 @@ public class Main {
   ) throws ParseException  {
     for(final var opt : args) {
       if (opt.equals("-h") || opt.equals("--help")) {
-        subCommandOptions.addOption(HELP_OPTION);
-        new HelpFormatter().printHelp(
-            "stateless-aerie " + subcommand,
-            subcommandDescription,
-            subCommandOptions,
-            FOOTER,
-            true);
+        printHelp(subCommandOptions, subcommand, subcommandDescription);
         System.exit(0);
       }
     }
+  }
+
+  private static void printHelp(Options subCommandOptions, String subcommand, String subcommandDescription) {
+    subCommandOptions.addOption(HELP_OPTION);
+    new HelpFormatter().printHelp(
+        "stateless-aerie " + subcommand,
+        subcommandDescription,
+        subCommandOptions,
+        FOOTER,
+        true);
   }
 }

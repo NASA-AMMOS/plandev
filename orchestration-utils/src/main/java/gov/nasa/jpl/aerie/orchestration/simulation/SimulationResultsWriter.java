@@ -12,6 +12,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 
 import javax.json.Json;
+import javax.json.JsonArray;
 import javax.json.JsonObject;
 import javax.json.JsonReader;
 import javax.json.JsonValue;
@@ -47,7 +48,7 @@ public class SimulationResultsWriter {
   private final static Map<String,String> config = Map.of(JsonGenerator.PRETTY_PRINTING, "");
 
   private final RecursiveTask<JsonObject> profilesTask;
-  private final RecursiveTask<JsonObject> eventsTask;
+  private final RecursiveTask<JsonArray> eventsTask;
   private final RecursiveTask<JsonObject> spansTask;
   private final RecursiveTask<JsonObject> simConfigTask;
 
@@ -76,7 +77,7 @@ public class SimulationResultsWriter {
     };
     this.eventsTask = new RecursiveTask<>() {
       @Override
-      protected JsonObject compute() {
+      protected JsonArray compute() {
         return buildEvents(results.events,results.topics);
       }
     };
@@ -111,7 +112,7 @@ public class SimulationResultsWriter {
     };
     this.eventsTask = new RecursiveTask<>() {
       @Override
-      protected JsonObject compute() {
+      protected JsonArray compute() {
         return buildEvents(results.events,results.topics);
       }
     };
@@ -452,7 +453,7 @@ public class SimulationResultsWriter {
   }
 
   /** Build up a JSON Object containing the simulation events. */
-  private JsonObject buildEvents(final Map<Duration, List<EventGraph<EventRecord>>> events, final List<Triple<Integer, String, ValueSchema>> topics ) {
+  private JsonArray buildEvents(final Map<Duration, List<EventGraph<EventRecord>>> events, final List<Triple<Integer, String, ValueSchema>> topics ) {
     final var eventArrayBuilder = Json.createArrayBuilder();
 
     for (final var eventPoint : events.entrySet()) {
@@ -487,9 +488,7 @@ public class SimulationResultsWriter {
       }
     }
 
-    return Json.createObjectBuilder()
-               .add("event",eventArrayBuilder.build())
-               .build();
+    return eventArrayBuilder.build();
   }
 
   /** Build up a JSON Object containing the simulation configuration. */
@@ -571,16 +570,18 @@ spans: {
   ]
 }
 
-events: {
-  causalTime : string,
-  realTime : Timestamp,
-  transactionIndex : int,
-  value : {},
-  topic: {
-    name : string
-    valueSchema : {}
+events: [
+  {
+    causalTime : string,
+    realTime : Timestamp,
+    transactionIndex : int,
+    value : {},
+    topic: {
+      name : string
+      valueSchema : {}
+    }
+    spanId: int,
   }
-  spanId: int,
-}
+]
 }
  */

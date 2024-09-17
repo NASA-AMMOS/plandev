@@ -1,909 +1,907 @@
 {
-    "version": 1.0,
-    "simulationStartTime": "2024-183T00:00:00",
-    "simulationEndTime": "2024-184T00:00:00",
-    "canceled": false,
-    "simulationConfiguration": {
-        "startTime": "2024-183T00:00:00",
-        "endTime": "2024-184T00:00:00",
-        "arguments": {
-        }
-    },
-    "profiles": {
-        "realProfiles": [
-            {
-                "name": "/utcClock",
-                "schema": {
-                    "type": "struct",
-                    "items": {
-                        "rate": {
-                            "type": "real"
-                        },
-                        "initial": {
-                            "type": "real"
-                        }
-                    }
-                },
-                "segments": [
-                    {
-                        "extent": "+24:00:00.000000",
-                        "dynamics": {
-                            "initial": 0.0,
-                            "rate": 1000.0
-                        }
-                    }
-                ]
-            },
-            {
-                "name": "/simple_data/b/volume",
-                "schema": {
-                    "type": "struct",
-                    "items": {
-                        "rate": {
-                            "type": "real"
-                        },
-                        "initial": {
-                            "type": "real"
-                        }
-                    }
-                },
-                "segments": [
-                    {
-                        "extent": "+24:00:00.000000",
-                        "dynamics": {
-                            "initial": 0.0,
-                            "rate": 5.0
-                        }
-                    }
-                ]
-            },
-            {
-                "name": "/simple_data/a/volume",
-                "schema": {
-                    "type": "struct",
-                    "items": {
-                        "rate": {
-                            "type": "real"
-                        },
-                        "initial": {
-                            "type": "real"
-                        }
-                    }
-                },
-                "segments": [
-                    {
-                        "extent": "+24:00:00.000000",
-                        "dynamics": {
-                            "initial": 0.0,
-                            "rate": 10.0
-                        }
-                    }
-                ]
-            },
-            {
-                "name": "/sink/rate",
-                "schema": {
-                    "type": "struct",
-                    "items": {
-                        "rate": {
-                            "type": "real"
-                        },
-                        "initial": {
-                            "type": "real"
-                        }
-                    }
-                },
-                "segments": [
-                    {
-                        "extent": "+24:00:00.000000",
-                        "dynamics": {
-                            "initial": 0.5,
-                            "rate": 0.0
-                        }
-                    }
-                ]
-            },
-            {
-                "name": "/source/rate",
-                "schema": {
-                    "type": "struct",
-                    "items": {
-                        "rate": {
-                            "type": "real"
-                        },
-                        "initial": {
-                            "type": "real"
-                        }
-                    }
-                },
-                "segments": [
-                    {
-                        "extent": "+24:00:00.000000",
-                        "dynamics": {
-                            "initial": 1.0,
-                            "rate": 0.0
-                        }
-                    }
-                ]
-            },
-            {
-                "name": "/sink",
-                "schema": {
-                    "type": "struct",
-                    "items": {
-                        "rate": {
-                            "type": "real"
-                        },
-                        "initial": {
-                            "type": "real"
-                        }
-                    }
-                },
-                "segments": [
-                    {
-                        "extent": "+24:00:00.000000",
-                        "dynamics": {
-                            "initial": 0.0,
-                            "rate": 0.5
-                        }
-                    }
-                ]
-            },
-            {
-                "name": "/simple_data/a/rate",
-                "schema": {
-                    "type": "struct",
-                    "items": {
-                        "rate": {
-                            "type": "real"
-                        },
-                        "initial": {
-                            "type": "real"
-                        }
-                    }
-                },
-                "segments": [
-                    {
-                        "extent": "+24:00:00.000000",
-                        "dynamics": {
-                            "initial": 10.0,
-                            "rate": 0.0
-                        }
-                    }
-                ]
-            },
-            {
-                "name": "/batterySoC",
-                "schema": {
-                    "type": "struct",
-                    "items": {
-                        "rate": {
-                            "type": "real"
-                        },
-                        "initial": {
-                            "type": "real"
-                        }
-                    }
-                },
-                "segments": [
-                    {
-                        "extent": "+24:00:00.000000",
-                        "dynamics": {
-                            "initial": 100.0,
-                            "rate": 0.5
-                        }
-                    }
-                ]
-            },
-            {
-                "name": "/simple_data/b/rate",
-                "schema": {
-                    "type": "struct",
-                    "items": {
-                        "rate": {
-                            "type": "real"
-                        },
-                        "initial": {
-                            "type": "real"
-                        }
-                    }
-                },
-                "segments": [
-                    {
-                        "extent": "+24:00:00.000000",
-                        "dynamics": {
-                            "initial": 5.0,
-                            "rate": 0.0
-                        }
-                    }
-                ]
-            },
-            {
-                "name": "/data/rate",
-                "schema": {
-                    "type": "struct",
-                    "items": {
-                        "rate": {
-                            "type": "real"
-                        },
-                        "initial": {
-                            "type": "real"
-                        }
-                    }
-                },
-                "segments": [
-                    {
-                        "extent": "+24:00:00.000000",
-                        "dynamics": {
-                            "initial": 42.0,
-                            "rate": 0.0
-                        }
-                    }
-                ]
-            },
-            {
-                "name": "/data",
-                "schema": {
-                    "type": "struct",
-                    "items": {
-                        "rate": {
-                            "type": "real"
-                        },
-                        "initial": {
-                            "type": "real"
-                        }
-                    }
-                },
-                "segments": [
-                    {
-                        "extent": "+24:00:00.000000",
-                        "dynamics": {
-                            "initial": 0.0,
-                            "rate": 42.0
-                        }
-                    }
-                ]
-            },
-            {
-                "name": "/simple_data/total_volume",
-                "schema": {
-                    "type": "struct",
-                    "items": {
-                        "rate": {
-                            "type": "real"
-                        },
-                        "initial": {
-                            "type": "real"
-                        }
-                    }
-                },
-                "segments": [
-                    {
-                        "extent": "+24:00:00.000000",
-                        "dynamics": {
-                            "initial": 0.0,
-                            "rate": 15.0
-                        }
-                    }
-                ]
-            },
-            {
-                "name": "/source",
-                "schema": {
-                    "type": "struct",
-                    "items": {
-                        "rate": {
-                            "type": "real"
-                        },
-                        "initial": {
-                            "type": "real"
-                        }
-                    }
-                },
-                "segments": [
-                    {
-                        "extent": "+24:00:00.000000",
-                        "dynamics": {
-                            "initial": 100.0,
-                            "rate": 1.0
-                        }
-                    }
-                ]
-            }
-        ],
-        "discreteProfiles": [
-            {
-                "name": "/foo",
-                "schema": {
-                    "type": "real"
-                },
-                "segments": [
-                    {
-                        "extent": "+24:00:00.000000",
-                        "dynamics": 21.0
-                    }
-                ]
-            },
-            {
-                "name": "/foo/conflicted",
-                "schema": {
-                    "type": "boolean"
-                },
-                "segments": [
-                    {
-                        "extent": "+24:00:00.000000",
-                        "dynamics": false
-                    }
-                ]
-            },
-            {
-                "name": "/counter",
-                "schema": {
-                    "type": "int"
-                },
-                "segments": [
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 0
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 1
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 2
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 3
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 4
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 5
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 6
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 7
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 8
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 9
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 10
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 11
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 12
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 13
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 14
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 15
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 16
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 17
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 18
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 19
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 20
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 21
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 22
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 23
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 24
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 25
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 26
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 27
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 28
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 29
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 30
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 31
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 32
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 33
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 34
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 35
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 36
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 37
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 38
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 39
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 40
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 41
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 42
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 43
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 44
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 45
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 46
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 47
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 48
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 49
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 50
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 51
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 52
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 53
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 54
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 55
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 56
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 57
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 58
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 59
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 60
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 61
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 62
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 63
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 64
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 65
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 66
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 67
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 68
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 69
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 70
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 71
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 72
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 73
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 74
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 75
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 76
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 77
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 78
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 79
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 80
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 81
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 82
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 83
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 84
-                    },
-                    {
-                        "extent": "+00:16:40.000000",
-                        "dynamics": 85
-                    },
-                    {
-                        "extent": "+00:06:40.000000",
-                        "dynamics": 86
-                    }
-                ]
-            },
-            {
-                "name": "/activitiesExecuted",
-                "schema": {
-                    "type": "int"
-                },
-                "segments": [
-                    {
-                        "extent": "+02:27:17.059000",
-                        "dynamics": 0
-                    },
-                    {
-                        "extent": "+21:32:42.941000",
-                        "dynamics": 1
-                    }
-                ]
-            },
-            {
-                "name": "/foo/starting_after_unix_epoch",
-                "schema": {
-                    "type": "boolean"
-                },
-                "segments": [
-                    {
-                        "extent": "+24:00:00.000000",
-                        "dynamics": true
-                    }
-                ]
-            }
-        ]
-    },
-    "spans": {
-        "simulatedActivities": [
-            {
-                "id": 1,
-                "directiveId": null,
-                "parentId": 5,
-                "childIds": [
-                ],
-                "type": "DaemonCheckerActivity",
-                "startOffset": "+11:40:55.219000",
-                "duration": "+00:00:00.000000",
-                "attributes": {
-                },
-                "arguments": {
-                    "minutesElapsed": 700
-                },
-                "startTime": "2024-07-01T11:40:55.219Z",
-                "endTime": "2024-07-01T11:40:55.219Z"
-            },
-            {
-                "id": 4,
-                "directiveId": 4,
-                "parentId": null,
-                "childIds": [
-                ],
-                "type": "BasicFooActivity",
-                "startOffset": "+02:27:15.059000",
-                "duration": "+00:00:02.000000",
-                "attributes": {
-                },
-                "arguments": {
-                    "duration": {
-                        "amountInMicroseconds": 2000000
-                    }
-                },
-                "startTime": "2024-07-01T02:27:15.059Z",
-                "endTime": "2024-07-01T02:27:17.059Z"
-            },
-            {
-                "id": 5,
-                "directiveId": 5,
-                "parentId": null,
-                "childIds": [
-                    1
-                ],
-                "type": "DaemonCheckerSpawner",
-                "startOffset": "+11:39:55.219000",
-                "duration": "+00:01:00.000000",
-                "attributes": {
-                },
-                "arguments": {
-                    "minutesElapsed": 700,
-                    "spawnDelay": 1
-                },
-                "startTime": "2024-07-01T11:39:55.219Z",
-                "endTime": "2024-07-01T11:40:55.219Z"
-            }
-        ],
-        "unfinishedActivities": [
-        ]
-    },
-    "events": {
-        "event": [
-            {
-                "causalTime": ".1",
-                "realTime": "+02:27:15.059000",
-                "transactionIndex": 0,
-                "value": {
-                    "duration": {
-                        "amountInMicroseconds": 2000000
-                    }
-                },
-                "topic": {
-                    "name": "ActivityType.Input.BasicFooActivity",
-                    "valueSchema": {
-                        "type": "struct",
-                        "items": {
-                            "duration": {
-                                "type": "struct",
-                                "items": {
-                                    "amountInMicroseconds": {
-                                        "type": "int"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "spanId": 4
-            },
-            {
-                "causalTime": ".1",
-                "realTime": "+02:27:17.059000",
-                "transactionIndex": 0,
-                "value": {
-                },
-                "topic": {
-                    "name": "ActivityType.Output.BasicFooActivity",
-                    "valueSchema": {
-                        "type": "struct",
-                        "items": {
-                        }
-                    }
-                },
-                "spanId": 4
-            },
-            {
-                "causalTime": ".1",
-                "realTime": "+11:39:55.219000",
-                "transactionIndex": 0,
-                "value": {
-                    "minutesElapsed": 700,
-                    "spawnDelay": 1
-                },
-                "topic": {
-                    "name": "ActivityType.Input.DaemonCheckerSpawner",
-                    "valueSchema": {
-                        "type": "struct",
-                        "items": {
-                            "minutesElapsed": {
-                                "type": "int"
-                            },
-                            "spawnDelay": {
-                                "type": "int"
-                            }
-                        }
-                    }
-                },
-                "spanId": 5
-            },
-            {
-                "causalTime": ".1",
-                "realTime": "+11:40:55.219000",
-                "transactionIndex": 0,
-                "value": {
-                    "minutesElapsed": 700
-                },
-                "topic": {
-                    "name": "ActivityType.Input.DaemonCheckerActivity",
-                    "valueSchema": {
-                        "type": "struct",
-                        "items": {
-                            "minutesElapsed": {
-                                "type": "int"
-                            }
-                        }
-                    }
-                },
-                "spanId": 1
-            },
-            {
-                "causalTime": ".2",
-                "realTime": "+11:40:55.219000",
-                "transactionIndex": 0,
-                "value": {
-                },
-                "topic": {
-                    "name": "ActivityType.Output.DaemonCheckerActivity",
-                    "valueSchema": {
-                        "type": "struct",
-                        "items": {
-                        }
-                    }
-                },
-                "spanId": 1
-            },
-            {
-                "causalTime": ".1",
-                "realTime": "+11:40:55.219000",
-                "transactionIndex": 1,
-                "value": {
-                },
-                "topic": {
-                    "name": "ActivityType.Output.DaemonCheckerSpawner",
-                    "valueSchema": {
-                        "type": "struct",
-                        "items": {
-                        }
-                    }
-                },
-                "spanId": 5
-            }
-        ]
+  "version": 1.0,
+  "simulationStartTime": "2024-183T00:00:00",
+  "simulationEndTime": "2024-184T00:00:00",
+  "canceled": false,
+  "simulationConfiguration": {
+    "startTime": "2024-183T00:00:00",
+    "endTime": "2024-184T00:00:00",
+    "arguments": {
     }
+  },
+  "profiles": {
+    "realProfiles": [
+      {
+        "name": "/utcClock",
+        "schema": {
+          "type": "struct",
+          "items": {
+            "rate": {
+              "type": "real"
+            },
+            "initial": {
+              "type": "real"
+            }
+          }
+        },
+        "segments": [
+          {
+            "extent": "+24:00:00.000000",
+            "dynamics": {
+              "initial": 0.0,
+              "rate": 1000.0
+            }
+          }
+        ]
+      },
+      {
+        "name": "/simple_data/b/volume",
+        "schema": {
+          "type": "struct",
+          "items": {
+            "rate": {
+              "type": "real"
+            },
+            "initial": {
+              "type": "real"
+            }
+          }
+        },
+        "segments": [
+          {
+            "extent": "+24:00:00.000000",
+            "dynamics": {
+              "initial": 0.0,
+              "rate": 5.0
+            }
+          }
+        ]
+      },
+      {
+        "name": "/simple_data/a/volume",
+        "schema": {
+          "type": "struct",
+          "items": {
+            "rate": {
+              "type": "real"
+            },
+            "initial": {
+              "type": "real"
+            }
+          }
+        },
+        "segments": [
+          {
+            "extent": "+24:00:00.000000",
+            "dynamics": {
+              "initial": 0.0,
+              "rate": 10.0
+            }
+          }
+        ]
+      },
+      {
+        "name": "/sink/rate",
+        "schema": {
+          "type": "struct",
+          "items": {
+            "rate": {
+              "type": "real"
+            },
+            "initial": {
+              "type": "real"
+            }
+          }
+        },
+        "segments": [
+          {
+            "extent": "+24:00:00.000000",
+            "dynamics": {
+              "initial": 0.5,
+              "rate": 0.0
+            }
+          }
+        ]
+      },
+      {
+        "name": "/source/rate",
+        "schema": {
+          "type": "struct",
+          "items": {
+            "rate": {
+              "type": "real"
+            },
+            "initial": {
+              "type": "real"
+            }
+          }
+        },
+        "segments": [
+          {
+            "extent": "+24:00:00.000000",
+            "dynamics": {
+              "initial": 1.0,
+              "rate": 0.0
+            }
+          }
+        ]
+      },
+      {
+        "name": "/sink",
+        "schema": {
+          "type": "struct",
+          "items": {
+            "rate": {
+              "type": "real"
+            },
+            "initial": {
+              "type": "real"
+            }
+          }
+        },
+        "segments": [
+          {
+            "extent": "+24:00:00.000000",
+            "dynamics": {
+              "initial": 0.0,
+              "rate": 0.5
+            }
+          }
+        ]
+      },
+      {
+        "name": "/simple_data/a/rate",
+        "schema": {
+          "type": "struct",
+          "items": {
+            "rate": {
+              "type": "real"
+            },
+            "initial": {
+              "type": "real"
+            }
+          }
+        },
+        "segments": [
+          {
+            "extent": "+24:00:00.000000",
+            "dynamics": {
+              "initial": 10.0,
+              "rate": 0.0
+            }
+          }
+        ]
+      },
+      {
+        "name": "/batterySoC",
+        "schema": {
+          "type": "struct",
+          "items": {
+            "rate": {
+              "type": "real"
+            },
+            "initial": {
+              "type": "real"
+            }
+          }
+        },
+        "segments": [
+          {
+            "extent": "+24:00:00.000000",
+            "dynamics": {
+              "initial": 100.0,
+              "rate": 0.5
+            }
+          }
+        ]
+      },
+      {
+        "name": "/simple_data/b/rate",
+        "schema": {
+          "type": "struct",
+          "items": {
+            "rate": {
+              "type": "real"
+            },
+            "initial": {
+              "type": "real"
+            }
+          }
+        },
+        "segments": [
+          {
+            "extent": "+24:00:00.000000",
+            "dynamics": {
+              "initial": 5.0,
+              "rate": 0.0
+            }
+          }
+        ]
+      },
+      {
+        "name": "/data/rate",
+        "schema": {
+          "type": "struct",
+          "items": {
+            "rate": {
+              "type": "real"
+            },
+            "initial": {
+              "type": "real"
+            }
+          }
+        },
+        "segments": [
+          {
+            "extent": "+24:00:00.000000",
+            "dynamics": {
+              "initial": 42.0,
+              "rate": 0.0
+            }
+          }
+        ]
+      },
+      {
+        "name": "/data",
+        "schema": {
+          "type": "struct",
+          "items": {
+            "rate": {
+              "type": "real"
+            },
+            "initial": {
+              "type": "real"
+            }
+          }
+        },
+        "segments": [
+          {
+            "extent": "+24:00:00.000000",
+            "dynamics": {
+              "initial": 0.0,
+              "rate": 42.0
+            }
+          }
+        ]
+      },
+      {
+        "name": "/simple_data/total_volume",
+        "schema": {
+          "type": "struct",
+          "items": {
+            "rate": {
+              "type": "real"
+            },
+            "initial": {
+              "type": "real"
+            }
+          }
+        },
+        "segments": [
+          {
+            "extent": "+24:00:00.000000",
+            "dynamics": {
+              "initial": 0.0,
+              "rate": 15.0
+            }
+          }
+        ]
+      },
+      {
+        "name": "/source",
+        "schema": {
+          "type": "struct",
+          "items": {
+            "rate": {
+              "type": "real"
+            },
+            "initial": {
+              "type": "real"
+            }
+          }
+        },
+        "segments": [
+          {
+            "extent": "+24:00:00.000000",
+            "dynamics": {
+              "initial": 100.0,
+              "rate": 1.0
+            }
+          }
+        ]
+      }
+    ],
+    "discreteProfiles": [
+      {
+        "name": "/foo",
+        "schema": {
+          "type": "real"
+        },
+        "segments": [
+          {
+            "extent": "+24:00:00.000000",
+            "dynamics": 21.0
+          }
+        ]
+      },
+      {
+        "name": "/foo/conflicted",
+        "schema": {
+          "type": "boolean"
+        },
+        "segments": [
+          {
+            "extent": "+24:00:00.000000",
+            "dynamics": false
+          }
+        ]
+      },
+      {
+        "name": "/counter",
+        "schema": {
+          "type": "int"
+        },
+        "segments": [
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 0
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 1
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 2
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 3
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 4
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 5
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 6
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 7
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 8
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 9
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 10
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 11
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 12
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 13
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 14
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 15
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 16
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 17
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 18
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 19
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 20
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 21
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 22
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 23
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 24
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 25
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 26
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 27
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 28
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 29
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 30
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 31
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 32
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 33
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 34
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 35
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 36
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 37
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 38
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 39
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 40
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 41
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 42
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 43
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 44
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 45
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 46
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 47
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 48
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 49
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 50
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 51
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 52
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 53
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 54
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 55
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 56
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 57
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 58
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 59
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 60
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 61
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 62
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 63
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 64
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 65
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 66
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 67
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 68
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 69
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 70
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 71
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 72
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 73
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 74
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 75
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 76
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 77
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 78
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 79
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 80
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 81
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 82
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 83
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 84
+          },
+          {
+            "extent": "+00:16:40.000000",
+            "dynamics": 85
+          },
+          {
+            "extent": "+00:06:40.000000",
+            "dynamics": 86
+          }
+        ]
+      },
+      {
+        "name": "/activitiesExecuted",
+        "schema": {
+          "type": "int"
+        },
+        "segments": [
+          {
+            "extent": "+02:27:17.059000",
+            "dynamics": 0
+          },
+          {
+            "extent": "+21:32:42.941000",
+            "dynamics": 1
+          }
+        ]
+      },
+      {
+        "name": "/foo/starting_after_unix_epoch",
+        "schema": {
+          "type": "boolean"
+        },
+        "segments": [
+          {
+            "extent": "+24:00:00.000000",
+            "dynamics": true
+          }
+        ]
+      }
+    ]
+  },
+  "spans": {
+    "simulatedActivities": [
+      {
+        "id": 1,
+        "directiveId": null,
+        "parentId": 5,
+        "childIds": [
+        ],
+        "type": "DaemonCheckerActivity",
+        "startOffset": "+11:40:55.219000",
+        "duration": "+00:00:00.000000",
+        "attributes": {
+        },
+        "arguments": {
+          "minutesElapsed": 700
+        },
+        "startTime": "2024-07-01T11:40:55.219Z",
+        "endTime": "2024-07-01T11:40:55.219Z"
+      },
+      {
+        "id": 4,
+        "directiveId": 4,
+        "parentId": null,
+        "childIds": [
+        ],
+        "type": "BasicFooActivity",
+        "startOffset": "+02:27:15.059000",
+        "duration": "+00:00:02.000000",
+        "attributes": {
+        },
+        "arguments": {
+          "duration": {
+            "amountInMicroseconds": 2000000
+          }
+        },
+        "startTime": "2024-07-01T02:27:15.059Z",
+        "endTime": "2024-07-01T02:27:17.059Z"
+      },
+      {
+        "id": 5,
+        "directiveId": 5,
+        "parentId": null,
+        "childIds": [
+          1
+        ],
+        "type": "DaemonCheckerSpawner",
+        "startOffset": "+11:39:55.219000",
+        "duration": "+00:01:00.000000",
+        "attributes": {
+        },
+        "arguments": {
+          "minutesElapsed": 700,
+          "spawnDelay": 1
+        },
+        "startTime": "2024-07-01T11:39:55.219Z",
+        "endTime": "2024-07-01T11:40:55.219Z"
+      }
+    ],
+    "unfinishedActivities": [
+    ]
+  },
+  "events": [
+    {
+      "causalTime": ".1",
+      "realTime": "+02:27:15.059000",
+      "transactionIndex": 0,
+      "value": {
+        "duration": {
+          "amountInMicroseconds": 2000000
+        }
+      },
+      "topic": {
+        "name": "ActivityType.Input.BasicFooActivity",
+        "valueSchema": {
+          "type": "struct",
+          "items": {
+            "duration": {
+              "type": "struct",
+              "items": {
+                "amountInMicroseconds": {
+                  "type": "int"
+                }
+              }
+            }
+          }
+        }
+      },
+      "spanId": 4
+    },
+    {
+      "causalTime": ".1",
+      "realTime": "+02:27:17.059000",
+      "transactionIndex": 0,
+      "value": {
+      },
+      "topic": {
+        "name": "ActivityType.Output.BasicFooActivity",
+        "valueSchema": {
+          "type": "struct",
+          "items": {
+          }
+        }
+      },
+      "spanId": 4
+    },
+    {
+      "causalTime": ".1",
+      "realTime": "+11:39:55.219000",
+      "transactionIndex": 0,
+      "value": {
+        "minutesElapsed": 700,
+        "spawnDelay": 1
+      },
+      "topic": {
+        "name": "ActivityType.Input.DaemonCheckerSpawner",
+        "valueSchema": {
+          "type": "struct",
+          "items": {
+            "minutesElapsed": {
+              "type": "int"
+            },
+            "spawnDelay": {
+              "type": "int"
+            }
+          }
+        }
+      },
+      "spanId": 5
+    },
+    {
+      "causalTime": ".1",
+      "realTime": "+11:40:55.219000",
+      "transactionIndex": 0,
+      "value": {
+        "minutesElapsed": 700
+      },
+      "topic": {
+        "name": "ActivityType.Input.DaemonCheckerActivity",
+        "valueSchema": {
+          "type": "struct",
+          "items": {
+            "minutesElapsed": {
+              "type": "int"
+            }
+          }
+        }
+      },
+      "spanId": 1
+    },
+    {
+      "causalTime": ".2",
+      "realTime": "+11:40:55.219000",
+      "transactionIndex": 0,
+      "value": {
+      },
+      "topic": {
+        "name": "ActivityType.Output.DaemonCheckerActivity",
+        "valueSchema": {
+          "type": "struct",
+          "items": {
+          }
+        }
+      },
+      "spanId": 1
+    },
+    {
+      "causalTime": ".1",
+      "realTime": "+11:40:55.219000",
+      "transactionIndex": 1,
+      "value": {
+      },
+      "topic": {
+        "name": "ActivityType.Output.DaemonCheckerSpawner",
+        "valueSchema": {
+          "type": "struct",
+          "items": {
+          }
+        }
+      },
+      "spanId": 5
+    }
+  ]
 }

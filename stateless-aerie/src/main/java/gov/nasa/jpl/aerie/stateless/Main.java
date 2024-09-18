@@ -332,8 +332,6 @@ public class Main {
     planPath.setRequired(true);
     planPath.setConverter(Path::of);
 
-    // TODO: REMOVE THIS COMMENT
-    //[{goaljar: file.jar, order: 1, params: {}, simulateAfter: bool}]
     final Option goalSpecPath = new Option("g", "goals", true, "path to goal specification json");
     goalSpecPath.setRequired(true);
     goalSpecPath.setConverter(Path::of);

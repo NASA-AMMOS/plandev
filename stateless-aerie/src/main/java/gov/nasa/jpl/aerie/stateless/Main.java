@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.stateless;
 
+import gov.nasa.jpl.aerie.orchestration.ModelUtility;
 import gov.nasa.jpl.aerie.orchestration.simulation.CanceledListener;
 import gov.nasa.jpl.aerie.orchestration.PlanJsonParser;
 import gov.nasa.jpl.aerie.orchestration.simulation.ResourceFileStreamer;
@@ -115,7 +116,7 @@ public class Main {
     // Load the mission model
     try {
       if (verbose) { System.out.println("Loading mission model "+modelJarPath+"..."); }
-      final var model = SimulationUtility.instantiateMissionModel(
+      final var model = ModelUtility.instantiateMissionModel(
           modelJarPath,
           plan.simulationStartTimestamp.toInstant(),
           plan.simulationConfiguration()

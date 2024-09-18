@@ -4,6 +4,7 @@ import gov.nasa.jpl.aerie.banananation.generated.GeneratedModelType;
 import gov.nasa.jpl.aerie.merlin.driver.*;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.jpl.aerie.orchestration.ModelUtility;
 import gov.nasa.jpl.aerie.types.ActivityDirective;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.Plan;
@@ -24,7 +25,7 @@ public final class SimulationUtility {
     final var dataPath = Path.of(SimulationUtility.class.getResource("data/lorem_ipsum.txt").getPath());
     final var config = new Configuration(Configuration.DEFAULT_PLANT_COUNT, Configuration.DEFAULT_PRODUCER, dataPath, Configuration.DEFAULT_INITIAL_CONDITIONS);
     final var startTime = Instant.now();
-    final var missionModel = gov.nasa.jpl.aerie.orchestration.simulation.SimulationUtility.instantiateMissionModel(
+    final var missionModel = ModelUtility.instantiateMissionModel(
         new GeneratedModelType(),
         Instant.EPOCH,
         config);

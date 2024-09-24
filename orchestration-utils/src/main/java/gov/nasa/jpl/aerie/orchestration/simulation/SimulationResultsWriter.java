@@ -49,6 +49,7 @@ public class SimulationResultsWriter {
 
   private final RecursiveTask<JsonObject> profilesTask;
   private final RecursiveTask<JsonArray> eventsTask;
+  private final RecursiveTask<JsonObject> topicsTask;
   private final RecursiveTask<JsonObject> spansTask;
   private final RecursiveTask<JsonObject> simConfigTask;
 
@@ -79,6 +80,12 @@ public class SimulationResultsWriter {
       @Override
       protected JsonArray compute() {
         return buildEvents(results.events,results.topics);
+      }
+    };
+    this.topicsTask = new RecursiveTask<JsonObject>() {
+      @Override
+      protected JsonObject compute() {
+        return buildTopics(results.topics);
       }
     };
     this.spansTask = new RecursiveTask<>() {
@@ -113,13 +120,19 @@ public class SimulationResultsWriter {
     this.eventsTask = new RecursiveTask<>() {
       @Override
       protected JsonArray compute() {
-        return buildEvents(results.events,results.topics);
+        return buildEvents(results.events, results.topics);
+      }
+    };
+    this.topicsTask = new RecursiveTask<JsonObject>() {
+      @Override
+      protected JsonObject compute() {
+        return buildTopics(results.topics);
       }
     };
     this.spansTask = new RecursiveTask<>() {
       @Override
       protected JsonObject compute() {
-        return buildSpans(results.simulatedActivities,results.unfinishedActivities, plan.simulationStartTimestamp);
+        return buildSpans(results.simulatedActivities, results.unfinishedActivities, plan.simulationStartTimestamp);
       }
     };
     this.simConfigTask = new RecursiveTask<>() {
@@ -134,6 +147,7 @@ public class SimulationResultsWriter {
   private void forkSubTasks() {
     profilesTask.fork();
     eventsTask.fork();
+    topicsTask.fork();
     spansTask.fork();
     simConfigTask.fork();
   }
@@ -160,6 +174,9 @@ public class SimulationResultsWriter {
       print(resultsJsonGenerator, stringWriter);
 
       resultsJsonGenerator.write("spans", spansTask.join());
+      print(resultsJsonGenerator, stringWriter);
+
+      resultsJsonGenerator.write("topics", topicsTask.join());
       print(resultsJsonGenerator, stringWriter);
 
       resultsJsonGenerator.write("events", eventsTask.join());
@@ -193,6 +210,9 @@ public class SimulationResultsWriter {
       printFile(resultsJsonGenerator, stringWriter, fileWriter);
 
       resultsJsonGenerator.write("spans", spansTask.join());
+      printFile(resultsJsonGenerator, stringWriter, fileWriter);
+
+      resultsJsonGenerator.write("topics", topicsTask.join());
       printFile(resultsJsonGenerator, stringWriter, fileWriter);
 
       resultsJsonGenerator.write("events", eventsTask.join());
@@ -452,7 +472,7 @@ public class SimulationResultsWriter {
                .build();
   }
 
-  /** Build up a JSON Object containing the simulation events. */
+  /** Build up a JSON Array containing the simulation events. */
   private JsonArray buildEvents(final Map<Duration, List<EventGraph<EventRecord>>> events, final List<Triple<Integer, String, ValueSchema>> topics ) {
     final var eventArrayBuilder = Json.createArrayBuilder();
 
@@ -476,9 +496,7 @@ public class SimulationResultsWriter {
           topics.stream()
                 .filter(topic -> topic.getLeft() == event.topicId())
                 .findFirst()
-                .ifPresent(topic -> eventBuilder.add("topic", Json.createObjectBuilder()
-                                                                  .add("name",topic.getMiddle())
-                                                                  .add("valueSchema", valueSchemaP.unparse(topic.getRight()))));
+                .ifPresent(topic -> eventBuilder.add("topic", topic.getMiddle()));
 
           // optional span id
           event.spanId().ifPresentOrElse(spanId -> eventBuilder.add("spanId", spanId),
@@ -489,6 +507,16 @@ public class SimulationResultsWriter {
     }
 
     return eventArrayBuilder.build();
+  }
+
+  /** Build up a JSON Object containing the simulation topics. */
+  private JsonObject buildTopics(List<Triple<Integer, String, ValueSchema>> topics) {
+    final var topicBuilder = Json.createObjectBuilder();
+    topics.forEach(t -> topicBuilder.add(
+        t.getMiddle(),
+        Json.createObjectBuilder()
+            .add("schema", valueSchemaP.unparse(t.getRight()))));
+    return topicBuilder.build();
   }
 
   /** Build up a JSON Object containing the simulation configuration. */
@@ -570,16 +598,20 @@ spans: {
   ]
 }
 
+topics: [
+  "ActivityType.Output.DaemonCheckerSpawner": { //topic name
+      schema: ValueSchema
+  ]
+},
+
+
 events: [
   {
     causalTime : string,
     realTime : Timestamp,
     transactionIndex : int,
     value : {},
-    topic: {
-      name : string
-      valueSchema : {}
-    }
+    topic: string
     spanId: int,
   }
 ]

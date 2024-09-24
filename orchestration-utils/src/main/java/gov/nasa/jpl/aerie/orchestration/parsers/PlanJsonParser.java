@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.orchestration;
+package gov.nasa.jpl.aerie.orchestration.parsers;
 
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 

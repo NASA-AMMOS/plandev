@@ -1,8 +1,13 @@
 package gov.nasa.jpl.aerie.stateless;
 
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
+import gov.nasa.jpl.aerie.merlin.protocol.model.SchedulerModel;
+import gov.nasa.jpl.aerie.orchestration.parsers.GoalSpecificationParser;
 import gov.nasa.jpl.aerie.orchestration.ModelUtility;
+import gov.nasa.jpl.aerie.orchestration.parsers.SimulationResultsParser;
+import gov.nasa.jpl.aerie.orchestration.scheduling.SchedulingUtility;
 import gov.nasa.jpl.aerie.orchestration.simulation.CanceledListener;
-import gov.nasa.jpl.aerie.orchestration.PlanJsonParser;
+import gov.nasa.jpl.aerie.orchestration.parsers.PlanJsonParser;
 import gov.nasa.jpl.aerie.orchestration.simulation.ResourceFileStreamer;
 import gov.nasa.jpl.aerie.orchestration.simulation.SimulationExtentConsumer;
 import gov.nasa.jpl.aerie.orchestration.simulation.SimulationResultsWriter;
@@ -11,6 +16,7 @@ import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationException;
 
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -29,7 +35,7 @@ public class Main {
   private static final Option HELP_OPTION = new Option("h", "help", false, "display this message and exit");
 
   private sealed interface Arguments {
-    record SimulationArguments <Model> (
+    record SimulationArguments<Model>(
         MissionModel<Model> missionModel,
         Plan plan,
         boolean verbose,
@@ -37,10 +43,12 @@ public class Main {
         long extentUpdatePeriod
     ) implements Arguments {}
 
-    record SchedulingArguments<Model> (
+    record SchedulingArguments<Model>(
         MissionModel<Model> missionModel,
+        SchedulerModel schedulerModel,
         Plan plan,
-        Path goalSpecification, // TODO: update
+        List<GoalSpecificationParser.GoalRecord> goalSpecification,
+        Optional<SimulationResults> initialSimResults,
         Optional<Path> outputPlanPath,
         Optional<Path> outputSimResultsPath,
         Optional<Path> outputGoalSatisfactionPath,
@@ -101,7 +109,7 @@ public class Main {
       printHelp(simulationOptions, "simulate", "Simulate a plan using the specified model and configuration");
       System.exit(2);
       // The below is included as java doesn't recognize System.exit() as stopping the method,
-      // which causes compilation methods when trying to use the values assigned above
+      // which causes compilation issues when trying to use the values assigned above
       throw new RuntimeException(e);
     }
 
@@ -205,8 +213,8 @@ public class Main {
   private static Arguments.SchedulingArguments<?> parseSchedulingArgs(String[] args) {
     final Path modelJarPath;
     final Path planJsonPath;
+    final Path schedulingSpecJsonPath;
     final Optional<Path> simConfigJsonPath;
-    final Optional<Path> schedulingSpecJsonPath;
     final Optional<Path> initialSimResultJsonPath;
 
     final boolean verbose;
@@ -220,7 +228,11 @@ public class Main {
     // Parse the command line arguments
     final Options schedulingOptions = createSchedulingOptions();
     try {
-      checkForHelp(args, schedulingOptions, "schedule", "Schedule a plan using the specified model, configuration, and procedural goal specification");
+      checkForHelp(
+          args,
+          schedulingOptions,
+          "schedule",
+          "Schedule a plan using the specified model, configuration, and procedural goal specification");
 
       final CommandLineParser parser = new DefaultParser();
       final CommandLine cmd = parser.parse(schedulingOptions, args);
@@ -234,6 +246,10 @@ public class Main {
       verbose = cmd.hasOption("verbose");
       simulateAfter = cmd.hasOption("simulate_after");
       maxEngines = cmd.getParsedOptionValue('e', 1);
+      if(maxEngines < 1) {
+        System.err.println("Maximum engines must be greater than 0");
+        System.exit(2);
+      }
 
       outputPlanPath = cmd.getParsedOptionValue("op");
       outputSimResultsPath = cmd.getParsedOptionValue("or");
@@ -242,27 +258,83 @@ public class Main {
 
       // TODO: DEBUG PRINTS
       System.out.println(String.join(", ", args));
-      System.out.println("modelJar "+ modelJarPath);
-      System.out.println("planJson "+ planJsonPath);
-      System.out.println("schedspec "+schedulingSpecJsonPath);
-      System.out.println("simconfig "+simConfigJsonPath);
-      System.out.println("initResults "+initialSimResultJsonPath);
-      System.out.println("outputPlanPath "+outputPlanPath);
-      System.out.println("outputSimResultsPath "+outputSimResultsPath);
-      System.out.println("outputGoalSatisfactionPath "+outputGoalSatisfactionPath);
-      System.out.println("verbose "+verbose);
-      System.out.println("simulateAfter "+simulateAfter);
-      System.out.println("maxEngines "+maxEngines);
-
+      System.out.println("modelJar " + modelJarPath);
+      System.out.println("planJson " + planJsonPath);
+      System.out.println("schedspec " + schedulingSpecJsonPath);
+      System.out.println("simconfig " + simConfigJsonPath);
+      System.out.println("initResults " + initialSimResultJsonPath);
+      System.out.println("outputPlanPath " + outputPlanPath);
+      System.out.println("outputSimResultsPath " + outputSimResultsPath);
+      System.out.println("outputGoalSatisfactionPath " + outputGoalSatisfactionPath);
+      System.out.println("verbose " + verbose);
+      System.out.println("simulateAfter " + simulateAfter);
+      System.out.println("maxEngines " + maxEngines);
     } catch (ParseException e) {
-      printHelp(schedulingOptions, "schedule", "Schedule a plan using the specified model, configuration, and procedural goal specification");
+      printHelp(
+          schedulingOptions,
+          "schedule",
+          "Schedule a plan using the specified model, configuration, and procedural goal specification");
       System.exit(2);
+      // The below is included as java doesn't recognize System.exit() as stopping the method,
+      // which causes compilation issues when trying to use the values assigned above
+      throw new RuntimeException(e);
     }
 
-    return null;
+    if (verbose) { System.out.println("Parsing scheduling specification "+schedulingSpecJsonPath+"..."); }
+    final var goalSpec = GoalSpecificationParser.parseGoalSpecification(schedulingSpecJsonPath);
+
+    if (verbose) { System.out.println("Parsing plan "+planJsonPath+"..."); }
+    final var plan = PlanJsonParser.parsePlan(planJsonPath);
+    simConfigJsonPath.ifPresent(path -> {
+      if (verbose) {
+        System.out.println("Parsing simulation configuration " + path + "...");
+      }
+      PlanJsonParser.parseSimulationConfiguration(path, plan);
+    });
+
+    final Optional<SimulationResults> initialSimResults = initialSimResultJsonPath.map(path -> {
+       if (verbose) { System.out.println("Parsing initial simulation results "+path+"..."); }
+       return SimulationResultsParser.parseSimulationResults(path);
+    });
+
+    // Load the mission model
+    try {
+      if (verbose) { System.out.println("Loading mission model "+modelJarPath+"..."); }
+      final var model = ModelUtility.instantiateMissionModel(
+          modelJarPath,
+          plan.simulationStartTimestamp.toInstant(),
+          plan.simulationConfiguration()
+      );
+
+      final var schedulerModel = ModelUtility.instantiateSchedulerModel(modelJarPath);
+
+      return new Arguments.SchedulingArguments<>(
+          model,
+          schedulerModel,
+          plan,
+          goalSpec,
+          initialSimResults,
+          outputPlanPath,
+          outputSimResultsPath,
+          outputGoalSatisfactionPath,
+          simulateAfter,
+          verbose,
+          maxEngines
+      );
+    } catch (MissionModelLoader.MissionModelLoadException | MissionModelLoader.MissionModelInstantiationException | ModelUtility.SchedulerModelLoadException e) {
+      throw new RuntimeException("Error while loading mission model: " + modelJarPath, e);
+    }
   }
 
-  private static void schedule(Arguments.SchedulingArguments<?> schedArgs){
+  private static void schedule(Arguments.SchedulingArguments<?> schedArgs) {
+    final var schedulingUtility = new SchedulingUtility(schedArgs.missionModel, schedArgs.schedulerModel, schedArgs.plan);
+
+    try {
+      schedulingUtility.schedule(schedArgs.goalSpecification, new CanceledListener(), schedArgs.initialSimResults);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+
   }
 
   /**

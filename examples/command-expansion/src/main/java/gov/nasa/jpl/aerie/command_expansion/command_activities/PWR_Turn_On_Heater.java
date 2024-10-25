@@ -10,9 +10,8 @@ import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.delay;
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECOND;
 
 @ActivityType("PWR_Turn_On_Heater")
-public class PWR_Turn_On_Heater implements Command {
+public class PWR_Turn_On_Heater extends Command {
     @ActivityType.EffectModel
-    @Override
     public void run(final Mission mission) {
         // Just model the effects
         set(mission.power.heater, PowerModel.HeaterState.ON);

@@ -33,7 +33,7 @@ public class Warm_Up {
         var powerOn = new PWR_Turn_On_Heater();
         var powerOff = new PWR_Turn_Off_Heater();
         return new Sequence(
-                "", // TODO - decide how to assign seqIds. Here is probably not the right place to do that...
+                this.getClass().getSimpleName(),
                 List.of(
                         TimedCommand.absolute(currentValue(mission.clock), powerOn),
                         TimedCommand.relative(Duration.of(5, MINUTES), powerOff)

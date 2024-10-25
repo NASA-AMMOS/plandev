@@ -13,12 +13,11 @@ import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.delay;
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECOND;
 
 @ActivityType("PWR_Turn_Off_Heater")
-public class PWR_Turn_Off_Heater implements Command {
+public class PWR_Turn_Off_Heater extends Command {
     @Export.Parameter
     public SHUTDOWN_STATE state = SHUTDOWN_STATE.STANDBY;
 
     @ActivityType.EffectModel
-    @Override
     public void run(Mission mission) {
         set(mission.power.heater, state == SHUTDOWN_STATE.OFF ? HeaterState.OFF : HeaterState.STANDBY);
         delay(1, SECOND);

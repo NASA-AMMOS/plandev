@@ -41,7 +41,7 @@ public class FcplSequenceEngine {
     private final Resource<Discrete<String>> nextCommandStem;
 
     private final MutableResource<Discrete<Integer>> lastDispatchedCommandIndex;
-    private final Resource<Discrete<Optional<TimedCommand>>> lastDispatchedCommand;
+    private final MutableResource<Discrete<Optional<TimedCommand>>> lastDispatchedCommand;
     private final Resource<Discrete<String>> lastDispatchedCommandStem;
 
     private final MutableResource<Discrete<Integer>> sequenceLoadCounter;
@@ -65,8 +65,8 @@ public class FcplSequenceEngine {
         nextCommandStem = map(nextCommand, $ -> $.map(tc -> tc.command().stem()).orElse(""));
 
         lastDispatchedCommandIndex = discreteResource(-1);
-        lastDispatchedCommand = map(loadedSequence, lastDispatchedCommandIndex, (seq, i) ->
-                seq.map($ -> 0 <= i && i < $.commands().size() ? $.commands().get(i) : null));
+        // This is made Mutable instead of derived so it can persist after the sequence is unloaded.
+        lastDispatchedCommand = discreteResource(Optional.empty());
         lastDispatchedCommandStem = map(lastDispatchedCommand, $ -> $.map(tc -> tc.command().stem()).orElse(""));
 
         sequenceLoadCounter = discreteResource(0);
@@ -119,7 +119,6 @@ public class FcplSequenceEngine {
 
         turnOff(currentCommandComplete);
         increment(sequenceLoadCounter);
-        set(lastDispatchedCommandIndex, -1);
     }
 
     public void load(Sequence sequence) {
@@ -175,6 +174,7 @@ public class FcplSequenceEngine {
                 // Dispatch is done within a spawn to support overlapping commanding
                 timedCommand -> spawn(replaying(() -> {
                     set(lastDispatchedCommandIndex, currentValue(nextCommandIndex));
+                    set(lastDispatchedCommand, Optional.of(timedCommand));
                     // By default, the next command to dispatch is just the command after this one.
                     increment(nextCommandIndex);
                     // Use the command dispatch counter to detect overlapping command execution,
@@ -182,8 +182,9 @@ public class FcplSequenceEngine {
                     increment(commandDispatchCounter);
                     int commandDispatchNumber = currentValue(commandDispatchCounter);
                     set(timeOfLastDispatch, currentTime());
+                    turnOff(currentCommandComplete);
                     // Run the command itself through a call, not a spawn, so we know when it finishes.
-                    timedCommand.command().call(mission);
+                    timedCommand.command().call(mission, this);
                     // Check that we haven't dispatched another command before we set the command complete flag.
                     if (currentValue(commandDispatchCounter) == commandDispatchNumber) {
                         turnOn(currentCommandComplete);
@@ -209,7 +210,8 @@ public class FcplSequenceEngine {
         return loadedSequenceId;
     }
 
-    public Resource<Discrete<Integer>> nextCommandIndex() {
+    // Note - we're intentionally exposing this as Mutable, so commands can influence control flow of the engine.
+    public MutableResource<Discrete<Integer>> nextCommandIndex() {
         return nextCommandIndex;
     }
 

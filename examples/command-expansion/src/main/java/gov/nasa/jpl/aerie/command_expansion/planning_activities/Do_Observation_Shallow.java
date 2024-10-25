@@ -46,7 +46,7 @@ public class Do_Observation_Shallow {
         // but we don't need to actually model at the command level if that's not valuable.
         Instant startTime = currentValue(mission.clock);
         SeqJsonSequence sequence = new SeqJsonSequence(
-                "", // TODO - think about how to assign seq IDs
+                this.getClass().getSimpleName(),
                 List.of(
                         command(
                                 absolute(startTime),

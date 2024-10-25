@@ -8,9 +8,8 @@ import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.delay;
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECOND;
 
 @ActivityType("CMD_NO_OP")
-public class CMD_NO_OP implements Command {
+public class CMD_NO_OP extends Command {
     @ActivityType.EffectModel
-    @Override
     public void run(Mission mission) {
         delay(1, SECOND);
     }

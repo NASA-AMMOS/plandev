@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.command_expansion.model;
 
 import gov.nasa.jpl.aerie.command_expansion.Configuration;
+import gov.nasa.jpl.aerie.command_expansion.model.fsw.GlobalVariables;
 import gov.nasa.jpl.aerie.command_expansion.model.sequencing.SequencingModel;
 import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.Registrar;
@@ -17,6 +18,7 @@ public final class Mission {
 
     public final PowerModel power;
     public final SequencingModel sequencing;
+    public final GlobalVariables globals;
 
     public Mission(final gov.nasa.jpl.aerie.merlin.framework.Registrar registrar$, Instant planStart, final Configuration config) {
         var registrar = new Registrar(registrar$, Registrar.ErrorBehavior.Log);
@@ -25,5 +27,6 @@ public final class Mission {
 
         power = new PowerModel(registrar);
         sequencing = new SequencingModel(registrar, this);
+        globals = new GlobalVariables(registrar);
     }
 }

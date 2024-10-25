@@ -7,32 +7,34 @@ import gov.nasa.jpl.aerie.merlin.framework.annotations.Export;
 
 import java.util.List;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialEffects.consuming;
+import static gov.nasa.jpl.aerie.command_expansion.command_activities.CommandConstants.SEQ_COMMAND_DURATION;
+import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Logging.LOGGER;
 import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.delay;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
 
-@ActivityType("SCI_Do_Observation_Deep")
-public class SCI_Do_Observation_Deep extends Command {
+@ActivityType("SEQ_ECHO")
+public class SEQ_ECHO extends Command {
     @Export.Parameter
-    public int duration = 3600;
+    public String message;
 
     @Override
     public List<Object> args() {
-        return List.of(duration);
+        return List.of(message);
     }
 
     @ActivityType.EffectModel
     public void run(Mission mission) {
-        // "Full" command model would go here.
-        // In this case, we're modeling using 5% battery SOC per hour,
-        // for however long this command is ordered to execute.
-        consuming(mission.power.batterySOC, 5.0 / 3600, () -> {
-            delay(duration, SECONDS);
-        });
+        LOGGER.info("SEQ_ECHO: %s", message);
+        delay(SEQ_COMMAND_DURATION);
     }
 
     @Override
     public void call(Mission mission) {
         ActivityActions.call(mission, this);
+    }
+
+    public static SEQ_ECHO of(final String message) {
+        var result = new SEQ_ECHO();
+        result.message = message;
+        return result;
     }
 }

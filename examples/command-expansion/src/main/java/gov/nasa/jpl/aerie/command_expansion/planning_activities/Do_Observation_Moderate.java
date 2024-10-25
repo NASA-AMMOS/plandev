@@ -57,7 +57,7 @@ public class Do_Observation_Moderate {
 
         Instant startTime = currentValue(mission.clock);
         Sequence sequence = new Sequence(
-                "", // TODO - think about how to assign seq IDs
+                this.getClass().getSimpleName(),
                 List.of(
                         TimedCommand.absolute(startTime, warmUpCmd),
                         TimedCommand.relative(warmupTime, doObsCmd),

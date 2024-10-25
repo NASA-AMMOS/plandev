@@ -12,7 +12,7 @@ import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.delay;
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
 
 @ActivityType("SCI_Warm_Up_Deep")
-public class SCI_Warm_Up_Deep implements Command {
+public class SCI_Warm_Up_Deep extends Command {
     @Export.Parameter
     public int duration = 600;
 
@@ -22,7 +22,6 @@ public class SCI_Warm_Up_Deep implements Command {
     }
 
     @ActivityType.EffectModel
-    @Override
     public void run(Mission mission) {
         // "Full" command model would go here.
         // In this case, we're modeling using 10% battery SOC per 10 minutes,

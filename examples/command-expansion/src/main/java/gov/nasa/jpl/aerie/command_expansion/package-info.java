@@ -9,6 +9,7 @@
 @WithActivityType(Do_Observation_Shallow.class)
 @WithActivityType(Do_Observation_Moderate.class)
 @WithActivityType(Do_Observation_Deep.class)
+@WithActivityType(Conditional_Warm_Up.class)
 
 // Command activities
 @WithActivityType(CMD_NO_OP.class)
@@ -18,6 +19,13 @@
 @WithActivityType(SCI_Do_Observation_Deep.class)
 @WithActivityType(SCI_Warm_Up_Moderate.class)
 @WithActivityType(SCI_Warm_Up_Deep.class)
+@WithActivityType(SEQ_ECHO.class)
+@WithActivityType(SEQ_ELSE.class)
+@WithActivityType(SEQ_END_IF.class)
+@WithActivityType(SEQ_IF.class)
+@WithActivityType(SEQ_SET_FLOAT.class)
+@WithActivityType(SEQ_SET_INT.class)
+@WithActivityType(SEQ_SET_STRING.class)
 
 package gov.nasa.jpl.aerie.command_expansion;
 

@@ -62,12 +62,12 @@ public /*non-final*/ class ModelActions {
     call(threaded(task));
   }
 
-  public static <T> void call(final Supplier<T> task) {
-    call(threaded(task));
+  public static <T> T call(final Supplier<T> task) {
+    return call(threaded(task));
   }
 
-  public static <T> void call(final TaskFactory<T> task) {
-    context.get().call(InSpan.Parent, task);
+  public static <T> T call(final TaskFactory<T> task) {
+    return context.get().call(InSpan.Parent, task);
   }
 
 
@@ -90,12 +90,12 @@ public /*non-final*/ class ModelActions {
     callWithSpan(threaded(task));
   }
 
-  public static <T> void callWithSpan(final Supplier<T> task) {
-    callWithSpan(threaded(task));
+  public static <T> T callWithSpan(final Supplier<T> task) {
+    return callWithSpan(threaded(task));
   }
 
-  public static <T> void callWithSpan(final TaskFactory<T> task) {
-    context.get().call(InSpan.Fresh, task);
+  public static <T> T callWithSpan(final TaskFactory<T> task) {
+    return context.get().call(InSpan.Fresh, task);
   }
 
   public static void defer(final Duration duration, final Runnable task) {

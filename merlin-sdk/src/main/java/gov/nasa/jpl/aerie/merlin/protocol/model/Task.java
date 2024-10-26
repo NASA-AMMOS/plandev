@@ -211,4 +211,33 @@ public interface Task<Output> {
       }
     };
   }
+
+  default Task<Output> writingTo(Consumer<Output> output) {
+    return new Task<Output>() {
+      @Override
+      public TaskStatus<Output> step(Scheduler scheduler) {
+        var status = Task.this.step(scheduler);
+        switch (status) {
+          case TaskStatus.Completed<Output> v -> {
+            output.accept(v.returnValue());
+            return v;
+          }
+          case TaskStatus.AwaitingCondition<Output> v -> {
+            return new TaskStatus.AwaitingCondition<>(v.condition(), v.continuation().writingTo(output));
+          }
+          case TaskStatus.CallingTask<Output> v -> {
+            return new TaskStatus.CallingTask<>(v.childSpan(), v.child(), v.continuation().writingTo(output));
+          }
+          case TaskStatus.Delayed<Output> v -> {
+            return new TaskStatus.Delayed<>(v.delay(), v.continuation().writingTo(output));
+          }
+        }
+      }
+
+      @Override
+      public Task<Output> duplicate(Executor executor) {
+        return this;
+      }
+    };
+  }
 }

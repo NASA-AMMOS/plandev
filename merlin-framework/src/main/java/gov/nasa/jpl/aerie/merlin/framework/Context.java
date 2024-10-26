@@ -31,7 +31,7 @@ public interface Context {
   <Event> void emit(Event event, Topic<Event> topic);
 
   void spawn(InSpan inSpan, TaskFactory<?> task);
-  <Return> void call(InSpan inSpan, TaskFactory<Return> task);
+  <Return> Return call(InSpan inSpan, TaskFactory<Return> task);
 
   void delay(Duration duration);
   void waitUntil(Condition condition);

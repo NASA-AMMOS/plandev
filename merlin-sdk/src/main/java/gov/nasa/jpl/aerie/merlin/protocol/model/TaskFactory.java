@@ -4,6 +4,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
 
 import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 
 /**
  * A factory for creating fresh copies of a task. All tasks created by a factory must be observationally equivalent.
@@ -25,5 +26,9 @@ public interface TaskFactory<Output> {
 
       return task1.andThen(task2);
     };
+  }
+
+  default TaskFactory<Output> writingTo(Consumer<Output> output) {
+    return executor -> this.create(executor).writingTo(output);
   }
 }

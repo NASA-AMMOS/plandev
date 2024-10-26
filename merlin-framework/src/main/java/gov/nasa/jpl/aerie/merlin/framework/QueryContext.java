@@ -49,7 +49,7 @@ public final class QueryContext implements Context {
   }
 
   @Override
-  public <Return> void call(final InSpan inSpan, final TaskFactory<Return> task) {
+  public <Return> Return call(final InSpan inSpan, final TaskFactory<Return> task) {
     throw new IllegalStateException("Cannot schedule tasks in a query-only context");
   }
 

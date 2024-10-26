@@ -8,6 +8,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.model.TaskFactory;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InSpan;
 import org.apache.commons.lang3.mutable.MutableInt;
+import org.apache.commons.lang3.mutable.MutableObject;
 
 import java.util.List;
 import java.util.Objects;
@@ -72,10 +73,12 @@ final class ReplayingReactionContext implements Context {
   }
 
   @Override
-  public <T> void call(final InSpan inSpan, final TaskFactory<T> task) {
-    this.memory.doOnce(() -> {
+  public <T> T call(final InSpan inSpan, final TaskFactory<T> task) {
+    return this.memory.doOnce(() -> {
+      MutableObject<T> returnValue = new MutableObject<>();
       this.scheduler = null;  // Relinquish the current scheduler before yielding, in case an exception is thrown.
-      this.scheduler = this.handle.call(inSpan, task);
+      this.scheduler = this.handle.call(inSpan, task.writingTo(returnValue::setValue));
+      return returnValue.getValue();
     });
   }
 

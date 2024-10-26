@@ -60,7 +60,7 @@ public final class InitializationContext implements Context {
   }
 
   @Override
-  public <Return> void call(final InSpan inSpan, final TaskFactory<Return> task) {
+  public <Return> Return call(final InSpan inSpan, final TaskFactory<Return> task) {
     throw new IllegalStateException("Cannot yield during initialization");
   }
 

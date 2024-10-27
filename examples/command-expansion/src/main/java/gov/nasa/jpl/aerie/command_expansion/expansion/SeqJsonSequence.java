@@ -1,11 +1,10 @@
 package gov.nasa.jpl.aerie.command_expansion.expansion;
 
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializerProvider;
+import com.fasterxml.jackson.core.*;
+import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 
 import java.io.IOException;
@@ -13,7 +12,9 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.*;
 
@@ -42,6 +43,7 @@ public record SeqJsonSequence(
     public record SeqJsonStepTime(
             String type,
             @JsonSerialize(using = SeqJsonStepTimeSerializer.class)
+            @JsonDeserialize(using = SeqJsonStepTimeDeserializer.class)
             Object tag
     ) {
         public static SeqJsonStepTime absolute(Instant time) {
@@ -83,6 +85,17 @@ public record SeqJsonSequence(
         }
     }
 
+    public static SeqJsonSequence deserialize(final String json) {
+        try {
+            return new ObjectMapper().readValue(json, SeqJsonSequence.class);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static final DateTimeFormatter TIME_TAG_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-DDD'T'HH:mm:ss.SSS").withZone(ZoneId.from(ZoneOffset.UTC));
+
     private static class SeqJsonStepTimeSerializer extends JsonSerializer<Object> {
         @Override
         public void serialize(Object o, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException {
@@ -91,10 +104,7 @@ public record SeqJsonSequence(
                     jsonGenerator.writeNull();
                     break;
                 case Instant instant:
-                    jsonGenerator.writeString(
-                            DateTimeFormatter.ofPattern("yyyy-DDD'T'HH:mm:ss.SSS")
-                                    .withZone(ZoneId.from(ZoneOffset.UTC))
-                                    .format(instant));
+                    jsonGenerator.writeString(TIME_TAG_FORMATTER.format(instant));
                     break;
                 case Duration duration:
                     jsonGenerator.writeString(hmsFormat(duration));
@@ -111,6 +121,33 @@ public record SeqJsonSequence(
             duration = duration.minus(m, MINUTES);
             double s = duration.ratioOver(SECONDS);
             return String.format("%02d:%02d:%06.3f", h, m, s);
+        }
+    }
+
+    private static class SeqJsonStepTimeDeserializer extends JsonDeserializer<Object> {
+        @Override
+        public Object deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JacksonException {
+            String serializedTag = p.getValueAsString();
+
+            if (serializedTag == null) return null;
+
+            var durationMatcher = Pattern.compile("(\\d{1,2}):(\\d{1,2}):(\\d{1,2}(?:\\.\\d*))")
+                    .matcher(serializedTag);
+            if (durationMatcher.find()) {
+                int h = Integer.parseInt(durationMatcher.group(1));
+                int m = Integer.parseInt(durationMatcher.group(2));
+                double s = Double.parseDouble(durationMatcher.group(3));
+                return Duration.roundNearest(s, SECONDS)
+                        .plus(m, MINUTES)
+                        .plus(h, HOURS);
+            }
+
+            try {
+                return Instant.from(TIME_TAG_FORMATTER.parse(serializedTag));
+            } catch (DateTimeParseException e) {
+                throw new InvalidFormatException(
+                        p, "Time tag does not look like a relative time nor an absolute time.", serializedTag, Object.class);
+            }
         }
     }
 }

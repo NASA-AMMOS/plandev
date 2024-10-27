@@ -473,6 +473,10 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                                 .build(),
                             MethodSpec
                                 .methodBuilder("call")
+                                .returns(entry.effectModel()
+                                        .flatMap(EffectModelRecord::returnType)
+                                        .map(TypeName::get)
+                                        .orElse(TypeName.VOID))
                                 .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
                                 .addParameter(
                                     ClassName.get(missionModel.topLevelModel()),
@@ -488,7 +492,8 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                                     missionModel.getTypesName(),
                                     entry.inputType().mapper().name.canonicalName().replace(".", "_"))
                                 .addStatement(
-                                    "$T.callWithSpan($L.getTaskFactory($L, $L))",
+                                    (entry.effectModel().flatMap(EffectModelRecord::returnType).isPresent() ? "return " : "")
+                                            + "$T.callWithSpan($L.getTaskFactory($L, $L))",
                                     gov.nasa.jpl.aerie.merlin.framework.ModelActions.class,
                                     "mapper",
                                     "model",

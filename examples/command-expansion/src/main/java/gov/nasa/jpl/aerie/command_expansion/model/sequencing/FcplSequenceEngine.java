@@ -153,6 +153,8 @@ public class FcplSequenceEngine {
         turnOn(active);
         // For the purposes of relative-timed dispatch, sequence execution counts as the first time of last dispatch.
         set(timeOfLastDispatch, currentTime());
+        // Similarly, for command-complete dispatch, sequence execution counts as command complete as well
+        turnOn(currentCommandComplete);
         int sequenceLoadNumber = currentValue(sequenceLoadCounter);
         // Iteratively dispatch commands until either
         while (currentValue(sequenceLoadCounter) == sequenceLoadNumber) {

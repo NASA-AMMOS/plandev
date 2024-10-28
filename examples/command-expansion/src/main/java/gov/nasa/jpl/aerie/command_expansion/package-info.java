@@ -5,6 +5,7 @@
 @WithMappers(BasicValueMappers.class)
 
 // Planning activities
+@WithActivityType(AuthoredSequence.class)
 @WithActivityType(Warm_Up.class)
 @WithActivityType(Do_Observation_Shallow.class)
 @WithActivityType(Do_Observation_Moderate.class)

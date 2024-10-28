@@ -33,6 +33,6 @@ public final class Conditional_Warm_UpTest {
         SeqJsonSequence sequence = SeqJsonSequence.deserialize(serializedSequence);
 
         assertEquals(Conditional_Warm_Up.class.getSimpleName(), sequence.id());
-        assertTrue(sequence.steps().stream().anyMatch(step -> step.type().equals("PWR_Turn_On_Heater")));
+        assertTrue(sequence.steps().stream().anyMatch(step -> step.stem().equals("PWR_Turn_On_Heater")));
     }
 }

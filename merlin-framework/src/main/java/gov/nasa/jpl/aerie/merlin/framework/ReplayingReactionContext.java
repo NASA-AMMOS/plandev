@@ -74,12 +74,15 @@ final class ReplayingReactionContext implements Context {
 
   @Override
   public <T> T call(final InSpan inSpan, final TaskFactory<T> task) {
-    return this.memory.doOnce(() -> {
-      MutableObject<T> returnValue = new MutableObject<>();
+    // REVIEW - this pattern for extracting the return value feels cursed.
+    this.memory.doOnce(() -> {
       this.scheduler = null;  // Relinquish the current scheduler before yielding, in case an exception is thrown.
-      this.scheduler = this.handle.call(inSpan, task.writingTo(returnValue::setValue));
-      return returnValue.getValue();
+      // When the task finishes, write the value to memory.
+      this.scheduler = this.handle.call(inSpan, task.writingTo(this.memory.memory.reads::add));
     });
+    // Then do a false "read", which will actually get the value we wrote to memory earlier,
+    // as well as update any bookkeeping to record that this value was read.
+    return this.memory.doOnce(() -> null);
   }
 
   @Override

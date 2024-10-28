@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.command_expansion.planning_activities;
 
 import gov.nasa.jpl.aerie.command_expansion.Configuration;
+import gov.nasa.jpl.aerie.command_expansion.command_activities.PWR_Turn_On_Heater;
 import gov.nasa.jpl.aerie.command_expansion.expansion.SeqJsonSequence;
 import gov.nasa.jpl.aerie.command_expansion.expansion.Sequence;
 import gov.nasa.jpl.aerie.command_expansion.generated.ActivityActions;
@@ -42,5 +43,6 @@ public final class Conditional_Warm_UpTest {
 
         // If we have the infrastructure to further parse that to a deep representation, we can also test that.
         Sequence deepSequence = Sequence.parse(sequence);
+        assertTrue(deepSequence.commands().stream().anyMatch(timedCommand -> timedCommand.command() instanceof PWR_Turn_On_Heater));
     }
 }

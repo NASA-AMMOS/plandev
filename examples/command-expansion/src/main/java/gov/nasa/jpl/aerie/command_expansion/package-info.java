@@ -12,6 +12,7 @@
 @WithActivityType(Conditional_Warm_Up.class)
 
 // Command activities
+@WithActivityType(Generic_Command.class)
 @WithActivityType(CMD_NO_OP.class)
 @WithActivityType(PWR_Turn_On_Heater.class)
 @WithActivityType(PWR_Turn_Off_Heater.class)

@@ -72,11 +72,14 @@ public record SeqJsonSequence(
             String type,
             Object value
     ) {
+        public static final String NUMBER_TYPE = "number";
+        public static final String STRING_TYPE = "string";
+
         public static SeqJsonCommandArg of(Object value) {
             return switch (value) {
-                case Number n -> new SeqJsonCommandArg("number", n);
-                case String s -> new SeqJsonCommandArg("string", s);
-                case Enum<?> e -> new SeqJsonCommandArg("string", e.name());
+                case Number n -> new SeqJsonCommandArg(NUMBER_TYPE, n);
+                case String s -> new SeqJsonCommandArg(STRING_TYPE, s);
+                case Enum<?> e -> new SeqJsonCommandArg(STRING_TYPE, e.name());
                 default -> throw new RuntimeException("Unsupported arg type: " + value.getClass().getSimpleName());
             };
         }
@@ -136,7 +139,7 @@ public record SeqJsonSequence(
 
             if (serializedTag == null) return null;
 
-            var durationMatcher = Pattern.compile("(\\d{1,2}):(\\d{1,2}):(\\d{1,2}(?:\\.\\d*))")
+            var durationMatcher = Pattern.compile("^(\\d{1,2}):(\\d{1,2}):(\\d{1,2}(?:\\.\\d*))$")
                     .matcher(serializedTag);
             if (durationMatcher.find()) {
                 int h = Integer.parseInt(durationMatcher.group(1));

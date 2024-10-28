@@ -46,20 +46,25 @@ public record SeqJsonSequence(
             @JsonDeserialize(using = SeqJsonStepTimeDeserializer.class)
             Object tag
     ) {
+        public static final String ABSOLUTE_TIME_TYPE = "ABSOLUTE";
+        public static final String RELATIVE_TIME_TYPE = "RELATIVE";
+        public static final String EPOCH_RELATIVE_TIME_TYPE = "EPOCH_RELATIVE";
+        public static final String COMMAND_COMPLETE_TIME_TYPE = "COMMAND_COMPLETE";
+
         public static SeqJsonStepTime absolute(Instant time) {
-            return new SeqJsonStepTime("ABSOLUTE", time);
+            return new SeqJsonStepTime(ABSOLUTE_TIME_TYPE, time);
         }
 
         public static SeqJsonStepTime relative(Duration offset) {
-            return new SeqJsonStepTime("RELATIVE", offset);
+            return new SeqJsonStepTime(RELATIVE_TIME_TYPE, offset);
         }
 
         public static SeqJsonStepTime epochRelative(Duration offset) {
-            return new SeqJsonStepTime("EPOCH_RELATIVE", offset);
+            return new SeqJsonStepTime(EPOCH_RELATIVE_TIME_TYPE, offset);
         }
 
         public static SeqJsonStepTime commandComplete() {
-            return new SeqJsonStepTime("COMMAND_COMPLETE", null);
+            return new SeqJsonStepTime(COMMAND_COMPLETE_TIME_TYPE, null);
         }
     }
 

@@ -2,6 +2,7 @@ package gov.nasa.jpl.aerie.command_expansion.planning_activities;
 
 import gov.nasa.jpl.aerie.command_expansion.Configuration;
 import gov.nasa.jpl.aerie.command_expansion.expansion.SeqJsonSequence;
+import gov.nasa.jpl.aerie.command_expansion.expansion.Sequence;
 import gov.nasa.jpl.aerie.command_expansion.generated.ActivityActions;
 import gov.nasa.jpl.aerie.command_expansion.model.Mission;
 import gov.nasa.jpl.aerie.merlin.framework.Registrar;
@@ -29,10 +30,17 @@ public final class Conditional_Warm_UpTest {
         var activity = new Conditional_Warm_Up();
         activity.condition = "G00INT <= G01INT";
 
+        // We get the serialized sequence as actual text...
         String serializedSequence = ActivityActions.call(mission, activity);
+
+        // We probably want to deserialize to a structured / "shallow" representation
         SeqJsonSequence sequence = SeqJsonSequence.deserialize(serializedSequence);
 
+        // We can of course test that representation directly
         assertEquals(Conditional_Warm_Up.class.getSimpleName(), sequence.id());
         assertTrue(sequence.steps().stream().anyMatch(step -> step.stem().equals("PWR_Turn_On_Heater")));
+
+        // If we have the infrastructure to further parse that to a deep representation, we can also test that.
+        Sequence deepSequence = Sequence.parse(sequence);
     }
 }

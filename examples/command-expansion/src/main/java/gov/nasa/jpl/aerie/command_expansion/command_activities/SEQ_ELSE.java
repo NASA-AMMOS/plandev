@@ -21,7 +21,7 @@ public class SEQ_ELSE extends Command {
         // If we don't find an "end-if", jump out of the sequence instead.
         int jumpIndex = sequence.commands().size();
         for (int i = thisIndex + 1; i < sequence.commands().size(); ++i) {
-            if (sequence.commands().get(i).command() instanceof SEQ_END_IF) {
+            if (sequence.commands().get(i).step() instanceof SEQ_END_IF) {
                 jumpIndex = i;
                 break;
             }

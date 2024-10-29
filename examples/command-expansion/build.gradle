@@ -39,6 +39,7 @@ dependencies {
     implementation project(':contrib')
 
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
+    implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.7.3'
 
     testImplementation project(':merlin-framework-junit')
     testImplementation 'org.assertj:assertj-core:3.23.1'

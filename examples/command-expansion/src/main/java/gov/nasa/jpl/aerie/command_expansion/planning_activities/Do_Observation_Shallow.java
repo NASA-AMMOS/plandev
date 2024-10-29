@@ -11,14 +11,11 @@ import java.time.Instant;
 import java.util.List;
 
 import static gov.nasa.jpl.aerie.command_expansion.expansion.SeqJsonSequence.*;
-import static gov.nasa.jpl.aerie.command_expansion.expansion.SeqJsonSequence.SeqJsonStep.command;
-import static gov.nasa.jpl.aerie.command_expansion.expansion.SeqJsonSequence.SeqJsonStepTime.*;
 import static gov.nasa.jpl.aerie.command_expansion.generated.ActivityActions.call;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentValue;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialEffects.consumeUniformly;
 import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.delay;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MINUTES;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
+import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.*;
 
 // This is an example of a "non-integrated" / "planning-only" activity.
 // The goal with this activity is to avoid all the complexity of the in-Aerie sequencing model,
@@ -48,28 +45,43 @@ public class Do_Observation_Shallow {
         SeqJsonSequence sequence = new SeqJsonSequence(
                 this.getClass().getSimpleName(),
                 List.of(
-                        command(
-                                absolute(startTime),
-                                "SCI_Warm_Up_Moderate",
+                        new SeqJsonCommand(
+                                new SeqJsonAbsoluteTime(startTime),
+                                "SEQ_ECHO",
+                                List.of(SeqJsonCommandArg.of("Observation activity start"))
+                        ),
+                        new SeqJsonCommand(
+                                new SeqJsonCommandCompleteTime(),
+                                "SCI_Warm_Up_Shallow",
                                 List.of(SeqJsonCommandArg.of(warmupTime.in(SECONDS)))
                         ),
-                        command(
-                                relative(warmupTime),
-                                "SCI_Do_Observation",
+                        new SeqJsonGroundEvent(
+                                new SeqJsonRelativeTime(warmupTime),
+                                "GroundAdvisory",
+                                List.of(SeqJsonCommandArg.of("Observation is starting"))
+                        ),
+                        new SeqJsonCommand(
+                                new SeqJsonRelativeTime(ZERO),
+                                "SCI_Do_Observation_Shallow",
                                 List.of(
                                         SeqJsonCommandArg.of("CONSTANT_COMMAND_ARG"),
                                         SeqJsonCommandArg.of(observationTime.in(SECONDS))
                                 )
                         ),
-                        command(
-                                commandComplete(),
-                                "CMD_NO_OP",
-                                List.of()
+                        new SeqJsonGroundEvent(
+                                new SeqJsonCommandCompleteTime(),
+                                "GroundAdvisory",
+                                List.of(SeqJsonCommandArg.of("Observation is complete"))
                         ),
-                        command(
-                                relative(cooldownTime),
-                                "CMD_NO_OP",
-                                List.of()
+                        new SeqJsonGroundEvent(
+                                new SeqJsonRelativeTime(cooldownTime),
+                                "GroundAdvisory",
+                                List.of(SeqJsonCommandArg.of("Cooldown is complete"))
+                        ),
+                        new SeqJsonCommand(
+                                new SeqJsonRelativeTime(ZERO),
+                                "SEQ_ECHO",
+                                List.of(SeqJsonCommandArg.of("Observation activity complete"))
                         )
                 ));
 

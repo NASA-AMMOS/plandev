@@ -2,10 +2,9 @@ package gov.nasa.jpl.aerie.command_expansion.planning_activities;
 
 import gov.nasa.jpl.aerie.command_expansion.command_activities.*;
 import gov.nasa.jpl.aerie.command_expansion.expansion.Sequence;
-import gov.nasa.jpl.aerie.command_expansion.expansion.TimedCommand;
+import gov.nasa.jpl.aerie.command_expansion.ground_events.GroundAdvisory;
 import gov.nasa.jpl.aerie.command_expansion.model.Mission;
 import gov.nasa.jpl.aerie.command_expansion.model.PowerModel;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.Export;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
@@ -13,24 +12,21 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import java.time.Instant;
 import java.util.List;
 
+import static gov.nasa.jpl.aerie.command_expansion.expansion.TimedStep.*;
 import static gov.nasa.jpl.aerie.command_expansion.generated.ActivityActions.call;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentValue;
 import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Logging.LOGGER;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad.map;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialEffects.consumeUniformly;
 import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.*;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MINUTES;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
+import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.*;
 
-// This is an example of splitting the difference between the "deep" and "shallow" models.
-// We use the actual command types, but we don't take advantage of any command modeling nor sequence engine modeling.
-// We might imagine doing something like this as a half-way step while migrating from shallow to deep modeling,
-// where the main benefit of the command types is compile-time type checking on the arguments.
-// These modeling-free command classes could easily be auto-generated from the command dictionary.
+// This is an example of "deep" modeling, where we have an integrated command model
+// and the bulk of the activity behavior is modeled by just running the sequence it expands into.
+// That said, this variant still hangs some additional behavior at the activity level
+// by monitoring the engine as it runs.
 
-@ActivityType("Do_Observation_Deep")
-public class Do_Observation_Deep {
+@ActivityType("Do_Observation_Deep_1")
+public class Do_Observation_Deep_1 {
     @Export.Parameter
     public Duration warmupTime = Duration.of(10, MINUTES);
 
@@ -57,10 +53,13 @@ public class Do_Observation_Deep {
         Sequence sequence = new Sequence(
                 this.getClass().getSimpleName(),
                 List.of(
-                        TimedCommand.absolute(startTime, warmUpCmd),
-                        TimedCommand.relative(warmupTime, doObsCmd),
-                        TimedCommand.commandComplete(new CMD_NO_OP()),
-                        TimedCommand.relative(cooldownTime, new CMD_NO_OP())
+                        absolute(startTime, SEQ_ECHO.of("Observation activity start")),
+                        commandComplete(warmUpCmd),
+                        relative(warmupTime, GroundAdvisory.of("Observation is starting")),
+                        relative(ZERO, doObsCmd),
+                        commandComplete(GroundAdvisory.of("Observation is complete")),
+                        relative(cooldownTime, GroundAdvisory.of("Cooldown is complete")),
+                        relative(ZERO, SEQ_ECHO.of("Observation activity complete"))
                 )
         );
 
@@ -73,13 +72,14 @@ public class Do_Observation_Deep {
         var engine = mission.sequencing.activate(sequence);
         // For example, let's say we want to do something when the "Do Observation" command is dispatched:
         waitUntil(when(engine.lastDispatched(doObsCmd)));
-        LOGGER.info("Do_Observation_Deep - Stand-in for observation modeling");
+        LOGGER.info("Do_Observation_Deep_1 - Stand-in for observation modeling");
         // We can also "step" through the sequence by waiting for the next dispatch to happen
         waitUntil(engine.nextDispatch());
-        LOGGER.info("Do_Observation_Deep - Stand-in for cool-down modeling");
+        LOGGER.info("Do_Observation_Deep_1 - Stand-in for cool-down modeling");
 
-        // When we're done, we can just wait for the sequence to be unloaded to declare the activity done.
-        waitUntil(when(not(engine.isLoadedWith(sequence))));
+        // Note that the span for this activity will cover the full sequence execution,
+        // because the engine executes as a child of this activity.
+        // We don't need any additional code here to specify that.
 
         return sequence.toSeqJson().serialize();
     }

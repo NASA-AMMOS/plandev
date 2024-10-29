@@ -3,14 +3,14 @@ package gov.nasa.jpl.aerie.command_expansion.expansion;
 import gov.nasa.jpl.aerie.command_expansion.command_activities.Command;
 import gov.nasa.jpl.aerie.command_expansion.command_activities.Generic_Command;
 import gov.nasa.jpl.aerie.command_expansion.generated.ActivityTypes;
+import gov.nasa.jpl.aerie.command_expansion.ground_events.GenericGroundEvent;
+import gov.nasa.jpl.aerie.command_expansion.ground_events.GroundEvent;
 import gov.nasa.jpl.aerie.command_expansion.model.Mission;
 import gov.nasa.jpl.aerie.merlin.framework.ActivityMapper;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -18,7 +18,6 @@ import java.util.Map;
 
 import static gov.nasa.jpl.aerie.command_expansion.expansion.SeqJsonSequence.*;
 import static gov.nasa.jpl.aerie.command_expansion.expansion.SeqJsonSequence.SeqJsonCommandArg.*;
-import static gov.nasa.jpl.aerie.command_expansion.expansion.SeqJsonSequence.SeqJsonStepTime.*;
 import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Logging.LOGGER;
 
 // Mission-specific "logical" sequence. In this case, it's specifically for this mission, and based on Seq.JSON / FCPL
@@ -27,58 +26,104 @@ import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Logging.LOGGER;
  */
 public record Sequence(
         String seqId,
-        List<TimedCommand> commands) {
+        List<TimedStep> commands) {
 
     public SeqJsonSequence toSeqJson() {
         return new SeqJsonSequence(
                 seqId,
-                commands.stream()
-                        .map(cmd -> SeqJsonStep.command(
-                                switch (cmd.timeTag()) {
-                                    case TimedCommand.AbsoluteTimeTag absolute -> SeqJsonStepTime.absolute(absolute.time());
-                                    case TimedCommand.RelativeTimeTag relative -> SeqJsonStepTime.relative(relative.offset());
-                                    case TimedCommand.EpochRelativeTimeTag epochRelative -> SeqJsonStepTime.epochRelative(epochRelative.offset());
-                                    case TimedCommand.CommandCompleteTimeTag commandComplete -> SeqJsonStepTime.commandComplete();
-                                },
-                                cmd.command().stem(),
-                                cmd.command().args().stream().map(SeqJsonCommandArg::of).toList()
-                        ))
-                        .toList()
-        );
+                commands.stream().map(TimedStep::toSeqJson).toList());
     }
 
     public static Sequence parse(SeqJsonSequence sequence) {
-        var commands = new ArrayList<TimedCommand>();
-        for (var step : sequence.steps()) {
-            switch (step.type()) {
-                case "command":
-                    commands.add(new TimedCommand(
-                            getTimeTag(step.time()),
-                            getCommand(step.stem(), step.args())));
+        var steps = new ArrayList<TimedStep>();
+        for (var seqJsonStep : sequence.steps()) {
+            switch (seqJsonStep) {
+                case SeqJsonCommand seqJsonCommand:
+                    steps.add(new TimedStep(
+                            getTimeTag(seqJsonCommand.time()),
+                            getCommand(seqJsonCommand.stem(), seqJsonCommand.args())));
                     break;
+
+                case SeqJsonGroundEvent seqJsonGroundEvent:
+                    steps.add(new TimedStep(
+                            getTimeTag(seqJsonGroundEvent.time()),
+                            getGroundEvent(seqJsonGroundEvent.name(), seqJsonGroundEvent.args())));
+                    break;
+
                 default:
-                    throw new IllegalArgumentException("Unsupported step type: " + step.type());
+                    throw new IllegalArgumentException("Unsupported step type: " + seqJsonStep.getClass().getSimpleName());
             }
         }
-        return new Sequence(sequence.id(), commands);
+        return new Sequence(sequence.id(), steps);
     }
 
-    private static TimedCommand.TimeTag getTimeTag(SeqJsonStepTime time) {
-        return switch (time.type()) {
-            case ABSOLUTE_TIME_TYPE -> new TimedCommand.AbsoluteTimeTag((Instant) time.tag());
-            case RELATIVE_TIME_TYPE -> new TimedCommand.RelativeTimeTag((Duration) time.tag());
-            case EPOCH_RELATIVE_TIME_TYPE -> new TimedCommand.EpochRelativeTimeTag((Duration) time.tag());
-            case COMMAND_COMPLETE_TIME_TYPE -> new TimedCommand.CommandCompleteTimeTag();
-            default -> throw new IllegalArgumentException("Unsupported time type: " + time.type());
+    private static TimedStep.TimeTag getTimeTag(SeqJsonStepTime time) {
+        return switch (time) {
+            case SeqJsonAbsoluteTime absoluteTime -> new TimedStep.AbsoluteTimeTag(absoluteTime.tag());
+            case SeqJsonCommandCompleteTime commandCompleteTime -> new TimedStep.CommandCompleteTimeTag();
+            case SeqJsonEpochRelativeTime epochRelativeTime -> new TimedStep.EpochRelativeTimeTag(epochRelativeTime.tag());
+            case SeqJsonRelativeTime relativeTime -> new TimedStep.RelativeTimeTag(relativeTime.tag());
         };
     }
 
     private static Command getCommand(String stem, List<SeqJsonCommandArg> args) {
-        ActivityMapper<Mission, ?, ?> activityMapper = ActivityTypes.directiveTypes.get(stem);
+        SequenceStep deepStep = getSequenceStep(stem, args);
+        if (deepStep != null) {
+            if (deepStep instanceof Command command) {
+                return command;
+            } else {
+                // This is an odd corner case, where we recognize the step name, but the type is wrong.
+                // Since the SEQ JSON clearly identifies each step type, we'll respect that.
+                // That is, if you have both a ground event and a command with the same name,
+                // and decide to model *only* the ground event (Don't do that. That's gross.),
+                // then we'll run a generic unmodeled command, respecting the meaning of the sequence.
+
+                // However, it's more likely that you meant to run the ground event or whatever that you actually modeled,
+                // and just messed up the step type. For that reason, we'll suggest that step type to you in the log.
+                LOGGER.warning("%s is not a modeled command stem. (Did you mean the %s?)",
+                        stem, getStepType(deepStep).getSimpleName());
+            }
+        }
+
+        LOGGER.warning("%s is not a modeled command stem, using generic command model instead.", stem);
+        var cmd = new Generic_Command();
+        cmd.stem = stem;
+        cmd.args = args.stream().map(arg -> arg.value().toString()).toList();
+        return cmd;
+    }
+
+    private static GroundEvent getGroundEvent(String name, List<SeqJsonCommandArg> args) {
+        SequenceStep deepStep = getSequenceStep(name, args);
+        if (deepStep != null) {
+            if (deepStep instanceof GroundEvent groundEvent) {
+                return groundEvent;
+            } else {
+                LOGGER.warning("%s is not a modeled ground event. (Did you mean the %s?)",
+                        name, getStepType(deepStep).getSimpleName());
+            }
+        }
+
+        LOGGER.warning("%s is not a modeled ground event, using generic ground event model instead.", name);
+        var groundEvent = new GenericGroundEvent();
+        groundEvent.name = name;
+        groundEvent.args = args.stream().map(arg -> arg.value().toString()).toList();
+        return groundEvent;
+    }
+
+    private static Class<? extends SequenceStep> getStepType(SequenceStep step) {
+        return switch (step) {
+            case Command command -> Command.class;
+            case GroundEvent groundEvent -> GroundEvent.class;
+            default -> throw new IllegalStateException("Incomplete switch statement for step type " + step.getClass().getSimpleName());
+        };
+    }
+
+    private static SequenceStep getSequenceStep(String name, List<SeqJsonCommandArg> args) {
+        ActivityMapper<Mission, ?, ?> activityMapper = ActivityTypes.directiveTypes.get(name);
         if (activityMapper == null) {
-            LOGGER.warning("%s is not a modeled command stem, using generic command model instead.", stem);
+            LOGGER.warning("%s is not a modeled command stem, using generic command model instead.", name);
             var cmd = new Generic_Command();
-            cmd.stem = stem;
+            cmd.stem = name;
             cmd.args = args.stream().map(arg -> arg.value().toString()).toList();
             return cmd;
         }

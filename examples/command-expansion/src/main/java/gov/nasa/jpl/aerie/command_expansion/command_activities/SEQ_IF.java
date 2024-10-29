@@ -41,16 +41,16 @@ public class SEQ_IF extends Command {
         int elseIndex = -1, endIfIndex = -1, ifDepth = 0;
         for (int i = ifIndex + 1; i < sequence.commands().size(); ++i) {
             var cmd = sequence.commands().get(i);
-            if (cmd.command() instanceof SEQ_IF) {
+            if (cmd.step() instanceof SEQ_IF) {
                 ++ifDepth;
-            } else if (cmd.command() instanceof SEQ_END_IF) {
+            } else if (cmd.step() instanceof SEQ_END_IF) {
                 if (ifDepth > 0) {
                     --ifDepth;
                 } else {
                     endIfIndex = i;
                     break;
                 }
-            } else if (cmd.command() instanceof SEQ_ELSE && ifDepth == 0) {
+            } else if (cmd.step() instanceof SEQ_ELSE && ifDepth == 0) {
                 elseIndex = i;
             }
         }

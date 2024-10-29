@@ -3,13 +3,13 @@ package gov.nasa.jpl.aerie.command_expansion.planning_activities;
 import gov.nasa.jpl.aerie.command_expansion.command_activities.PWR_Turn_Off_Heater;
 import gov.nasa.jpl.aerie.command_expansion.command_activities.PWR_Turn_On_Heater;
 import gov.nasa.jpl.aerie.command_expansion.expansion.Sequence;
-import gov.nasa.jpl.aerie.command_expansion.expansion.TimedCommand;
 import gov.nasa.jpl.aerie.command_expansion.model.Mission;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 
 import java.util.List;
 
+import static gov.nasa.jpl.aerie.command_expansion.expansion.TimedStep.*;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentValue;
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MINUTES;
 
@@ -35,8 +35,8 @@ public class Warm_Up {
         return new Sequence(
                 this.getClass().getSimpleName(),
                 List.of(
-                        TimedCommand.absolute(currentValue(mission.clock), powerOn),
-                        TimedCommand.relative(Duration.of(5, MINUTES), powerOff)
+                        absolute(currentValue(mission.clock), powerOn),
+                        relative(Duration.of(5, MINUTES), powerOff)
                 )
         );
     }

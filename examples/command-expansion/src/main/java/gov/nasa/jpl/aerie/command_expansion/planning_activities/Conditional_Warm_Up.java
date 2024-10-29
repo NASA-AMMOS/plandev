@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 import static gov.nasa.jpl.aerie.command_expansion.command_activities.SEQ_IF.Operator.*;
-import static gov.nasa.jpl.aerie.command_expansion.expansion.TimedCommand.*;
+import static gov.nasa.jpl.aerie.command_expansion.expansion.TimedStep.*;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentValue;
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
 

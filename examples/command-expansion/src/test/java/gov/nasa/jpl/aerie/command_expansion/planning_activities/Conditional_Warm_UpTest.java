@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.command_expansion.planning_activities;
 
 import gov.nasa.jpl.aerie.command_expansion.Configuration;
+import gov.nasa.jpl.aerie.command_expansion.command_activities.Command;
 import gov.nasa.jpl.aerie.command_expansion.command_activities.PWR_Turn_On_Heater;
 import gov.nasa.jpl.aerie.command_expansion.expansion.SeqJsonSequence;
 import gov.nasa.jpl.aerie.command_expansion.expansion.Sequence;
@@ -39,10 +40,13 @@ public final class Conditional_Warm_UpTest {
 
         // We can of course test that representation directly
         assertEquals(Conditional_Warm_Up.class.getSimpleName(), sequence.id());
-        assertTrue(sequence.steps().stream().anyMatch(step -> step.stem().equals("PWR_Turn_On_Heater")));
+        assertTrue(sequence.steps().stream().anyMatch(step ->
+                step instanceof SeqJsonSequence.SeqJsonCommand cmd
+                        && cmd.stem().equals("PWR_Turn_On_Heater")));
 
         // If we have the infrastructure to further parse that to a deep representation, we can also test that.
         Sequence deepSequence = Sequence.parse(sequence);
-        assertTrue(deepSequence.commands().stream().anyMatch(timedCommand -> timedCommand.command() instanceof PWR_Turn_On_Heater));
+        assertTrue(deepSequence.commands().stream().anyMatch(timedCommand ->
+                timedCommand.step() instanceof PWR_Turn_On_Heater));
     }
 }

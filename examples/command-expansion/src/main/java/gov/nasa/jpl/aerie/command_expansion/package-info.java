@@ -3,14 +3,21 @@
 @WithConfiguration(Configuration.class)
 
 @WithMappers(BasicValueMappers.class)
+@WithMappers(AuxiliaryModeling.ValueMappers.class)
 
 // Planning activities
 @WithActivityType(AuthoredSequence.class)
 @WithActivityType(Warm_Up.class)
 @WithActivityType(Do_Observation_Shallow.class)
 @WithActivityType(Do_Observation_Moderate.class)
-@WithActivityType(Do_Observation_Deep.class)
+@WithActivityType(Do_Observation_Deep_1.class)
+@WithActivityType(Do_Observation_Deep_2.class)
 @WithActivityType(Conditional_Warm_Up.class)
+
+// Ground Events
+@WithActivityType(GenericGroundEvent.class)
+@WithActivityType(GroundAdvisory.class)
+@WithActivityType(AuxiliaryModeling.class)
 
 // Command activities
 @WithActivityType(Generic_Command.class)
@@ -32,9 +39,9 @@
 package gov.nasa.jpl.aerie.command_expansion;
 
 import gov.nasa.jpl.aerie.command_expansion.command_activities.*;
+import gov.nasa.jpl.aerie.command_expansion.ground_events.*;
 import gov.nasa.jpl.aerie.command_expansion.model.Mission;
 import gov.nasa.jpl.aerie.command_expansion.planning_activities.*;
-import gov.nasa.jpl.aerie.command_expansion.planning_activities.Warm_Up;
 import gov.nasa.jpl.aerie.contrib.serialization.rulesets.BasicValueMappers;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.MissionModel;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.MissionModel.WithActivityType;

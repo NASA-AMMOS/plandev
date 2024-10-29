@@ -1,18 +1,18 @@
 package gov.nasa.jpl.aerie.command_expansion.expansion;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.core.*;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -29,42 +29,79 @@ public record SeqJsonSequence(
         String id,
         List<SeqJsonStep> steps
 ) {
-    public record SeqJsonStep(
-            String type,
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+    @JsonSubTypes({
+            @JsonSubTypes.Type(name = "command", value = SeqJsonCommand.class),
+            @JsonSubTypes.Type(name = "ground_event", value = SeqJsonGroundEvent.class)
+    })
+    public sealed interface SeqJsonStep {}
+    public record SeqJsonCommand(
             SeqJsonStepTime time,
             String stem,
             List<SeqJsonCommandArg> args
-    ) {
-        public static SeqJsonStep command(SeqJsonStepTime time, String stem, List<SeqJsonCommandArg> args) {
-            return new SeqJsonStep("command", time, stem, args);
+    ) implements SeqJsonStep {}
+    public record SeqJsonGroundEvent(
+            SeqJsonStepTime time,
+            String name,
+            List<SeqJsonCommandArg> args
+    ) implements SeqJsonStep {}
+
+
+    @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type")
+    @JsonSubTypes({
+            @JsonSubTypes.Type(name = "ABSOLUTE", value = SeqJsonAbsoluteTime.class),
+            @JsonSubTypes.Type(name = "RELATIVE", value = SeqJsonRelativeTime.class),
+            @JsonSubTypes.Type(name = "EPOCH_RELATIVE", value = SeqJsonEpochRelativeTime.class),
+            @JsonSubTypes.Type(name = "COMMAND_COMPLETE", value = SeqJsonCommandCompleteTime.class),
+    })
+    public sealed interface SeqJsonStepTime {}
+    public record SeqJsonAbsoluteTime(
+            @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-DDD'T'HH:mm:ss.SSS", timezone = "UTC")
+            Instant tag
+    ) implements SeqJsonStepTime {}
+    public record SeqJsonRelativeTime(
+            @JsonSerialize(using = DurationTagSerializer.class)
+            @JsonDeserialize(using = DurationTagDeserializer.class)
+            Duration tag
+    ) implements SeqJsonStepTime {}
+    public record SeqJsonEpochRelativeTime(
+            @JsonSerialize(using = DurationTagSerializer.class)
+            @JsonDeserialize(using = DurationTagDeserializer.class)
+            Duration tag
+    ) implements SeqJsonStepTime {}
+    public record SeqJsonCommandCompleteTime() implements SeqJsonStepTime {}
+
+    public static class DurationTagSerializer extends JsonSerializer<Duration> {
+        @Override
+        public void serialize(Duration value, JsonGenerator jsonGenerator, SerializerProvider provider) throws IOException {
+            long h = value.in(HOURS);
+            value = value.minus(h, HOURS);
+            long m = value.in(MINUTES);
+            value = value.minus(m, MINUTES);
+            double s = value.ratioOver(SECONDS);
+            jsonGenerator.writeString(String.format("%02d:%02d:%06.3f", h, m, s));
         }
     }
-
-    public record SeqJsonStepTime(
-            String type,
-            @JsonSerialize(using = SeqJsonStepTimeSerializer.class)
-            @JsonDeserialize(using = SeqJsonStepTimeDeserializer.class)
-            Object tag
-    ) {
-        public static final String ABSOLUTE_TIME_TYPE = "ABSOLUTE";
-        public static final String RELATIVE_TIME_TYPE = "RELATIVE";
-        public static final String EPOCH_RELATIVE_TIME_TYPE = "EPOCH_RELATIVE";
-        public static final String COMMAND_COMPLETE_TIME_TYPE = "COMMAND_COMPLETE";
-
-        public static SeqJsonStepTime absolute(Instant time) {
-            return new SeqJsonStepTime(ABSOLUTE_TIME_TYPE, time);
-        }
-
-        public static SeqJsonStepTime relative(Duration offset) {
-            return new SeqJsonStepTime(RELATIVE_TIME_TYPE, offset);
-        }
-
-        public static SeqJsonStepTime epochRelative(Duration offset) {
-            return new SeqJsonStepTime(EPOCH_RELATIVE_TIME_TYPE, offset);
-        }
-
-        public static SeqJsonStepTime commandComplete() {
-            return new SeqJsonStepTime(COMMAND_COMPLETE_TIME_TYPE, null);
+    public static class DurationTagDeserializer extends JsonDeserializer<Duration> {
+        @Override
+        public Duration deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JacksonException {
+            var durationString = p.getValueAsString();
+            var durationMatcher = Pattern.compile("^(\\d{1,2}):(\\d{1,2}):(\\d{1,2}(?:\\.\\d*)?)$")
+                    .matcher(durationString);
+            if (durationMatcher.find()) {
+                int h = Integer.parseInt(durationMatcher.group(1));
+                int m = Integer.parseInt(durationMatcher.group(2));
+                double s = Double.parseDouble(durationMatcher.group(3));
+                return Duration.roundNearest(s, SECONDS)
+                        .plus(m, MINUTES)
+                        .plus(h, HOURS);
+            } else {
+                throw new InvalidFormatException(
+                        p,
+                        "Invalid format for a Duration. Please format durations like 00:00:00.000",
+                        durationString,
+                        Duration.class);
+            }
         }
     }
 
@@ -87,7 +124,7 @@ public record SeqJsonSequence(
 
     public String serialize() {
         try {
-            return new ObjectMapper().writeValueAsString(this);
+            return mapper().writeValueAsString(this);
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
@@ -95,67 +132,15 @@ public record SeqJsonSequence(
 
     public static SeqJsonSequence deserialize(final String json) {
         try {
-            return new ObjectMapper().readValue(json, SeqJsonSequence.class);
+            return mapper().readValue(json, SeqJsonSequence.class);
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private static final DateTimeFormatter TIME_TAG_FORMATTER =
-            DateTimeFormatter.ofPattern("yyyy-DDD'T'HH:mm:ss.SSS").withZone(ZoneId.from(ZoneOffset.UTC));
-
-    private static class SeqJsonStepTimeSerializer extends JsonSerializer<Object> {
-        @Override
-        public void serialize(Object o, JsonGenerator jsonGenerator, SerializerProvider serializerProvider) throws IOException {
-            switch (o) {
-                case null:
-                    jsonGenerator.writeNull();
-                    break;
-                case Instant instant:
-                    jsonGenerator.writeString(TIME_TAG_FORMATTER.format(instant));
-                    break;
-                case Duration duration:
-                    jsonGenerator.writeString(hmsFormat(duration));
-                    break;
-                default:
-                    throw new RuntimeException("Unhandled type: " + o.getClass().getSimpleName());
-            }
-        }
-
-        private String hmsFormat(Duration duration) {
-            long h = duration.in(HOURS);
-            duration = duration.minus(h, HOURS);
-            long m = duration.in(MINUTES);
-            duration = duration.minus(m, MINUTES);
-            double s = duration.ratioOver(SECONDS);
-            return String.format("%02d:%02d:%06.3f", h, m, s);
-        }
-    }
-
-    private static class SeqJsonStepTimeDeserializer extends JsonDeserializer<Object> {
-        @Override
-        public Object deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JacksonException {
-            String serializedTag = p.getValueAsString();
-
-            if (serializedTag == null) return null;
-
-            var durationMatcher = Pattern.compile("^(\\d{1,2}):(\\d{1,2}):(\\d{1,2}(?:\\.\\d*))$")
-                    .matcher(serializedTag);
-            if (durationMatcher.find()) {
-                int h = Integer.parseInt(durationMatcher.group(1));
-                int m = Integer.parseInt(durationMatcher.group(2));
-                double s = Double.parseDouble(durationMatcher.group(3));
-                return Duration.roundNearest(s, SECONDS)
-                        .plus(m, MINUTES)
-                        .plus(h, HOURS);
-            }
-
-            try {
-                return Instant.from(TIME_TAG_FORMATTER.parse(serializedTag));
-            } catch (DateTimeParseException e) {
-                throw new InvalidFormatException(
-                        p, "Time tag does not look like a relative time nor an absolute time.", serializedTag, Object.class);
-            }
-        }
+    private static ObjectMapper mapper() {
+        var mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        return mapper;
     }
 }

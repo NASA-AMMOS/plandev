@@ -7,24 +7,15 @@ import gov.nasa.jpl.aerie.contrib.streamline.modeling.linear.Linear;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiring.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.*;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.signalling;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.ResourceMonad.bind;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete.discrete;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.not;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad.map;
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.EPSILON;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.ZERO;
 
 public final class ClockResources {
   private ClockResources() {}
-
-  /**
-   * Create a clock starting at zero time.
-   */
-  public static Resource<Clock> clock(String name) {
-    return resource(serializing(name, Clock.clock(ZERO), null /* TODO - get auto value mapper for Clock type */));
-  }
 
   public static Resource<Discrete<Boolean>> lessThan(Resource<Clock> clock, Resource<Discrete<Duration>> threshold) {
     return signalling(bind(clock, threshold, (Clock c, Discrete<Duration> t) -> {

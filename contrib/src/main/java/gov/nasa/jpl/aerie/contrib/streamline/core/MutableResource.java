@@ -88,7 +88,7 @@ public interface MutableResource<D extends Dynamics<?, D>> extends Resource<D> {
     return serializing(key, pure(defaultValue), standardDynamicsMapper(mapper));
   }
 
-  private static <D> ValueMapper<ErrorCatching<Expiring<D>>> standardDynamicsMapper(ValueMapper<D> baseMapper) {
+  static <D> ValueMapper<ErrorCatching<Expiring<D>>> standardDynamicsMapper(ValueMapper<D> baseMapper) {
     return new ValueMapper<>() {
       @Override
       public ValueSchema getValueSchema() {

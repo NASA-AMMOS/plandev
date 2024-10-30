@@ -13,13 +13,6 @@ import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.name;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.constant;
 
 public class InstantClockResources {
-    /**
-     * Create an absolute clock that starts now at the given start time.
-     */
-    public static MutableResource<InstantClock> absoluteClock(Instant startTime) {
-        return resource(new InstantClock(startTime));
-    }
-
     public static Resource<InstantClock> addToInstant(Instant zeroTime, Resource<Clock> relativeClock) {
         return addToInstant(constant(zeroTime), relativeClock);
     }

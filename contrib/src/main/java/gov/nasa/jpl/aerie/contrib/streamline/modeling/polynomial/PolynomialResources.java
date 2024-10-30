@@ -5,6 +5,7 @@ import gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.CommutativityTestInp
 import gov.nasa.jpl.aerie.contrib.streamline.core.monads.DynamicsMonad;
 import gov.nasa.jpl.aerie.contrib.streamline.core.monads.ErrorCatchingMonad;
 import gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming;
+import gov.nasa.jpl.aerie.contrib.streamline.modeling.Registrar;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.*;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.Clock;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
@@ -17,6 +18,8 @@ import gov.nasa.jpl.aerie.contrib.streamline.unit_aware.UnitAwareOperations;
 import gov.nasa.jpl.aerie.contrib.streamline.unit_aware.UnitAwareResources;
 import gov.nasa.jpl.aerie.contrib.streamline.utils.DoubleUtils;
 import gov.nasa.jpl.aerie.merlin.framework.Condition;
+import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
+import gov.nasa.jpl.aerie.merlin.protocol.model.EffectTrait;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import org.apache.commons.lang3.mutable.MutableObject;
 
@@ -30,10 +33,10 @@ import java.util.stream.Stream;
 
 import static gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.autoEffects;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.testing;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.resource;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiring.expiring;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiring.neverExpiring;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiry.NEVER;
+import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.*;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Reactions.wheneverDynamicsChange;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.*;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.DynamicsMonad.bindEffect;
@@ -47,7 +50,6 @@ import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.Different
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.IntervalFunctions.byBoundingError;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.SecantApproximation.ErrorEstimates.errorByQuadraticApproximation;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.SecantApproximation.secantApproximation;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.ClockResources.clock;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete.discrete;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.assertThat;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
@@ -87,6 +89,75 @@ public final class PolynomialResources {
                          left.getCoefficient(i),
                          right.getCoefficient(i)));
         })));
+  }
+
+  public class PolynomialResourceBuilder {
+    private ErrorCatching<Expiring<Polynomial>> defaultValue;
+    private String name;
+    private InconBehavior<ErrorCatching<Expiring<Polynomial>>> inconBehavior;
+    private EffectTrait<DynamicsEffect<Polynomial>> effectTrait = autoEffects(testing(
+        (CommutativityTestInput<Polynomial> input) -> {
+          Polynomial original = input.original();
+          Polynomial left = input.leftResult();
+          Polynomial right = input.rightResult();
+          return left.degree() == right.degree() &&
+                 IntStream.rangeClosed(0, left.degree()).allMatch(
+                     i -> DoubleUtils.areEqualResults(
+                         original.getCoefficient(i),
+                         left.getCoefficient(i),
+                         right.getCoefficient(i)));
+        }));
+
+    public PolynomialResourceBuilder defaultValue(Polynomial defaultValue) {
+      return defaultValue(DynamicsMonad.pure(defaultValue));
+    }
+
+    public PolynomialResourceBuilder defaultValue(ErrorCatching<Expiring<Polynomial>> defaultValue) {
+      this.defaultValue = defaultValue;
+      return this;
+    }
+
+    public PolynomialResourceBuilder name(String name) {
+      this.name = name;
+      return this;
+    }
+
+    public PolynomialResourceBuilder notSaved() {
+      assertSet("default value", defaultValue);
+      return inconBehavior(notSaving(defaultValue));
+    }
+
+    public PolynomialResourceBuilder serialized() {
+      assertSet("name", name);
+      assertSet("default value", defaultValue);
+      return inconBehavior(serializing(name, defaultValue, standardDynamicsMapper(null /* TODO - get auto value mapper for polynomial */)));
+    }
+
+    public PolynomialResourceBuilder inconBehavior(InconBehavior<ErrorCatching<Expiring<Polynomial>>> inconBehavior) {
+      this.inconBehavior = inconBehavior;
+      return this;
+    }
+
+    public PolynomialResourceBuilder effectTrait(EffectTrait<DynamicsEffect<Polynomial>> effectTrait) {
+      this.effectTrait = effectTrait;
+      return this;
+    }
+
+    private void assertSet(String name, Object thing) {
+      if (thing == null)
+        throw new IllegalStateException(String.format("%s has not been set on this builder!", name));
+    }
+
+    // Terminal methods - these build and return the resource
+
+    public MutableResource<Polynomial> notRegistered() {
+      // If no incon behavior is set, default to serializing the value in the default way.
+      if (inconBehavior == null) serialized();
+      assertSet("effect trait", effectTrait);
+      var result = resource(inconBehavior, effectTrait);
+      if (name != null) Naming.name(result, name);
+      return result;
+    }
   }
 
   /**
@@ -207,8 +278,7 @@ public final class PolynomialResources {
     if (segments.isEmpty()) {
       throw new IllegalArgumentException("Segments map must have at least one segment");
     }
-    var clock = clock();
-    return signalling(bind(clock, (Clock clock$) -> {
+    return signalling(bind(simulationClock(), (Clock clock$) -> {
       var t = clock$.extract();
       var start = segments.floorEntry(t);
       var end = segments.higherEntry(t);

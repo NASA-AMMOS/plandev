@@ -2,6 +2,7 @@ package gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete;
 
 import gov.nasa.jpl.aerie.contrib.streamline.core.*;
 import gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.CommutativityTestInput;
+import gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.Registrar;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.Clock;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteDynamicsMonad;
@@ -12,9 +13,12 @@ import gov.nasa.jpl.aerie.merlin.framework.Condition;
 import gov.nasa.jpl.aerie.contrib.streamline.unit_aware.Unit;
 import gov.nasa.jpl.aerie.contrib.streamline.unit_aware.UnitAware;
 import gov.nasa.jpl.aerie.contrib.streamline.unit_aware.UnitAwareResources;
+import gov.nasa.jpl.aerie.merlin.framework.Result;
 import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
 import gov.nasa.jpl.aerie.merlin.protocol.model.EffectTrait;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -22,12 +26,12 @@ import java.util.*;
 import java.util.function.BiPredicate;
 import java.util.function.Supplier;
 
+import static gov.nasa.jpl.aerie.contrib.serialization.rulesets.BasicValueMappers.*;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.autoEffects;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.testing;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiring.expiring;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiry.expiry;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.resource;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.serializing;
+import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.*;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Reactions.every;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Reactions.whenever;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.*;
@@ -35,7 +39,6 @@ import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.ResourceMonad.bi
 import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.ResourceMonad.pure;
 import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Dependencies.addDependency;
 import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.ClockResources.clock;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete.discrete;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteEffects.set;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad.*;
@@ -50,11 +53,40 @@ public final class DiscreteResources {
     return result;
   }
 
+  // General discrete resource constructor
   public static <T> DiscreteResourceBuilder<T> discreteResource(T initialValue) {
-
+    return new DiscreteResourceBuilder<T>().defaultValue(initialValue);
   }
 
-  public class DiscreteResourceBuilder<T> {
+  // Special cases for primitives, which (a) need a little special handling for double's effect trait,
+  // and (b) we can bake in the value mapper for them by default.
+  public static DiscreteResourceBuilder<Boolean> discreteResource(boolean initialValue) {
+    return new DiscreteResourceBuilder<Boolean>().defaultValue(initialValue).valueMapper($boolean());
+  }
+  public static DiscreteResourceBuilder<Integer> discreteResource(int initialValue) {
+    return new DiscreteResourceBuilder<Integer>().defaultValue(initialValue).valueMapper($int());
+  }
+  // Doubles are special, as they get a toleranced equality check by default for their effect trait.
+  public static DiscreteResourceBuilder<Double> discreteResource(double initialValue) {
+    return new DiscreteResourceBuilder<Double>()
+            .defaultValue(initialValue)
+            .valueMapper($double())
+            .effectTrait(autoEffects(testing(
+                    (CommutativityTestInput<Discrete<Double>> input) -> DoubleUtils.areEqualResults(
+                            input.original().extract(),
+                            input.leftResult().extract(),
+                            input.rightResult().extract()))));
+  }
+  public static DiscreteResourceBuilder<String> discreteResource(String initialValue) {
+    return new DiscreteResourceBuilder<String>().defaultValue(initialValue).valueMapper(string());
+  }
+  // SAFETY - Enums are final, so initialValue.getClass() equals E, hence this assignment is guaranteed correct.
+  @SuppressWarnings("unchecked")
+  public static <E extends Enum<E>> DiscreteResourceBuilder<E> discreteResource(E initialValue) {
+    return new DiscreteResourceBuilder<E>().defaultValue(initialValue).valueMapper($enum(initialValue.getClass()));
+  }
+
+  public static class DiscreteResourceBuilder<T> {
     private ErrorCatching<Expiring<Discrete<T>>> defaultValue;
     private String name;
     private ValueMapper<T> valueMapper;
@@ -66,32 +98,64 @@ public final class DiscreteResources {
     }
 
     public DiscreteResourceBuilder<T> defaultValue(ErrorCatching<Expiring<Discrete<T>>> defaultValue) {
-      assertNotSet("default value", this.defaultValue);
       this.defaultValue = defaultValue;
       return this;
     }
 
     public DiscreteResourceBuilder<T> name(String name) {
-      assertNotSet("name", this.name);
       this.name = name;
       return this;
     }
 
     public DiscreteResourceBuilder<T> valueMapper(ValueMapper<T> valueMapper) {
-      assertNotSet("value mapper", this.valueMapper);
       this.valueMapper = valueMapper;
       return this;
     }
 
+    public DiscreteResourceBuilder<T> notSaved() {
+      assertSet("default value", defaultValue);
+      return inconBehavior(notSaving(defaultValue));
+    }
+
+    public DiscreteResourceBuilder<T> serialized() {
+      assertSet("name", name);
+      assertSet("default value", defaultValue);
+      assertSet("value mapper", valueMapper);
+      return inconBehavior(serializing(name, defaultValue, standardDynamicsMapper(standardDiscreteMapper(valueMapper))));
+    }
+
+    public static <T> ValueMapper<Discrete<T>> standardDiscreteMapper(ValueMapper<T> mapper) {
+      return new ValueMapper<>() {
+        @Override
+        public ValueSchema getValueSchema() {
+          return mapper.getValueSchema();
+        }
+
+        @Override
+        public Result<Discrete<T>, String> deserializeValue(SerializedValue serializedValue) {
+          return mapper.deserializeValue(serializedValue).mapSuccess(Discrete::discrete);
+        }
+
+        @Override
+        public SerializedValue serializeValue(Discrete<T> value) {
+          return mapper.serializeValue(value.extract());
+        }
+      };
+    }
+
     public DiscreteResourceBuilder<T> inconBehavior(InconBehavior<ErrorCatching<Expiring<Discrete<T>>>> inconBehavior) {
-      assertNotSet("incon behavior", this.inconBehavior);
       this.inconBehavior = inconBehavior;
       return this;
     }
 
-    private void assertNotSet(String name, Object thing) {
-      if (thing != null)
-        throw new IllegalStateException(String.format("%s has already been set on this builder!", name));
+    public DiscreteResourceBuilder<T> effectTrait(EffectTrait<DynamicsEffect<Discrete<T>>> effectTrait) {
+      this.effectTrait = effectTrait;
+      return this;
+    }
+
+    private void assertSet(String name, Object thing) {
+      if (thing == null)
+        throw new IllegalStateException(String.format("%s has not been set on this builder!", name));
     }
 
     // Terminal methods - these build and return the resource
@@ -99,40 +163,23 @@ public final class DiscreteResources {
     // TODO - would it be more convenient to make Registrar a singleton, like the incon manager?
     // Then it wouldn't have to be passed around just to give to these builders.
     // We already assume you have exactly one registrar, because building it initializes all the singletons...
-    public Resource<Discrete<T>> registered(Registrar registrar) {
+    public MutableResource<Discrete<T>> registered(Registrar registrar) {
       var result = notRegistered();
+      assertSet("name", name);
+      assertSet("value mapper", valueMapper);
       registrar.discrete(name, result, valueMapper);
       return result;
     }
 
-    public Resource<Discrete<T>> notRegistered() {
-      return resource(inconBehavior, effectTrait);
+    public MutableResource<Discrete<T>> notRegistered() {
+      // If no incon behavior is set, default to serializing the value in the default way.
+      if (inconBehavior == null) serialized();
+      assertSet("effect trait", effectTrait);
+      var result = resource(inconBehavior, effectTrait);
+      if (name != null) Naming.name(result, name);
+      return result;
     }
   }
-
-  // --- REWRITE START ---
-
-  // General discrete cell resource constructor
-  public static <T> MutableResource<Discrete<T>> discreteResource(T initialValue) {
-    return resource(discrete(initialValue));
-  }
-
-  // Annoyingly, we need to repeat the specialization for integer resources, so that
-  // discreteMutableResource(42) doesn't become a double resource, due to the next overload
-  public static MutableResource<Discrete<Integer>> discreteResource(int initialValue) {
-    return resource(discrete(initialValue));
-  }
-
-  // specialized constructor for doubles, because they require a toleranced equality comparison
-  public static MutableResource<Discrete<Double>> discreteResource(double initialValue) {
-    return resource(discrete(initialValue), autoEffects(testing(
-        (CommutativityTestInput<Discrete<Double>> input) -> DoubleUtils.areEqualResults(
-            input.original().extract(),
-            input.leftResult().extract(),
-            input.rightResult().extract()))));
-  }
-
-  // --- REWRITE END ---
 
   /**
    * Returns a condition that's satisfied whenever this resource is true.
@@ -150,7 +197,9 @@ public final class DiscreteResources {
    * Cache resource, updating the cache when updatePredicate(cached value, resource value) is true.
    */
   public static <V> Resource<Discrete<V>> cache(Resource<Discrete<V>> resource, BiPredicate<V, V> updatePredicate) {
-    final var cell = resource(resource.getDynamics());
+    // Caches are logically derived from the resource they're caching, so should not be directly saved.
+    // Instead, the resource(s) feeding this cache should be saved, and used to reinitialize this.
+    final var cell = resource(notSaving(resource.getDynamics()));
     // TODO: Does the update predicate need to propagate expiry information?
     BiPredicate<ErrorCatching<Expiring<Discrete<V>>>, ErrorCatching<Expiring<Discrete<V>>>> liftedUpdatePredicate = (eCurrent, eNew) ->
         eCurrent.match(
@@ -178,7 +227,7 @@ public final class DiscreteResources {
    * Sample valueSupplier once every samplePeriod.
    */
   public static <V, T extends Dynamics<Duration, T>> Resource<Discrete<V>> sampled(Supplier<V> valueSupplier, Resource<T> samplePeriod) {
-    var result = discreteResource(valueSupplier.get());
+    var result = discreteResource(valueSupplier.get()).notSaved().notRegistered();
     every(() -> currentValue(samplePeriod, Duration.MAX_VALUE),
           () -> set(result, valueSupplier.get()));
     return result;
@@ -191,8 +240,7 @@ public final class DiscreteResources {
    */
   public static <V> Resource<Discrete<V>> precomputed(
       final V valueBeforeFirstEntry, final NavigableMap<Duration, V> segments) {
-    var clock = clock();
-    return signalling(bind(clock, (Clock clock$) -> {
+    return signalling(bind(simulationClock(), (Clock clock$) -> {
       var t = clock$.extract();
       var entry = segments.floorEntry(t);
       var value = entry == null ? valueBeforeFirstEntry : entry.getValue();

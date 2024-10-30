@@ -1,8 +1,10 @@
 package gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks;
 
 import gov.nasa.jpl.aerie.contrib.streamline.core.Dynamics;
+import gov.nasa.jpl.aerie.merlin.framework.annotations.AutoValueMapper;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 
+@AutoValueMapper.Record
 public record Clock(Duration extract) implements Dynamics<Duration, Clock> {
   @Override
   public Clock step(Duration t) {

@@ -2,6 +2,7 @@ package gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete;
 
 import gov.nasa.jpl.aerie.contrib.streamline.core.*;
 import gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.CommutativityTestInput;
+import gov.nasa.jpl.aerie.contrib.streamline.modeling.Registrar;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.Clock;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteDynamicsMonad;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteMonad;
@@ -11,6 +12,8 @@ import gov.nasa.jpl.aerie.merlin.framework.Condition;
 import gov.nasa.jpl.aerie.contrib.streamline.unit_aware.Unit;
 import gov.nasa.jpl.aerie.contrib.streamline.unit_aware.UnitAware;
 import gov.nasa.jpl.aerie.contrib.streamline.unit_aware.UnitAwareResources;
+import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
+import gov.nasa.jpl.aerie.merlin.protocol.model.EffectTrait;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 
 import java.time.Instant;
@@ -24,6 +27,7 @@ import static gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.testing;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiring.expiring;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiry.expiry;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.resource;
+import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.serializing;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Reactions.every;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Reactions.whenever;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.*;
@@ -46,6 +50,68 @@ public final class DiscreteResources {
     return result;
   }
 
+  public static <T> DiscreteResourceBuilder<T> discreteResource(T initialValue) {
+
+  }
+
+  public class DiscreteResourceBuilder<T> {
+    private ErrorCatching<Expiring<Discrete<T>>> defaultValue;
+    private String name;
+    private ValueMapper<T> valueMapper;
+    private InconBehavior<ErrorCatching<Expiring<Discrete<T>>>> inconBehavior;
+    private EffectTrait<DynamicsEffect<Discrete<T>>> effectTrait = autoEffects();
+
+    public DiscreteResourceBuilder<T> defaultValue(T defaultValue) {
+      return defaultValue(DiscreteDynamicsMonad.pure(defaultValue));
+    }
+
+    public DiscreteResourceBuilder<T> defaultValue(ErrorCatching<Expiring<Discrete<T>>> defaultValue) {
+      assertNotSet("default value", this.defaultValue);
+      this.defaultValue = defaultValue;
+      return this;
+    }
+
+    public DiscreteResourceBuilder<T> name(String name) {
+      assertNotSet("name", this.name);
+      this.name = name;
+      return this;
+    }
+
+    public DiscreteResourceBuilder<T> valueMapper(ValueMapper<T> valueMapper) {
+      assertNotSet("value mapper", this.valueMapper);
+      this.valueMapper = valueMapper;
+      return this;
+    }
+
+    public DiscreteResourceBuilder<T> inconBehavior(InconBehavior<ErrorCatching<Expiring<Discrete<T>>>> inconBehavior) {
+      assertNotSet("incon behavior", this.inconBehavior);
+      this.inconBehavior = inconBehavior;
+      return this;
+    }
+
+    private void assertNotSet(String name, Object thing) {
+      if (thing != null)
+        throw new IllegalStateException(String.format("%s has already been set on this builder!", name));
+    }
+
+    // Terminal methods - these build and return the resource
+
+    // TODO - would it be more convenient to make Registrar a singleton, like the incon manager?
+    // Then it wouldn't have to be passed around just to give to these builders.
+    // We already assume you have exactly one registrar, because building it initializes all the singletons...
+    public Resource<Discrete<T>> registered(Registrar registrar) {
+      var result = notRegistered();
+      registrar.discrete(name, result, valueMapper);
+      return result;
+    }
+
+    public Resource<Discrete<T>> notRegistered() {
+      return resource(inconBehavior, effectTrait);
+    }
+  }
+
+  // --- REWRITE START ---
+
   // General discrete cell resource constructor
   public static <T> MutableResource<Discrete<T>> discreteResource(T initialValue) {
     return resource(discrete(initialValue));
@@ -65,6 +131,8 @@ public final class DiscreteResources {
             input.leftResult().extract(),
             input.rightResult().extract()))));
   }
+
+  // --- REWRITE END ---
 
   /**
    * Returns a condition that's satisfied whenever this resource is true.

@@ -17,6 +17,7 @@ import org.apache.commons.math3.geometry.euclidean.threed.Vector3D;
 
 import java.util.Optional;
 
+import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.notSaving;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentValue;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.Approximation.approximate;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.DifferentiableResources.asDifferentiable;
@@ -130,7 +131,7 @@ public final class Demo {
   Resource<Linear> approxQuotient = approximate(quotient, secantApproximation(IntervalFunctions.<Unstructured<Double>>byBoundingError(
       1e-6, Duration.SECOND, Duration.HOUR.times(24), errorByOptimization())));
 
-  Resource<Unstructured<Pair<Vector3D, Vector3D>>> positionAndVelocity = resource(Unstructured.timeBased(t -> /* some spice call */ null));
+  Resource<Unstructured<Pair<Vector3D, Vector3D>>> positionAndVelocity = resource(notSaving(Unstructured.timeBased(t -> /* some spice call */ null)));
   Resource<Discrete<Pair<Vector3D, Vector3D>>> approxPosVel = approximate(
       positionAndVelocity,
       DiscreteApproximation.<Pair<Vector3D, Vector3D>, Unstructured<Pair<Vector3D, Vector3D>>>discreteApproximation(

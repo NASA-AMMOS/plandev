@@ -10,6 +10,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.notSaving;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.resource;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiring.expiring;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Reactions.whenever;
@@ -32,7 +33,9 @@ public final class Approximation {
    */
   public static <D extends Dynamics<?, D>, E extends Dynamics<?, E>> Resource<E> approximate(
       Resource<D> resource, Function<Expiring<D>, Expiring<E>> approximation) {
-    var result = resource(resource.getDynamics().map(approximation));
+    // We should, in general, not care about saving the state of an approximation.
+    // Instead, we should restore the underlying resource and re-approximate
+    var result = resource(notSaving(resource.getDynamics().map(approximation)));
     // Register the "updates" and "expires" conditions separately
     // so that the "updates" condition isn't triggered spuriously.
     wheneverUpdates(resource, newResourceDynamics -> updateApproximation(newResourceDynamics, approximation, result));

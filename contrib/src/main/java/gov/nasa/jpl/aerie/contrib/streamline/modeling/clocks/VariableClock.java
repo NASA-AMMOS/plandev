@@ -1,10 +1,12 @@
 package gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks;
 
 import gov.nasa.jpl.aerie.contrib.streamline.core.Dynamics;
+import gov.nasa.jpl.aerie.merlin.framework.annotations.AutoValueMapper;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.ZERO;
 
+@AutoValueMapper.Record
 public record VariableClock(Duration extract, int multiplier) implements Dynamics<Duration, VariableClock> {
   @Override
   public VariableClock step(final Duration t) {

@@ -76,12 +76,14 @@ public interface MutableResource<D extends Dynamics<?, D>> extends Resource<D> {
   }
 
   static <D> InconBehavior<ErrorCatching<Expiring<D>>> notSaving(ErrorCatching<Expiring<D>> initialValue) {
-    return InconBehavior.constant(initialValue);
+    return InconBehavior.of($ -> initialValue, (s, f) -> {});
   }
 
   // TODO - It would be nice if the name we set here could somehow auto-populate the name of the resource,
   //  and also be the name we register the resource as. Same for the value mapper, it would be nice to just use that for registration too.
   // Alternatively, we could demand a name for every MutableResource, and combine that with the other info here later...?
+  // On reflection, I think the discrete resource and linear resource constructors are the place to combine all this info.
+  // Those would know which registrar method to call, and what value mapper to use.
   static <D> InconBehavior<ErrorCatching<Expiring<D>>> serializing(String key, D defaultValue, ValueMapper<D> mapper) {
     return serializing(key, pure(defaultValue), standardDynamicsMapper(mapper));
   }
@@ -131,10 +133,9 @@ public interface MutableResource<D extends Dynamics<?, D>> extends Resource<D> {
   }
 
   static <D> InconBehavior<ErrorCatching<Expiring<D>>> serializing(String key, ErrorCatching<Expiring<D>> defaultValue, ValueMapper<ErrorCatching<Expiring<D>>> mapper) {
-    return InconBehavior.serialized(
-            key,
-            serializedValue -> serializedValue.map($ -> mapper.deserializeValue($).getSuccessOrThrow()).orElse(defaultValue),
-            mapper::serializeValue);
+    return InconBehavior.of(
+            incons -> incons.get(key).map($ -> mapper.deserializeValue($).getSuccessOrThrow()).orElse(defaultValue),
+            (state, fincons) -> fincons.put(key, mapper.serializeValue(state)));
   }
 
   static <D extends Dynamics<?, D>> void set(MutableResource<D> resource, D newDynamics) {

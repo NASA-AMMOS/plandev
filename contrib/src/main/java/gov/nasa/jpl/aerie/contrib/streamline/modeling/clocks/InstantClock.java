@@ -18,6 +18,8 @@ public record InstantClock(Instant extract) implements Dynamics<Instant, Instant
         return new InstantClock(addToInstant(extract, t));
     }
 
+    // TODO - this method belongs somewhere else...
+    //  Making it package-private at least lets us move it later without dependency issues outside the library.
     static Duration durationBetween(Instant start, Instant end) {
         return Duration.of(ChronoUnit.MICROS.between(start, end), Duration.MICROSECONDS);
     }

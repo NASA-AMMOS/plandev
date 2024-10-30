@@ -6,10 +6,19 @@ import gov.nasa.jpl.aerie.contrib.streamline.debugging.Context;
 import gov.nasa.jpl.aerie.contrib.streamline.debugging.Profiling;
 import gov.nasa.jpl.aerie.merlin.framework.CellRef;
 import gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.Cell;
+import gov.nasa.jpl.aerie.merlin.framework.Result;
+import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
 import gov.nasa.jpl.aerie.merlin.protocol.model.EffectTrait;
+import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 
+import java.util.Map;
+import java.util.Optional;
+
+import static gov.nasa.jpl.aerie.contrib.serialization.rulesets.BasicValueMappers.duration;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.allocate;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.autoEffects;
+import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiry.expiry;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.DynamicsMonad.pure;
 import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.*;
 import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Profiling.profile;
@@ -25,24 +34,18 @@ public interface MutableResource<D extends Dynamics<?, D>> extends Resource<D> {
     emit(name(effect, effectName));
   }
 
-  static <D extends Dynamics<?, D>> MutableResource<D> resource(D initial) {
-    return resource(pure(initial));
-  }
-
-  static <D extends Dynamics<?, D>> MutableResource<D> resource(D initial, EffectTrait<DynamicsEffect<D>> effectTrait) {
-    return resource(pure(initial), effectTrait);
-  }
-
-  static <D extends Dynamics<?, D>> MutableResource<D> resource(ErrorCatching<Expiring<D>> initial) {
+  static <D extends Dynamics<?, D>> MutableResource<D> resource(InconBehavior<ErrorCatching<Expiring<D>>> inconBehavior) {
     // Use autoEffects for a generic CellResource, on the theory that most resources
     // have relatively few effects, and even fewer concurrent effects, so this is performant enough.
     // If that doesn't hold, a more specialized solution can be constructed directly.
-    return resource(initial, autoEffects());
+    return resource(inconBehavior, autoEffects());
   }
 
-  static <D extends Dynamics<?, D>> MutableResource<D> resource(ErrorCatching<Expiring<D>> initial, EffectTrait<DynamicsEffect<D>> effectTrait) {
+  static <D extends Dynamics<?, D>> MutableResource<D> resource(
+          InconBehavior<ErrorCatching<Expiring<D>>> inconBehavior,
+          EffectTrait<DynamicsEffect<D>> effectTrait) {
     MutableResource<D> result = new MutableResource<>() {
-      private final CellRef<DynamicsEffect<D>, Cell<D>> cell = allocate(initial, effectTrait);
+      private final CellRef<DynamicsEffect<D>, Cell<D>> cell = allocate(inconBehavior, effectTrait);
 
       @Override
       public void emit(final DynamicsEffect<D> effect) {
@@ -66,6 +69,72 @@ public interface MutableResource<D extends Dynamics<?, D>> extends Resource<D> {
       result = profile(result);
     }
     return result;
+  }
+
+  static <D> InconBehavior<ErrorCatching<Expiring<D>>> notSaving(D initialValue) {
+    return notSaving(pure(initialValue));
+  }
+
+  static <D> InconBehavior<ErrorCatching<Expiring<D>>> notSaving(ErrorCatching<Expiring<D>> initialValue) {
+    return InconBehavior.constant(initialValue);
+  }
+
+  // TODO - It would be nice if the name we set here could somehow auto-populate the name of the resource,
+  //  and also be the name we register the resource as. Same for the value mapper, it would be nice to just use that for registration too.
+  // Alternatively, we could demand a name for every MutableResource, and combine that with the other info here later...?
+  static <D> InconBehavior<ErrorCatching<Expiring<D>>> serializing(String key, D defaultValue, ValueMapper<D> mapper) {
+    return serializing(key, pure(defaultValue), standardDynamicsMapper(mapper));
+  }
+
+  private static <D> ValueMapper<ErrorCatching<Expiring<D>>> standardDynamicsMapper(ValueMapper<D> baseMapper) {
+    return new ValueMapper<>() {
+      @Override
+      public ValueSchema getValueSchema() {
+        // Note: Both errorMessage and expiry are nullable.
+        return ValueSchema.ofStruct(Map.of(
+                "error", ValueSchema.STRING,
+                "expiry", ValueSchema.DURATION,
+                "dynamics", baseMapper.getValueSchema()));
+      }
+
+      @Override
+      public SerializedValue serializeValue(ErrorCatching<Expiring<D>> value) {
+        return value.match(
+                success -> SerializedValue.of(Map.of(
+                        "expiry", success.expiry().value().map(duration()::serializeValue).orElse(SerializedValue.NULL),
+                        "dynamics", baseMapper.serializeValue(success.data())
+                )),
+                error -> SerializedValue.of(Map.of(
+                        "error", SerializedValue.of(error.getMessage())
+                ))
+        );
+      }
+
+      @Override
+      public Result<ErrorCatching<Expiring<D>>, String> deserializeValue(SerializedValue serializedValue) {
+        try {
+          var map = serializedValue.asMap().orElseThrow();
+          if (map.containsKey("error")) {
+            return Result.success(ErrorCatching.failure(new Exception(map.get("error").asString().orElseThrow())));
+          } else {
+            var expiry = expiry(Optional.ofNullable(map.get("expiry"))
+                    .map($ -> duration().deserializeValue($).getSuccessOrThrow()));
+            var dynamics = baseMapper.deserializeValue(map.get("dynamics")).getSuccessOrThrow();
+            return Result.success(ErrorCatching.success(Expiring.expiring(dynamics, expiry)));
+          }
+        } catch (Throwable e) {
+          // TODO - we need *way* better error reporting here, but I just can't be bothered tonight.
+          return Result.failure("Failed to deserialize value as a standard wrapped dynamics object.");
+        }
+      }
+    };
+  }
+
+  static <D> InconBehavior<ErrorCatching<Expiring<D>>> serializing(String key, ErrorCatching<Expiring<D>> defaultValue, ValueMapper<ErrorCatching<Expiring<D>>> mapper) {
+    return InconBehavior.serialized(
+            key,
+            serializedValue -> serializedValue.map($ -> mapper.deserializeValue($).getSuccessOrThrow()).orElse(defaultValue),
+            mapper::serializeValue);
   }
 
   static <D extends Dynamics<?, D>> void set(MutableResource<D> resource, D newDynamics) {

@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.contrib.streamline.core;
 
 import gov.nasa.jpl.aerie.contrib.streamline.core.monads.ErrorCatchingMonad;
+import gov.nasa.jpl.aerie.contrib.streamline.utils.InvertibleFunction;
 import gov.nasa.jpl.aerie.merlin.framework.CellRef;
 import gov.nasa.jpl.aerie.merlin.protocol.model.CellType;
 import gov.nasa.jpl.aerie.merlin.protocol.model.EffectTrait;
@@ -23,37 +24,47 @@ public final class CellRefV2 {
   /**
    * Allocate a new resource with an explicitly given effect type and effect trait.
    */
-  public static <D extends Dynamics<?, D>, E extends DynamicsEffect<D>> CellRef<E, Cell<D>> allocate(ErrorCatching<Expiring<D>> initialDynamics, EffectTrait<E> effectTrait) {
-    return CellRef.allocate(new Cell<>(initialDynamics), new CellType<>() {
-      @Override
-      public EffectTrait<E> getEffectType() {
-        return effectTrait;
-      }
+  public static <D extends Dynamics<?, D>, E extends DynamicsEffect<D>> CellRef<E, Cell<D>> allocate(
+          InconBehavior<ErrorCatching<Expiring<D>>> inconBehavior,
+          EffectTrait<E> effectTrait) {
+    // Building the invertible function below ties together two key functions as de-facto inverses:
+    // 1. Reading the incon and using it to initialize the cell.
+    // 2. Reading the cell and using it to write the fincon.
+    // Registering that mapped incon behavior here then ensures that we always register the incon behavior,
+    // without the modeler needing to manage incons as a separate step, which they may forget / mismanage.
+    return InitialConditionManager.register(inconBehavior.map(InvertibleFunction.of(
+            initialDynamics -> CellRef.allocate(new Cell<>(initialDynamics), new CellType<>() {
+              @Override
+              public EffectTrait<E> getEffectType() {
+                return effectTrait;
+              }
 
-      @Override
-      public Cell<D> duplicate(Cell<D> cell) {
-        return new Cell<>(cell.initialDynamics, cell.dynamics, cell.elapsedTime);
-      }
+              @Override
+              public Cell<D> duplicate(Cell<D> cell) {
+                return new Cell<>(cell.initialDynamics, cell.dynamics, cell.elapsedTime);
+              }
 
-      @Override
-      public void apply(Cell<D> cell, E effect) {
-        cell.initialDynamics = effect.apply(cell.dynamics).match(
-            ErrorCatching::success,
-                error -> failure(new RuntimeException(
-                    "Applying effect '%s' failed.".formatted(getName(effect, null)), error)));
-        cell.dynamics = cell.initialDynamics;
-        cell.elapsedTime = ZERO;
-      }
+              @Override
+              public void apply(Cell<D> cell, E effect) {
+                cell.initialDynamics = effect.apply(cell.dynamics).match(
+                        ErrorCatching::success,
+                        error -> failure(new RuntimeException(
+                                "Applying effect '%s' failed.".formatted(getName(effect, null)), error)));
+                cell.dynamics = cell.initialDynamics;
+                cell.elapsedTime = ZERO;
+              }
 
-      @Override
-      public void step(Cell<D> cell, Duration duration) {
-        // Avoid accumulated round-off error in imperfect stepping
-        // by always stepping up from the initial dynamics
-        cell.elapsedTime = cell.elapsedTime.plus(duration);
-        cell.dynamics = ErrorCatchingMonad.map(cell.initialDynamics, d ->
-            expiring(d.data().step(cell.elapsedTime), d.expiry().minus(cell.elapsedTime)));
-      }
-    });
+              @Override
+              public void step(Cell<D> cell, Duration duration) {
+                // Avoid accumulated round-off error in imperfect stepping
+                // by always stepping up from the initial dynamics
+                cell.elapsedTime = cell.elapsedTime.plus(duration);
+                cell.dynamics = ErrorCatchingMonad.map(cell.initialDynamics, d ->
+                        expiring(d.data().step(cell.elapsedTime), d.expiry().minus(cell.elapsedTime)));
+              }
+            }),
+            cellRef -> cellRef.get().dynamics
+    )));
   }
 
   public static <D extends Dynamics<?, D>> EffectTrait<DynamicsEffect<D>> noncommutingEffects() {

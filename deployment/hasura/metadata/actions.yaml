@@ -1,4 +1,12 @@
 actions:
+  - name: newMethod
+    definition:
+      kind: synchronous
+      handler: "{{AERIE_MERLIN_URL}}/newMethod"
+      timeout: 300
+    permissions:
+      - role: aerie_admin
+      - role: user
   - name: addExternalDataset
     definition:
       kind: synchronous

@@ -12,6 +12,12 @@ interface Fallible {
   errors: [Error!]!
 }
 
+type Query {
+  newMethod(
+    e: ExternalSource!
+  ): String!
+}
+
 type Mutation {
   addExternalDataset(
     planId: Int!,
@@ -305,3 +311,5 @@ scalar SequenceSeqJson
 scalar Dictionary
 
 scalar Any
+
+scalar ExternalSource

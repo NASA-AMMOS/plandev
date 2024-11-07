@@ -8,6 +8,7 @@ create table merlin.external_source (
     CHECK (end_time > start_time),
     created_at timestamp with time zone default now() not null,
     owner text,
+    attributes jsonb,
 
     constraint external_source_pkey
       primary key (key, derivation_group_name),
@@ -51,6 +52,8 @@ comment on column merlin.external_source.created_at is e''
   'This column is used primarily for documentation purposes, and has no associated functionality.';
 comment on column merlin.external_source.owner is e''
   'The user who uploaded the external source.';
+comment on column merlin.external_source.attributes is e''
+  'Additional data captured from the original external event, in key/pair form.';
 
 -- make sure new sources' source_type match that of their derivation group!
 create function merlin.external_source_type_matches_dg_on_add()

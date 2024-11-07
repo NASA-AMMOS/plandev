@@ -5,6 +5,7 @@ import com.microsoft.playwright.APIRequestContext;
 import com.microsoft.playwright.APIResponse;
 import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.options.RequestOptions;
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalSource;
 import gov.nasa.jpl.aerie.e2e.types.ActionPermissionsSet;
 import gov.nasa.jpl.aerie.e2e.types.ActionPermissionsSet.*;
 import gov.nasa.jpl.aerie.e2e.types.ExternalDataset;
@@ -31,6 +32,7 @@ import javax.json.JsonObject;
 import javax.json.JsonValue;
 import java.io.IOException;
 import java.io.StringReader;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -625,6 +627,103 @@ public class BindingsTests {
         final var response = request.post("/validateModelArguments", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
         assertTrue(getBody(response).getBoolean("success"));
+      }
+    }
+
+    @Nested
+    class NewMethod {
+      @Test
+      void pleaseWork() {
+
+        // PROPERTIES:
+        // {
+        //   "a": "B",
+        //   "b": 1,
+        //   "c": {
+        //     "c_sub1": "1",
+        //     "c_sub2": 1,
+        //     "c_sub3": "variant1",
+        //     "c_sub4": ["a", "b", "c"]
+        //   }
+        // }
+
+        final String data = Json.createObjectBuilder()
+                                .add("action", Json.createObjectBuilder().add("name", "constraintsDslTypescript"))
+                                .add("input", Json.createObjectBuilder()
+                                    .add("e", Json.createObjectBuilder()
+                                        .add("key", "SourceKey")
+                                        .add("sourceType", "TypeA")
+                                        .add("validAt", Instant.now().toString())
+                                        .add("properties", Json.createObjectBuilder()
+                                                 .add("a", "B")
+                                                 .add("b", 1)
+                                                 .add("c", Json.createObjectBuilder()
+                                                     .add("c_sub1", "1")
+                                                     .add("c_sub2", 56)
+                                                     .add("c_sub3", "variant1")
+                                                     .add("c_sub4", Json.createArrayBuilder()
+                                                                        .add(1)
+                                                                        .add(2)
+                                                                        .add(3)
+                                                     )
+                                                 )
+                                        )
+                                    )
+                                )
+                                .add("request_query", "")
+                                .add("session_variables", admin.getSession())
+                                .build()
+                                .toString();
+        final var response = request.post("/newMethod", RequestOptions.create().setData(data));
+        System.out.println(response.text());
+        assertEquals(200, response.status());
+      }
+
+      @Test
+      void pleaseFail() {
+
+        // PROPERTIES:
+        // {
+        //   "a": "B",
+        //   "b": 1,
+        //   "c": {
+        //     "c_sub1": "1",
+        //     "c_sub2": 1,
+        //     "c_sub3": "variant3",
+        //     "c_sub4": ["a", "b", "c"]
+        //   }
+        // }
+
+        final String data = Json.createObjectBuilder()
+                                .add("action", Json.createObjectBuilder().add("name", "constraintsDslTypescript"))
+                                .add("input", Json.createObjectBuilder()
+                                                  .add("e", Json.createObjectBuilder()
+                                                                .add("key", "SourceKey")
+                                                                .add("sourceType", "TypeA")
+                                                                .add("validAt", Instant.now().toString())
+                                                                .add("properties", Json.createObjectBuilder()
+                                                                                       .add("a", "B")
+                                                                                       .add("b", 1)
+                                                                                       .add("c", Json.createObjectBuilder()
+                                                                                                     .add("c_sub1", "1")
+                                                                                                     .add("c_sub2", 56)
+                                                                                                     .add("c_sub3", "variant3")
+                                                                                                     .add("c_sub4", Json.createArrayBuilder()
+                                                                                                                        .add(1)
+                                                                                                                        .add(2)
+                                                                                                                        .add(3)
+                                                                                                     )
+                                                                                       )
+                                                                )
+                                                  )
+                                )
+                                .add("request_query", "")
+                                .add("session_variables", admin.getSession())
+                                .build()
+                                .toString();
+        final var response = request.post("/newMethod", RequestOptions.create().setData(data));
+        System.out.println(response.text());
+        assertEquals(400, response.status());
       }
     }
 

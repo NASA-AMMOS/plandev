@@ -6,6 +6,8 @@ import gov.nasa.jpl.aerie.json.SchemaCache;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationFailure;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.server.models.DatasetId;
+import gov.nasa.jpl.aerie.merlin.server.models.ExternalSource;
+import gov.nasa.jpl.aerie.merlin.server.models.HasuraAction;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
 import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
 import gov.nasa.jpl.aerie.merlin.server.services.UnexpectedSubtypeError;
@@ -21,6 +23,8 @@ import java.util.Optional;
 import static gov.nasa.jpl.aerie.json.BasicParsers.*;
 import static gov.nasa.jpl.aerie.json.Uncurry.tuple;
 import static gov.nasa.jpl.aerie.json.Uncurry.untuple;
+import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.profileSetP;
 import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.pgTimestampP;
 
 public abstract class MerlinParsers {
@@ -92,6 +96,22 @@ public abstract class MerlinParsers {
       . map(
           DatasetId::new,
           DatasetId::id);
+
+  public static final JsonParser<ExternalSource> externalSourceP
+      = productP
+        .field("key", stringP)
+        .field("sourceType", stringP)
+        .field("validAt", instantP)
+        .field("properties", mapP(serializedValueP))
+        .map(
+            untuple(ExternalSource::new),
+            (ExternalSource $) -> tuple(
+                $.key(),
+                $.sourceType(),
+                $.validAt(),
+                $.properties()
+            )
+        );
 
   public static final JsonParser<SimulationFailure> simulationFailureP = productP
       .field("type", stringP)

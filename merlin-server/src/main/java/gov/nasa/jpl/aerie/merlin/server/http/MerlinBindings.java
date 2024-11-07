@@ -2,6 +2,8 @@ package gov.nasa.jpl.aerie.merlin.server.http;
 
 import gov.nasa.jpl.aerie.constraints.InputMismatchException;
 import gov.nasa.jpl.aerie.json.JsonParser;
+import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.jpl.aerie.merlin.server.models.ExternalSource;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
@@ -28,10 +30,12 @@ import javax.json.Json;
 import javax.json.stream.JsonParsingException;
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.InvalidPropertiesFormatException;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraActivityActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraActivityBulkActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraConstraintsCodeAction;
@@ -43,6 +47,7 @@ import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraMissionM
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraMissionModelEventTriggerP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraPlanActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraExtendExternalDatasetActionP;
+import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraValidateExternalSourceInputP;
 import static io.javalin.apibuilder.ApiBuilder.before;
 import static io.javalin.apibuilder.ApiBuilder.path;
 import static io.javalin.apibuilder.ApiBuilder.post;
@@ -107,6 +112,7 @@ public final class MerlinBindings implements Plugin {
       path("extendExternalDataset", () -> post(this::extendExternalDataset));
       path("constraintsDslTypescript", () -> post(this::getConstraintsDslTypescript));
       path("health", () -> get(ctx -> ctx.status(200)));
+      path("newMethod", () -> post(this::newMethod));
     });
 
     // This exception is expected when the request body entity is not a legal JsonValue.
@@ -114,6 +120,81 @@ public final class MerlinBindings implements Plugin {
         .status(400)
         .result(ResponseSerializers.serializeJsonParsingException(ex).toString())
         .contentType("application/json"));
+  }
+
+  private void newMethod(final Context ctx) {
+    try {
+      final var data = parseJson(ctx.body(), hasuraValidateExternalSourceInputP);
+      var input = data.input();
+
+      ExternalSource externalSource = input.e();
+      // STEP 1: Get JSON file (maybe via UI) to Gateway
+      // STEP 2: Gateway does JSON Schema, checks "is this even a valid source file"
+      // STEP 3: Gateway forwards the source properties as well as all properties of the events to Merlin-Server
+      // STEP 4: We run this method
+      //    STEP 4a: parse the JSON
+      //    STEP 4b: take that parsed json (in the data variable above) and check it against stored schema for given type (THIS PART CAN BE DONE IN GATEWAY MAYBE)
+      //    STEP 4c: endpoint says good/bad job
+      // STEP 5: gateway, if green light given, starts putting stuff in DB
+
+      // TODO: get this JSON from the database
+      // this is a schema for the entire properties field. we could restrict it to just the set of items and then wrap it as a struct or something...
+      String valueSchemaJSONRaw = """
+      {
+        "type": "struct",
+        "items": {
+          "a": { "type": "string" },
+          "b": { "type": "int" },
+          "c": {
+            "type": "struct",
+            "items": {
+              "c_sub1": { "type": "string" },
+              "c_sub2": { "type": "int" },
+              "c_sub3": {
+                "type": "variant",
+                "variants": [
+                  {
+                    "key": "variant1",
+                    "label": "variant1"
+                  },
+                  {
+                    "key": "variant2",
+                    "label": "variant2"
+                  }
+                ]
+              },
+              "c_sub4": {
+                "type": "series",
+                "items": {
+                  "type": "int"
+                }
+              }
+            }
+          }
+        }
+      }
+      """;
+
+      // parse the valueSchema
+      // TODO: WRITE A NEW PARSER SO THAT WE DON'T HAVE TO CAST
+      ValueSchema.StructSchema valueSchema = (ValueSchema.StructSchema) parseJson(valueSchemaJSONRaw, valueSchemaP);
+
+      // handle things
+      if(externalSource.meow(valueSchema.value())) {
+        ctx.status(200);
+      }
+      else {
+        // TODO: SPECIFY EXACTLY WHERE FAILURE HAPPENED
+        throw new InvalidPropertiesFormatException("Properties formatted incorrectly. The expected schema is: \n"
+                                               + valueSchemaJSONRaw + "\nbut you provided "
+                                               + externalSource.properties().toString());
+      }
+    }
+    catch (final InvalidEntityException ex) {
+      ctx.status(400).result(ex.getMessage());
+    } catch (final Exception ex) {
+      ctx.status(400).result(ex.toString());
+    }
   }
 
   private void postRefreshModelParameters(final Context ctx) {

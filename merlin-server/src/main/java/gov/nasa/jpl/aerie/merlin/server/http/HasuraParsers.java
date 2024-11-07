@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.merlin.server.http;
 
 import gov.nasa.jpl.aerie.json.JsonParser;
+import gov.nasa.jpl.aerie.merlin.server.models.ExternalSource;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
 import gov.nasa.jpl.aerie.merlin.server.models.HasuraAction;
 import gov.nasa.jpl.aerie.merlin.server.models.HasuraMissionModelEvent;
@@ -8,6 +9,7 @@ import gov.nasa.jpl.aerie.merlin.server.models.HasuraMissionModelEvent;
 import java.util.Optional;
 
 import static gov.nasa.jpl.aerie.json.BasicParsers.boolP;
+import static gov.nasa.jpl.aerie.json.BasicParsers.instantP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.listP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.mapP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.nullableP;
@@ -17,6 +19,7 @@ import static gov.nasa.jpl.aerie.json.Uncurry.tuple;
 import static gov.nasa.jpl.aerie.json.Uncurry.untuple;
 import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
 import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.datasetIdP;
+import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.externalSourceP;
 import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.missionModelIdP;
 import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.planIdP;
 import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.simulationDatasetIdP;
@@ -143,6 +146,18 @@ public abstract class HasuraParsers {
 
   public static final JsonParser<HasuraAction<HasuraAction.ActivityInput>> hasuraActivityActionP
       = hasuraActionF(hasuraActivityInputP);
+
+  public static final JsonParser<HasuraAction<HasuraAction.ValidateExternalSourceInput>> hasuraValidateExternalSourceInputP
+      = hasuraActionF(
+          productP
+            .field("e", externalSourceP)
+            .map(
+                untuple(HasuraAction.ValidateExternalSourceInput::new),
+                (HasuraAction.ValidateExternalSourceInput $) -> tuple(
+                    $.e()
+                )
+            )
+  );
 
   public static final JsonParser<HasuraAction<HasuraAction.UploadExternalDatasetInput>> hasuraUploadExternalDatasetActionP
       = hasuraActionF(

@@ -63,7 +63,6 @@ public class BindingsTests {
   static void beforeAll() throws IOException {
     try(final var playwright = Playwright.create();
         final var hasura = new HasuraRequests(playwright)){
-      hasura.getUserNames();
       // Insert the Users
       hasura.createUser(admin);
       hasura.createUser(nonOwner);

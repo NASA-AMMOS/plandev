@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static gov.nasa.jpl.aerie.e2e.utils.GQL.GET_USER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -139,11 +138,6 @@ public class HasuraRequests implements AutoCloseable {
     final var results = makeRequest(GQL.GET_EFFECTIVE_MODEL_ARGUMENTS, variables)
         .getJsonObject("getModelEffectiveArguments");
     return EffectiveModelArguments.fromJSON(results);
-  }
-
-  public void getUserNames() throws IOException {
-    final var variables = Json.createObjectBuilder().build();
-    final var data = makeRequest(GET_USER, variables);
   }
 
   public List<ResourceType> getResourceTypes(int missionModelId) throws IOException {

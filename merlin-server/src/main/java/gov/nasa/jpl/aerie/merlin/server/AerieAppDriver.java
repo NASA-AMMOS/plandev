@@ -9,11 +9,15 @@ import gov.nasa.jpl.aerie.merlin.server.http.LocalAppExceptionBindings;
 import gov.nasa.jpl.aerie.merlin.server.http.MerlinBindings;
 import gov.nasa.jpl.aerie.merlin.server.http.MissionModelRepositoryExceptionBindings;
 import gov.nasa.jpl.aerie.merlin.server.remotes.ConstraintRepository;
+import gov.nasa.jpl.aerie.merlin.server.remotes.ExternalEventsRepository;
 import gov.nasa.jpl.aerie.merlin.server.remotes.MissionModelRepository;
 import gov.nasa.jpl.aerie.merlin.server.remotes.PlanRepository;
 import gov.nasa.jpl.aerie.merlin.server.remotes.ResultsCellRepository;
 import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresConstraintRepository;
+import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresExternalEventsRepository;
 import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresMissionModelRepository;
+import gov.nasa.jpl.aerie.merlin.server.services.ExternalEventsService;
+import gov.nasa.jpl.aerie.merlin.server.services.LocalExternalEventsService;
 import gov.nasa.jpl.aerie.merlin.server.services.ValidationWorker;
 import gov.nasa.jpl.aerie.permissions.PermissionsService;
 import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresPlanRepository;
@@ -75,6 +79,8 @@ public final class AerieAppDriver {
       throw new Error("Failed to start ConstraintsDSLCompilationService", e);
     }
 
+    final ExternalEventsService externalEventsService = new LocalExternalEventsService(stores.externalEvents());
+
     Runtime.getRuntime().addShutdownHook(new Thread(constraintsDSLCompilationService::close));
 
     // Assemble the core non-web object graph.
@@ -101,7 +107,8 @@ public final class AerieAppDriver {
         simulationAction,
         generateConstraintsLibAction,
         constraintAction,
-        permissionsService
+        permissionsService,
+        externalEventsService
     );
     // Configure an HTTP server.
     //default javalin jetty server has a QueuedThreadPool with maxThreads to 250
@@ -131,7 +138,8 @@ public final class AerieAppDriver {
       PlanRepository plans,
       MissionModelRepository missionModels,
       ResultsCellRepository results,
-      ConstraintRepository constraints
+      ConstraintRepository constraints,
+      ExternalEventsRepository externalEvents
   ) {}
 
   private static Stores loadStores(final AppConfiguration config) {
@@ -155,7 +163,9 @@ public final class AerieAppDriver {
           new PostgresPlanRepository(hikariDataSource),
           new PostgresMissionModelRepository(hikariDataSource),
           new PostgresResultsCellRepository(hikariDataSource),
-          new PostgresConstraintRepository(hikariDataSource));
+          new PostgresConstraintRepository(hikariDataSource),
+          new PostgresExternalEventsRepository(hikariDataSource)
+      );
     } else {
       throw new UnexpectedSubtypeError(Store.class, store);
     }

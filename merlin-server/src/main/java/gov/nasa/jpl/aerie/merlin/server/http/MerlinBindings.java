@@ -4,6 +4,7 @@ import gov.nasa.jpl.aerie.constraints.InputMismatchException;
 import gov.nasa.jpl.aerie.json.JsonParser;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.models.ExternalSource;
+import gov.nasa.jpl.aerie.merlin.server.services.ExternalEventsService;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
@@ -73,6 +74,7 @@ public final class MerlinBindings implements Plugin {
   private final GenerateConstraintsLibAction generateConstraintsLibAction;
   private final ConstraintAction constraintAction;
   private final PermissionsService permissionsService;
+  private final ExternalEventsService externalEventsService;
 
   public MerlinBindings(
       final MissionModelService missionModelService,
@@ -80,7 +82,8 @@ public final class MerlinBindings implements Plugin {
       final GetSimulationResultsAction simulationAction,
       final GenerateConstraintsLibAction generateConstraintsLibAction,
       final ConstraintAction constraintAction,
-      final PermissionsService permissionsService
+      final PermissionsService permissionsService,
+      final ExternalEventsService externalEventsService
   ) {
     this.missionModelService = missionModelService;
     this.planService = planService;
@@ -88,6 +91,7 @@ public final class MerlinBindings implements Plugin {
     this.generateConstraintsLibAction = generateConstraintsLibAction;
     this.constraintAction = constraintAction;
     this.permissionsService = permissionsService;
+    this.externalEventsService = externalEventsService;
   }
 
   @Override
@@ -123,70 +127,39 @@ public final class MerlinBindings implements Plugin {
   }
 
   private void newMethod(final Context ctx) {
+    // STEP 1: Get JSON file (maybe via UI) to Gateway
+    // STEP 2: Gateway does JSON Schema, checks "is this even a valid source file"
+    // STEP 3: Gateway forwards the source properties as well as all properties of the events to Merlin-Server
+    // STEP 4: We run this method
+    //    STEP 4a: parse the JSON
+    //    STEP 4b: take that parsed json (in the data variable above) and check it against stored schema for given type (THIS PART CAN BE DONE IN GATEWAY MAYBE)
+    //    STEP 4c: endpoint says good/bad job
+    // STEP 5: gateway, if green light given, starts putting stuff in DB
     try {
       final var data = parseJson(ctx.body(), hasuraValidateExternalSourceInputP);
       var input = data.input();
 
       ExternalSource externalSource = input.e();
-      // STEP 1: Get JSON file (maybe via UI) to Gateway
-      // STEP 2: Gateway does JSON Schema, checks "is this even a valid source file"
-      // STEP 3: Gateway forwards the source properties as well as all properties of the events to Merlin-Server
-      // STEP 4: We run this method
-      //    STEP 4a: parse the JSON
-      //    STEP 4b: take that parsed json (in the data variable above) and check it against stored schema for given type (THIS PART CAN BE DONE IN GATEWAY MAYBE)
-      //    STEP 4c: endpoint says good/bad job
-      // STEP 5: gateway, if green light given, starts putting stuff in DB
 
-      // TODO: get this JSON from the database
-      // this is a schema for the entire properties field. we could restrict it to just the set of items and then wrap it as a struct or something...
-      String valueSchemaJSONRaw = """
-      {
-        "type": "struct",
-        "items": {
-          "a": { "type": "string" },
-          "b": { "type": "int" },
-          "c": {
-            "type": "struct",
-            "items": {
-              "c_sub1": { "type": "string" },
-              "c_sub2": { "type": "int" },
-              "c_sub3": {
-                "type": "variant",
-                "variants": [
-                  {
-                    "key": "variant1",
-                    "label": "variant1"
-                  },
-                  {
-                    "key": "variant2",
-                    "label": "variant2"
-                  }
-                ]
-              },
-              "c_sub4": {
-                "type": "series",
-                "items": {
-                  "type": "int"
-                }
-              }
-            }
-          }
-        }
-      }
-      """;
+      String sourceType = externalSource.sourceType();
+      var result = externalEventsService.getExternalSourceTypeSchema(sourceType);
 
       // parse the valueSchema
       // TODO: WRITE A NEW PARSER SO THAT WE DON'T HAVE TO CAST
-      ValueSchema.StructSchema valueSchema = (ValueSchema.StructSchema) parseJson(valueSchemaJSONRaw, valueSchemaP);
+      ValueSchema.StructSchema valueSchema = (ValueSchema.StructSchema) parseJson(result, valueSchemaP);
 
       // handle things
       if(externalSource.meow(valueSchema.value())) {
-        ctx.status(200);
+//        var response = Json.createObjectBuilder()
+//                               .add("result", "successful.")
+//                                   .build();
+//        ctx.result(response.toString());
+        ctx.result("Good job");
       }
       else {
         // TODO: SPECIFY EXACTLY WHERE FAILURE HAPPENED
         throw new InvalidPropertiesFormatException("Properties formatted incorrectly. The expected schema is: \n"
-                                               + valueSchemaJSONRaw + "\nbut you provided "
+                                               + result + "\nbut you provided "
                                                + externalSource.properties().toString());
       }
     }

@@ -1,5 +1,6 @@
 create table merlin.external_source_type (
     name text not null,
+    value_schema jsonb not null,
 
     constraint external_source_type_pkey
       primary key (name)
@@ -12,3 +13,5 @@ comment on table merlin.external_source_type is e''
 
 comment on column merlin.external_source_type.name is e''
   'The identifier for this external_source_type, as well as its name.';
+comment on column merlin.external_source_type.value_schema is e''
+  'The schema that properties of this type should use, presented as a ValueSchema JSON object of base type "struct".';

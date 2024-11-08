@@ -64,6 +64,7 @@ dependencies {
   implementation project(':merlin-sdk')
   implementation project(':type-utils')
   implementation project(':contrib')
+  implementation project(':merlin-server')
 
   testImplementation project(":procedural:remote")
   testImplementation "com.zaxxer:HikariCP:5.1.0"

@@ -150,6 +150,14 @@ public enum GQL {
         priority
       }
     }"""),
+  GET_USER("""
+    query getUsers {
+      users {
+        default_role
+        username
+      }
+    }
+  """),
   CREATE_USER("""
     mutation createUser($user: users_insert_input!, $allowed_roles: [users_allowed_roles_insert_input!]!) {
       insert_users_one(object: $user) {

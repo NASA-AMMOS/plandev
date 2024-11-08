@@ -102,7 +102,7 @@ public abstract class MerlinParsers {
         .field("key", stringP)
         .field("sourceType", stringP)
         .field("validAt", instantP)
-        .field("properties", mapP(serializedValueP))
+        .field("properties", mapP(serializedValueP)) // TODO: GIVE THIS ITS OWN PARSER AT SOME POINT
         .map(
             untuple(ExternalSource::new),
             (ExternalSource $) -> tuple(

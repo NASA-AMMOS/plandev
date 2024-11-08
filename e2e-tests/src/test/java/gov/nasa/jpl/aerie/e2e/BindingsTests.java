@@ -14,6 +14,7 @@ import gov.nasa.jpl.aerie.e2e.types.ValueSchema;
 import gov.nasa.jpl.aerie.e2e.utils.BaseURL;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
+//import gov.nasa.jpl.aerie.;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -32,6 +33,8 @@ import javax.json.JsonObject;
 import javax.json.JsonValue;
 import java.io.IOException;
 import java.io.StringReader;
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +63,7 @@ public class BindingsTests {
   static void beforeAll() throws IOException {
     try(final var playwright = Playwright.create();
         final var hasura = new HasuraRequests(playwright)){
+      hasura.getUserNames();
       // Insert the Users
       hasura.createUser(admin);
       hasura.createUser(nonOwner);
@@ -632,9 +636,54 @@ public class BindingsTests {
 
     @Nested
     class NewMethod {
+      @BeforeEach
+      void beforeEach() throws IOException {
+        String valueSchemaJSONRaw = """
+          {
+            "type": "struct",
+            "items": {
+              "a": { "type": "string" },
+              "b": { "type": "int" },
+              "c": {
+                "type": "struct",
+                "items": {
+                  "c_sub1": { "type": "string" },
+                  "c_sub2": { "type": "int" },
+                  "c_sub3": {
+                    "type": "variant",
+                    "variants": [
+                      {
+                        "key": "variant1",
+                        "label": "variant1"
+                      },
+                      {
+                        "key": "variant2",
+                        "label": "variant2"
+                      }
+                    ]
+                  },
+                  "c_sub4": {
+                    "type": "series",
+                    "items": {
+                      "type": "int"
+                    }
+                  }
+                }
+              }
+            }
+          }
+          """;
+
+        hasura.insertExternalSourceType("TypeA", valueSchemaJSONRaw);
+      }
+
+      @AfterEach
+      void afterEach() throws IOException {
+        hasura.deleteExternalSourceType("TypeA");
+      }
+
       @Test
       void pleaseWork() {
-
         // PROPERTIES:
         // {
         //   "a": "B",

@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static gov.nasa.jpl.aerie.e2e.utils.GQL.GET_USER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -138,6 +139,11 @@ public class HasuraRequests implements AutoCloseable {
     final var results = makeRequest(GQL.GET_EFFECTIVE_MODEL_ARGUMENTS, variables)
         .getJsonObject("getModelEffectiveArguments");
     return EffectiveModelArguments.fromJSON(results);
+  }
+
+  public void getUserNames() throws IOException {
+    final var variables = Json.createObjectBuilder().build();
+    final var data = makeRequest(GET_USER, variables);
   }
 
   public List<ResourceType> getResourceTypes(int missionModelId) throws IOException {
@@ -1006,6 +1012,21 @@ public class HasuraRequests implements AutoCloseable {
         .getJsonObject("createExternalSourceType")
         .getString("name");
   }
+
+  public String insertExternalSourceType(
+      String name,
+      String jsonb_schema
+  ) throws IOException {
+    final var insertExternalSourceTypeBuilder = Json.createObjectBuilder()
+                                                    .add("name", name)
+                                                    .add("value_schema", jsonb_schema)
+                                                    .build();
+    final var variables = Json.createObjectBuilder().add("sourceType", insertExternalSourceTypeBuilder).build();
+    return makeRequest(GQL.CREATE_EXTERNAL_SOURCE_TYPE, variables)
+        .getJsonObject("createExternalSourceType")
+        .getString("name");
+  }
+
   public String insertExternalEventType(
       String name
   ) throws IOException {

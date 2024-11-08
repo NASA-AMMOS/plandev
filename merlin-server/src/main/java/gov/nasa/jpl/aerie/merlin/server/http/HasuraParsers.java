@@ -18,6 +18,7 @@ import static gov.nasa.jpl.aerie.json.BasicParsers.stringP;
 import static gov.nasa.jpl.aerie.json.Uncurry.tuple;
 import static gov.nasa.jpl.aerie.json.Uncurry.untuple;
 import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
 import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.datasetIdP;
 import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.externalSourceP;
 import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.missionModelIdP;
@@ -157,6 +158,20 @@ public abstract class HasuraParsers {
                     $.e()
                 )
             )
+  );
+
+  public static final JsonParser<HasuraAction<HasuraAction.ExternalSourceInput>> hasuraValidateExternalSourceTypeSchemaInputP
+      = hasuraActionF(
+      productP
+          .field("name", stringP)
+          .field("valueSchema", valueSchemaP)
+          .map(
+              untuple(HasuraAction.ExternalSourceInput::new),
+              (HasuraAction.ExternalSourceInput $) -> tuple(
+                  $.name(),
+                  $.valueSchema()
+              )
+          )
   );
 
   public static final JsonParser<HasuraAction<HasuraAction.UploadExternalDatasetInput>> hasuraUploadExternalDatasetActionP

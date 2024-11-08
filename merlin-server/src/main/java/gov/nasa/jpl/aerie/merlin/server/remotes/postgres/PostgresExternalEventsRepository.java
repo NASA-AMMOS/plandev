@@ -27,11 +27,24 @@ public class PostgresExternalEventsRepository implements ExternalEventsRepositor
     try (final var connection = this.dataSource.getConnection()) {
       try (final var getExternalSourceSchemaJsonbAction = new GetExternalSourceSchemaJsonbAction(connection)) {
         var results = getExternalSourceSchemaJsonbAction.get(sourceType);
-        var jsonbRaw = results.getFirst(); // investigate
+        var jsonbRaw = results.getFirst();
         return convertJsonbToString(jsonbRaw);
       }
     } catch (final SQLException ex) {
       throw new ExternalEventsService.NoSuchExternalSourceTypeException("Failed to retrieve external source type with name `%s`".formatted(sourceType), ex);
+    }
+  }
+
+  @Override
+  public void uploadExternalSourceType(final String name, final String valueSchema)
+  throws ExternalEventsService.NoSuchExternalSourceTypeException
+  {
+    try (final var connection = this.dataSource.getConnection()) {
+      try (final var uploadExternalSourceTypeAction = new UploadExternalSourceTypeAction(connection)) {
+        uploadExternalSourceTypeAction.upload(name, valueSchema);
+      }
+    } catch (final SQLException ex) {
+      throw new ExternalEventsService.NoSuchExternalSourceTypeException("Failed to upload external source type with name `%s` and schema:\n%s".formatted(name, valueSchema), ex);
     }
   }
 }

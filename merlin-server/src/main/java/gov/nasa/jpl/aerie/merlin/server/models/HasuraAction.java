@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.models;
 
+import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
@@ -31,8 +32,9 @@ public record HasuraAction<I extends HasuraAction.Input>(String name, I input, S
                                            ProfileSet profileSet) implements Input {}
 
   public record ValidateExternalSourceInput(ExternalSource e) implements Input {}
+  public record ExternalSourceInput(String name, ValueSchema valueSchema) implements Input {}
   public record ExtendExternalDatasetInput(DatasetId datasetId,
-                                           ProfileSet profileSet) implements Input {}
+      ProfileSet profileSet) implements Input {}
 
   public record ConstraintsInput(MissionModelId missionModelId, Optional<PlanId> planId) implements Input {}
 }

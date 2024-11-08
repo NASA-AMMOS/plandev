@@ -7,6 +7,14 @@ actions:
     permissions:
       - role: aerie_admin
       - role: user
+  - name: uploadExternalSourceType
+    definition:
+      kind: synchronous
+      handler: "{{AERIE_MERLIN_URL}}/uploadExternalSource"
+      timeout: 300
+    permissions:
+      - role: aerie_admin
+      - role: user
   - name: addExternalDataset
     definition:
       kind: synchronous

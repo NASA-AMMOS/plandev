@@ -175,8 +175,9 @@ public class HasuraRequests implements AutoCloseable {
     final var variables = Json.createObjectBuilder().add("modelId", modelId).build();
 
     for(int i = 0; i < timeout; ++i){
-      final var logs = ModelEventLogs.fromJSON(makeRequest(GQL.GET_MODEL_EVENT_LOGS, variables)
-                                                   .getJsonObject("mission_model"));
+      var a = makeRequest(GQL.GET_MODEL_EVENT_LOGS, variables);
+      var b = a.getJsonObject("mission_model");
+      final var logs = ModelEventLogs.fromJSON(b);
 
       if(logs.refreshActivityTypesLogs().getLast().pending() ||
          logs.refreshModelParamsLogs().getLast().pending() ||

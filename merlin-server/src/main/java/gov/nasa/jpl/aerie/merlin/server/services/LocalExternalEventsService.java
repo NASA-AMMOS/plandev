@@ -21,4 +21,11 @@ public class LocalExternalEventsService implements ExternalEventsService {
   public String getExternalSourceTypeSchema(final String sourceType) throws NoSuchExternalSourceTypeException {
     return externalEventsRepository.getExternalSourceSchemaJsonb(sourceType);
   }
+
+  @Override
+  public void uploadExternalSourceType(final String name, final String valueSchema)
+  throws NoSuchExternalSourceTypeException
+  {
+    externalEventsRepository.uploadExternalSourceType(name, valueSchema);
+  }
 }

@@ -6,4 +6,6 @@ import gov.nasa.jpl.aerie.merlin.server.services.ExternalEventsService;
 public interface ExternalEventsRepository {
   public String getExternalSourceSchemaJsonb(String sourceType) throws
                                                                 ExternalEventsService.NoSuchExternalSourceTypeException;
+  public void uploadExternalSourceType(String name, String valueSchema)
+  throws ExternalEventsService.NoSuchExternalSourceTypeException;
 }

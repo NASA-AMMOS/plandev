@@ -49,6 +49,7 @@ import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraMissionM
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraPlanActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraExtendExternalDatasetActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraValidateExternalSourceInputP;
+import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraValidateExternalSourceTypeSchemaInputP;
 import static io.javalin.apibuilder.ApiBuilder.before;
 import static io.javalin.apibuilder.ApiBuilder.path;
 import static io.javalin.apibuilder.ApiBuilder.post;
@@ -117,6 +118,7 @@ public final class MerlinBindings implements Plugin {
       path("constraintsDslTypescript", () -> post(this::getConstraintsDslTypescript));
       path("health", () -> get(ctx -> ctx.status(200)));
       path("newMethod", () -> post(this::newMethod));
+      path("uploadExternalSourceType", () -> post(this::uploadExternalSourceType));
     });
 
     // This exception is expected when the request body entity is not a legal JsonValue.
@@ -124,6 +126,28 @@ public final class MerlinBindings implements Plugin {
         .status(400)
         .result(ResponseSerializers.serializeJsonParsingException(ex).toString())
         .contentType("application/json"));
+  }
+
+  private void uploadExternalSourceType(final Context ctx) {
+    try {
+      // Get the source type, and parse the JSON
+      final var data = parseJson(ctx.body(), hasuraValidateExternalSourceTypeSchemaInputP);
+
+      // compare it to a general value schema for any source type specification, make sure it has everything
+      // in doing this, we have already parsed it as a value schema. we are done...the only reason we don't do this on
+      //    gateway is because the valueSchema parsers are built in here!
+      String sourceType = data.input().name();
+      ValueSchema sourceTypeSchema = data.input().valueSchema();
+
+      // upload it
+      externalEventsService.uploadExternalSourceType(sourceType, sourceTypeSchema.toString());
+      ctx.result("Good job");
+    }
+    catch (final InvalidEntityException ex) {
+      ctx.status(400).result(ex.getMessage());
+    } catch (final Exception ex) {
+      ctx.status(400).result(ex.toString());
+    }
   }
 
   private void newMethod(final Context ctx) {

@@ -635,9 +635,104 @@ public class BindingsTests {
     }
 
     @Nested
+    class UploadSourceType {
+      @Test
+      void pleaseWorkHere() {
+//       VALUE SCHEMA:
+//          {
+//            "type": "struct",
+//            "items": {
+//              "a": { "type": "string" },
+//              "b": { "type": "int" },
+//              "c": {
+//                "type": "struct",
+//                "items": {
+//                  "c_sub1": { "type": "string" },
+//                  "c_sub2": { "type": "int" },
+//                  "c_sub3": {
+//                    "type": "variant",
+//                    "variants": [
+//                      {
+//                        "key": "variant1",
+//                        "label": "variant1"
+//                      },
+//                      {
+//                        "key": "variant2",
+//                        "label": "variant2"
+//                      }
+//                    ]
+//                  },
+//                  "c_sub4": {
+//                    "type": "series",
+//                    "items": {
+//                      "type": "int"
+//                    }
+//                  }
+//                }
+//              }
+//            }
+//          }
+
+        final String data = Json.createObjectBuilder()
+                                .add("action", Json.createObjectBuilder().add("name", "constraintsDslTypescript"))
+                                .add("input", Json.createObjectBuilder()
+                                    .add("type", "struct")
+                                    .add("items", Json.createObjectBuilder()
+                                        .add("a", Json.createObjectBuilder()
+                                            .add("type", "string")
+                                        )
+                                        .add("b", Json.createObjectBuilder()
+                                            .add("type", "int")
+                                        )
+                                        .add("b", Json.createObjectBuilder()
+                                            .add("c", Json.createObjectBuilder()
+                                                .add("type", "struct")
+                                                .add("items", Json.createObjectBuilder()
+                                                    .add("c_sub1", Json.createObjectBuilder()
+                                                       .add("type", "string")
+                                                    )
+                                                    .add("c_sub2", Json.createObjectBuilder()
+                                                       .add("type", "string")
+                                                    )
+                                                    .add("c_sub3", Json.createObjectBuilder()
+                                                       .add("type", "variant")
+                                                        .add("variants", Json.createArrayBuilder()
+                                                            .add(Json.createObjectBuilder()
+                                                                     .add("key", "variant1")
+                                                                     .add("value", "variant1")
+                                                            )
+                                                           .add(Json.createObjectBuilder()
+                                                                    .add("key", "variant2")
+                                                                    .add("value", "variant2")
+                                                           )
+                                                        )
+                                                    )
+                                                    .add("c_sub4", Json.createObjectBuilder()
+                                                        .add("type", "series")
+                                                        .add("items", Json.createObjectBuilder()
+                                                            .add("type", "int")
+                                                        )
+                                                    )
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                                .add("request_query", "")
+                                .add("session_variables", admin.getSession())
+                                .build()
+                                .toString();
+        final var response = request.post("/uploadExternalSourceType", RequestOptions.create().setData(data));
+        System.out.println(response.text());
+        assertEquals(200, response.status());
+      }
+    }
+
+    @Nested
     class NewMethod {
       @BeforeEach
       void beforeEach() throws IOException {
+        // TODO: replace this with a call to UploadExternalSource endpoint
         String valueSchemaJSONRaw = """
           {
             "type": "struct",

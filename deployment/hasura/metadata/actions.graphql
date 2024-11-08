@@ -19,6 +19,13 @@ type Query {
 }
 
 type Mutation {
+  uploadExternalSourceType(
+    name: String!
+    valueSchema: ValueSchema!
+  ): String!
+}
+
+type Mutation {
   addExternalDataset(
     planId: Int!,
     simulationDatasetId: Int,
@@ -313,3 +320,5 @@ scalar Dictionary
 scalar Any
 
 scalar ExternalSource
+
+scalar ValueSchema

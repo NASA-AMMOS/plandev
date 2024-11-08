@@ -14,6 +14,7 @@ public interface ExternalEventsService {
 
   // get source type schema (as a string for now)
   String getExternalSourceTypeSchema(String sourceType) throws NoSuchExternalSourceTypeException;
+  void uploadExternalSourceType(String name, String valueSchema) throws NoSuchExternalSourceTypeException;
 
   final class NoSuchExternalSourceTypeException extends Exception {
     public final String sourceType;

@@ -1013,6 +1013,7 @@ public class HasuraRequests implements AutoCloseable {
         .getString("name");
   }
 
+  // TODO: update all tests to just use this
   public String insertExternalSourceType(
       String name,
       String jsonb_schema

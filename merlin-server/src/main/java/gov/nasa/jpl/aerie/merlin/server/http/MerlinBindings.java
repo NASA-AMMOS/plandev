@@ -145,22 +145,20 @@ public final class MerlinBindings implements Plugin {
       var result = externalEventsService.getExternalSourceTypeSchema(sourceType);
 
       // parse the valueSchema
-      // TODO: WRITE A NEW PARSER SO THAT WE DON'T HAVE TO CAST
+      // TODO: WRITE A NEW PARSER SO THAT WE DON'T HAVE TO CAST?
       ValueSchema.StructSchema valueSchema = (ValueSchema.StructSchema) parseJson(result, valueSchemaP);
 
       // handle things
-      if(externalSource.meow(valueSchema.value())) {
-//        var response = Json.createObjectBuilder()
-//                               .add("result", "successful.")
-//                                   .build();
-//        ctx.result(response.toString());
-        ctx.result("Good job");
-      }
-      else {
-        // TODO: SPECIFY EXACTLY WHERE FAILURE HAPPENED
-        throw new InvalidPropertiesFormatException("Properties formatted incorrectly. The expected schema is: \n"
-                                               + result + "\nbut you provided "
-                                               + externalSource.properties().toString());
+      var parseResult = externalSource.parseProperties(valueSchema.value());
+      switch (parseResult) {
+        case ExternalSource.Result.Success() -> {
+          ctx.result("Good job");
+        }
+        case ExternalSource.Result.Error(String failureMessage) -> {
+          // TODO: SPECIFY EXACTLY WHERE FAILURE HAPPENED
+          throw new InvalidPropertiesFormatException("Properties formatted incorrectly. Error encountered at: \n"
+                                                     + failureMessage);
+        }
       }
     }
     catch (final InvalidEntityException ex) {

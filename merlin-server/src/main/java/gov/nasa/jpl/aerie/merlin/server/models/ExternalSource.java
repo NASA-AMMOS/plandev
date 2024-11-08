@@ -1,12 +1,9 @@
 package gov.nasa.jpl.aerie.merlin.server.models;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 
 import java.time.Instant;
-import java.util.Date;
-import java.util.List;
 import java.util.Map;
 
 //record SourcePeriod(
@@ -37,76 +34,126 @@ public record ExternalSource(
     Map<String, SerializedValue> properties
 ) {
 
-  public boolean meow(Map<String, ValueSchema> propertySchemas) {
+  public sealed interface Result {
+    record Success() implements Result {}
+    record Error(String failureMessage) implements Result {}
+  }
+
+  public Result parseProperties(Map<String, ValueSchema> propertySchemas) {
     if (properties.size() != propertySchemas.size()) {
-      return false;
+      var propertiesString = properties.keySet().stream().reduce("", (result, element) -> result + element);
+      var propertySchemaString = propertySchemas.keySet().stream().reduce("", (result, element) -> result + element);
+      return new Result.Error("Too many or too few properties included.\nProperties: " + propertiesString + "\nPropertySchemas: " + propertySchemaString);
     }
     if (!propertySchemas.keySet().containsAll(properties.keySet())) {
-      return false;
+      var propertiesString = properties.keySet().stream().reduce("", (result, element) -> result + element);
+      var propertySchemaString = propertySchemas.keySet().stream().reduce("", (result, element) -> result + element);
+      return new Result.Error("Incorrect properties included.\nProperties: " + propertiesString + "\nPropertySchemas: " + propertySchemaString);
+
     }
 
-    var result = true;
+    final var basePath = "ExternalSource/properties/";
     for (String propName : properties.keySet()) {
       SerializedValue s = properties.get(propName);
       ValueSchema v = propertySchemas.get(propName);
 
-      result &= bowwow(v, s);
+      var result = parsePropertiesRec(v, s, basePath + propName + "/");
+      switch (result) {
+          case Result.Success() -> {
+          }
+          case Result.Error(String ignored) -> {
+          return result;
+        }
+      }
     }
-    return result;
+    return new Result.Success();
   }
 
-  private static boolean bowwow(ValueSchema v, SerializedValue s) {
+  private static Result parsePropertiesRec(ValueSchema v, SerializedValue s, String currentPath) {
     return switch (v) {
       case ValueSchema.BooleanSchema booleanSchema -> {
-        yield s.asBoolean().isPresent();
+        if (!s.asBoolean().isPresent()) {
+          yield new Result.Error("Failed at path " + currentPath + ". Expected type boolean, but got value " + s);
+        }
+        yield new Result.Success();
       }
       case ValueSchema.DurationSchema durationSchema -> {
-//        if (s.asInt().isPresent()) {
-//          yield Duration.of(s.asInt().get(), Duration.MICROSECOND) instanceof Duration;
-//        }
-//        yield false;
-        yield s.asInt().isPresent();
+        if (!s.asInt().isPresent()) {
+          yield new Result.Error("Failed at path " + currentPath + ". Expected type duration (int-like), but got value " + s);
+        }
+        yield new Result.Success();
       }
       case ValueSchema.IntSchema intSchema -> {
-        yield s.asInt().isPresent();
+        if (!s.asInt().isPresent()) {
+          yield new Result.Error("Failed at path " + currentPath + ". Expected type int, but got value " + s);
+        }
+        yield new Result.Success();
       }
       case ValueSchema.RealSchema realSchema -> {
-        yield s.asReal().isPresent();
+        if (!s.asReal().isPresent()) {
+          yield new Result.Error("Failed at path " + currentPath + ". Expected type real, but got value " + s);
+        }
+        yield new Result.Success();
       }
       case ValueSchema.SeriesSchema seriesSchema -> {
-        if(s.asList().isPresent()) {
-          var result = true;
+        if(!s.asList().isPresent()) {
+          yield new Result.Error("Failed at path " + currentPath + ". Expected type series, but got value " + s);
+        }
+        else {
           ValueSchema v_sub = v.asSeries().get();
           for (var s_sub : s.asList().get()) {
-            result &= bowwow(v_sub, s_sub);
+            var result = parsePropertiesRec(v_sub, s_sub, currentPath + "[LIST]" + "/");
+            switch (result) {
+              case Result.Success() -> {
+              }
+              case Result.Error(String failureMessage) -> {
+                yield result;
+              }
+            }
           }
-          yield result;
         }
-        yield false;
+        yield new Result.Success();
       }
       case ValueSchema.StringSchema stringSchema -> {
-        yield s.asString().isPresent();
+        if (!s.asString().isPresent()) {
+          yield new Result.Error("Failed at path " + currentPath + ". Expected type string, but got value " + s);
+        }
+        yield new Result.Success();
       }
       case ValueSchema.StructSchema structSchema -> {
-        if (s.asMap().isPresent()) {
-          var result = true;
+        if(!s.asMap().isPresent()) {
+          yield new Result.Error("Failed at path " + currentPath + ". Expected type struct, but got value " + s);
+        }
+        else {
           for (String propName : s.asMap().get().keySet()) {
             SerializedValue s_sub = s.asMap().get().get(propName);
             ValueSchema v_sub = v.asStruct().get().get(propName);
 
-            result &= bowwow(v_sub, s_sub);
+            var result = parsePropertiesRec(v_sub, s_sub, currentPath + propName + "/");
+            switch(result) {
+              case Result.Success() -> {
+              }
+              case Result.Error(String failureMessage) -> {
+                yield result;
+              }
+            }
           }
-          yield result;
         }
-        yield false;
+        yield new Result.Success();
       }
       case ValueSchema.VariantSchema variantSchema -> {
-        yield s.asString().isPresent() &&
-              variantSchema.variants().stream().map(ValueSchema.Variant::key).toList().contains(s.asString().get());
+        var variants = variantSchema.variants().stream().map(ValueSchema.Variant::key).toList();
+        var correct = s.asString().isPresent() && variants.contains(s.asString().get());
+        if (!correct) {
+          var variantString = variants.stream().reduce("", (result, element) -> result + ", " + element);
+          yield new Result.Error("Failed at path " + currentPath + ". Expected type variant [" + variantString + "], but got value " + s);
+        }
+        yield new Result.Success();
       }
       default -> {
         // pathSchema, metaSchema
-        yield false;
+        // TODO: PATH
+        yield new Result.Error("Encountered unexpected schema at path");
       }
     };
   }

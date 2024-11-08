@@ -771,8 +771,8 @@ public class BindingsTests {
                                 .build()
                                 .toString();
         final var response = request.post("/newMethod", RequestOptions.create().setData(data));
-        System.out.println(response.text());
         assertEquals(400, response.status());
+        assertTrue(response.text().contains("ExternalSource/properties/c/c_sub3/"));
       }
     }
 

@@ -60,6 +60,7 @@ public class CLIArgumentsTest {
 
     Available commands:
      - simulate: Simulate a plan using the specified model and configuration
+     - schedule: Schedule a plan using the specified model, configuration, and procedural goal specification
 
     Stateless Aerie v""";
 

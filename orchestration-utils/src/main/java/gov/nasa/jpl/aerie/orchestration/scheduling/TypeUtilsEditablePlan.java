@@ -160,7 +160,7 @@ public class TypeUtilsEditablePlan implements EditablePlan {
     );
   }
 
-  private Plan getSchedulerPlan() {
+  public Plan getSchedulerPlan() {
     final var result = new PlanInMemory();
     result.add(
         plan.plan().activityDirectives()

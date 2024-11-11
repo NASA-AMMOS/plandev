@@ -243,8 +243,6 @@ public class PrioritySolver implements Solver {
     this.checkSimBeforeInsertingActivities = false;
     checkAndInsertActs(problem.getInitialPlan().getActivitiesByTime());
     this.checkSimBeforeInsertingActivities = prevCheckFlag;
-
-    plan.addEvaluation(new Evaluation());
   }
 
 

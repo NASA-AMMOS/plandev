@@ -44,6 +44,7 @@ public class PlanInMemory implements Plan {
    *
    */
   public PlanInMemory() {
+    this.evaluation = new Evaluation();
     this.actsByTime = new TreeMap<>();
   }
 
@@ -195,14 +196,6 @@ public class PlanInMemory implements Plan {
       }
     }
     return matched;
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void addEvaluation(Evaluation eval) {
-    evaluation = eval;
   }
 
   /**

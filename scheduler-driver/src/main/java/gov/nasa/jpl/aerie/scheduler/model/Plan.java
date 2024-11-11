@@ -109,15 +109,6 @@ public interface Plan {
    */
   Collection<SchedulingActivity> find(
       ActivityExpression template, SimulationResults simulationResults, EvaluationEnvironment evaluationEnvironment);
-  /**
-   * adds a new evaluation to the plan
-   *
-   * note that different solvers or metrics will have different evaluations
-   * for the same plan
-   *
-   * @param eval IN the new evaluation to add to the plan
-   */
-  void addEvaluation(Evaluation eval);
 
   /**
    * fetches evaluation posted to the plan

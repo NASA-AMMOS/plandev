@@ -2,6 +2,10 @@ package gov.nasa.jpl.aerie.orchestration.scheduling;
 
 import gov.nasa.ammos.aerie.procedural.timeline.Interval;
 import gov.nasa.ammos.aerie.procedural.timeline.collections.Directives;
+import gov.nasa.ammos.aerie.procedural.timeline.collections.ExternalEvents;
+import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps;
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment;
+import gov.nasa.ammos.aerie.procedural.timeline.plan.EventQuery;
 import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.ammos.aerie.procedural.scheduling.plan.Edit;
@@ -191,7 +195,8 @@ public class TypeUtilsEditablePlan implements EditablePlan {
         null,
         activity.anchorId(),
         activity.anchoredToStart(),
-        false
+        false,
+        null
     );
   }
 
@@ -222,5 +227,20 @@ public class TypeUtilsEditablePlan implements EditablePlan {
       @NotNull final Function1<? super SerializedValue, ? extends A> deserializer)
   {
     return plan.directives(type, deserializer);
+  }
+
+  @NotNull
+  @Override
+  public <V, TL extends SerialSegmentOps<V, TL>> TL resource(
+      @NotNull final String name,
+      @NotNull final Function1<? super List<Segment<SerializedValue>>, ? extends TL> deserializer)
+  {
+    return plan.resource(name, deserializer);
+  }
+
+  @NotNull
+  @Override
+  public ExternalEvents events(@NotNull final EventQuery query) {
+    return plan.events(query);
   }
 }

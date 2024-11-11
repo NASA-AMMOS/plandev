@@ -14,7 +14,8 @@ select distinct on (event_key, derivation_group_name)
     output.duration,
     output.start_time,
     output.source_range,
-    output.valid_at
+    output.valid_at,
+    output.attributes
 from (
   -- select the events from the sources and include them as they fit into the ranges determined by sub
   select
@@ -25,7 +26,8 @@ from (
     s.derivation_group_name,
     ee.start_time,
     s.source_range,
-    s.valid_at
+    s.valid_at,
+    ee.attributes
   from merlin.external_event ee
   join (
     with base_ranges as (

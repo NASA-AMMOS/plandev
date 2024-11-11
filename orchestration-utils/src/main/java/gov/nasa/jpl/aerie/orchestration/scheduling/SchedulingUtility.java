@@ -2,6 +2,7 @@ package gov.nasa.jpl.aerie.orchestration.scheduling;
 
 import gov.nasa.ammos.aerie.procedural.scheduling.ProcedureMapper;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationEngineConfiguration;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.protocol.model.SchedulerModel;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
@@ -10,15 +11,13 @@ import gov.nasa.jpl.aerie.orchestration.parsers.GoalSpecificationParser;
 import gov.nasa.jpl.aerie.orchestration.simulation.CanceledListener;
 import gov.nasa.jpl.aerie.scheduler.DirectiveIdGenerator;
 import gov.nasa.jpl.aerie.scheduler.ProcedureLoader;
-import gov.nasa.jpl.aerie.scheduler.goals.Procedure;
 import gov.nasa.jpl.aerie.scheduler.model.PlanningHorizon;
-import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
 import gov.nasa.jpl.aerie.scheduler.simulation.CheckpointSimulationFacade;
-import gov.nasa.jpl.aerie.scheduler.solver.Evaluation;
+import gov.nasa.jpl.aerie.scheduler.simulation.InMemoryCachedEngineStore;
+import gov.nasa.jpl.aerie.scheduler.simulation.SimulationData;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.Plan;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -28,19 +27,18 @@ import java.util.Optional;
 public class SchedulingUtility {
   private final MissionModel<?> model;
   private final SchedulerModel schedulerModel;
-  private final Plan plan;
   private final Map<String, ActivityType> typeMap;
+  private final int maxEngines;
 
-  public SchedulingUtility(
-      final MissionModel<?> model,
-      final SchedulerModel schedulerModel,
-      final Plan plan
-  )
-  {
+  public SchedulingUtility(final MissionModel<?> model, final SchedulerModel schedulerModel) {
+    this(model, schedulerModel, 1);
+  }
+
+  public SchedulingUtility(final MissionModel<?> model, final SchedulerModel schedulerModel, final int maxEngines) {
     this.model = model;
     this.schedulerModel = schedulerModel;
-    this.plan = plan;
     this.typeMap = generateTypeMap(model, schedulerModel);
+    this.maxEngines = maxEngines;
   }
 
   private static Map<String, ActivityType> generateTypeMap(MissionModel<?> model, SchedulerModel schedulerModel) {
@@ -78,91 +76,74 @@ public class SchedulingUtility {
 
   public void schedule(
       final List<GoalSpecificationParser.GoalRecord> goals,
+      final Plan plan,
       CanceledListener canceledListener,
       Optional<SimulationResults> initialResults
-  ) throws InterruptedException {
-    // ensure list is sorted
+  ) throws InterruptedException
+  {
     goals.sort(GoalSpecificationParser.GoalRecord::compareTo);
 
-    //on first call to solver; setup fresh solution workspace for problem
-    if(canceledListener.get()) throw new InterruptedException("initializing plan");
+    try (final var engineStore = new InMemoryCachedEngineStore(maxEngines)) {
+      final var horizon = new PlanningHorizon(plan.simulationStartInstant(), plan.simulationEndInstant());
+      final var directiveIdGenerator = new DirectiveIdGenerator(
+          plan.activityDirectives()
+              .keySet()
+              .stream()
+              .map(ActivityDirectiveId::id)
+              .max(Long::compareTo)
+              .orElse(-1L)
+          + 1);
+      final var simFacade = new CheckpointSimulationFacade(
+          model,
+          schedulerModel,
+          engineStore,
+          horizon,
+          new SimulationEngineConfiguration(
+              plan.simulationConfiguration(),
+              plan.simulationStartInstant(),
+              plan.missionModelId()),
+          canceledListener
+      );
 
-    final var directiveIdGenerator = new DirectiveIdGenerator(
-        plan.activityDirectives()
-            .keySet()
-            .stream()
-            .map(ActivityDirectiveId::id)
-            .max(Long::compareTo)
-            .orElse(-1L)
-        + 1);
+      final var proceduralPlan = new TypeUtilsProceduralPlan(plan);
 
-    final var simFacade = new CheckpointSimulationFacade(model, null, null, null, null, null);
+      final var editablePlan = new TypeUtilsEditablePlan(
+          directiveIdGenerator,
+          proceduralPlan,
+          simFacade,
+          this::lookupActivityType);
 
+      final var schedulerPlan = editablePlan.getSchedulerPlan();
+      //final var eval = schedulerPlan.getEvaluation();
+      initialResults.ifPresent(r -> simFacade.setInitialSimResults(new SimulationData(schedulerPlan, r)));
 
+      for (final var g : goals) {
+        //final var procedure = new Procedure(horizon, g.jarPath(), g.args(), g.simulateAfter());
 
-
-
-    final var proceduralPlan = new TypeUtilsProceduralPlan(plan);
-    final var horizon = new PlanningHorizon(plan.simulationStartInstant(), plan.simulationEndTimestamp.toInstant());
-    final var editablePlan = new TypeUtilsEditablePlan(directiveIdGenerator, proceduralPlan, simFacade, this::lookupActivityType);
-
-    final var evaluation = new Evaluation();
-
-    for(final var g : goals) {
-      final var procedure = new Procedure(horizon, g.jarPath(), g.args(), g.simulateAfter());
-
-      if (canceledListener.get()) throw new InterruptedException("satisfying goal");
-      final boolean checkSimConfig = g.simulateAfter();
-
-      final ProcedureMapper<?> procedureMapper;
-      try {
-        procedureMapper = ProcedureLoader.loadProcedure(g.jarPath());
-      } catch (ProcedureLoader.ProcedureLoadException e) {
-        throw new RuntimeException(e);
-      }
-
-      List<SchedulingActivity> newActivities = new ArrayList<>();
-      procedureMapper.deserialize(SerializedValue.of(g.args())).run(editablePlan);
-    }
-
-
-
-    /*
-      try {
-        initializePlan();
-        if(problem.getInitialSimulationResults().isPresent()) {
-          logger.debug("Loading initial simulation results from the DB");
-          simulationFacade.setInitialSimResults(problem.getInitialSimulationResults().get());
+        final ProcedureMapper<?> procedureMapper;
+        try {
+          procedureMapper = ProcedureLoader.loadProcedure(g.jarPath());
+        } catch (ProcedureLoader.ProcedureLoadException e) {
+          throw new RuntimeException(e);
         }
-      } catch (SimulationFacade.SimulationException e) {
-        logger.error("Tried to initializePlan but at least one activity could not be instantiated", e);
-        return Optional.empty();
+
+        procedureMapper.deserialize(SerializedValue.of(g.args())).run(editablePlan);
+
+
+        /*
+        final var evaluation = eval.forGoal(procedure);
+
+        for (final var edit : editablePlan.getFinalChanges()) {
+          if (edit instanceof Edit.Create c) {
+            evaluation.associate(toSchedulingActivity(c.getDirective(), this::lookupActivityType, true), true, null);
+          } else {
+            throw new IllegalStateException("Unexpected value: " + edit);
+          }
+        }
+
+        evaluation.setConflictSatisfaction(null, ConflictSatisfaction.SAT);
+         */
       }
-
-      //attempt to satisfy the goals in the problem
-      //construct a priority sorted goal container
-
-      //update the output solution plan directly to satisfy goal
-      if(simulationFacade.getCanceledListener().get()) throw new SchedulingInterruptedException("satisfying goal");
-    final boolean checkSimConfig = this.checkSimBeforeInsertingActivities;
-    this.checkSimBeforeInsertingActivities = goal.simulateAfter;
-
-      if (!analysisOnly) {
-        procedure.run(plan.getEvaluation(), plan, this.problem::getActivityType, this.simulationFacade, this.idGenerator);
-      }
-       this.checkSimBeforeEvaluatingGoal = goal.simulateAfter;
-    this.checkSimBeforeInsertingActivities = checkSimConfig;
     }
-
-      return Optional.of(plan);
-
-    } else { //plan!=null
-
-      //subsequent call after initial solution, so return null
-      //(this simple solver only produces a single solution)
-      return Optional.empty();
-    }
-     */
-
   }
 }

@@ -32,12 +32,12 @@ public class GoalSpecificationParser {
    *
    * Goal Specification Schema:
    * {
-   *   "version": 1.0
+   *   "version": 1.0,
    *   "goals": [
    *    {
-   *      "order": int
-   *      "jarPath": string
-   *      "arguments": {}
+   *      "order": int,
+   *      "jarPath": string,
+   *      "arguments": {},
    *      "simulateAfter": boolean
    *    }, ...
    *  ]
@@ -55,7 +55,7 @@ public class GoalSpecificationParser {
       final var goalSpecArray = parser.getObject().getJsonArray("goals");
 
 
-      final var goalSpec = new ArrayList<GoalRecord>();
+      final var goalSpec = new ArrayList<GoalRecord>(goalSpecArray.size());
       for(final var specValue: goalSpecArray) {
         final var spec = specValue.asJsonObject();
         final var args = new HashMap<String, SerializedValue>();

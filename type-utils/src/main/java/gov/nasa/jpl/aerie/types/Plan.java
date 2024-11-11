@@ -129,6 +129,11 @@ public final class Plan {
   public Instant simulationStartInstant() {return simulationStartTimestamp.toInstant();}
 
   /**
+   * Get the requested simulation end time as an Instant.
+   */
+  public Instant simulationEndInstant() { return simulationEndTimestamp.toInstant(); }
+
+  /**
    * Get the requested simulation duration.
    */
   public Duration simulationDuration() {

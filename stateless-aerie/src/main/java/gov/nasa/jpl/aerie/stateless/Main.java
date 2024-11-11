@@ -54,7 +54,7 @@ public class Main {
         Optional<Path> outputGoalSatisfactionPath,
         boolean simulateAfter,
         boolean verbose,
-        long maxEngines
+        int maxEngines
     ) implements Arguments {}
   }
 
@@ -219,7 +219,7 @@ public class Main {
 
     final boolean verbose;
     final boolean simulateAfter;
-    final long maxEngines;
+    final int maxEngines;
 
     final Optional<Path> outputPlanPath;
     final Optional<Path> outputSimResultsPath;
@@ -327,10 +327,10 @@ public class Main {
   }
 
   private static void schedule(Arguments.SchedulingArguments<?> schedArgs) {
-    final var schedulingUtility = new SchedulingUtility(schedArgs.missionModel, schedArgs.schedulerModel, schedArgs.plan);
+    final var schedulingUtility = new SchedulingUtility(schedArgs.missionModel, schedArgs.schedulerModel, schedArgs.maxEngines());
 
     try {
-      schedulingUtility.schedule(schedArgs.goalSpecification, new CanceledListener(), schedArgs.initialSimResults);
+      schedulingUtility.schedule(schedArgs.goalSpecification, schedArgs.plan(), new CanceledListener(), schedArgs.initialSimResults);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -423,7 +423,7 @@ public class Main {
 
     final Option maxEngineCount = new Option("e", "max_engine_count", true, "maximum number of parallel engines permitted. defaults to 1" );
     maxEngineCount.setRequired(false);
-    maxEngineCount.setConverter(Long::parseLong);
+    maxEngineCount.setConverter(Integer::parseInt);
 
     // Optional Output Args
     final Option outputPlanPath = new Option("op", "output_plan", true, "output plan file");

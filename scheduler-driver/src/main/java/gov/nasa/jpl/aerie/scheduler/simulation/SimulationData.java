@@ -7,4 +7,8 @@ public record SimulationData(
     Plan plan,
     SimulationResults driverResults,
     gov.nasa.jpl.aerie.constraints.model.SimulationResults constraintsResults
-){}
+){
+  public SimulationData(Plan plan, SimulationResults driverResults) {
+    this(plan, driverResults, SimulationResultsConverter.convertToConstraintModelResults(driverResults));
+  }
+}

@@ -10,7 +10,6 @@ import gov.nasa.jpl.aerie.scheduler.constraints.scheduling.GlobalConstraintWithI
 import gov.nasa.jpl.aerie.scheduler.goals.Goal;
 import gov.nasa.jpl.aerie.scheduler.simulation.SimulationFacade;
 import gov.nasa.jpl.aerie.scheduler.simulation.SimulationData;
-import gov.nasa.jpl.aerie.scheduler.simulation.SimulationResultsConverter;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -151,8 +150,7 @@ public class Problem {
     initialPlan = plan;
     this.initialSimulationResults = initialSimulationResults.map(simulationResults -> new SimulationData(
         getInitialPlan(),
-        simulationResults,
-        SimulationResultsConverter.convertToConstraintModelResults(simulationResults)
+        simulationResults
     ));
   }
 

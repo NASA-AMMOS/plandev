@@ -30,7 +30,6 @@ import java.util.function.Supplier;
 
 import static gov.nasa.jpl.aerie.merlin.driver.CheckpointSimulationDriver.onceAllActivitiesAreFinished;
 import static gov.nasa.jpl.aerie.scheduler.simulation.SimulationFacadeUtils.scheduleFromPlan;
-import static gov.nasa.jpl.aerie.scheduler.simulation.SimulationFacadeUtils.schedulingActToActivityDir;
 import static gov.nasa.jpl.aerie.scheduler.simulation.SimulationFacadeUtils.updatePlanWithChildActivities;
 
 public class CheckpointSimulationFacade implements SimulationFacade {
@@ -319,8 +318,7 @@ public class CheckpointSimulationFacade implements SimulationFacade {
     final var driverResults = resultsInput.simulationResultsComputerInputs().computeResults(resourceNames);
     this.latestSimulationData = new SimulationData(
         plan,
-        driverResults,
-        SimulationResultsConverter.convertToConstraintModelResults(driverResults)
+        driverResults
     );
     return this.latestSimulationData;
   }

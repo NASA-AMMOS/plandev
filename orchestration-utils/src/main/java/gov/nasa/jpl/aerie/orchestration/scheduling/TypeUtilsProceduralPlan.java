@@ -2,8 +2,12 @@ package gov.nasa.jpl.aerie.orchestration.scheduling;
 
 import gov.nasa.ammos.aerie.procedural.timeline.Interval;
 import gov.nasa.ammos.aerie.procedural.timeline.collections.Directives;
+import gov.nasa.ammos.aerie.procedural.timeline.collections.ExternalEvents;
+import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps;
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart;
+import gov.nasa.ammos.aerie.procedural.timeline.plan.EventQuery;
 import gov.nasa.ammos.aerie.procedural.timeline.util.duration.DurationKt;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
@@ -11,6 +15,7 @@ import gov.nasa.jpl.aerie.types.ActivityDirective;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.Plan;
 import kotlin.jvm.functions.Function1;
+import org.apache.commons.lang3.NotImplementedException;
 import org.jetbrains.annotations.NotNull;
 
 import java.time.Instant;
@@ -75,5 +80,20 @@ public record TypeUtilsProceduralPlan(Plan plan) implements gov.nasa.ammos.aerie
     }).toList();
 
     return new Directives<>(result);
+  }
+
+  @NotNull
+  @Override
+  public <V, TL extends SerialSegmentOps<V, TL>> TL resource(
+      @NotNull final String name,
+      @NotNull final Function1<? super List<Segment<SerializedValue>>, ? extends TL> deserializer)
+  {
+    throw new NotImplementedException("Stateless Aerie does not currently support External Resources.");
+  }
+
+  @NotNull
+  @Override
+  public ExternalEvents events(@NotNull final EventQuery query) {
+    throw new NotImplementedException("Stateless Aerie does not currently support External Events.");
   }
 }

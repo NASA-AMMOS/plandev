@@ -69,6 +69,7 @@ data class SchedulerToProcedurePlanAdapter(
     if (query.sources != null) result = result.filter { it.source in query.sources!! }
     return ExternalEvents(result)
   }
+
   override fun <V : Any, TL : SerialSegmentOps<V, TL>> resource(
     name: String,
     deserializer: (List<Segment<SerializedValue>>) -> TL

@@ -1029,6 +1029,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
     final var eventsRequest = """
         query DerivedEventsForPlan {
           derived_events(where: {derivation_group_name: {_in: %s}}) {
+            attributes
             source_key
             event_type_name
             event_key
@@ -1183,6 +1184,14 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           horizonStart.until(ZonedDateTime.parse(e.getString("start_time")).toInstant(), ChronoUnit.MICROS)
       );
       final var end = start.plus(Duration.fromString(e.getString("duration")));
+      final var attributesJson = e.getJsonObject("attributes");
+      final var attributes = new HashMap<String, SerializedValue>();
+      for (final var attributeJson: attributesJson.entrySet()) {
+        attributes.put(
+            attributeJson.getKey(),
+            serializedValueP.parse(attributeJson.getValue()).getSuccessOrThrow()
+        );
+      }
       result.add(new ExternalEvent(
           e.getString("event_key"),
           e.getString("event_type_name"),
@@ -1190,6 +1199,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
               e.getString("source_key"),
               e.getString("derivation_group_name")
           ),
+          attributes,
           Interval.between(start, end)
       ));
     }

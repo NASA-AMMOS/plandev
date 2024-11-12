@@ -29,6 +29,11 @@ from scheduler.scheduling_request as sr
 where sr.analysis_id = sga.analysis_id
   and sga.goal_id = ssg.goal_id;
 
+-- v3.1.1 migration patch addition
+update scheduler.scheduling_goal_analysis
+set goal_invocation_id = -1 * goal_id
+where goal_invocation_id is null;
+
 alter table scheduler.scheduling_goal_analysis
   -- explictly set not null before PKing
   alter column goal_invocation_id set not null,
@@ -52,6 +57,11 @@ from scheduler.scheduling_request as sr
             on sr.specification_id = ssg.specification_id
 where sr.analysis_id = sgaca.analysis_id
   and sgaca.goal_id = ssg.goal_id;
+
+-- v3.1.1 migration patch addition
+update scheduler.scheduling_goal_analysis_created_activities
+set goal_invocation_id = -1 * goal_id
+where goal_invocation_id is null;
 
 alter table scheduler.scheduling_goal_analysis_created_activities
   drop column goal_id,
@@ -84,6 +94,11 @@ from scheduler.scheduling_request as sr
             on sr.specification_id = ssg.specification_id
 where sr.analysis_id = sgasa.analysis_id
   and sgasa.goal_id = ssg.goal_id;
+
+-- v3.1.1 migration patch addition
+update scheduler.scheduling_goal_analysis_satisfying_activities
+set goal_invocation_id = -1 * goal_id
+where goal_invocation_id is null;
 
 alter table scheduler.scheduling_goal_analysis_satisfying_activities
   drop column goal_id,

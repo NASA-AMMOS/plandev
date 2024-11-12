@@ -14,7 +14,10 @@ data class ExternalEvent(
   /** The source this event comes from. */
   @JvmField
   val source: ExternalSource,
+  /** The attributes of the event. */
+  @JvmField
+  val attributes: Map<String, SerializedValue>,
   override val interval: Interval,
 ): IntervalLike<ExternalEvent> {
-  override fun withNewInterval(i: Interval) = ExternalEvent(key, type, source, i)
+  override fun withNewInterval(i: Interval) = ExternalEvent(key, type, source, attributes, i)
 }

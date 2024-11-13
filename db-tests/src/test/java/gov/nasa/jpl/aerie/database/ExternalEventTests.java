@@ -2245,28 +2245,4 @@ public class ExternalEventTests {
     }
   }
   //endregion
-
-  //region Attribute Inclusion Tests
-  /**
-   * The following briefly test that attributes on external sources and events behave as expected..
-   */
-  @Nested
-  @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-  class AttributeInclusionTests {
-    // need a method to create external source type
-    // need a method to create external event type
-
-    // test that a source goes in including all the attributes
-    // test that a source fails missing an attribute
-    // test that a source fails with an extra attribute
-    // test that a source fails with an attribute of the wrong type
-
-    // test that an event goes in including all the attributes
-    // test that an event fails missing an attribute
-    // test that an event fails with an extra attribute
-    // test that an event fails with an attribute of the wrong type
-
-    // test that an event fails going into a source if the type isn't allowed
-  }
-  //endregion
 }

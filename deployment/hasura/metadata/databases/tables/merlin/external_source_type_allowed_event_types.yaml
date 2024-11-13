@@ -4,10 +4,10 @@ table:
 configuration:
   custom_name: "external_source_type_allowed_event_types"
 object_relationships:
-- name: external_event_type
+- name: event_type
   using:
     foreign_key_constraint_on: external_event_type
-- name: external_source_type
+- name: source_type
   using:
     foreign_key_constraint_on: external_source_type
 select_permissions:

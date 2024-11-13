@@ -240,8 +240,8 @@ public class Main {
       modelJarPath = cmd.getParsedOptionValue('m');
       planJsonPath = cmd.getParsedOptionValue('p');
       schedulingSpecJsonPath = cmd.getParsedOptionValue('g');
-      simConfigJsonPath = cmd.getParsedOptionValue('s');
-      initialSimResultJsonPath = cmd.getParsedOptionValue('r');
+      simConfigJsonPath = cmd.getParsedOptionValue('s', Optional.empty());
+      initialSimResultJsonPath = cmd.getParsedOptionValue('r', Optional.empty());
 
       verbose = cmd.hasOption("verbose");
       simulateAfter = cmd.hasOption("simulate_after");
@@ -251,9 +251,9 @@ public class Main {
         System.exit(2);
       }
 
-      outputPlanPath = cmd.getParsedOptionValue("op");
-      outputSimResultsPath = cmd.getParsedOptionValue("or");
-      outputGoalSatisfactionPath = cmd.getParsedOptionValue("og");
+      outputPlanPath = cmd.getParsedOptionValue("op", Optional.empty());
+      outputSimResultsPath = cmd.getParsedOptionValue("or", Optional.empty());
+      outputGoalSatisfactionPath = cmd.getParsedOptionValue("og", Optional.empty());
 
 
       // TODO: DEBUG PRINTS

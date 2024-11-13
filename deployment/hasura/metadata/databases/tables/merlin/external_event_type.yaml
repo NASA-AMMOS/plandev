@@ -32,10 +32,6 @@ insert_permissions:
     permission:
       columns: [name, attribute_schema]
       check: {}
-  - role: user
-    permission:
-      columns: [name, attribute_schema]
-      check: {}
 delete_permissions:
   - role: aerie_admin
     permission:

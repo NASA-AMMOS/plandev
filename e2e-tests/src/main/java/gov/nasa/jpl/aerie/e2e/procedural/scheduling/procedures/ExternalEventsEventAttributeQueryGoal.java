@@ -13,20 +13,14 @@ import java.util.List;
 import java.util.Map;
 
 @SchedulingProcedure
-public record ExternalEventsSourceQueryGoal() implements Goal {
+public record ExternalEventsEventAttributeQueryGoal() implements Goal {
   @Override
   public void run(@NotNull final EditablePlan plan) {
-
-    // extract events belonging to the second source
-    EventQuery eventQuery = new EventQuery(
-        null,
-        null,
-        List.of(new EventQuery.SourceQuery("NewTest.json", "TestGroup_2"))
-    );
-
-    for (final var e: plan.events(eventQuery)) {
-      // filter events that we schedule off of by key
-      if (e.key.contains("01")) {
+    // extract all events
+    for (final var e: plan.events()) {
+      // filter events that we schedule off of by their source's attributes
+      var version = e.attributes.get("projectUser").asString();
+      if (version.isPresent() && version.get().equals("UserA")) {
         plan.create(
             "BiteBanana",
             // place the directive such that it is coincident with the event's start

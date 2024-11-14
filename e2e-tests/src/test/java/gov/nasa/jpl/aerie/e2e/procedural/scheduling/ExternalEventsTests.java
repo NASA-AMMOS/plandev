@@ -25,6 +25,36 @@ public class ExternalEventsTests extends ProceduralSchedulingSetup {
   private final static String DERIVATION_GROUP = "TestGroup";
   private final static String ADDITIONAL_DERIVATION_GROUP = DERIVATION_GROUP + "_2";
 
+  private final static String SOURCE_ATTRIBUTE_SCHEMA = """
+      {
+          "$schema": "http://json-schema.org/draft-07/schema",
+          "title": "%s",
+          "description": "Schema for the attributes of tested sources.",
+          "type": "object",
+          "properties": {
+              "version": {
+                  "type": "number"
+              }
+          }
+      }
+      """;
+  private final static String EVENT_ATTRIBUTE_SCHEMA = """
+      {
+          "$schema": "http://json-schema.org/draft-07/schema",
+          "title": "%s",
+          "description": "Schema for the attributes of tested events.",
+          "type": "object",
+          "properties": {
+              "projectUser": {
+                  "type": "string"
+              },
+              "code": {
+                  "type": "string"
+              }
+          }
+      }
+      """;
+
   private final HasuraRequests.ExternalSource externalSource = new HasuraRequests.ExternalSource(
       "Test.json",
       SOURCE_TYPE,
@@ -32,7 +62,12 @@ public class ExternalEventsTests extends ProceduralSchedulingSetup {
       "2024-01-01T00:00:00Z",
       "2023-01-01T00:00:00Z",
       "2023-01-08T00:00:00Z",
-      "2024-10-01T00:00:00Z"
+      "2024-10-01T00:00:00Z",
+      """
+          {
+            "version": 1
+          }
+          """
   );
   private final List<HasuraRequests.ExternalEvent> externalEvents = List.of(
       new HasuraRequests.ExternalEvent(
@@ -41,7 +76,13 @@ public class ExternalEventsTests extends ProceduralSchedulingSetup {
           externalSource.key(),
           externalSource.derivation_group_name(),
           "2023-01-01T01:00:00Z",
-          "01:00:00"
+          "01:00:00",
+          """
+          {
+            "projectUser": "UserA",
+            "code": "A"
+          }
+        """
       ),
       new HasuraRequests.ExternalEvent(
           "Event_02",
@@ -49,7 +90,13 @@ public class ExternalEventsTests extends ProceduralSchedulingSetup {
           externalSource.key(),
           externalSource.derivation_group_name(),
           "2023-01-01T03:00:00Z",
-          "01:00:00"
+          "01:00:00",
+          """
+          {
+            "projectUser": "UserA",
+            "code": "A"
+          }
+        """
       ),
       new HasuraRequests.ExternalEvent(
           "Event_03",
@@ -57,7 +104,13 @@ public class ExternalEventsTests extends ProceduralSchedulingSetup {
           externalSource.key(),
           externalSource.derivation_group_name(),
           "2023-01-01T05:00:00Z",
-          "01:00:00"
+          "01:00:00",
+          """
+          {
+            "projectUser": "UserB",
+            "code": "B"
+          }
+        """
       )
   );
 
@@ -68,7 +121,12 @@ public class ExternalEventsTests extends ProceduralSchedulingSetup {
       "2024-01-01T00:00:00Z",
       "2023-01-01T00:00:00Z",
       "2023-01-08T00:00:00Z",
-      "2024-10-01T00:00:00Z"
+      "2024-10-01T00:00:00Z",
+      """
+          {
+            "version": 2
+          }
+          """
   );
 
   private final List<HasuraRequests.ExternalEvent> additionalExternalEvents = List.of(
@@ -78,7 +136,13 @@ public class ExternalEventsTests extends ProceduralSchedulingSetup {
           additionalExternalSource.key(),
           additionalExternalSource.derivation_group_name(),
           "2023-01-02T01:00:00Z",
-          "01:00:00"
+          "01:00:00",
+          """
+          {
+            "projectUser": "UserB",
+            "code": "B"
+          }
+        """
       ),
       new HasuraRequests.ExternalEvent(
           "Event_02",
@@ -86,7 +150,13 @@ public class ExternalEventsTests extends ProceduralSchedulingSetup {
           additionalExternalSource.key(),
           additionalExternalSource.derivation_group_name(),
           "2023-01-02T03:00:00Z",
-          "01:00:00"
+          "01:00:00",
+          """
+          {
+            "projectUser": "UserB",
+            "code": "B"
+          }
+        """
       ),
       new HasuraRequests.ExternalEvent(
           "Event_03",
@@ -94,22 +164,28 @@ public class ExternalEventsTests extends ProceduralSchedulingSetup {
           additionalExternalSource.key(),
           additionalExternalSource.derivation_group_name(),
           "2023-01-02T05:00:00Z",
-          "01:00:00"
+          "01:00:00",
+          """
+          {
+            "projectUser": "UserA",
+            "code": "A"
+          }
+        """
       )
   );
 
   @BeforeEach
   void localBeforeEach() throws IOException {
     // Upload some External Events (and associated infrastructure)
-    hasura.insertExternalSourceType(SOURCE_TYPE);
-    hasura.insertExternalEventType(EVENT_TYPE);
+    hasura.insertExternalSourceType(SOURCE_TYPE, SOURCE_ATTRIBUTE_SCHEMA.formatted(SOURCE_TYPE));
+    hasura.insertExternalEventType(EVENT_TYPE, EVENT_ATTRIBUTE_SCHEMA.formatted(EVENT_TYPE));
     hasura.insertDerivationGroup(DERIVATION_GROUP, SOURCE_TYPE);
     hasura.insertExternalSource(externalSource);
     hasura.insertExternalEvents(externalEvents);
     hasura.insertPlanDerivationGroupAssociation(planId, DERIVATION_GROUP);
 
     // Upload additional External Events in a different derivation group and of a different type
-    hasura.insertExternalEventType(ADDITIONAL_EVENT_TYPE);
+    hasura.insertExternalEventType(ADDITIONAL_EVENT_TYPE, EVENT_ATTRIBUTE_SCHEMA.formatted(ADDITIONAL_EVENT_TYPE));
     hasura.insertDerivationGroup(ADDITIONAL_DERIVATION_GROUP, SOURCE_TYPE);
     hasura.insertExternalSource(additionalExternalSource);
     hasura.insertExternalEvents(additionalExternalEvents);
@@ -230,5 +306,83 @@ public class ExternalEventsTests extends ProceduralSchedulingSetup {
         Duration.fromString(activities.get(0).startOffset())
     );
     assertEquals(activityStartTime.toString(), additionalExternalEvents.get(0).start_time());
+  }
+
+  @Test
+  void testExternalSourceAttribute() throws IOException {
+    // first, run the goal
+    try (final var gateway = new GatewayRequests(playwright)) {
+      int procedureJarId = gateway.uploadJarFile("build/libs/ExternalEventsSourceAttributeQueryGoal.jar");
+      // Add Scheduling Procedure
+      procedureId = hasura.createSchedulingSpecProcedure(
+          "Test Scheduling Procedure",
+          procedureJarId,
+          specId,
+          0
+      );
+    }
+    hasura.awaitScheduling(specId);
+    final var plan = hasura.getPlan(planId);
+    final var activities = plan.activityDirectives();
+
+    // ensure the orderings line up
+    activities.sort(Comparator.comparing(Plan.ActivityDirective::startOffset));
+
+    // get the set of events we expect (anything in NewTest.json)
+    List<HasuraRequests.ExternalEvent> expected = new ArrayList<>(additionalExternalEvents);
+
+    // explicitly ensure the orderings line up
+    expected.sort(Comparator.comparing(HasuraRequests.ExternalEvent::start_time));
+
+    // compare arrays
+    assertEquals(expected.size(), activities.size());
+    for (int i = 0; i < activities.size(); i++) {
+      Instant activityStartTime = Duration.addToInstant(
+          Instant.parse(planStartTimestamp),
+          Duration.fromString(activities.get(i).startOffset())
+      );
+      assertEquals(activityStartTime.toString(), expected.get(i).start_time());
+    }
+  }
+
+  // TODO: test based on event attributes
+  @Test
+  void testExternalEventAttribute() throws IOException {
+    // first, run the goal
+    try (final var gateway = new GatewayRequests(playwright)) {
+      int procedureJarId = gateway.uploadJarFile("build/libs/ExternalEventsEventAttributeQueryGoal.jar");
+      // Add Scheduling Procedure
+      procedureId = hasura.createSchedulingSpecProcedure(
+          "Test Scheduling Procedure",
+          procedureJarId,
+          specId,
+          0
+      );
+    }
+    hasura.awaitScheduling(specId);
+    final var plan = hasura.getPlan(planId);
+    final var activities = plan.activityDirectives();
+
+    // ensure the orderings line up
+    activities.sort(Comparator.comparing(Plan.ActivityDirective::startOffset));
+
+    // get the set of events we expect (select events with projectUser = UserA)
+    List<HasuraRequests.ExternalEvent> expected = new ArrayList<>();
+    expected.add(externalEvents.get(0));
+    expected.add(externalEvents.get(1));
+    expected.add(additionalExternalEvents.get(2));
+
+    // explicitly ensure the orderings line up
+    expected.sort(Comparator.comparing(HasuraRequests.ExternalEvent::start_time));
+
+    // compare arrays
+    assertEquals(expected.size(), activities.size());
+    for (int i = 0; i < activities.size(); i++) {
+      Instant activityStartTime = Duration.addToInstant(
+          Instant.parse(planStartTimestamp),
+          Duration.fromString(activities.get(i).startOffset())
+      );
+      assertEquals(activityStartTime.toString(), expected.get(i).start_time());
+    }
   }
 }

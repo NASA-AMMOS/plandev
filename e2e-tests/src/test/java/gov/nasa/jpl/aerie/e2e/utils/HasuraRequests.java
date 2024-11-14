@@ -100,8 +100,8 @@ public class HasuraRequests implements AutoCloseable {
   }
 
   //region Records
-  public record ExternalEvent(String key, String event_type_name, String source_key, String derivation_group_name, String start_time, String duration) {}
-  public record ExternalSource(String key, String source_type_name, String derivation_group_name, String valid_at, String start_time, String end_time, String created_at){}
+  public record ExternalEvent(String key, String event_type_name, String source_key, String derivation_group_name, String start_time, String duration, String attributes) {}
+  public record ExternalSource(String key, String source_type_name, String derivation_group_name, String valid_at, String start_time, String end_time, String created_at, String attributes){}
   //endregion Records
 
   //region Mission Model
@@ -996,10 +996,12 @@ public class HasuraRequests implements AutoCloseable {
 
   // region External Events
   public String insertExternalSourceType(
-      String name
+      String name,
+      String attributeSchema
   ) throws IOException {
     final var insertExternalSourceTypeBuilder = Json.createObjectBuilder()
                               .add("name", name)
+                              .add("attribute_schema", attributeSchema)
                               .build();
     final var variables = Json.createObjectBuilder().add("sourceType", insertExternalSourceTypeBuilder).build();
     return makeRequest(GQL.CREATE_EXTERNAL_SOURCE_TYPE, variables)
@@ -1007,10 +1009,12 @@ public class HasuraRequests implements AutoCloseable {
         .getString("name");
   }
   public String insertExternalEventType(
-      String name
+      String name,
+      String attributeSchema
   ) throws IOException {
     final var insertExternalSourceTypeBuilder = Json.createObjectBuilder()
                                                     .add("name", name)
+                                                    .add("attribute_schema", attributeSchema)
                                                     .build();
     final var variables = Json.createObjectBuilder().add("eventType", insertExternalSourceTypeBuilder).build();
     return makeRequest(GQL.CREATE_EXTERNAL_EVENT_TYPE, variables)
@@ -1041,6 +1045,7 @@ public class HasuraRequests implements AutoCloseable {
         .add("start_time", externalSource.start_time())
         .add("end_time", externalSource.end_time())
         .add("created_at", externalSource.created_at())
+        .add("attributes", externalSource.attributes())
         .build();
     final var variables = Json.createObjectBuilder().add("object", insertExternalSourceBuilder).build();
     return makeRequest(GQL.CREATE_EXTERNAL_SOURCE, variables)
@@ -1060,6 +1065,7 @@ public class HasuraRequests implements AutoCloseable {
               .add("derivation_group_name", e.derivation_group_name())
               .add("start_time", e.start_time())
               .add("duration", e.duration())
+              .add("attributes", e.attributes())
               .build()
       );
     }

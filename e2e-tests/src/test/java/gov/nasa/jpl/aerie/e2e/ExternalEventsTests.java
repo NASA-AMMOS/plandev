@@ -111,7 +111,7 @@ public class ExternalEventsTests {
     hasura.deleteExternalSource("TestExternalSourceKey", "TestDerivationGroup");
 
     // delete derivation groups
-    hasura.deleteDerivationGroup("TestDerivationGroup"); // TODO: investigate this in gateway
+    hasura.deleteDerivationGroup("TestDerivationGroup");
 
     // delete types
     hasura.deleteExternalSourceType("TestSourceType");

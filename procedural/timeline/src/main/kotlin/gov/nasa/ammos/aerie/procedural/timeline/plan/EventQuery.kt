@@ -24,12 +24,28 @@ data class EventQuery(
    *
    * If null, all sources are allowed.
    */
-  val sources: List<ExternalSource>?,
+  val sources: List<SourceQuery>?,
 ) {
-  constructor(derivationGroup: String?, eventType: String?, source: ExternalSource?): this(
+  constructor(derivationGroup: String?, eventType: String?, source: SourceQuery?): this(
     derivationGroup?.let { listOf(it) },
     eventType?.let { listOf(it) },
     source?.let { listOf(it) }
   )
   constructor(): this(null as String?, null, null)
+
+
+  data class SourceQuery (
+    /** The string name of this source. */
+    @JvmField
+    val key: String,
+    /** The derivation group that this source is a member of. */
+    @JvmField
+    val derivationGroup: String,
+  ) {
+    // allow the building of a SourceQuery from an ExternalSource object
+    constructor(source: ExternalSource): this(
+      source.key,
+      source.derivationGroup
+    )
+  }
 }

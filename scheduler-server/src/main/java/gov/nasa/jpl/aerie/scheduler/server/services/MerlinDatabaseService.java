@@ -11,6 +11,7 @@ import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchActivityInstanceException;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchMissionModelException;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchPlanException;
+import gov.nasa.jpl.aerie.scheduler.server.http.InvalidEntityException;
 import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonException;
 import gov.nasa.jpl.aerie.scheduler.server.models.ActivityType;
 import gov.nasa.jpl.aerie.scheduler.server.models.DatasetId;
@@ -103,7 +104,7 @@ public interface MerlinDatabaseService {
     throws MerlinServiceException, IOException;
 
     Map<String, List<ExternalEvent>> getExternalEvents(final PlanId planId, final Instant horizonStart)
-      throws MerlinServiceException, IOException;
+            throws MerlinServiceException, IOException, InvalidJsonException, InvalidEntityException;
 
     /**
      * Gets resource types associated to a plan, those coming from the mission model as well as those coming from external dataset resources

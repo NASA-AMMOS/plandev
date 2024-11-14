@@ -7,6 +7,8 @@ import gov.nasa.jpl.aerie.constraints.model.DiscreteProfile;
 import gov.nasa.jpl.aerie.constraints.model.LinearProfile;
 import gov.nasa.jpl.aerie.json.BasicParsers;
 import gov.nasa.jpl.aerie.json.JsonParser;
+import gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser;
+import gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers;
 import gov.nasa.jpl.aerie.types.ActivityInstance;
 import gov.nasa.jpl.aerie.types.ActivityInstanceId;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
@@ -1012,7 +1014,8 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
 
   @Override
   public Map<String, List<ExternalEvent>> getExternalEvents(final PlanId planId, final Instant horizonStart)
-  throws MerlinServiceException, IOException {
+  throws MerlinServiceException, IOException, InvalidJsonException, InvalidEntityException
+  {
     final var derivationGroupsRequest = """
         query DerivationGroupsForPlan {
           plan_derivation_group(where: {plan_id: {_eq: %d}}) {
@@ -1038,8 +1041,11 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
             source_range
             start_time
             valid_at
+            external_source {
+              attributes
+            }
           }
-        }""".formatted(derivationGroups);
+        }""".formatted(derivationGroups); // TODO: split this into more requests?
     final JsonObject eventsResponse = postRequest(eventsRequest).get();
 
     final var data = eventsResponse.getJsonObject("data").getJsonArray("derived_events");
@@ -1176,7 +1182,9 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
     return ResourceProfile.of(type, segments);
   }
 
-  private List<ExternalEvent> parseExternalEvents(final JsonArray eventsJson, final Instant horizonStart) {
+  private List<ExternalEvent> parseExternalEvents(final JsonArray eventsJson, final Instant horizonStart)
+  throws InvalidJsonException, InvalidEntityException
+  {
     final var result = new ArrayList<ExternalEvent>();
     for (final var eventJson : eventsJson) {
       final var e = eventJson.asJsonObject();
@@ -1184,22 +1192,40 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           horizonStart.until(ZonedDateTime.parse(e.getString("start_time")).toInstant(), ChronoUnit.MICROS)
       );
       final var end = start.plus(Duration.fromString(e.getString("duration")));
-      final var attributesJson = e.getJsonObject("attributes");
-      final var attributes = new HashMap<String, SerializedValue>();
-      for (final var attributeJson: attributesJson.entrySet()) {
-        attributes.put(
-            attributeJson.getKey(),
-            serializedValueP.parse(attributeJson.getValue()).getSuccessOrThrow()
-        );
-      }
+
+      // TODO: all of the properties of eventJson are strings. Including things (like attributes, source_range, etc.) that should be objects
+      //    find a better way to handle this
+//      final var eventAttributesJson = e.getJsonObject("attributes");
+//      final var eventAttributes = new HashMap<String, SerializedValue>();
+//      for (final var attributeJson: eventAttributesJson.entrySet()) {
+//        eventAttributes.put(
+//            attributeJson.getKey(),
+//            serializedValueP.parse(attributeJson.getValue()).getSuccessOrThrow()
+//        );
+//      }
+      final var eventAttributes = SchedulerParsers
+          .parseJson(e.getString("attributes"), new SerializedValueJsonParser()).asMap().get();
+
+//      final var sourceAttributesJson = e.getJsonObject("external_source").getJsonObject("attributes");
+//      final var sourceAttributes = new HashMap<String, SerializedValue>();
+//      for (final var attributeJson: sourceAttributesJson.entrySet()) {
+//        sourceAttributes.put(
+//            attributeJson.getKey(),
+//            serializedValueP.parse(attributeJson.getValue()).getSuccessOrThrow()
+//        );
+//      }
+      final var sourceAttributes = SchedulerParsers
+          .parseJson(e.getJsonObject("external_source").getString("attributes"), new SerializedValueJsonParser()).asMap().get();
+
       result.add(new ExternalEvent(
           e.getString("event_key"),
           e.getString("event_type_name"),
           new ExternalSource(
               e.getString("source_key"),
-              e.getString("derivation_group_name")
+              e.getString("derivation_group_name"),
+              sourceAttributes
           ),
-          attributes,
+          eventAttributes,
           Interval.between(start, end)
       ));
     }

@@ -46,6 +46,7 @@ import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSpecificationException;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.ResultsProtocolFailure;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.SpecificationLoadException;
+import gov.nasa.jpl.aerie.scheduler.server.http.InvalidEntityException;
 import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonException;
 import gov.nasa.jpl.aerie.scheduler.server.http.ResponseSerializers;
 import gov.nasa.jpl.aerie.scheduler.server.models.DatasetId;
@@ -343,7 +344,7 @@ public record SynchronousSchedulerAgent(
   }
 
   private Map<String, List<ExternalEvent>> loadExternalEvents(final PlanId planId, final Instant horizonStart)
-  throws MerlinServiceException, IOException
+  throws MerlinServiceException, IOException, InvalidJsonException, InvalidEntityException
   {
     return merlinDatabaseService.getExternalEvents(planId, horizonStart);
   }

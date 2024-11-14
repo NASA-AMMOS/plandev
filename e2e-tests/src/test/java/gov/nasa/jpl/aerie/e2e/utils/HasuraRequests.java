@@ -1090,6 +1090,19 @@ public class HasuraRequests implements AutoCloseable {
         .getString("derivation_group_name");
   }
 
+  public String deleteExternalSourceTypeAllowedEventType(
+    String externalSourceType,
+    String externalEventType
+  ) throws IOException {
+    final var variables = Json.createObjectBuilder()
+                              .add("externalSourceType", externalSourceType)
+                              .add("externalEventType", externalEventType)
+                              .build();
+    var result = makeRequest(GQL.DELETE_EXTERNAL_SOURCE_TYPE_ALLOWED_EVENT_TYPES, variables)
+        .getJsonObject("deleteExternalSourceTypeAllowedEventTypes");
+    return result.getString("external_event_type") + ", " + result.getString("external_source_type");
+  }
+
   public String deleteExternalSourceType(
     String name
   ) throws IOException {
@@ -1120,6 +1133,42 @@ public class HasuraRequests implements AutoCloseable {
         .getJsonObject("deleteDerivationGroup")
         .getJsonArray("returning");
   }
+
+  public String deleteExternalSource(
+      String sourceKey,
+      String derivationGroupName
+  ) throws IOException {
+    final var variables = Json.createObjectBuilder()
+                              .add("sourceKey", sourceKey)
+                              .add("derivationGroupName", derivationGroupName)
+                              .build();
+    // NOTE: this deletes external events as well, as deletions of sources cascade to their contained events.
+    var result = makeRequest(GQL.DELETE_EXTERNAL_SOURCE, variables);
+
+    // some test runs won't successfully add a source, so the result is just null.
+    if (!result.containsKey("deleteExteralSource")) {
+      return "No source found.";
+    }
+    return result
+        .getJsonObject("deleteExternalSource")
+        .getString("key");
+  }
+
+  public JsonArray deleteEventsBySource(
+      String sourceKey,
+      String derivationGroupName
+  ) throws IOException
+  {
+    final var variables = Json.createObjectBuilder()
+                              .add("externalSourceKey", sourceKey)
+                              .add("derivationGroupName", derivationGroupName)
+                              .build();
+    // NOTE: this deletes external events as well, as deletions of sources cascade to their contained events.
+    return makeRequest(GQL.DELETE_EXTERNAL_EVENTS_BY_SOURCE, variables)
+        .getJsonObject("deleteExternalEventsBySource")
+        .getJsonArray("returning");
+  }
+
   public String deleteExternalSource(
       ExternalSource externalSource
   ) throws IOException {

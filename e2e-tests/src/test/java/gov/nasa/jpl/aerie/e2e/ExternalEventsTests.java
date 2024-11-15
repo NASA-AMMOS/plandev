@@ -76,13 +76,13 @@ public class ExternalEventsTests {
                                                          .add("version", Json.createObjectBuilder()
                                                                              .add("type", "number")
                                                          )
-                                                         .add("wrkcat", Json.createObjectBuilder()
+                                                         .add("operator", Json.createObjectBuilder()
                                                                             .add("type", "string")
                                                          )
                                   )
                                   .add("required", Json.createArrayBuilder()
                                                        .add("version")
-                                                       .add("wrkcat")
+                                                       .add("operator")
                                   )
                                   .build();
 
@@ -136,8 +136,8 @@ public class ExternalEventsTests {
 
     final var externalSource = Json.createObjectBuilder()
                                    .add("attributes", Json.createObjectBuilder()
-                                                          .add("version", 79)
-                                                          .add("wrkcat", "1A1")
+                                                          .add("version", 1)
+                                                          .add("operator", "alpha")
                                    )
                                    .add("derivation_group_name", "TestDerivationGroup")
                                    .add("end_time", "2024-01-28T00:00:00+00:00")
@@ -172,8 +172,8 @@ public class ExternalEventsTests {
 
     final var externalSource = Json.createObjectBuilder()
                                    .add("attributes", Json.createObjectBuilder()
-                                                          .add("version", 79)
-                                                          // missing: wrkcat
+                                                          .add("version", 1)
+                                                          // missing: operator
                                    )
                                    .add("derivation_group_name", "TestDerivationGroup")
                                    .add("end_time", "2024-01-28T00:00:00+00:00")
@@ -208,8 +208,8 @@ public class ExternalEventsTests {
 
     final var externalSource = Json.createObjectBuilder()
                                    .add("attributes", Json.createObjectBuilder()
-                                                          .add("version", 79)
-                                                          .add("wrkcat", "1A1")
+                                                          .add("version", 1)
+                                                          .add("operator", "alpha")
                                                           .add("extra", "attribute") // extra
                                    )
                                    .add("derivation_group_name", "TestDerivationGroup")
@@ -246,7 +246,7 @@ public class ExternalEventsTests {
     final var externalSource = Json.createObjectBuilder()
                                    .add("attributes", Json.createObjectBuilder()
                                                           .add("version", "string") // expects int
-                                                          .add("wrkcat", "1A1")
+                                                          .add("operator", "alpha")
                                    )
                                    .add("derivation_group_name", "TestDerivationGroup")
                                    .add("end_time", "2024-01-28T00:00:00+00:00")
@@ -281,8 +281,8 @@ public class ExternalEventsTests {
 
     final var externalSource = Json.createObjectBuilder()
                                    .add("attributes", Json.createObjectBuilder()
-                                                          .add("version", 79)
-                                                          .add("wrkcat", "1A1")
+                                                          .add("version", 1)
+                                                          .add("operator", "alpha")
                                    )
                                    .add("derivation_group_name", "TestDerivationGroup")
                                    .add("end_time", "2024-01-28T00:00:00+00:00")
@@ -319,8 +319,8 @@ public class ExternalEventsTests {
 
     final var externalSource = Json.createObjectBuilder()
                                    .add("attributes", Json.createObjectBuilder()
-                                                          .add("version", 79)
-                                                          .add("wrkcat", "1A1")
+                                                          .add("version", 1)
+                                                          .add("operator", "alpha")
                                    )
                                    .add("derivation_group_name", "TestDerivationGroup")
                                    .add("end_time", "2024-01-28T00:00:00+00:00")
@@ -356,8 +356,8 @@ public class ExternalEventsTests {
 
     final var externalSource = Json.createObjectBuilder()
                                    .add("attributes", Json.createObjectBuilder()
-                                                          .add("version", 79)
-                                                          .add("wrkcat", "1A1")
+                                                          .add("version", 1)
+                                                          .add("operator", "alpha")
                                    )
                                    .add("derivation_group_name", "TestDerivationGroup")
                                    .add("end_time", "2024-01-28T00:00:00+00:00")
@@ -393,8 +393,8 @@ public class ExternalEventsTests {
 
     final var externalSource = Json.createObjectBuilder()
                                    .add("attributes", Json.createObjectBuilder()
-                                                          .add("version", 79)
-                                                          .add("wrkcat", "1A1")
+                                                          .add("version", 1)
+                                                          .add("operator", "alpha")
                                    )
                                    .add("derivation_group_name", "TestDerivationGroup")
                                    .add("end_time", "2024-01-28T00:00:00+00:00")

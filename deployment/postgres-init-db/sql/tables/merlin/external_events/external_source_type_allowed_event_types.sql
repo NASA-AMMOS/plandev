@@ -12,7 +12,7 @@ create table merlin.external_source_type_allowed_event_types (
   constraint external_source_type_exists
     foreign key (external_source_type)
     references merlin.external_source_type(name)
-    on delete restrict
+    on delete cascade
 );
 
 comment on table merlin.external_source_type_allowed_event_types is e''

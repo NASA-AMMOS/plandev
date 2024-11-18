@@ -1,0 +1,75 @@
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
+// afterEvaluate ensures these dependencies are passed to projects applying this plugin, not this plugin itself
+project.afterEvaluate {
+  dependencies {
+    annotationProcessor findProject(':procedural:processor') ?: "gov.nasa.ammos.aerie.procedural:processor:${findProperty("aerieVersion")}"
+    implementation findProject(':procedural:constraints') ?: "gov.nasa.ammos.aerie.procedural:constraints:${findProperty("aerieVersion")}"
+    implementation findProject(':procedural:scheduling') ?: "gov.nasa.ammos.aerie.procedural:scheduling:${findProperty("aerieVersion")}"
+    implementation findProject(':procedural:timeline') ?: "gov.nasa.ammos.aerie.procedural:timeline:${findProperty("aerieVersion")}"
+    implementation findProject(':merlin-driver') ?: "gov.nasa.jpl.aerie:merlin-driver:${findProperty("aerieVersion")}"
+    implementation findProject(':type-utils') ?: "gov.nasa.jpl.aerie:type-utils:${findProperty("aerieVersion")}"
+    implementation findProject(':contrib') ?: "gov.nasa.jpl.aerie:contrib:${findProperty("aerieVersion")}"
+  }
+}
+
+tasks.register('buildAllSchedulingProcedureJars') {
+  group = 'SchedulingProcedureJars'
+
+  dependsOn "generateSchedulingProcedureJarTasks"
+  dependsOn {
+    tasks.findAll { task -> task.name.startsWith('buildSchedulingProcedureJar_') }
+  }
+}
+
+tasks.create("generateSchedulingProcedureJarTasks") {
+  group = 'SchedulingProcedureJars'
+
+  final proceduresDir = findFirstMatchingBuildDir("generated/procedures")
+
+  if (proceduresDir == null) {
+    println "No generated procedures folder found"
+    return
+  }
+  println "Generating jar tasks for the following procedures directory: ${proceduresDir}"
+
+  final files = file(proceduresDir).listFiles()
+  if (files.length == 0) {
+    println "No procedures available within folder ${proceduresDir}"
+    return
+  }
+
+  files.toList().each { file ->
+    final nameWithoutExtension = file.name.replace(".java", "")
+    final jarPath = nameWithoutExtension + ".jar"
+    final taskName = "buildSchedulingProcedureJar_${nameWithoutExtension}"
+
+    println "Generating ${taskName} task, which will build ${jarPath}"
+
+    tasks.create(taskName, ShadowJar) {
+      group = 'SchedulingProcedureJars'
+      configurations = [project.configurations.runtimeClasspath]
+      from sourceSets.main.output
+      archiveFileName = jarPath
+      manifest {
+        attributes 'Main-Class': getMainClassFromGeneratedFile(file)
+      }
+      minimize()
+    }  }
+}
+
+private String findFirstMatchingBuildDir(String pattern) {
+  String found = null
+  final generatedDir = file("build/generated/sources")
+  generatedDir.mkdirs()
+  generatedDir.eachDirRecurse { dir -> if (dir.path.contains(pattern)) found = dir.path }
+  return found
+}
+
+private static String getMainClassFromGeneratedFile(File file) {
+  final fileString = file.toString()
+  final prefix = "build/generated/sources/annotationProcessor/java/main/"
+  final index = fileString.indexOf(prefix) + prefix.length()
+  final trimmed = fileString.substring(index).replace(".java", "")
+  return trimmed.replace("/", ".")
+}

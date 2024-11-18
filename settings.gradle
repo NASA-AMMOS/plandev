@@ -1,3 +1,16 @@
+pluginManagement {
+  repositories {
+    maven {
+      name = "GitHubPackages"
+      url = "https://maven.pkg.github.com/NASA-AMMOS/aerie"
+      credentials {
+        username = System.getenv("GITHUB_ACTOR")
+        password = System.getenv("GITHUB_TOKEN")
+      }
+    }
+    gradlePluginPortal()
+  }
+}
 rootProject.name = 'aerie'
 
 // Mission Model support
@@ -18,6 +31,9 @@ include 'procedural:timeline'
 include 'procedural:constraints'
 include 'procedural:scheduling'
 include 'procedural:remote'
+
+// Procedural gradle plugins
+include 'procedural:plugin'
 
 // Procedural examples
 include 'procedural:examples:foo-procedures'

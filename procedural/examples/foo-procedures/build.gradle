@@ -1,8 +1,6 @@
-import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-
 plugins {
   id 'java'
-  id 'com.gradleup.shadow' version '8.3.0'
+  id 'gov.nasa.ammos.aerie.procedural.plugin' version '0.1.0'
 }
 
 java {
@@ -16,77 +14,7 @@ repositories {
 }
 
 dependencies {
-  annotationProcessor project(':procedural:processor')
-  implementation project(':procedural:constraints')
-  implementation project(':procedural:scheduling')
-  implementation project(':procedural:timeline')
-  implementation project(':merlin-driver')
-  implementation project(':type-utils')
-  implementation project(':contrib')
-
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
-}
-
-tasks.register('buildAllSchedulingProcedureJars') {
-  group = 'SchedulingProcedureJars'
-
-  dependsOn "generateSchedulingProcedureJarTasks"
-  dependsOn {
-    tasks.findAll { task -> task.name.startsWith('buildSchedulingProcedureJar_') }
-  }
-}
-
-tasks.create("generateSchedulingProcedureJarTasks") {
-  group = 'SchedulingProcedureJars'
-
-  final proceduresDir = findFirstMatchingBuildDir("generated/procedures")
-
-  if (proceduresDir == null) {
-    println "No procedures folder found"
-    return
-  }
-  println "Generating jar tasks for the following procedures directory: ${proceduresDir}"
-
-  final files = file(proceduresDir).listFiles()
-  if (files.length == 0) {
-    println "No procedures available within folder ${proceduresDir}"
-    return
-  }
-
-  files.toList().each { file ->
-    final nameWithoutExtension = file.name.replace(".java", "")
-    final taskName = "buildSchedulingProcedureJar_${nameWithoutExtension}"
-
-    println "Generating ${taskName} task, which will build ${nameWithoutExtension}.jar"
-
-    tasks.create(taskName, ShadowJar) {
-      group = 'SchedulingProcedureJars'
-      configurations = [project.configurations.compileClasspath]
-      from sourceSets.main.output
-      archiveBaseName = "" // clear
-      archiveClassifier.set(nameWithoutExtension) // set output jar name
-      manifest {
-        attributes 'Main-Class': getMainClassFromGeneratedFile(file)
-      }
-      minimize()
-    }
-  }
-}
-
-private String findFirstMatchingBuildDir(String pattern) {
-  String found = null
-  final generatedDir = file("build/generated/sources")
-  generatedDir.mkdirs()
-  generatedDir.eachDirRecurse { dir -> if (dir.path.contains(pattern)) found = dir.path }
-  return found
-}
-
-private static String getMainClassFromGeneratedFile(File file) {
-  final fileString = file.toString()
-  final prefix = "build/generated/sources/annotationProcessor/java/main/"
-  final index = fileString.indexOf(prefix) + prefix.length()
-  final trimmed = fileString.substring(index).replace(".java", "")
-  return trimmed.replace("/", ".")
 }
 
 test {

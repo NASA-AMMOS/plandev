@@ -27,6 +27,7 @@ env:
   SCHEDULER_PASSWORD: "${{secrets.SCHEDULER_PASSWORD}}"
   SEQUENCING_USERNAME: "${{secrets.SEQUENCING_USERNAME}}"
   SEQUENCING_PASSWORD: "${{secrets.SEQUENCING_PASSWORD}}"
+  GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
 
 jobs:
   unit-test:

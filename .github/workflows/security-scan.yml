@@ -12,6 +12,9 @@ on:
       - v*
   workflow_dispatch:
 
+env:
+  GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+
 jobs:
   analyze:
     name: Analyze
@@ -19,6 +22,7 @@ jobs:
     permissions:
       actions: read
       contents: write
+      packages: read
       security-events: write
 
     strategy:

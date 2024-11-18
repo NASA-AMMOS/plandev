@@ -1,0 +1,73 @@
+plugins {
+  id 'groovy-gradle-plugin'
+  id "maven-publish"
+}
+
+import groovy.json.JsonSlurper
+
+def getLatestMavenPackageVersion(String owner, String packageName, String token) {
+  def apiUrl = "https://api.github.com/orgs/${owner}/packages/maven/${packageName}/versions"
+  def conn = apiUrl.toURL().openConnection()
+
+  conn.setRequestProperty("Authorization", "Bearer ${token}")
+  conn.setRequestProperty("Accept", "application/vnd.github+json")
+
+  def response = conn.inputStream.text
+  def versions = new JsonSlurper().parseText(response)
+
+  if (versions.isEmpty()) {
+    return "No versions found"
+  }
+
+  // Sort versions and get the latest one
+  def latestVersion = versions.sort { a, b ->
+    def versionA = a.name.tokenize('.')
+    def versionB = b.name.tokenize('.')
+    return versionB <=> versionA
+  }[0]
+
+  return latestVersion.name
+}
+
+// adding this as an implementation dependency here allows usage in our convention plugin
+dependencies {
+  implementation("com.gradleup.shadow:shadow-gradle-plugin:8.3.3")
+}
+
+tasks.publish {
+  dependsOn("check")
+}
+
+version = "0.1.0"
+
+def shouldPublish = {
+  def latest = getLatestMavenPackageVersion("nasa-ammos", "gov.nasa.ammos.aerie.procedural.plugin", System.getenv("GITHUB_TOKEN"))
+  println "latest published procedural plugin is ${latest}"
+  println "current procedural plugin is ${version}"
+  def should = latest != version
+  if (should) {
+    println "publishing..."
+  } else {
+    println "not publishing..."
+  }
+  return should
+}
+
+tasks.withType(PublishToMavenRepository).configureEach { it.enabled = shouldPublish() }
+
+publishing {
+  publications {
+    pluginMaven(MavenPublication)
+  }
+  repositories {
+    maven {
+      name="GitHubPackages"
+      url="https://maven.pkg.github.com/nasa-ammos/aerie"
+      version=version
+      credentials {
+        username = System.getenv("GITHUB_ACTOR")
+        password = System.getenv("GITHUB_TOKEN")
+      }
+    }
+  }
+}

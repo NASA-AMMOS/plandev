@@ -20,7 +20,7 @@ include 'procedural:scheduling'
 include 'procedural:remote'
 
 // Procedural examples
-include 'procedural:examples:foo-procedures'
+include 'procedural:examples:banana-procedures'
 
 // Services for deployment within the Aerie infrastructure
 include 'merlin-server'

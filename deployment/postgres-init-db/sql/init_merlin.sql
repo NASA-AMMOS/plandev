@@ -75,7 +75,6 @@ begin;
   -- External Events
   \ir tables/merlin/external_events/external_source_type.sql
   \ir tables/merlin/external_events/external_event_type.sql
-  \ir tables/merlin/external_events/external_source_type_allowed_event_types.sql
   \ir tables/merlin/external_events/derivation_group.sql
   \ir tables/merlin/external_events/external_source.sql
   \ir tables/merlin/external_events/external_event.sql

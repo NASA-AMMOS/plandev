@@ -212,19 +212,6 @@ public enum GQL {
        }
      }
    }"""),
-  DELETE_EXTERNAL_SOURCE_TYPE_ALLOWED_EVENT_TYPES("""
-    mutation DeleteExternalSourceTypeAllowedEventType(
-      $externalSourceType: String!,
-      $externalEventType: String!
-    ) {
-      deleteExternalSourceTypeAllowedEventTypes: delete_external_source_type_allowed_event_types_by_pk(
-                  external_source_type: $externalSourceType,
-                  external_event_type: $externalEventType
-      ) {
-        external_source_type
-        external_event_type
-      }
-    }"""),
   DELETE_EXTERNAL_SOURCE_TYPE("""
     mutation DeleteExternalSourceType($name: String!) {
       deleteExternalSourceType: delete_external_source_type_by_pk(name: $name) {

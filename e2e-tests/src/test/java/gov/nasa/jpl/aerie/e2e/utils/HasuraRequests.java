@@ -1090,19 +1090,6 @@ public class HasuraRequests implements AutoCloseable {
         .getString("derivation_group_name");
   }
 
-  public String deleteExternalSourceTypeAllowedEventType(
-    String externalSourceType,
-    String externalEventType
-  ) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("externalSourceType", externalSourceType)
-                              .add("externalEventType", externalEventType)
-                              .build();
-    var result = makeRequest(GQL.DELETE_EXTERNAL_SOURCE_TYPE_ALLOWED_EVENT_TYPES, variables)
-        .getJsonObject("deleteExternalSourceTypeAllowedEventTypes");
-    return result.getString("external_event_type") + ", " + result.getString("external_source_type");
-  }
-
   public String deleteExternalSourceType(
     String name
   ) throws IOException {

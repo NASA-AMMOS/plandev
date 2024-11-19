@@ -37,8 +37,8 @@ public class SchedulingUtility {
   public SchedulingUtility(final MissionModel<?> model, final SchedulerModel schedulerModel, final int maxEngines) {
     this.model = model;
     this.schedulerModel = schedulerModel;
-    this.typeMap = generateTypeMap(model, schedulerModel);
     this.maxEngines = maxEngines;
+    this.typeMap = generateTypeMap(model, schedulerModel);
   }
 
   private static Map<String, ActivityType> generateTypeMap(MissionModel<?> model, SchedulerModel schedulerModel) {

@@ -41,12 +41,9 @@ public class EditablePlanStalenessTest {
     facade = new CheckpointSimulationFacade(horizon, missionModel, schedulerModel);
     problem = new Problem(missionModel, horizon, facade, schedulerModel);
     plan = new InMemoryEditablePlan(
-        missionModel,
         new DirectiveIdGenerator(0),
         new SchedulerToProcedurePlanAdapter(
-            new PlanInMemory(
-
-            ),
+            new PlanInMemory(),
             horizon,
             Map.of(), Map.of(), Map.of()
         ),

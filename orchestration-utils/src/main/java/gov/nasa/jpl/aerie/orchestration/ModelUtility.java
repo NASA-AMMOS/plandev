@@ -21,7 +21,6 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Map;
 import java.util.jar.JarFile;
-import java.util.stream.Collectors;
 
 public class ModelUtility {
   /**
@@ -83,16 +82,14 @@ public class ModelUtility {
 
 
   /**
-   * TODO
-   * @param modelJarPath
-   * @return
-   * @throws MissionModelLoader.MissionModelLoadException
+   * Instantiate a Schedule Model from a path to the mission model jar on the filesystem.
+   * @param modelJarPath Path to the mission model jar on the local filesystem.
+   * @return A SchedulerModel from the jar
    */
   public static SchedulerModel instantiateSchedulerModel(final Path modelJarPath)
-  throws MissionModelLoader.MissionModelLoadException, SchedulerModelLoadException
+  throws SchedulerModelLoadException
   {
     return loadSchedulerModelProvider(modelJarPath, modelJarPath.getFileName().toString(), "").getSchedulerModel();
-
   }
 
   public static SchedulerPlugin loadSchedulerModelProvider(final Path path, final String name, final String version)
@@ -132,8 +129,7 @@ public class ModelUtility {
   public static String getImplementingClassName(final Path jarPath, final String name, final String version)
   throws SchedulerModelLoadException
   {
-    try {
-      final var jarFile = new JarFile(jarPath.toFile());
+    try (final var jarFile = new JarFile(jarPath.toFile())) {
       final var jarEntry = jarFile.getEntry("META-INF/services/" + SchedulerPlugin.class.getCanonicalName());
       if (jarEntry == null) {
         throw new Error("JAR file `" + jarPath + "` did not declare a service called " + SchedulerPlugin.class.getCanonicalName());
@@ -142,13 +138,13 @@ public class ModelUtility {
 
       final var classPathList = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))
           .lines()
-          .collect(Collectors.toList());
+          .toList();
 
       if (classPathList.size() != 1) {
         throw new SchedulerModelLoadException(jarPath, name, version);
       }
 
-      return classPathList.get(0);
+      return classPathList.getFirst();
     } catch (final IOException ex) {
       throw new SchedulerModelLoadException(jarPath, name, version, ex);
     }

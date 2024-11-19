@@ -22,7 +22,6 @@ interface EditablePlan: Plan {
    * @param directive a directive without a directive id.
    * @return a long, the directive id this activity will have.
    */
-  @Throws(InstantiationException::class)
   fun create(directive: NewDirective): ActivityDirectiveId
 
   /** A simplified version of [create] with minimal arguments. */

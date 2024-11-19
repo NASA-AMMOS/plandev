@@ -114,13 +114,12 @@ public class SchedulingUtility {
           this::lookupActivityType,
           schedulerModel);
 
+      // TODO: Can be simplified if a per-goal eval is not returned
       final var schedulerPlan = editablePlan.getSchedulerPlan();
       //final var eval = schedulerPlan.getEvaluation();
       initialResults.ifPresent(r -> simFacade.setInitialSimResults(new SimulationData(schedulerPlan, r)));
 
       for (final var g : goals) {
-        //final var procedure = new Procedure(horizon, g.jarPath(), g.args(), g.simulateAfter());
-
         final ProcedureMapper<?> procedureMapper;
         try {
           procedureMapper = ProcedureLoader.loadProcedure(g.jarPath());

@@ -21,6 +21,7 @@ include 'procedural:remote'
 
 // Procedural examples
 include 'procedural:examples:banana-procedures'
+include 'procedural:examples:foo-procedures'
 
 // Services for deployment within the Aerie infrastructure
 include 'merlin-server'

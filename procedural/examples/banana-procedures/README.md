@@ -1,6 +1,6 @@
 # banana-procedures
 
-This is a project for test examples. It does provide valid examples
+This is a project for test examples using the Banananation mission model. It does provide valid examples
 of goals and constraints, but they aren't particularly helpful for users.
 
 ## Building

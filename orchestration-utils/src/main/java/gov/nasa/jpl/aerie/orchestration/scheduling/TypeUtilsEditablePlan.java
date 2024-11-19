@@ -7,6 +7,7 @@ import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment;
 import gov.nasa.ammos.aerie.procedural.timeline.plan.EventQuery;
 import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults;
+import gov.nasa.jpl.aerie.merlin.protocol.model.SchedulerModel;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.ammos.aerie.procedural.scheduling.plan.Edit;
 import gov.nasa.ammos.aerie.procedural.scheduling.plan.EditablePlan;
@@ -53,17 +54,20 @@ public class TypeUtilsEditablePlan implements EditablePlan {
   private final TypeUtilsProceduralPlan plan;
   private final SimulationFacade simFacade;
   private final Function<String, ActivityType> lookupActivityType;
+  private final SchedulerModel schedulerModel;
 
   public TypeUtilsEditablePlan(
       DirectiveIdGenerator idGenerator,
       TypeUtilsProceduralPlan plan,
       SimulationFacade simFacade,
-      Function<String, ActivityType> lookupActivityType
+      Function<String, ActivityType> lookupActivityType,
+      SchedulerModel schedulerModel
   ) {
     this.idGenerator = idGenerator;
     this.plan = plan;
     this.simFacade = simFacade;
     this.lookupActivityType = lookupActivityType;
+    this.schedulerModel = schedulerModel;
   }
 
   private final List<Edit> commitedChanges = new ArrayList<>();
@@ -85,7 +89,7 @@ public class TypeUtilsEditablePlan implements EditablePlan {
 
   @NotNull
   @Override
-  public ActivityDirectiveId create(NewDirective directive) throws InstantiationException {
+  public ActivityDirectiveId create(NewDirective directive) {
     final var id = idGenerator.next();
     final var parent = switch (directive.getStart()) {
       case DirectiveStart.Anchor a -> {
@@ -101,7 +105,9 @@ public class TypeUtilsEditablePlan implements EditablePlan {
     };
     final var resolved = directive.resolve(id, parent);
     uncommitedChanges.add(new Edit.Create(resolved));
-    validateArguments(resolved, lookupActivityType);
+    try {
+      validateArguments(resolved, lookupActivityType);
+    } catch (InstantiationException e) { throw new Error(e);}
     plan.plan().activityDirectives().put(id, toTypeUtilsActivity(resolved));
     return id;
   }
@@ -168,7 +174,7 @@ public class TypeUtilsEditablePlan implements EditablePlan {
             .stream()
             .map($ -> {
               try {
-                return toSchedulingActivity($.getKey(), $.getValue(), lookupActivityType);
+                return toSchedulingActivity($.getKey(), $.getValue(), lookupActivityType, schedulerModel);
               } catch (InstantiationException e) {
                 throw new RuntimeException(e);
               }
@@ -178,7 +184,11 @@ public class TypeUtilsEditablePlan implements EditablePlan {
     return result;
   }
 
-  private static SchedulingActivity toSchedulingActivity(ActivityDirectiveId id, ActivityDirective activity, Function<String, ActivityType> lookupActivityType)
+  private static SchedulingActivity toSchedulingActivity(
+      ActivityDirectiveId id,
+      ActivityDirective activity,
+      Function<String, ActivityType> lookupActivityType,
+      SchedulerModel schedulerModel)
   throws InstantiationException
   {
     return new SchedulingActivity(
@@ -186,7 +196,7 @@ public class TypeUtilsEditablePlan implements EditablePlan {
         lookupActivityType.apply(activity.serializedActivity().getTypeName()),
         activity.startOffset(),
         switch(lookupActivityType.apply(activity.serializedActivity().getTypeName()).getDurationType()) {
-          case DurationType.Controllable c -> new Duration(activity.serializedActivity().getArguments().get(c.parameterName()).asInt().get());
+          case DurationType.Controllable c -> schedulerModel.deserializeDuration(activity.serializedActivity().getArguments().get(c.parameterName()));
           case DurationType.Parametric p -> p.durationFunction().apply(activity.serializedActivity().getArguments());
           case DurationType.Fixed f -> f.duration();
           case DurationType.Uncontrollable ignored -> Duration.ZERO;

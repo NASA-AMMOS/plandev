@@ -111,7 +111,8 @@ public class SchedulingUtility {
           directiveIdGenerator,
           proceduralPlan,
           simFacade,
-          this::lookupActivityType);
+          this::lookupActivityType,
+          schedulerModel);
 
       final var schedulerPlan = editablePlan.getSchedulerPlan();
       //final var eval = schedulerPlan.getEvaluation();

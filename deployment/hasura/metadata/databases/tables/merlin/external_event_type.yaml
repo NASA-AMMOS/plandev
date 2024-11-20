@@ -30,7 +30,7 @@ select_permissions:
 insert_permissions:
   - role: aerie_admin
     permission:
-      columns: [name, attribute_schema]
+      columns: [name]
       check: {}
 delete_permissions:
   - role: aerie_admin

@@ -15,4 +15,4 @@ comment on column merlin.external_source_type.name is e''
   'The identifier for this external_source_type, as well as its name.';
 
 comment on column merlin.external_source_type.attribute_schema is e''
-  'The JSON schema used to validate attributes for sources using this source type.';
+  'The JSON schema used to validate attributes for sources using this source type (includes event attributes).';

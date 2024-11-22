@@ -1,7 +1,6 @@
 package gov.nasa.jpl.aerie.scheduler;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
-import gov.nasa.ammos.aerie.procedural.scheduling.ProcedureMapper;
+import gov.nasa.ammos.aerie.procedural.scheduling.SchedulingProcedureMapper;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -12,7 +11,7 @@ import java.util.Objects;
 import java.util.jar.JarFile;
 
 public final class ProcedureLoader {
-  public static ProcedureMapper<?> loadProcedure(final Path path)
+  public static SchedulingProcedureMapper<?> loadProcedure(final Path path)
   throws ProcedureLoadException
   {
     final var className = getImplementingClassName(path);
@@ -20,11 +19,11 @@ public final class ProcedureLoader {
 
     try {
       final var pluginClass$ = classLoader.loadClass(className);
-      if (!ProcedureMapper.class.isAssignableFrom(pluginClass$)) {
+      if (!SchedulingProcedureMapper.class.isAssignableFrom(pluginClass$)) {
         throw new ProcedureLoadException(path);
       }
 
-      return (ProcedureMapper<?>) pluginClass$.getConstructor().newInstance();
+      return (SchedulingProcedureMapper<?>) pluginClass$.getConstructor().newInstance();
     } catch (final ReflectiveOperationException ex) {
       throw new ProcedureLoadException(path, ex);
     }
@@ -58,7 +57,7 @@ public final class ProcedureLoader {
       super(
           String.format(
               "No implementation found for `%s` at path `%s`",
-              ProcedureMapper.class.getSimpleName(),
+              SchedulingProcedureMapper.class.getSimpleName(),
               path),
           cause);
     }

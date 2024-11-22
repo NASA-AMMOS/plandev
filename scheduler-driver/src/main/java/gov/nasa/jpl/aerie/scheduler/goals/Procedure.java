@@ -4,7 +4,7 @@ import gov.nasa.ammos.aerie.procedural.scheduling.utils.DefaultEditablePlanDrive
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.ammos.aerie.procedural.scheduling.ProcedureMapper;
+import gov.nasa.ammos.aerie.procedural.scheduling.SchedulingProcedureMapper;
 import gov.nasa.ammos.aerie.procedural.scheduling.plan.Edit;
 import gov.nasa.jpl.aerie.scheduler.DirectiveIdGenerator;
 import gov.nasa.jpl.aerie.scheduler.ProcedureLoader;
@@ -48,7 +48,7 @@ public class Procedure extends Goal {
       final DirectiveIdGenerator idGenerator,
       Map<String, List<ExternalEvent>> eventsByDerivationGroup
   ) {
-    final ProcedureMapper<?> procedureMapper;
+    final SchedulingProcedureMapper<?> procedureMapper;
     try {
       procedureMapper = ProcedureLoader.loadProcedure(jarPath);
     } catch (ProcedureLoader.ProcedureLoadException e) {

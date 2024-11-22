@@ -15,6 +15,7 @@ dependencies {
   implementation project(':merlin-sdk')
   implementation project(':contrib')
   implementation project(':procedural:scheduling')
+  implementation project(':procedural:constraints')
   implementation 'org.apache.commons:commons-lang3:3.13.0'
   implementation 'com.squareup:javapoet:1.13.0'
 }

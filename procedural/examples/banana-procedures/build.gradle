@@ -73,6 +73,52 @@ tasks.create("generateSchedulingProcedureJarTasks") {
   }
 }
 
+tasks.register('buildAllConstraintProcedureJars') {
+  group = 'ConstraintProcedureJars'
+
+  dependsOn "generateConstraintProcedureJarTasks"
+  dependsOn {
+    tasks.findAll { task -> task.name.startsWith('buildConstraintProcedureJar_') }
+  }
+}
+
+tasks.create("generateConstraintProcedureJarTasks") {
+  group = 'ConstraintProcedureJars'
+
+  final proceduresDir = findFirstMatchingBuildDir("generated/procedures")
+
+  if (proceduresDir == null) {
+    println "No procedures folder found"
+    return
+  }
+  println "Generating jar tasks for the following procedures directory: ${proceduresDir}"
+
+  final files = file(proceduresDir).listFiles()
+  if (files.length == 0) {
+    println "No procedures available within folder ${proceduresDir}"
+    return
+  }
+
+  files.toList().each { file ->
+    final nameWithoutExtension = file.name.replace(".java", "")
+    final taskName = "buildConstraintProcedureJar_${nameWithoutExtension}"
+
+    println "Generating ${taskName} task, which will build ${nameWithoutExtension}.jar"
+
+    tasks.create(taskName, ShadowJar) {
+      group = 'ConstraintProcedureJars'
+      configurations = [project.configurations.runtimeClasspath]
+      from sourceSets.main.output
+      archiveBaseName = "" // clear
+      archiveClassifier.set(nameWithoutExtension) // set output jar name
+      manifest {
+        attributes 'Main-Class': getMainClassFromGeneratedFile(file)
+      }
+      minimize()
+    }
+  }
+}
+
 private String findFirstMatchingBuildDir(String pattern) {
   String found = null
   final generatedDir = file("build/generated/sources")

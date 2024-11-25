@@ -99,38 +99,12 @@ public class GatewayRequests implements AutoCloseable {
   }
 
 
-  public void uploadExternalEventType(String externalEventTypeName, JsonObject schema) throws IOException {
-    final var response = request.post("/uploadExternalEventType", RequestOptions.create()
+  public void uploadExternalSourceEventTypes(String schema) throws IOException {
+    final var response = request.post("/uploadExternalSourceEventTypes", RequestOptions.create()
+                                                                                       .setHeader("Authorization", "Bearer "+token)
                                                                                  .setHeader("Content-Type", "application/json")
-                                                                                 .setData(Json.createObjectBuilder()
-                                                                                              .add("external_event_type_name", externalEventTypeName)
-                                                                                              .add("attribute_schema", schema)
-                                                                                              .build()
-                                                                                              .toString()));
+                                                                                 .setData(schema));
     // Process Response
-    if(!response.ok()){
-      throw new IOException(response.statusText());
-    }
-    try(final var reader = Json.createReader(new StringReader(response.text()))){
-      final JsonObject bodyJson = reader.readObject();
-      if(!bodyJson.containsKey("data")){
-        System.err.println("Upload failed");
-        throw new RuntimeException(bodyJson.toString());
-      }
-    }
-  }
-
-  public void uploadExternalSourceType(String externalSourceTypeName, JsonObject schema) throws IOException {
-    final var response = request.post("/uploadExternalSourceType", RequestOptions.create()
-                                                                                 .setHeader("Content-Type", "application/json")
-                                                                                 .setData(Json.createObjectBuilder()
-                                                                                              .add("external_source_type_name", externalSourceTypeName)
-                                                                                              .add("attribute_schema", schema)
-                                                                                              .add("allowed_event_types", Json.createArrayBuilder()
-                                                                                                                              .add("TestEventType")
-                                                                                              )
-                                                                                              .build()
-                                                                                              .toString()));
     if(!response.ok()){
       throw new IOException(response.statusText());
     }
@@ -145,6 +119,7 @@ public class GatewayRequests implements AutoCloseable {
 
   public void uploadExternalSource(JsonObject externalSource) throws IOException {
     final var response = request.post("/uploadExternalSource", RequestOptions.create()
+                                                                             .setHeader("Authorization", "Bearer "+token)
                                                                                  .setHeader(
                                                                                      "Content-Type",
                                                                                      "application/json")

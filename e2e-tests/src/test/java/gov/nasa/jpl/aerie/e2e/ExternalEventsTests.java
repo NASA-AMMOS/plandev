@@ -11,6 +11,7 @@ import org.junit.jupiter.api.TestInstance;
 
 import javax.json.Json;
 import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
 import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -34,66 +35,50 @@ public class ExternalEventsTests {
     hasura = new HasuraRequests(playwright);
   }
 
-  // need a method to create external event type
-  void uploadExternalEventType( ) throws IOException {
-    final JsonObject schema = Json.createObjectBuilder()
-                                  .add("$schema", "http://json-schema.org/draft-07/schema")
-                                  .add("title", "TestEventType")
-                                  .add("description", "Schema for the attributes of the DSNContact External Event Type.")
-                                  .add("type", "object")
-                                  .add("additionalProperties", false)
-                                  .add("properties", Json.createObjectBuilder()
-                                                         .add("projectUser", Json.createObjectBuilder()
-                                                                                 .add("type", "string")
-                                                         )
-                                                         .add("code", Json.createObjectBuilder()
-                                                                          .add("type", "string")
-                                                         )
-                                  )
-                                  .add("required", Json.createArrayBuilder()
-                                      .add("projectUser")
-                                      .add("code")
-                                  )
-                                  .build();
+  // need a method to upload external event and source types
+  void uploadExternalSourceEventTypes() throws IOException {
+    final String schema = """
+        {
+          "event_types": {
+            "TestEventType": {
+              "type": "object",
+              "required": ["projectUser", "code"],
+              "properties": {
+                "projectUser": {
+                  "type": "string"
+                },
+                "code": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "source_types": {
+            "TestSourceType": {
+              "type": "object",
+              "properties": {
+                "version": {
+                  "type": "number"
+                },
+                "operator": {
+                  "type": "string"
+                }
+              },
+              "required": ["version", "operator"]
+            }
+          }
+        }
+        """;
 
     try (final var gateway = new GatewayRequests(playwright)) {
-      gateway.uploadExternalEventType("TestEventType", schema);
-    }
-  }
-
-  // need a method to create external source type
-  void uploadExternalSourceType() throws IOException {
-    final String externalSourceTypeName = "TestSourceType";
-    final JsonObject schema = Json.createObjectBuilder()
-                                  .add("$schema", "http://json-schema.org/draft-07/schema")
-                                  .add("title", "TestSourceType")
-                                  .add("description", "Schema for the attributes of the DSN Contact Confirmed External Source Type.")
-                                  .add("type", "object")
-                                  .add("additionalProperties", false)
-                                  .add("properties", Json.createObjectBuilder()
-                                                         .add("version", Json.createObjectBuilder()
-                                                                             .add("type", "number")
-                                                         )
-                                                         .add("operator", Json.createObjectBuilder()
-                                                                            .add("type", "string")
-                                                         )
-                                  )
-                                  .add("required", Json.createArrayBuilder()
-                                                       .add("version")
-                                                       .add("operator")
-                                  )
-                                  .build();
-
-    try (final var gateway = new GatewayRequests(playwright)) {
-      gateway.uploadExternalSourceType(externalSourceTypeName, schema);
+      gateway.uploadExternalSourceEventTypes(schema);
     }
   }
 
   @BeforeEach
   void beforeEach() throws IOException {
     // upload types
-    uploadExternalEventType();
-    uploadExternalSourceType();
+    uploadExternalSourceEventTypes();
   }
 
   @AfterEach
@@ -115,35 +100,39 @@ public class ExternalEventsTests {
   // test that a source goes in including all the attributes
   @Test
   void correctSourceAndEventAttributes() throws IOException {
-    final var externalEvents = Json.createArrayBuilder()
-                                   .add(Json.createObjectBuilder()
-                                            .add("attributes", Json.createObjectBuilder()
-                                                                   .add("projectUser", "UserA")
-                                                                   .add("code", "A")
-                                            )
-                                            .add("duration", "01:00:00")
-                                            .add("event_type_name", "TestEventType")
-                                            .add("key", "Event_01")
-                                            .add("start_time", "2024-01-21T01:00:00+00:00")
-                                   );
+    final String events = """
+        [
+          {
+            "attributes": {
+              "projectUser": "UserA",
+              "code": "A"
+            },
+            "duration": "01:00:00",
+            "event_type_name": "TestEventType",
+            "key": "Event_01",
+            "start_time": "2024-01-21T01:00:00+00:00"
+          }
+        ]
+        """;
 
-    final var externalSource = Json.createObjectBuilder()
-                                   .add("source", Json.createObjectBuilder()
-                                                      .add("attributes", Json.createObjectBuilder()
-                                                                             .add("version", 1)
-                                                                             .add("operator", "alpha")
-                                                      )
-                                                      .add("derivation_group_name", "TestDerivationGroup")
-                                                      .add("period", Json.createObjectBuilder()
-                                                                         .add("start_time", "2024-01-21T00:00:00+00:00")
-                                                                         .add("end_time", "2024-01-28T00:00:00+00:00")
-                                                      )
-                                                      .add("key", "TestExternalSourceKey")
-                                                      .add("source_type_name", "TestSourceType")
-                                                      .add("valid_at", "2024-01-19T00:00:00+00:00")
-                                   )
-                                   .add("external_events", externalEvents)
-                                   .build();
+    final String source = """
+        {
+          "attributes": { "version": 1, "operator": "alpha" },
+          "derivation_group_name": "TestDerivationGroup",
+          "period": {
+            "start_time": "2024-01-21T00:00:00+00:00",
+            "end_time": "2024-01-28T00:00:00+00:00"
+          },
+          "key": "TestExternalSourceKey",
+          "source_type_name": "TestSourceType",
+          "valid_at": "2024-01-19T00:00:00+00:00"
+        }
+        """;
+
+    final JsonObject externalSource = Json.createObjectBuilder()
+                                          .add("source", source)
+                                          .add("external_events", events)
+                                          .build();
 
     try (final var gateway = new GatewayRequests(playwright)) {
       gateway.uploadExternalSource(externalSource);
@@ -153,233 +142,258 @@ public class ExternalEventsTests {
   // test that a source fails missing an attribute
   @Test
   void sourceMissingAttribute() throws IOException {
-    final var externalEvents = Json.createArrayBuilder()
-                                   .add(Json.createObjectBuilder()
-                                            .add("attributes", Json.createObjectBuilder()
-                                                                   .add("projectUser", "UserA")
-                                                                   .add("code", "A")
-                                            )
-                                            .add("duration", "01:00:00")
-                                            .add("event_type_name", "TestEventType")
-                                            .add("key", "Event_01")
-                                            .add("start_time", "2024-01-21T01:00:00+00:00")
-                                   );
+    final String events = """
+        [
+          {
+            "attributes": {
+              "projectUser": "UserA",
+              "code": "A"
+            },
+            "duration": "01:00:00",
+            "event_type_name": "TestEventType",
+            "key": "Event_01",
+            "start_time": "2024-01-21T01:00:00+00:00"
+          }
+        ]
+        """;
 
-    final var externalSource = Json.createObjectBuilder()
-        .add("source", Json.createObjectBuilder()
-                           .add("attributes", Json.createObjectBuilder()
-                                                  .add("version", 1)
-                                                  // missing: operator
-                           )
-                           .add("derivation_group_name", "TestDerivationGroup")
-                           .add("period", Json.createObjectBuilder()
-                                              .add("start_time", "2024-01-21T00:00:00+00:00")
-                                              .add("end_time", "2024-01-28T00:00:00+00:00")
-                           )
-                           .add("key", "TestExternalSourceKey")
-                           .add("source_type_name", "TestSourceType")
-                           .add("valid_at", "2024-01-19T00:00:00+00:00")
-        )
-                                   .add("external_events", externalEvents)
-                                   .build();
+    // missing: operator attribute
+    final String source = """
+        {
+          "attributes": { "version": 1 },
+          "derivation_group_name": "TestDerivationGroup",
+          "period": {
+            "start_time": "2024-01-21T00:00:00+00:00",
+            "end_time": "2024-01-28T00:00:00+00:00"
+          },
+          "key": "TestExternalSourceKey",
+          "source_type_name": "TestSourceType",
+          "valid_at": "2024-01-19T00:00:00+00:00"
+        }
+        """;
+
+    final JsonObject externalSource = Json.createObjectBuilder()
+                                          .add("source", source)
+                                          .add("external_events", events)
+                                          .build();
 
     final var gateway = new GatewayRequests(playwright);
     final IOException ex = assertThrows(IOException.class, () -> gateway.uploadExternalSource(externalSource));
-    assertTrue(ex.getMessage().contains("Source's attributes are invalid"));
+    assertTrue(ex.getMessage().contains("should have required property 'operator'"));
   }
 
   // test that a source fails with an extra attribute
   @Test
   void sourceExtraAttribute() throws IOException {
-    final var externalEvents = Json.createArrayBuilder()
-                                   .add(Json.createObjectBuilder()
-                                            .add("attributes", Json.createObjectBuilder()
-                                                                   .add("projectUser", "UserA")
-                                                                   .add("code", "A")
-                                            )
-                                            .add("duration", "01:00:00")
-                                            .add("event_type_name", "TestEventType")
-                                            .add("key", "Event_01")
-                                            .add("start_time", "2024-01-21T01:00:00+00:00")
-                                   );
+    final String events = """
+        [
+          {
+            "attributes": {
+              "projectUser": "UserA",
+              "code": "A"
+            },
+            "duration": "01:00:00",
+            "event_type_name": "TestEventType",
+            "key": "Event_01",
+            "start_time": "2024-01-21T01:00:00+00:00"
+          }
+        ]
+        """;
 
-    final var externalSource = Json.createObjectBuilder()
-        .add("source", Json.createObjectBuilder()
-                           .add("attributes", Json.createObjectBuilder()
-                                                  .add("version", 1)
-                                                  .add("operator", "alpha")
-                                                  .add("extra", "attribute") // extra
-                           )
-                           .add("derivation_group_name", "TestDerivationGroup")
-                           .add("period", Json.createObjectBuilder()
-                                              .add("start_time", "2024-01-21T00:00:00+00:00")
-                                              .add("end_time", "2024-01-28T00:00:00+00:00")
-                           )
-                           .add("key", "TestExternalSourceKey")
-                           .add("source_type_name", "TestSourceType")
-                           .add("valid_at", "2024-01-19T00:00:00+00:00")
-        )
-                                   .add("external_events", externalEvents)
-                                   .build();
+    // has extra attribute "extra"
+    final String source = """
+        {
+          "attributes": { "version": 1, "operator": "alpha", "extra": "attribute" },
+          "derivation_group_name": "TestDerivationGroup",
+          "period": {
+            "start_time": "2024-01-21T00:00:00+00:00",
+            "end_time": "2024-01-28T00:00:00+00:00"
+          },
+          "key": "TestExternalSourceKey",
+          "source_type_name": "TestSourceType",
+          "valid_at": "2024-01-19T00:00:00+00:00"
+        }
+        """;
+
+    final JsonObject externalSource = Json.createObjectBuilder()
+                                          .add("source", source)
+                                          .add("external_events", events)
+                                          .build();
 
     final var gateway = new GatewayRequests(playwright);
     final IOException ex = assertThrows(IOException.class, () -> gateway.uploadExternalSource(externalSource));
-    assertTrue(ex.getMessage().contains("Source's attributes are invalid"));
+    assertTrue(ex.getMessage().contains("should NOT have additional properties"));
   }
 
   // test that a source fails with an attribute of the wrong type
   @Test
   void sourceWrongTypeAttribute() throws IOException {
-    final var externalEvents = Json.createArrayBuilder()
-                                   .add(Json.createObjectBuilder()
-                                            .add("attributes", Json.createObjectBuilder()
-                                                                   .add("projectUser", "UserA")
-                                                                   .add("code", "A")
-                                            )
-                                            .add("duration", "01:00:00")
-                                            .add("event_type_name", "TestEventType")
-                                            .add("key", "Event_01")
-                                            .add("start_time", "2024-01-21T01:00:00+00:00")
-                                   );
+    final String events = """
+        [
+          {
+            "attributes": {
+              "projectUser": "UserA",
+              "code": "A"
+            },
+            "duration": "01:00:00",
+            "event_type_name": "TestEventType",
+            "key": "Event_01",
+            "start_time": "2024-01-21T01:00:00+00:00"
+          }
+        ]
+        """;
 
-    final var externalSource = Json.createObjectBuilder()
-        .add("source", Json.createObjectBuilder()
-                           .add("attributes", Json.createObjectBuilder()
-                                                  .add("version", "string") // expects int
-                                                  .add("operator", "alpha")
-                           )
-                           .add("derivation_group_name", "TestDerivationGroup")
-                           .add("period", Json.createObjectBuilder()
-                                              .add("start_time", "2024-01-21T00:00:00+00:00")
-                                              .add("end_time", "2024-01-28T00:00:00+00:00")
-                           )
-                           .add("key", "TestExternalSourceKey")
-                           .add("source_type_name", "TestSourceType")
-                           .add("valid_at", "2024-01-19T00:00:00+00:00")
-        )
-                                   .add("external_events", externalEvents)
-                                   .build();
+    // has wrong type for attribute "version" - string instead of number
+    final String source = """
+        {
+          "attributes": { "version": "string", "operator": "alpha" },
+          "derivation_group_name": "TestDerivationGroup",
+          "period": {
+            "start_time": "2024-01-21T00:00:00+00:00",
+            "end_time": "2024-01-28T00:00:00+00:00"
+          },
+          "key": "TestExternalSourceKey",
+          "source_type_name": "TestSourceType",
+          "valid_at": "2024-01-19T00:00:00+00:00"
+        }
+        """;
+
+    final JsonObject externalSource = Json.createObjectBuilder()
+                                          .add("source", source)
+                                          .add("external_events", events)
+                                          .build();
 
     final var gateway = new GatewayRequests(playwright);
     final IOException ex = assertThrows(IOException.class, () -> gateway.uploadExternalSource(externalSource));
-    assertTrue(ex.getMessage().contains("Source's attributes are invalid"));
+    assertTrue(ex.getMessage().contains("should be number"));
   }
 
   // test that an event fails missing an attribute
   @Test
   void eventMissingAttribute() throws IOException {
-    final var externalEvents = Json.createArrayBuilder()
-                                   .add(Json.createObjectBuilder()
-                                            .add("attributes", Json.createObjectBuilder()
-                                                                   .add("projectUser", "UserA")
-                                                                   // missing: code
-                                            )
-                                            .add("duration", "01:00:00")
-                                            .add("event_type_name", "TestEventType")
-                                            .add("key", "Event_01")
-                                            .add("start_time", "2024-01-21T01:00:00+00:00")
-                                   );
+    // missing: code
+    final String events = """
+        [
+          {
+            "attributes": {
+              "projectUser": "UserA"
+            },
+            "duration": "01:00:00",
+            "event_type_name": "TestEventType",
+            "key": "Event_01",
+            "start_time": "2024-01-21T01:00:00+00:00"
+          }
+        ]
+        """;
 
-    final var externalSource = Json.createObjectBuilder()
-        .add("source", Json.createObjectBuilder()
-                           .add("attributes", Json.createObjectBuilder()
-                                                  .add("version", 1)
-                                                  .add("operator", "alpha")
-                           )
-                           .add("derivation_group_name", "TestDerivationGroup")
-                           .add("period", Json.createObjectBuilder()
-                                              .add("start_time", "2024-01-21T00:00:00+00:00")
-                                              .add("end_time", "2024-01-28T00:00:00+00:00")
-                           )
-                           .add("key", "TestExternalSourceKey")
-                           .add("source_type_name", "TestSourceType")
-                           .add("valid_at", "2024-01-19T00:00:00+00:00")
-        )
-                                   .add("external_events", externalEvents)
-                                   .build();
+    final String source = """
+        {
+          "attributes": { "version": "string", "operator": "alpha" },
+          "derivation_group_name": "TestDerivationGroup",
+          "period": {
+            "start_time": "2024-01-21T00:00:00+00:00",
+            "end_time": "2024-01-28T00:00:00+00:00"
+          },
+          "key": "TestExternalSourceKey",
+          "source_type_name": "TestSourceType",
+          "valid_at": "2024-01-19T00:00:00+00:00"
+        }
+        """;
+
+    final JsonObject externalSource = Json.createObjectBuilder()
+                                          .add("source", source)
+                                          .add("external_events", events)
+                                          .build();
 
     final var gateway = new GatewayRequests(playwright);
     final IOException ex = assertThrows(IOException.class, () -> gateway.uploadExternalSource(externalSource));
-    assertTrue(ex.getMessage().contains("External Event"));
-    assertTrue(ex.getMessage().contains("does not have a valid set of attributes, per it's type's schema:"));
+    assertTrue(ex.getMessage().contains("should have required property 'code'"));
   }
 
   // test that an event fails with an extra attribute
   @Test
   void eventExtraAttribute() throws IOException {
-    final var externalEvents = Json.createArrayBuilder()
-                                   .add(Json.createObjectBuilder()
-                                            .add("attributes", Json.createObjectBuilder()
-                                                                   .add("projectUser", "UserA")
-                                                                   .add("code", "A")
-                                                                   .add("extra", "attribute") // extra
-                                            )
-                                            .add("duration", "01:00:00")
-                                            .add("event_type_name", "TestEventType")
-                                            .add("key", "Event_01")
-                                            .add("start_time", "2024-01-21T01:00:00+00:00")
-                                   );
+    // has extra attribute "extra"
+    final String events = """
+        [
+          {
+            "attributes": {
+              "projectUser": "UserA",
+              "code": "A",
+              "extra": "extra"
+            },
+            "duration": "01:00:00",
+            "event_type_name": "TestEventType",
+            "key": "Event_01",
+            "start_time": "2024-01-21T01:00:00+00:00"
+          }
+        ]
+        """;
 
-    final var externalSource = Json.createObjectBuilder()
-        .add("source", Json.createObjectBuilder()
-                           .add("attributes", Json.createObjectBuilder()
-                                                  .add("version", 1)
-                                                  .add("operator", "alpha")
-                           )
-                           .add("derivation_group_name", "TestDerivationGroup")
-                           .add("period", Json.createObjectBuilder()
-                                              .add("start_time", "2024-01-21T00:00:00+00:00")
-                                              .add("end_time", "2024-01-28T00:00:00+00:00")
-                           )
-                           .add("key", "TestExternalSourceKey")
-                           .add("source_type_name", "TestSourceType")
-                           .add("valid_at", "2024-01-19T00:00:00+00:00")
-        )
-                                   .add("external_events", externalEvents)
-                                   .build();
+    final String source = """
+        {
+          "attributes": { "version": "string", "operator": "alpha" },
+          "derivation_group_name": "TestDerivationGroup",
+          "period": {
+            "start_time": "2024-01-21T00:00:00+00:00",
+            "end_time": "2024-01-28T00:00:00+00:00"
+          },
+          "key": "TestExternalSourceKey",
+          "source_type_name": "TestSourceType",
+          "valid_at": "2024-01-19T00:00:00+00:00"
+        }
+        """;
+
+    final JsonObject externalSource = Json.createObjectBuilder()
+                                          .add("source", source)
+                                          .add("external_events", events)
+                                          .build();
 
     final var gateway = new GatewayRequests(playwright);
     final IOException ex = assertThrows(IOException.class, () -> gateway.uploadExternalSource(externalSource));
-    assertTrue(ex.getMessage().contains("External Event"));
-    assertTrue(ex.getMessage().contains("does not have a valid set of attributes, per it's type's schema:"));
+    assertTrue(ex.getMessage().contains("should NOT have additional properties"));
   }
 
   // test that an event fails with an attribute of the wrong type
   @Test
   void eventWrongTypeAttribute() throws IOException {
-    final var externalEvents = Json.createArrayBuilder()
-                                   .add(Json.createObjectBuilder()
-                                            .add("attributes", Json.createObjectBuilder()
-                                                                   .add("projectUser", "UserA")
-                                                                   .add("code", 1) // should be a string
-                                            )
-                                            .add("duration", "01:00:00")
-                                            .add("event_type_name", "TestEventType")
-                                            .add("key", "Event_01")
-                                            .add("start_time", "2024-01-21T01:00:00+00:00")
-                                   );
+    // attribute "code" should be of type string
+    final String events = """
+        [
+          {
+            "attributes": {
+              "projectUser": "UserA",
+              "code": 1
+            },
+            "duration": "01:00:00",
+            "event_type_name": "TestEventType",
+            "key": "Event_01",
+            "start_time": "2024-01-21T01:00:00+00:00"
+          }
+        ]
+        """;
 
-    final var externalSource = Json.createObjectBuilder()
-        .add("source", Json.createObjectBuilder()
-                           .add("attributes", Json.createObjectBuilder()
-                                                  .add("version", 1)
-                                                  .add("operator", "alpha")
-                           )
-                           .add("derivation_group_name", "TestDerivationGroup")
-                           .add("period", Json.createObjectBuilder()
-                               .add("start_time", "2024-01-21T00:00:00+00:00")
-                               .add("end_time", "2024-01-28T00:00:00+00:00")
-                           )
-                           .add("key", "TestExternalSourceKey")
-                           .add("source_type_name", "TestSourceType")
-                           .add("valid_at", "2024-01-19T00:00:00+00:00")
-        )
-                                   .add("external_events", externalEvents)
-                                   .build();
+    final String source = """
+        {
+          "attributes": { "version": "string", "operator": "alpha" },
+          "derivation_group_name": "TestDerivationGroup",
+          "period": {
+            "start_time": "2024-01-21T00:00:00+00:00",
+            "end_time": "2024-01-28T00:00:00+00:00"
+          },
+          "key": "TestExternalSourceKey",
+          "source_type_name": "TestSourceType",
+          "valid_at": "2024-01-19T00:00:00+00:00"
+        }
+        """;
+
+    final JsonObject externalSource = Json.createObjectBuilder()
+                                          .add("source", source)
+                                          .add("external_events", events)
+                                          .build();
 
     final var gateway = new GatewayRequests(playwright);
     final IOException ex = assertThrows(IOException.class, () -> gateway.uploadExternalSource(externalSource));
-    assertTrue(ex.getMessage().contains("External Event"));
-    assertTrue(ex.getMessage().contains("does not have a valid set of attributes, per it's type's schema:"));
+    assertTrue(ex.getMessage().contains("should be string"));
   }
 }

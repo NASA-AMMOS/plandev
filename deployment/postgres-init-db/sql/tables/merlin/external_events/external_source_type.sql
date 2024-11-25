@@ -1,6 +1,6 @@
 create table merlin.external_source_type (
     name text not null,
-    attribute_schema jsonb,
+    attribute_schema jsonb not null,
 
     constraint external_source_type_pkey
       primary key (name)

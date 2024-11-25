@@ -99,37 +99,31 @@ public class GatewayRequests implements AutoCloseable {
   }
 
 
-  public void uploadExternalSourceEventTypes(String schema) throws IOException {
+  public void uploadExternalSourceEventTypes(JsonObject schema) throws RuntimeException {
     final var response = request.post("/uploadExternalSourceEventTypes", RequestOptions.create()
                                                                                        .setHeader("Authorization", "Bearer "+token)
                                                                                  .setHeader("Content-Type", "application/json")
-                                                                                 .setData(schema));
+                                                                                 .setData(schema.toString()));
     // Process Response
-    if(!response.ok()){
-      throw new IOException(response.statusText());
-    }
     try(final var reader = Json.createReader(new StringReader(response.text()))){
       final JsonObject bodyJson = reader.readObject();
-      if(!bodyJson.containsKey("data")){
+      if(!(bodyJson.containsKey("createExternalEventTypes") && bodyJson.containsKey("createExternalSourceTypes"))){
         System.err.println("Upload failed");
         throw new RuntimeException(bodyJson.toString());
       }
     }
   }
 
-  public void uploadExternalSource(JsonObject externalSource) throws IOException {
+  public void uploadExternalSource(JsonObject externalSource) throws RuntimeException {
     final var response = request.post("/uploadExternalSource", RequestOptions.create()
                                                                              .setHeader("Authorization", "Bearer "+token)
                                                                                  .setHeader(
                                                                                      "Content-Type",
                                                                                      "application/json")
                                                                                  .setData(externalSource.toString()));
-    if (!response.ok()) {
-      throw new IOException(response.statusText() + "\n" + response.text());
-    }
     try (final var reader = Json.createReader(new StringReader(response.text()))) {
       final JsonObject bodyJson = reader.readObject();
-      if (!bodyJson.containsKey("data")) {
+      if (!bodyJson.containsKey("createExternalSource")) {
         System.err.println("Upload failed");
         throw new RuntimeException(bodyJson.toString());
       }

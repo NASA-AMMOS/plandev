@@ -14,6 +14,7 @@ import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 import java.io.IOException;
 
+import static java.lang.System.exit;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -37,38 +38,45 @@ public class ExternalEventsTests {
 
   // need a method to upload external event and source types
   void uploadExternalSourceEventTypes() throws IOException {
-    final String schema = """
+
+    final String event_types = """
         {
-          "event_types": {
-            "TestEventType": {
-              "type": "object",
-              "required": ["projectUser", "code"],
-              "properties": {
-                "projectUser": {
-                  "type": "string"
-                },
-                "code": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "source_types": {
-            "TestSourceType": {
-              "type": "object",
-              "properties": {
-                "version": {
-                  "type": "number"
-                },
-                "operator": {
-                  "type": "string"
-                }
+          "TestEventType": {
+            "type": "object",
+            "required": ["projectUser", "code"],
+            "properties": {
+              "projectUser": {
+                "type": "string"
               },
-              "required": ["version", "operator"]
+              "code": {
+                "type": "string"
+              }
             }
           }
         }
         """;
+
+    final String source_types = """
+        {
+          "TestSourceType": {
+            "type": "object",
+            "properties": {
+              "version": {
+                "type": "number"
+              },
+              "operator": {
+                "type": "string"
+              }
+            },
+            "required": ["version", "operator"]
+          }
+        }
+        """;
+
+    final JsonObject schema = Json.createObjectBuilder()
+        .add("event_types", event_types)
+        .add("source_types", source_types)
+        .build();
 
     try (final var gateway = new GatewayRequests(playwright)) {
       gateway.uploadExternalSourceEventTypes(schema);
@@ -178,7 +186,7 @@ public class ExternalEventsTests {
                                           .build();
 
     final var gateway = new GatewayRequests(playwright);
-    final IOException ex = assertThrows(IOException.class, () -> gateway.uploadExternalSource(externalSource));
+    final RuntimeException ex = assertThrows(RuntimeException.class, () -> gateway.uploadExternalSource(externalSource));
     assertTrue(ex.getMessage().contains("should have required property 'operator'"));
   }
 
@@ -221,7 +229,7 @@ public class ExternalEventsTests {
                                           .build();
 
     final var gateway = new GatewayRequests(playwright);
-    final IOException ex = assertThrows(IOException.class, () -> gateway.uploadExternalSource(externalSource));
+    final RuntimeException ex = assertThrows(RuntimeException.class, () -> gateway.uploadExternalSource(externalSource));
     assertTrue(ex.getMessage().contains("should NOT have additional properties"));
   }
 
@@ -264,7 +272,7 @@ public class ExternalEventsTests {
                                           .build();
 
     final var gateway = new GatewayRequests(playwright);
-    final IOException ex = assertThrows(IOException.class, () -> gateway.uploadExternalSource(externalSource));
+    final RuntimeException ex = assertThrows(RuntimeException.class, () -> gateway.uploadExternalSource(externalSource));
     assertTrue(ex.getMessage().contains("should be number"));
   }
 
@@ -306,7 +314,7 @@ public class ExternalEventsTests {
                                           .build();
 
     final var gateway = new GatewayRequests(playwright);
-    final IOException ex = assertThrows(IOException.class, () -> gateway.uploadExternalSource(externalSource));
+    final RuntimeException ex = assertThrows(RuntimeException.class, () -> gateway.uploadExternalSource(externalSource));
     assertTrue(ex.getMessage().contains("should have required property 'code'"));
   }
 
@@ -350,7 +358,7 @@ public class ExternalEventsTests {
                                           .build();
 
     final var gateway = new GatewayRequests(playwright);
-    final IOException ex = assertThrows(IOException.class, () -> gateway.uploadExternalSource(externalSource));
+    final RuntimeException ex = assertThrows(RuntimeException.class, () -> gateway.uploadExternalSource(externalSource));
     assertTrue(ex.getMessage().contains("should NOT have additional properties"));
   }
 
@@ -393,7 +401,7 @@ public class ExternalEventsTests {
                                           .build();
 
     final var gateway = new GatewayRequests(playwright);
-    final IOException ex = assertThrows(IOException.class, () -> gateway.uploadExternalSource(externalSource));
+    final RuntimeException ex = assertThrows(RuntimeException.class, () -> gateway.uploadExternalSource(externalSource));
     assertTrue(ex.getMessage().contains("should be string"));
   }
 }

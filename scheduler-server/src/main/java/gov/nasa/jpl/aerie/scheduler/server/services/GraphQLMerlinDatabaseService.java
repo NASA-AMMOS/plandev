@@ -1193,18 +1193,11 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
       );
       final var end = start.plus(Duration.fromString(e.getString("duration")));
 
-      // TODO: all of the properties of eventJson are strings. Including things (like attributes, source_range, etc.) that should be objects
-      //    find a better way to handle this
-//      final var eventAttributesJson = e.getJsonObject("attributes");
-//      final var eventAttributes = new HashMap<String, SerializedValue>();
-//      for (final var attributeJson: eventAttributesJson.entrySet()) {
-//        eventAttributes.put(
-//            attributeJson.getKey(),
-//            serializedValueP.parse(attributeJson.getValue()).getSuccessOrThrow()
-//        );
-//      }
+      // TODO: all of the properties of eventJson are strings, except attributes. Including things like source_range, etc.,
+      //    that should be objects...find a better way to handle this
       final var eventAttributes = SchedulerParsers
-          .parseJson(e.getString("attributes"), new SerializedValueJsonParser()).asMap().get();
+          .parseJson(e.getJsonObject("attributes").toString(), new SerializedValueJsonParser()).asMap().get();
+      // convert eventAttributes to a Map<String, SerializedValue)
 
 //      final var sourceAttributesJson = e.getJsonObject("external_source").getJsonObject("attributes");
 //      final var sourceAttributes = new HashMap<String, SerializedValue>();
@@ -1215,7 +1208,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
 //        );
 //      }
       final var sourceAttributes = SchedulerParsers
-          .parseJson(e.getJsonObject("external_source").getString("attributes"), new SerializedValueJsonParser()).asMap().get();
+          .parseJson(e.getJsonObject("external_source").getJsonObject("attributes").toString(), new SerializedValueJsonParser()).asMap().get();
 
       result.add(new ExternalEvent(
           e.getString("event_key"),

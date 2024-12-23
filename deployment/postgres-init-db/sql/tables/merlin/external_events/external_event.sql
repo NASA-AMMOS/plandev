@@ -5,7 +5,7 @@ create table merlin.external_event (
     derivation_group_name text not null,
     start_time timestamp with time zone not null,
     duration interval not null,
-    attributes jsonb,
+    attributes jsonb not null default '{}',
 
     constraint external_event_pkey
       primary key (key, source_key, derivation_group_name, event_type_name),

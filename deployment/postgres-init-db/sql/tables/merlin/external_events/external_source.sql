@@ -8,7 +8,7 @@ create table merlin.external_source (
     CHECK (end_time > start_time),
     created_at timestamp with time zone default now() not null,
     owner text,
-    attributes jsonb,
+    attributes jsonb not null default '{}',
 
     constraint external_source_pkey
       primary key (key, derivation_group_name),
@@ -99,7 +99,7 @@ create function merlin.external_source_pdg_ack_update()
   returns trigger
   language plpgsql as $$
 begin
-  update merlin.plan_derivation_group set "acknowledged" = false
+  update merlin.plan_derivation_group set 'acknowledged' = false
   where plan_derivation_group.derivation_group_name = NEW.derivation_group_name;
   return new;
 end;

@@ -50,6 +50,9 @@ public class ExternalEventsTests {
               },
               "code": {
                 "type": "string"
+              },
+              "optional": {
+                "type": "string"
               }
             }
           }
@@ -65,6 +68,9 @@ public class ExternalEventsTests {
                 "type": "number"
               },
               "operator": {
+                "type": "string"
+              },
+              "optional": {
                 "type": "string"
               }
             },
@@ -139,7 +145,7 @@ public class ExternalEventsTests {
 
     final JsonObject externalSource = Json.createObjectBuilder()
                                           .add("source", source)
-                                          .add("external_events", events)
+                                          .add("events", events)
                                           .build();
 
     try (final var gateway = new GatewayRequests(playwright)) {
@@ -182,7 +188,7 @@ public class ExternalEventsTests {
 
     final JsonObject externalSource = Json.createObjectBuilder()
                                           .add("source", source)
-                                          .add("external_events", events)
+                                          .add("events", events)
                                           .build();
 
     final var gateway = new GatewayRequests(playwright);
@@ -225,7 +231,7 @@ public class ExternalEventsTests {
 
     final JsonObject externalSource = Json.createObjectBuilder()
                                           .add("source", source)
-                                          .add("external_events", events)
+                                          .add("events", events)
                                           .build();
 
     final var gateway = new GatewayRequests(playwright);
@@ -268,12 +274,55 @@ public class ExternalEventsTests {
 
     final JsonObject externalSource = Json.createObjectBuilder()
                                           .add("source", source)
-                                          .add("external_events", events)
+                                          .add("events", events)
                                           .build();
 
     final var gateway = new GatewayRequests(playwright);
     final RuntimeException ex = assertThrows(RuntimeException.class, () -> gateway.uploadExternalSource(externalSource));
     assertTrue(ex.getMessage().contains("should be number"));
+  }
+
+  // test that optional attributes (listed in schema, but not marked as required) are okay
+  @Test
+  void sourceOptionalAttribute() throws IOException {
+    final String events = """
+        [
+          {
+            "attributes": {
+              "projectUser": "UserA",
+              "code": "A"
+            },
+            "duration": "01:00:00",
+            "event_type_name": "TestEventType",
+            "key": "Event_01",
+            "start_time": "2024-01-21T01:00:00+00:00"
+          }
+        ]
+        """;
+
+    // includes optional type
+    final String source = """
+        {
+          "attributes": { "version": 1, "operator": "alpha", "optional": "bear" },
+          "derivation_group_name": "TestDerivationGroup",
+          "period": {
+            "start_time": "2024-01-21T00:00:00+00:00",
+            "end_time": "2024-01-28T00:00:00+00:00"
+          },
+          "key": "TestExternalSourceKey",
+          "source_type_name": "TestSourceType",
+          "valid_at": "2024-01-19T00:00:00+00:00"
+        }
+        """;
+
+    final JsonObject externalSource = Json.createObjectBuilder()
+                                          .add("source", source)
+                                          .add("events", events)
+                                          .build();
+
+    try (final var gateway = new GatewayRequests(playwright)) {
+      gateway.uploadExternalSource(externalSource);
+    }
   }
 
   // test that an event fails missing an attribute
@@ -296,7 +345,7 @@ public class ExternalEventsTests {
 
     final String source = """
         {
-          "attributes": { "version": "string", "operator": "alpha" },
+          "attributes": { "version": 1, "operator": "alpha" },
           "derivation_group_name": "TestDerivationGroup",
           "period": {
             "start_time": "2024-01-21T00:00:00+00:00",
@@ -310,7 +359,7 @@ public class ExternalEventsTests {
 
     final JsonObject externalSource = Json.createObjectBuilder()
                                           .add("source", source)
-                                          .add("external_events", events)
+                                          .add("events", events)
                                           .build();
 
     final var gateway = new GatewayRequests(playwright);
@@ -340,7 +389,7 @@ public class ExternalEventsTests {
 
     final String source = """
         {
-          "attributes": { "version": "string", "operator": "alpha" },
+          "attributes": { "version": 1, "operator": "alpha" },
           "derivation_group_name": "TestDerivationGroup",
           "period": {
             "start_time": "2024-01-21T00:00:00+00:00",
@@ -354,7 +403,7 @@ public class ExternalEventsTests {
 
     final JsonObject externalSource = Json.createObjectBuilder()
                                           .add("source", source)
-                                          .add("external_events", events)
+                                          .add("events", events)
                                           .build();
 
     final var gateway = new GatewayRequests(playwright);
@@ -383,7 +432,7 @@ public class ExternalEventsTests {
 
     final String source = """
         {
-          "attributes": { "version": "string", "operator": "alpha" },
+          "attributes": { "version": 1, "operator": "alpha" },
           "derivation_group_name": "TestDerivationGroup",
           "period": {
             "start_time": "2024-01-21T00:00:00+00:00",
@@ -397,11 +446,55 @@ public class ExternalEventsTests {
 
     final JsonObject externalSource = Json.createObjectBuilder()
                                           .add("source", source)
-                                          .add("external_events", events)
+                                          .add("events", events)
                                           .build();
 
     final var gateway = new GatewayRequests(playwright);
     final RuntimeException ex = assertThrows(RuntimeException.class, () -> gateway.uploadExternalSource(externalSource));
     assertTrue(ex.getMessage().contains("should be string"));
+  }
+
+  // test that optional attributes (listed in schema, but not marked as required) are okay
+  @Test
+  void eventOptionalAttribute() throws IOException {
+    final String events = """
+        [
+          {
+            "attributes": {
+              "projectUser": "UserA",
+              "code": "A",
+              "optional": "optionalArg"
+            },
+            "duration": "01:00:00",
+            "event_type_name": "TestEventType",
+            "key": "Event_01",
+            "start_time": "2024-01-21T01:00:00+00:00"
+          }
+        ]
+        """;
+
+    // includes optional type
+    final String source = """
+        {
+          "attributes": { "version": 1, "operator": "alpha", "optional": "optionalArg" },
+          "derivation_group_name": "TestDerivationGroup",
+          "period": {
+            "start_time": "2024-01-21T00:00:00+00:00",
+            "end_time": "2024-01-28T00:00:00+00:00"
+          },
+          "key": "TestExternalSourceKey",
+          "source_type_name": "TestSourceType",
+          "valid_at": "2024-01-19T00:00:00+00:00"
+        }
+        """;
+
+    final JsonObject externalSource = Json.createObjectBuilder()
+                                          .add("source", source)
+                                          .add("events", events)
+                                          .build();
+
+    try (final var gateway = new GatewayRequests(playwright)) {
+      gateway.uploadExternalSource(externalSource);
+    }
   }
 }

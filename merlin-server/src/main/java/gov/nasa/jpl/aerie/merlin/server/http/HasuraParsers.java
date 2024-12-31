@@ -71,11 +71,13 @@ public abstract class HasuraParsers {
       productP
           .field("planId", planIdP)
           .optionalField("simulationDatasetId", nullableP(simulationDatasetIdP))
+          .optionalField("force", nullableP(boolP))
           .map(
-              untuple((planId, simulationDatasetId) -> new HasuraAction.ConstraintViolationsInput(
+              untuple((planId, simulationDatasetId, force) -> new HasuraAction.ConstraintViolationsInput(
                   planId,
-                  simulationDatasetId.flatMap($ -> $))),
-              $ -> tuple($.planId(), Optional.of($.simulationDatasetId()))
+                  simulationDatasetId.flatMap($ -> $),
+                  force.flatMap($ -> $))),
+              $ -> tuple($.planId(), Optional.ofNullable($.simulationDatasetId()), Optional.ofNullable($.force()))
           )
   );
 

@@ -18,7 +18,9 @@ public record HasuraAction<I extends HasuraAction.Input>(String name, I input, S
   public record MissionModelInput(MissionModelId missionModelId) implements Input { }
   public record PlanInput(PlanId planId) implements Input { }
   public record SimulateInput(PlanId planId, Optional<Boolean> force) implements Input {}
-  public record ConstraintViolationsInput(PlanId planId, Optional<SimulationDatasetId> simulationDatasetId) implements Input { }
+  public record ConstraintViolationsInput(PlanId planId,
+                                          Optional<SimulationDatasetId> simulationDatasetId,
+                                          Optional<Boolean> force) implements Input {}
   public record ActivityInput(MissionModelId missionModelId,
                               String activityTypeName,
                               Map<String, SerializedValue> arguments) implements Input {}

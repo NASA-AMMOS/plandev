@@ -34,9 +34,23 @@ public class ConstraintAction {
     this.simulationService = simulationService;
   }
 
-  public Map<Constraint, Fallible<?>> getViolations(final PlanId planId, final Optional<SimulationDatasetId> simulationDatasetId)
-  throws NoSuchPlanException, MissionModelService.NoSuchMissionModelException, SimulationDatasetMismatchException
-  {
+  /**
+   * Check the constraints on a plan's specification for violations.
+   *
+   * @param planId The plan to check.
+   * @param simulationDatasetId If provided, the id of the simulation dataset to check constraints against.
+   * Defaults to the latest simulation of the plan
+   * @param force If true, ignore cached values and rerun all constraints.
+   * @return A mapping of each constraint and its result.
+   * @throws NoSuchPlanException If the plan does not exist.
+   * @throws MissionModelService.NoSuchMissionModelException If the plan's mission model does not exist.
+   * @throws SimulationDatasetMismatchException If the specified simulation is not a simulation of the specified plan.
+   */
+  public Map<ConstraintRecord, Fallible<?>> getViolations(
+      final PlanId planId,
+      final Optional<SimulationDatasetId> simulationDatasetId,
+      final boolean force
+  ) throws NoSuchPlanException, MissionModelService.NoSuchMissionModelException, SimulationDatasetMismatchException {
     final var plan = this.planService.getPlanForValidation(planId);
     final Optional<SimulationResultsHandle> resultsHandle$;
     final SimulationDatasetId simDatasetId;

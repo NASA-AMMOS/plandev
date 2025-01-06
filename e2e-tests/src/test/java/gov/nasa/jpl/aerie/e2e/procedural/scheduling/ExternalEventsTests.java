@@ -34,8 +34,12 @@ public class ExternalEventsTests extends ProceduralSchedulingSetup {
           "properties": {
               "version": {
                   "type": "number"
+              },
+              "optional": {
+                "type": "string"
               }
-          }
+          },
+          "required": ["version"]
       }
       """;
   private final static String EVENT_ATTRIBUTE_SCHEMA = """
@@ -50,8 +54,12 @@ public class ExternalEventsTests extends ProceduralSchedulingSetup {
               },
               "code": {
                   "type": "string"
+              },
+              "optional": {
+                "type": "string"
               }
-          }
+          },
+          "required": ["version"]
       }
       """;
 
@@ -94,7 +102,8 @@ public class ExternalEventsTests extends ProceduralSchedulingSetup {
           """
           {
             "projectUser": "UserA",
-            "code": "A"
+            "code": "A",
+            "optional": "present"
           }
         """
       ),
@@ -108,7 +117,8 @@ public class ExternalEventsTests extends ProceduralSchedulingSetup {
           """
           {
             "projectUser": "UserB",
-            "code": "B"
+            "code": "B",
+            "optional": "present"
           }
         """
       )
@@ -124,7 +134,8 @@ public class ExternalEventsTests extends ProceduralSchedulingSetup {
       "2024-10-01T00:00:00Z",
       """
           {
-            "version": 2
+            "version": 2,
+            "optional": "present"
           }
           """
   );
@@ -140,7 +151,8 @@ public class ExternalEventsTests extends ProceduralSchedulingSetup {
           """
           {
             "projectUser": "UserB",
-            "code": "B"
+            "code": "B",
+            "optional": "present"
           }
         """
       ),
@@ -345,7 +357,6 @@ public class ExternalEventsTests extends ProceduralSchedulingSetup {
     }
   }
 
-  // TODO: test based on event attributes
   @Test
   void testExternalEventAttribute() throws IOException {
     // first, run the goal
@@ -371,6 +382,87 @@ public class ExternalEventsTests extends ProceduralSchedulingSetup {
     expected.add(externalEvents.get(0));
     expected.add(externalEvents.get(1));
     expected.add(additionalExternalEvents.get(2));
+
+    // explicitly ensure the orderings line up
+    expected.sort(Comparator.comparing(HasuraRequests.ExternalEvent::start_time));
+
+    // compare arrays
+    assertEquals(expected.size(), activities.size());
+    for (int i = 0; i < activities.size(); i++) {
+      Instant activityStartTime = Duration.addToInstant(
+          Instant.parse(planStartTimestamp),
+          Duration.fromString(activities.get(i).startOffset())
+      );
+      assertEquals(activityStartTime.toString(), expected.get(i).start_time());
+    }
+  }
+
+  // TODO: test based on source optional attribute
+  @Test
+  void testOptionalSourceAttribute() throws IOException {
+    // first, run the goal
+    try (final var gateway = new GatewayRequests(playwright)) {
+      int procedureJarId = gateway.uploadJarFile("build/libs/ExternalEventsSourceAttributeOptionalQueryGoal.jar");
+      // Add Scheduling Procedure
+      procedureId = hasura.createSchedulingSpecProcedure(
+          "Test Scheduling Procedure",
+          procedureJarId,
+          specId,
+          0
+      );
+    }
+    hasura.awaitScheduling(specId);
+    final var plan = hasura.getPlan(planId);
+    final var activities = plan.activityDirectives();
+
+    // ensure the orderings line up
+    activities.sort(Comparator.comparing(Plan.ActivityDirective::startOffset));
+
+    // get the set of events we expect (select events with projectUser = UserA)
+    List<HasuraRequests.ExternalEvent> expected = new ArrayList<>();
+    expected.add(additionalExternalEvents.get(0));
+    expected.add(additionalExternalEvents.get(1));
+    expected.add(additionalExternalEvents.get(2));
+
+    // explicitly ensure the orderings line up
+    expected.sort(Comparator.comparing(HasuraRequests.ExternalEvent::start_time));
+
+    // compare arrays
+    assertEquals(expected.size(), activities.size());
+    for (int i = 0; i < activities.size(); i++) {
+      Instant activityStartTime = Duration.addToInstant(
+          Instant.parse(planStartTimestamp),
+          Duration.fromString(activities.get(i).startOffset())
+      );
+      assertEquals(activityStartTime.toString(), expected.get(i).start_time());
+    }
+  }
+
+  @Test
+  void testOptionalEventAttribute() throws IOException {
+    // first, run the goal
+    try (final var gateway = new GatewayRequests(playwright)) {
+      int procedureJarId = gateway.uploadJarFile("build/libs/ExternalEventsEventAttributeOptionalQueryGoal.jar");
+      // Add Scheduling Procedure
+      procedureId = hasura.createSchedulingSpecProcedure(
+          "Test Scheduling Procedure",
+          procedureJarId,
+          specId,
+          0
+      );
+    }
+    hasura.awaitScheduling(specId);
+    final var plan = hasura.getPlan(planId);
+    final var activities = plan.activityDirectives();
+
+    // ensure the orderings line up
+    activities.sort(Comparator.comparing(Plan.ActivityDirective::startOffset));
+
+    // get the set of events we expect (select events with projectUser = UserA)
+    List<HasuraRequests.ExternalEvent> expected = new ArrayList<>();
+    expected.add(additionalExternalEvents.getFirst());
+    expected.add(externalEvents.get(1));
+    expected.add(externalEvents.get(2));
 
     // explicitly ensure the orderings line up
     expected.sort(Comparator.comparing(HasuraRequests.ExternalEvent::start_time));

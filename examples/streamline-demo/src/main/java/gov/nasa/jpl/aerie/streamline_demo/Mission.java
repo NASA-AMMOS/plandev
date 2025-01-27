@@ -5,13 +5,15 @@ import gov.nasa.jpl.aerie.contrib.streamline.debugging.Profiling;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.Registrar;
 import gov.nasa.jpl.aerie.merlin.framework.ModelActions;
 
+import java.time.Instant;
+
 public final class Mission {
   public final DataModel dataModel;
   public final ErrorTestingModel errorTestingModel;
   public final ApproximationModel approximationModel;
 
-  public Mission(final gov.nasa.jpl.aerie.merlin.framework.Registrar registrar$, final Configuration config) {
-    var registrar = new Registrar(registrar$, Registrar.ErrorBehavior.Log);
+  public Mission(final gov.nasa.jpl.aerie.merlin.framework.Registrar registrar$, Instant planStart, final Configuration config) {
+    var registrar = new Registrar(registrar$, planStart, Registrar.ErrorBehavior.Log);
     if (config.traceResources) registrar.setTrace();
     if (config.profileResources) Resource.profileAllResources();
     dataModel = new DataModel(registrar, config);

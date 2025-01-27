@@ -29,9 +29,11 @@ class MutableResourceTest {
   class NonCommutingEffects {
     public NonCommutingEffects(final Registrar registrar) {
       StreamlineSystem.testInit(registrar);
+
+      cell = MutableResource.resource(discrete(42), noncommutingEffects());
     }
 
-    private final MutableResource<Discrete<Integer>> cell = MutableResource.resource(discrete(42), noncommutingEffects());
+    private final MutableResource<Discrete<Integer>> cell;
 
     @Test
     void gets_initial_value_if_no_effects_are_emitted() {
@@ -68,9 +70,11 @@ class MutableResourceTest {
   class CommutingEffects {
     public CommutingEffects(final Registrar registrar) {
       StreamlineSystem.testInit(registrar);
+
+      cell = MutableResource.resource(discrete(42), commutingEffects());
     }
 
-    private final MutableResource<Discrete<Integer>> cell = MutableResource.resource(discrete(42), commutingEffects());
+    private final MutableResource<Discrete<Integer>> cell;
 
     @Test
     void gets_initial_value_if_no_effects_are_emitted() {
@@ -111,9 +115,11 @@ class MutableResourceTest {
   class AutoEffects {
     public AutoEffects(final Registrar registrar) {
       StreamlineSystem.testInit(registrar);
+
+      cell = MutableResource.resource(discrete(42), autoEffects());
     }
 
-    private final MutableResource<Discrete<Integer>> cell = MutableResource.resource(discrete(42), autoEffects());
+    private final MutableResource<Discrete<Integer>> cell;
 
     @Test
     void gets_initial_value_if_no_effects_are_emitted() {

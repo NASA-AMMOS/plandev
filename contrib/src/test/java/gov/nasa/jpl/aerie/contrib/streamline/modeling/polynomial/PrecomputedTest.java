@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial;
 
+import gov.nasa.jpl.aerie.contrib.streamline.StreamlineSystem;
 import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
 import gov.nasa.jpl.aerie.contrib.streamline.core.Resources;
 import gov.nasa.jpl.aerie.merlin.framework.Registrar;
@@ -25,11 +26,27 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestInstance(Lifecycle.PER_CLASS)
 public class PrecomputedTest {
     public PrecomputedTest(final Registrar registrar) {
-        Resources.init();
+        StreamlineSystem.testInit(registrar);
+
+        precomputedAsConstantInPast = precomputed(new TreeMap<>(Map.of(duration(-1, MINUTE), 4.0)));
+        precomputedAsConstantInFuture = precomputed(new TreeMap<>(Map.of(duration(2, HOUR), 4.0)));
+        precomputedWithSingleInteriorSegmentInPast = precomputed(new TreeMap<>(Map.of(
+                duration(-100, SECOND), 0.0,
+                duration(-50, SECOND), 5.0)));
+        precomputedWithSingleInteriorSegmentInFuture = precomputed(new TreeMap<>(Map.of(
+                duration(50, SECOND), 0.0,
+                duration(100, SECOND), 5.0)));
+        precomputedStartingInInterior = precomputed(new TreeMap<>(Map.of(
+                duration(-50, SECOND), 0.0,
+                duration(50, SECOND), 10.0)));
+        precomputedWithMultipleSegments = precomputed(new TreeMap<>(Map.of(
+                duration(-50, SECOND), 0.0,
+                duration(50, SECOND), 10.0,
+                duration(60, SECOND), 30.0,
+                duration(90, SECOND), -30.0)));
     }
 
-    final Resource<Polynomial> precomputedAsConstantInPast =
-            precomputed(new TreeMap<>(Map.of(duration(-1, MINUTE), 4.0)));
+    final Resource<Polynomial> precomputedAsConstantInPast;
     @Test
     void precomputed_with_single_point_in_past_extrapolates_that_value_forever() {
         assertValueEquals(4.0, precomputedAsConstantInPast);
@@ -39,8 +56,7 @@ public class PrecomputedTest {
         assertValueEquals(4.0, precomputedAsConstantInPast);
     }
 
-    final Resource<Polynomial> precomputedAsConstantInFuture =
-            precomputed(new TreeMap<>(Map.of(duration(2, HOUR), 4.0)));
+    final Resource<Polynomial> precomputedAsConstantInFuture;
     @Test
     void precomputed_with_single_point_in_future_extrapolates_that_value_forever() {
         assertValueEquals(4.0, precomputedAsConstantInFuture);
@@ -54,10 +70,7 @@ public class PrecomputedTest {
         assertValueEquals(4.0, precomputedAsConstantInFuture);
     }
 
-    final Resource<Polynomial> precomputedWithSingleInteriorSegmentInPast =
-            precomputed(new TreeMap<>(Map.of(
-                    duration(-100, SECOND), 0.0,
-                    duration(-50, SECOND), 5.0)));
+    final Resource<Polynomial> precomputedWithSingleInteriorSegmentInPast;
     @Test
     void precomputed_with_single_interior_segment_in_past_extrapolates_final_value() {
         assertValueEquals(5.0, precomputedWithSingleInteriorSegmentInPast);
@@ -67,10 +80,7 @@ public class PrecomputedTest {
         assertValueEquals(5.0, precomputedWithSingleInteriorSegmentInPast);
     }
 
-    final Resource<Polynomial> precomputedWithSingleInteriorSegmentInFuture =
-            precomputed(new TreeMap<>(Map.of(
-                    duration(50, SECOND), 0.0,
-                    duration(100, SECOND), 5.0)));
+    final Resource<Polynomial> precomputedWithSingleInteriorSegmentInFuture;
     @Test
     void precomputed_with_single_interior_segment_in_future_interpolates_that_segment() {
         assertValueEquals(0.0, precomputedWithSingleInteriorSegmentInFuture);
@@ -90,10 +100,7 @@ public class PrecomputedTest {
         assertValueEquals(5.0, precomputedWithSingleInteriorSegmentInFuture);
     }
 
-    final Resource<Polynomial> precomputedStartingInInterior =
-            precomputed(new TreeMap<>(Map.of(
-                    duration(-50, SECOND), 0.0,
-                    duration(50, SECOND), 10.0)));
+    final Resource<Polynomial> precomputedStartingInInterior;
     void precomputed_starting_in_interior_interpolates_over_full_segment() {
         assertValueEquals(5.0, precomputedStartingInInterior);
         delay(10, SECOND);
@@ -110,12 +117,7 @@ public class PrecomputedTest {
         assertValueEquals(10.0, precomputedStartingInInterior);
     }
 
-    final Resource<Polynomial> precomputedWithMultipleSegments =
-            precomputed(new TreeMap<>(Map.of(
-                    duration(-50, SECOND), 0.0,
-                    duration(50, SECOND), 10.0,
-                    duration(60, SECOND), 30.0,
-                    duration(90, SECOND), -30.0)));
+    final Resource<Polynomial> precomputedWithMultipleSegments;
     @Test
     void precomputed_with_multiple_segments_interpolates_each_segment_independently() {
         assertValueEquals(5.0, precomputedWithMultipleSegments);

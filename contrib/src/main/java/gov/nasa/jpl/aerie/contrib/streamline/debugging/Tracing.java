@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.contrib.streamline.debugging;
 
+import gov.nasa.jpl.aerie.contrib.streamline.StreamlineSystem;
 import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
 import gov.nasa.jpl.aerie.contrib.streamline.core.Dynamics;
 import gov.nasa.jpl.aerie.contrib.streamline.core.DynamicsEffect;
@@ -11,8 +12,6 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
 
 import java.util.Stack;
 import java.util.function.Supplier;
-
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentTime;
 
 /**
  * Functions for debugging resources by tracing their calculation.
@@ -90,9 +89,9 @@ public final class Tracing {
 
   private static <T> T traceAction(Supplier<String> name, Supplier<T> action) {
     activeTracePoints.push(name.get());
-    System.out.printf("TRACE: %s - %s start...%n", currentTime(), formatStack());
+      System.out.printf("TRACE: %s - %s start...%n", StreamlineSystem.currentTime(), formatStack());
     T result = action.get();
-    System.out.printf("TRACE: %s - %s: %s%n", currentTime(), formatStack(), result);
+      System.out.printf("TRACE: %s - %s: %s%n", StreamlineSystem.currentTime(), formatStack(), result);
     activeTracePoints.pop();
     return result;
   }

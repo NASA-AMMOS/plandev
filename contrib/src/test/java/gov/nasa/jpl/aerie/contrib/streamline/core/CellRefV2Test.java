@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.contrib.streamline.core;
 
+import gov.nasa.jpl.aerie.contrib.streamline.StreamlineSystem;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
 import gov.nasa.jpl.aerie.merlin.framework.Registrar;
 import gov.nasa.jpl.aerie.merlin.framework.junit.MerlinExtension;
@@ -27,7 +28,7 @@ class MutableResourceTest {
   @TestInstance(Lifecycle.PER_CLASS)
   class NonCommutingEffects {
     public NonCommutingEffects(final Registrar registrar) {
-      Resources.init();
+      StreamlineSystem.testInit(registrar);
     }
 
     private final MutableResource<Discrete<Integer>> cell = MutableResource.resource(discrete(42), noncommutingEffects());
@@ -66,7 +67,7 @@ class MutableResourceTest {
   @TestInstance(Lifecycle.PER_CLASS)
   class CommutingEffects {
     public CommutingEffects(final Registrar registrar) {
-      Resources.init();
+      StreamlineSystem.testInit(registrar);
     }
 
     private final MutableResource<Discrete<Integer>> cell = MutableResource.resource(discrete(42), commutingEffects());
@@ -109,7 +110,7 @@ class MutableResourceTest {
   @TestInstance(Lifecycle.PER_CLASS)
   class AutoEffects {
     public AutoEffects(final Registrar registrar) {
-      Resources.init();
+      StreamlineSystem.testInit(registrar);
     }
 
     private final MutableResource<Discrete<Integer>> cell = MutableResource.resource(discrete(42), autoEffects());

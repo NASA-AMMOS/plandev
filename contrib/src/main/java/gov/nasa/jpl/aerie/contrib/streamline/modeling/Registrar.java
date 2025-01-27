@@ -55,8 +55,6 @@ public class Registrar {
   }
 
   public Registrar(final gov.nasa.jpl.aerie.merlin.framework.Registrar baseRegistrar, final ErrorBehavior errorBehavior) {
-    Resources.init();
-    Logging.init(baseRegistrar);
     this.baseRegistrar = baseRegistrar;
     this.errorBehavior = errorBehavior;
 

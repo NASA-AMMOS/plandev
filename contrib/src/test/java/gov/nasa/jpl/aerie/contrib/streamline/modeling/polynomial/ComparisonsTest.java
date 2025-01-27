@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial;
 
+import gov.nasa.jpl.aerie.contrib.streamline.StreamlineSystem;
 import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
 import gov.nasa.jpl.aerie.contrib.streamline.core.Expiry;
 import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
@@ -29,21 +30,23 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestInstance(Lifecycle.PER_CLASS)
 public class ComparisonsTest {
   public ComparisonsTest(final Registrar registrar) {
-    Resources.init();
+    StreamlineSystem.testInit(registrar);
+
+    p = resource(polynomial(0));
+    q = resource(polynomial(0));
+    p_lt_q = lessThan(p, q);
+    p_lte_q = lessThanOrEquals(p, q);
+    p_gt_q = greaterThan(p, q);
+    p_gte_q = greaterThanOrEquals(p, q);
+    min_p_q = min(p, q);
+    min_q_p = min(q, p);
+    max_p_q = max(p, q);
+    max_q_p = max(q, p);
   }
 
-  private final MutableResource<Polynomial> p = resource(polynomial(0));
-  private final MutableResource<Polynomial> q = resource(polynomial(0));
-
-  private final Resource<Discrete<Boolean>> p_lt_q = lessThan(p, q);
-  private final Resource<Discrete<Boolean>> p_lte_q = lessThanOrEquals(p, q);
-  private final Resource<Discrete<Boolean>> p_gt_q = greaterThan(p, q);
-  private final Resource<Discrete<Boolean>> p_gte_q = greaterThanOrEquals(p, q);
-
-  private final Resource<Polynomial> min_p_q = min(p, q);
-  private final Resource<Polynomial> min_q_p = min(q, p);
-  private final Resource<Polynomial> max_p_q = max(p, q);
-  private final Resource<Polynomial> max_q_p = max(q, p);
+  private final MutableResource<Polynomial> p, q;
+  private final Resource<Discrete<Boolean>> p_lt_q, p_lte_q, p_gt_q, p_gte_q;
+  private final Resource<Polynomial> min_p_q, min_q_p, max_p_q, max_q_p;
 
   @Test
   void comparing_distinct_constants() {

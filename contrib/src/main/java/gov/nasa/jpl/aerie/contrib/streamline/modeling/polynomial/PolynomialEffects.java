@@ -1,6 +1,6 @@
 package gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resources;
+import gov.nasa.jpl.aerie.contrib.streamline.StreamlineSystem;
 import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
 import gov.nasa.jpl.aerie.contrib.streamline.unit_aware.StandardUnits;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
@@ -94,9 +94,9 @@ public final class PolynomialEffects {
   private static void withConsumableEffects(String verb, MutableResource<Polynomial> resource, Polynomial profile, Runnable action) {
     resource.emit(name(effect($ -> $.subtract(profile)),
             "Start %s according to profile %s", verb, profile));
-    final Duration start = Resources.currentTime();
+      final Duration start = StreamlineSystem.currentTime();
     action.run();
-    final Duration elapsedTime = Resources.currentTime().minus(start);
+      final Duration elapsedTime = StreamlineSystem.currentTime().minus(start);
     // Nullify ongoing effects by adding a profile with the same behavior,
     // but with an initial value of 0
     final Polynomial steppedProfile = profile.step(elapsedTime);
@@ -158,9 +158,9 @@ public final class PolynomialEffects {
   private static void withNonConsumableEffect(String verb, MutableResource<Polynomial> resource, Polynomial profile, Runnable action) {
     resource.emit(name(effect($ -> $.subtract(profile)),
             "Start %s profile %s", verb, profile));
-    final Duration start = Resources.currentTime();
+      final Duration start = StreamlineSystem.currentTime();
     action.run();
-    final Duration elapsedTime = Resources.currentTime().minus(start);
+      final Duration elapsedTime = StreamlineSystem.currentTime().minus(start);
     // Reset by adding a counteracting profile
     final Polynomial counteractingProfile = profile.step(elapsedTime);
     resource.emit(name(effect($ -> $.add(counteractingProfile)),

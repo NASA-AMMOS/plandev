@@ -1,10 +1,12 @@
 package gov.nasa.jpl.aerie.contrib.streamline.debugging;
 
+import gov.nasa.jpl.aerie.contrib.streamline.StreamlineSystem;
 import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
 import gov.nasa.jpl.aerie.contrib.streamline.core.Resources;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial;
+import gov.nasa.jpl.aerie.merlin.framework.Registrar;
 import gov.nasa.jpl.aerie.merlin.framework.junit.MerlinExtension;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -23,8 +25,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @ExtendWith(MerlinExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class DependenciesTest {
-  public DependenciesTest() {
-    Resources.init(Instant.EPOCH);
+  public DependenciesTest(final Registrar registrar) {
+    StreamlineSystem.init(StreamlineSystem.InitArgs.testBuilder().baseRegistrar(registrar).build());
 
     constantTrue = DiscreteResources.constant(true);
     constant1234 = constant(1234);

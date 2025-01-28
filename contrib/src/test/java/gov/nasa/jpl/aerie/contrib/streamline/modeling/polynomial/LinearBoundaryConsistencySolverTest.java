@@ -31,7 +31,7 @@ class LinearBoundaryConsistencySolverTest {
     Resource<Polynomial> result;
 
     public SingleVariableSingleConstraint(final Registrar registrar) {
-      StreamlineSystem.testInit(registrar);
+      StreamlineSystem.init(StreamlineSystem.InitArgs.testBuilder().baseRegistrar(registrar).build());
 
       driver = resource(polynomial(10));
 
@@ -73,7 +73,7 @@ class LinearBoundaryConsistencySolverTest {
     Resource<Polynomial> result;
 
     public SingleVariableMultipleConstraint(final Registrar registrar) {
-      StreamlineSystem.testInit(registrar);
+      StreamlineSystem.init(StreamlineSystem.InitArgs.testBuilder().baseRegistrar(registrar).build());
 
       lowerBound1 = resource(polynomial(10));
       lowerBound2 = resource(polynomial(20));
@@ -151,7 +151,7 @@ class LinearBoundaryConsistencySolverTest {
     Resource<Polynomial> result;
 
     public ScalingConstraint(final Registrar registrar) {
-      StreamlineSystem.testInit(registrar);
+      StreamlineSystem.init(StreamlineSystem.InitArgs.testBuilder().baseRegistrar(registrar).build());
 
       driver = resource(polynomial(10));
 
@@ -183,7 +183,7 @@ class LinearBoundaryConsistencySolverTest {
     Resource<Polynomial> a, b, c;
 
     public MultipleVariables(final Registrar registrar) {
-      StreamlineSystem.testInit(registrar);
+      StreamlineSystem.init(StreamlineSystem.InitArgs.testBuilder().baseRegistrar(registrar).build());
 
       upperBound = resource(polynomial(10));
       upperBoundOnC = resource(polynomial(5));

@@ -5,17 +5,80 @@ import gov.nasa.jpl.aerie.contrib.streamline.debugging.Logging;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.Registrar;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.Registration;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.Clock;
+import gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.ClockResources;
+import gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.InstantClock;
+import gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.InstantClockResources;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.resource;
+import java.time.Instant;
+import java.util.Objects;
+
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentValue;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.Clock.clock;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.ZERO;
 
 public final class StreamlineSystem {
     private static Resource<Clock> CLOCK;
+    private static Resource<InstantClock> ABSOLUTE_CLOCK;
 
     private StreamlineSystem() {}
+
+    /**
+     * Arguments required for {@link StreamlineSystem#init}, packaged into an object for easier handling.
+     * <p>
+     *     Can be constructed directly, or through {@link InitArgs#builder}.
+     * </p>
+     */
+    public record InitArgs(
+            gov.nasa.jpl.aerie.merlin.framework.Registrar baseRegistrar,
+            Registrar.ErrorBehavior errorBehavior,
+            Instant planStart) {
+        /**
+         * Returns a blank {@link Builder}.
+         */
+        public static Builder builder() {
+            return new Builder();
+        }
+
+        /**
+         * Returns a {@link Builder} with some fields set to defaults generally appropriate for testing.
+         */
+        public static Builder testBuilder() {
+            return builder()
+                    .errorBehavior(Registrar.ErrorBehavior.Throw)
+                    .planStart(Instant.EPOCH);
+        }
+
+        public static class Builder {
+            private gov.nasa.jpl.aerie.merlin.framework.Registrar baseRegistrar;
+            private Registrar.ErrorBehavior errorBehavior;
+            private Instant planStart;
+
+            private Builder() {}
+
+            public Builder baseRegistrar(final gov.nasa.jpl.aerie.merlin.framework.Registrar baseRegistrar) {
+                this.baseRegistrar = baseRegistrar;
+                return this;
+            }
+
+            public Builder errorBehavior(final Registrar.ErrorBehavior errorBehavior) {
+                this.errorBehavior = errorBehavior;
+                return this;
+            }
+
+            public Builder planStart(final Instant planStart) {
+                this.planStart = planStart;
+                return this;
+            }
+
+            public InitArgs build() {
+                return new InitArgs(
+                        Objects.requireNonNull(baseRegistrar, "baseRegistrar must be set"),
+                        Objects.requireNonNull(errorBehavior, "errorBehavior must be set"),
+                        Objects.requireNonNull(planStart, "planStart must be set")
+                );
+            }
+        }
+
+    }
 
     /**
      * Initialize all streamline singletons.
@@ -29,24 +92,26 @@ public final class StreamlineSystem {
      *     as well as initialize the singletons contained within this class.
      * </p>
      */
-    public static void init(
-            final gov.nasa.jpl.aerie.merlin.framework.Registrar baseRegistrar,
-            final Registrar.ErrorBehavior errorBehavior) {
-        CLOCK = resource(clock(ZERO));
-        Logging.init(baseRegistrar);
-        Registration.init(baseRegistrar, errorBehavior);
-    }
-
-    /**
-     * Variation on {@link StreamlineSystem#init} for unit testing.
-     * Fills in most arguments with defaults suitable for testing.
-     */
-    public static void testInit(
-            final gov.nasa.jpl.aerie.merlin.framework.Registrar baseRegistrar) {
-        init(baseRegistrar, Registrar.ErrorBehavior.Throw);
+    public static void init(InitArgs args) {
+        CLOCK = ClockResources.clock();
+        ABSOLUTE_CLOCK = InstantClockResources.absoluteClock(args.planStart);
+        Logging.init(args.baseRegistrar);
+        Registration.init(args.baseRegistrar, args.errorBehavior);
     }
 
     public static Duration currentTime() {
         return currentValue(CLOCK);
+    }
+
+    public static Resource<Clock> simulationClock() {
+        return CLOCK;
+    }
+
+    public static Instant currentInstant() {
+        return currentValue(ABSOLUTE_CLOCK);
+    }
+
+    public static Resource<InstantClock> absoluteClock() {
+        return ABSOLUTE_CLOCK;
     }
 }

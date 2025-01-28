@@ -41,7 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @TestInstance(Lifecycle.PER_CLASS)
 class DiscreteEffectsTest {
   public DiscreteEffectsTest(final Registrar registrar) {
-    StreamlineSystem.testInit(registrar);
+    StreamlineSystem.init(StreamlineSystem.InitArgs.testBuilder().baseRegistrar(registrar).build());
   }
 
   private final MutableResource<Discrete<Integer>> settable = resource(discrete(42));

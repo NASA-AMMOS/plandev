@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestInstance(Lifecycle.PER_CLASS)
 public class PrecomputedTest {
     public PrecomputedTest(final Registrar registrar) {
-        StreamlineSystem.testInit(registrar);
+        StreamlineSystem.init(StreamlineSystem.InitArgs.testBuilder().baseRegistrar(registrar).build());
 
         precomputedAsConstantInPast = precomputed(new TreeMap<>(Map.of(duration(-1, MINUTE), 4.0)));
         precomputedAsConstantInFuture = precomputed(new TreeMap<>(Map.of(duration(2, HOUR), 4.0)));

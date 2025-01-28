@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestInstance(Lifecycle.PER_CLASS)
 public class ComparisonsTest {
   public ComparisonsTest(final Registrar registrar) {
-    StreamlineSystem.testInit(registrar);
+    StreamlineSystem.init(StreamlineSystem.InitArgs.testBuilder().baseRegistrar(registrar).build());
 
     p = resource(polynomial(0));
     q = resource(polynomial(0));

@@ -17,6 +17,7 @@ import java.util.TreeMap;
 
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentValue;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.precomputed;
+import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.precomputed$;
 import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.delay;
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -28,19 +29,22 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestInstance(Lifecycle.PER_CLASS)
 public class PrecomputedTest {
     public PrecomputedTest(final Registrar registrar) {
-        StreamlineSystem.testInit(registrar);
-        precomputedAsAConstant = precomputed(4, new TreeMap<>());
-        precomputedWithOneTransitionInFuture = precomputed(0, new TreeMap<>(Map.of(MINUTE, 10)));
-        precomputedWithOneTransitionInPast = precomputed(0, new TreeMap<>(Map.of(duration(-1, MINUTE), 10)));
-        precomputedWithMultipleTransitionsInFuture = precomputed(0, new TreeMap<>(Map.of(
+        StreamlineSystem.init(StreamlineSystem.InitArgs.testBuilder()
+                .baseRegistrar(registrar)
+                .planStart(Instant.parse("2023-10-18T00:00:00Z"))
+                .build());
+        precomputedAsAConstant = precomputed$(4, new TreeMap<>());
+        precomputedWithOneTransitionInFuture = precomputed$(0, new TreeMap<>(Map.of(MINUTE, 10)));
+        precomputedWithOneTransitionInPast = precomputed$(0, new TreeMap<>(Map.of(duration(-1, MINUTE), 10)));
+        precomputedWithMultipleTransitionsInFuture = precomputed$(0, new TreeMap<>(Map.of(
                 duration(2, MINUTE), 5,
                 duration(5, MINUTE), 10,
                 duration(6, MINUTE), 15)));
-        precomputedWithMultipleTransitionsInPast = precomputed(0, new TreeMap<>(Map.of(
+        precomputedWithMultipleTransitionsInPast = precomputed$(0, new TreeMap<>(Map.of(
                 duration(-2, MINUTE), 5,
                 duration(-5, MINUTE), 10,
                 duration(-6, MINUTE), 15)));
-        precomputedWithTransitionsInPastAndFuture = precomputed(0, new TreeMap<>(Map.of(
+        precomputedWithTransitionsInPastAndFuture = precomputed$(0, new TreeMap<>(Map.of(
                 duration(-5, MINUTE), 25,
                 duration(-2, MINUTE), 5,
                 duration(5, MINUTE), 10,
@@ -49,8 +53,7 @@ public class PrecomputedTest {
                 Instant.parse("2023-10-17T23:55:00Z"), 25,
                 Instant.parse("2023-10-17T23:58:00Z"), 5,
                 Instant.parse("2023-10-18T00:05:00Z"), 10,
-                Instant.parse("2023-10-18T00:06:00Z"), 15)),
-                Instant.parse("2023-10-18T00:00:00Z"));
+                Instant.parse("2023-10-18T00:06:00Z"), 15)));
     }
 
     final Resource<Discrete<Integer>> precomputedAsAConstant;

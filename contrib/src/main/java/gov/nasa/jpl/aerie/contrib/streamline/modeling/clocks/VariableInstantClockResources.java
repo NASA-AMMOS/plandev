@@ -8,7 +8,6 @@ import java.time.Instant;
 
 import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.ResourceMonad.map;
 import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.name;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.InstantClock.durationBetween;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.constant;
 
 public final class VariableInstantClockResources {
@@ -16,7 +15,7 @@ public final class VariableInstantClockResources {
 
     public static Resource<VariableClock> relativeTo(Resource<VariableInstantClock> clock, Resource<Discrete<Instant>> zeroTime) {
         return name(map(clock, zeroTime, (c, t) ->
-                        new VariableClock(durationBetween(c.extract(), t.extract()), c.multiplier())),
+                        new VariableClock(Duration.between(c.extract(), t.extract()), c.multiplier())),
                 "%s relative to %s", clock, zeroTime);
     }
 
@@ -37,6 +36,6 @@ public final class VariableInstantClockResources {
     }
 
     public static Resource<VariableClock> between(Resource<VariableInstantClock> start, Resource<VariableInstantClock> end) {
-        return map(start, end, (s, e) -> new VariableClock(durationBetween(s.extract(), e.extract()), e.multiplier() - s.multiplier()));
+        return map(start, end, (s, e) -> new VariableClock(Duration.between(s.extract(), e.extract()), e.multiplier() - s.multiplier()));
     }
 }

@@ -34,7 +34,7 @@ public class InstantClockResources {
     }
 
     public static Resource<Clock> relativeTo(Resource<InstantClock> clock, Resource<Discrete<Instant>> zeroTime) {
-        return name(ResourceMonad.map(clock, zeroTime, (c, t) -> new Clock(InstantClock.durationBetween(t.extract(), c.extract()))),
+        return name(ResourceMonad.map(clock, zeroTime, (c, t) -> new Clock(Duration.between(t.extract(), c.extract()))),
                 "%s relative to %s", clock, zeroTime);
     }
 

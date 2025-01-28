@@ -4,7 +4,6 @@ import gov.nasa.jpl.aerie.contrib.streamline.core.Dynamics;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.addToInstant;
 
@@ -16,11 +15,5 @@ public record InstantClock(Instant extract) implements Dynamics<Instant, Instant
     @Override
     public InstantClock step(Duration t) {
         return new InstantClock(addToInstant(extract, t));
-    }
-
-    // TODO - this method belongs somewhere else...
-    //  Making it package-private at least lets us move it later without dependency issues outside the library.
-    static Duration durationBetween(Instant start, Instant end) {
-        return Duration.of(ChronoUnit.MICROS.between(start, end), Duration.MICROSECONDS);
     }
 }

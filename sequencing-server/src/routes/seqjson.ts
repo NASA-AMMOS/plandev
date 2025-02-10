@@ -132,7 +132,7 @@ seqjsonRouter.post('/get-seqjson-for-seqid-and-simulation-dataset', async (req, 
 
   // This is here to easily enable a future feature of allowing the mission to configure their own sequence
   // building. For now, we just use the 'defaultSeqBuilder' until such a feature request is made.
-  const seqBuilder = defaultSeqBuilder;
+  const seqBuilder = defaultSeqBuilder; // TODO: make this compatible with strings too. also...why do we even have this? why not just pull from or update expanded sequences???
   const sequenceJson = seqBuilder(
     sortedSimulatedActivitiesWithCommands,
     seqId,
@@ -226,7 +226,7 @@ seqjsonRouter.post('/bulk-get-seqjson-for-seqid-and-simulation-dataset', async (
 
   // This is here to easily enable a future feature of allowing the mission to configure their own sequence
   // building. For now, we just use the 'defaultSeqBuilder' until such a feature request is made.
-  const seqBuilder = defaultSeqBuilder;
+  const seqBuilder = defaultSeqBuilder; // TODO: make this compatible with strings too. also...why do we even have this? why not just pull from or update expanded sequences???
 
   const promises = await Promise.allSettled(
     inputs.map(async ({ seqId, simulationDatasetId }) => {

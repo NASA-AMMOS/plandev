@@ -2,6 +2,7 @@ create table sequencing.sequence (
   seq_id text not null,
   simulation_dataset_id int not null,
   metadata jsonb,
+  filter jsonb default '{}'::jsonb,
 
   created_at timestamptz not null default now(),
 
@@ -17,3 +18,5 @@ comment on column sequencing.sequence.seq_id is e''
   'The FSW sequence specifier';
 comment on column sequencing.sequence.simulation_dataset_id is e''
   'The simulation dataset id whose outputs are associated with this sequence';
+comment on column sequencing.sequence.filter is e''
+  'The activity filter tied to this sequence, used at expansion-time to gather activities. Defaults to an empty JSONB object.';

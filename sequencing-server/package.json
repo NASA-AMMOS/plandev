@@ -41,7 +41,8 @@
     "postgres-interval": "~4.0.0",
     "reserved-words": "~0.1.2",
     "typescript": "^5",
-    "winston": "~3.8.2"
+    "winston": "~3.8.2",
+    "handlebars": "^4.7.8"
   },
   "devDependencies": {
     "@microsoft/tsdoc": "~0.14.2",

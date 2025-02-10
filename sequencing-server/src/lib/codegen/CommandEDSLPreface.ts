@@ -514,7 +514,7 @@ export class Sequence implements SeqJson {
   // @ts-ignore : 'VariableDeclaration' found in JSON Spec
   public readonly parameters?: [VariableDeclaration, ...VariableDeclaration[]];
   // @ts-ignore : 'Step' found in JSON Spec
-  public readonly steps?: Step[];
+  public readonly steps?: Step[] | string[]; // TODO: GENERIFY THIS
   // @ts-ignore : 'Request' found in JSON Spec
   public readonly requests?: Request[];
   // @ts-ignore : 'ImmediateCommand' found in JSON Spec

@@ -6,7 +6,7 @@ import type { SimulatedActivity } from '../lib/batchLoaders/simulatedActivityBat
 export interface SeqBuilder {
   (
     sortedActivityInstancesWithCommands: (SimulatedActivity & {
-      commands: (CommandStem | ActivateStep | LoadStep)[] | null;
+      commands: (CommandStem | ActivateStep | LoadStep)[] | null | string[]; // todo, make less explicit. or make a command interface.
       errors: ReturnType<UserCodeError['toJSON']>[] | null;
     })[],
     seqId: string,

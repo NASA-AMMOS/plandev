@@ -52,6 +52,10 @@ type Mutation {
   expandAllActivities(expansionSetId: Int!, simulationDatasetId: Int!): ExpandAllActivitiesResponse
 }
 
+type Mutation {
+  expandAllTemplates(simulationDatasetId: Int!, expansionSetId: Int!): ExpandAllSequencesResponse
+}
+
 type Query {
   getModelEffectiveArguments(missionModelId: Int!, modelArguments: ModelArguments!): EffectiveArgumentsResponse
 }
@@ -229,6 +233,10 @@ type AddCommandExpansionResponse {
 type ExpandAllActivitiesResponse {
   id: Int!
   expandedActivityInstances: [ExpandedActivityInstance!]!
+}
+
+type ExpandAllSequencesResponse {
+  success: Boolean!
 }
 
 type ExpandedActivityInstance {

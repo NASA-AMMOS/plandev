@@ -1,6 +1,8 @@
 import { ActivateStep, CommandStem, LoadStep, Sequence } from './lib/codegen/CommandEDSLPreface.js';
 import type { SeqBuilder } from './types/seqBuilder';
 
+type Command = CommandStem | ActivateStep | LoadStep; // in constrast to strings or other options in seqBuilder interface
+
 export const defaultSeqBuilder: SeqBuilder = (
   sortedActivityInstancesWithCommands,
   seqId,
@@ -52,7 +54,7 @@ export const defaultSeqBuilder: SeqBuilder = (
         if (
             currentCommand.GET_EPOCH_TIME() ||
             (!currentCommand.GET_ABSOLUTE_TIME() && !currentCommand.GET_EPOCH_TIME() && !currentCommand.GET_RELATIVE_TIME()) ||
-            (currentCommand.GET_RELATIVE_TIME() && ai.commands.indexOf(command) === 0)
+            (currentCommand.GET_RELATIVE_TIME() && (ai.commands as Command[]).indexOf(command as Command) === 0)
         ) {
           shouldSort = false; // Set the sorting flag to false
           break; // No need to continue checking other commands
@@ -69,7 +71,7 @@ export const defaultSeqBuilder: SeqBuilder = (
         }
       }
 
-      allCommands = allCommands.concat(ai.commands);
+      allCommands = allCommands.concat(ai.commands as Command[]);
       // Keep track of the number of times we add commands to the allCommands list.
       activityInstaceCount++;
     }

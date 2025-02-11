@@ -10,6 +10,7 @@ import org.jetbrains.annotations.NotNull;
 
 @ConstraintProcedure
 public record ConstFruit() implements Constraint {
+  @NotNull
   @Override
   public Violations run(@NotNull Plan plan, @NotNull SimulationResults simResults) {
     final var fruit = simResults.resource("/fruit", Real.deserializer());

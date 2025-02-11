@@ -9,5 +9,5 @@ At repo top level:
 
 ```bash
 ./gradlew build
-./gradlew :procedural:examples:banana-procedures:buildAllSchedulingProcedureJars
+./gradlew :procedural:examples:banana-procedures:buildAllProcedureJars
 ```

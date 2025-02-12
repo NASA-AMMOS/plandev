@@ -8,6 +8,7 @@ create table merlin.constraint_specification(
   constraint_revision integer, -- latest is NULL
   enabled boolean not null default true,
   arguments jsonb not null default '{}'::jsonb,
+  priority integer not null, -- Exposed as "order" via the API
 
   constraint constraint_specification_pkey
     primary key (invocation_id),
@@ -20,16 +21,138 @@ create table merlin.constraint_specification(
     foreign key (constraint_id, constraint_revision)
       references merlin.constraint_definition(constraint_id, revision)
       on update cascade
-      on delete restrict
+      on delete restrict,
+  constraint constraint_specification_unique_priorities
+    unique (plan_id, priority) deferrable initially deferred,
+  constraint non_negative_constraint_priority
+    check (priority >= 0)
 );
 
 comment on table merlin.constraint_specification is e''
-'The set of constraints to be checked for a given plan.';
+  'The set of constraints to be checked for a given plan.';
+comment on column merlin.constraint_specification.invocation_id is e''
+  'The id of a specific constraint invocation in the specification. Primary key.';
 comment on column merlin.constraint_specification.plan_id is e''
-'The plan which this specification is for. Half of the primary key.';
+  'The plan which this specification is for.';
 comment on column merlin.constraint_specification.constraint_id is e''
-'The id of a specific constraint in the specification. Half of the primary key.';
+  'The id of a specific constraint in the specification.';
 comment on column merlin.constraint_specification.constraint_revision is e''
-'The version of the constraint definition to use. Leave NULL to use the latest version.';
+  'The version of the constraint definition to use. Leave NULL to use the latest version.';
+comment on column merlin.constraint_specification.priority is e''
+  'The relative priority of a constraint in relation to other '
+  'constraints within the same specification.';
 comment on column merlin.constraint_specification.enabled is e''
-'Whether to run a given constraint. Defaults to TRUE.';
+  'Whether to run a given constraint. Defaults to TRUE.';
+comment on column merlin.constraint_specification.arguments is e''
+  'The arguments that will be passed to this constraint when invoked.'
+  'Follows merlin.constraint_definition.parameter_schema.'
+  'Only valid for procedural constraint.';
+
+create function merlin.insert_constraint_spec_func()
+  returns trigger
+  language plpgsql as $$
+  declare
+    next_priority integer;
+begin
+  select coalesce(
+    (select priority
+     from merlin.constraint_specification cs
+     where cs.plan_id = new.plan_id
+     order by priority desc
+     limit 1), -1) + 1
+  into next_priority;
+
+  if new.priority > next_priority then
+    raise numeric_value_out_of_range using
+      message = ('Inserted priority '||new.priority||' for plan '||new.plan_id||'''s constraint specification is not consecutive'),
+      hint = ('The next available priority is '||next_priority||'.');
+  end if;
+
+  if new.priority is null then
+    new.priority = next_priority;
+  end if;
+
+  update merlin.constraint_specification
+  set priority = priority + 1
+  where plan_id = new.plan_id
+    and priority >= new.priority;
+  return new;
+end
+$$;
+
+comment on function merlin.insert_constraint_spec_func() is e''
+  'Checks that the inserted priority is consecutive, and reorders (increments) higher or equal priorities to make room.';
+
+create trigger insert_constraint_spec
+  before insert on merlin.constraint_specification
+  for each row
+execute function merlin.insert_constraint_spec_func();
+
+create function merlin.update_constraint_spec_func()
+  returns trigger
+  language plpgsql as $$
+  declare
+    max_priority integer;
+begin
+  select count(invocation_id) - 1
+  from merlin.constraint_specification cs
+  where cs.plan_id = new.plan_id
+  into max_priority;
+
+  if new.priority > max_priority then
+    raise numeric_value_out_of_range using
+      message = ('Updated priority '||new.priority||' for plan '||new.plan_id||'''s constraint specification is out of bounds.'),
+      hint = ('Plan '|| new.plan_id || ' only has ' || (max_priority+1) || ' constraints on its specification.');
+  end if;
+
+  if new.priority > old.priority then
+    update merlin.constraint_specification
+    set priority = priority - 1
+    where plan_id = new.plan_id
+      and priority between old.priority + 1 and new.priority
+      and invocation_id != new.invocation_id;
+  else
+    update merlin.constraint_specification
+    set priority = priority + 1
+    where plan_id = new.plan_id
+      and priority between new.priority and old.priority - 1
+      and invocation_id != new.invocation_id;
+  end if;
+  return new;
+end;
+$$;
+
+comment on function merlin.update_constraint_spec_func is e''
+  'Checks that the updated priority is consecutive, and reorders priorities to make room.';
+
+create trigger update_constraint_spec
+  before update on merlin.constraint_specification
+  for each row
+  when (OLD.priority is distinct from NEW.priority and pg_trigger_depth() < 1)
+execute function merlin.update_constraint_spec_func();
+
+create function merlin.delete_constraint_spec_func()
+  returns trigger
+  language plpgsql as $$
+  declare
+    r merlin.constraint_specification;
+begin
+  -- Perform updates in reverse-priority order to ensure that there are no gaps
+  for r in select * from removed_rows order by priority desc loop
+    update merlin.constraint_specification
+    set priority = priority - 1
+    where plan_id = r.plan_id
+      and priority > r.priority;
+  end loop;
+  return null;
+end;
+$$;
+
+comment on function merlin.delete_constraint_spec_func() is e''
+  'Reorders (decrements) priorities to fill the gap from deleted priority.';
+
+create trigger delete_constraint_spec
+  after delete on merlin.constraint_specification
+  referencing old table as removed_rows
+  for each statement
+execute function merlin.delete_constraint_spec_func();

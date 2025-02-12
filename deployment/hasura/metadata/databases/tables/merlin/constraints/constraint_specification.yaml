@@ -3,6 +3,9 @@ table:
   schema: merlin
 configuration:
   custom_name: "constraint_specification"
+  column_config:
+    priority:
+      custom_name: order
 object_relationships:
   - name: plan
     using:
@@ -34,11 +37,11 @@ select_permissions:
 insert_permissions:
   - role: aerie_admin
     permission:
-      columns: [plan_id, constraint_id, constraint_revision, enabled, arguments]
+      columns: [plan_id, constraint_id, constraint_revision, enabled, arguments, priority]
       check: {}
   - role: user
     permission:
-      columns: [plan_id, constraint_id, constraint_revision, enabled, arguments]
+      columns: [plan_id, constraint_id, constraint_revision, enabled, arguments, priority]
       check: { "_and": [
         # User is a plan owner/collaborator
         { "plan": { "_or": [ { "owner": { "_eq": "X-Hasura-User-Id" } },
@@ -50,11 +53,11 @@ insert_permissions:
 update_permissions:
   - role: aerie_admin
     permission:
-      columns: [constraint_revision, enabled, arguments]
+      columns: [constraint_revision, enabled, arguments, priority]
       filter: {}
   - role: user
     permission:
-      columns: [constraint_revision, enabled, arguments]
+      columns: [constraint_revision, enabled, arguments, priority]
       filter: { "plan": { "_or": [ { "owner": { "_eq": "X-Hasura-User-Id" } },{ "collaborators": { "collaborator": { "_eq": "X-Hasura-User-Id" }}}]}}
 delete_permissions:
   - role: aerie_admin

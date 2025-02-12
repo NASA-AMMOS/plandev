@@ -1,0 +1,19 @@
+{
+  "extends": "@tsconfig/node22/tsconfig.json",
+  "exclude": [
+  ],
+  "include": [
+    "./src/**/*.ts"
+  ],
+  "compilerOptions": {
+    "lib": [
+      "esnext"
+    ],
+    "outDir": "./build",
+    "rootDir": "./src",
+    "sourceMap": true,
+    "module": "NodeNext",
+    "resolveJsonModule": true,
+    "ignoreDeprecations": "5.0"
+  }
+}

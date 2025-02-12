@@ -1,0 +1,29 @@
+{
+  "name": "action-server",
+  "version": "1.0.0",
+  "main": "app.js",
+  "scripts": {
+    "build": "npm run lint; tsc -p tsconfig.json",
+    "clean": "rm -rf build",
+    "start": "ts-node src/app.ts",
+    "dev" : "nodemon --watch  src/**/* -e ts --exec 'node --inspect=0.0.0.0:9229 --require ts-node/register src/app.ts'",
+    "test": "node -r ts-node/register tests/*.test.ts",
+    "lint": "eslint src/**/*.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Action server for sequencing",
+  "devDependencies": {
+    "@tsconfig/node22": "^22.0.0",
+    "@types/express": "^5.0.0",
+    "eslint-config-sheriff": "^25.8.0",
+    "express": "^4.21.2",
+    "nodemon": "^3.1.9",
+    "prettier": "^3.4.2",
+    "ts-node": "^10.9.2"
+  },
+  "dependencies": {
+    "piscina": "^5.0.0-alpha.0"
+  }
+}

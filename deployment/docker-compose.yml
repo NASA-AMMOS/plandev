@@ -1,5 +1,32 @@
 version: "3.7"
 services:
+  aerie_action:
+    build:
+      context: ./action-server
+      dockerfile: Dockerfile
+      #dockerfile: Dockerfile.dev #-- Uncomment for development
+    container_name: aerie_action
+    depends_on: [ "postgres" ]
+    environment:
+      HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
+      LOG_FILE: console
+      LOG_LEVEL: debug
+      MERLIN_GRAPHQL_URL: http://hasura:8080/v1/graphql
+      ACTION_SERVER_PORT: 27186
+      AERIE_DB_HOST: postgres
+      AERIE_DB_PORT: 5432
+      #      ACTION_DB_USER: "${ACTION_USERNAME}"
+      #      ACTION_DB_PASSWORD: "${ACTION_PASSWORD}"
+      ACTION_LOCAL_STORE: /usr/src/app/action_file_store
+      ACTION_WORKER_NUM: 8
+      ACTION_MAX_WORKER_NUM: 8
+    image: aerie_action
+    ports: [ "27186:27186" ]
+    #ports: [ "27186:27186",'9229:9229'] #-- Uncomment for development
+    restart: always
+    volumes:
+      - ./action-server:/app:cached
+      - aerie_file_store:/usr/src/app/action_file_store
   aerie_gateway:
     container_name: aerie_gateway
     depends_on: ["postgres"]

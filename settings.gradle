@@ -28,6 +28,7 @@ include 'merlin-worker'
 include 'scheduler-server'
 include 'scheduler-worker'
 include 'sequencing-server'
+include 'action-server'
 
 // Command-line interface direct to services
 include 'constraints'

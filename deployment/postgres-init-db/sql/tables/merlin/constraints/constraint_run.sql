@@ -1,46 +1,30 @@
-create table merlin.constraint_run (
-  constraint_id integer not null,
-  constraint_revision integer not null,
-  simulation_dataset_id integer not null,
+create table merlin.constraint_run(
+  request_id integer not null,
+  constraint_invocation_id integer not null,
+  constraint_results_id integer not null,
+  priority integer not null,
 
-  results jsonb not null default '{}',
-
-  -- Additional Metadata
-  requested_by text,
-  requested_at timestamptz not null default now(),
-
-  constraint constraint_run_key
-    primary key (constraint_id, constraint_revision, simulation_dataset_id),
-  constraint constraint_run_to_constraint_definition
-    foreign key (constraint_id, constraint_revision)
-      references merlin.constraint_definition
-      on delete cascade,
-  constraint constraint_run_to_simulation_dataset
-    foreign key (simulation_dataset_id)
-      references merlin.simulation_dataset
-      on delete cascade,
-  constraint constraint_run_requested_by
-    foreign key (requested_by)
-      references permissions.users
-      on update cascade
-      on delete set null
+  constraint constraint_run_pkey
+    primary key (request_id, constraint_invocation_id, constraint_results_id),
+  constraint constraint_run_request foreign key (request_id)
+    references merlin.constraint_request
+    on delete cascade,
+  constraint constraint_run_invocation foreign key (constraint_invocation_id)
+    references merlin.constraint_specification
+    on delete cascade,
+  constraint constraint_run_results foreign key (constraint_results_id)
+    references merlin.constraint_results
+    on delete restrict
 );
 
-create index constraint_run_simulation_dataset_id_index
-  on merlin.constraint_run (simulation_dataset_id);
-
 comment on table merlin.constraint_run is e''
-  'A single constraint run, used to cache violation results to be reused if the constraint definition is not stale.';
+  'A join table connecting each constraint run during a request to its result.';
 
-comment on column merlin.constraint_run.constraint_id is e''
-  'The constraint that we are evaluating during the run.';
-comment on column merlin.constraint_run.constraint_revision is e''
-  'The version of the constraint definition that was checked.';
-comment on column merlin.constraint_run.simulation_dataset_id is e''
-  'The simulation dataset id from when the constraint was checked.';
-comment on column merlin.constraint_run.results is e''
-  'Results that were computed during the constraint check.';
-comment on column merlin.constraint_run.requested_by is e''
-  'The user who requested the constraint run.';
-comment on column merlin.constraint_run.requested_at is e''
-  'When the constraint run was created.';
+comment on column merlin.constraint_run.request_id is e''
+  'The constraint request during which this constraint was checked.';
+comment on column merlin.constraint_run.constraint_invocation_id is e''
+  'The constraint that was checked.';
+comment on column merlin.constraint_run.constraint_results_id is e''
+  'The output of checking the constraint.';
+comment on column merlin.constraint_run.priority is e''
+  'The priority the constraint had when checked.';

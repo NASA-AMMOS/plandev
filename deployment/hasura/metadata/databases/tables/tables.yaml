@@ -116,6 +116,8 @@
 - "!include merlin/constraints/constraint_definition.yaml"
 - "!include merlin/constraints/constraint_model_specification.yaml"
 - "!include merlin/constraints/constraint_specification.yaml"
+- "!include merlin/constraints/constraint_request.yaml"
+- "!include merlin/constraints/constraint_results.yaml"
 - "!include merlin/constraints/constraint_run.yaml"
 
 # Snapshots

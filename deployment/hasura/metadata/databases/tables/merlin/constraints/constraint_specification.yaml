@@ -18,6 +18,14 @@ object_relationships:
       foreign_key_constraint_on:
         - constraint_id
         - constraint_revision
+array_relationships:
+  - name: run_results
+    using:
+      foreign_key_constraint_on:
+        column: constraint_invocation_id
+        table:
+          name: constraint_run
+          schema: merlin
 select_permissions:
   - role: aerie_admin
     permission:

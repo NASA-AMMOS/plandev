@@ -58,6 +58,8 @@ begin;
   \ir tables/merlin/constraints/constraint_definition.sql
   \ir tables/merlin/constraints/constraint_model_specification.sql
   \ir tables/merlin/constraints/constraint_specification.sql
+  \ir tables/merlin/constraints/constraint_request.sql
+  \ir tables/merlin/constraints/constraint_results.sql
   \ir tables/merlin/constraints/constraint_run.sql
 
   -- Snapshots

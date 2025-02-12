@@ -27,12 +27,12 @@ array_relationships:
       insertion_order: null
       column_mapping:
         id: simulation_dataset_id
-- name: constraint_runs
+- name: constraint_requests
   using:
     foreign_key_constraint_on:
       column: simulation_dataset_id
       table:
-        name: constraint_run
+        name: constraint_request
         schema: merlin
 select_permissions:
   - role: aerie_admin

@@ -1,21 +1,23 @@
 table:
-  name: constraint_run
+  name: constraint_request
   schema: merlin
 configuration:
-  custom_name: "constraint_run"
-  column_config:
-    priority:
-      custom_name: order
+  custom_name: "constraint_request"
 object_relationships:
-  - name: request
+  - name: plan
     using:
-      foreign_key_constraint_on: request_id
-  - name: constraint_invocation
+      foreign_key_constraint_on: plan_id
+  - name: simulation_dataset
     using:
-      foreign_key_constraint_on: constraint_invocation_id
-  - name: results
+      foreign_key_constraint_on: simulation_dataset_id
+array_relationships:
+  - name: constraints_run
     using:
-      foreign_key_constraint_on: constraint_results_id
+      foreign_key_constraint_on:
+        column: request_id
+        table:
+          name: constraint_run
+          schema: merlin
 select_permissions:
   - role: aerie_admin
     permission:

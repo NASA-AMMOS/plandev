@@ -1,16 +1,21 @@
 create table sequencing.user_sequence (
-  id integer generated always as identity,
+  sequence_id integer not null,
   created_at timestamptz not null default now(),
   definition text not null,
   seq_json jsonb,
   name text not null,
   owner text,
   parcel_id integer not null,
+  revision integer not null default 0,
   updated_at timestamptz not null default now(),
   workspace_id integer not null,
 
-  constraint user_sequence_primary_key primary key (id),
+  constraint user_sequence_primary_key primary key (sequence_id, revision),
 
+  foreign key (sequence_id)
+    references sequencing.user_sequence_metadata
+    on update cascade
+    on delete cascade,
   foreign key (parcel_id)
     references sequencing.parcel (id)
     on delete cascade,
@@ -29,7 +34,7 @@ comment on column sequencing.user_sequence.definition is e''
   'The user sequence definition string.';
 comment on column sequencing.user_sequence.seq_json is e''
   'The SeqJson representation of the user sequence.';
-comment on column sequencing.user_sequence.id is e''
+comment on column sequencing.user_sequence.sequence_id is e''
   'ID of the user sequence.';
 comment on column sequencing.user_sequence.name is e''
   'Human-readable name of the user sequence.';

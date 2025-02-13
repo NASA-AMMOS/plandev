@@ -32,20 +32,20 @@ select_permissions:
 insert_permissions:
   - role: aerie_admin
     permission:
-      columns: [model_id, user_sequence_id]
+      columns: [model_id, user_sequence_id, user_sequence_revision]
       check: {}
   - role: user
     permission:
-      columns: [model_id, user_sequence_id]
+      columns: [model_id, user_sequence_id, user_sequence_revision]
       check: {}
 update_permissions:
   - role: aerie_admin
     permission:
-      columns: []
+      columns: [user_sequence_revision]
       filter: {}
   - role: user
     permission:
-      columns: []
+      columns: [user_sequence_revision]
       filter: {}
 delete_permissions:
   - role: aerie_admin

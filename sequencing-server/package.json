@@ -42,7 +42,10 @@
     "reserved-words": "~0.1.2",
     "typescript": "^5",
     "winston": "~3.8.2",
-    "handlebars": "^4.7.8"
+    "handlebars": "^4.7.8",
+    "@types/node": "^22.13.1",
+    "@vitest/coverage-v8": "^1.4.0",
+    "lodash-es": "^4.17.21"
   },
   "devDependencies": {
     "@microsoft/tsdoc": "~0.14.2",
@@ -66,7 +69,10 @@
     "prettier": "~2.8.3",
     "supervisor": "~0.12.0",
     "ts-jest": "~29.1.0",
-    "ts-node": "~10.9.1"
+    "ts-node": "~10.9.1",
+    "@types/lodash-es": "^4.17.7",
+    "typescript": "^5.7.3",
+    "vitest": "^1.6.1"
   },
   "overrides": {
     "express": {

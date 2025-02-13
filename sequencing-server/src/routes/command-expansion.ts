@@ -14,8 +14,8 @@ import { defaultSeqBuilder } from '../defaultSeqBuilder.js';
 import { ActivateStep, CommandStem, LoadStep, Sequence } from './../lib/codegen/CommandEDSLPreface.js';
 import { getUsername } from '../utils/hasura.js';
 import * as crypto from 'crypto';
-import Handlebars from "handlebars";
 import type { SimulatedActivity } from '../lib/batchLoaders/simulatedActivityBatchLoader.js';
+import { Mustache } from '../lib/mustache/util/index.js';
 
 const logger = getLogger('app');
 
@@ -288,7 +288,7 @@ commandExpansionRouter.post('/put-expansion-set-template', async (req, res, next
     });
   }
 
-  // TODO: add step to verify that moustache script is valid?
+  // TODO: add step to verify that template is valid?
 
   const { rows } = await db.query(
     `
@@ -402,7 +402,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   // CURRENT VERSION
   // For simplicity, no expansion set ID yet.
   const context: Context = res.locals['context'];
-  const defaultTemplate = "CMD {{name}} {{duration}}"; //req.body.input.template;
+  const defaultTemplate = "CMD {{formatAsDate startTime}} {{name}} {{duration}}"; //req.body.input.template;
   // const defaultInputs = { name: "Nils" } //JSON.parse(req.body.input.input);
 
   //  1. Load simulated actvities
@@ -430,11 +430,13 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   for (const simulatedActivity of simulatedActivities) {
     const activityTypeName = simulatedActivity["activityTypeName"]
     const duration = simulatedActivity["duration"]?.toString()
+    const startTime = simulatedActivity["startTime"]?.toString()
+    console.log(activityTypeName, duration, startTime,JSON.stringify(simulatedActivity))
     const currentTemplate = activityTypeNameToRule[activityTypeName]
 
     if (currentTemplate) {
-      const template = Handlebars.compile(defaultTemplate);
-      const commandString = template({ name: activityTypeName, duration });
+      const template = new Mustache(defaultTemplate);
+      const commandString = template.execute({ name: activityTypeName, duration, startTime });
 
       // TODO: split it into component commands, using some delimiter
 

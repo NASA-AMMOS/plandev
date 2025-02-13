@@ -17,7 +17,7 @@ import type {
   Time,
   VariableDeclaration,
 } from '@nasa-jpl/seq-json-schema/types';
-import { quoteEscape } from '../codemirror/codemirror-utils';
+import { quoteEscape } from './codemirror-utils';
 import { logError } from './logger';
 
 /**

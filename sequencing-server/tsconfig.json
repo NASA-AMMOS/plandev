@@ -9,8 +9,14 @@
     "lib": [
       "esnext"
     ],
+    "allowJs": false,
+    "checkJs": false,
     "module": "esnext",
     "resolveJsonModule": true,
-    "ignoreDeprecations": "5.0"
+    "ignoreDeprecations": "5.0",
+    "skipLibCheck": true,
+    "exactOptionalPropertyTypes": false,
+    "sourceMap": true,
+    "noUncheckedIndexedAccess": false
   }
 }

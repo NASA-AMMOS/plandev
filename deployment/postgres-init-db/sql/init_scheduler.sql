@@ -22,8 +22,10 @@ begin;
   \ir tables/scheduler/scheduling_specification/scheduling_specification.sql
   \ir tables/scheduler/scheduling_specification/scheduling_specification_goals.sql
   \ir tables/scheduler/scheduling_specification/scheduling_specification_conditions.sql
+  \ir tables/scheduler/scheduling_specification/scheduling_specification_user_sequence.sql
   \ir tables/scheduler/scheduling_specification/scheduling_model_specification_conditions.sql
   \ir tables/scheduler/scheduling_specification/scheduling_model_specification_goals.sql
+  \ir tables/scheduler/scheduling_specification/scheduling_model_specification_user_sequence.sql
 
   -- Scheduling Output
   \ir tables/scheduler/scheduling_run/scheduling_request.sql

@@ -1,8 +1,8 @@
+// Only using: getBalancedDuration, getDurationTimeComponents, parseDurationString, validateTime
+
 import { padStart } from 'lodash-es';
 import parseInterval from 'postgres-interval';
 import { TimeTypes } from './enums/time';
-import type { ActivityDirectiveId, ActivityDirectivesMap } from './types/activity';
-import type { SpanUtilityMaps, SpansMap } from './types/simulation';
 import type { DurationTimeComponents, ParsedDoyString, ParsedDurationString, ParsedYmdString } from './types/time';
 
 const ABSOLUTE_TIME = /^(\d{4})-(\d{3})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?$/;
@@ -526,77 +526,6 @@ export function convertUsToDurationString(durationUs: number, includeZeros: bool
   ]
     .filter(Boolean)
     .join(' ');
-}
-
-/**
- * Calculates an activity directive's start time recursively based on what it's anchored to.
- * @todo Calculate this in the database?
- */
-export function getActivityDirectiveStartTimeMs(
-  id: ActivityDirectiveId,
-  planStartTimeYmd: string,
-  planEndTimeDoy: string,
-  activityDirectivesMap: ActivityDirectivesMap,
-  spansMap: SpansMap,
-  spanUtilityMaps: SpanUtilityMaps,
-  cachedStartTimes: { [activityDirectiveId: ActivityDirectiveId]: number } = {},
-  traversalMap: { [activityDirectiveId: ActivityDirectiveId]: boolean } = {},
-): number | never {
-  // If the start time has already been determined in an earlier iteration
-  if (cachedStartTimes[id]) {
-    return cachedStartTimes[id];
-  }
-
-  const activityDirective = activityDirectivesMap[id];
-
-  if (activityDirective) {
-    const { anchored_to_start, anchor_id } = activityDirective;
-
-    if (anchor_id != null) {
-      if (traversalMap[anchor_id]) {
-        throw Error(`Cycle detected with Activity Directive: ${anchor_id}`);
-      }
-
-      const anchoredSpanId = spanUtilityMaps.directiveIdToSpanIdMap[anchor_id];
-      const anchoredSpan = spansMap[anchoredSpanId];
-
-      const anchoredStartTimeMs = getUnixEpochTimeFromInterval(
-        new Date(
-          getUnixEpochTimeFromInterval(
-            new Date(
-              getActivityDirectiveStartTimeMs(
-                anchor_id,
-                planStartTimeYmd,
-                planEndTimeDoy,
-                activityDirectivesMap,
-                spansMap,
-                spanUtilityMaps,
-                cachedStartTimes,
-                { ...traversalMap, [anchor_id]: true },
-              ),
-            ).toISOString(),
-            anchored_to_start ? '0' : anchoredSpan?.duration ?? '0',
-          ),
-        ).toISOString(),
-        activityDirective.start_offset,
-      );
-
-      cachedStartTimes[anchoredSpanId] = anchoredStartTimeMs;
-
-      return anchoredStartTimeMs;
-    }
-
-    const startTimeFromPlanMs = getUnixEpochTimeFromInterval(
-      anchored_to_start ? planStartTimeYmd : `${new Date(getUnixEpochTime(planEndTimeDoy))}`, // TODO pass this in as a date instead of converting every time
-      activityDirective.start_offset,
-    );
-
-    cachedStartTimes[id] = startTimeFromPlanMs;
-
-    return startTimeFromPlanMs;
-  }
-
-  return new Date(planStartTimeYmd).getTime();
 }
 
 /**

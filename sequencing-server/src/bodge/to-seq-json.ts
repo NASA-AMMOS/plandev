@@ -282,6 +282,7 @@ function parseArg(
     }
     return arg;
   }
+  return;
 }
 
 function parseRepeatArgs(
@@ -405,7 +406,9 @@ function parseTime(commandNode: SyntaxNode, text: string): Time {
       const { isNegative, days, hours, minutes, seconds, milliseconds } = getDurationTimeComponents(
         parseDurationString(timeTagEpochText, 'seconds'),
       );
-      tag = `${isNegative}${days}${days ? 'T' : ''}${hours}:${minutes}:${seconds}${milliseconds ? '.' : ''}${milliseconds}`;
+      tag = `${isNegative}${days}${days ? 'T' : ''}${hours}:${minutes}:${seconds}${
+        milliseconds ? '.' : ''
+      }${milliseconds}`;
       return { tag, type: 'EPOCH_RELATIVE' };
     }
 
@@ -425,7 +428,9 @@ function parseTime(commandNode: SyntaxNode, text: string): Time {
       const { isNegative, days, hours, minutes, seconds, milliseconds } = getDurationTimeComponents(
         parseDurationString(timeTagRelativeText, 'seconds'),
       );
-      tag = `${isNegative}${days}${days ? 'T' : ''}${hours}:${minutes}:${seconds}${milliseconds ? '.' : ''}${milliseconds}`;
+      tag = `${isNegative}${days}${days ? 'T' : ''}${hours}:${minutes}:${seconds}${
+        milliseconds ? '.' : ''
+      }${milliseconds}`;
       return { tag, type: 'COMMAND_RELATIVE' };
     }
 

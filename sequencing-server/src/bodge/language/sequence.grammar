@@ -1,0 +1,259 @@
+@top Sequence {
+  optSpace
+  (
+    commentLine* ~maybeComments
+    (IdDeclaration | ParameterDeclaration | LocalDeclaration | GenericDirective)
+  )*
+  commentLine* ~maybeComments
+  Metadata?
+  Commands?
+  ImmediateCommands?
+  HardwareCommands?
+}
+
+// Potential Improvements
+// maintainability - use @specialize on directives
+
+@precedence {
+  stemStart @cut
+}
+
+GenericDirective {
+  genericDirective (whiteSpace String)* newLine
+}
+
+IdDeclaration {
+  idDirective (whiteSpace (String | Enum | Number)?)? newLine
+}
+
+ParameterDeclaration {
+  (parameterDirective whiteSpace Variable{((Enum whiteSpace?) | (Enum whiteSpace? Object whiteSpace?))}+ newLine) |
+  (parameterStartDirective newLine (whiteSpace? Variable{((Enum whiteSpace?) | (Enum whiteSpace? Type { identifier } whiteSpace? ( (EnumName { identifier}) | (Range { String } (whiteSpace Values {String})? ) |  (EnumName { identifier} whiteSpace (Range { String } (whiteSpace Values {String})?) )? whiteSpace?)) )} newLine)* parameterEndDirective newLine ) 
+}
+
+LocalDeclaration {
+  (localsDirective whiteSpace Variable{((Enum whiteSpace?) | (Enum whiteSpace? Object whiteSpace?))}+ newLine) |
+  (localsStartDirective newLine (whiteSpace? Variable{((Enum whiteSpace?) | (Enum whiteSpace? Type { identifier } whiteSpace? ( (EnumName { identifier}) | (Range { String } (whiteSpace Values {String})? ) |  (EnumName { identifier} whiteSpace (Range { String } (whiteSpace Values {String})?) )? whiteSpace?)) )} newLine)* localsEndDirective newLine ) 
+
+}
+
+commandBlock {
+  (
+    step |
+    Request |
+    commentLine ~maybeComments
+  )+
+}
+
+step { Command | Activate | GroundBlock | GroundEvent | Load }
+
+commentLine {
+  LineComment newLine
+}
+
+optSpace {
+  (newLine | whiteSpace)?
+}
+
+Commands {
+  (LoadAndGoDirective newLine)?
+  commandBlock
+}
+
+ImmediateCommands {
+  immediateDirective newLine
+  commandBlock
+}
+
+HardwareCommands {
+  hardwareDirective newLine
+  commandBlock
+}
+
+TimeTag { TimeAbsolute | (TimeGroundEpoch Name { String } whiteSpace)  | TimeEpoch | TimeRelative  | TimeComplete }
+
+Args {
+  (whiteSpace (arg))* whiteSpace?
+}
+
+RepeatArg {
+  "[" (whiteSpace? arg)* whiteSpace? "]"
+}
+
+arg[@isGroup=Arguments] { Number | String | Boolean | Enum | RepeatArg }
+
+Command {
+  TimeTag?
+  Stem
+  Args
+  LineComment?
+  newLine
+  Metadata?
+  Models?
+}
+
+Activate { TimeTag activateDirective commonLoadActivate }
+
+Load { TimeTag loadDirective commonLoadActivate }
+
+commonLoadActivate {
+  "(" SequenceName { String } ")"
+  Args
+  LineComment?
+  newLine
+  Engine { engineDirective whiteSpace Number newLine }?
+  Epoch { epochDirective whiteSpace String newLine }?
+  Metadata?
+  Models?
+}
+
+GroundBlock { TimeTag groundBlockDirective commonGround }
+
+GroundEvent { TimeTag groundEventDirective commonGround }
+
+commonGround {
+  "(" GroundName { String } ")"
+  Args
+  LineComment?
+  newLine
+  Metadata?
+  Models?
+}
+
+Request {
+  TimeTag
+  requestStartDirective "(" RequestName { String } ")"
+  whiteSpace? LineComment? newLine
+  // json schema requires step+, catch error in linter for cleaner message
+  Steps { step* }
+  requestEndDirective newLine
+  Metadata?
+}
+
+Metadata {
+  MetaEntry {
+    metadataDirective
+    whiteSpace Key { String }
+    whiteSpace Value { metaValue }
+    newLine
+  }+
+}
+
+metaValue {
+  String | Number | Boolean | Null | Array | Object
+}
+
+Object { "{" (optSpace | list<Property>) "}" }
+Array  { "[" (optSpace | list<metaValue>) "]" }
+
+Property { PropertyName optSpace ":" optSpace metaValue }
+PropertyName[isolate] { String }
+
+list<item> { optSpace item (optSpace "," optSpace item)* optSpace }
+
+Models {
+  Model {
+    modelDirective
+    whiteSpace Variable { String }
+    whiteSpace Value { String | Number | Boolean }
+    whiteSpace Offset { String }
+    newLine
+  }+
+}
+
+Enum { identifier }
+
+Stem { !stemStart identifier }
+
+@tokens {
+  identifier { @asciiLetter (@asciiLetter| @digit | "_" | "-")* }
+
+  timeHhmmss { @digit@digit":"@digit@digit":"@digit@digit("."@digit+)? }
+
+  timeDOY { @digit@digit@digit"T"timeHhmmss }
+
+  timeSecond { $[1-9] @digit* ("."@digit+)? }
+
+  TimeAbsolute { 'A'@digit@digit@digit@digit"-"@digit@digit@digit"T"timeHhmmss whiteSpace }
+
+  TimeRelative { 'R'(timeSecond | timeDOY | timeHhmmss) whiteSpace}
+
+  TimeEpoch { 'E'$[+\-]?(timeSecond | timeDOY | timeHhmmss) whiteSpace}
+
+  TimeGroundEpoch { 'G'$[+\-]?(timeSecond | timeDOY | timeHhmmss) whiteSpace}
+
+  TimeComplete { 'C' whiteSpace }
+
+  String { '"' (!["\\] | "\\" _)* '"' }
+
+  hex { @digit | $[A-F] }
+
+  Number {
+    ("+" | "-")? (@digit ("_" | @digit)* ("." ("_" | @digit)*)? | "." @digit ("_" | @digit)*)
+    (("e" | "E") ("+" | "-")? ("_" | @digit)+)? |
+    @digit ("_" | @digit)* "n" |
+    "0x" (hex | "_")+ "n"?
+  }
+
+  TRUE { 'true' }
+  FALSE { 'false' }
+  Boolean { TRUE | FALSE }
+  Null { "null" }
+
+  LineComment { "#"![\n\r]* }
+
+  newLine { ($[ \t]* "\n")+ $[ \t]* |  (whiteSpace? @eof) }
+
+  whiteSpace { $[ \t]+ }
+
+  idDirective { "@ID" }
+  LoadAndGoDirective { "@LOAD_AND_GO"}
+  immediateDirective { "@IMMEDIATE" }
+  hardwareDirective { "@HARDWARE" }
+  localsDirective { "@LOCALS" }
+  localsStartDirective { "@LOCALS_BEGIN" }
+  localsEndDirective { "@LOCALS_END" }
+  parameterDirective { "@INPUT_PARAMS" }
+  parameterStartDirective { "@INPUT_PARAMS_BEGIN" }
+  parameterEndDirective { "@INPUT_PARAMS_END" }
+  activateDirective { "@ACTIVATE" }
+  loadDirective { "@LOAD" }
+  engineDirective { "@ENGINE" }
+  epochDirective { "@EPOCH" }
+  groundBlockDirective { "@GROUND_BLOCK" }
+  groundEventDirective { "@GROUND_EVENT" }
+  requestStartDirective { "@REQUEST_BEGIN" }
+  requestEndDirective { "@REQUEST_END" }
+  metadataDirective { "@METADATA" }
+  modelDirective { "@MODEL" }
+  genericDirective { "@"identifier }
+
+  @precedence { newLine, whiteSpace }
+
+  @precedence{ TimeAbsolute, TimeRelative, TimeEpoch, TimeComplete, TimeGroundEpoch, Boolean, identifier }
+
+  @precedence {
+    LoadAndGoDirective,
+    idDirective,
+    metadataDirective,
+    modelDirective,
+    immediateDirective,
+    hardwareDirective,
+    localsStartDirective
+    localsEndDirective
+    localsDirective,
+    parameterStartDirective,
+    parameterEndDirective,
+    parameterDirective,
+    activateDirective,
+    loadDirective,
+    groundBlockDirective,
+    groundEventDirective,
+    requestStartDirective,
+    requestEndDirective,
+    engineDirective,
+    epochDirective,
+    genericDirective,
+    identifier
+  }
+}

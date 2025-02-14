@@ -1,5 +1,4 @@
-import type { SyntaxNode, Tree } from '@lezer/common';
-import type { CommandDictionary, FswCommandArgument, FswCommandArgumentRepeat } from '@nasa-jpl/aerie-ampcs';
+import type { SyntaxNode } from '@lezer/common';
 import type {
   Activate,
   Args,
@@ -28,6 +27,7 @@ import { TimeTypes } from './enums/time';
 import { removeEscapedQuotes, unquoteUnescape } from './codemirror-utils';
 import { getBalancedDuration, getDurationTimeComponents, parseDurationString, validateTime } from './time';
 import { logInfo } from './logger';
+import { parser } from './language/sequence.grammar';
 
 const TOKEN_REPEAT_ARG = 'RepeatArg';
 
@@ -42,12 +42,8 @@ function seqJsonDefault(): SeqJson {
 /**
  * Walks the sequence parse tree and converts it to a valid Seq JSON object.
  */
-export async function sequenceToSeqJson(
-  node: Tree,
-  text: string,
-  commandDictionary: CommandDictionary | null,
-  sequenceName: string,
-): Promise<string> {
+export async function sequenceToSeqJson(text: string, sequenceName: string): Promise<string> {
+  const node = parser.parse(text);
   const baseNode = node.topNode;
   const seqJson: SeqJson = seqJsonDefault();
   const variableList: string[] = [];
@@ -65,7 +61,7 @@ export async function sequenceToSeqJson(
   let child = baseNode.getChild('Commands')?.firstChild;
   seqJson.steps = [];
   while (child) {
-    const step = parseStep(child, text, commandDictionary);
+    const step = parseStep(child, text);
     if (step) {
       seqJson.steps.push(step);
     }
@@ -78,7 +74,7 @@ export async function sequenceToSeqJson(
     baseNode
       .getChild('ImmediateCommands')
       ?.getChildren('Command')
-      .map(command => parseImmediateCommand(command, text, commandDictionary)) ?? undefined;
+      .map(command => parseImmediateCommand(command, text)) ?? undefined;
   seqJson.hardware_commands =
     baseNode
       .getChild('HardwareCommands')
@@ -88,7 +84,7 @@ export async function sequenceToSeqJson(
   seqJson.requests = baseNode
     .getChild('Commands')
     ?.getChildren('Request')
-    .map(requestNode => parseRequest(requestNode, text, commandDictionary));
+    .map(requestNode => parseRequest(requestNode, text));
   if (seqJson.requests?.length === 0) {
     seqJson.requests = undefined;
   }
@@ -96,7 +92,7 @@ export async function sequenceToSeqJson(
   return JSON.stringify(seqJson, null, 2);
 }
 
-function parseRequest(requestNode: SyntaxNode, text: string, commandDictionary: CommandDictionary | null): Request {
+function parseRequest(requestNode: SyntaxNode, text: string): Request {
   let ground_epoch = undefined;
   let time = undefined;
   const groundEpochNode = requestNode.getChild('TimeTag')?.getChild('TimeGroundEpoch');
@@ -115,7 +111,7 @@ function parseRequest(requestNode: SyntaxNode, text: string, commandDictionary: 
   if (stepsNode) {
     let stepNode = stepsNode.firstChild;
     while (stepNode) {
-      const step = parseStep(stepNode, text, commandDictionary);
+      const step = parseStep(stepNode, text);
       if (step) {
         steps.push(step);
       }
@@ -152,8 +148,7 @@ function parseGroundBlockEvent(stepNode: SyntaxNode, text: string): GroundBlock 
   const name = nameNode ? unquoteUnescape(text.slice(nameNode.from, nameNode.to)) : 'UNKNOWN';
 
   const argsNode = stepNode.getChild('Args');
-  // step not in dictionary, so not passing command dict
-  const args = argsNode ? parseArgs(argsNode, text, null, name) : [];
+  const args = argsNode ? parseArgs(argsNode, text) : [];
 
   const description = parseDescription(stepNode, text);
   const metadata = parseMetadata(stepNode, text);
@@ -177,8 +172,7 @@ function parseActivateLoad(stepNode: SyntaxNode, text: string): Activate | Load 
   const sequence = nameNode ? unquoteUnescape(text.slice(nameNode.from, nameNode.to)) : 'UNKNOWN';
 
   const argsNode = stepNode.getChild('Args');
-  // step not in dictionary, so not passing command dict
-  const args = argsNode ? parseArgs(argsNode, text, null, sequence) : [];
+  const args = argsNode ? parseArgs(argsNode, text) : [];
 
   const engine = parseEngine(stepNode, text);
   const epoch = parseEpoch(stepNode, text);
@@ -210,10 +204,10 @@ function parseEpoch(stepNode: SyntaxNode, text: string): string | undefined {
   return epochNode ? unquoteUnescape(text.slice(epochNode.from, epochNode.to)) : undefined;
 }
 
-function parseStep(child: SyntaxNode, text: string, commandDictionary: CommandDictionary | null): Step | null {
+function parseStep(child: SyntaxNode, text: string): Step | null {
   switch (child.name) {
     case 'Command':
-      return parseCommand(child, text, commandDictionary);
+      return parseCommand(child, text);
     case 'Activate':
     case 'Load':
       return parseActivateLoad(child, text);
@@ -221,9 +215,6 @@ function parseStep(child: SyntaxNode, text: string, commandDictionary: CommandDi
     case 'GroundEvent':
       return parseGroundBlockEvent(child, text);
   }
-  // Standalone comment nodes (not descriptions of steps), are not supported in the seq.json schema
-  // Until a schema change is coordinated, comments will dropped while writing out seq.json.
-  // Requests are parsed outside this block since they are not allowed to be nested.
   return null;
 }
 
@@ -241,111 +232,63 @@ function parseLGO(node: SyntaxNode): Metadata | undefined {
 function parseArg(
   node: SyntaxNode,
   text: string,
-  dictionaryArg: FswCommandArgument | null,
 ): BooleanArgument | HexArgument | NumberArgument | StringArgument | SymbolArgument | undefined {
   const nodeValue = text.slice(node.from, node.to);
 
   if (node.name === 'Boolean') {
     const value = nodeValue === 'true' ? true : false;
     const booleanArg: BooleanArgument = { type: 'boolean', value };
-    if (dictionaryArg) {
-      booleanArg.name = dictionaryArg.name;
-    }
     return booleanArg;
   } else if (node.name === 'Enum') {
     const value = nodeValue;
     const enumArg: SymbolArgument = { type: 'symbol', value };
-    if (dictionaryArg) {
-      enumArg.name = dictionaryArg.name;
-    }
     return enumArg;
   } else if (node.name === 'Number') {
     if (nodeValue.slice(0, 2) === '0x') {
       const hexArg: HexArgument = { type: 'hex', value: nodeValue };
-      if (dictionaryArg) {
-        hexArg.name = dictionaryArg.name;
-      }
       return hexArg;
     } else {
       const value = parseFloat(nodeValue);
       const numberArg: NumberArgument = { type: 'number', value };
-      if (dictionaryArg) {
-        numberArg.name = dictionaryArg.name;
-      }
       return numberArg;
     }
   } else if (node.name === 'String') {
     const value = JSON.parse(nodeValue);
     const arg: StringArgument = { type: 'string', value };
-    if (dictionaryArg) {
-      arg.name = dictionaryArg.name;
-    }
     return arg;
   }
+  logInfo(`Could not parse arg value ${nodeValue} for node ${node.name}`);
   return;
 }
 
-function parseRepeatArgs(
-  repeatArgsNode: SyntaxNode,
-  text: string,
-  dictRepeatArgument: FswCommandArgumentRepeat | null,
-) {
-  const repeatArg: RepeatArgument = { name: dictRepeatArgument?.name, type: 'repeat', value: [] };
-  const repeatArgs = dictRepeatArgument?.repeat?.arguments;
-  const repeatArgsLength = repeatArgs?.length ?? Infinity;
-  let repeatArgNode: SyntaxNode | null = repeatArgsNode;
-
-  if (repeatArgNode) {
-    let args: RepeatArgument['value'][0] = [];
-    let argNode = repeatArgNode.firstChild;
-
-    let i = 0;
-    while (argNode) {
-      if (i % repeatArgsLength === 0) {
-        // [[1 2] [3 4]] in seq.json is flattened in seqN [1 2 3 4]
-        // dictionary definition is required to disambiguate
-        args = [];
-        repeatArg.value.push(args);
-      }
-      const arg = parseArg(argNode, text, repeatArgs?.[i % repeatArgsLength] ?? null);
-      if (arg) {
-        args.push(arg);
-      } else {
-        logInfo(`Could not parse arg for node with name ${argNode.name}`);
-      }
-
-      argNode = argNode.nextSibling;
-      i++;
+function parseRepeatArgs(repeatArgsNode: SyntaxNode, text: string): RepeatArgument {
+  let args: RepeatArgument['value'][0] = [];
+  let argNode = repeatArgsNode.firstChild;
+  while (argNode) {
+    const arg = parseArg(argNode, text);
+    if (arg) {
+      args.push(arg);
     }
-
-    repeatArgNode = repeatArgNode.nextSibling;
+    argNode = argNode.nextSibling;
   }
 
-  return repeatArg;
+  return { type: 'repeat', value: [args] };
 }
 
-function parseArgs(
-  argsNode: SyntaxNode,
-  text: string,
-  commandDictionary: CommandDictionary | null,
-  stem: string,
-): Args {
+function parseArgs(argsNode: SyntaxNode, text: string): Args {
   const args: Args = [];
   let argNode = argsNode.firstChild;
-  const dictArguments = commandDictionary?.fswCommandMap[stem]?.arguments ?? [];
-  let i = 0;
 
   while (argNode) {
-    const dictArg = dictArguments[i] ?? null;
     if (argNode.name === TOKEN_REPEAT_ARG) {
-      const arg = parseRepeatArgs(argNode, text, (dictArg as FswCommandArgumentRepeat) ?? null);
+      const arg = parseRepeatArgs(argNode, text);
       if (arg) {
         args.push(arg);
       } else {
         logInfo(`Could not parse repeat arg for node with name ${argNode.name}`);
       }
     } else {
-      const arg = parseArg(argNode, text, dictArg);
+      const arg = parseArg(argNode, text);
       if (arg) {
         args.push(arg);
       } else {
@@ -353,7 +296,6 @@ function parseArgs(
       }
     }
     argNode = argNode?.nextSibling;
-    ++i;
   }
 
   return args;
@@ -644,14 +586,14 @@ function parseDescription(node: SyntaxNode, text: string): string | undefined {
   return removeEscapedQuotes(description);
 }
 
-function parseCommand(commandNode: SyntaxNode, text: string, commandDictionary: CommandDictionary | null): Command {
+function parseCommand(commandNode: SyntaxNode, text: string): Command {
   const time = parseTime(commandNode, text);
 
   const stemNode = commandNode.getChild('Stem');
   const stem = stemNode ? text.slice(stemNode.from, stemNode.to) : 'UNKNOWN';
 
   const argsNode = commandNode.getChild('Args');
-  const args = argsNode ? parseArgs(argsNode, text, commandDictionary, stem) : [];
+  const args = argsNode ? parseArgs(argsNode, text) : [];
 
   const description = parseDescription(commandNode, text);
   const metadata: Metadata | undefined = parseMetadata(commandNode, text);
@@ -668,16 +610,12 @@ function parseCommand(commandNode: SyntaxNode, text: string, commandDictionary: 
   };
 }
 
-function parseImmediateCommand(
-  commandNode: SyntaxNode,
-  text: string,
-  commandDictionary: CommandDictionary | null,
-): ImmediateCommand {
+function parseImmediateCommand(commandNode: SyntaxNode, text: string): ImmediateCommand {
   const stemNode = commandNode.getChild('Stem');
   const stem = stemNode ? text.slice(stemNode.from, stemNode.to) : 'UNKNOWN';
 
   const argsNode = commandNode.getChild('Args');
-  const args = argsNode ? parseArgs(argsNode, text, commandDictionary, stem) : [];
+  const args = argsNode ? parseArgs(argsNode, text) : [];
 
   const description = parseDescription(commandNode, text);
   const metadata: Metadata | undefined = parseMetadata(commandNode, text);

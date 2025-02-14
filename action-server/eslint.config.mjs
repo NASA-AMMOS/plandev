@@ -11,4 +11,10 @@ const sheriffOptions = {
   "vitest": false
 };
 
-export default tseslint.config(sheriff(sheriffOptions));
+export default tseslint.config(sheriff(sheriffOptions),
+    {
+      rules: {
+        "@typescript-eslint/no-explicit-any": ["off"]
+      },
+    },
+);

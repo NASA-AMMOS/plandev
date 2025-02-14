@@ -6,7 +6,7 @@
     "build": "npm run lint; tsc -p tsconfig.json",
     "clean": "rm -rf build",
     "start": "ts-node src/app.ts",
-    "dev" : "nodemon --watch  src/**/* -e ts --exec 'node --inspect=0.0.0.0:9229 --require ts-node/register src/app.ts'",
+    "dev" : "nodemon --watch  src/**/*  -e ts --exec 'node --inspect=0.0.0.0:9229 --require ts-node/register src/app.ts'",
     "test": "node -r ts-node/register tests/*.test.ts",
     "lint": "eslint src/**/*.ts"
   },

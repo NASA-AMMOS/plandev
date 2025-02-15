@@ -12,9 +12,10 @@ app.use(express.json());
 app.post('/run-action', async (req, res) => {
   const actionJS = req.body.actionJS as string;
   const parameters = req.body.parameters as object
-  const jsRun = await jsExecute(actionJS);
-  // console.log(jsRun.console);
-  // console.log(jsRun.results);
+  const settings = req.body.settings as object
+  const authToken = req.header("authorization")
+  const jsRun = await jsExecute(actionJS,parameters,settings,authToken);
+
   res.send({
     results: jsRun.results,
     console : jsRun.console,

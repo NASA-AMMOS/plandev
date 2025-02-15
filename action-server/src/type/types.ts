@@ -10,6 +10,7 @@ export type ActionResponse = {
   errors : {
     stacktrace : string | undefined,
     message : string,
+    cause : unknown
   } | null // TODO: should this be an error array
 }
 

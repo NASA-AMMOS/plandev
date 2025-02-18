@@ -24,6 +24,7 @@ begin;
   \ir tables/sequencing/user_sequence_metadata.sql
   \ir tables/sequencing/user_sequence.sql
   \ir tables/sequencing/expanded_sequences.sql
+  \ir tables/sequencing/sequence_definition.sql
 
   -- Views
   \ir views/sequencing/expansion_set_rule_view.sql

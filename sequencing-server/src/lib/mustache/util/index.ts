@@ -75,12 +75,17 @@ Handlebars.registerHelper("formatAsDate", formatAsDate)
 export class Mustache {
     private template: HandlebarsTemplateDelegate<any>
 
-    constructor(template: string) {
+    constructor(template: string, language?: string) {
+        environment.language = language ?? environment.language
         this.template = Handlebars.compile(template)
     }
 
     public execute(data: any) {
         // TODO: AUTOMATICALLY FORMAT TIMES IN DATA
         return this.template(data)
+    }
+
+    public setLanguage(language: string) {
+        environment.language = language
     }
 }

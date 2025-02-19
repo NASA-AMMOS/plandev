@@ -10,7 +10,7 @@ import type { executeExpansionFromBuildArtifacts, typecheckExpansion } from './.
 import getLogger from './../utils/logger.js';
 import { InheritedError } from '../utils/InheritedError.js';
 import { unwrapPromiseSettledResults } from '../lib/batchLoaders/index.js';
-import { defaultSeqBuilder } from '../defaultSeqBuilder.js';
+import { seqJsonBuilder } from '../builders/seqJsonBuilder.js';
 import { ActivateStep, CommandStem, LoadStep, Sequence } from './../lib/codegen/CommandEDSLPreface.js';
 import { getUsername } from '../utils/hasura.js';
 import * as crypto from 'crypto';
@@ -821,7 +821,7 @@ commandExpansionRouter.post('/expand-all-activity-instances', async (req, res, n
 
       // This is here to easily enable a future feature of allowing the mission to configure their own sequence
       // building. For now, we just use the 'defaultSeqBuilder' until such a feature request is made.
-      const seqBuilder = defaultSeqBuilder;
+      const seqBuilder = seqJsonBuilder;
       const sequence = seqBuilder(sortedSimulatedActivitiesWithCommands, seqId, seqMetadata, simulationDatasetId);
 
       const { rows } = await db.query(

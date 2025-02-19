@@ -1,10 +1,10 @@
-import { ActivateStep, CommandStem, LoadStep, Sequence } from './lib/codegen/CommandEDSLPreface.js';
-import type { SeqBuilder } from './types/seqBuilder';
+import { ActivateStep, CommandStem, LoadStep, Sequence } from '../lib/codegen/CommandEDSLPreface.js';
+import type { SeqBuilder } from '../types/seqBuilder.js';
 
-type Command = CommandStem | ActivateStep | LoadStep; // in constrast to strings or other options in seqBuilder interface
+export type Command = CommandStem | ActivateStep | LoadStep; // in constrast to strings or other options in seqBuilder interface
 
-export const defaultSeqBuilder: SeqBuilder = (
-  sortedActivityInstancesWithCommands,
+export const seqJsonBuilder: SeqBuilder<Sequence> = (
+  expandedActivities,
   seqId,
   seqMetadata,
   simulationDatasetId,
@@ -20,7 +20,7 @@ export const defaultSeqBuilder: SeqBuilder = (
   let timeSorted = false;
   let previousTime: Temporal.Instant | undefined = undefined;
 
-  for (const ai of sortedActivityInstancesWithCommands) {
+  for (const ai of expandedActivities) {
     // If errors, no associated Expansion
     if (ai.errors !== null) {
       planId = ai?.simulationDataset.simulation?.planId;

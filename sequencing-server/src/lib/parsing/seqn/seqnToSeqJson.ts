@@ -1,3 +1,4 @@
+import { Sequence } from '../../codegen/CommandEDSLPreface.js';
 import type { SyntaxNode } from '@lezer/common';
 import type {
   Activate,
@@ -24,7 +25,7 @@ import type {
   VariableDeclaration,
 } from '@nasa-jpl/seq-json-schema/types';
 import { TimeTypes } from './enums/time';
-import { removeEscapedQuotes, unquoteUnescape } from './codemirror-utils';
+import { removeEscapedQuotes, unquoteUnescape } from './parse-utils';
 import { getBalancedDuration, getDurationTimeComponents, parseDurationString, validateTime } from './time';
 import { logInfo } from './logger';
 import { parser } from './language/sequence.grammar';
@@ -42,7 +43,7 @@ function seqJsonDefault(): SeqJson {
 /**
  * Walks the sequence parse tree and converts it to a valid Seq JSON object.
  */
-export async function sequenceToSeqJson(text: string, sequenceName: string): Promise<string> {
+export function sequenceToSeqJson(text: string, sequenceName: string): Sequence {
   const node = parser.parse(text);
   const baseNode = node.topNode;
   const seqJson: SeqJson = seqJsonDefault();
@@ -89,7 +90,7 @@ export async function sequenceToSeqJson(text: string, sequenceName: string): Pro
     seqJson.requests = undefined;
   }
 
-  return JSON.stringify(seqJson, null, 2);
+  return Sequence.new(seqJson);
 }
 
 function parseRequest(requestNode: SyntaxNode, text: string): Request {

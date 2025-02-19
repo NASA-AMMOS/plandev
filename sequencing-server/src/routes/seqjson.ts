@@ -2,7 +2,7 @@ import type { UserCodeError } from '@nasa-jpl/aerie-ts-user-code-runner';
 import { Context, db } from './../app.js';
 import express from 'express';
 import pgFormat from 'pg-format';
-import { defaultSeqBuilder } from './../defaultSeqBuilder.js';
+import { seqJsonBuilder } from '../builders/seqJsonBuilder.js';
 // @ts-ignore
 import schema from '@nasa-jpl/seq-json-schema/schema.json' assert { type: 'json' };
 import { ActivateStep, LoadStep } from './../lib/codegen/CommandEDSLPreface.js';
@@ -132,7 +132,7 @@ seqjsonRouter.post('/get-seqjson-for-seqid-and-simulation-dataset', async (req, 
 
   // This is here to easily enable a future feature of allowing the mission to configure their own sequence
   // building. For now, we just use the 'defaultSeqBuilder' until such a feature request is made.
-  const seqBuilder = defaultSeqBuilder; // TODO: make this compatible with strings too. also...why do we even have this? why not just pull from or update expanded sequences???
+  const seqBuilder = seqJsonBuilder; // TODO: make this compatible with strings too. also...why do we even have this? why not just pull from or update expanded sequences???
   const sequenceJson = seqBuilder(
     sortedSimulatedActivitiesWithCommands,
     seqId,
@@ -226,7 +226,7 @@ seqjsonRouter.post('/bulk-get-seqjson-for-seqid-and-simulation-dataset', async (
 
   // This is here to easily enable a future feature of allowing the mission to configure their own sequence
   // building. For now, we just use the 'defaultSeqBuilder' until such a feature request is made.
-  const seqBuilder = defaultSeqBuilder; // TODO: make this compatible with strings too. also...why do we even have this? why not just pull from or update expanded sequences???
+  const seqBuilder = seqJsonBuilder; // TODO: make this compatible with strings too. also...why do we even have this? why not just pull from or update expanded sequences???
 
   const promises = await Promise.allSettled(
     inputs.map(async ({ seqId, simulationDatasetId }) => {

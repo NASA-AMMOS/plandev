@@ -1,0 +1,50 @@
+table:
+  name: template_expansion_run
+  schema: sequencing
+configuration:
+  custom_name: "template_expansion_run"
+#object_relationships:
+#  - name: merlin.mission_model
+#    using:
+#      foreign_key_constraint_on: model_id
+#  - name: simulation_dataset
+#    using:
+#      foreign_key_constraint_on: simulation_dataset_id
+#array_relationships:
+#  - name: activity_instance_commands
+#    using:
+#      foreign_key_constraint_on:
+#        column: expansion_run_id
+#        table:
+#          name: activity_instance_commands
+#          schema: sequencing
+#  - name: expanded_sequences
+#    using:
+#      foreign_key_constraint_on:
+#        column: expansion_run_id
+#        table:
+#          name: expanded_sequences
+#          schema: sequencing
+select_permissions:
+  - role: aerie_admin
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: user
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: viewer
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+delete_permissions:
+  - role: aerie_admin
+    permission:
+      filter: {}
+  - role: user
+    permission:
+      filter: {}

@@ -407,14 +407,26 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
 
   //  1. Load simulated actvities
   const simulationDatasetId = req.body.input.simulationDatasetId as number;
-  const expansionSetId = req.body.input.expansionSetId as number;
-  const [simulatedActivities] = await Promise.all([
+  const modelId = req.body.input.modelId as number;
+  const expansionSetId = req.body.expansionSetId as number; // TODO: figure out a workaround for this, especially because of step 4...
+  
+  console.log("loading batches", simulationDatasetId, expansionSetId, modelId)
+  console.log("????")
+  logger.info("loading batches")
+  const [simulatedActivities, sequenceTemplates] = await Promise.all([
     context.simulatedActivitiesDataLoader.load({ simulationDatasetId }),
+    context.sequenceTemplateDataLoader.load({ modelId }),
   ]);
 
-  //  2. TODO: FIX - Fake the step that correlates each simulated activity with the rule from the expansion set. Just use the same template each time, but maybe fill in the input based on simulated activity
-  const activityTypeNameToRule: { [name: string]: string } = {
-    "ACS_Eclipse": defaultTemplate
+  //  2. Correlate each simulated activity with the rule from the expansion set.
+  const activityTypeNameToRule: { [name: string]: string } = { }
+  for (const entry of sequenceTemplates) {
+    let name = entry.activity_type;
+    let definition = entry.template_definition;
+    if (name in activityTypeNameToRule) {
+      console.log("ENCOUNTERED DEFINITION OVERLAP FOR SEQUENCE TEMPLATE: " + name)
+    }
+    activityTypeNameToRule[name] = definition;
   }
 
   //  3. create JSON object that adds command expansion to simulated activities
@@ -435,10 +447,11 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     const currentTemplate = activityTypeNameToRule[activityTypeName]
 
     if (currentTemplate) {
-      const template = new Mustache(defaultTemplate);
-      const commandString = template.execute({ name: activityTypeName, duration, startTime });
+      const template = new Mustache(defaultTemplate)
+      template.setLanguage("STOL") // can be in constructor too
+      const commandString = template.execute({ name: activityTypeName, duration, startTime })
 
-      // TODO: split it into component commands, using some delimiter
+      // TODO: split it into component commands, using some delimiter?
 
       const commands = []
       // iterate through component commands, only 1 for now
@@ -473,30 +486,31 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   }
   logger.info("___________________")
 
-  // 4. Update sequencing.expansion_run, and sequencing.activity_instance_commands
+  // 4. Update sequencing.expansion_run, and sequencing.activity_instance_commands_tpl
+  // TODO: use template_expansion_run
   const { rows } = await db.query(
     `
-        with expansion_run_id as (
-          insert into sequencing.expansion_run (simulation_dataset_id, expansion_set_id)
+        with template_expansion_run_id as (
+          insert into sequencing.template_expansion_run (simulation_dataset_id, model_id)
             values ($1, $2)
             returning id)
         insert
-        into sequencing.activity_instance_commands (expansion_run_id,
+        into sequencing.activity_instance_commands_tpl (template_expansion_run_id,
                                          activity_instance_id,
                                          commands,
                                          errors)
         select *
         from unnest(
-            array_fill((select id from expansion_run_id), array [array_length($3::int[], 1)]),
+            array_fill((select id from template_expansion_run_id), array [array_length($3::int[], 1)]),
             $3::int[],
             $4::jsonb[],
             $5::jsonb[]
           )
-        returning (select id from expansion_run_id);
+        returning (select id from template_expansion_run_id);
       `,
     [
       simulationDatasetId,
-      expansionSetId,
+      modelId,
       expandedActivities.map(result => result.value.activityInstance.id),
       expandedActivities.map(result => (result.value.commands !== null ? JSON.stringify(result.value.commands) : null)),
       expandedActivities.map(result => JSON.stringify(result.value.errors)),

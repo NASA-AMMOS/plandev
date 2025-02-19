@@ -1,0 +1,37 @@
+table:
+  name: activity_instance_commands_tpl
+  schema: sequencing
+configuration:
+  custom_name: "activity_instance_commands_tpl"
+object_relationships:
+- name: template_expansion_run
+  using:
+    foreign_key_constraint_on: template_expansion_run_id
+- name: activity_instance
+  using:
+    manual_configuration:
+      column_mapping:
+        activity_instance_id: span_id
+      remote_table:
+        name: span
+        schema: merlin
+select_permissions:
+  - role: aerie_admin
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: user
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: viewer
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+delete_permissions:
+  - role: aerie_admin
+    permission:
+      filter: {}

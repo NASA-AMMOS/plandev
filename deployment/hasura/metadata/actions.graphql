@@ -53,7 +53,7 @@ type Mutation {
 }
 
 type Mutation {
-  expandAllTemplates(simulationDatasetId: Int!, expansionSetId: Int!): ExpandAllSequencesResponse
+  expandAllTemplates(simulationDatasetId: Int!, modelId: Int!): ExpandAllSequencesResponse
 }
 
 type Query {

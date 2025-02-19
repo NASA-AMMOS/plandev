@@ -3,14 +3,16 @@ import type { UserCodeError } from '@nasa-jpl/aerie-ts-user-code-runner';
 import type { CommandStem, LoadStep, ActivateStep, Sequence } from '../lib/codegen/CommandEDSLPreface.js';
 import type { SimulatedActivity } from '../lib/batchLoaders/simulatedActivityBatchLoader';
 
-export interface SeqBuilder {
+export type ExpandedActivity<T> = SimulatedActivity & {
+  expansionProduct: T,
+  errors: ReturnType<UserCodeError['toJSON']>[] | null;
+};
+
+export interface SeqBuilder<T> {
   (
-    sortedActivityInstancesWithCommands: (SimulatedActivity & {
-      commands: (CommandStem | ActivateStep | LoadStep)[] | null | string[]; // todo, make less explicit. or make a command interface.
-      errors: ReturnType<UserCodeError['toJSON']>[] | null;
-    })[],
+    expandedActivities: ExpandedActivity<T>[],
     seqId: string,
     seqMetadata: Record<string, any>,
     simulationDatasetId: number,
-  ): Sequence;
+  ): T;
 }

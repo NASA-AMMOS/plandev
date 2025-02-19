@@ -173,6 +173,7 @@
 - "!include sequencing/user_sequence_metadata.yaml"
 - "!include sequencing/workspace.yaml"
 - "!include sequencing/sequence_definition.yaml"
+- "!include sequencing/sequence_template.yaml"
 
 ############
 #### UI ####

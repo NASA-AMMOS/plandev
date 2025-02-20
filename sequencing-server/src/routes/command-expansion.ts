@@ -793,7 +793,7 @@ commandExpansionRouter.post('/expand-all-activity-instances', async (req, res, n
         if (!row) {
           return {
             ...ai,
-            commands: null,
+            expansionResult: null,
             errors: null,
           };
         }
@@ -802,7 +802,7 @@ commandExpansionRouter.post('/expand-all-activity-instances', async (req, res, n
 
         return {
           ...ai,
-          commands:
+          expansionResult:
             row.commands?.map(c => {
               switch (c.type) {
                 case 'command':

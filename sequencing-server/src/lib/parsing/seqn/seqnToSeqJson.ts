@@ -43,7 +43,7 @@ function seqJsonDefault(): SeqJson {
 /**
  * Walks the sequence parse tree and converts it to a valid Seq JSON object.
  */
-export function sequenceToSeqJson(text: string, sequenceName: string): Sequence {
+export function seqnToSeqJson(text: string, sequenceName: string): Sequence {
   const node = parser.parse(text);
   const baseNode = node.topNode;
   const seqJson: SeqJson = seqJsonDefault();

@@ -1,24 +1,23 @@
-import type { CommandStem, LoadStep, ActivateStep } from '../lib/codegen/CommandEDSLPreface.js';
-import { sequenceToSeqJson } from '../lib/parsing/seqn/seqnToSeqJson.js';
+import { seqJsonToSequence } from '../lib/parsing/seqn/seqJsonToSeqn.js';
+import { seqnToSeqJson } from '../lib/parsing/seqn/seqnToSeqJson.js';
 import type { SeqBuilder, ExpandedActivity } from '../types/seqBuilder.js';
-import type {Command} from './seqJsonBuilder.js'
+import { Command, seqJsonBuilder } from './seqJsonBuilder.js';
 
-export const seqnBuilder: SeqBuilder<string> = (
-  sortedActivityInstancesWithCommands,
+export const seqnBuilder: SeqBuilder<string, string> = (
+  expandedActivities,
   seqId,
   seqMetadata,
   simulationDatasetId,
 ) => {
-  // TODO extract commands as SeqN
-
-  const pasedActivityInstanceCommands = sortedActivityInstancesWithCommands.map(seqnLinesToSeqJson)
-
-  // TODO parse SeqN to SeqJson
-  // TODO call seqJsonBuilder
-  // TODO write SeqJson to SeqN
+  const parsedExpandedActivities = expandedActivities.map(seqnActivityToSeqJson);
+  const mergedSequence = seqJsonBuilder(parsedExpandedActivities, seqId, seqMetadata, simulationDatasetId);
+  return seqJsonToSequence(mergedSequence);
 };
 
-function seqnLinesToSeqJson(instance: ExpandedActivity<string>): ExpandedActivity<Command> {
-  const seqN = instance.commands.join('\n');
-  return sequenceToSeqJson(seqN, "").steps ?? [];
+function seqnActivityToSeqJson(instance: ExpandedActivity<string>): ExpandedActivity<Command[]> {
+  return {
+    ...instance,
+    expansionResult: seqnToSeqJson(instance.expansionResult, '').steps as Command[],
+    errors: null,
+  };
 }

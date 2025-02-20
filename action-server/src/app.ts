@@ -47,5 +47,13 @@ const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
     },
   });
 };
-
 app.use(errorHandler);
+
+// temporary CORS middleware to allow access from all origins
+// TODO: set more strict CORS rules
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  next();
+});

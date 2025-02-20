@@ -9,6 +9,15 @@ const app = express();
 // Middleware for parsing JSON bodies
 app.use(express.json());
 
+// temporary CORS middleware to allow access from all origins
+// TODO: set more strict CORS rules
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+  next();
+});
+
 // Route for running a JS action
 app.post("/run-action", async (req, res) => {
   if (!isActionRunRequest(req.body)) {
@@ -48,12 +57,3 @@ const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
   });
 };
 app.use(errorHandler);
-
-// temporary CORS middleware to allow access from all origins
-// TODO: set more strict CORS rules
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  next();
-});

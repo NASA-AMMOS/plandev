@@ -181,6 +181,7 @@
 - "!include sequencing/sequence_filter.yaml"
 - "!include sequencing/sequence_template.yaml"
 - "!include sequencing/template_expansion_run.yaml"
+- "!include sequencing/expanded_templates.yaml"
 
 ############
 #### UI ####

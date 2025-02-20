@@ -312,7 +312,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   // FINAL VERSION STEPS
   //  1. Parse request. It should hold the expansion set ID and simulation ID
   //  2. load sequence expansion set and simulated activities
-  //      simulated activities take following form: 
+  //      simulated activities take following form:
   /*   [
   //     {
   //         "simulationDataset": {
@@ -402,17 +402,13 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   // CURRENT VERSION
   // For simplicity, no expansion set ID yet.
   const context: Context = res.locals['context'];
-  const defaultTemplate = "CMD {{formatAsDate startTime}} {{name}} {{duration}}"; //req.body.input.template;
+  // const defaultTemplate = "CMD {{formatAsDate startTime}} {{name}} {{duration}}"; //req.body.input.template;
   // const defaultInputs = { name: "Nils" } //JSON.parse(req.body.input.input);
 
   //  1. Load simulated actvities
   const simulationDatasetId = req.body.input.simulationDatasetId as number;
   const modelId = req.body.input.modelId as number;
-  const expansionSetId = req.body.expansionSetId as number; // TODO: figure out a workaround for this, especially because of step 4...
-  
-  console.log("loading batches", simulationDatasetId, expansionSetId, modelId)
-  console.log("????")
-  logger.info("loading batches")
+
   const [simulatedActivities, sequenceTemplates] = await Promise.all([
     context.simulatedActivitiesDataLoader.load({ simulationDatasetId }),
     context.sequenceTemplateDataLoader.load({ modelId }),
@@ -447,7 +443,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     const currentTemplate = activityTypeNameToRule[activityTypeName]
 
     if (currentTemplate) {
-      const template = new Mustache(defaultTemplate)
+      const template = new Mustache(currentTemplate)
       template.setLanguage("STOL") // can be in constructor too
       const commandString = template.execute({ name: activityTypeName, duration, startTime })
 
@@ -479,15 +475,14 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
           "commands": commands,
           "errors": errors
         },
-        "status": "fulfilled" // not sure how failure is gonna work...assuming if the template is bad or something 
+        "status": "fulfilled" // not sure how failure is gonna work...assuming if the template is bad or something
       })
     }
 
   }
   logger.info("___________________")
 
-  // 4. Update sequencing.expansion_run, and sequencing.activity_instance_commands_tpl
-  // TODO: use template_expansion_run
+  // 4. Update sequencing.template_expansion_run, and sequencing.activity_instance_commands_tpl
   const { rows } = await db.query(
     `
         with template_expansion_run_id as (
@@ -622,7 +617,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
 
       const { rows } = await db.query(
         `
-          insert into sequencing.expanded_sequences (expansion_run_id, seq_id, simulation_dataset_id, expanded_sequence)
+          insert into sequencing.expanded_templates (template_expansion_run_id, seq_id, simulation_dataset_id, expanded_sequence)
             values ($1, $2, $3, $4)
             returning id
       `,
@@ -632,12 +627,12 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
 
       if (rows.length < 1) {
         throw new Error(
-          `POST /command-expansion/expand-all-activity-instances: No expanded sequences were inserted into the database`,
+          `POST /command-expansion/expand-all-activity-instances: No expanded sequences (templates) were inserted into the database`,
         );
       }
       const expandedSequenceId = rows[0].id;
       logger.info(
-        `POST /command-expansion/expand-all-activity-instances: Inserted expanded sequence to the database: id=${expandedSequenceId}`,
+        `POST /command-expansion/expand-all-activity-instances: Inserted expanded sequence (templates) to the database: id=${expandedSequenceId}`,
       );
     }
   }

@@ -1,7 +1,8 @@
 import { seqJsonToSequence } from '../lib/parsing/seqn/seqJsonToSeqn.js';
 import { seqnToSeqJson } from '../lib/parsing/seqn/seqnToSeqJson.js';
 import type { SeqBuilder, ExpandedActivity } from '../types/seqBuilder.js';
-import { Command, seqJsonBuilder } from './seqJsonBuilder.js';
+import { seqJsonBuilder } from './seqJsonBuilder.js';
+import type { Command } from './seqJsonBuilder.js';
 
 export const seqnBuilder: SeqBuilder<string, string> = (
   expandedActivities,

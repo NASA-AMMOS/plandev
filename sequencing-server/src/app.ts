@@ -32,6 +32,7 @@ import { PluginManager } from './utils/PluginManager.js'
 import { DictionaryType } from './types/types.js';
 import type { ChannelDictionary, CommandDictionary, ParameterDictionary } from '@nasa-jpl/aerie-ampcs';
 import { sequenceTemplateBatchLoader } from './lib/batchLoaders/sequenceTemplateBatchLoader.js';
+import { sequenceFilterBatchLoader } from './lib/batchLoaders/sequenceFilterBatchLoader.js';
 
 const logger = getLogger('app');
 const PORT: number = parseInt(getEnv().PORT, 10) ?? 27184;
@@ -78,6 +79,7 @@ export type Context = {
   simulatedActivityInstanceBySimulatedActivityIdDataLoader: InferredDataloader<
     typeof simulatedActivityInstanceBySimulatedActivityIdBatchLoader
   >;
+  sequenceFilterDataLoader: InferredDataloader<typeof sequenceFilterBatchLoader>;
   sequenceTemplateDataLoader: InferredDataloader<typeof sequenceTemplateBatchLoader>;
   expansionSetDataLoader: InferredDataloader<typeof expansionSetBatchLoader>;
   expansionDataLoader: InferredDataloader<typeof expansionBatchLoader>;
@@ -121,6 +123,11 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
     ),
     sequenceTemplateDataLoader: new DataLoader(
       sequenceTemplateBatchLoader({
+        graphqlClient
+      })
+    ),
+    sequenceFilterDataLoader: new DataLoader(
+      sequenceFilterBatchLoader({
         graphqlClient
       })
     ),

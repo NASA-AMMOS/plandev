@@ -16,6 +16,7 @@ import { getUsername } from '../utils/hasura.js';
 import * as crypto from 'crypto';
 import type { SimulatedActivity } from '../lib/batchLoaders/simulatedActivityBatchLoader.js';
 import { Mustache } from '../lib/mustache/util/index.js';
+import { applyActivityLayerFilter } from '../lib/filters/utilities.js';
 
 const logger = getLogger('app');
 
@@ -400,6 +401,18 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
 
 
   // CURRENT VERSION
+
+  /**
+   * ARGUMENTS
+   * {
+   *    filterIds: [Int!]!,
+   *    simulationDatasetId: Int!,
+   *    modelId: Int!,
+   *    timeRangeStart: String!,
+   *    timeRangeEnd: String!
+   * }
+   */
+
   // For simplicity, no expansion set ID yet.
   const context: Context = res.locals['context'];
   // const defaultTemplate = "CMD {{formatAsDate startTime}} {{name}} {{duration}}"; //req.body.input.template;
@@ -408,11 +421,16 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   //  1. Load simulated actvities
   const simulationDatasetId = req.body.input.simulationDatasetId as number;
   const modelId = req.body.input.modelId as number;
+  const filterId = req.body.input.filterIds as number;
 
-  const [simulatedActivities, sequenceTemplates] = await Promise.all([
+  const [simulatedActivities, sequenceTemplates, sequenceFilter] = await Promise.all([
     context.simulatedActivitiesDataLoader.load({ simulationDatasetId }),
     context.sequenceTemplateDataLoader.load({ modelId }),
+    context.sequenceFilterDataLoader.load({ filterId })
   ]);
+
+  //  1.a. Filter the simulated activities
+  const filteredSimulatedActivities = applyActivityLayerFilter(sequenceFilter.filter, simulatedActivities)
 
   //  2. Correlate each simulated activity with the rule from the expansion set.
   const activityTypeNameToRule: { [name: string]: string } = { }
@@ -435,7 +453,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       "errors": string[]
     }
   }[] = []
-  for (const simulatedActivity of simulatedActivities) {
+  for (const simulatedActivity of filteredSimulatedActivities) {
     const activityTypeName = simulatedActivity["activityTypeName"]
     const duration = simulatedActivity["duration"]?.toString()
     const startTime = simulatedActivity["startTime"]?.toString()

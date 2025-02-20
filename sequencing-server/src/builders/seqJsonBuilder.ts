@@ -3,7 +3,9 @@ import type { SeqBuilder } from '../types/seqBuilder.js';
 
 export type Command = CommandStem | ActivateStep | LoadStep; // in constrast to strings or other options in seqBuilder interface
 
-export const seqJsonBuilder: SeqBuilder<Sequence> = (
+export type SeqJsonBuilder = SeqBuilder<Command[] | null, Sequence>
+
+export const seqJsonBuilder: SeqJsonBuilder = (
   expandedActivities,
   seqId,
   seqMetadata,
@@ -37,7 +39,7 @@ export const seqJsonBuilder: SeqBuilder<Sequence> = (
       }
 
       // Typeguard only
-      if (ai.commands === null) {
+      if (ai.expansionResult === null) {
         break;
       }
 
@@ -45,7 +47,7 @@ export const seqJsonBuilder: SeqBuilder<Sequence> = (
        * Look at the first command for each activity and check if it's relative, if so we shouldn't
        * sort later. Also convert any relative commands to absolute.
        */
-      for (const command of ai.commands) {
+      for (const command of ai.expansionResult) {
 
         const currentCommand = command instanceof CommandStem ? command as CommandStem : command instanceof LoadStep ? command as LoadStep : command as ActivateStep;
 
@@ -54,7 +56,7 @@ export const seqJsonBuilder: SeqBuilder<Sequence> = (
         if (
             currentCommand.GET_EPOCH_TIME() ||
             (!currentCommand.GET_ABSOLUTE_TIME() && !currentCommand.GET_EPOCH_TIME() && !currentCommand.GET_RELATIVE_TIME()) ||
-            (currentCommand.GET_RELATIVE_TIME() && (ai.commands as Command[]).indexOf(command as Command) === 0)
+            (currentCommand.GET_RELATIVE_TIME() && (ai.expansionResult as Command[]).indexOf(command as Command) === 0)
         ) {
           shouldSort = false; // Set the sorting flag to false
           break; // No need to continue checking other commands
@@ -71,7 +73,7 @@ export const seqJsonBuilder: SeqBuilder<Sequence> = (
         }
       }
 
-      allCommands = allCommands.concat(ai.commands as Command[]);
+      allCommands = allCommands.concat(ai.expansionResult as Command[]);
       // Keep track of the number of times we add commands to the allCommands list.
       activityInstaceCount++;
     }

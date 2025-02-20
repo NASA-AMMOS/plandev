@@ -105,13 +105,13 @@ seqjsonRouter.post('/get-seqjson-for-seqid-and-simulation-dataset', async (req, 
     if (!row) {
       return {
         ...ai,
-        commands: null,
+        expansionResult: null,
         errors: null,
       };
     }
     return {
       ...ai,
-      commands:
+      expansionResult:
         row.commands?.map(c => {
           switch (c.type) {
             case 'command':
@@ -269,13 +269,13 @@ seqjsonRouter.post('/bulk-get-seqjson-for-seqid-and-simulation-dataset', async (
         if (!row) {
           return {
             ...ai,
-            commands: null,
+            expansionResult: null,
             errors: null,
           };
         }
         return {
           ...ai,
-          commands:
+          expansionResult:
             row.commands?.map(c => {
               switch (c.type) {
                 case 'command':

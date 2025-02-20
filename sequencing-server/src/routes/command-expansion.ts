@@ -1,6 +1,7 @@
 import type { UserCodeError } from '@nasa-jpl/aerie-ts-user-code-runner';
 import pgFormat from 'pg-format';
-import { Context, db, piscina, promiseThrottler, typeCheckingCache } from './../app.js';
+import type { Context } from '../app.js';
+import { db, piscina, promiseThrottler, typeCheckingCache } from './../app.js';
 import { Result } from '@nasa-jpl/aerie-ts-user-code-runner/build/utils/monads.js';
 import express from 'express';
 import { serializeWithTemporal } from './../utils/temporalSerializers.js';
@@ -390,7 +391,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     let name = entry.activity_type;
     let definition = entry.template_definition;
     if (name in activityTypeNameToRule) {
-      console.log("ENCOUNTERED DEFINITION OVERLAP FOR SEQUENCE TEMPLATE: " + name)
+      console.log('ENCOUNTERED DEFINITION OVERLAP FOR SEQUENCE TEMPLATE: ' + name);
     }
     activityTypeNameToRule[name] = definition;
   }
@@ -408,7 +409,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       }
     }
   } = {}
-  
+
   for (const simulatedActivityId of Object.keys(allFilteredActivities).map(Number)) {
     if (allFilteredActivities[simulatedActivityId] && !expandedActivities[simulatedActivityId]) {
       const simulatedActivity: MustacheActivity = stringifyActivity(allFilteredActivities[simulatedActivityId])
@@ -427,7 +428,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
         // iterate through component commands, only 1 for now
         commands.push(commandString)
         // TODO: no handlebars error checks currently; functionality doesn't seem to exist? Unfortunately doesn't flag cases of the above note...
-        const errors: string[] = [] 
+        const errors: string[] = []
 
         // add to results
         expandedActivities[simulatedActivityId] = {
@@ -441,7 +442,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       }
     }
   }
-  logger.info("___________________")
+  logger.info('___________________');
 
   // 4. Having expanded each simulated activity, now iterate through each filter.
   let expandedSequencesByFilterId: { [seqId: string]: Sequence } = {}
@@ -501,7 +502,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       `,
         [simulationDatasetId, seqId, { steps: sequence.steps?.join('\n') }],
       );
-      logger.info("SEQUENCE INSERTED")
+      logger.info('SEQUENCE INSERTED');
 
       if (rows.length < 1) {
         throw new Error(
@@ -516,18 +517,17 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   }
 
   res.status(200).json({
-    success: true
+    success: true,
   });
 
   return next();
 });
 
 commandExpansionRouter.post('/expand-all-activity-instances', async (req, res, next) => {
-
-  logger.info("------------------")
-  logger.info(JSON.stringify(req.body))
-  logger.info(JSON.stringify(res.locals))
-  logger.info("------------------")
+  logger.info('------------------');
+  logger.info(JSON.stringify(req.body));
+  logger.info(JSON.stringify(res.locals));
+  logger.info('------------------');
 
   const context: Context = res.locals['context'];
 
@@ -648,7 +648,7 @@ commandExpansionRouter.post('/expand-all-activity-instances', async (req, res, n
     }),
   );
 
-  logger.info(`POST /command-expansion/expand-all-activity-instances:\n` + JSON.stringify(settledExpansionResults))
+  logger.info(`POST /command-expansion/expand-all-activity-instances:\n` + JSON.stringify(settledExpansionResults));
 
   const rejectedExpansionResults = settledExpansionResults.filter(isRejected).map(p => p.reason);
   if (rejectedExpansionResults.length) {
@@ -669,7 +669,7 @@ commandExpansionRouter.post('/expand-all-activity-instances', async (req, res, n
     errors: p.value.errors,
   }));
 
-  console.log(JSON.stringify(expandedActivityInstances))
+  console.log(JSON.stringify(expandedActivityInstances));
 
   // Store expansion run and activity instance commands in DB
   const { rows } = await db.query(
@@ -717,9 +717,9 @@ commandExpansionRouter.post('/expand-all-activity-instances', async (req, res, n
       select seq_id, simulated_activity_id
       from sequencing.sequence_to_simulated_activity
       where sequencing.sequence_to_simulated_activity.simulated_activity_id in (${pgFormat(
-      '%L',
-      expandedActivityInstances.map(eai => eai.id),
-    )})
+        '%L',
+        expandedActivityInstances.map(eai => eai.id),
+      )})
       and simulation_dataset_id = $1
     `,
     [simulationDatasetId],
@@ -731,9 +731,9 @@ commandExpansionRouter.post('/expand-all-activity-instances', async (req, res, n
         select metadata, seq_id, simulation_dataset_id
         from sequencing.sequence s
         where s.seq_id in (${pgFormat(
-        '%L',
-        seqToSimulatedActivity.rows.map(row => row.seq_id),
-      )})
+          '%L',
+          seqToSimulatedActivity.rows.map(row => row.seq_id),
+        )})
         and s.simulation_dataset_id = $1;
       `,
       [simulationDatasetId],
@@ -743,21 +743,25 @@ commandExpansionRouter.post('/expand-all-activity-instances', async (req, res, n
     const seqIdToSimActivityId: Record<string, Set<number>> = {};
 
     for (const row of seqToSimulatedActivity.rows) {
-
-      logger.info(`POST /command-expansion/expand-all-activity-instances:\n` + JSON.stringify(row))
+      logger.info(`POST /command-expansion/expand-all-activity-instances:\n` + JSON.stringify(row));
 
       if (seqIdToSimActivityId[row.seq_id] === undefined) {
         seqIdToSimActivityId[row.seq_id] = new Set();
       }
 
       seqIdToSimActivityId[row.seq_id]!.add(row.simulated_activity_id);
-      logger.info(`POST /command-expansion/expand-all-activity-instances:\n` + row.seq_id + " -> " + seqIdToSimActivityId[row.seq_id]?.size)
+      logger.info(
+        `POST /command-expansion/expand-all-activity-instances:\n` +
+          row.seq_id +
+          ' -> ' +
+          seqIdToSimActivityId[row.seq_id]?.size,
+      );
     }
 
-    logger.info(`POST /command-expansion/expand-all-activity-instances:\n` + JSON.stringify(seqIdToSimActivityId))
+    logger.info(`POST /command-expansion/expand-all-activity-instances:\n` + JSON.stringify(seqIdToSimActivityId));
 
     // If the user has created a sequence, we can try to save the expanded sequences when an expansion runs.
-    logger.info("ORIGINAL SIMULATED ACTIVITIES: " + JSON.stringify(simulatedActivities))
+    logger.info('ORIGINAL SIMULATED ACTIVITIES: ' + JSON.stringify(simulatedActivities));
     for (const seqRow of seqRows.rows) {
       const seqId = seqRow.seq_id;
       const seqMetadata = seqRow.metadata;

@@ -1,5 +1,4 @@
 {
-  "extends": "@tsconfig/node16-strictest-esm/tsconfig.json",
   "exclude": [
     "sequencing_file_store",
     "build",
@@ -9,12 +8,26 @@
     "lib": [
       "esnext"
     ],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node",
+    "allowUnusedLabels": false,
+    "allowUnreachableCode": false,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "verbatimModuleSyntax": false,
     "allowJs": false,
     "checkJs": false,
     "module": "esnext",
+    "target": "es2021",
     "resolveJsonModule": true,
     "ignoreDeprecations": "5.0",
-    "skipLibCheck": true,
     "exactOptionalPropertyTypes": false,
     "sourceMap": true,
     "noUncheckedIndexedAccess": false

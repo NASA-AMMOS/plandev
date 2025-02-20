@@ -1,7 +1,7 @@
 import { ActivateStep, CommandStem, LoadStep, Sequence } from '../lib/codegen/CommandEDSLPreface.js';
 import type { SeqBuilder } from '../types/seqBuilder.js';
 
-export type Command = CommandStem | ActivateStep | LoadStep; // in constrast to strings or other options in seqBuilder interface
+export type Command = CommandStem | ActivateStep | LoadStep;
 
 export type SeqJsonBuilder = SeqBuilder<Command[] | null, Sequence>
 

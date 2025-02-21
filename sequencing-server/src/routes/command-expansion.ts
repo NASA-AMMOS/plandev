@@ -259,58 +259,58 @@ commandExpansionRouter.post('/put-expansion-set', async (req, res, next) => {
   return next();
 });
 
-// currently no expansion_set_to_rule table....
-// TODO: remote
-commandExpansionRouter.post('/put-expansion-set-template', async (req, res, next) => {
-  const context: Context = res.locals['context'];
-  const username = getUsername(req.body.session_variables, req.headers.authorization);
+// // currently no expansion_set_to_rule table....
+// // TODO: remove
+// commandExpansionRouter.post('/put-expansion-set-template', async (req, res, next) => {
+//   const context: Context = res.locals['context'];
+//   const username = getUsername(req.body.session_variables, req.headers.authorization);
 
-  const parcelId = req.body.input.parcelId as number;
-  const missionModelId = req.body.input.missionModelId as number;
-  const description = req.body.input.description as string | null;
-  const name = req.body.input.name as string;
+//   const parcelId = req.body.input.parcelId as number;
+//   const missionModelId = req.body.input.missionModelId as number;
+//   const description = req.body.input.description as string | null;
+//   const name = req.body.input.name as string;
 
-  const [parcel] = await Promise.all([
-    context.parcelTypescriptDataLoader.load({ parcelId }),
-  ]);
+//   const [parcel] = await Promise.all([
+//     context.parcelTypescriptDataLoader.load({ parcelId }),
+//   ]);
 
-  if (!parcel) {
-    throw new InheritedError(`No parcel found with id: ${parcelId}`, {
-      name: 'ParcelNotFoundError',
-      stack: null,
-      // @ts-ignore  Message is not spread when it comes from an Error object because it's a getter
-      message: `No parcel found with id: ${parcelId}`,
-    });
-  }
+//   if (!parcel) {
+//     throw new InheritedError(`No parcel found with id: ${parcelId}`, {
+//       name: 'ParcelNotFoundError',
+//       stack: null,
+//       // @ts-ignore  Message is not spread when it comes from an Error object because it's a getter
+//       message: `No parcel found with id: ${parcelId}`,
+//     });
+//   }
 
-  if (!parcel.command_dictionary) {
-    throw new InheritedError(`No command dictionary within id: ${parcelId}`, {
-      name: 'CommandDictionaryNotFoundError',
-      stack: null,
-      // @ts-ignore  Message is not spread when it comes from an Error object because it's a getter
-      message: `No command dictionary within id: ${parcelId}`,
-    });
-  }
+//   if (!parcel.command_dictionary) {
+//     throw new InheritedError(`No command dictionary within id: ${parcelId}`, {
+//       name: 'CommandDictionaryNotFoundError',
+//       stack: null,
+//       // @ts-ignore  Message is not spread when it comes from an Error object because it's a getter
+//       message: `No command dictionary within id: ${parcelId}`,
+//     });
+//   }
 
-  // TODO: add step to verify that template is valid?
+//   // TODO: add step to verify that template is valid?
 
-  const { rows } = await db.query(
-    `
-      insert into sequencing.expansion_set (parcel_id, mission_model_id, description, owner, name)
-        values ($1, $2, $3, $4, $5)
-        returning id
-    `,
-    [parcelId, missionModelId, description ?? '', username, (name ?? '') + "_SequenceTemplates"],
-  );
+//   const { rows } = await db.query(
+//     `
+//       insert into sequencing.expansion_set (parcel_id, mission_model_id, description, owner, name)
+//         values ($1, $2, $3, $4, $5)
+//         returning id
+//     `,
+//     [parcelId, missionModelId, description ?? '', username, (name ?? '') + "_SequenceTemplates"],
+//   );
 
-  if (rows.length < 1) {
-    throw new Error(`POST /command-expansion/put-expansion-set: No expansion set was inserted in the database`);
-  }
-  const id = rows[0].id;
-  logger.info(`POST /command-expansion/put-expansion-set: Updated expansion set in the database: id=${id}`);
-  res.status(200).json({ id });
-  return next();
-});
+//   if (rows.length < 1) {
+//     throw new Error(`POST /command-expansion/put-expansion-set: No expansion set was inserted in the database`);
+//   }
+//   const id = rows[0].id;
+//   logger.info(`POST /command-expansion/put-expansion-set: Updated expansion set in the database: id=${id}`);
+//   res.status(200).json({ id });
+//   return next();
+// });
 
 commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, next) => {
   // FINAL VERSION STEPS
@@ -424,7 +424,9 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   //  1. Load simulated actvities
   console.log(req.body.input)
 
+  // needed to uniquely identify sequence templates, along with activity type
   const modelId = req.body.input.modelId as number;
+  const parcelId = req.body.input.parcelId as number;
 
   // these two uniquely identify a given expanded template.
   const filterIds = req.body.input.filterIds as number[]; // TODO: remove duplicates, if they're even possible
@@ -432,7 +434,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
 
   const [simulatedActivities, sequenceTemplates, sequenceFilters] = await Promise.all([
     context.simulatedActivitiesDataLoader.load({ simulationDatasetId }),
-    context.sequenceTemplateDataLoader.load({ modelId }),
+    context.sequenceTemplateDataLoader.load({ modelId, parcelId }), // TODO: should we not also take in the parcel id? 
     context.sequenceFilterDataLoader.loadMany(filterIds.map(filterId => {
       return { filterId }
     }))

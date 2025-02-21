@@ -22,5 +22,8 @@ create table sequencing.sequence_template (
     constraint "parcel_id -> sequencing.parcel.id" foreign key (parcel_id)
         references sequencing.parcel (id) match simple
         on update no action
-        on delete no action
+        on delete no action,
+
+  constraint only_one_template_per_model_activity_type
+      unique (model_id, activity_type)
 )

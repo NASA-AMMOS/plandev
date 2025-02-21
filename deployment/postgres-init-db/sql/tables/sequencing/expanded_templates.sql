@@ -18,7 +18,10 @@ create table sequencing.expanded_templates (
   constraint expanded_template_to_filter
       foreign key (filter_id)
         references sequencing.sequence_filter
-        on delete cascade
+        on delete cascade,
+
+  constraint only_one_expansion_per_filter_and_simulation_combo
+      unique (filter_id, simulation_dataset_id)
 );
 
 comment on table sequencing.expanded_templates is e''

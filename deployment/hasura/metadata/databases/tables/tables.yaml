@@ -154,7 +154,6 @@
 #### SEQUENCING ####
 ####################
 - "!include sequencing/activity_instance_commands.yaml"
-- "!include sequencing/activity_instance_commands_tpl.yaml"
 - "!include sequencing/channel_dictionary.yaml"
 - "!include sequencing/command_dictionary.yaml"
 - "!include sequencing/expansion_rule.yaml"
@@ -175,7 +174,6 @@
 - "!include sequencing/workspace.yaml"
 - "!include sequencing/sequence_filter.yaml"
 - "!include sequencing/sequence_template.yaml"
-- "!include sequencing/template_expansion_run.yaml"
 - "!include sequencing/expanded_templates.yaml"
 
 ############

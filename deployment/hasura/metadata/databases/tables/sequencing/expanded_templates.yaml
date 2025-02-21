@@ -4,13 +4,12 @@ table:
 configuration:
   custom_name: "expanded_templates"
 object_relationships:
-  - name: template_expansion_run
+  - name: sequence_filter
     using:
-      foreign_key_constraint_on: template_expansion_run_id
-  - name: sequence
+      foreign_key_constraint_on: filter_id
+  - name: simulation_dataset
     using:
       foreign_key_constraint_on:
-        - seq_id
         - simulation_dataset_id
 select_permissions:
   - role: aerie_admin

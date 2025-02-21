@@ -26,8 +26,6 @@ begin;
   \ir tables/sequencing/expanded_sequences.sql
   \ir tables/sequencing/sequence_filter.sql
   \ir tables/sequencing/sequence_template.sql
-  \ir tables/sequencing/template_expansion_run.sql
-  \ir tables/sequencing/activity_instance_commands_tpl.sql
   \ir tables/sequencing/expanded_templates.sql
 
   -- Views

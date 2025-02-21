@@ -80,34 +80,37 @@ commandExpansionRouter.post('/put-expansion', async (req, res, next) => {
 // TODO: re-evaluate how this works, and then integrate with AERIE UI when editor is done
 //      should just fill in the sequence_template table. nothing else
 commandExpansionRouter.post('/put-template', async (req, res, next) => {
-  const activityTypeName = req.body.input.activityTypeName as string;
-  // TODO: add a step to verify expansion logic? that its valid mustache?
-  const expansionLogic = req.body.input.expansionLogic as string;
+  const name = req.body.input.name as string;
   const parcelId = req.body.input.parcelId as number | null;
-  const authoringMissionModelId = req.body.input.authoringMissionModelId as number | null;
+  const modelId = req.body.input.modelId as number | null;
+  const activityTypeName = req.body.input.activityTypeName as string;
+  const language = req.body.input.language as string;
+  const username = getUsername(req.body.session_variables, req.headers.authorization);
 
-  if (authoringMissionModelId == null || parcelId == null) {
+  // TODO: add a step to verify expansion logic? that its valid mustache?
+  const templateDefinition = req.body.input.templateDefinition as string;
+
+  // TODO: more error checking, with clear messages
+  if (modelId == null || parcelId == null) {
     res.status(500).json({ errors: ["Must include parcelId and authoringMissionModelId."] });
     return next();
   }
 
-  // table is the same as expansion_rule...for now
   const { rows } = await db.query(
     `
-    insert into sequencing.sequence_template (activity_type, expansion_logic, parcel_id,
-                                authoring_mission_model_id)
-    values ($1, $2, $3, $4)
+    insert into sequencing.sequence_template (name, model_id, parcel_id, template_definition, activity_type, language, owner)
+    values ($1, $2, $3, $4, $5, $6, $7)
     returning id;
   `,
-    [activityTypeName, expansionLogic, parcelId, authoringMissionModelId],
+    [name, modelId, parcelId, templateDefinition, activityTypeName, language, username],
   );
 
   if (rows.length < 1) {
-    throw new Error(`POST /put-template: No expansion was updated in the database`);
+    throw new Error(`POST /put-template: No template was updated in the database`);
   }
 
   const id = rows[0].id;
-  logger.info(`POST /put-template: Updated expansion in the database: id=${id}`);
+  logger.info(`POST /put-template: Updated template in the database: id=${id}`);
 
   res.status(200).json({ id });
   return next();
@@ -258,59 +261,6 @@ commandExpansionRouter.post('/put-expansion-set', async (req, res, next) => {
   res.status(200).json({ id });
   return next();
 });
-
-// // currently no expansion_set_to_rule table....
-// // TODO: remove
-// commandExpansionRouter.post('/put-expansion-set-template', async (req, res, next) => {
-//   const context: Context = res.locals['context'];
-//   const username = getUsername(req.body.session_variables, req.headers.authorization);
-
-//   const parcelId = req.body.input.parcelId as number;
-//   const missionModelId = req.body.input.missionModelId as number;
-//   const description = req.body.input.description as string | null;
-//   const name = req.body.input.name as string;
-
-//   const [parcel] = await Promise.all([
-//     context.parcelTypescriptDataLoader.load({ parcelId }),
-//   ]);
-
-//   if (!parcel) {
-//     throw new InheritedError(`No parcel found with id: ${parcelId}`, {
-//       name: 'ParcelNotFoundError',
-//       stack: null,
-//       // @ts-ignore  Message is not spread when it comes from an Error object because it's a getter
-//       message: `No parcel found with id: ${parcelId}`,
-//     });
-//   }
-
-//   if (!parcel.command_dictionary) {
-//     throw new InheritedError(`No command dictionary within id: ${parcelId}`, {
-//       name: 'CommandDictionaryNotFoundError',
-//       stack: null,
-//       // @ts-ignore  Message is not spread when it comes from an Error object because it's a getter
-//       message: `No command dictionary within id: ${parcelId}`,
-//     });
-//   }
-
-//   // TODO: add step to verify that template is valid?
-
-//   const { rows } = await db.query(
-//     `
-//       insert into sequencing.expansion_set (parcel_id, mission_model_id, description, owner, name)
-//         values ($1, $2, $3, $4, $5)
-//         returning id
-//     `,
-//     [parcelId, missionModelId, description ?? '', username, (name ?? '') + "_SequenceTemplates"],
-//   );
-
-//   if (rows.length < 1) {
-//     throw new Error(`POST /command-expansion/put-expansion-set: No expansion set was inserted in the database`);
-//   }
-//   const id = rows[0].id;
-//   logger.info(`POST /command-expansion/put-expansion-set: Updated expansion set in the database: id=${id}`);
-//   res.status(200).json({ id });
-//   return next();
-// });
 
 commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, next) => {
   // FINAL VERSION STEPS

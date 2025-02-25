@@ -77,6 +77,57 @@ commandExpansionRouter.post('/put-expansion', async (req, res, next) => {
   return next();
 });
 
+commandExpansionRouter.post('/assign-activities-by-filter', async (req, res, next) => {
+  // 1. Grab filterId, simulationDatasetId, seqId (for later); load the filter and set of simulated activities
+  const context: Context = res.locals['context'];
+
+  const filterId = req.body.input.filterId as number; 
+  const simulationDatasetId = req.body.input.simulationDatasetId as number;
+  const seqId = req.body.input.seqId as number;
+
+  const [simulatedActivities, sequenceFilter] = await Promise.all([
+    context.simulatedActivitiesDataLoader.load({ simulationDatasetId }),
+    context.sequenceFilterDataLoader.load({ filterId })
+  ]);
+
+  // 2. Evaluate the filter, creating a set of filtered, simulated activities
+  // TODO: implement time window filtration
+  let filteredActivities: SimulatedActivity<Record<string, unknown>, Record<string, unknown>>[] = applyActivityLayerFilter(sequenceFilter.filter, simulatedActivities);
+
+  // 3. Create new entries in sequencing.seqeunce_to_simulated_activity for just the filtered, simulated activities and the passed-in seqId
+  //    3a. Create query:
+  let query = `
+      insert into sequencing.sequence_to_simulated_activity (simulated_activity_id, simulation_dataset_id, seq_id)
+        values
+`
+  for (const entry of filteredActivities.entries()) {
+    if (entry[0] === filteredActivities.length-1) {
+      query += `          (${entry[1].id}, ${simulationDatasetId}, '${seqId}')\n`
+    }
+    else {
+      query += `          (${entry[1].id}, ${simulationDatasetId}, '${seqId}'),\n`
+    }
+  }
+  query += `        returning simulated_activity_id;`
+
+  //    3b. Execute query:
+  const { rows } = await db.query(query);
+  if (rows.length < 1) {
+    throw new Error(
+      `POST /command-expansion/assign-activities-by-filter: Entries failed to be created for filtered activities.`,
+    );
+  }
+  logger.info(
+    `POST /command-expansion/expand-all-activity-instances: Inserted entries for filtered activities.`,
+  );
+
+  //    3c. Return
+  res.status(200).json({
+    success: true
+  });
+  return next();
+})
+
 // TODO: re-evaluate how this works, and then integrate with AERIE UI when editor is done
 //      should just fill in the sequence_template table. nothing else
 commandExpansionRouter.post('/put-template', async (req, res, next) => {
@@ -262,6 +313,7 @@ commandExpansionRouter.post('/put-expansion-set', async (req, res, next) => {
   return next();
 });
 
+// TODO: make use of seqId
 commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, next) => {
   // FINAL VERSION STEPS
   //  1. Parse request. It should hold the expansion set ID and simulation ID
@@ -366,18 +418,16 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
    * }
    */
 
-  // For simplicity, no expansion set ID yet.
   const context: Context = res.locals['context'];
   // const defaultTemplate = "CMD {{formatAsDate startTime}} {{name}} {{duration}}"; //req.body.input.template;
   // const defaultInputs = { name: "Nils" } //JSON.parse(req.body.input.input);
 
   //  1. Load simulated actvities
-  console.log(req.body.input)
-
   // needed to uniquely identify sequence templates, along with activity type
   const modelId = req.body.input.modelId as number;
   const parcelId = req.body.input.parcelId as number;
 
+  // TODO: take a seqId instead
   // these two uniquely identify a given expanded template.
   const filterIds = req.body.input.filterIds as number[]; // TODO: remove duplicates, if they're even possible
   const simulationDatasetId = req.body.input.simulationDatasetId as number;
@@ -390,6 +440,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }))
   ]);
 
+  // TODO: no longer filtering here. just pull from sequence_to_simulated_activity. filtering done with filters in above route, and manually to modify this table
   //  1a. Filter the simulated activities
   const simulatedActivityIdsByFilter: { [filter: number]: { id: number, startOffset: Temporal.Duration }[] } = {};
   let allFilteredActivities: { [id: number]: SimulatedActivity<Record<string, unknown>, Record<string, unknown>> } = []

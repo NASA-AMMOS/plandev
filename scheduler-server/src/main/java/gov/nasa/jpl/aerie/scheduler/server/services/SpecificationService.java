@@ -1,6 +1,6 @@
 package gov.nasa.jpl.aerie.scheduler.server.services;
 
-import gov.nasa.ammos.aerie.procedural.scheduling.SchedulingProcedureMapper;
+import gov.nasa.ammos.aerie.procedural.scheduling.ProcedureMapper;
 import gov.nasa.jpl.aerie.scheduler.ProcedureLoader;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSchedulingGoalException;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSpecificationException;
@@ -40,7 +40,7 @@ public record SpecificationService(SpecificationRepository specificationReposito
         // Do nothing
       }
       case GoalType.JAR jar -> {
-        final SchedulingProcedureMapper<?> mapper;
+        final ProcedureMapper<?> mapper;
         try {
           mapper = ProcedureLoader.loadProcedure(Path.of("/usr/src/app/merlin_file_store", jar.path().toString()));
         } catch (ProcedureLoader.ProcedureLoadException e) {

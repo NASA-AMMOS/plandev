@@ -9,11 +9,10 @@ import com.squareup.javapoet.TypeSpec;
 import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
-import gov.nasa.ammos.aerie.procedural.scheduling.SchedulingProcedureMapper;
+import gov.nasa.ammos.aerie.procedural.scheduling.ProcedureMapper;
 import gov.nasa.ammos.aerie.procedural.scheduling.annotations.SchedulingProcedure;
 import gov.nasa.ammos.aerie.procedural.scheduling.annotations.WithMappers;
 
-import gov.nasa.ammos.aerie.procedural.constraints.ConstraintProcedureMapper;
 import gov.nasa.ammos.aerie.procedural.constraints.annotations.ConstraintProcedure;
 
 import javax.annotation.processing.Completion;
@@ -47,7 +46,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 public final class ProcedureProcessor implements Processor {
   // Effectively final, late-initialized
@@ -147,7 +145,7 @@ public final class ProcedureProcessor implements Processor {
           .builder(generatedClassName.packageName() + ".procedures", TypeSpec
               .classBuilder(procedure.getSimpleName().toString())
               .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-              .addSuperinterface(ParameterizedTypeName.get(ClassName.get(SchedulingProcedureMapper.class), procedureType))
+              .addSuperinterface(ParameterizedTypeName.get(ClassName.get(ProcedureMapper.class), procedureType))
               .addMethod(MethodSpec
                              .methodBuilder("valueSchema")
                              .addModifiers(Modifier.PUBLIC)
@@ -193,7 +191,7 @@ public final class ProcedureProcessor implements Processor {
                              .builder(generatedClassName.packageName() + ".procedures", TypeSpec
                                  .classBuilder(procedure.getSimpleName().toString())
                                  .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-                                 .addSuperinterface(ParameterizedTypeName.get(ClassName.get(ConstraintProcedureMapper.class), procedureType))
+                                 .addSuperinterface(ParameterizedTypeName.get(ClassName.get(gov.nasa.ammos.aerie.procedural.constraints.ProcedureMapper.class), procedureType))
                                  .addMethod(MethodSpec
                                                 .methodBuilder("valueSchema")
                                                 .addModifiers(Modifier.PUBLIC)

@@ -6,8 +6,6 @@ import { SimulatedActivity } from "../batchLoaders/simulatedActivityBatchLoader"
 export function applyActivityLayerFilter(
     filter: ActivityLayerFilter | undefined,
     simulatedActivities: SimulatedActivity<Record<string, unknown>, Record<string, unknown>>[]
-    // types: ActivityType[],
-    // defaultArgumentsMap: DefaultEffectiveArgumentsMap,
 ): SimulatedActivity<Record<string, unknown>, Record<string, unknown>>[] {
     if (
         !filter ||
@@ -27,25 +25,15 @@ export function applyActivityLayerFilter(
         {},
     );
 
-    // const typeDefMap: Record<string, ActivityType> = (types || []).reduce(
-    //     (acc: Record<string, ActivityType>, cur: ActivityType) => {
-    //         acc[cur.name] = cur;
-    //         return acc;
-    //     },
-    //     {},
-    // );
-
     return simulatedActivities.filter(simAct => {
-        return applyFiltersToDirectiveOrSpan(simAct, filter, staticTypeMap) //, typeDefMap, defaultArgumentsMap);
+        return applyFiltersToDirectiveOrSpan(simAct, filter, staticTypeMap);
     });
 }
 
 function applyFiltersToDirectiveOrSpan(
     simulatedActivity: SimulatedActivity<Record<string, unknown>, Record<string, unknown>>,
     filter: ActivityLayerFilter,
-    staticTypeMap: Record<string, boolean>,
-    // typeDefMap: Record<string, ActivityType>,
-    // defaultArgumentsMap: DefaultEffectiveArgumentsMap,
+    staticTypeMap: Record<string, boolean>
 ) {
     const anyTypeFiltersSpecified = !!(filter.static_types?.length || filter.dynamic_type_filters?.length);
     const anyMainFiltersSpecified = anyTypeFiltersSpecified || !!filter.other_filters?.length;
@@ -61,15 +49,13 @@ function applyFiltersToDirectiveOrSpan(
         included = directiveOrSpanMatchesDynamicFilters(
             simulatedActivity,
             filter.dynamic_type_filters,
-            // typeDefMap,
-            // defaultArgumentsMap,
         );
     }
 
     // Apply other filters on top of the types
     if (filter.other_filters?.length) {
         included =
-            directiveOrSpanMatchesDynamicFilters(simulatedActivity, filter.other_filters) && //, typeDefMap, defaultArgumentsMap) &&
+            directiveOrSpanMatchesDynamicFilters(simulatedActivity, filter.other_filters) && 
             (anyTypeFiltersSpecified ? included : true);
     }
 
@@ -84,8 +70,6 @@ function applyFiltersToDirectiveOrSpan(
             directiveOrSpanMatchesDynamicFilters(
                 simulatedActivity,
                 filter.type_subfilters[simulatedActivity.activityTypeName] ?? [], // we know it shouldn't be undefined, though.
-                // typeDefMap,
-                // defaultArgumentsMap,
             ) && (anyMainFiltersSpecified ? included : true);
     }
     return included;

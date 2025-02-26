@@ -75,7 +75,7 @@ type Mutation {
 
 type Mutation {
   expandAllTemplates(
-    filterIds: [Int!]!,
+    seqIds: [String!]!,
     simulationDatasetId: Int!,
     modelId: Int!,
     parcelId: Int!

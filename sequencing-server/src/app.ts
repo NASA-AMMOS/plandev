@@ -15,6 +15,7 @@ import { parcelBatchLoader } from './lib/batchLoaders/parcelBatchLoader.js';
 import { InferredDataloader, objectCacheKeyFunction } from './lib/batchLoaders/index.js';
 import {
   simulatedActivitiesBatchLoader,
+  simulatedActivityInstanceBySeqIdBatchLoader,
   simulatedActivityInstanceBySimulatedActivityIdBatchLoader,
 } from './lib/batchLoaders/simulatedActivityBatchLoader.js';
 import { generateTypescriptForGraphQLActivitySchema } from './lib/codegen/ActivityTypescriptCodegen.js';
@@ -79,6 +80,9 @@ export type Context = {
   simulatedActivityInstanceBySimulatedActivityIdDataLoader: InferredDataloader<
     typeof simulatedActivityInstanceBySimulatedActivityIdBatchLoader
   >;
+  simulatedActivityInstanceBySeqIdBatchLoader: InferredDataloader<
+    typeof simulatedActivityInstanceBySeqIdBatchLoader
+  >;
   sequenceFilterDataLoader: InferredDataloader<typeof sequenceFilterBatchLoader>;
   sequenceTemplateDataLoader: InferredDataloader<typeof sequenceTemplateBatchLoader>;
   expansionSetDataLoader: InferredDataloader<typeof expansionSetBatchLoader>;
@@ -133,6 +137,16 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
     ),
     simulatedActivityInstanceBySimulatedActivityIdDataLoader: new DataLoader(
       simulatedActivityInstanceBySimulatedActivityIdBatchLoader({
+        graphqlClient,
+        activitySchemaDataLoader,
+      }),
+      {
+        cacheKeyFn: objectCacheKeyFunction,
+        name: null,
+      },
+    ),
+    simulatedActivityInstanceBySeqIdBatchLoader: new DataLoader(
+      simulatedActivityInstanceBySeqIdBatchLoader({
         graphqlClient,
         activitySchemaDataLoader,
       }),

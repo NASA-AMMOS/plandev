@@ -15,6 +15,14 @@ object_relationships:
       remote_table:
         name: simulated_activity
         schema: merlin
+- name: spans # these are treated as identically keyed, per simulatedActivityBatchLoader.ts. Doing this prevents a lot of extra hasura queries
+  using:
+    manual_configuration:
+      column_mapping:
+        simulated_activity_id: span_id
+      remote_table:
+        name: span
+        schema: merlin
 select_permissions:
   - role: aerie_admin
     permission:

@@ -1,7 +1,7 @@
 create table sequencing.expanded_templates (
   id integer generated always as identity,
 
-  filter_id int not null,
+  seq_id text not null,
   simulation_dataset_id int not null,
   expanded_template jsonb not null,
 
@@ -15,13 +15,13 @@ create table sequencing.expanded_templates (
       references merlin.simulation_dataset
       on delete cascade,
 
-  constraint expanded_template_to_filter
-      foreign key (filter_id)
-        references sequencing.sequence_filter
+  constraint expanded_template_to_sequence
+      foreign key (seq_id, simulation_dataset_id)
+        references sequencing.sequence
         on delete cascade,
 
-  constraint only_one_expansion_per_filter_and_simulation_combo
-      unique (filter_id, simulation_dataset_id)
+  constraint only_one_expansion_per_seq_and_simulation_combo
+      unique (seq_id, simulation_dataset_id)
 );
 
 comment on table sequencing.expanded_templates is e''

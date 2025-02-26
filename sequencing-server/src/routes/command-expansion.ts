@@ -17,6 +17,7 @@ import * as crypto from 'crypto';
 import type { SimulatedActivity } from '../lib/batchLoaders/simulatedActivityBatchLoader.js';
 import { Mustache } from '../lib/mustache/util/index.js';
 import { applyActivityLayerFilter } from '../lib/filters/utilities.js';
+import { convertDoyToYmd } from '../lib/mustache/util/time.js';
 
 const logger = getLogger('app');
 
@@ -78,12 +79,38 @@ commandExpansionRouter.post('/put-expansion', async (req, res, next) => {
 });
 
 commandExpansionRouter.post('/assign-activities-by-filter', async (req, res, next) => {
+  /**
+   * ARGUMENTS
+   * {
+   *    filterId: Int!,
+   *    simulationDatasetId: Int!,
+   *    seqId: Int!
+   *    timeRangeStart: String!,
+   *    timeRangeEnd: String!
+   * }
+   */
+
   // 1. Grab filterId, simulationDatasetId, seqId (for later); load the filter and set of simulated activities
   const context: Context = res.locals['context'];
 
-  const filterId = req.body.input.filterId as number; 
+  const filterId = req.body.input.filterId as number;
   const simulationDatasetId = req.body.input.simulationDatasetId as number;
   const seqId = req.body.input.seqId as number;
+  const timeRangeStart = Temporal.Instant.from(convertDoyToYmd(req.body.input.timeRangeStart));
+  const timeRangeEnd = Temporal.Instant.from(convertDoyToYmd(req.body.input.timeRangeEnd));
+
+  console.log(filterId)
+  console.log(simulationDatasetId)
+  console.log(seqId)
+  console.log(timeRangeStart)
+  console.log(timeRangeEnd)
+
+  // Verify that timeRangeStart < timeRangeEnd
+  if (timeRangeStart.epochMicroseconds > timeRangeEnd.epochMicroseconds) {
+    throw new Error(
+      `POST /command-expansion/assign-activities-by-filter: Provided start time (${timeRangeStart.toString()}) greater than end time (${timeRangeEnd.toString()}) for filtration.`,
+    );
+  }
 
   const [simulatedActivities, sequenceFilter] = await Promise.all([
     context.simulatedActivitiesDataLoader.load({ simulationDatasetId }),
@@ -91,8 +118,7 @@ commandExpansionRouter.post('/assign-activities-by-filter', async (req, res, nex
   ]);
 
   // 2. Evaluate the filter, creating a set of filtered, simulated activities
-  // TODO: implement time window filtration
-  let filteredActivities: SimulatedActivity<Record<string, unknown>, Record<string, unknown>>[] = applyActivityLayerFilter(sequenceFilter.filter, simulatedActivities);
+  let filteredActivities: SimulatedActivity<Record<string, unknown>, Record<string, unknown>>[] = applyActivityLayerFilter(sequenceFilter.filter, simulatedActivities, timeRangeStart, timeRangeEnd);
 
   // 3. Create new entries in sequencing.seqeunce_to_simulated_activity for just the filtered, simulated activities and the passed-in seqId
   //    3a. Create query:
@@ -101,7 +127,7 @@ commandExpansionRouter.post('/assign-activities-by-filter', async (req, res, nex
         values
 `
   for (const entry of filteredActivities.entries()) {
-    if (entry[0] === filteredActivities.length-1) {
+    if (entry[0] === filteredActivities.length - 1) {
       query += `          (${entry[1].id}, ${simulationDatasetId}, '${seqId}')\n`
     }
     else {

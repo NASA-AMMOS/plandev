@@ -214,7 +214,7 @@ export const simulatedActivityInstanceBySeqIdBatchLoader: BatchLoader<
             };
           }
         };
-        sequence_to_simulated_activity: { simulated_activity: GQLSpan }[];
+        sequence_to_simulated_activity: { spans: GQLSpan }[];
       };
     }[]
   >(
@@ -266,7 +266,7 @@ export const simulatedActivityInstanceBySeqIdBatchLoader: BatchLoader<
       }
 
       const simulatedActivities: GraphQLSimulatedActivityInstance[] = filteredSpans.map(span => {
-        const simulatedActivity = span.simulated_activity
+        const simulatedActivity = span.spans
         return {
           id: simulatedActivity.span_id,
           simulation_dataset_id: simulation_dataset.id,
@@ -279,6 +279,7 @@ export const simulatedActivityInstanceBySeqIdBatchLoader: BatchLoader<
           activity_type_name: simulatedActivity.activity_type_name,
         };
       });
+
       return Promise.all(
         simulatedActivities.map(async simulatedActivity =>
           mapGraphQLActivityInstance(

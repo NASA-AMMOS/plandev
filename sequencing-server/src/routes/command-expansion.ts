@@ -18,6 +18,7 @@ import type { SimulatedActivity } from '../lib/batchLoaders/simulatedActivityBat
 import { Mustache } from '../lib/mustache/util/index.js';
 import { applyActivityLayerFilter } from '../lib/filters/utilities.js';
 import { convertDoyToYmd } from '../lib/mustache/util/time.js';
+import { MustacheActivity, stringifyActivity } from '../lib/mustache/util/activity.js';
 
 const logger = getLogger('app');
 
@@ -96,14 +97,8 @@ commandExpansionRouter.post('/assign-activities-by-filter', async (req, res, nex
   const filterId = req.body.input.filterId as number;
   const simulationDatasetId = req.body.input.simulationDatasetId as number;
   const seqId = req.body.input.seqId as number;
-  const timeRangeStart = Temporal.Instant.from(convertDoyToYmd(req.body.input.timeRangeStart));
+  const timeRangeStart = Temporal.Instant.from(convertDoyToYmd(req.body.input.timeRangeStart)); // TODO: plan defaults if this is not passed?
   const timeRangeEnd = Temporal.Instant.from(convertDoyToYmd(req.body.input.timeRangeEnd));
-
-  console.log(filterId)
-  console.log(simulationDatasetId)
-  console.log(seqId)
-  console.log(timeRangeStart)
-  console.log(timeRangeEnd)
 
   // Verify that timeRangeStart < timeRangeEnd
   if (timeRangeStart.epochMicroseconds > timeRangeEnd.epochMicroseconds) {
@@ -358,17 +353,17 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   const modelId = req.body.input.modelId as number;
   const parcelId = req.body.input.parcelId as number;
   const simulationDatasetId = req.body.input.parcelId as number;
-  const seqIds = req.body.input.seqIds as number[]; // TODO: remove duplicates, if they're even possible
+  const seqIds = (req.body.input.seqIds as number[]).filter((val, index, arr) => arr.indexOf(val) == index); // remove duplicates, if they're even possible
 
   const [sequenceTemplates, filteredSimulatedActivitiesBySeqId] = await Promise.all([
-    context.sequenceTemplateDataLoader.load({ modelId, parcelId }), // TODO: should we not also take in the parcel id?
+    context.sequenceTemplateDataLoader.load({ modelId, parcelId }),
     context.simulatedActivityInstanceBySeqIdBatchLoader.loadMany(seqIds.map(seqId => {
       return { simulationDatasetId, seqId }
     }))
   ]);
 
   //    Pair seqId/SimulatedActivity lists; aggregate all simulated, filtered, activities
-  let seqIdToFilteredActivities: { [seqId: number]: { id: number, startOffset: Temporal.Duration }[] } = {};
+  let seqIdToFilteredActivities: { [seqId: string]: { id: number, startOffset: Temporal.Duration }[] } = {};
   let allFilteredActivities: { [id: number]: SimulatedActivity<Record<string, unknown>, Record<string, unknown>> } = [];
 
   for (const entry of seqIds.entries()) {
@@ -407,46 +402,32 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     {
       "status": string,
       "value": {
-        "activityInstance": SimulatedActivity<Record<string, unknown>, Record<string, unknown>>,
+        "activityInstance": MustacheActivity,
         "commands": string[],
         "errors": string[]
       }
     }
   } = {}
+  
   for (const simulatedActivityId of Object.keys(allFilteredActivities).map(Number)) {
-    const simulatedActivity = allFilteredActivities[simulatedActivityId]
-    if (simulatedActivity && !expandedActivities[simulatedActivityId]) {
+    if (allFilteredActivities[simulatedActivityId] && !expandedActivities[simulatedActivityId]) {
+      const simulatedActivity: MustacheActivity = stringifyActivity(allFilteredActivities[simulatedActivityId])
       const activityTypeName = simulatedActivity["activityTypeName"]
-      const duration = simulatedActivity["duration"]?.toString()
-      const startTime = simulatedActivity["startTime"]?.toString()
-      console.log(activityTypeName, duration, startTime, JSON.stringify(simulatedActivity))
       const currentTemplate = activityTypeNameToRule[activityTypeName]
-
       if (currentTemplate) {
+        // NOTE: if I have some gibberish as a variable that's obviously not defined, there will be no error.
+        //    i.e. "CMD {{ dsvsdfs }}" expands to "CMD ".
         const template = new Mustache(currentTemplate)
         template.setLanguage("STOL") // can be in constructor too
-        const commandString = template.execute({ name: activityTypeName, duration, startTime })
+        const commandString = template.execute(simulatedActivity)
 
         // TODO: split it into component commands, using some delimiter?
 
         const commands = []
         // iterate through component commands, only 1 for now
-        commands.push(commandString) // can parse this into SeqJSON, i.e. of the form:
-        /*
-          {
-              "args": [],
-              "stem": "BAKE_BREAD",
-              "time": {
-                  "type": "COMMAND_COMPLETE"
-              },
-              "type": "command",
-              "metadata": {
-                  "simulatedActivityId": 1
-              }
-          }
-        */
-
-        const errors: string[] = []
+        commands.push(commandString)
+        // TODO: no handlebars error checks currently; functionality doesn't seem to exist? Unfortunately doesn't flag cases of the above note...
+        const errors: string[] = [] 
 
         // add to results
         expandedActivities[simulatedActivityId] = {
@@ -463,12 +444,12 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   logger.info("___________________")
 
   // 4. Having expanded each simulated activity, now iterate through each filter.
-  let expandedSequencesByFilterId: { [filterId: number]: Sequence } = {}
-  for (const seqId of Object.keys(seqIdToFilteredActivities).map(Number)) {
+  let expandedSequencesByFilterId: { [seqId: string]: Sequence } = {}
+  for (const seqId of Object.keys(seqIdToFilteredActivities).map(String)) {
     // TODO: lots of repeated sorting. might want to do this upfront, and sort all of 'allfilteredactivities' before putting it in??? tbd
     if (seqIdToFilteredActivities[seqId] && !expandedSequencesByFilterId[seqId]) {
       let sortedActivityInstances = seqIdToFilteredActivities[seqId].sort((a, b) => Temporal.Duration.compare(a.startOffset, b.startOffset))
-      type SimulatedActivityWithCommands = SimulatedActivity<Record<string, unknown>, Record<string, unknown>> & {
+      type SimulatedActivityWithCommands = MustacheActivity & {
         commands: (CommandStem | ActivateStep | LoadStep)[] | null | string[];
         errors: ReturnType<UserCodeError["toJSON"]>[] | null;
       }
@@ -495,27 +476,23 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       // This is here to easily enable a future feature of allowing the mission to configure their own sequence
       // building. For now, we just use the 'defaultSeqBuilder' until such a feature request is made.
       logger.info("BUILDING SEQUENCE\n" + JSON.stringify(seqId) + " " + JSON.stringify(sortedSimulatedActivitiesWithCommands.length))
-      const seqBuilder = (sortedSimulatedActivitiesWithCommands: (SimulatedActivity & {
+      const seqBuilder = (sortedSimulatedActivitiesWithCommands: (MustacheActivity & {
         commands: (CommandStem | ActivateStep | LoadStep)[] | null | string[]; // todo, make less explicit. or make a command interface.
         errors: ReturnType<UserCodeError['toJSON']>[] | null;
-      })[], seqId: string, filterId: number, simulationDatasetId: number) => {
+      })[], seqId: string, simulationDatasetId: number) => {
         return Sequence.new({
           seqId: seqId,
           metadata: {
-            filterId,
             simulationDatasetId
           },
           steps: sortedSimulatedActivitiesWithCommands.length > 0 ? sortedSimulatedActivitiesWithCommands.map(ai => ai.commands).reduce((agg, curr, _) => ((agg ?? []) as string[]).concat((curr ?? []) as string[]) as string[]) : []
         })
       };
-      const sequence: Sequence = seqBuilder(sortedSimulatedActivitiesWithCommands, `${modelId} => (${seqId}, ${simulationDatasetId})`, seqId, simulationDatasetId);
+      const sequence: Sequence = seqBuilder(sortedSimulatedActivitiesWithCommands, seqId, simulationDatasetId);
       logger.info("SEQUENCE BUILT")
 
       // storage that may be useful later but is not now...
       expandedSequencesByFilterId[seqId] = sequence;
-
-      // TODO: change so that we only have simulation_dataset_id and filter_id; those two alone uniquely identify an expanded template.
-      //    get rid of template_expansion_run stuff as that is now irrelevant overhead, as we are implementing entirely new tables. similarly, forget about seq_id and such.
       const { rows } = await db.query(
         `
           insert into sequencing.expanded_templates (simulation_dataset_id, seq_id, expanded_template)

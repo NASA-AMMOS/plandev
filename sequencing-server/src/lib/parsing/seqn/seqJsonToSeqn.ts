@@ -146,25 +146,26 @@ function seqJsonDescriptionToSequence(description: Description): string {
 /**
  * Transforms a sequence JSON to a sequence string.
  */
-export function seqJsonToSequence(seqJson: Sequence): string {
-  const sequence: string[] = [];
+export function seqJsonToSeqn(sequence: Sequence): string {
+  const seqJson = sequence.toSeqJson()
+  const seqn: string[] = [];
 
   // ID
-  sequence.push(`@ID "${seqJson.id}"\n`);
+  seqn.push(`@ID "${seqJson.id}"\n`);
 
   //input params
   if (seqJson.parameters) {
-    sequence.push(seqJsonVariableToSequence(seqJson.parameters, 'INPUT_PARAMS'));
+    seqn.push(seqJsonVariableToSequence(seqJson.parameters, 'INPUT_PARAMS'));
   }
 
   //locals
   if (seqJson.locals) {
-    sequence.push(seqJsonVariableToSequence(seqJson.locals, 'LOCALS'));
+    seqn.push(seqJsonVariableToSequence(seqJson.locals, 'LOCALS'));
   }
 
   if (seqJson.metadata) {
     // remove lgo from metadata if it exists
-    sequence.push(
+    seqn.push(
       seqJsonMetadataToSequence(
         Object.entries(seqJson.metadata)
           .filter(([key]) => key !== 'lgo')
@@ -175,27 +176,27 @@ export function seqJsonToSequence(seqJson: Sequence): string {
 
   // Load and Go
   if (seqJson.metadata.lgo) {
-    sequence.push(`\n@LOAD_AND_GO`);
+    seqn.push(`\n@LOAD_AND_GO`);
   }
 
   // command, activate, load, ground block, ground event
   if (seqJson.steps) {
-    sequence.push(`\n`);
+    seqn.push(`\n`);
     for (const step of seqJson.steps) {
       switch (step.type) {
         case 'command': {
           // FSW Commands
-          sequence.push(commandToString(step));
+          seqn.push(commandToString(step));
           break;
         }
         case 'activate':
         case 'load': {
-          sequence.push(loadOrActivateToString(step));
+          seqn.push(loadOrActivateToString(step));
           break;
         }
         case 'ground_block':
         case 'ground_event': {
-          sequence.push(groundToString(step));
+          seqn.push(groundToString(step));
           break;
         }
       }
@@ -204,8 +205,8 @@ export function seqJsonToSequence(seqJson: Sequence): string {
 
   // Immediate Commands
   if (seqJson.immediate_commands) {
-    sequence.push(`\n`);
-    sequence.push(`@IMMEDIATE\n`);
+    seqn.push(`\n`);
+    seqn.push(`@IMMEDIATE\n`);
     for (const icmd of seqJson.immediate_commands) {
       const args = seqJsonArgsToSequence(icmd.args);
       const description = icmd.description ? seqJsonDescriptionToSequence(icmd.description) : '';
@@ -217,14 +218,14 @@ export function seqJsonToSequence(seqJson: Sequence): string {
       }
       // Add metadata data if it exists
       immediateString += metadata;
-      sequence.push(immediateString);
+      seqn.push(immediateString);
     }
   }
 
   // hardware commands
   if (seqJson.hardware_commands) {
-    sequence.push(`\n`);
-    sequence.push(`@HARDWARE\n`);
+    seqn.push(`\n`);
+    seqn.push(`@HARDWARE\n`);
     for (const hdw of seqJson.hardware_commands) {
       const description = hdw.description ? seqJsonDescriptionToSequence(hdw.description) : '';
       const metadata = hdw.metadata ? seqJsonMetadataToSequence(hdw.metadata) : '';
@@ -235,19 +236,19 @@ export function seqJsonToSequence(seqJson: Sequence): string {
       }
       // Add metadata data if it exists
       hardwareString += metadata;
-      sequence.push(hardwareString);
+      seqn.push(hardwareString);
     }
   }
 
   // requests
   if (seqJson.requests) {
     for (const request of seqJson.requests) {
-      sequence.push(`\n`);
-      sequence.push(requestToString(request));
+      seqn.push(`\n`);
+      seqn.push(requestToString(request));
     }
   }
 
-  return sequence.join('');
+  return seqn.join('');
 }
 
 function commandToString(step: Command) {

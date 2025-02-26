@@ -4,9 +4,11 @@ table:
 configuration:
   custom_name: "expanded_templates"
 object_relationships:
-  - name: sequence_filter
+  - name: sequence
     using:
-      foreign_key_constraint_on: filter_id
+      foreign_key_constraint_on:
+        - seq_id
+        - simulation_dataset_id
   - name: simulation_dataset
     using:
       foreign_key_constraint_on:

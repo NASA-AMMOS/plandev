@@ -42,7 +42,9 @@ type Mutation {
   assignActivitiesByFilter(
     filterId: Int!,
     simulationDatasetId: Int!,
-    seqId: String!
+    seqId: String!,
+    timeRangeStart: String!,
+    timeRangeEnd: String!
   ): AssignActivitiesByFilterResponse
 }
 
@@ -72,7 +74,12 @@ type Mutation {
 }
 
 type Mutation {
-  expandAllTemplates(filterIds: [Int!]!, simulationDatasetId: Int!, modelId: Int!, parcelId: Int!, timeRangeStart: String!, timeRangeEnd: String!): ExpandAllSequencesResponse
+  expandAllTemplates(
+    filterIds: [Int!]!,
+    simulationDatasetId: Int!,
+    modelId: Int!,
+    parcelId: Int!
+  ): ExpandAllSequencesResponse
 }
 
 type Query {

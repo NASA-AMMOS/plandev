@@ -5,7 +5,9 @@ import { SimulatedActivity } from "../batchLoaders/simulatedActivityBatchLoader"
 
 export function applyActivityLayerFilter(
     filter: ActivityLayerFilter | undefined,
-    simulatedActivities: SimulatedActivity<Record<string, unknown>, Record<string, unknown>>[]
+    simulatedActivities: SimulatedActivity<Record<string, unknown>, Record<string, unknown>>[],
+    timeRangeStart: Temporal.Instant,
+    timeRangeEnd: Temporal.Instant
 ): SimulatedActivity<Record<string, unknown>, Record<string, unknown>>[] {
     if (
         !filter ||
@@ -26,18 +28,35 @@ export function applyActivityLayerFilter(
     );
 
     return simulatedActivities.filter(simAct => {
-        return applyFiltersToDirectiveOrSpan(simAct, filter, staticTypeMap);
+        return applyFiltersToDirectiveOrSpan(simAct, filter, staticTypeMap, timeRangeStart, timeRangeEnd);
     });
 }
 
 function applyFiltersToDirectiveOrSpan(
     simulatedActivity: SimulatedActivity<Record<string, unknown>, Record<string, unknown>>,
     filter: ActivityLayerFilter,
-    staticTypeMap: Record<string, boolean>
+    staticTypeMap: Record<string, boolean>,
+    timeRangeStart: Temporal.Instant,
+    timeRangeEnd: Temporal.Instant
 ) {
     const anyTypeFiltersSpecified = !!(filter.static_types?.length || filter.dynamic_type_filters?.length);
     const anyMainFiltersSpecified = anyTypeFiltersSpecified || !!filter.other_filters?.length;
     let included = !anyMainFiltersSpecified;
+
+    // Check if directive fits in time range
+    // Currently, it only disqualifies if the start is out of range. If the end is out of range, it is included.
+    if (simulatedActivity.endTime) {
+        if (simulatedActivity.startTime.epochMicroseconds < timeRangeStart.epochMicroseconds ||
+            simulatedActivity.startTime.epochMicroseconds > timeRangeEnd.epochMicroseconds
+        ) {
+            return false;
+        }
+    }
+    else {
+        if (simulatedActivity.startTime.epochMicroseconds < timeRangeStart.epochMicroseconds) {
+            return false;
+        }
+    }
 
     // Check to see if directive is included in static list
     if (filter.static_types?.length) {

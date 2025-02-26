@@ -3,7 +3,7 @@ create table sequencing.expanded_templates (
 
   seq_id text not null,
   simulation_dataset_id int not null,
-  expanded_template jsonb not null,
+  expanded_template string not null,
 
   created_at timestamptz not null default now(),
 

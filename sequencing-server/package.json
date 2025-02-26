@@ -28,6 +28,7 @@
   "dependencies": {
     "@js-temporal/polyfill": "~0.4.3",
     "@lezer/common": "^1.2.3",
+    "@lezer/generator": "^1.7.2",
     "@nasa-jpl/aerie-ampcs": "~1.0.6",
     "@nasa-jpl/aerie-ts-user-code-runner": "~0.7.0",
     "@nasa-jpl/seq-json-schema": "1.0.20",

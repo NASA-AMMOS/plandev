@@ -28,7 +28,7 @@ import { TimeTypes } from './enums/time';
 import { removeEscapedQuotes, unquoteUnescape } from './parse-utils';
 import { getBalancedDuration, getDurationTimeComponents, parseDurationString, validateTime } from './time';
 import { logInfo } from './logger';
-import { parser } from './language/sequence.grammar';
+import { SeqnLanguage } from './language/seqn';
 
 const TOKEN_REPEAT_ARG = 'RepeatArg';
 
@@ -44,7 +44,7 @@ function seqJsonDefault(): SeqJson {
  * Walks the sequence parse tree and converts it to a valid Seq JSON object.
  */
 export function seqnToSeqJson(text: string, sequenceName: string): Sequence {
-  const node = parser.parse(text);
+  const node = SeqnLanguage.parser.parse(text);
   const baseNode = node.topNode;
   const seqJson: SeqJson = seqJsonDefault();
   const variableList: string[] = [];
@@ -90,7 +90,7 @@ export function seqnToSeqJson(text: string, sequenceName: string): Sequence {
     seqJson.requests = undefined;
   }
 
-  return Sequence.new(seqJson);
+  return Sequence.fromSeqJson(seqJson);
 }
 
 function parseRequest(requestNode: SyntaxNode, text: string): Request {

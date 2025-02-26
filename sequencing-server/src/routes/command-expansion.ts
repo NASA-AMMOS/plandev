@@ -12,14 +12,16 @@ import getLogger from './../utils/logger.js';
 import { InheritedError } from '../utils/InheritedError.js';
 import { unwrapPromiseSettledResults } from '../lib/batchLoaders/index.js';
 import { seqJsonBuilder } from '../builders/seqJsonBuilder.js';
-import { ActivateStep, CommandStem, LoadStep, Sequence } from './../lib/codegen/CommandEDSLPreface.js';
+import { ActivateStep, CommandStem, LoadStep } from './../lib/codegen/CommandEDSLPreface.js';
 import { getUsername } from '../utils/hasura.js';
 import * as crypto from 'crypto';
 import type { SimulatedActivity } from '../lib/batchLoaders/simulatedActivityBatchLoader.js';
 import { Mustache } from '../lib/mustache/util/index.js';
+import { seqnBuilder } from '../builders/seqnBuilder.js';
+import type { ExpandedActivity } from '../types/seqBuilder.js';
 import { applyActivityLayerFilter } from '../lib/filters/utilities.js';
 import { convertDoyToYmd } from '../lib/mustache/util/time.js';
-import { MustacheActivity, stringifyActivity } from '../lib/mustache/util/activity.js';
+import { stringifyActivity } from '../lib/mustache/util/activity.js';
 
 const logger = getLogger('app');
 
@@ -349,13 +351,17 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   // const defaultTemplate = "CMD {{formatAsDate startTime}} {{name}} {{duration}}"; //req.body.input.template;
   const context: Context = res.locals['context'];
 
-  //  1. Load simulated actvities
+  //  0. Extract stuff from request
   // needed to uniquely identify sequence templates, along with activity type
   const modelId = req.body.input.modelId as number;
   const parcelId = req.body.input.parcelId as number;
   const simulationDatasetId = req.body.input.parcelId as number;
   const seqIds = (req.body.input.seqIds as number[]).filter((val, index, arr) => arr.indexOf(val) == index); // remove duplicates, if they're even possible
 
+  const seqMetadata = {
+      simulationDatasetId
+  }
+  //  1. Load simulated activities and templates
   const [sequenceTemplates, filteredSimulatedActivitiesBySeqId] = await Promise.all([
     context.sequenceTemplateDataLoader.load({ modelId, parcelId }),
     context.simulatedActivityInstanceBySeqIdBatchLoader.loadMany(seqIds.map(seqId => {
@@ -363,7 +369,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }))
   ]);
 
-  //    Pair seqId/SimulatedActivity lists; aggregate all simulated, filtered, activities
+  //  2. Pair seqId/SimulatedActivity lists; aggregate all simulated, filtered, activities
   let seqIdToFilteredActivities: { [seqId: string]: { id: number, startOffset: Temporal.Duration }[] } = {};
   let allFilteredActivities: { [id: number]: SimulatedActivity<Record<string, unknown>, Record<string, unknown>> } = [];
 
@@ -371,12 +377,16 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     let index = entry[0]
     let seqId = entry[1]
 
+    // filteredActivities is a list of the SimulatedActivities for the current seqId
     const filteredActivities = filteredSimulatedActivitiesBySeqId[index]
     if (filteredActivities && !(filteredActivities instanceof Error)) {
+      // Extract just the id and start offset from each simulated activity
       seqIdToFilteredActivities[seqId] = filteredActivities.map(act => {
         return { id: act.id, startOffset: act.startOffset }
       });
 
+      // Add this simulated activity to allFilteredActivities if it's not already there
+      // TODO figure out whether we need to handle the case where a simulated activity is included with multiple seq IDs
       for (const simulatedActivity of filteredActivities) {
         if (!allFilteredActivities[simulatedActivity.id]) {
           allFilteredActivities[simulatedActivity.id] = simulatedActivity
@@ -385,135 +395,102 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }
   }
 
-  //  2. Correlate each simulated activity with the template for the given model.
-  const activityTypeNameToRule: { [name: string]: string } = {}
-  for (const entry of sequenceTemplates) {
-    let name = entry.activity_type;
-    let definition = entry.template_definition;
-    if (name in activityTypeNameToRule) {
-      console.log('ENCOUNTERED DEFINITION OVERLAP FOR SEQUENCE TEMPLATE: ' + name);
+  //  3. Correlate each simulated activity with the template for the given model.
+  const activityTypeNameToTemplate: { [name: string]: string } = {}
+  for (const sequenceTemplate of sequenceTemplates) {
+    // TODO maybe compile the templates here? Filter down to only compile templates we're going to use?
+    let activityTypeName = sequenceTemplate.activity_type;
+    let definition = sequenceTemplate.template_definition;
+    if (activityTypeName in activityTypeNameToTemplate) {
+      // Use the last template for a given activity type if multiple are defined
+      console.log('ENCOUNTERED DEFINITION OVERLAP FOR SEQUENCE TEMPLATE: ' + activityTypeName);
     }
-    activityTypeNameToRule[name] = definition;
+    activityTypeNameToTemplate[activityTypeName] = definition;
   }
 
-  //  3. create JSON object that adds command expansion to all filtered simulated activities
+  //  4. Build ExpandedActivity for each activity, a.k.a., run the template expansion for all activities
   logger.info("___________________")
   const expandedActivities: {
     [id: number]:
     {
       "status": string,
-      "value": {
-        "activityInstance": MustacheActivity,
-        "commands": string[],
-        "errors": string[]
-      }
+      "value": ExpandedActivity<string>
     }
   } = {}
 
   for (const simulatedActivityId of Object.keys(allFilteredActivities).map(Number)) {
     if (allFilteredActivities[simulatedActivityId] && !expandedActivities[simulatedActivityId]) {
-      const simulatedActivity: MustacheActivity = stringifyActivity(allFilteredActivities[simulatedActivityId])
-      const activityTypeName = simulatedActivity["activityTypeName"]
-      const currentTemplate = activityTypeNameToRule[activityTypeName]
+      const simulatedActivity = allFilteredActivities[simulatedActivityId];
+      const activityTypeName = simulatedActivity.activityTypeName;
+      const currentTemplate = activityTypeNameToTemplate[activityTypeName];
+
+      // If no template for this activity type, just continue
       if (currentTemplate) {
         // NOTE: if I have some gibberish as a variable that's obviously not defined, there will be no error.
         //    i.e. "CMD {{ dsvsdfs }}" expands to "CMD ".
         const template = new Mustache(currentTemplate)
         template.setLanguage("STOL") // can be in constructor too
-        const commandString = template.execute(simulatedActivity)
-
-        // TODO: split it into component commands, using some delimiter?
-
-        const commands = []
-        // iterate through component commands, only 1 for now
-        commands.push(commandString)
-        // TODO: no handlebars error checks currently; functionality doesn't seem to exist? Unfortunately doesn't flag cases of the above note...
-        const errors: string[] = []
+        const commandString = template.execute(stringifyActivity(simulatedActivity))
 
         // add to results
         expandedActivities[simulatedActivityId] = {
-          "value": {
-            "activityInstance": simulatedActivity,
-            "commands": commands,
-            "errors": errors
+          value: {
+            ...simulatedActivity,
+            expansionResult: commandString,
+            errors: null // TODO pass the errors once we have the errors
           },
-          "status": "fulfilled" // not sure how failure is gonna work...assuming if the template is bad or something
+          status: "fulfilled" // not sure how failure is gonna work...assuming if the template is bad or something
         }
       }
     }
   }
+
+  // 5. Having expanded each simulated activity, now iterate through each seqId to collect the expanded activities for that seqId
   logger.info('___________________');
+  let expandedSequencesBySeqId: { [seqId: string]: string } = {};
+  for (const seqId of Object.keys(seqIdToFilteredActivities)) {
 
-  // 4. Having expanded each simulated activity, now iterate through each filter.
-  let expandedSequencesByFilterId: { [seqId: string]: Sequence } = {}
-  for (const seqId of Object.keys(seqIdToFilteredActivities).map(String)) {
     // TODO: lots of repeated sorting. might want to do this upfront, and sort all of 'allfilteredactivities' before putting it in??? tbd
-    if (seqIdToFilteredActivities[seqId] && !expandedSequencesByFilterId[seqId]) {
-      let sortedActivityInstances = seqIdToFilteredActivities[seqId].sort((a, b) => Temporal.Duration.compare(a.startOffset, b.startOffset))
-      type SimulatedActivityWithCommands = MustacheActivity & {
-        commands: (CommandStem | ActivateStep | LoadStep)[] | null | string[];
-        errors: ReturnType<UserCodeError["toJSON"]>[] | null;
+    let sortedActivityInstances = seqIdToFilteredActivities[seqId].sort((a, b) => Temporal.Duration.compare(a.startOffset, b.startOffset))
+    const sortedSimulatedActivitiesWithCommands: ExpandedActivity<string>[] = sortedActivityInstances.reduce((result: ExpandedActivity<string>[], current) => {
+      const expandedActivity = expandedActivities[current.id];
+      if (!expandedActivity) {
+        // Case: this activity wasn't expanded because we didn't have a template for it
+        return result;
+      } else {
+        result.push(expandedActivity.value);
+        return result
       }
-      const sortedSimulatedActivitiesWithCommands: SimulatedActivityWithCommands[] = sortedActivityInstances.reduce((result: SimulatedActivityWithCommands[], current) => {
-        const expandedActivity = expandedActivities[current.id];
+    }, [])
+    logger.info(`POST /command-expansion/expand-all-activity-instances:\n` + JSON.stringify(sortedSimulatedActivitiesWithCommands))
 
-        if (!expandedActivity) {
-          return result;
-        }
+    // This is here to easily enable a future feature of allowing the mission to configure their own sequence
+    // building. For now, we just use the 'defaultSeqBuilder' until such a feature request is made.
+    logger.info("BUILDING SEQUENCE\n" + JSON.stringify(seqId) + " " + JSON.stringify(sortedSimulatedActivitiesWithCommands.length))
+    const sequence = seqnBuilder(sortedSimulatedActivitiesWithCommands, seqId, seqMetadata, simulationDatasetId);
+    logger.info("SEQUENCE BUILT")
 
-        else {
-          const errors = expandedActivity.value.errors as unknown;
-          const res: SimulatedActivityWithCommands = {
-            ...expandedActivity.value.activityInstance,
-            commands: expandedActivity.value.commands ?? null,
-            errors: errors as { message: string; stack: string; location: { line: number; column: number } }[],
-          }
-          result.push(res)
-          return result
-        }
-      }, [])
-      logger.info(`POST /command-expansion/expand-all-activity-instances:\n` + JSON.stringify(sortedSimulatedActivitiesWithCommands))
+    // storage that may be useful later but is not now...
+    expandedSequencesBySeqId[seqId] = sequence;
+    const { rows } = await db.query(
+      `
+        insert into sequencing.expanded_templates (simulation_dataset_id, seq_id, expanded_template)
+          values ($1, $2, $3)
+          returning id
+    `,
+      [simulationDatasetId, seqId, sequence],
+    );
+    logger.info('SEQUENCE INSERTED');
 
-      // This is here to easily enable a future feature of allowing the mission to configure their own sequence
-      // building. For now, we just use the 'defaultSeqBuilder' until such a feature request is made.
-      logger.info("BUILDING SEQUENCE\n" + JSON.stringify(seqId) + " " + JSON.stringify(sortedSimulatedActivitiesWithCommands.length))
-      const seqBuilder = (sortedSimulatedActivitiesWithCommands: (MustacheActivity & {
-        commands: (CommandStem | ActivateStep | LoadStep)[] | null | string[]; // todo, make less explicit. or make a command interface.
-        errors: ReturnType<UserCodeError['toJSON']>[] | null;
-      })[], seqId: string, simulationDatasetId: number) => {
-        return Sequence.new({
-          seqId: seqId,
-          metadata: {
-            simulationDatasetId
-          },
-          steps: sortedSimulatedActivitiesWithCommands.length > 0 ? sortedSimulatedActivitiesWithCommands.map(ai => ai.commands).reduce((agg, curr, _) => ((agg ?? []) as string[]).concat((curr ?? []) as string[]) as string[]) : []
-        })
-      };
-      const sequence: Sequence = seqBuilder(sortedSimulatedActivitiesWithCommands, seqId, simulationDatasetId);
-      logger.info("SEQUENCE BUILT")
-
-      // storage that may be useful later but is not now...
-      expandedSequencesByFilterId[seqId] = sequence;
-      const { rows } = await db.query(
-        `
-          insert into sequencing.expanded_templates (simulation_dataset_id, seq_id, expanded_template)
-            values ($1, $2, $3)
-            returning id
-      `,
-        [simulationDatasetId, seqId, { steps: sequence.steps?.join('\n') }],
-      );
-      logger.info('SEQUENCE INSERTED');
-
-      if (rows.length < 1) {
-        throw new Error(
-          `POST /command-expansion/expand-all-activity-instances: No expanded sequences (templates) were inserted into the database`,
-        );
-      }
-      const expandedSequenceId = rows[0].id;
-      logger.info(
-        `POST /command-expansion/expand-all-activity-instances: Inserted expanded sequence (templates) to the database: id=${expandedSequenceId}`,
+    if (rows.length < 1) {
+      throw new Error(
+        `POST /command-expansion/expand-all-sequence-templates: No expanded sequences (templates) were inserted into the database`,
       );
     }
+    const expandedSequenceId = rows[0].id;
+    logger.info(
+      `POST /command-expansion/expand-all-sequence-templates: Inserted expanded sequence (templates) to the database: id=${expandedSequenceId}`,
+    );
   }
 
   res.status(200).json({

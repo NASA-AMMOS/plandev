@@ -3,7 +3,7 @@ import type { SeqBuilder } from '../types/seqBuilder.js';
 
 export type Command = CommandStem | ActivateStep | LoadStep;
 
-export type SeqJsonBuilder = SeqBuilder<Command[] | null, Sequence>
+export type SeqJsonBuilder = SeqBuilder<Command[], Sequence>
 
 export const seqJsonBuilder: SeqJsonBuilder = (
   expandedActivities,

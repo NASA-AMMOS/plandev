@@ -6,16 +6,11 @@ create table sequencing.user_sequence (
   name text not null,
   owner text,
   parcel_id integer not null,
-  revision integer not null default 0,
   updated_at timestamptz not null default now(),
   workspace_id integer not null,
 
-  constraint user_sequence_primary_key primary key (sequence_id, revision),
+  constraint user_sequence_primary_key primary key (sequence_id),
 
-  foreign key (sequence_id)
-    references sequencing.user_sequence_metadata
-    on update cascade
-    on delete cascade,
   foreign key (parcel_id)
     references sequencing.parcel (id)
     on delete cascade,

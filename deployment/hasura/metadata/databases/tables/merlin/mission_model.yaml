@@ -84,13 +84,6 @@ array_relationships:
           schema: hasura
         column_mapping:
           id: model_id
-  - name: scheduling_model_specification_user_sequence
-    using:
-      foreign_key_constraint_on:
-        column: model_id
-        table:
-          name: scheduling_model_specification_user_sequence
-          schema: scheduler
 select_permissions:
   - role: aerie_admin
     permission:

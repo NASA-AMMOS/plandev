@@ -1,3 +1,8 @@
+// TODO: figure out language interface, and when to use which langauge, stemming from database and templates. 
+// TODO: fix up builder
+// TODO: make builder for STOL
+// TODO: in sql, make sure all templates in a given parcel use same language
+
 import type { UserCodeError } from '@nasa-jpl/aerie-ts-user-code-runner';
 import pgFormat from 'pg-format';
 import type { Context } from '../app.js';
@@ -100,7 +105,7 @@ commandExpansionRouter.post('/assign-activities-by-filter', async (req, res, nex
   const filterId = req.body.input.filterId as number;
   const simulationDatasetId = req.body.input.simulationDatasetId as number;
   const seqId = req.body.input.seqId as number;
-  const timeRangeStart = Temporal.Instant.from(convertDoyToYmd(req.body.input.timeRangeStart)); // TODO: plan defaults if this is not passed?
+  const timeRangeStart = Temporal.Instant.from(convertDoyToYmd(req.body.input.timeRangeStart));
   const timeRangeEnd = Temporal.Instant.from(convertDoyToYmd(req.body.input.timeRangeEnd));
 
   // Verify that timeRangeStart < timeRangeEnd
@@ -152,8 +157,7 @@ commandExpansionRouter.post('/assign-activities-by-filter', async (req, res, nex
   return next();
 })
 
-// TODO: re-evaluate how this works, and then integrate with AERIE UI when editor is done
-//      should just fill in the sequence_template table. nothing else
+// TODO: integrate with AERIE UI when editor is done
 commandExpansionRouter.post('/put-template', async (req, res, next) => {
   const name = req.body.input.name as string;
   const parcelId = req.body.input.parcelId as number | null;
@@ -162,12 +166,19 @@ commandExpansionRouter.post('/put-template', async (req, res, next) => {
   const language = req.body.input.language as string;
   const username = getUsername(req.body.session_variables, req.headers.authorization);
 
-  // TODO: add a step to verify expansion logic? that its valid mustache?
+  // if this makes use of helpers, which is possible, there's no easy way to verify this is valid mustache without
+  //    getting accurate sample input.
+  //    i.e. if I have a template "CMD {{ data }} " and pass it input={}, I'll get "CMD ", without error. BUT
+  //         if I have a template "CMD WHEN={{ clean-date date }}" and pass it input={}, I'll get a failure. 
+  //    Since this cannot be anticipated ahead of time, we don't pre-compile/verify here.
   const templateDefinition = req.body.input.templateDefinition as string;
 
-  // TODO: more error checking, with clear messages
   if (modelId == null || parcelId == null) {
     res.status(500).json({ errors: ["Must include parcelId and authoringMissionModelId."] });
+    return next();
+  }
+  if (["STOL", "SEQN"].indexOf(language) === -1) {
+    res.status(500).json({ errors: [`Invalid language ${language}; must be "STOL" or "SEQN".`] });
     return next();
   }
 
@@ -386,7 +397,8 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       });
 
       // Add this simulated activity to allFilteredActivities if it's not already there
-      // TODO figure out whether we need to handle the case where a simulated activity is included with multiple seq IDs
+      // TODO: figure out whether we need to handle the case where a simulated activity is included with multiple 
+      //        seq IDs in the frontend; it's supported here
       for (const simulatedActivity of filteredActivities) {
         if (!allFilteredActivities[simulatedActivity.id]) {
           allFilteredActivities[simulatedActivity.id] = simulatedActivity
@@ -395,21 +407,28 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }
   }
 
-  //  3. Correlate each simulated activity with the template for the given model.
-  const activityTypeNameToTemplate: { [name: string]: string } = {}
-  for (const sequenceTemplate of sequenceTemplates) {
-    // TODO maybe compile the templates here? Filter down to only compile templates we're going to use?
-    let activityTypeName = sequenceTemplate.activity_type;
-    let definition = sequenceTemplate.template_definition;
-    if (activityTypeName in activityTypeNameToTemplate) {
-      // Use the last template for a given activity type if multiple are defined
-      console.log('ENCOUNTERED DEFINITION OVERLAP FOR SEQUENCE TEMPLATE: ' + activityTypeName);
+  //  3. Create a list of all activity types that are being used.
+  const allActivityTypes: string[] = []
+  for (const entry of Object.entries(allFilteredActivities)) {
+    const activityTypeName = entry[1].activityTypeName
+    if (allActivityTypes.includes(activityTypeName)) {
+      allActivityTypes.push(activityTypeName)
     }
-    activityTypeNameToTemplate[activityTypeName] = definition;
   }
 
-  //  4. Build ExpandedActivity for each activity, a.k.a., run the template expansion for all activities
-  logger.info("___________________")
+  //  4. Correlate each activity type in use with the compiled template for the given model.
+  const activityTypeNameToTemplate: { [name: string]: Mustache } = {}
+  for (const sequenceTemplate of sequenceTemplates) {
+    let activityTypeName = sequenceTemplate.activity_type;
+
+    // by design, duplicate entries (2 templates for 1 activity type in a given model) are impossible. There is no check for it.
+    if (allActivityTypes.includes(activityTypeName)) {
+      let definition = sequenceTemplate.template_definition;
+      activityTypeNameToTemplate[activityTypeName] = new Mustache(definition);
+    }
+  }
+
+  //  5. Build ExpandedActivity for each activity, a.k.a., run the template expansion for all activities
   const expandedActivities: {
     [id: number]:
     {
@@ -428,9 +447,8 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       if (currentTemplate) {
         // NOTE: if I have some gibberish as a variable that's obviously not defined, there will be no error.
         //    i.e. "CMD {{ dsvsdfs }}" expands to "CMD ".
-        const template = new Mustache(currentTemplate)
-        template.setLanguage("STOL") // can be in constructor too
-        const commandString = template.execute(stringifyActivity(simulatedActivity))
+        currentTemplate.setLanguage("STOL") // can be in constructor too
+        const commandString = currentTemplate.execute(stringifyActivity(simulatedActivity))
 
         // add to results
         expandedActivities[simulatedActivityId] = {
@@ -445,12 +463,9 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }
   }
 
-  // 5. Having expanded each simulated activity, now iterate through each seqId to collect the expanded activities for that seqId
-  logger.info('___________________');
+  // 6. Having expanded each simulated activity, now iterate through each seqId to collect the expanded activities for that seqId
   let expandedSequencesBySeqId: { [seqId: string]: string } = {};
   for (const seqId of Object.keys(seqIdToFilteredActivities)) {
-
-    // TODO: lots of repeated sorting. might want to do this upfront, and sort all of 'allfilteredactivities' before putting it in??? tbd
     let sortedActivityInstances = seqIdToFilteredActivities[seqId].sort((a, b) => Temporal.Duration.compare(a.startOffset, b.startOffset))
     const sortedSimulatedActivitiesWithCommands: ExpandedActivity<string>[] = sortedActivityInstances.reduce((result: ExpandedActivity<string>[], current) => {
       const expandedActivity = expandedActivities[current.id];
@@ -466,9 +481,10 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
 
     // This is here to easily enable a future feature of allowing the mission to configure their own sequence
     // building. For now, we just use the 'defaultSeqBuilder' until such a feature request is made.
-    logger.info("BUILDING SEQUENCE\n" + JSON.stringify(seqId) + " " + JSON.stringify(sortedSimulatedActivitiesWithCommands.length))
+    logger.info(`POST /command-expansion/expand-all-sequence-templates: Building sequence for (${seqId}, dataset ${simulationDatasetId})...`)
     const sequence = seqnBuilder(sortedSimulatedActivitiesWithCommands, seqId, seqMetadata, simulationDatasetId);
-    logger.info("SEQUENCE BUILT")
+    logger.info(`POST /command-expansion/expand-all-sequence-templates: Sequence completed for (${seqId}, dataset ${simulationDatasetId}).`)
+    console.log(sequence)
 
     // storage that may be useful later but is not now...
     expandedSequencesBySeqId[seqId] = sequence;
@@ -480,7 +496,6 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     `,
       [simulationDatasetId, seqId, sequence],
     );
-    logger.info('SEQUENCE INSERTED');
 
     if (rows.length < 1) {
       throw new Error(

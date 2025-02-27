@@ -1,8 +1,3 @@
-// TODO: figure out language interface, and when to use which langauge, stemming from database and templates. 
-// TODO: fix up builder
-// TODO: make builder for STOL
-// TODO: in sql, make sure all templates in a given parcel use same language
-
 import type { UserCodeError } from '@nasa-jpl/aerie-ts-user-code-runner';
 import pgFormat from 'pg-format';
 import type { Context } from '../app.js';
@@ -23,10 +18,12 @@ import * as crypto from 'crypto';
 import type { SimulatedActivity } from '../lib/batchLoaders/simulatedActivityBatchLoader.js';
 import { Mustache } from '../lib/mustache/util/index.js';
 import { seqnBuilder } from '../builders/seqnBuilder.js';
-import type { ExpandedActivity } from '../types/seqBuilder.js';
+import type { ExpandedActivity, SeqBuilder } from '../types/seqBuilder.js';
 import { applyActivityLayerFilter } from '../lib/filters/utilities.js';
 import { convertDoyToYmd } from '../lib/mustache/util/time.js';
 import { stringifyActivity } from '../lib/mustache/util/activity.js';
+import { stolBuilder } from '../builders/stolBuilder.js';
+import { random } from 'lodash-es';
 
 const logger = getLogger('app');
 
@@ -372,6 +369,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   const seqMetadata = {
       simulationDatasetId
   }
+
   //  1. Load simulated activities and templates
   const [sequenceTemplates, filteredSimulatedActivitiesBySeqId] = await Promise.all([
     context.sequenceTemplateDataLoader.load({ modelId, parcelId }),
@@ -380,7 +378,21 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }))
   ]);
 
-  //  2. Pair seqId/SimulatedActivity lists; aggregate all simulated, filtered, activities
+  //  2. Determine the language being used (SeqN vs. STOL)
+  //        Presently, we assume based on a database constraint, that all templates pulled for a given model/parcel combo have 
+  //        the same language. While this constraint will remain true its exact enforcement and therefore implementation in SQL
+  //        and here may be subject to change.
+  if (sequenceTemplates.length === 0) {
+    throw new Error(
+      `POST /command-expansion/expand-all-sequence-templates: No sequence templates found for (modelId, parcelId)=(${modelId}, ${parcelId}).`,
+    );
+  }
+  // simply a random template; we are guaranteed they all share the same language
+  let index = random(0, sequenceTemplates.length, false)
+  const language = sequenceTemplates[index].language
+  const seqBuilder: SeqBuilder<string, string> = language === "STOL" ? stolBuilder : seqnBuilder;
+
+  //  3. Pair seqId/SimulatedActivity lists; aggregate all simulated, filtered, activities
   let seqIdToFilteredActivities: { [seqId: string]: { id: number, startOffset: Temporal.Duration }[] } = {};
   let allFilteredActivities: { [id: number]: SimulatedActivity<Record<string, unknown>, Record<string, unknown>> } = [];
 
@@ -407,7 +419,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }
   }
 
-  //  3. Create a list of all activity types that are being used.
+  //  4. Create a list of all activity types that are being used.
   const allActivityTypes: string[] = []
   for (const entry of Object.entries(allFilteredActivities)) {
     const activityTypeName = entry[1].activityTypeName
@@ -416,7 +428,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }
   }
 
-  //  4. Correlate each activity type in use with the compiled template for the given model.
+  //  5. Correlate each activity type in use with the compiled template for the given model.
   const activityTypeNameToTemplate: { [name: string]: Mustache } = {}
   for (const sequenceTemplate of sequenceTemplates) {
     let activityTypeName = sequenceTemplate.activity_type;
@@ -428,7 +440,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }
   }
 
-  //  5. Build ExpandedActivity for each activity, a.k.a., run the template expansion for all activities
+  //  6. Build ExpandedActivity for each activity, a.k.a., run the template expansion for all activities
   const expandedActivities: {
     [id: number]:
     {
@@ -455,7 +467,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
           value: {
             ...simulatedActivity,
             expansionResult: commandString,
-            errors: [] // TODO pass the errors once we have the errors
+            errors: [] // TODO: pass the errors, once we have the errors, if we even can
           },
           status: "fulfilled" // not sure how failure is gonna work...assuming if the template is bad or something
         }
@@ -463,7 +475,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }
   }
 
-  // 6. Having expanded each simulated activity, now iterate through each seqId to collect the expanded activities for that seqId
+  // 7. Having expanded each simulated activity, now iterate through each seqId to collect the expanded activities for that seqId
   let expandedSequencesBySeqId: { [seqId: string]: string } = {};
   for (const seqId of Object.keys(seqIdToFilteredActivities)) {
     let sortedActivityInstances = seqIdToFilteredActivities[seqId].sort((a, b) => Temporal.Duration.compare(a.startOffset, b.startOffset))
@@ -481,7 +493,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     // This is here to easily enable a future feature of allowing the mission to configure their own sequence
     // building. For now, we just use the 'defaultSeqBuilder' until such a feature request is made.
     logger.info(`POST /command-expansion/expand-all-sequence-templates: Building sequence for (${seqId}, dataset ${simulationDatasetId})...`)
-    const sequence = seqnBuilder(sortedSimulatedActivitiesWithCommands, seqId, seqMetadata, simulationDatasetId);
+    const sequence = seqBuilder(sortedSimulatedActivitiesWithCommands, seqId, seqMetadata, simulationDatasetId);
     logger.info(`POST /command-expansion/expand-all-sequence-templates: Sequence completed for (${seqId}, dataset ${simulationDatasetId}).`)
 
     // storage that may be useful later but is not now...

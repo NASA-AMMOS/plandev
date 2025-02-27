@@ -1,0 +1,40 @@
+table:
+  name: action_definition
+  schema: ui
+configuration:
+  custom_name: "action_definition"
+select_permissions:
+  - role: aerie_admin
+    permission:
+      columns: "*"
+      filter: {}
+      allow_aggregations: true
+  - role: user
+    permission:
+      columns: "*"
+      filter: {}
+      allow_aggregations: true
+  - role: viewer
+    permission:
+      columns: "*"
+      filter: {}
+      allow_aggregations: true
+insert_permissions:
+  - role: aerie_admin
+    permission:
+      columns: "*"
+      check: {}
+      set:
+        owner: "x-hasura-user-id"
+        updated_by: "x-hasura-user-id"
+update_permissions:
+  - role: aerie_admin
+    permission:
+      columns: [name, description, definition, parameter_schema, settings_schema, owner]
+      filter: {}
+      set:
+        updated_by: "x-hasura-user-id"
+delete_permissions:
+  - role: aerie_admin
+    permission:
+      filter: {}

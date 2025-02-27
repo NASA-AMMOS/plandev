@@ -7,6 +7,8 @@
  */
 begin;
   -- Tables
+  \ir tables/ui/action_definition.sql
+  \ir tables/ui/action_run.sql
   \ir tables/ui/extensions.sql
   \ir tables/ui/extension_roles.sql
   \ir tables/ui/view.sql

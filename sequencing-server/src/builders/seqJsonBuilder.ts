@@ -47,6 +47,8 @@ export const seqJsonBuilder: SeqJsonBuilder = (
        * Look at the first command for each activity and check if it's relative, if so we shouldn't
        * sort later. Also convert any relative commands to absolute.
        */
+       // TODO: we argue that this is actually ideal behavior, but it warrants discussion.
+      previousTime = ai.startTime //**** */
       for (const command of ai.expansionResult) {
 
         const currentCommand = command instanceof CommandStem ? command as CommandStem : command instanceof LoadStep ? command as LoadStep : command as ActivateStep;
@@ -55,8 +57,8 @@ export const seqJsonBuilder: SeqJsonBuilder = (
         // If the command is epoch-relative, complete, or the first command and relative then short circuit and don't try and sort.
         if (
             currentCommand.GET_EPOCH_TIME() ||
-            (!currentCommand.GET_ABSOLUTE_TIME() && !currentCommand.GET_EPOCH_TIME() && !currentCommand.GET_RELATIVE_TIME()) ||
-            (currentCommand.GET_RELATIVE_TIME() && (ai.expansionResult as Command[]).indexOf(command as Command) === 0)
+            (!currentCommand.GET_ABSOLUTE_TIME() && !currentCommand.GET_EPOCH_TIME() && !currentCommand.GET_RELATIVE_TIME()) //||
+            // (currentCommand.GET_RELATIVE_TIME() && (ai.expansionResult as Command[]).indexOf(command as Command) === 0) // TODO: deal with this later..
         ) {
           shouldSort = false; // Set the sorting flag to false
           break; // No need to continue checking other commands

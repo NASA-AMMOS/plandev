@@ -411,7 +411,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   const allActivityTypes: string[] = []
   for (const entry of Object.entries(allFilteredActivities)) {
     const activityTypeName = entry[1].activityTypeName
-    if (allActivityTypes.includes(activityTypeName)) {
+    if (!allActivityTypes.includes(activityTypeName)) {
       allActivityTypes.push(activityTypeName)
     }
   }
@@ -455,7 +455,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
           value: {
             ...simulatedActivity,
             expansionResult: commandString,
-            errors: null // TODO pass the errors once we have the errors
+            errors: [] // TODO pass the errors once we have the errors
           },
           status: "fulfilled" // not sure how failure is gonna work...assuming if the template is bad or something
         }
@@ -477,14 +477,12 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
         return result
       }
     }, [])
-    logger.info(`POST /command-expansion/expand-all-activity-instances:\n` + JSON.stringify(sortedSimulatedActivitiesWithCommands))
 
     // This is here to easily enable a future feature of allowing the mission to configure their own sequence
     // building. For now, we just use the 'defaultSeqBuilder' until such a feature request is made.
     logger.info(`POST /command-expansion/expand-all-sequence-templates: Building sequence for (${seqId}, dataset ${simulationDatasetId})...`)
     const sequence = seqnBuilder(sortedSimulatedActivitiesWithCommands, seqId, seqMetadata, simulationDatasetId);
     logger.info(`POST /command-expansion/expand-all-sequence-templates: Sequence completed for (${seqId}, dataset ${simulationDatasetId}).`)
-    console.log(sequence)
 
     // storage that may be useful later but is not now...
     expandedSequencesBySeqId[seqId] = sequence;

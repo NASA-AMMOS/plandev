@@ -1,3 +1,5 @@
+// TODO: add formatting for instants to match seqn absolute DOY format. Right now, we rely on relative times in templates, which get resolved to absolute times in the builder.
+
 import { padStart } from 'lodash-es';
 import { ParsedDoyString, ParsedDurationString, ParsedYmdString, TimeTypes } from './types/time.js';
 import { Temporal } from '@js-temporal/polyfill';

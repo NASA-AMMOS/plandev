@@ -38,7 +38,7 @@ function formatAsDate(date: string): string {
     }
 }
 
-// TODO: FIGURE OUT A GOOD WAY TO ALLOW USER UPLOADS/DEFINITION IN AERIE MAIN
+// TODO: FIGURE OUT A GOOD WAY TO ALLOW USER UPLOADS/DEFINITION IN AERIE MAIN? Ask about this.
 /////////////// USER HELPERS ///////////////
 //  Allow the user to provide their own helpers.
 
@@ -81,7 +81,7 @@ export class Mustache {
     }
 
     public execute(data: any) {
-        // TODO: AUTOMATICALLY FORMAT TIMES IN DATA
+        // TODO: AUTOMATICALLY FORMAT TIMES IN DATA? Ask about this
         return this.template(data)
     }
 

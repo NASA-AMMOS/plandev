@@ -1,4 +1,3 @@
-
 export function isQuoted(s: string): boolean {
   return s.startsWith('"') && s.endsWith('"');
 }

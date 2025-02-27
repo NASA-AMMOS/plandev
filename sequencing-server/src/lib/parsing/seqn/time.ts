@@ -2,8 +2,8 @@
 
 import { padStart } from 'lodash-es';
 import parseInterval from 'postgres-interval';
-import { TimeTypes } from './enums/time';
-import type { DurationTimeComponents, ParsedDoyString, ParsedDurationString, ParsedYmdString } from './types/time';
+import { TimeTypes } from './enums/time.js';
+import type { DurationTimeComponents, ParsedDoyString, ParsedDurationString, ParsedYmdString } from './types/time.js';
 
 const ABSOLUTE_TIME = /^(\d{4})-(\d{3})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?$/;
 const RELATIVE_TIME =

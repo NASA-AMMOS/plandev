@@ -24,11 +24,11 @@ import type {
   Time,
   VariableDeclaration,
 } from '@nasa-jpl/seq-json-schema/types';
-import { TimeTypes } from './enums/time';
-import { removeEscapedQuotes, unquoteUnescape } from './parse-utils';
-import { getBalancedDuration, getDurationTimeComponents, parseDurationString, validateTime } from './time';
-import { logInfo } from './logger';
-import { SeqnLanguage } from './language/seqn';
+import { TimeTypes } from './enums/time.js';
+import { removeEscapedQuotes, unquoteUnescape } from './parse-utils.js';
+import { getBalancedDuration, getDurationTimeComponents, parseDurationString, validateTime } from './time.js';
+import { logInfo } from './logger.js';
+import { SeqnLanguage } from './language/seqn.js';
 
 const TOKEN_REPEAT_ARG = 'RepeatArg';
 

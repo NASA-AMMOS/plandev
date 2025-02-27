@@ -18,6 +18,7 @@ export const sequenceTemplateBatchLoader: BatchLoader<
           model_id
           parcel_id
           template_definition
+          language
         }
       }
     `,
@@ -44,5 +45,6 @@ export interface SequenceTemplate {
   activity_type: string,
   model_id: number,
   parcel_id: number,
-  template_definition: string
+  template_definition: string,
+  language: string
 }

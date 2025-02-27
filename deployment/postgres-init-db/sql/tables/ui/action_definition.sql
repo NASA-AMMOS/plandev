@@ -3,7 +3,7 @@ create table ui.action_definition (
 
   name text not null,
   description text null,
-  definition text not null,
+  action_file_id integer not null,
   parameter_schema jsonb not null,
   settings_schema jsonb not null,
 
@@ -19,6 +19,11 @@ create table ui.action_definition (
     references permissions.users
     on update cascade
     on delete set null,
+  constraint action_definition_references_action_file
+    foreign key (action_file_id)
+    references merlin.uploaded_file
+    on update cascade
+    on delete restrict,
   foreign key (updated_by)
     references permissions.users
     on update cascade

@@ -12,8 +12,8 @@ import type {
   FswCommandArgumentVarString,
 } from '@nasa-jpl/aerie-ampcs';
 import type { VariableDeclaration } from '@nasa-jpl/seq-json-schema/types';
-import type { DictionaryTypes } from '../enums/dictionaryTypes';
-import type { UserId } from './user';
+import type { DictionaryTypes } from '../enums/dictionaryTypes.js';
+import type { UserId } from './user.js';
 
 export type ChannelDictionary = {
   type: DictionaryTypes.CHANNEL;

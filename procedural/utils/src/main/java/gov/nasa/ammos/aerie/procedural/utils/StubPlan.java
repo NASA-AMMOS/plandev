@@ -1,4 +1,4 @@
-package gov.nasa.ammos.aerie.procedural.constraints;
+package gov.nasa.ammos.aerie.procedural.utils;
 
 import gov.nasa.ammos.aerie.procedural.timeline.Interval;
 import gov.nasa.ammos.aerie.procedural.timeline.collections.Directives;
@@ -17,7 +17,7 @@ import org.jetbrains.annotations.Nullable;
 import java.time.Instant;
 import java.util.List;
 
-public class NotImplementedPlan implements Plan {
+public class StubPlan implements Plan {
   @NotNull
   @Override
   public Interval totalBounds() {

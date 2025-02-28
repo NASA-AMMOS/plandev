@@ -65,7 +65,6 @@ dependencies {
   implementation project(':type-utils')
   implementation project(':contrib')
 
-  testImplementation project(":procedural:remote")
   testImplementation "com.zaxxer:HikariCP:5.1.0"
   testImplementation("org.postgresql:postgresql:42.6.0")
 

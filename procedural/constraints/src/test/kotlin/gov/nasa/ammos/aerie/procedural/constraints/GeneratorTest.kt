@@ -7,6 +7,7 @@ import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment
 import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan
 import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults
 import gov.nasa.ammos.aerie.procedural.timeline.util.duration.rangeTo
+import gov.nasa.ammos.aerie.procedural.utils.StubSimulationResults
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration.seconds
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
 import org.junit.jupiter.api.Assertions.assertIterableEquals
@@ -24,8 +25,8 @@ class GeneratorTest: GeneratorConstraint() {
 
   @Test
   fun testGenerator() {
-    val plan = NotImplementedPlan()
-    val simResults = object : NotImplementedSimulationResults() {
+    val plan = gov.nasa.ammos.aerie.procedural.utils.StubPlan()
+    val simResults = object : StubSimulationResults() {
       override fun <V : Any, TL: SerialSegmentOps<V, TL>> resource(
         name: String,
         deserializer: (List<Segment<SerializedValue>>) -> TL

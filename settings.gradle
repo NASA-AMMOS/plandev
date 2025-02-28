@@ -17,7 +17,7 @@ include 'procedural:processor'
 include 'procedural:timeline'
 include 'procedural:constraints'
 include 'procedural:scheduling'
-include 'procedural:remote'
+include 'procedural:utils'
 
 // Procedural examples
 include 'procedural:examples:banana-procedures'

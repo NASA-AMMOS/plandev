@@ -17,6 +17,7 @@ dependencies {
   implementation project(':merlin-driver')
   implementation project(':type-utils')
 
+  testImplementation project(':procedural:utils')
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
   testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
   testRuntimeOnly("org.junit.platform:junit-platform-launcher")

@@ -25,6 +25,7 @@ dependencies {
   implementation project(':contrib')
 
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+  testImplementation project(':procedural:utils')
 }
 
 tasks.register('buildAllProcedureJars') {

@@ -49,7 +49,7 @@ dokkaHtmlPartial.configure {
   dokkaSourceSets {
     configureEach {
       // used as project name in the header
-      moduleName.set("Remote")
+      moduleName.set("Utils")
 
       reportUndocumented.set(true)
 

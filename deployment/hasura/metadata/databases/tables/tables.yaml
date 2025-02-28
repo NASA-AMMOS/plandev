@@ -144,10 +144,8 @@
 - "!include scheduler/scheduling_specification/scheduling_specification.yaml"
 - "!include scheduler/scheduling_specification/scheduling_specification_goals.yaml"
 - "!include scheduler/scheduling_specification/scheduling_specification_conditions.yaml"
-- "!include scheduler/scheduling_specification/scheduling_specification_user_sequence.yaml"
 - "!include scheduler/scheduling_specification/scheduling_model_specification_goals.yaml"
 - "!include scheduler/scheduling_specification/scheduling_model_specification_conditions.yaml"
-- "!include scheduler/scheduling_specification/scheduling_model_specification_user_sequence.yaml"
 
 # Scheduling Output
 - "!include scheduler/scheduling_run/scheduling_request.yaml"
@@ -175,7 +173,6 @@
 - "!include sequencing/sequence_adaptation.yaml"
 - "!include sequencing/sequence_to_simulated_activity.yaml"
 - "!include sequencing/user_sequence.yaml"
-- "!include sequencing/user_sequence_metadata.yaml"
 - "!include sequencing/workspace.yaml"
 - "!include sequencing/sequence_filter.yaml"
 - "!include sequencing/sequence_template.yaml"

@@ -29,7 +29,12 @@ insert_permissions:
       columns: "*"
       check: {}
       set:
-        ran_by: "x-hasura-user-id"
+        created_by: "x-hasura-user-id"
+update_permissions:
+  - role: aerie_admin
+    permission:
+      columns: [logs, error, results, status]
+      filter: {}
 delete_permissions:
   - role: aerie_admin
     permission:

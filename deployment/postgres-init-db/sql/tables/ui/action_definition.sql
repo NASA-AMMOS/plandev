@@ -3,9 +3,11 @@ create table ui.action_definition (
 
   name text not null,
   description text null,
+  parameter_schema jsonb not null default '{}'::jsonb,
+  settings_schema jsonb not null default '{}'::jsonb,
+
   action_file_id integer not null,
-  parameter_schema jsonb not null,
-  settings_schema jsonb not null,
+  workspace_id integer not null,
 
   created_at timestamptz not null default now(),
   owner text,
@@ -15,6 +17,9 @@ create table ui.action_definition (
   constraint action_definition_synthetic_key
     primary key (id),
 
+  foreign key (workspace_id)
+    references sequencing.workspace (id)
+    on delete set null,
   foreign key (owner)
     references permissions.users
     on update cascade

@@ -81,11 +81,29 @@ export function ISO8061toSTOL(date: Temporal.Instant): string {
 
   // change to DOY
   let split = stringFormat.split("T")
-  // the split was marked as potentially undefined though that would not be possible, so I do a ?? "a" to evade checks
-  let day = new Date(split[0] ?? "a")
+  let day = new Date(split[0])
   let doy = getDoy(day)
+  let time = split[1]
 
-  return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${split[1]}` // TODO: pad ms to 3 zeros, to 6 zeros if crosses into micros
+  // extract decimal seconds, if any, and pad by length (ms -> 3 automatically, us -> 6 automatically)
+  if (!time.includes(".")) {
+    return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${time}` 
+  }
+  else {
+    const secondSplit = time.split(".")
+    const hms = secondSplit[0]
+    const decimal = secondSplit[1].replace("Z", "")
+
+    // if the Z is present at the end; it may not be and we don't want to extraneously add it
+    const zString = time.includes("Z") ? "Z" : ""
+    if (decimal.length <= 3) {
+      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${hms}.${decimal.padEnd(3, '0')}${zString}` 
+    }
+    else {
+      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${hms}.${decimal.padEnd(6, '0')}${zString}`
+    }
+  }
+
 }
 
 export function ISO8061toSeqN(date: Temporal.Instant): string { // presently, cannot extract fields from Temporal by saying obj.days or anything like that
@@ -93,11 +111,28 @@ export function ISO8061toSeqN(date: Temporal.Instant): string { // presently, ca
 
   // change to DOY
   let split = stringFormat.split("T")
-  // the split was marked as potentially undefined though that would not be possible, so I do a ?? "a" to evade checks
-  let day = new Date(split[0] ?? "a")
+  let day = new Date(split[0])
   let doy = getDoy(day)
+  let time = split[1]
 
-  return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${split[1]}`
+  // extract decimal seconds, if any, and pad by length (ms -> 3 automatically, us -> 6 automatically)
+  if (!time.includes(".")) {
+    return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${time}` 
+  }
+  else {
+    const secondSplit = time.split(".")
+    const hms = secondSplit[0]
+    const decimal = secondSplit[1].replace("Z", "")
+
+    // if the Z is present at the end; it may not be and we don't want to extraneously add it
+    const zString = time.includes("Z") ? "Z" : ""
+    if (decimal.length <= 3) {
+      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${hms}.${decimal.padEnd(3, '0')}${zString}` 
+    }
+    else {
+      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${hms}.${decimal.padEnd(6, '0')}${zString}`
+    }
+  }
 }
 
 

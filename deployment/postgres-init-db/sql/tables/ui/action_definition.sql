@@ -35,6 +35,21 @@ create table ui.action_definition (
     on delete set null
 );
 
+comment on table ui.action_definition is e''
+  'User provided Javascript code that will be invoked by Aerie UI and ran on an Aerie server.';
+comment on column ui.action_definition.name is e''
+  'The name of the action.';
+comment on column ui.action_definition.description is e''
+  'The description of the action.';
+comment on column ui.action_definition.parameter_schema is e''
+  'The JSON schema representing the action''s parameters.';
+comment on column ui.action_definition.settings_schema is e''
+  'The JSON schema representing the action''s settings.';
+comment on column ui.action_definition.action_file_id is e''
+  'The ID of the uploaded action file.';
+comment on column ui.action_definition.workspace_id is e''
+  'The ID of the workspace the action is part of.';
+
 create trigger set_timestamp
   before update on ui.action_definition
   for each row

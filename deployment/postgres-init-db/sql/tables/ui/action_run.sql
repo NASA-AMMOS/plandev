@@ -24,6 +24,23 @@ create table ui.action_run (
     on delete set null
 );
 
+comment on table ui.action_run is e''
+  'The record of a single run of an action.';
+comment on column ui.action_run.settings is e''
+  'The supplied settings for the run of the action.';
+comment on column ui.action_run.parameters is e''
+  'The supplied parameters for the run of the action.';
+comment on column ui.action_run.logs is e''
+  'The logs produced by the action run.';
+comment on column ui.action_run.error is e''
+  'The error produced by the action run.';
+comment on column ui.action_run.results is e''
+  'The results produced by the action run.';
+comment on column ui.action_run.status is e''
+  'The status of the action run. pending -> in-progress -> failed or complete';
+comment on column ui.action_run.action_definition_id is e''
+  'The ID of the definition of the action.';
+
 create function ui.notify_action_run_inserted()
   returns trigger
   security definer

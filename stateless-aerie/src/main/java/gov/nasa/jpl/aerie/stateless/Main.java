@@ -22,7 +22,7 @@ import javax.json.Json;
 import javax.json.stream.JsonGenerator;
 
 public class Main {
-  private static final String VERSION = "v3.2.0";
+  private static final String VERSION = "v3.3.0";
   private static final String FOOTER = "\nStateless Aerie "+VERSION;
 
   private static final Option HELP_OPTION = new Option("h", "help", false, "display this message and exit");

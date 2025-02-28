@@ -178,6 +178,8 @@
 ############
 #### UI ####
 ############
+- "!include ui/action_definition.yaml"
+- "!include ui/action_run.yaml"
 - "!include ui/extension_roles.yaml"
 - "!include ui/extensions.yaml"
 - "!include ui/view.yaml"

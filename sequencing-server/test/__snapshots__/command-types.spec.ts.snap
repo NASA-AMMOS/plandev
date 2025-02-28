@@ -3927,7 +3927,7 @@ export type Request = {
  * Description. Can be attached to any sequence step.
  */
 export type Description = string;
-export type Step = Activate | Command | GroundBlock | GroundEvent | Load;
+export type Step = Activate | Command | GroundBlock | GroundEvent | Load | Note;
 /**
  * Array of command arguments
  */
@@ -3939,6 +3939,26 @@ export type Args = (
   | HexArgument
   | RepeatArgument
 )[];
+/**
+ * Time object
+ */
+export type Time =
+  | {
+      /**
+       * Allowed time types without a tag: COMMAND_COMPLETE
+       */
+      type: 'COMMAND_COMPLETE';
+    }
+  | {
+      /**
+       * Allowed time types with a tag: ABSOLUTE, BLOCK_RELATIVE, COMMAND_RELATIVE, EPOCH_RELATIVE.
+       */
+      type: 'ABSOLUTE' | 'BLOCK_RELATIVE' | 'COMMAND_RELATIVE' | 'EPOCH_RELATIVE';
+      /**
+       * Relative or absolute time. Required for ABSOLUTE, BLOCK_RELATIVE, COMMAND_RELATIVE, and EPOCH_RELATIVE time types but not COMMAND_COMPLETE.
+       */
+      tag: string;
+    };
 
 export interface SeqJson {
   /**
@@ -3969,7 +3989,7 @@ export interface SeqJson {
   /**
    * Immediate commands which are interpreted by FSW and not part of any sequence.
    */
-  immediate_commands?: ImmediateCommand[];
+  immediate_commands?: (ImmediateFswCommand | ImmediateLoad | ImmediateActivate)[];
   /**
    * Hardware commands which are not interpreted by FSW and not part of any sequence.
    */
@@ -4151,19 +4171,6 @@ export interface Model {
   variable: string;
 }
 /**
- * Time object
- */
-export interface Time {
-  /**
-   * Relative or absolute time. Required for ABSOLUTE, COMMAND_RELATIVE, and EPOCH_RELATIVE time tags but not COMMAND_COMPLETE.
-   */
-  tag?: string;
-  /**
-   * Allowed time types: ABSOLUTE, COMMAND_RELATIVE, EPOCH_RELATIVE, or COMMAND_COMPLETE.
-   */
-  type: 'ABSOLUTE' | 'COMMAND_RELATIVE' | 'EPOCH_RELATIVE' | 'COMMAND_COMPLETE';
-}
-/**
  * Command object
  */
 export interface Command {
@@ -4236,16 +4243,76 @@ export interface Load {
   type: 'load';
 }
 /**
+ * Used to add a note within a sequence at a specific instant. Can be used by command & sequence simulator tools to print the string argument at the relevant instant within simulations.
+ */
+export interface Note {
+  /**
+   * Note string arg.
+   */
+  string_arg: string;
+  description?: Description;
+  metadata?: Metadata;
+  models?: Model[];
+  time: Time;
+  type: 'note';
+}
+/**
  * Object representing a single Immediate Command
  */
-export interface ImmediateCommand {
+export interface ImmediateFswCommand {
   args: Args;
   description?: Description;
   metadata?: Metadata;
+  models?: Model[];
   /**
    * Command stem
    */
   stem: string;
+  type?: 'immediate_command';
+}
+/**
+ * Untimed load object
+ */
+export interface ImmediateLoad {
+  args?: Args;
+  description?: Description;
+  /**
+   * Sequence target engine.
+   */
+  engine?: number;
+  /**
+   * Onboard epoch to pass to the sequence for derivation of epoch-relative timetags
+   */
+  epoch?: string;
+  metadata?: Metadata;
+  models?: Model[];
+  /**
+   * Onboard path and filename of sequence to be loaded.
+   */
+  sequence: string;
+  type: 'immediate_load';
+}
+/**
+ * Untimed activate object
+ */
+export interface ImmediateActivate {
+  args?: Args;
+  description?: Description;
+  /**
+   * Sequence target engine.
+   */
+  engine?: number;
+  /**
+   * Onboard epoch to pass to the sequence for derivation of epoch-relative timetags
+   */
+  epoch?: string;
+  metadata?: Metadata;
+  models?: Model[];
+  /**
+   * Onboard path and filename of sequence to be loaded.
+   */
+  sequence: string;
+  type: 'immediate_activate';
 }
 /**
  * Object representing a single Hardware Command

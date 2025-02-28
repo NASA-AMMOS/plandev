@@ -25,8 +25,8 @@ begin;
   \ir tables/tags/tags.sql
   \ir functions/tags/get_tags.sql
 
-  -- UI
-  \ir init_ui.sql
+  -- Create view first due to a dependency in Merlin schema
+  \ir tables/ui/view.sql
 
   -- Merlin
   \ir init_merlin.sql
@@ -48,4 +48,7 @@ begin;
 
   -- Initialize DB User permissions
   \ir init_db_users.sql
+
+  -- UI
+  \ir init_ui.sql
 end;

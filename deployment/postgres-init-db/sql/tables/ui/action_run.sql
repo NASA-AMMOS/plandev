@@ -6,7 +6,7 @@ create table ui.action_run (
   logs text,
   error jsonb,
   results jsonb,
-  status text not null default 'pending',
+  status ui.action_run_status not null default 'pending',
 
   action_definition_id integer not null,
 

@@ -57,7 +57,7 @@ begin
                     NEW.parameters,
                     NEW.action_definition_id,
                     ad.workspace_id,
-                    uf.path
+                    uf.name
              from ui.action_definition ad
              left join merlin.uploaded_file uf on uf.id = ad.action_file_id
              where ad.id = NEW.action_definition_id

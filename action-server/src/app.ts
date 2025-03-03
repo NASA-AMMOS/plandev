@@ -1,8 +1,13 @@
-import express, { ErrorRequestHandler } from "express";
-import { configuration } from "./config";
-import { jsExecute } from "./utils/codeRunner";
-import { isActionRunRequest, validateActionRunRequest } from "./utils/validators";
-import { ActionResponse } from "./type/types";
+import express from "express";
+import {configuration} from "./config";
+import {jsExecute} from "./utils/codeRunner";
+import {isActionRunRequest, validateActionRunRequest} from "./utils/validators";
+import {ActionResponse} from "./type/types";
+import {ActionsDbManager} from "./db";
+import {Pool, PoolClient} from "pg";
+
+import {readFile} from "fs/promises";
+import {corsMiddleware, jsonErrorMiddleware} from "./middleware";
 
 const app = express();
 
@@ -11,12 +16,7 @@ app.use(express.json());
 
 // temporary CORS middleware to allow access from all origins
 // TODO: set more strict CORS rules
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-  next();
-});
+app.use(corsMiddleware);
 
 // Route for running a JS action
 app.post("/run-action", async (req, res) => {
@@ -42,18 +42,55 @@ app.post("/run-action", async (req, res) => {
 
 const port = configuration().PORT;
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.debug(`Server running on port ${port}`);
 });
 
-// custom error handling middleware so we always return a JSON error
-const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
-  res.status(err.status || 500).json({
-    error: {
-      message: err.message,
-      stack: err.stack,
-      cause: err.cause,
-    },
+app.use(jsonErrorMiddleware);
+
+
+let pool: Pool | undefined;
+let listenClient: PoolClient | undefined;
+async function initDb() {
+  // initialize a database connection pool
+  ActionsDbManager.init();
+  pool = ActionsDbManager.getDb();
+
+  // todo:
+
+  // listen for `action_run_inserted` events from postgres
+  // which occur when a user inserts a row in the `action_run` table, signifying a run request
+  listenClient = await pool.connect();
+  listenClient.query('LISTEN action_run_inserted');
+
+  listenClient.on('notification', async (msg) => {
+    console.log("action_run_inserted");
+    console.log(JSON.stringify(msg));
+
+    // event payload contains a file path for the action file which should be run
+    if(!msg || !msg.payload) return;
+    const payload = JSON.parse(msg.payload);
+    const filePath = payload.action_file_path;
+
+    console.log(`path is ${filePath}`);
+    const actionFile = await readFile(filePath, 'utf-8');
+    console.log(actionFile);
+    // todo: maintain a queue and enqueue run requests
+    // todo: run the action file, put results in the same DB row and mark status as successful
   });
-};
-app.use(errorHandler);
+}
+initDb();
+
+function cleanup() {
+  console.log("shutting down...");
+  if(listenClient) listenClient.release();
+  server.close(() => {
+    console.log("server closed.");
+    process.exit(0);
+  });
+}
+// handle termination signals
+process.on("SIGINT", cleanup);
+process.on("SIGTERM", cleanup);
+
+

@@ -6,6 +6,10 @@
     - Views must be loaded after all their dependent tables and functions
  */
 begin;
-  \ir tables/ui/extensions.sql
-  \ir tables/ui/extension_roles.sql
+  -- Domain Types
+  \ir types/actions/action-types.sql
+
+  -- Tables
+  \ir tables/actions/action_definition.sql
+  \ir tables/actions/action_run.sql
 end;

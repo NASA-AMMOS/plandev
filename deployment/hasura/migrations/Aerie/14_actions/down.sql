@@ -1,11 +1,13 @@
-drop trigger notify_action_run_inserted on ui.action_run;
-drop function ui.notify_action_run_inserted cascade;
+drop trigger notify_action_run_inserted on actions.action_run;
+drop function actions.notify_action_run_inserted cascade;
 
-drop table ui.action_run cascade;
+drop table actions.action_run cascade;
 
-drop trigger set_timestamp on ui.action_definition;
-drop table ui.action_definition cascade;
+drop trigger set_timestamp on actions.action_definition;
+drop table actions.action_definition cascade;
 
-drop type ui.action_run_status;
+drop type actions.action_run_status;
+
+drop schema actions cascade;
 
 call migrations.mark_migration_rolled_back('14');

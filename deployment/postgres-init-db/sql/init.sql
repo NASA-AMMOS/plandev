@@ -51,4 +51,7 @@ begin;
 
   -- UI
   \ir init_ui.sql
+
+  -- Actions
+  \ir init_actions.sql
 end;

@@ -1,4 +1,6 @@
 -- Services
+create schema actions;
+comment on schema actions is 'Actions Service Schema';
 create schema merlin;
 comment on schema merlin is 'Merlin Service Schema';
 create schema scheduler;

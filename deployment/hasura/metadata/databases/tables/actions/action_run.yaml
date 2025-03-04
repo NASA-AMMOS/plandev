@@ -1,15 +1,12 @@
 table:
-  name: action_definition
-  schema: ui
+  name: action_run
+  schema: actions
 configuration:
-  custom_name: "action_definition"
+  custom_name: "action_run"
 object_relationships:
-  - name: workspace
+  - name: action_definition
     using:
-      foreign_key_constraint_on: workspace_id
-  - name: uploaded_file
-    using:
-      foreign_key_constraint_on: action_file_id
+      foreign_key_constraint_on: action_definition_id
 select_permissions:
   - role: aerie_admin
     permission:
@@ -32,15 +29,12 @@ insert_permissions:
       columns: "*"
       check: {}
       set:
-        owner: "x-hasura-user-id"
-        updated_by: "x-hasura-user-id"
+        created_by: "x-hasura-user-id"
 update_permissions:
   - role: aerie_admin
     permission:
-      columns: [name, description, action_file_id, parameter_schema, settings_schema, owner]
+      columns: [logs, error, results, status]
       filter: {}
-      set:
-        updated_by: "x-hasura-user-id"
 delete_permissions:
   - role: aerie_admin
     permission:

@@ -6,6 +6,8 @@
     - Views must be loaded after all their dependent tables and functions
  */
 begin;
+  -- Tables
   \ir tables/ui/extensions.sql
   \ir tables/ui/extension_roles.sql
+  \ir tables/ui/view.sql
 end;

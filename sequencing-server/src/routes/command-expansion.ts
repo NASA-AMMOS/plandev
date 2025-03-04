@@ -166,7 +166,7 @@ commandExpansionRouter.post('/put-template', async (req, res, next) => {
   // if this makes use of helpers, which is possible, there's no easy way to verify this is valid mustache without
   //    getting accurate sample input.
   //    i.e. if I have a template "CMD {{ data }} " and pass it input={}, I'll get "CMD ", without error. BUT
-  //         if I have a template "CMD WHEN={{ clean-date date }}" and pass it input={}, I'll get a failure. 
+  //         if I have a template "CMD WHEN={{ clean-date date }}" and pass it input={}, I'll get a failure.
   //    Since this cannot be anticipated ahead of time, we don't pre-compile/verify here.
   const templateDefinition = req.body.input.templateDefinition as string;
 
@@ -363,7 +363,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   // needed to uniquely identify sequence templates, along with activity type
   const modelId = req.body.input.modelId as number;
   const parcelId = req.body.input.parcelId as number;
-  const simulationDatasetId = req.body.input.parcelId as number;
+  const simulationDatasetId = req.body.input.simulationDatasetId as number;
   const seqIds = (req.body.input.seqIds as number[]).filter((val, index, arr) => arr.indexOf(val) == index); // remove duplicates, if they're even possible
 
   const seqMetadata = {
@@ -379,7 +379,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   ]);
 
   //  2. Determine the language being used (SeqN vs. STOL)
-  //        Presently, we assume based on a database constraint, that all templates pulled for a given model/parcel combo have 
+  //        Presently, we assume based on a database constraint, that all templates pulled for a given model/parcel combo have
   //        the same language. While this constraint will remain true its exact enforcement and therefore implementation in SQL
   //        and here may be subject to change.
   if (sequenceTemplates.length === 0) {
@@ -387,9 +387,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       `POST /command-expansion/expand-all-sequence-templates: No sequence templates found for (modelId, parcelId)=(${modelId}, ${parcelId}).`,
     );
   }
-  // simply a random template; we are guaranteed they all share the same language
-  let index = random(0, sequenceTemplates.length, false)
-  const language = sequenceTemplates[index].language
+  const language = sequenceTemplates[0].language
   const seqBuilder: SeqBuilder<string, string> = language === "STOL" ? stolBuilder : seqnBuilder;
 
   //  3. Pair seqId/SimulatedActivity lists; aggregate all simulated, filtered, activities
@@ -409,7 +407,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       });
 
       // Add this simulated activity to allFilteredActivities if it's not already there
-      // TODO: figure out whether we need to handle the case where a simulated activity is included with multiple 
+      // TODO: figure out whether we need to handle the case where a simulated activity is included with multiple
       //        seq IDs in the frontend; it's supported here
       for (const simulatedActivity of filteredActivities) {
         if (!allFilteredActivities[simulatedActivity.id]) {

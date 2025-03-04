@@ -1,8 +1,9 @@
 package gov.nasa.jpl.aerie.merlin.server.http;
 
 import gov.nasa.jpl.aerie.constraints.InputMismatchException;
-import gov.nasa.jpl.aerie.constraints.model.Violation;
 import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
+import gov.nasa.jpl.aerie.constraints.model.EDSLConstraintResult;
+import gov.nasa.jpl.aerie.constraints.model.Violation;
 import gov.nasa.jpl.aerie.constraints.time.Interval;
 import gov.nasa.jpl.aerie.json.JsonParseResult.FailureReason;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
@@ -222,7 +223,7 @@ public final class ResponseSerializers {
         .build();
   }
 
-  public static JsonValue serializeConstraintResult(final ConstraintResult list) {
+  public static JsonValue serializeConstraintResult(final EDSLConstraintResult list) {
     return Json
         .createObjectBuilder()
         .add("violations", serializeIterable(ResponseSerializers::serializeConstraintViolation, list.violations))
@@ -377,7 +378,7 @@ public final class ResponseSerializers {
                  .add("constraintName", constraint.name())
                  .add("constraintRevision", constraint.revision())
                  .add("errors", JsonValue.EMPTY_JSON_ARRAY)
-                 .add("results", serializeConstraintResult(constraintResult))
+                 .add("results", constraintResult.toJSON())
                  .build();
 
     }).toList();

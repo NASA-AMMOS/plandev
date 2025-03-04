@@ -260,11 +260,11 @@ public class ConstraintAction {
    * @param simDatasetId The simulation dataset id to filter external resource types on.
    * @param constraint The constraint to be compiled.
    * @return
-   *    On success, return a {@code Fallible<Expression<ConstraintResult>>} containing the compiled constraint code
+   *    On success, return a {@code Fallible<Expression<EDSLConstraintResult>>} containing the compiled constraint code
    *      in a form that can be evaluated against simulation results.
    *    On failure, return a {@code Fallible<Error>} in the Failure state containing the compilation error.
    */
-  private Fallible<Expression<ConstraintResult>, ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error> tryCompileEDSLConstraint(
+  private Fallible<Expression<EDSLConstraintResult>, ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error> tryCompileEDSLConstraint(
       MissionModelId modelId,
       PlanId planId,
       SimulationDatasetId simDatasetId,

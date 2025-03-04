@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static gov.nasa.jpl.aerie.constraints.json.ConstraintParsers.constraintResultP;
+import static gov.nasa.jpl.aerie.constraints.json.ConstraintParsers.edslConstraintResultP;
 import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.getJsonColumn;
 
 import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.parseJson;
@@ -70,7 +70,7 @@ final class GetValidConstraintRunsAction implements AutoCloseable {
               constraintId,
               constraintInvocationId,
               constraintArguments,
-              getJsonColumn(results, "results", constraintResultP)
+              getJsonColumn(results, "results", edslConstraintResultP)
                   .getSuccessOrThrow($ -> new Error("Corrupt results cannot be parsed: " + $.reason()))));
         }
       }

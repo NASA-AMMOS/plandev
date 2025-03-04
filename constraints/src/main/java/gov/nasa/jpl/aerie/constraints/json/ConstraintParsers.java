@@ -1,10 +1,10 @@
 package gov.nasa.jpl.aerie.constraints.json;
 
 import gov.nasa.jpl.aerie.constraints.model.DiscreteProfile;
+import gov.nasa.jpl.aerie.constraints.model.EDSLConstraintResult;
 import gov.nasa.jpl.aerie.constraints.model.LinearProfile;
 import gov.nasa.jpl.aerie.constraints.model.Profile;
 import gov.nasa.jpl.aerie.constraints.model.Violation;
-import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
 import gov.nasa.jpl.aerie.constraints.tree.AbsoluteInterval;
 import gov.nasa.jpl.aerie.constraints.time.Interval;
 import gov.nasa.jpl.aerie.constraints.time.IntervalContainer;
@@ -298,7 +298,7 @@ public final class ConstraintParsers {
               microseconds -> Duration.of(microseconds, Duration.MICROSECONDS),
               duration -> duration.in(Duration.MICROSECONDS));
 
-  static final JsonParser<Interval> intervalP =
+  public static final JsonParser<Interval> intervalP =
       productP
           .field("start", durationP)
           .field("end", durationP)
@@ -318,7 +318,7 @@ public final class ConstraintParsers {
               $ -> tuple($.windows(), $.activityInstanceIds())
           );
 
-  public static final JsonParser<ConstraintResult> constraintResultP =
+  public static final JsonParser<EDSLConstraintResult> edslConstraintResultP =
       productP
           .field("violations", listP(violationP))
           .field("gaps", listP(intervalP))
@@ -327,7 +327,7 @@ public final class ConstraintParsers {
           .field("constraintRevision", longP)
           .field("constraintName", stringP)
           .map(
-              untuple((violations, gaps, resourceNames, constraintId, constraintRevision, constraintName) -> new ConstraintResult(violations, gaps, resourceNames, constraintId, constraintRevision, constraintName)),
+              untuple((violations, gaps, resourceNames, constraintId, constraintRevision, constraintName) -> new EDSLConstraintResult(violations, gaps, resourceNames, constraintId, constraintRevision, constraintName)),
               $ -> tuple($.violations, $.gaps, $.resourceIds, $.constraintId, $.constraintRevision, $.constraintName)
           );
 
@@ -560,7 +560,7 @@ public final class ConstraintParsers {
             $ -> tuple(Unit.UNIT, ((ForEachActivitySpans.MatchType) $.activityPredicate()).type(), $.alias(), $.expression()));
   }
 
-  static JsonParser<ForEachActivityViolations> forEachActivityViolationsF(final JsonParser<Expression<ConstraintResult>> violationListExpressionP) {
+  static JsonParser<ForEachActivityViolations> forEachActivityViolationsF(final JsonParser<Expression<EDSLConstraintResult>> violationListExpressionP) {
     return productP
         .field("kind", literalP("ForEachActivityViolations"))
         .field("activityType", stringP)
@@ -697,7 +697,7 @@ public final class ConstraintParsers {
           );
 
 
-  public static final JsonParser<Expression<ConstraintResult>> constraintP =
+  public static final JsonParser<Expression<EDSLConstraintResult>> constraintP =
       recursiveP(selfP -> chooseP(
           forEachActivityViolationsF(selfP),
           windowsExpressionP.map(ViolationsOfWindows::new, $ -> $.expression),

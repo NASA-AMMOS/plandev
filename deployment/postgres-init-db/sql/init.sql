@@ -31,11 +31,11 @@ begin;
   -- Merlin
   \ir init_merlin.sql
 
-  -- Sequencing
-  \ir init_sequencing.sql
-
   -- Scheduling
   \ir init_scheduler.sql
+
+  -- Sequencing
+  \ir init_sequencing.sql
 
   -- Tags
   \ir init_tags.sql

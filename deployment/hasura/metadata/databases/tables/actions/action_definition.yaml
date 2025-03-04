@@ -37,7 +37,7 @@ insert_permissions:
 update_permissions:
   - role: aerie_admin
     permission:
-      columns: [name, description, action_file_id, parameter_schema, settings_schema, owner]
+      columns: [name, description, action_file_id, parameter_schema, settings_schema, owner, workspace_id]
       filter: {}
       set:
         updated_by: "x-hasura-user-id"

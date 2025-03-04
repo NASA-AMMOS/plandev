@@ -32,7 +32,7 @@ insert_permissions:
         created_by: "x-hasura-user-id"
   - role: user
     permission:
-      columns: "*"
+      columns: [settings, parameters]
       check: {}
       set:
         created_by: "x-hasura-user-id"

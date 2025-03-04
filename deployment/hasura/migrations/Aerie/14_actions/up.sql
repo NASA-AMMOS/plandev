@@ -59,6 +59,31 @@ create trigger set_timestamp
   for each row
   execute function util_functions.set_updated_at();
 
+create function actions.notify_action_definition_inserted()
+  returns trigger
+  security definer
+  language plpgsql as $$
+begin
+  perform (
+    with payload(action_definition_id,
+                 action_file_path) as
+           (
+             select NEW.id,
+                    uf.name
+             from merlin.uploaded_file uf
+             where uf.id = NEW.action_file_id
+           )
+    select pg_notify('action_definition_inserted', json_strip_nulls(row_to_json(payload))::text)
+    from payload
+  );
+  return null;
+end$$;
+
+create trigger notify_action_definition_inserted
+  after insert on actions.action_definition
+  for each row
+execute function actions.notify_action_definition_inserted();
+
 create table actions.action_run (
   id integer generated always as identity,
 

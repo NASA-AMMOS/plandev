@@ -3,6 +3,8 @@ drop function actions.notify_action_run_inserted cascade;
 
 drop table actions.action_run cascade;
 
+drop trigger notify_action_definition_inserted on actions.action_definition;
+drop function actions.notify_action_definition_inserted cascade;
 drop trigger set_timestamp on actions.action_definition;
 drop table actions.action_definition cascade;
 

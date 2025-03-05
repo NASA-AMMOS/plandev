@@ -4,7 +4,7 @@ create table sequencing.expanded_sequences (
   expansion_run_id integer not null,
   seq_id text not null,
   simulation_dataset_id int not null,
-  expanded_sequence jsonb not null, -- MAY WANT TO MAKE THIS A STRING INSTEAD. LEAVE SEQJSON/CSTOLJSON? AS EPHEMERAL. BUT ALL OUR CONVERSIONS ARE STRING-STRING, AND SHOULD BE MAINTAINED AS SUCH
+  expanded_sequence jsonb not null,
 
   created_at timestamptz not null default now(),
 

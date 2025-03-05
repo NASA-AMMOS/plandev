@@ -36,16 +36,16 @@ select_permissions:
 insert_permissions:
   - role: aerie_admin
     permission:
-      columns: [seq_id, simulation_dataset_id, created_at, metadata, filter]
+      columns: [seq_id, simulation_dataset_id, created_at, metadata]
       check: {}
   - role: user
     permission:
-      columns: [seq_id, simulation_dataset_id, created_at, metadata, filter]
+      columns: [seq_id, simulation_dataset_id, created_at, metadata]
       check: {}
 update_permissions:
   - role: aerie_admin
     permission:
-      columns: [metadata, filter]
+      columns: [metadata]
       filter: {}
 delete_permissions:
   - role: aerie_admin

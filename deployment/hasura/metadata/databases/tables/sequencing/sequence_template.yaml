@@ -3,23 +3,6 @@ table:
   schema: sequencing
 configuration:
   custom_name: "sequence_template"
-#array_relationships:
-#- name: expansion_sets
-#  using:
-#    manual_configuration:
-#      remote_table:
-#        name: rule_expansion_set_view
-#        schema: sequencing
-#      insertion_order: null
-#      column_mapping:
-#        id: rule_id
-#- name: tags
-#  using:
-#    foreign_key_constraint_on:
-#      column: rule_id
-#      table:
-#        name: expansion_rule_tags
-#        schema: tags
 select_permissions:
   - role: aerie_admin
     permission:

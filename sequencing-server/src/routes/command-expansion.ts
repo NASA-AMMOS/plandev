@@ -390,9 +390,9 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   let seqBuilder: SeqBuilder<string, string>;
   if (language === "STOL") {
     seqBuilder = stolBuilder
-  } else if (language == "SEQN") {
+  } else if (language === "SEQN") {
     seqBuilder = seqnBuilder
-  } else if (language == "TEXT") {
+  } else if (language === "TEXT") {
     seqBuilder = concatBuilder
   } else {
     throw new Error(

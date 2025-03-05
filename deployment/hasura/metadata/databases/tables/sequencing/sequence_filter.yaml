@@ -1,0 +1,46 @@
+table:
+  name: sequence_filter
+  schema: sequencing
+configuration:
+  custom_name: "sequence_filter"
+object_relationships:
+  - name: model
+    using:
+      foreign_key_constraint_on: model_id
+select_permissions:
+  - role: aerie_admin
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: user
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: viewer
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+insert_permissions:
+  - role: aerie_admin
+    permission:
+      columns: [filter, model_id, name]
+      check: {}
+  - role: user
+    permission:
+      columns: [filter, model_id, name]
+      check: {}
+update_permissions:
+  - role: aerie_admin
+    permission:
+      columns: [filter, name]
+      filter: {}
+delete_permissions:
+  - role: aerie_admin
+    permission:
+      filter: {}
+  - role: user
+    permission:
+      filter: {}

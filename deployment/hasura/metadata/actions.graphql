@@ -39,6 +39,16 @@ type Mutation {
 }
 
 type Mutation {
+  assignActivitiesByFilter(
+    filterId: Int!,
+    simulationDatasetId: Int!,
+    seqId: String!,
+    timeRangeStart: String!,
+    timeRangeEnd: String!
+  ): AssignActivitiesByFilterResponse
+}
+
+type Mutation {
   addTemplateExpansion(
     name: String!
     modelId: Int!
@@ -248,6 +258,10 @@ type AddCommandExpansionResponse {
 type AddTemplateExpansionResponse {
   id: Int!
   errors: [UserCodeError!]
+}
+
+type AssignActivitiesByFilterResponse {
+  success: Boolean!
 }
 
 type ExpandAllActivitiesResponse {

@@ -11,15 +11,18 @@ import type { executeExpansionFromBuildArtifacts, typecheckExpansion } from './.
 import getLogger from './../utils/logger.js';
 import { InheritedError } from '../utils/InheritedError.js';
 import { unwrapPromiseSettledResults } from '../lib/batchLoaders/index.js';
-import { seqJsonBuilder } from '../seqJsonBuilder.js';
+import { seqJsonBuilder } from '../builders/seqJsonBuilder.js';
 import { ActivateStep, CommandStem, LoadStep } from './../lib/codegen/CommandEDSLPreface.js';
 import { getUsername } from '../utils/hasura.js';
 import * as crypto from 'crypto';
 import type { SimulatedActivity } from '../lib/batchLoaders/simulatedActivityBatchLoader.js';
 import { Mustache } from '../lib/mustache/util/index.js';
+import { seqnBuilder } from '../builders/seqnBuilder.js';
 import type { ExpandedActivity, SeqBuilder } from '../types/seqBuilder.js';
 import { stringifyActivity } from '../lib/mustache/util/activity.js';
+import { stolBuilder } from '../builders/stolBuilder.js';
 import { concatBuilder } from "../builders/concatBuilder.js";
+import { SequencingLanguage } from '../lib/mustache/enums/language.js';
 
 const logger = getLogger('app');
 
@@ -85,7 +88,7 @@ commandExpansionRouter.post('/put-template', async (req, res, next) => {
   const parcelId = req.body.input.parcelId as number | null;
   const modelId = req.body.input.modelId as number | null;
   const activityTypeName = req.body.input.activityTypeName as string;
-  let language = req.body.input.language as string;
+  let language = req.body.input.language as SequencingLanguage;
   const username = getUsername(req.body.session_variables, req.headers.authorization);
 
   // if this makes use of helpers, which is possible, there's no easy way to verify this is valid mustache without
@@ -104,9 +107,9 @@ commandExpansionRouter.post('/put-template', async (req, res, next) => {
     return next();
   }
 
-  if (language.toLowerCase() === "stol") language = "STOL";
-  if (language.toLowerCase() === "seqn") language = "SeqN";
-  if (language.toLowerCase() === "text") language = "Text";
+  if (language.toLowerCase() === "stol") language = SequencingLanguage.STOL;
+  if (language.toLowerCase() === "seqn") language = SequencingLanguage.SEQN;
+  if (language.toLowerCase() === "text") language = SequencingLanguage.TEXT;
 
   const { rows } = await db.query(
     `
@@ -314,8 +317,37 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       `POST /command-expansion/expand-all-sequence-templates: No sequence templates found for modelId=(${modelId}).`,
     );
   }
-  // const language = sequenceTemplates[0].language  // TODO use the language to pick a builder
-  const seqBuilder: SeqBuilder<string, string> = concatBuilder;
+
+  // Check that all languages are the same across all templates for this model
+  const languages = sequenceTemplates.map(template => template.language).reduce((previous, current, __, _) => {
+    if (previous.includes(current)) {
+      return previous;
+    }
+    else {
+      previous.push(current);
+      return previous;
+    }
+  }, [] as string[])
+
+  if (languages.length > 1) {
+    throw new Error(
+      `POST /command-expansion/expand-all-sequence-templates: Sequence templates found for modelId=(${modelId}) using different languages (${languages}).`
+    )
+  }
+
+  // Select the correct seqBuilder based on language
+  let seqBuilder: SeqBuilder<string, string>;
+  if (languages[0] === SequencingLanguage.STOL) {
+    seqBuilder = stolBuilder
+  } else if (languages[0] === SequencingLanguage.SEQN) {
+    seqBuilder = seqnBuilder
+  } else if (languages[0] === SequencingLanguage.TEXT) {
+    seqBuilder = concatBuilder
+  } else {
+    throw new Error(
+      `POST /command-expansion/expand-all-sequence-templates: Unsupported sequence language "${languages[0]}"`,
+    );
+  }
 
   //  3. Pair seqId/SimulatedActivity lists; aggregate all simulated, filtered, activities
   let seqIdToFilteredActivities: { [seqId: string]: { id: number, startOffset: Temporal.Duration }[] } = {};
@@ -394,7 +426,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       if (currentTemplate) {
         // NOTE: if I have some gibberish as a variable that's obviously not defined, there will be no error.
         //    i.e. "CMD {{ dsvsdfs }}" expands to "CMD ".
-        currentTemplate.setLanguage("STOL") // can be in constructor too
+        currentTemplate.setLanguage(languages[0])
         const commandString = currentTemplate.execute(stringifyActivity(simulatedActivity))
 
         // add to results

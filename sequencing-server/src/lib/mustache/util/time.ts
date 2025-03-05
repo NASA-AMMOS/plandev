@@ -2,18 +2,19 @@
 
 import { ParsedDoyString, ParsedDurationString, ParsedYmdString, TimeTypes } from './types/time.js';
 import { Temporal } from '@js-temporal/polyfill';
+import { SequencingLanguage } from '../enums/language.js';
 
 
 /////////////// SEQUENCING-SERVER-SPECIFIC HELPERS ///////////////
-export function addTime(startTime: string, duration: string, environment: { language: string }): string {
+export function addTime(startTime: string, duration: string, environment: { language: SequencingLanguage }): string {
   let date: Temporal.Instant
-  if (environment.language === "STOL") {
+  if (environment.language === SequencingLanguage.STOL) {
     date = STOLToISO8061(startTime)
   }
-  else {
+  else { // Text and SeqN are handled the same.
     date = SeqNToISO8061(startTime)
   }
-  
+
   let dur: Temporal.Duration;
   if (duration.includes(":")) {
     dur = Temporal.Duration.from(AERIEDurationToISO8061(duration))
@@ -23,20 +24,20 @@ export function addTime(startTime: string, duration: string, environment: { lang
   }
   date = date.add(dur)
 
-  if (environment.language === "STOL") {
+  if (environment.language === SequencingLanguage.STOL) {
     return ISO8061toSTOL(date)
   }
-  else {
+  else { // Text and SeqN are handled the same.
     return ISO8061toSeqN(date)
   }
 }
 
-export function subtractTime(startTime: string, duration: string, environment: { language: string }): string {
+export function subtractTime(startTime: string, duration: string, environment: { language: SequencingLanguage }): string {
   let date: Temporal.Instant
-  if (environment.language === "STOL") {
+  if (environment.language === SequencingLanguage.STOL) {
     date = STOLToISO8061(startTime)
   }
-  else {
+  else { // Text and SeqN are handled the same.
     date = SeqNToISO8061(startTime)
   }
 
@@ -49,10 +50,10 @@ export function subtractTime(startTime: string, duration: string, environment: {
   }
   date = date.subtract(dur)
 
-  if (environment.language === "STOL") {
+  if (environment.language === SequencingLanguage.STOL) {
     return ISO8061toSTOL(date)
   }
-  else {
+  else { // Text and SeqN are handled the same.
     return ISO8061toSeqN(date)
   }
 

@@ -58,6 +58,7 @@ commandExpansionRouter.post('/put-expansion', async (req, res, next) => {
     return next();
   }
 
+  // WHY NOT DO THIS FIRST?
   const parcel = await context.parcelTypescriptDataLoader.load({ parcelId });
   const commandTypes = await context.commandTypescriptDataLoader.load({ dictionaryId: parcel.command_dictionary.id });
   const activitySchema = await context.activitySchemaDataLoader.load({

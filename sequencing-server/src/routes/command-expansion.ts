@@ -153,7 +153,6 @@ commandExpansionRouter.post('/assign-activities-by-filter', async (req, res, nex
   return next();
 })
 
-// TODO: integrate with AERIE UI when editor is done
 commandExpansionRouter.post('/put-template', async (req, res, next) => {
   const name = req.body.input.name as string;
   const parcelId = req.body.input.parcelId as number | null;

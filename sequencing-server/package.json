@@ -9,7 +9,7 @@
     "./plugins/*"
   ],
   "scripts": {
-    "build": "npm run build:clean; npm run build:plugins; tsc -p tsconfig.build.json; npm run copy-preface; npm run copy-temporal-polyfill; npm run copy-channel-types; npm run copy-parameter-types;",
+    "build": "npm run build:clean; npm run build:plugins; tsc -p tsconfig.build.json; npm run copy-preface; npm run copy-temporal-polyfill; npm run copy-channel-types; npm run copy-parameter-types; npm run copy-parsing-languages",
     "build:plugins": "npm run build --workspaces;",
     "build:server": "tsc -p tsconfig.build.json",
     "build:clean": "rm -rf ./build",
@@ -17,6 +17,7 @@
     "copy-temporal-polyfill": "cp src/types/TemporalPolyfillTypes.ts ./build/types/TemporalPolyfillTypes.ts;",
     "copy-channel-types": "cp src/types/ChannelTypes.ts ./build/types/ChannelTypes.ts;",
     "copy-parameter-types": "cp src/types/ParameterTypes.ts ./build/types/ParameterTypes.ts;",
+    "copy-parsing-languages": "cp src/lib/parsing/seqn/language/*.grammar ./build/lib/parsing/seqn/language",
     "debug": "node --inspect=0.0.0.0:9229 --experimental-vm-modules ./build/app.js",
     "dev": "npm run build && concurrently -n \"tsc,node\" -c \"blue,red\" \"npm run ts-watch\" \"npm run dev-server\"",
     "dev-server": "supervisor -- --inspect=0.0.0.0 --experimental-vm-modules ./build/app.js",
@@ -26,7 +27,10 @@
     "ts-watch": "npm run copy-preface; npm run copy-temporal-polyfill; npm run copy-channel-types; npm run copy-parameter-types; tsc -p tsconfig.build.json --watch"
   },
   "dependencies": {
+    "@codemirror/language": "^6.11.0",
     "@js-temporal/polyfill": "~0.4.3",
+    "@lezer/common": "^1.2.3",
+    "@lezer/generator": "^1.7.2",
     "@nasa-jpl/aerie-ampcs": "~1.0.6",
     "@nasa-jpl/aerie-ts-user-code-runner": "~0.7.0",
     "@nasa-jpl/seq-json-schema": "1.3.1",

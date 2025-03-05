@@ -1,13 +1,13 @@
 import express from "express";
-import {configuration} from "./config";
-import {extractSchemas, jsExecute} from "./utils/codeRunner";
-import {isActionRunRequest, validateActionRunRequest} from "./utils/validators";
-import {ActionResponse} from "./type/types";
-import {ActionsDbManager} from "./db";
-import {Pool, PoolClient, Notification} from "pg";
+import { configuration } from "./config";
+import { extractSchemas, jsExecute } from "./utils/codeRunner";
+import { isActionRunRequest, validateActionRunRequest } from "./utils/validators";
+import { ActionResponse } from "./type/types";
+import { ActionsDbManager } from "./db";
+import { Pool, PoolClient, Notification } from "pg";
 
-import {readFile} from "fs/promises";
-import {corsMiddleware, jsonErrorMiddleware} from "./middleware";
+import { readFile } from "fs/promises";
+import { corsMiddleware, jsonErrorMiddleware } from "./middleware";
 import * as path from "node:path";
 
 const app = express();
@@ -57,13 +57,13 @@ async function readFileFromStore(fileName: string): Promise<string> {
   const fileStoreBasePath = `/usr/src/app/action_file_store`; // todo get from env
   const filePath = path.join(fileStoreBasePath, fileName);
   console.log(`path is ${filePath}`);
-  return await readFile(filePath, 'utf-8');
+  return await readFile(filePath, "utf-8");
 }
 
 type ActionDefinitionInsertedPayload = {
-  action_definition_id: number,
-  action_file_path: string
-}
+  action_definition_id: number;
+  action_file_path: string;
+};
 async function handleActionDefinition(payload: ActionDefinitionInsertedPayload) {
   console.log("action definition inserted");
   // pre-process and extract schemas
@@ -98,12 +98,13 @@ async function handleActionDefinition(payload: ActionDefinitionInsertedPayload) 
 }
 
 type ActionRunInsertedPayload = {
-  settings: Record<string, any>,
-  parameters: Record<string, any>,
-  action_definition_id: number,
-  workspace_id: number,
-  action_file_path: string
-}
+  action_run_id: string;
+  settings: Record<string, any>;
+  parameters: Record<string, any>;
+  action_definition_id: number;
+  workspace_id: number;
+  action_file_path: string;
+};
 
 async function handleActionRun(payload: ActionRunInsertedPayload) {
   console.log("action run inserted");
@@ -129,18 +130,19 @@ async function handleActionRun(payload: ActionRunInsertedPayload) {
     console: jsRun.console,
     errors: jsRun.errors,
   } as ActionResponse;
-  console.log('finished run');
+  console.log("finished run");
   console.log(response);
 
-  const status = jsRun.errors ? "failed" : "success";
+  const status = jsRun.errors ? "failed" : "complete";
 
-  const logStr: string = [ // todo replace this with proper log stringification
-      jsRun.console.error.join('\n'),
-      jsRun.console.warn.join('\n'),
-      jsRun.console.log.join('\n'),
-      jsRun.console.info.join('\n'),
-      jsRun.console.debug.join('\n')
-    ].join('\n');
+  const logStr: string = [
+    // todo replace this with proper log stringification
+    jsRun.console.error.join("\n"),
+    jsRun.console.warn.join("\n"),
+    jsRun.console.log.join("\n"),
+    jsRun.console.info.join("\n"),
+    jsRun.console.debug.join("\n"),
+  ].join("\n");
 
   const pool = ActionsDbManager.getDb();
   const query = `
@@ -149,7 +151,7 @@ async function handleActionRun(payload: ActionRunInsertedPayload) {
         status = $1,
         error = $2::jsonb,
         results = $3::jsonb,
-        logs = $4,
+        logs = $4
       WHERE id = $5
       RETURNING *;
   `;
@@ -159,13 +161,13 @@ async function handleActionRun(payload: ActionRunInsertedPayload) {
       status,
       JSON.stringify(jsRun.errors),
       JSON.stringify(jsRun.results),
-      logStr
+      logStr,
+      payload.action_run_id,
     ]);
     console.log("Updated action_run:", res.rows[0]);
   } catch (err) {
     console.error("Error updating row:", err);
   }
-
 }
 
 let pool: Pool | undefined;
@@ -179,22 +181,22 @@ async function initDb() {
 
   listenClient = await pool.connect();
   // these occur when user inserts row in `action_definition`, need to pre-process to extract the schemas
-  listenClient.query('LISTEN action_definition_inserted');
+  listenClient.query("LISTEN action_definition_inserted");
   // these occur when a user inserts a row in the `action_run` table, signifying a run request
-  listenClient.query('LISTEN action_run_inserted');
+  listenClient.query("LISTEN action_run_inserted");
 
-  listenClient.on('notification', async (msg) => {
+  listenClient.on("notification", async (msg) => {
     console.info(`PG notify event: ${JSON.stringify(msg, null, 2)}`);
-    if(!msg || !msg.payload) {
+    if (!msg || !msg.payload) {
       console.warn(`warning: PG event with no message or payload: ${JSON.stringify(msg, null, 2)}`);
       return;
     }
     const payload = JSON.parse(msg.payload);
 
-    if(msg.channel === "action_definition_inserted") {
+    if (msg.channel === "action_definition_inserted") {
       // todo should these be awaited?
       await handleActionDefinition(payload);
-    } else if(msg.channel === "action_run_inserted") {
+    } else if (msg.channel === "action_run_inserted") {
       await handleActionRun(payload);
     }
   });
@@ -203,7 +205,7 @@ initDb();
 
 function cleanup() {
   console.log("shutting down...");
-  if(listenClient) listenClient.release();
+  if (listenClient) listenClient.release();
   server.close(() => {
     console.log("server closed.");
     process.exit(0);
@@ -212,5 +214,3 @@ function cleanup() {
 // handle termination signals
 process.on("SIGINT", cleanup);
 process.on("SIGTERM", cleanup);
-
-

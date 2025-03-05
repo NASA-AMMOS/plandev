@@ -47,13 +47,15 @@ create function actions.notify_action_run_inserted()
   language plpgsql as $$
 begin
   perform (
-    with payload(settings,
+    with payload(action_run_id,
+                 settings,
                  parameters,
                  action_definition_id,
                  workspace_id,
                  action_file_path) as
            (
-             select NEW.settings,
+             select NEW.id,
+                    NEW.settings,
                     NEW.parameters,
                     NEW.action_definition_id,
                     ad.workspace_id,

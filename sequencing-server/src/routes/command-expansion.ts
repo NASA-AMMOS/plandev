@@ -174,7 +174,7 @@ commandExpansionRouter.post('/put-template', async (req, res, next) => {
     return next();
   }
   if (["STOL", "SEQN", "TEXT"].indexOf(language) === -1) {
-    res.status(500).json({ errors: [`Invalid language ${language}; must be "STOL" or "SEQN".`] });
+    res.status(500).json({ errors: [`Invalid language ${language}; must be "STOL", "SEQN", or "TEXT".`] });
     return next();
   }
 

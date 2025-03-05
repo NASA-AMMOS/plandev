@@ -93,7 +93,7 @@ async function handleActionDefinition(payload: ActionDefinitionInsertedPayload) 
     ]);
     console.log("Updated action_definition:", res.rows[0]);
   } catch (err) {
-    console.error("Error updating action_definition:", err);
+    console.error("Error updating row:", err);
   }
 }
 

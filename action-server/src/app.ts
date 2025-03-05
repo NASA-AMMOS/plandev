@@ -131,6 +131,41 @@ async function handleActionRun(payload: ActionRunInsertedPayload) {
   } as ActionResponse;
   console.log('finished run');
   console.log(response);
+
+  const status = jsRun.errors ? "failed" : "success";
+
+  const logStr: string = [ // todo replace this with proper log stringification
+      jsRun.console.error.join('\n'),
+      jsRun.console.warn.join('\n'),
+      jsRun.console.log.join('\n'),
+      jsRun.console.info.join('\n'),
+      jsRun.console.debug.join('\n')
+    ].join('\n');
+
+  const pool = ActionsDbManager.getDb();
+  const query = `
+      UPDATE actions.action_run
+      SET
+        status = $1,
+        error = $2::jsonb,
+        results = $3::jsonb,
+        logs = $4,
+      WHERE id = $5
+      RETURNING *;
+  `;
+
+  try {
+    const res = await pool.query(query, [
+      status,
+      JSON.stringify(jsRun.errors),
+      JSON.stringify(jsRun.results),
+      logStr
+    ]);
+    console.log("Updated action_run:", res.rows[0]);
+  } catch (err) {
+    console.error("Error updating row:", err);
+  }
+
 }
 
 let pool: Pool | undefined;

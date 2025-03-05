@@ -33,13 +33,13 @@ app.post("/run-action", async (req, res) => {
   const authToken = req.header("authorization");
   if (!authToken) console.warn("No valid `authorization` header in action-run request");
 
-  const jsRun = await jsExecute(actionJS, parameters, settings, authToken);
+  // const jsRun = await jsExecute(actionJS, parameters, settings);
 
-  res.send({
-    results: jsRun.results,
-    console: jsRun.console,
-    errors: jsRun.errors,
-  } as ActionResponse);
+  // res.send({
+  //   results: jsRun.results,
+  //   console: jsRun.console,
+  //   errors: jsRun.errors,
+  // } as ActionResponse);
 });
 
 const port = configuration().PORT;
@@ -123,7 +123,9 @@ async function handleActionRun(payload: ActionRunInsertedPayload) {
   // todo: use piscina worker pool to run in separate thread
   // todo: run the action file, put results in the same DB row and mark status as successful
   // todo: try/catch - need to handle errors manually since not in express handler?
-  const jsRun = await jsExecute(actionJS, parameters, settings, "");
+  const pool = ActionsDbManager.getDb();
+  const workspaceId = payload.workspace_id;
+  const jsRun = await jsExecute(actionJS, parameters, settings, "", pool, workspaceId);
 
   const response = {
     results: jsRun.results,
@@ -144,8 +146,10 @@ async function handleActionRun(payload: ActionRunInsertedPayload) {
     jsRun.console.debug.join("\n"),
   ].join("\n");
 
-  const pool = ActionsDbManager.getDb();
-  const query = `
+
+
+  try {
+    const res = await pool.query(`
       UPDATE actions.action_run
       SET
         status = $1,
@@ -154,10 +158,7 @@ async function handleActionRun(payload: ActionRunInsertedPayload) {
         logs = $4
       WHERE id = $5
       RETURNING *;
-  `;
-
-  try {
-    const res = await pool.query(query, [
+  `, [
       status,
       JSON.stringify(jsRun.errors),
       JSON.stringify(jsRun.results),

@@ -23,6 +23,7 @@ import { applyActivityLayerFilter } from '../lib/filters/utilities.js';
 import { convertDoyToYmd } from '../lib/mustache/util/time.js';
 import { stringifyActivity } from '../lib/mustache/util/activity.js';
 import { stolBuilder } from '../builders/stolBuilder.js';
+import {concatBuilder} from "../builders/concatBuilder";
 
 const logger = getLogger('app');
 
@@ -172,7 +173,7 @@ commandExpansionRouter.post('/put-template', async (req, res, next) => {
     res.status(500).json({ errors: ["Must include parcelId and authoringMissionModelId."] });
     return next();
   }
-  if (["STOL", "SEQN"].indexOf(language) === -1) {
+  if (["STOL", "SEQN", "TEXT"].indexOf(language) === -1) {
     res.status(500).json({ errors: [`Invalid language ${language}; must be "STOL" or "SEQN".`] });
     return next();
   }
@@ -386,7 +387,18 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     );
   }
   const language = sequenceTemplates[0].language
-  const seqBuilder: SeqBuilder<string, string> = language === "STOL" ? stolBuilder : seqnBuilder;
+  let seqBuilder: SeqBuilder<string, string>;
+  if (language === "STOL") {
+    seqBuilder = stolBuilder
+  } else if (language == "SEQN") {
+    seqBuilder = seqnBuilder
+  } else if (language == "TEXT") {
+    seqBuilder = concatBuilder
+  } else {
+    throw new Error(
+        `POST /command-expansion/expand-all-sequence-templates: Unsupported sequence language "${language}"`,
+    );
+  }
 
   //  3. Pair seqId/SimulatedActivity lists; aggregate all simulated, filtered, activities
   let seqIdToFilteredActivities: { [seqId: string]: { id: number, startOffset: Temporal.Duration }[] } = {};

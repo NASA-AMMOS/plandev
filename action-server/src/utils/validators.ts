@@ -1,4 +1,4 @@
-import {ActionRunRequest} from "../type/types";
+import { ActionRunRequest } from "../type/types";
 
 const isObject = (val: any): val is Record<string, any> => val instanceof Object && !Array.isArray(val);
 

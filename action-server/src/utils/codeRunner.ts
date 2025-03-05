@@ -88,12 +88,12 @@ export const extractSchemas = async (code: string): Promise<any> => {
   // todo: do we need to pass globals/console for this part?
 
   // need to initialize exports for the cjs module to work correctly
-  const context = vm.createContext({exports: {}});
+  const context = vm.createContext({ exports: {} });
 
   try {
     vm.runInContext(code, context);
-    const {paramDefs, settingDefs} = context.exports;
-    return {paramDefs, settingDefs};
+    const { paramDefs, settingDefs } = context.exports;
+    return { paramDefs, settingDefs };
   } catch (error: any) {
     // wrap `throw 10` into a `new throw(10)`
     let errorResponse: Error;
@@ -112,4 +112,3 @@ export const extractSchemas = async (code: string): Promise<any> => {
     });
   }
 };
-

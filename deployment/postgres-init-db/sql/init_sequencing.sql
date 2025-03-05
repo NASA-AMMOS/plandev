@@ -23,6 +23,7 @@ begin;
   \ir tables/sequencing/workspace.sql
   \ir tables/sequencing/user_sequence.sql
   \ir tables/sequencing/expanded_sequences.sql
+  \ir tables/sequencing/sequence_template.sql
 
   -- Views
   \ir views/sequencing/expansion_set_rule_view.sql

@@ -39,6 +39,17 @@ type Mutation {
 }
 
 type Mutation {
+  addTemplateExpansion(
+    name: String!
+    modelId: Int!
+    parcelId: Int!
+    templateDefinition: String!
+    activityTypeName: String!
+    language: String!
+  ): AddTemplateExpansionResponse
+}
+
+type Mutation {
   createExpansionSet(
     parcelId: Int!,
     missionModelId: Int!,
@@ -226,6 +237,10 @@ type AddCommandExpansionResponse {
   errors: [UserCodeError!]
 }
 
+type AddTemplateExpansionResponse {
+  id: Int!
+  errors: [UserCodeError!]
+}
 type ExpandAllActivitiesResponse {
   id: Int!
   expandedActivityInstances: [ExpandedActivityInstance!]!

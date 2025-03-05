@@ -49,6 +49,7 @@ commandExpansionRouter.post('/put-expansion', async (req, res, next) => {
     return next();
   }
 
+  // WHY NOT DO THIS FIRST?
   const parcel = await context.parcelTypescriptDataLoader.load({ parcelId });
   const commandTypes = await context.commandTypescriptDataLoader.load({ dictionaryId: parcel.command_dictionary.id });
   const activitySchema = await context.activitySchemaDataLoader.load({
@@ -70,6 +71,54 @@ commandExpansionRouter.post('/put-expansion', async (req, res, next) => {
   });
 
   res.status(200).json({ id, errors: result.isErr() ? result.unwrapErr() : [] });
+  return next();
+});
+
+commandExpansionRouter.post('/put-template', async (req, res, next) => {
+  const name = req.body.input.name as string;
+  const parcelId = req.body.input.parcelId as number | null;
+  const modelId = req.body.input.modelId as number | null;
+  const activityTypeName = req.body.input.activityTypeName as string;
+  let language = req.body.input.language as string;
+  const username = getUsername(req.body.session_variables, req.headers.authorization);
+
+  // if this makes use of helpers, which is possible, there's no easy way to verify this is valid mustache without
+  //    getting accurate sample input.
+  //    i.e. if I have a template "CMD {{ data }} " and pass it input={}, I'll get "CMD ", without error. BUT
+  //         if I have a template "CMD WHEN={{ clean-date date }}" and pass it input={}, I'll get a failure.
+  //    Since this cannot be anticipated ahead of time, we don't pre-compile/verify here.
+  const templateDefinition = req.body.input.templateDefinition as string;
+
+  if (modelId == null || parcelId == null) {
+    res.status(500).json({ errors: ["Must include parcelId and authoringMissionModelId."] });
+    return next();
+  }
+  if (["stol", "seqn", "text"].indexOf(language.toLowerCase()) === -1) {
+    res.status(500).json({ errors: [`Invalid language ${language}; must be "STOL", "SeqN", or "Text".`] });
+    return next();
+  }
+
+  if (language.toLowerCase() === "stol") language = "STOL";
+  if (language.toLowerCase() === "seqn") language = "SeqN";
+  if (language.toLowerCase() === "text") language = "Text";
+
+  const { rows } = await db.query(
+    `
+    insert into sequencing.sequence_template (name, model_id, parcel_id, template_definition, activity_type, language, owner)
+    values ($1, $2, $3, $4, $5, $6, $7)
+    returning id;
+  `,
+    [name, modelId, parcelId, templateDefinition, activityTypeName, language, username],
+  );
+
+  if (rows.length < 1) {
+    throw new Error(`POST /put-template: No template was updated in the database`);
+  }
+
+  const id = rows[0].id;
+  logger.info(`POST /put-template: Updated template in the database: id=${id}`);
+
+  res.status(200).json({ id });
   return next();
 });
 

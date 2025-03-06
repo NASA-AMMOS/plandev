@@ -425,6 +425,16 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
         }
       }
     }
+    else {
+      if (!filteredActivities) {
+        throw new Error(
+          `POST /command-expansion/expand-all-sequence-templates: No activities associated with seqId: ${seqId}.`,
+        );
+      }
+      else {
+        throw filteredActivities;
+      }
+    }
   }
 
   //  4. Create a list of all activity types that are being used.

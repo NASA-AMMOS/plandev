@@ -22,7 +22,7 @@ public interface PlanService {
   Plan getPlanForValidation(PlanId planId) throws NoSuchPlanException;
   RevisionData getPlanRevisionData(PlanId planId) throws NoSuchPlanException;
 
-  Map<Long, ConstraintRecord> getConstraintsForPlan(PlanId planId) throws NoSuchPlanException;
+  List<ConstraintRecord> getConstraintsForPlan(PlanId planId) throws NoSuchPlanException;
 
   long addExternalDataset(
       PlanId planId,

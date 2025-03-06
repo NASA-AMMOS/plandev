@@ -77,8 +77,8 @@ public final class StubPlanService implements PlanService {
   }
 
   @Override
-  public Map<Long, ConstraintRecord> getConstraintsForPlan(final PlanId planId) {
-    return Map.of();
+  public List<ConstraintRecord> getConstraintsForPlan(final PlanId planId) {
+    return List.of();
   }
 
   @Override

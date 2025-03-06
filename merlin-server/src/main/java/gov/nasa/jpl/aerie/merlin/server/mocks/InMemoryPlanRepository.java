@@ -117,8 +117,8 @@ public final class InMemoryPlanRepository implements PlanRepository {
   }
 
   @Override
-  public Map<Long, ConstraintRecord> getPlanConstraints(final PlanId planId) {
-    return Map.of();
+  public List<ConstraintRecord> getPlanConstraints(final PlanId planId) {
+    return List.of();
   }
 
   @Override

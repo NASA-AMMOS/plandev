@@ -8,7 +8,6 @@ import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.SimulationDatasetMismatchException;
 import gov.nasa.jpl.aerie.merlin.server.http.Fallible;
 import gov.nasa.jpl.aerie.merlin.server.models.*;
-import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.ConstraintRunRecord;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 
 import java.util.*;
@@ -80,17 +79,19 @@ public class ConstraintAction {
 
     final SimulationDatasetId simDatasetId = resultsHandle.getSimulationDatasetId();
 
-    final var constraintCode = new HashMap<>(this.planService.getConstraintsForPlan(planId));
-
+    final var constraintCode = new ArrayList<>(this.planService.getConstraintsForPlan(planId));
     final var constraintResultMap = new HashMap<ConstraintRecord, Fallible<ConstraintResult, ?>>();
 
-    // temp disable cache loading
-    final var validConstraintRuns = new HashMap<Long, ConstraintRunRecord>();
-    //this.constraintService.getValidConstraintRuns(constraintCode, simDatasetId);
+    // Load cached results if the force rerun flag is not set
+    final var validConstraintRuns = force ? new HashMap<ConstraintRecord, ConstraintResult>() :
+        this.constraintService.getValidConstraintRuns(constraintCode, simDatasetId);
 
     // Remove any constraints that we've already checked, so they aren't rechecked.
-    for (ConstraintRunRecord constraintRun : validConstraintRuns.values()) {
-        constraintResultMap.put(constraintCode.remove(constraintRun.constraintId()), Fallible.of(constraintRun.result()));
+    for (var entry : validConstraintRuns.entrySet()) {
+        final var constraint = entry.getKey();
+        final var cachedResult = entry.getValue();
+        constraintCode.remove(constraint);
+        constraintResultMap.put(constraint, Fallible.of(cachedResult));
     }
 
     // If the lengths don't match we need check the left-over constraints.
@@ -125,9 +126,7 @@ public class ConstraintAction {
 
       //compile
       final var compiledConstraints = new ArrayList<ExecutableConstraint>();
-      for (final var entry : constraintCode.entrySet()) {
-        final var constraint = entry.getValue();
-
+      for (final var constraint : constraintCode) {
         switch (constraint.type()) {
           case ConstraintType.EDSL e -> {
             final var compilationResult = tryCompileEDSLConstraint(
@@ -175,12 +174,12 @@ public class ConstraintAction {
           }
         }
       }
-
-      // Store the outcome of the constraint run
-      constraintService.createConstraintRuns(
-          new ConstraintRequestConfiguration(planId, simDatasetId, force, userSession.hasuraUserId()),
-          constraintResultMap);
     }
+
+    // Store the outcome of the constraint run
+    constraintService.createConstraintRuns(
+        new ConstraintRequestConfiguration(planId, simDatasetId, force, userSession.hasuraUserId()),
+        constraintResultMap);
 
     return constraintResultMap;
   }

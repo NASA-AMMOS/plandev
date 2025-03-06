@@ -61,7 +61,8 @@ import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.parseJson;
                                                  order by def.revision desc limit 1)))
                ) c
       on p.id = c.plan_id
-    where p.id = ?;
+    where p.id = ?
+    order by c.invocation_id;
     """;
 
   private final PreparedStatement statement;

@@ -6,13 +6,14 @@ import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchConstraintException;
 import gov.nasa.jpl.aerie.merlin.server.http.Fallible;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintType;
+import gov.nasa.jpl.aerie.merlin.server.models.DBConstraintResult;
 import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
 import gov.nasa.jpl.aerie.merlin.server.remotes.ConstraintRepository;
 import gov.nasa.jpl.aerie.merlin.server.services.ConstraintRequestConfiguration;
 
 import javax.sql.DataSource;
 import java.sql.SQLException;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class PostgresConstraintRepository implements ConstraintRepository {
@@ -37,17 +38,13 @@ public class PostgresConstraintRepository implements ConstraintRepository {
   }
 
   @Override
-  public Map<Long, ConstraintRunRecord> getValidConstraintRuns(Map<Long, ConstraintRecord> constraints, SimulationDatasetId simulationDatasetId) {
+  public Map<ConstraintRecord, DBConstraintResult> getValidConstraintRuns(
+      List<ConstraintRecord> constraints,
+      SimulationDatasetId simulationDatasetId
+  ) {
     try (final var connection = this.dataSource.getConnection();
          final var validConstraintRunAction = new GetValidConstraintRunsAction(connection, constraints, simulationDatasetId)) {
-      final var constraintRuns = validConstraintRunAction.get();
-      final var validConstraintRuns = new HashMap<Long, ConstraintRunRecord>();
-
-      for (final var constraintRun : constraintRuns) {
-        validConstraintRuns.put(constraintRun.constraintInvocationId(), constraintRun);
-      }
-
-      return validConstraintRuns;
+      return validConstraintRunAction.get();
     } catch (final SQLException ex) {
       throw new DatabaseException("Failed to get constraint runs", ex);
     }

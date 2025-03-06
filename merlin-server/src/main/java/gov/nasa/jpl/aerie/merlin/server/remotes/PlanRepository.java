@@ -35,7 +35,7 @@ public interface PlanRepository {
   long getPlanRevision(PlanId planId) throws NoSuchPlanException;
   RevisionData getPlanRevisionData(PlanId planId) throws NoSuchPlanException;
 
-  Map<Long, ConstraintRecord> getPlanConstraints(PlanId planId) throws NoSuchPlanException;
+  List<ConstraintRecord> getPlanConstraints(PlanId planId) throws NoSuchPlanException;
 
   long addExternalDataset(
       PlanId planId,

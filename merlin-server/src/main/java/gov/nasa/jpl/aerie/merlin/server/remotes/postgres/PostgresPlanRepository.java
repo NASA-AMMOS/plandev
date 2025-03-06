@@ -180,14 +180,12 @@ public final class PostgresPlanRepository implements PlanRepository {
   }
 
   @Override
-  public Map<Long, ConstraintRecord> getPlanConstraints(final PlanId planId) throws NoSuchPlanException {
+  public List<ConstraintRecord> getPlanConstraints(final PlanId planId) throws NoSuchPlanException {
     try (final var connection = this.dataSource.getConnection()) {
       try (final var getPlanConstraintsAction = new GetPlanConstraintsAction(connection)) {
         return getPlanConstraintsAction
             .get(planId.id())
-            .orElseThrow(() -> new NoSuchPlanException(planId))
-            .stream()
-            .collect(Collectors.toMap(ConstraintRecord::invocationId, r -> r));
+            .orElseThrow(() -> new NoSuchPlanException(planId));
       }
     } catch (final SQLException ex) {
       throw new DatabaseException(

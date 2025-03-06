@@ -23,7 +23,7 @@ import { applyActivityLayerFilter } from '../lib/filters/utilities.js';
 import { convertDoyToYmd } from '../lib/mustache/util/time.js';
 import { stringifyActivity } from '../lib/mustache/util/activity.js';
 import { stolBuilder } from '../builders/stolBuilder.js';
-import {concatBuilder} from "../builders/concatBuilder";
+import {concatBuilder} from "../builders/concatBuilder.js";
 
 const logger = getLogger('app');
 

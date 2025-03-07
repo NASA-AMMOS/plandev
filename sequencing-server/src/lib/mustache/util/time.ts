@@ -59,14 +59,12 @@ export function STOLToISO8061(date: string): Temporal.Instant {
 export function AERIEDurationToISO8061(duration: string): string {
   // HHHHHH...:MM:SS.mmmuuu -> PHHMMSS.mmmuuuS
   let split = duration.split(":")
-  // for parseInt, the split was marked as potentially undefined though that would not be possible, 
-  //    so to evade error checking (and to throw an error if something unexpected happens), I do split[x] ?? "a"
-  let hours = parseInt(split[0] ?? "a") 
-  let minutes = parseInt(split[1] ?? "a")//.padStart(2, '0')
-  let split2 = (split[2] ?? "a").split(".")
-  let seconds = parseInt(split2[0] ?? "a")//.padStart(2, '0')
+  let hours = parseInt(split[0])//.padStart(2, '0')
+  let minutes = parseInt(split[1])//.padStart(2, '0')
+  let split2 = split[2].split(".")
+  let seconds = parseInt(split2[0])//.padStart(2, '0')
   if (split2.length > 1) {
-    let microseconds = parseInt(split2[1] ?? "a")//.padEnd(6, '0')
+    let microseconds = parseInt(split2[1])//.padEnd(6, '0')
 
     return `PT${hours > 0 ? `${hours}H` : ""}${minutes > 0 ? `${minutes}M` : ""}${seconds > 0 && microseconds > 0 ? `${seconds}.${microseconds}S` : (seconds > 0) ? `${seconds}$` : (microseconds > 0) ? `0.${microseconds}S` : ""}`
   }
@@ -87,7 +85,7 @@ export function ISO8061toSTOL(date: Temporal.Instant): string {
 
   // extract decimal seconds, if any, and pad by length (ms -> 3 automatically, us -> 6 automatically)
   if (!time.includes(".")) {
-    return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${time}` 
+    return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${time}`
   }
   else {
     const secondSplit = time.split(".")
@@ -97,7 +95,7 @@ export function ISO8061toSTOL(date: Temporal.Instant): string {
     // if the Z is present at the end; it may not be and we don't want to extraneously add it
     const zString = time.includes("Z") ? "Z" : ""
     if (decimal.length <= 3) {
-      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${hms}.${decimal.padEnd(3, '0')}${zString}` 
+      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${hms}.${decimal.padEnd(3, '0')}${zString}`
     }
     else {
       return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${hms}.${decimal.padEnd(6, '0')}${zString}`
@@ -117,7 +115,7 @@ export function ISO8061toSeqN(date: Temporal.Instant): string { // presently, ca
 
   // extract decimal seconds, if any, and pad by length (ms -> 3 automatically, us -> 6 automatically)
   if (!time.includes(".")) {
-    return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${time}` 
+    return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${time}`
   }
   else {
     const secondSplit = time.split(".")
@@ -127,7 +125,7 @@ export function ISO8061toSeqN(date: Temporal.Instant): string { // presently, ca
     // if the Z is present at the end; it may not be and we don't want to extraneously add it
     const zString = time.includes("Z") ? "Z" : ""
     if (decimal.length <= 3) {
-      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${hms}.${decimal.padEnd(3, '0')}${zString}` 
+      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${hms}.${decimal.padEnd(3, '0')}${zString}`
     }
     else {
       return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${hms}.${decimal.padEnd(6, '0')}${zString}`
@@ -160,13 +158,14 @@ export function convertDoyToYmd(doyString: string, includeMsecs = true): string 
         padStart(`${date.getUTCDate()}`, 2, '0'),
       ].join('-')}T${parsedDoy.time}`;
       if (includeMsecs) {
-        return `${ymdString}${ymdString.charAt(ymdString.length-1) !== "Z" ? "Z" : ""}`;
+        return `${ymdString}${ymdString.charAt(ymdString.length - 1) !== "Z" ? "Z" : ""}`;
       }
       const replaced = ymdString.replace(/(\.\d+)/, '')
-      return `${replaced}${replaced.charAt(replaced.length-1) !== "Z" ? "Z" : ""}`;
+      return `${replaced}${replaced.charAt(replaced.length - 1) !== "Z" ? "Z" : ""}`;
     } else {
       // doyString is already in ymd format
-      return `${doyString}${doyString.charAt(doyString.length-1) !== "Z" ? "Z" : ""}`;
+      //    just in case - correct and "/" in lieu of a T, i.e. 2025-001/time vs 2025-001Ttime
+      return `${doyString.replace("/", "T")}${doyString.charAt(doyString.length - 1) !== "Z" ? "Z" : ""}`;
     }
   }
 
@@ -204,12 +203,6 @@ function parseDoyOrYmdTime(
     const { groups: { year, month, day, doy, time = '00:00:00', hour = '0', min = '0', sec = '0', dec = '.0' } = {} } =
       matches;
 
-    // marks year as string | undefined, though the compiler didn't do that in the prototype
-    if (year === undefined) {
-      console.log(`YEAR in date ${dateString} is undefined.`)
-      return null;
-    }
-
     const partialReturn = {
       hour: parseInt(hour),
       min: parseInt(min),
@@ -224,16 +217,6 @@ function parseDoyOrYmdTime(
         ...partialReturn,
         doy: parseInt(doy),
       };
-    }
-
-    // marks month, day as string | undefined, though the compiler didn't do that in the prototype
-    if (month === undefined) {
-      console.log(`MONTH in date ${dateString} is undefined.`)
-      return null;
-    }
-    if (day === undefined) {
-      console.log(`DAY in date ${dateString} is undefined.`)
-      return null;
     }
 
     return {

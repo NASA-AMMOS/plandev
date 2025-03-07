@@ -67,7 +67,7 @@ export const jsExecute = async (
     vm.runInContext(code, context);
     // todo: main runs outside of VM - is that OK?
     const actions = new Actions(pool, workspaceId);
-    const results = await context.main(parameters, settings, authToken);
+    const results = await context.main(parameters, settings, actions);
     return { results, console: consoleOutput, errors: null };
   } catch (error: any) {
     // wrap `throw 10` into a `new throw(10)`

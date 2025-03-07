@@ -23,7 +23,7 @@ import { applyActivityLayerFilter } from '../lib/filters/utilities.js';
 import { convertDoyToYmd } from '../lib/mustache/util/time.js';
 import { stringifyActivity } from '../lib/mustache/util/activity.js';
 import { stolBuilder } from '../builders/stolBuilder.js';
-import {concatBuilder} from "../builders/concatBuilder.js";
+import { concatBuilder } from "../builders/concatBuilder.js";
 
 const logger = getLogger('app');
 
@@ -366,7 +366,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   const seqIds = (req.body.input.seqIds as number[]).filter((val, index, arr) => arr.indexOf(val) == index); // remove duplicates, if they're even possible
 
   const seqMetadata = {
-      simulationDatasetId
+    simulationDatasetId
   }
 
   //  1. Load simulated activities and templates
@@ -396,7 +396,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     seqBuilder = concatBuilder
   } else {
     throw new Error(
-        `POST /command-expansion/expand-all-sequence-templates: Unsupported sequence language "${language}"`,
+      `POST /command-expansion/expand-all-sequence-templates: Unsupported sequence language "${language}"`,
     );
   }
 
@@ -516,14 +516,35 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
 
     // storage that may be useful later but is not now...
     expandedSequencesBySeqId[seqId] = sequence;
-    const { rows } = await db.query(
-      `
+
+    let rows: any[] = [];
+    try {
+      rows = await db.query(
+        `
         insert into sequencing.expanded_templates (simulation_dataset_id, seq_id, expanded_template)
           values ($1, $2, $3)
           returning id
     `,
-      [simulationDatasetId, seqId, sequence],
-    );
+        [simulationDatasetId, seqId, sequence],
+      ).then(result => result.rows);
+    }
+    catch (e) {
+      if (e instanceof Error) {
+        throw new Error(
+          `POST /command-expansion/expand-all-sequence-templates: Databse insertion failed with "${e.message}"`
+        )
+      }
+      else if (e instanceof String) {
+        throw new Error(
+          `POST /command-expansion/expand-all-sequence-templates: Databse insertion failed with "${e}"`
+        )
+      }
+      else {
+        throw new Error(
+          `POST /command-expansion/expand-all-sequence-templates: Databse insertion failed with "${JSON.stringify(e)}"`
+        )
+      }
+    }
 
     if (rows.length < 1) {
       throw new Error(
@@ -737,9 +758,9 @@ commandExpansionRouter.post('/expand-all-activity-instances', async (req, res, n
       select seq_id, simulated_activity_id
       from sequencing.sequence_to_simulated_activity
       where sequencing.sequence_to_simulated_activity.simulated_activity_id in (${pgFormat(
-        '%L',
-        expandedActivityInstances.map(eai => eai.id),
-      )})
+      '%L',
+      expandedActivityInstances.map(eai => eai.id),
+    )})
       and simulation_dataset_id = $1
     `,
     [simulationDatasetId],
@@ -751,9 +772,9 @@ commandExpansionRouter.post('/expand-all-activity-instances', async (req, res, n
         select metadata, seq_id, simulation_dataset_id
         from sequencing.sequence s
         where s.seq_id in (${pgFormat(
-          '%L',
-          seqToSimulatedActivity.rows.map(row => row.seq_id),
-        )})
+        '%L',
+        seqToSimulatedActivity.rows.map(row => row.seq_id),
+      )})
         and s.simulation_dataset_id = $1;
       `,
       [simulationDatasetId],
@@ -772,9 +793,9 @@ commandExpansionRouter.post('/expand-all-activity-instances', async (req, res, n
       seqIdToSimActivityId[row.seq_id]!.add(row.simulated_activity_id);
       logger.info(
         `POST /command-expansion/expand-all-activity-instances:\n` +
-          row.seq_id +
-          ' -> ' +
-          seqIdToSimActivityId[row.seq_id]?.size,
+        row.seq_id +
+        ' -> ' +
+        seqIdToSimActivityId[row.seq_id]?.size,
       );
     }
 

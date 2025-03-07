@@ -272,6 +272,7 @@ type ExpandAllActivitiesResponse {
 
 type ExpandAllSequencesResponse {
   success: Boolean!
+  expandedSequencesBySeqId: json!
 }
 
 type ExpandedActivityInstance {

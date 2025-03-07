@@ -8,7 +8,7 @@ import {
 } from './testUtils/ActivityDirective.js';
 import { insertDictionary, removeDictionary } from './testUtils/Dictionary';
 import {
-  expand,
+  expandLegacy,
   insertExpansion,
   insertExpansionSet,
   removeExpansion,
@@ -224,7 +224,7 @@ describe('sequence generation', () => {
     // Simulate Plan
     const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
     // Expand Plan to Sequence Fragments
-    const expansionRunPk = await expand(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
+    const expansionRunPk = await expandLegacy(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
     // Create Sequence
     const sequencePk = await insertSequence(graphqlClient, {
       seqId: 'test00000',
@@ -591,7 +591,7 @@ describe('sequence generation', () => {
     // Simulate Plan
     const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
     // Expand Plan to Sequence Fragments
-    const expansionRunPk = await expand(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
+    const expansionRunPk = await expandLegacy(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
     // Create Sequence
     const [sequencePk1, sequencePk2] = await Promise.all([
       insertSequence(graphqlClient, {
@@ -1209,7 +1209,7 @@ describe('sequence generation', () => {
     // Simulate Plan
     const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
     // Expand Plan to Sequence Fragments
-    const expansionRunPk = await expand(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
+    const expansionRunPk = await expandLegacy(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
     // Create Sequence
     const sequencePk = await insertSequence(graphqlClient, {
       seqId: 'test00000',
@@ -1557,7 +1557,7 @@ describe('sequence generation', () => {
     // Simulate Plan
     const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
     // Expand Plan to Sequence Fragments
-    const expansionRunPk = await expand(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
+    const expansionRunPk = await expandLegacy(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
     // Create Sequence
     const [sequencePk1, sequencePk2] = await Promise.all([
       insertSequence(graphqlClient, {
@@ -2185,7 +2185,7 @@ describe('sequence generation', () => {
     // Simulate Plan
     const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
     // Expand Plan to Sequence Fragments
-    const expansionRunPk = await expand(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
+    const expansionRunPk = await expandLegacy(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
     // Create Sequence
     const sequencePk = await insertSequence(graphqlClient, {
       seqId: 'test00000',
@@ -2519,7 +2519,7 @@ describe('sequence generation', () => {
     // Simulate Plan
     const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
     // Expand Plan to Sequence Fragments
-    const expansionRunPk = await expand(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
+    const expansionRunPk = await expandLegacy(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
     // Create Sequence
     const [sequencePk1, sequencePk2] = await Promise.all([
       insertSequence(graphqlClient, {
@@ -3143,7 +3143,7 @@ describe('sequence generation', () => {
       // Simulate Plan
       const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
       // Expand Plan to Sequence Fragments
-      const expansionRunPk = await expand(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
+      const expansionRunPk = await expandLegacy(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
       // Create Sequence
       const sequencePk = await insertSequence(graphqlClient, {
         seqId: 'test00000',
@@ -3296,7 +3296,7 @@ describe('sequence generation', () => {
       // Simulate Plan
       const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
       // Expand Plan to Sequence Fragments
-      const expansionRunPk = await expand(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
+      const expansionRunPk = await expandLegacy(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
       // Create Sequence
       const sequencePk = await insertSequence(graphqlClient, {
         seqId: 'test00000',
@@ -3415,7 +3415,7 @@ describe('sequence generation', () => {
       // Simulate Plan
       const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
       // Expand Plan to Sequence Fragments
-      const expansionRunPk = await expand(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
+      const expansionRunPk = await expandLegacy(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
       // Create Sequence
       const sequencePk = await insertSequence(graphqlClient, {
         seqId: 'test00000',
@@ -3518,7 +3518,7 @@ describe('sequence generation', () => {
       // Simulate Plan
       const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
       // Expand Plan to Sequence Fragments
-      const expansionRunPk = await expand(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
+      const expansionRunPk = await expandLegacy(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
       // Create Sequence
       const sequencePk = await insertSequence(graphqlClient, {
         seqId: 'test00000',
@@ -3629,7 +3629,7 @@ describe('sequence generation', () => {
       // Simulate Plan
       const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
       // Expand Plan to Sequence Fragments
-      const expansionRunPk = await expand(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
+      const expansionRunPk = await expandLegacy(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
       // Create Sequence
       const sequencePk = await insertSequence(graphqlClient, {
         seqId: 'test00000',
@@ -3731,7 +3731,7 @@ describe('sequence generation', () => {
     // Simulate Plan
     const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
     // Expand Plan to Sequence Fragments
-    const expansionRunPk = await expand(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
+    const expansionRunPk = await expandLegacy(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
     // Create Sequence
     const [sequencePk1, sequencePk2] = await Promise.all([
       insertSequence(graphqlClient, {
@@ -3856,7 +3856,7 @@ it('should provide start, end, and computed attributes on activities', async () 
   );
 
   const expansionSet0Id = await insertExpansionSet(graphqlClient, parcelId, missionModelId, [expansionId]);
-  const expansionRunPk = await expand(graphqlClient, expansionSet0Id, simulationArtifactPk.simulationDatasetId);
+  const expansionRunPk = await expandLegacy(graphqlClient, expansionSet0Id, simulationArtifactPk.simulationDatasetId);
   const sequencePk = await insertSequence(graphqlClient, {
     seqId: 'test00000',
     simulationDatasetId: simulationArtifactPk.simulationDatasetId,

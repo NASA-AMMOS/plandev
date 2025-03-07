@@ -14,8 +14,14 @@ export function addTime(startTime: string, duration: string, environment: { lang
   else {
     date = SeqNToISO8061(startTime)
   }
-
-  let dur = Temporal.Duration.from(AERIEDurationToISO8061(duration))
+  
+  let dur: Temporal.Duration;
+  if (duration.includes(":")) {
+    dur = Temporal.Duration.from(AERIEDurationToISO8061(duration))
+  }
+  else {
+    dur = Temporal.Duration.from(duration)
+  }
   date = date.add(dur)
 
   if (environment.language === "STOL") {
@@ -35,7 +41,13 @@ export function subtractTime(startTime: string, duration: string, environment: {
     date = SeqNToISO8061(startTime)
   }
 
-  let dur = Temporal.Duration.from(AERIEDurationToISO8061(duration))
+  let dur: Temporal.Duration;
+  if (duration.includes(":")) {
+    dur = Temporal.Duration.from(AERIEDurationToISO8061(duration))
+  }
+  else {
+    dur = Temporal.Duration.from(duration)
+  }
   date = date.subtract(dur)
 
   if (environment.language === "STOL") {

@@ -12,17 +12,17 @@ create table sequencing.sequence_template (
     constraint sequence_template_pkey primary key (id),
     constraint activity_type foreign key (activity_type, model_id)
         references merlin.activity_type (name, model_id) match simple
-        on update no action
-        on delete no action
+        on update cascade
+        on delete cascade
         NOT VALID,
     constraint "model_id -> merlin.mission_model.id" foreign key (model_id)
         references merlin.mission_model (id) match simple
-        on update no action
-        on delete no action,
+        on update cascade
+        on delete cascade,
     constraint "parcel_id -> sequencing.parcel.id" foreign key (parcel_id)
         references sequencing.parcel (id) match simple
-        on update no action
-        on delete no action,
+        on update cascade
+        on delete cascade,
 
   constraint only_one_template_per_model_activity_type
       unique (model_id, activity_type)

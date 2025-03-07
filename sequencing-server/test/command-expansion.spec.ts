@@ -7,14 +7,22 @@ import {
 } from './testUtils/ActivityDirective.js';
 import { insertDictionary, removeDictionary } from './testUtils/Dictionary';
 import {
-  expand,
+  assignActivitiesByFilter,
+  assignActivityToSequence,
+  createSequence,
+  createSequenceFilter,
+  expandLegacy,
+  expandTemplates,
   getExpandedSequence,
   getExpansionSet,
   insertExpansion,
   insertExpansionSet,
+  insertSequenceTemplate,
+  removeActivitySequenceAssignments,
   removeExpansion,
   removeExpansionRun,
   removeExpansionSet,
+  removeSequence,
 } from './testUtils/Expansion.js';
 import { removeMissionModel, uploadMissionModel } from './testUtils/MissionModel.js';
 import { createPlan, removePlan } from './testUtils/Plan.js';
@@ -70,7 +78,7 @@ afterEach(async () => {
   await removeMissionModel(graphqlClient, missionModelId);
 });
 
-describe('expansion', () => {
+describe('legacy expansion', () => {
   let expansionId: number;
   let groundEventExpansion: number;
   let groundBlockExpansion: number;
@@ -168,7 +176,7 @@ describe('expansion', () => {
     const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
 
     // Expand Plan
-    const expansionRunPk = await expand(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
+    const expansionRunPk = await expandLegacy(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
 
     expect(expansionSetId).toBeGreaterThan(0);
     expect(expansionRunPk).toBeGreaterThan(0);
@@ -179,7 +187,7 @@ describe('expansion', () => {
       activityId,
     );
 
-    const expansionRunId = await expand(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
+    const expansionRunId = await expandLegacy(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
 
     const { activity_instance_commands } = await graphqlClient.request<{
       activity_instance_commands: { commands: ReturnType<CommandStem['toSeqJson']>; errors: string[] }[];
@@ -250,7 +258,7 @@ describe('expansion', () => {
     const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
 
     // Expand Plan
-    const expansionRunPk = await expand(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
+    const expansionRunPk = await expandLegacy(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
 
     expect(expansionSetId).toBeGreaterThan(0);
     expect(expansionRunPk).toBeGreaterThan(0);
@@ -281,7 +289,7 @@ describe('expansion', () => {
       parcelId,
     );
     const expansionSetId = await insertExpansionSet(graphqlClient, parcelId, missionModelId, [expansionId]);
-    const expansionRunId = await expand(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
+    const expansionRunId = await expandLegacy(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
 
     const simulatedActivityId = await convertActivityDirectiveIdToSimulatedActivityId(
       graphqlClient,
@@ -344,7 +352,7 @@ describe('expansion', () => {
       parcelId,
     );
     const expansionSetId = await insertExpansionSet(graphqlClient, parcelId, missionModelId, [expansionId]);
-    const expansionRunId = await expand(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
+    const expansionRunId = await expandLegacy(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
 
     const simulatedActivityId = await convertActivityDirectiveIdToSimulatedActivityId(
       graphqlClient,
@@ -441,7 +449,7 @@ describe('expansion', () => {
     );
 
     // Expand Plan to Sequence Fragments
-    const expansionRunPk = await expand(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
+    const expansionRunPk = await expandLegacy(graphqlClient, expansionSetId, simulationArtifactPk.simulationDatasetId);
     /** End Setup */
 
     const { expandedSequence } = await getExpandedSequence(graphqlClient, expansionRunPk, sequencePk.seqId);
@@ -584,3 +592,236 @@ describe('expansion', () => {
     await removeExpansionSet(graphqlClient, testProvidedExpansionSetId);
   });
 });
+
+describe('template expansion', () => {
+
+  // test that does basic expansion, no handlebars
+  it('should handle rudimentary template expansion', async () => {
+    let seqId = "SequenceBasic" 
+
+    // insert a handlebar-less template for Activity Type A
+    await insertSequenceTemplate(
+      graphqlClient,
+      `GrowBanana.tpl`,
+      parcelId,
+      missionModelId,
+      `GrowBanana`,
+      `STOL`,
+      `CMD PARAM_GROW=-1`
+    );
+
+    // insert a handlebar-less template for Activity Type B
+    await insertSequenceTemplate(
+      graphqlClient,
+      `BakeBananaBread.tpl`,
+      parcelId,
+      missionModelId,
+      `BakeBananaBread`,
+      `STOL`,
+      `CMD PARAM_BAKE=-1`
+    );
+
+    const activityId_A = await insertActivityDirective(graphqlClient, planId, 'GrowBanana');
+    const activityId_B = await insertActivityDirective(graphqlClient, planId, 'BakeBananaBread', '45 seconds 100 milliseconds', {temperature: 350, tbSugar: 1, glutenFree: true});
+
+    // Simulate Plan
+    const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
+
+    // Create Sequence
+    const sequenceId = await createSequence(graphqlClient, seqId, simulationArtifactPk.simulationDatasetId);
+
+    // Assign Activities Manually
+    // technically using directive IDs, but should match with span ids so its okay...
+    await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_A, seqId);
+    await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_B, seqId);
+
+    // Expand Plan
+    const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, parcelId, [seqId], simulationArtifactPk.simulationDatasetId);
+
+    // verify results
+    expect(sequenceId).toEqual(seqId);
+    expect(expandedTemplates).not.toBeNull();
+    
+    const result = expandedTemplates[seqId]
+    expect(result).toEqual('CMD PARAM_GROW=-1\nCMD PARAM_BAKE=-1')
+
+    // Cleanup
+    // remove sequence
+    await removeSequence(graphqlClient, seqId)
+    // remove simulation artifact pk
+    await removeSimulationArtifacts(graphqlClient, simulationArtifactPk);
+    // remove associations
+    await removeActivitySequenceAssignments(graphqlClient, seqId)
+  });
+
+  // test that accesses properties of activity
+  it('should allow activity property access', async () => {
+    let seqId = "SequenceProperties" 
+
+    // insert a handlebar-less template for Activity Type A
+    await insertSequenceTemplate(
+      graphqlClient,
+      `GrowBanana.tpl`,
+      parcelId,
+      missionModelId,
+      `GrowBanana`,
+      `STOL`,
+      `CMD DURATION={{attributes.arguments.growingDuration}} STARTTIME={{startTime}}`
+    );
+
+    // insert a handlebar-less template for Activity Type B
+    await insertSequenceTemplate(
+      graphqlClient,
+      `BakeBananaBread.tpl`,
+      parcelId,
+      missionModelId,
+      `BakeBananaBread`,
+      `STOL`,
+      `CMD TEMPERATURE={{attributes.arguments.temperature}} STARTTIME={{startTime}}`
+    );
+
+    const activityId_A = await insertActivityDirective(graphqlClient, planId, 'GrowBanana');
+    const activityId_B = await insertActivityDirective(graphqlClient, planId, 'BakeBananaBread', '45 seconds 100 milliseconds', {temperature: 350, tbSugar: 1, glutenFree: true});
+
+    // Simulate Plan
+    const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
+
+    // Create Sequence
+    const sequenceId = await createSequence(graphqlClient, seqId, simulationArtifactPk.simulationDatasetId);
+
+    // Assign Activities Manually
+    // technically using directive IDs, but should match with span ids so its okay...
+    await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_A, seqId);
+    await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_B, seqId);
+
+    // Expand Plan
+    const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, parcelId, [seqId], simulationArtifactPk.simulationDatasetId);
+
+    // verify results
+    expect(sequenceId).toEqual(seqId);
+    expect(expandedTemplates).not.toBeNull();
+    
+    const result = expandedTemplates[seqId]
+    expect(result).toEqual('CMD DURATION=PT0S STARTTIME=2020-01-01T00:00:30Z\nCMD TEMPERATURE=350 STARTTIME=2020-01-01T00:00:45.1Z')
+
+    // Cleanup
+    // remove sequence
+    await removeSequence(graphqlClient, seqId)
+    // remove simulation artifact pk
+    await removeSimulationArtifacts(graphqlClient, simulationArtifactPk);
+    // remove associations
+    await removeActivitySequenceAssignments(graphqlClient, seqId)
+  });
+
+  // test that uses helpers (addTime, for example)
+  it('should utilize date-manipulating and formatting helpers correctly', async () => {
+    let seqId = "SequenceHelpers" 
+
+    // insert a handlebar-less template for Activity Type A
+    await insertSequenceTemplate(
+      graphqlClient,
+      `GrowBanana.tpl`,
+      parcelId,
+      missionModelId,
+      `GrowBanana`,
+      `STOL`,
+      `CMD ENDTIME={{formatAsDate (add-time startTime attributes.arguments.growingDuration)}} SETUP={{formatAsDate (subtract-time startTime attributes.arguments.growingDuration)}}`
+    );
+
+    // insert a handlebar-less template for Activity Type B
+    await insertSequenceTemplate(
+      graphqlClient,
+      `BakeBananaBread.tpl`,
+      parcelId,
+      missionModelId,
+      `BakeBananaBread`,
+      `STOL`,
+      `CMD TEMPERATURE={{attributes.arguments.temperature}}`
+    );
+
+    const activityId_A = await insertActivityDirective(graphqlClient, planId, 'GrowBanana');
+    const activityId_B = await insertActivityDirective(graphqlClient, planId, 'BakeBananaBread', '45 seconds 100 milliseconds', {temperature: 350, tbSugar: 1, glutenFree: true});
+
+    // Simulate Plan
+    const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
+
+    // Create Sequence
+    const sequenceId = await createSequence(graphqlClient, seqId, simulationArtifactPk.simulationDatasetId);
+
+    // Assign Activities Manually
+    // technically using directive IDs, but should match with span ids so its okay...
+    await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_A, seqId);
+    await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_B, seqId);
+
+    // Expand Plan
+    const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, parcelId, [seqId], simulationArtifactPk.simulationDatasetId);
+
+    // verify results
+    expect(sequenceId).toEqual(seqId);
+    expect(expandedTemplates).not.toBeNull();
+    
+    const result = expandedTemplates[seqId]
+    expect(result).toEqual('CMD ENDTIME=2020-001T00:00:30Z SETUP=2020-001T00:00:30Z\nCMD TEMPERATURE=350')
+
+    // Cleanup
+    // remove sequence
+    await removeSequence(graphqlClient, seqId)
+    // remove simulation artifact pk
+    await removeSimulationArtifacts(graphqlClient, simulationArtifactPk);
+    // remove associations
+    await removeActivitySequenceAssignments(graphqlClient, seqId)
+  });
+
+  // test filter functionality
+  it('should filter activities correctly', async () => {
+    let seqId = "SequenceHelpers" 
+
+    // insert a handlebar-less template for Activity Type A
+    await insertSequenceTemplate(
+      graphqlClient,
+      `GrowBanana.tpl`,
+      parcelId,
+      missionModelId,
+      `GrowBanana`,
+      `STOL`,
+      `CMD SETUP={{formatAsDate (subtract-time startTime attributes.arguments.growingDuration)}}`
+    );
+
+    await insertActivityDirective(graphqlClient, planId, 'GrowBanana');
+    await insertActivityDirective(graphqlClient, planId, 'BakeBananaBread', '30 seconds 100 milliseconds', {temperature: 350, tbSugar: 1, glutenFree: true});
+    await insertActivityDirective(graphqlClient, planId, 'GrowBanana', '45 seconds 100 milliseconds');
+    await insertActivityDirective(graphqlClient, planId, 'BakeBananaBread', '45 seconds 100 milliseconds', {temperature: 350, tbSugar: 1, glutenFree: true});
+
+    // Simulate Plan
+    const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
+
+    // Create Sequence
+    const sequenceId = await createSequence(graphqlClient, seqId, simulationArtifactPk.simulationDatasetId);
+
+    // Create Filter
+    const filterId = await createSequenceFilter(graphqlClient, { "static_types": ["GrowBanana"] }, "GrowBananaFilter", missionModelId)
+
+    // Run Filter
+    await assignActivitiesByFilter(graphqlClient, filterId, simulationArtifactPk.simulationDatasetId, seqId, "2020-001T00:00:00Z", "2020-001T00:00:40Z")
+
+    // Expand Plan
+    const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, parcelId, [seqId], simulationArtifactPk.simulationDatasetId);
+
+    // verify results
+    expect(sequenceId).toEqual(seqId);
+    expect(expandedTemplates).not.toBeNull();
+    
+    const result = expandedTemplates[seqId]
+    expect(result).toEqual('CMD SETUP=2020-001T00:00:30Z') // only 1 activity. rest filtered by type and time!
+
+    // Cleanup
+    // remove sequence
+    await removeSequence(graphqlClient, seqId)
+    // remove simulation artifact pk
+    await removeSimulationArtifacts(graphqlClient, simulationArtifactPk);
+    // remove associations
+    await removeActivitySequenceAssignments(graphqlClient, seqId)
+  });
+
+  // SeqN-specific tests (namely time-related )
+})

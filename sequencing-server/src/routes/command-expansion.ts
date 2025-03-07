@@ -90,7 +90,7 @@ commandExpansionRouter.post('/assign-activities-by-filter', async (req, res, nex
    * {
    *    filterId: Int!,
    *    simulationDatasetId: Int!,
-   *    seqId: Int!
+   *    seqId: String!
    *    timeRangeStart: String!,
    *    timeRangeEnd: String!
    * }
@@ -514,9 +514,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     const sequence = seqBuilder(sortedSimulatedActivitiesWithCommands, seqId, seqMetadata, simulationDatasetId);
     logger.info(`POST /command-expansion/expand-all-sequence-templates: Sequence completed for (${seqId}, dataset ${simulationDatasetId}).`)
 
-    // storage that may be useful later but is not now...
     expandedSequencesBySeqId[seqId] = sequence;
-
     let rows: any[] = [];
     try {
       rows = await db.query(
@@ -559,6 +557,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
 
   res.status(200).json({
     success: true,
+    expandedSequencesBySeqId
   });
 
   return next();

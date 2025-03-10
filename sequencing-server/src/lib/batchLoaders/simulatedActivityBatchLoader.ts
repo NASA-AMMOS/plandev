@@ -166,10 +166,10 @@ export const simulatedActivityInstanceBySimulatedActivityIdBatchLoader: BatchLoa
         );
       }
 
-      if(spans.length > 1) {
+      if (spans.length > 1) {
         return new ErrorWithStatusCode(
-            `Too many spans with simulated activity id ${simulatedActivityId} found for simulation_dataset with id ${simulationDatasetId}`,
-            404,
+          `Too many spans with simulated activity id ${simulatedActivityId} found for simulation_dataset with id ${simulationDatasetId}`,
+          404,
         );
       }
 
@@ -231,7 +231,7 @@ export const simulatedActivityInstanceBySeqIdBatchLoader: BatchLoader<
               }
             }
           }
-          sequence_to_simulated_activity(where: {seq_id: {_eq: $seqId}}) {
+          sequence_to_simulated_activity(where: {_and: [{simulation_dataset_id: {_eq: $simulationDatasetId}},  {seq_id: {_eq: $seqId}}]}) {
             spans {
               span_id
               attributes

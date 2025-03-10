@@ -1,4 +1,4 @@
-// TODO: add formatting for instants to match seqn absolute DOY format. Right now, we rely on relative times in templates, which get resolved to absolute times in the builder. Ask about this later.
+// TODO: Ensure absolute and relative times resolve correctly. Ask about this later.
 
 import { padStart } from 'lodash-es';
 import { ParsedDoyString, ParsedDurationString, ParsedYmdString, TimeTypes } from './types/time.js';
@@ -14,7 +14,7 @@ export function addTime(startTime: string, duration: string, environment: { lang
   else {
     date = SeqNToISO8061(startTime)
   }
-  
+
   let dur: Temporal.Duration;
   if (duration.includes(":")) {
     dur = Temporal.Duration.from(AERIEDurationToISO8061(duration))
@@ -97,7 +97,7 @@ export function ISO8061toSTOL(date: Temporal.Instant): string {
 
   // extract decimal seconds, if any, and pad by length (ms -> 3 automatically, us -> 6 automatically)
   if (!time.includes(".")) {
-    return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${time}`
+    return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${time}`
   }
   else {
     const secondSplit = time.split(".")
@@ -107,10 +107,10 @@ export function ISO8061toSTOL(date: Temporal.Instant): string {
     // if the Z is present at the end; it may not be and we don't want to extraneously add it
     const zString = time.includes("Z") ? "Z" : ""
     if (decimal.length <= 3) {
-      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${hms}.${decimal.padEnd(3, '0')}${zString}`
+      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${hms}.${decimal.padEnd(3, '0')}${zString}`
     }
     else {
-      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${hms}.${decimal.padEnd(6, '0')}${zString}`
+      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${hms}.${decimal.padEnd(6, '0')}${zString}`
     }
   }
 
@@ -127,7 +127,7 @@ export function ISO8061toSeqN(date: Temporal.Instant): string { // presently, ca
 
   // extract decimal seconds, if any, and pad by length (ms -> 3 automatically, us -> 6 automatically)
   if (!time.includes(".")) {
-    return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${time}`
+    return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${time}`
   }
   else {
     const secondSplit = time.split(".")
@@ -137,10 +137,10 @@ export function ISO8061toSeqN(date: Temporal.Instant): string { // presently, ca
     // if the Z is present at the end; it may not be and we don't want to extraneously add it
     const zString = time.includes("Z") ? "Z" : ""
     if (decimal.length <= 3) {
-      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${hms}.${decimal.padEnd(3, '0')}${zString}`
+      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${hms}.${decimal.padEnd(3, '0')}${zString}`
     }
     else {
-      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${hms}.${decimal.padEnd(6, '0')}${zString}`
+      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${hms}.${decimal.padEnd(6, '0')}${zString}`
     }
   }
 }

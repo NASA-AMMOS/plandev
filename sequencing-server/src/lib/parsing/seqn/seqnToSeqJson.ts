@@ -10,7 +10,7 @@ import type {
   GroundEvent,
   HardwareCommand,
   HexArgument,
-  ImmediateCommand,
+  ImmediateFswCommand,
   Load,
   Metadata,
   Model,
@@ -306,9 +306,19 @@ function parseGroundEpoch(groundEpochNode: SyntaxNode | null, text: string): Gro
   if (!groundEpochNode) {
     return { delta: '', name: '' };
   }
+
   const nameNode = groundEpochNode.getChild('Name');
+  let tag = '';
+
+  if (groundEpochNode.parent) {
+    const time = parseTime(groundEpochNode.parent, text);
+
+    if (time.type !== 'COMMAND_COMPLETE') {
+      tag = time.tag;
+    }
+  }
   return {
-    delta: groundEpochNode.parent ? parseTime(groundEpochNode.parent, text).tag : '',
+    delta: tag,
     name: nameNode ? unquoteUnescape(text.slice(nameNode.from, nameNode.to)) : '',
   };
 }
@@ -611,7 +621,7 @@ function parseCommand(commandNode: SyntaxNode, text: string): Command {
   };
 }
 
-function parseImmediateCommand(commandNode: SyntaxNode, text: string): ImmediateCommand {
+function parseImmediateCommand(commandNode: SyntaxNode, text: string): ImmediateFswCommand {
   const stemNode = commandNode.getChild('Stem');
   const stem = stemNode ? text.slice(stemNode.from, stemNode.to) : 'UNKNOWN';
 

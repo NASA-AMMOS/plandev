@@ -3,9 +3,7 @@ package gov.nasa.jpl.aerie.merlin.server.services;
 import gov.nasa.jpl.aerie.constraints.InputMismatchException;
 import gov.nasa.jpl.aerie.constraints.model.DiscreteProfile;
 import gov.nasa.jpl.aerie.constraints.model.*;
-import gov.nasa.jpl.aerie.constraints.time.Interval;
 import gov.nasa.jpl.aerie.constraints.tree.Expression;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.SimulationDatasetMismatchException;
 import gov.nasa.jpl.aerie.merlin.server.http.Fallible;
@@ -13,9 +11,7 @@ import gov.nasa.jpl.aerie.merlin.server.models.*;
 import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.ConstraintRunRecord;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 
-import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.stream.Collectors;
 
 public class ConstraintAction {
   private final ConstraintsDSLCompilationService constraintsDSLCompilationService;
@@ -60,7 +56,8 @@ public class ConstraintAction {
   public Map<ConstraintRecord, Fallible<ConstraintResult, ?>> getViolations(
       final PlanId planId,
       final Optional<SimulationDatasetId> simulationDatasetId,
-      final boolean force
+      final boolean force,
+      final HasuraAction.Session userSession
   ) throws NoSuchPlanException, MissionModelService.NoSuchMissionModelException, SimulationDatasetMismatchException {
     final var plan = this.planService.getPlanForValidation(planId);
 
@@ -98,33 +95,12 @@ public class ConstraintAction {
 
     // If the lengths don't match we need check the left-over constraints.
     if (!constraintCode.isEmpty()) {
-      final var simStartTime = resultsHandle.startTime();
-      final var simDuration = resultsHandle.duration();
-      final var simOffset = plan.simulationOffset();
-
-      final var activities = new ArrayList<ActivityInstance>();
-      final var simulatedActivities = resultsHandle.getSimulatedActivities();
-      for (final var entry : simulatedActivities.entrySet()) {
-        final var id = entry.getKey();
-        final var activity = entry.getValue();
-
-        final var activityOffset = Duration.of(
-            simStartTime.until(activity.start(), ChronoUnit.MICROS),
-            Duration.MICROSECONDS);
-
-        activities.add(new ActivityInstance(
-            id.id(),
-            activity.type(),
-            activity.arguments(),
-            Interval.between(activityOffset, activityOffset.plus(activity.duration()))));
-      }
-
       final var externalDatasets = this.planService.getExternalDatasets(planId, simDatasetId);
       final var realExternalProfiles = new HashMap<String, LinearProfile>();
       final var discreteExternalProfiles = new HashMap<String, DiscreteProfile>();
 
       for (final var pair : externalDatasets) {
-        final var offsetFromSimulationStart = pair.getLeft().minus(simOffset);
+        final var offsetFromSimulationStart = pair.getLeft().minus(plan.simulationOffset());
         final var profileSet = pair.getRight();
 
         for (final var profile : profileSet.discreteProfiles().entrySet()) {
@@ -142,11 +118,6 @@ public class ConstraintAction {
                   profile.getValue().segments()));
         }
       }
-
-      final var environment = new EvaluationEnvironment(realExternalProfiles, discreteExternalProfiles);
-
-      final var realProfiles = new HashMap<String, LinearProfile>();
-      final var discreteProfiles = new HashMap<String, DiscreteProfile>();
 
       // try to compile and run the constraint that were not
       // successful and cached in the past
@@ -171,83 +142,44 @@ public class ConstraintAction {
               continue;
             }
 
-            compiledConstraints.add(new ExecutableConstraint.EDSLConstraint(constraint, compilationResult.getOrNull()));
-
-            /*
-            final Expression<ConstraintResult> expression = compilationResult.getOrNull();
-
-            // Get the expression out of the result
-            final var r = compilationResult.getOrNull();
-            if(r == null) {
-              constraintResultMap.put(constraint, Fallible.failure(
-                  new Error("Expect compiled constraint code. Received null value.")));
-              continue;
-            }
-            */
-
+            compiledConstraints.add(new ExecutableConstraint.EDSLConstraint(constraint, compilationResult.get()));
           }
-          case ConstraintType.JAR j -> {
-            compiledConstraints.add(new ExecutableConstraint.JARConstraint(constraint));
-          }
+          case ConstraintType.JAR j -> compiledConstraints.add(new ExecutableConstraint.JARConstraint(constraint));
         }
       }
 
       // sort constraints
       Collections.sort(compiledConstraints);
 
+      // prepare simulation results -- all resources need to be fetched ahead of time as it is unknown what profiles
+      //    a procedural constraint will access
+      final var merlinResults = resultsHandle.getSimulationResults();
+      final var constraintsResults = new SimulationResults(merlinResults);
+      final var environment = new EvaluationEnvironment(realExternalProfiles, discreteExternalProfiles);
+
+      final var timelinePlan = new ReadonlyPlan(plan, environment);
+      final var timelineSimResults = new ReadonlyProceduralSimResults(merlinResults, timelinePlan);
+
+
       // run constraints
       for(final var constraint : compiledConstraints) {
         final var record = constraint.record();
         switch (constraint) {
           case ExecutableConstraint.EDSLConstraint edsl: {
-            // Cache resources that haven't yet been used by prior constraints
-            final var resources = edsl.cacheResources(realProfiles, discreteProfiles, resultsHandle);
-            final Interval bounds = Interval.between(Duration.ZERO, simDuration);
-            final var preparedResults = new SimulationResults(
-                simStartTime,
-                bounds,
-                activities,
-                realProfiles,
-                discreteProfiles);
-
-            constraintResultMap.put(record, Fallible.of(edsl.run(preparedResults, environment, resources)));
+            constraintResultMap.put(record, Fallible.of(edsl.run(constraintsResults, environment)));
             break;
           }
           case ExecutableConstraint.JARConstraint jar: {
-
+            constraintResultMap.put(record, Fallible.of(jar.run(timelinePlan, timelineSimResults, merlinResults)));
             break;
           }
         }
       }
-      // Filter for constraints that were compiled and ran with results
-      // convert these successful failables to ConstraintResults
-      final var compiledConstraintMap = constraintResultMap.entrySet().stream()
-                                                           .filter(set -> {
-                                                             Fallible<ConstraintResult, ?> fallible = set.getValue();
-                                                             return !fallible.isFailure() && (fallible
-                                                                                                  .getOptional()
-                                                                                                  .isPresent());
-                                                           })
-                                                           .collect(Collectors.toMap(
-                                                               entry -> entry.getKey().priority(),
-                                                               set -> set
-                                                                   .getValue()
-                                                                   .getOptional()
-                                                                   .get()));
 
-      // Use the constraints that were compiled and ran with results
-      // to filter out the constraintCode map to match
-      final var compileConstraintCode =
-          constraintCode.entrySet().stream().filter(set -> compiledConstraintMap.containsKey(set.getKey())).collect(
-              Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-      // Only update the db when constraints were compiled and ran with results.
-      /* temp disable caching results in db
+      // Store the outcome of the constraint run
       constraintService.createConstraintRuns(
-          compileConstraintCode,
-          compiledConstraintMap,
-          simDatasetId);
-       */
+          new ConstraintRequestConfiguration(planId, simDatasetId, force, userSession.hasuraUserId()),
+          constraintResultMap);
     }
 
     return constraintResultMap;

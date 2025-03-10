@@ -3,10 +3,12 @@ package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchConstraintException;
+import gov.nasa.jpl.aerie.merlin.server.http.Fallible;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintType;
 import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
 import gov.nasa.jpl.aerie.merlin.server.remotes.ConstraintRepository;
+import gov.nasa.jpl.aerie.merlin.server.services.ConstraintRequestConfiguration;
 
 import javax.sql.DataSource;
 import java.sql.SQLException;
@@ -22,13 +24,12 @@ public class PostgresConstraintRepository implements ConstraintRepository {
 
   @Override
   public void insertConstraintRuns(
-      final Map<Long, ConstraintRecord> constraintMap,
-      final Map<Long, ConstraintResult> results,
-      final Long simulationDatasetId
+      final ConstraintRequestConfiguration requestConfiguration,
+      final Map<ConstraintRecord, Fallible<ConstraintResult, ?>> constraintToResultsMap
   ) {
     try (final var connection = this.dataSource.getConnection()) {
-      try (final var insertConstraintRunsAction = new InsertConstraintRunsAction(connection)) {
-        insertConstraintRunsAction.apply(constraintMap, results, simulationDatasetId);
+      try (final var insertConstraintRunsAction = new InsertConstraintResultsAction(connection)) {
+        insertConstraintRunsAction.postResults(requestConfiguration, constraintToResultsMap);
       }
     } catch (final SQLException ex) {
       throw new DatabaseException("Failed to save constraint run", ex);

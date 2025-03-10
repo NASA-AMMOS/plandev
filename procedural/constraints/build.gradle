@@ -21,8 +21,6 @@ dependencies {
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
   testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'
   testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-
-  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.withType(KotlinJvmCompile.class).configureEach {

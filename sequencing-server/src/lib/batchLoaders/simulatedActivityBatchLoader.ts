@@ -414,7 +414,7 @@ function convertType(value: any, schema: Schema): any {
       return value;
     case SchemaTypes.Duration:
       if (value !== null) {
-        return Temporal.Duration.from(parse(value).toISOString());
+        return Temporal.Duration.from({ microseconds: value });
       }
       return value;
     case SchemaTypes.Boolean:

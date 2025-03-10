@@ -2,6 +2,7 @@ package gov.nasa.jpl.aerie.e2e;
 
 import com.microsoft.playwright.Playwright;
 import gov.nasa.jpl.aerie.e2e.types.ConstraintError;
+import gov.nasa.jpl.aerie.e2e.types.ConstraintInvocationId;
 import gov.nasa.jpl.aerie.e2e.types.ConstraintRecord;
 import gov.nasa.jpl.aerie.e2e.types.ExternalDataset.ProfileInput;
 import gov.nasa.jpl.aerie.e2e.types.ExternalDataset.ProfileInput.ProfileSegmentInput;
@@ -32,6 +33,7 @@ public class ConstraintsTests {
   private int planId;
   private int activityId;
   private int constraintId;
+  private int invocationId;
 
   private final String constraintName = "fruit_equal_peel";
   private final String constraintDefinition =
@@ -74,11 +76,13 @@ public class ConstraintsTests {
         "1h",
         Json.createObjectBuilder().add("biteSize", 1).build());
     // Insert the Constraint
-    constraintId = hasura.insertPlanConstraint(
+    final var insertResp = hasura.insertPlanConstraint(
         constraintName,
         planId,
         constraintDefinition,
         "");
+    constraintId = insertResp.id();
+    invocationId = insertResp.invocationId();
   }
 
   @AfterEach
@@ -156,7 +160,7 @@ public class ConstraintsTests {
     // Check the Response
     final var constraintResponse = constraintsResponses.get(0);
     assertTrue(constraintResponse.success());
-    assertEquals(fruitConstraintId, constraintResponse.constraintId());
+    assertEquals(fruitConstraintId.id(), constraintResponse.constraintId());
     assertEquals(fruitConstraintName, constraintResponse.constraintName());
     // Check the Result
     assertTrue(constraintResponse.result().isPresent());
@@ -358,7 +362,7 @@ public class ConstraintsTests {
     hasura.awaitSimulation(planId);
 
     // Update the plan's constraint specification to use a specific version
-    hasura.updatePlanConstraintSpecVersion(planId, constraintId, 0);
+    hasura.updatePlanConstraintSpecVersion(constraintId, 0);
 
     // Update definition to have invalid syntax
     final int newRevision = hasura.updateConstraintDefinition(
@@ -376,7 +380,7 @@ public class ConstraintsTests {
     assertTrue(initConstraint.result().isPresent());
 
     // Update constraint spec to use invalid definition
-    hasura.updatePlanConstraintSpecVersion(planId, constraintId, newRevision);
+    hasura.updatePlanConstraintSpecVersion(invocationId, newRevision);
 
     // Check constraints -- should fail
     final var badDefinitionResults = hasura.checkConstraints(planId);
@@ -394,7 +398,7 @@ public class ConstraintsTests {
           badConstraint.errors().get(1).message());
 
     // Update constraint spec to use initial definition
-    hasura.updatePlanConstraintSpecVersion(planId, constraintId, 0);
+    hasura.updatePlanConstraintSpecVersion(invocationId, 0);
 
     // Check constraints -- should match
     assertEquals(initResults, hasura.checkConstraints(planId));
@@ -406,13 +410,16 @@ public class ConstraintsTests {
     hasura.awaitSimulation(planId);
     // Add a problematic constraint to the spec, then disable it
     final String problemConstraintName = "bad constraint";
-    final int problemConstraintId = hasura.insertPlanConstraint(
+    final var problemConstraintId = hasura.insertPlanConstraint(
         problemConstraintName,
         planId,
         "error :-(",
         "constraint that shouldn't compile");
+
+    final var invocationId = problemConstraintId.invocationId();
+
     try {
-      hasura.updatePlanConstraintSpecEnabled(planId, problemConstraintId, false);
+      hasura.updatePlanConstraintSpecEnabled(invocationId, false);
 
       // Check constraints -- Validate that only the enabled constraint is included
       final var initResults = hasura.checkConstraints(planId);
@@ -421,7 +428,7 @@ public class ConstraintsTests {
       assertTrue(initResults.get(0).success());
 
       // Enable disabled constraint
-      hasura.updatePlanConstraintSpecEnabled(planId, problemConstraintId, true);
+      hasura.updatePlanConstraintSpecEnabled(invocationId, true);
 
       // Check constraints -- Validate that the other constraint is present and a failure
       final var results = hasura.checkConstraints(planId);
@@ -431,7 +438,7 @@ public class ConstraintsTests {
       assertTrue(results.get(0).success());
 
       final var problemResults = results.get(1);
-      assertEquals(problemConstraintId, problemResults.constraintId());
+      assertEquals(problemConstraintId.id(), problemResults.constraintId());
       assertFalse(problemResults.success());
       assertEquals(problemConstraintName, problemResults.constraintName());
       assertEquals(2, problemResults.errors().size());
@@ -442,7 +449,7 @@ public class ConstraintsTests {
       assertEquals("Constraint 'bad constraint' compilation failed:\n TypeError: TS1109 Expression expected.",
           problemResults.errors().get(1).message());
     } finally {
-      hasura.deleteConstraint(problemConstraintId);
+      hasura.deleteConstraint(problemConstraintId.id());
     }
   }
 

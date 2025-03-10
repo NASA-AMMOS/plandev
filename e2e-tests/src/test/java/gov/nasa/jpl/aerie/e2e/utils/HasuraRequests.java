@@ -1170,7 +1170,7 @@ public class HasuraRequests implements AutoCloseable {
     return cachedRuns.getValuesAs(e -> CachedConstraintRun.fromJSON(e.asJsonObject()));
   }
 
-  public int insertPlanConstraint(String name, int planId, String definition, String description) throws IOException {
+  public ConstraintInvocationId insertPlanConstraint(String name, int planId, String definition, String description) throws IOException {
     final var constraintInsertBuilder = Json.createObjectBuilder()
                                             .add("plan_id", planId)
                                             .add("constraint_metadata",
@@ -1185,22 +1185,24 @@ public class HasuraRequests implements AutoCloseable {
                                                                             Json.createObjectBuilder()
                                                                                 .add("definition", definition)))));
     final var variables = Json.createObjectBuilder().add("constraint", constraintInsertBuilder).build();
-    return makeRequest(GQL.INSERT_PLAN_SPEC_CONSTRAINT, variables).getJsonObject("constraint").getInt("constraint_id");
+    final var resp = makeRequest(GQL.INSERT_PLAN_SPEC_CONSTRAINT, variables).getJsonObject("constraint");
+    return new ConstraintInvocationId(
+      resp.getInt("constraint_id"),
+      resp.getInt("invocation_id")
+    );
   }
 
-  public void updatePlanConstraintSpecVersion(int planId, int constraintId, int constraintRevision) throws IOException {
+  public void updatePlanConstraintSpecVersion(int invocationId, int constraintRevision) throws IOException {
     final var variables = Json.createObjectBuilder()
-                              .add("plan_id", planId)
-                              .add("constraint_id", constraintId)
+                              .add("invocation_id", invocationId)
                               .add("constraint_revision", constraintRevision)
                               .build();
     makeRequest(GQL.UPDATE_CONSTRAINT_SPEC_VERSION, variables);
   }
 
-  public void updatePlanConstraintSpecEnabled(int planId, int constraintId, boolean enabled) throws IOException {
+  public void updatePlanConstraintSpecEnabled(int invocationId, boolean enabled) throws IOException {
     final var variables = Json.createObjectBuilder()
-                              .add("plan_id", planId)
-                              .add("constraint_id", constraintId)
+                              .add("invocation_id", invocationId)
                               .add("enabled", enabled)
                               .build();
     makeRequest(GQL.UPDATE_CONSTRAINT_SPEC_ENABLED, variables);

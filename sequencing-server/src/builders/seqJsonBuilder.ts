@@ -11,11 +11,10 @@ export const seqJsonBuilder: SeqJsonBuilder = (
     seqMetadata,
     simulationDatasetId,
 ) => {
-  const convertedCommands: (CommandStem | ActivateStep | LoadStep)[] = []
 
-  // A combined list of all the activity instance commands.
   let allCommands: (CommandStem | ActivateStep | LoadStep)[] = [];
-  let activityInstaceCount = 0;
+  let convertedCommands: (CommandStem | ActivateStep | LoadStep)[] = [];
+  let activityInstanceCount = 0;
   let planId;
   // Keep track if we should try and sort the commands.
   let shouldSort = true;
@@ -44,21 +43,20 @@ export const seqJsonBuilder: SeqJsonBuilder = (
       }
 
       /**
-       * Look at the first command for each activity and check if it's relative, if so we shouldn't
-       * sort later. Also convert any relative commands to absolute.
+       * Treat the activity start time as the "previous time" for sorting expanded commands that begin with a command-relative time tag.
+       *
+       * TODO: we argue that this is actually ideal behavior, but it warrants discussion.
        */
-      // TODO: we argue that this is actually ideal behavior, but it warrants discussion.
+       // TODO: we argue that this is actually ideal behavior, but it warrants discussion.
       previousTime = ai.startTime //**** */
       for (const command of ai.expansionResult) {
 
         const currentCommand = command instanceof CommandStem ? command as CommandStem : command instanceof LoadStep ? command as LoadStep : command as ActivateStep;
 
-        // Check conditions related to time properties
-        // If the command is epoch-relative, complete, or the first command and relative then short circuit and don't try and sort.
+        // If any command is epoch-relative or command complete, we can't sort
         if (
             currentCommand.GET_EPOCH_TIME() ||
-            (!currentCommand.GET_ABSOLUTE_TIME() && !currentCommand.GET_EPOCH_TIME() && !currentCommand.GET_RELATIVE_TIME()) //||
-            // (currentCommand.GET_RELATIVE_TIME() && (ai.expansionResult as Command[]).indexOf(command as Command) === 0) // TODO: deal with this later..
+            (!currentCommand.GET_ABSOLUTE_TIME() && !currentCommand.GET_EPOCH_TIME() && !currentCommand.GET_RELATIVE_TIME())
         ) {
           shouldSort = false; // Set the sorting flag to false
           break; // No need to continue checking other commands
@@ -77,12 +75,12 @@ export const seqJsonBuilder: SeqJsonBuilder = (
 
       allCommands = allCommands.concat(ai.expansionResult as Command[]);
       // Keep track of the number of times we add commands to the allCommands list.
-      activityInstaceCount++;
+      activityInstanceCount++;
     }
   }
 
-  // Now that we have all the commands for each activity instance, sort if there's > 1 activity instance and we didn't short circuit above.
-  if (activityInstaceCount > 1 && shouldSort) {
+  // If we never found a condition that prohibits sorting, then sort the converted commands and assign those as the output
+  if (activityInstanceCount > 0 && shouldSort) {
     timeSorted = true;
     allCommands = convertedCommands.sort((a, b) => {
       const aStep = a instanceof CommandStem ? a as CommandStem : a instanceof LoadStep ? a as LoadStep : a as ActivateStep;

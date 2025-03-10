@@ -2,10 +2,11 @@
 import Handlebars from "handlebars";
 import * as fs from 'fs';
 import { addTime as addTimeFull, subtractTime as subtractTimeFull, ISO8061toSTOL, STOLToISO8061, SeqNToISO8061, ISO8061toSeqN } from "./time.js";
+import { getEnv } from "../../../env.js";
 
-// somehow obtained
+// initialized to environment variable, but this can be changed at runtime.
 const environment = {
-    language: "SEQN"
+    language: getEnv().SEQUENCING_LANGUAGE
 }
 
 /////////////// AERIE HELPERS ///////////////
@@ -20,7 +21,7 @@ function subtractTime(startTime: string, duration: string) {
 
 // helper to flatten out array
 function flatten(array: any[]): string {
-    if (environment.language === "STOL") {
+    if (environment.language === "STOL" || environment.language === "TEXT") {
         return new Handlebars.SafeString(`[${array.join(", ")}]`).toString();
     }
     else {
@@ -28,7 +29,7 @@ function flatten(array: any[]): string {
     }
 }
 
-// helper to clean dates. must be manually invoked by the user, just in case.
+// helper to clean dates. must be manually invoked by the user, just in case. here, TEXT and SEQN are handled the same.
 function formatAsDate(date: string): string {
     if (environment.language === "STOL") {
         return ISO8061toSTOL(STOLToISO8061(date))
@@ -87,5 +88,9 @@ export class Mustache {
 
     public setLanguage(language: string) {
         environment.language = language
+    }
+
+    public getLanguage(): string {
+        return environment.language
     }
 }

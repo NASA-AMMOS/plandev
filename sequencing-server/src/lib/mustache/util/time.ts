@@ -11,7 +11,7 @@ export function addTime(startTime: string, duration: string, environment: { lang
   if (environment.language === "STOL") {
     date = STOLToISO8061(startTime)
   }
-  else {
+  else { // TEXT and SEQN are handled the same.
     date = SeqNToISO8061(startTime)
   }
 
@@ -27,7 +27,7 @@ export function addTime(startTime: string, duration: string, environment: { lang
   if (environment.language === "STOL") {
     return ISO8061toSTOL(date)
   }
-  else {
+  else { // TEXT and SEQN are handled the same.
     return ISO8061toSeqN(date)
   }
 }
@@ -37,7 +37,7 @@ export function subtractTime(startTime: string, duration: string, environment: {
   if (environment.language === "STOL") {
     date = STOLToISO8061(startTime)
   }
-  else {
+  else { // TEXT and SEQN are handled the same.
     date = SeqNToISO8061(startTime)
   }
 
@@ -53,7 +53,7 @@ export function subtractTime(startTime: string, duration: string, environment: {
   if (environment.language === "STOL") {
     return ISO8061toSTOL(date)
   }
-  else {
+  else { // TEXT and SEQN are handled the same.
     return ISO8061toSeqN(date)
   }
 

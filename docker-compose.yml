@@ -90,6 +90,7 @@ services:
       SEQUENCING_DB_USER: "${SEQUENCING_USERNAME}"
       SEQUENCING_DB_PASSWORD: "${SEQUENCING_PASSWORD}"
       SEQUENCING_LOCAL_STORE: /usr/src/app/sequencing_file_store
+      SEQUENCING_LANGUAGE: "SEQN"
       #DICTIONARY_PARSER_PLUGIN: "/fprime-dictionary-parser/fprime-parser.js" #-- Relative to sequencing-server/plugins, Uncomment to use a different command dictionary parser
       SEQUENCING_WORKER_NUM: 8
       SEQUENCING_MAX_WORKER_NUM : 8

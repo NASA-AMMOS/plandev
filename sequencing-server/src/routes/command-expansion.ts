@@ -477,7 +477,8 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       if (currentTemplate) {
         // NOTE: if I have some gibberish as a variable that's obviously not defined, there will be no error.
         //    i.e. "CMD {{ dsvsdfs }}" expands to "CMD ".
-        currentTemplate.setLanguage("STOL") // can be in constructor too
+        currentTemplate.setLanguage(language)
+        console.log(currentTemplate.getLanguage())
         const commandString = currentTemplate.execute(stringifyActivity(simulatedActivity))
 
         // add to results

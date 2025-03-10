@@ -5,14 +5,14 @@ import { ErrorWithStatusCode } from '../../utils/ErrorWithStatusCode.js';
 // TODO: grab all sequence templates for this model.
 
 export const sequenceTemplateBatchLoader: BatchLoader<
-  { modelId: number, parcelId: number },
-  SequenceTemplate[],
-  { graphqlClient: GraphQLClient}
+    { modelId: number },
+    SequenceTemplate[],
+    { graphqlClient: GraphQLClient}
 > = opts => async keys => {
   const { sequence_templates } = await opts.graphqlClient.request<{ sequence_templates: SequenceTemplate[] }>(
-    gql`
-      query GetSequenceTemplates($modelIds: [Int!]!, $parcelIds: [Int!]!) {
-        sequence_templates: sequence_template(where: {_and: [{ model_id: { _in: $modelIds }}, { parcel_id: { _in: $parcelIds }}]}) {
+      gql`
+      query GetSequenceTemplates($modelIds: [Int!]!) {
+        sequence_templates: sequence_template(where: {_and: [{ model_id: { _in: $modelIds }}]}) {
           id
           activity_type
           model_id
@@ -22,10 +22,9 @@ export const sequenceTemplateBatchLoader: BatchLoader<
         }
       }
     `,
-    {
-      modelIds: keys.map(key => key.modelId),
-      parcelIds: keys.map(key => key.parcelId)
-    },
+      {
+        modelIds: keys.map(key => key.modelId)
+      },
   );
 
   return Promise.all(

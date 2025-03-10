@@ -349,7 +349,6 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
    * ARGUMENTS
    * {
    *    modelId: Int!,
-   *    parcelId: Int!,
    *    simulationDatasetId: Int!,
    *    seqIds: [Int!]!
    * }
@@ -361,7 +360,6 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   //  0. Extract stuff from request
   // needed to uniquely identify sequence templates, along with activity type
   const modelId = req.body.input.modelId as number;
-  const parcelId = req.body.input.parcelId as number;
   const simulationDatasetId = req.body.input.simulationDatasetId as number;
   const seqIds = (req.body.input.seqIds as number[]).filter((val, index, arr) => arr.indexOf(val) == index); // remove duplicates, if they're even possible
 
@@ -371,7 +369,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
 
   //  1. Load simulated activities and templates
   const [sequenceTemplates, filteredSimulatedActivitiesBySeqId] = await Promise.all([
-    context.sequenceTemplateDataLoader.load({ modelId, parcelId }),
+    context.sequenceTemplateDataLoader.load({ modelId }),
     context.simulatedActivityInstanceBySeqIdBatchLoader.loadMany(seqIds.map(seqId => {
       return { simulationDatasetId, seqId }
     }))
@@ -383,7 +381,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   //        and here may be subject to change.
   if (sequenceTemplates.length === 0) {
     throw new Error(
-      `POST /command-expansion/expand-all-sequence-templates: No sequence templates found for (modelId, parcelId)=(${modelId}, ${parcelId}).`,
+      `POST /command-expansion/expand-all-sequence-templates: No sequence templates found for modelId=(${modelId}).`,
     );
   }
   const language = sequenceTemplates[0].language

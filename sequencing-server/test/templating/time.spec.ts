@@ -1,3 +1,4 @@
+import { SequencingLanguage } from '../../src/lib/mustache/enums/language.js';
 import { 
     addTime, 
     AERIEDurationToISO8061, 
@@ -16,7 +17,7 @@ describe('Time vector functions', () => {
         let inputTime = '2025-001/12:00:01.0002' // removed Z
         let inputDuration = '1000:00:01.01234Z'
 
-        let result = addTime(inputTime, inputDuration, { language: 'STOL' })
+        let result = addTime(inputTime, inputDuration, { language: 'STOL' as SequencingLanguage })
         expect(result).toEqual('2025-043/04:00:02.123600Z')
     });
 
@@ -25,7 +26,7 @@ describe('Time vector functions', () => {
         let inputTime = '2025-001/12:00:01.0002Z'
         let inputDuration = '1000:00:01.01234' // removed Z
 
-        let result = subtractTime(inputTime, inputDuration, { language: 'STOL' })
+        let result = subtractTime(inputTime, inputDuration, { language: 'STOL' as SequencingLanguage })
         expect(result).toEqual('2024-325/19:59:59.876800Z')
     });
 });

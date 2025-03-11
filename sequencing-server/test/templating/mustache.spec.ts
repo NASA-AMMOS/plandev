@@ -1,3 +1,4 @@
+import { SequencingLanguage } from '../../src/lib/mustache/enums/language.js';
 import { Mustache } from '../../src/lib/mustache/util/index.js';
 
 describe('Basic template functionality', () => {
@@ -48,14 +49,14 @@ describe('Test built-in helpers', () => {
     
         it('should increment correctly', () => {
             let templateRaw = 'Adding dates: {{ add-time date duration }}'
-            let template = new Mustache(templateRaw)
+            let template = new Mustache(templateRaw, SequencingLanguage.STOL)
             expect(template.execute(input))
                 .toEqual('Adding dates: 2025-001/01:07:04.124600Z')
         })
     
         it('should decrement correctly', () => {
             let templateRaw = 'Subtracting dates: {{ subtract-time date duration }}'
-            let template = new Mustache(templateRaw)
+            let template = new Mustache(templateRaw, SequencingLanguage.STOL)
             expect(template.execute(input))
                 .toEqual('Subtracting dates: 2025-001/00:57:01.877800Z')
         })
@@ -66,7 +67,7 @@ describe('Test built-in helpers', () => {
         let templateRaw = 'Unflattened: {{ firstArraySet }}; Flattened: {{ flatten firstArraySet }}'
         let input = { firstArraySet: [1, 2, 3.5, "string"] }
     
-        let template = new Mustache(templateRaw)
+        let template = new Mustache(templateRaw, SequencingLanguage.SEQN)
         expect(template.execute(input))
             .toEqual('Unflattened: 1,2,3.5,string; Flattened: [1 2 3.5 string]')
     });
@@ -75,7 +76,7 @@ describe('Test built-in helpers', () => {
         let templateRaw = 'Uncleaned: {{ date }}; Cleaned: {{ formatAsDate date }}; Chained {{ formatAsDate (add-time (formatAsDate date) duration) }}'
         let input = { date: "2025-001T00:00:00.00Z", duration: "00:05:00" }
     
-        let template = new Mustache(templateRaw)
+        let template = new Mustache(templateRaw, SequencingLanguage.STOL)
         expect(template.execute(input))
             .toEqual('Uncleaned: 2025-001T00:00:00.00Z; Cleaned: 2025-001/00:00:00Z; Chained 2025-001/00:05:00Z')
     })

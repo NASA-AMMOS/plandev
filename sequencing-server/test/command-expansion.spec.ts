@@ -874,10 +874,10 @@ describe('template expansion', () => {
 
   // SeqN-specific tests
   describe('SeqN-specific functionality', () => {
-    let language = "SEQN"
+    let language = "SeqN"
 
     // simple test that just demonstrates that relative times get converted to absolute times, and we can use activity arguments
-    it('should handle rudimentary SEQN', async () => {
+    it('should handle rudimentary SeqN', async () => {
       let seqId = "SeqNSequenceBasic"
   
       // insert a template for Activity Type A
@@ -927,7 +927,7 @@ A2020-001T00:01:31.000 CMD_ECHO "ENDING"`)
     });
 
     // test that interleaves two activities (with relative times)
-    it('should merge different activities\' SEQN correctly', async () => {
+    it('should merge different activities\' SeqN correctly', async () => {
       let seqId = "SeqNSequenceMerge"
   
       // insert a template for Activity Type A

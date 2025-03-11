@@ -24,6 +24,7 @@ import { convertDoyToYmd } from '../lib/mustache/util/time.js';
 import { stringifyActivity } from '../lib/mustache/util/activity.js';
 import { stolBuilder } from '../builders/stolBuilder.js';
 import { concatBuilder } from "../builders/concatBuilder.js";
+import { SequencingLanguage } from '../lib/mustache/enums/language.js';
 
 const logger = getLogger('app');
 
@@ -159,7 +160,7 @@ commandExpansionRouter.post('/put-template', async (req, res, next) => {
   const parcelId = req.body.input.parcelId as number | null;
   const modelId = req.body.input.modelId as number | null;
   const activityTypeName = req.body.input.activityTypeName as string;
-  const language = req.body.input.language as string;
+  const language = req.body.input.language as SequencingLanguage;
   const username = getUsername(req.body.session_variables, req.headers.authorization);
 
   // if this makes use of helpers, which is possible, there's no easy way to verify this is valid mustache without
@@ -173,8 +174,8 @@ commandExpansionRouter.post('/put-template', async (req, res, next) => {
     res.status(500).json({ errors: ["Must include parcelId and authoringMissionModelId."] });
     return next();
   }
-  if (["STOL", "SEQN", "TEXT"].indexOf(language) === -1) {
-    res.status(500).json({ errors: [`Invalid language ${language}; must be "STOL", "SEQN", or "TEXT".`] });
+  if (["STOL", "SeqN", "Text"].indexOf(language) === -1) {
+    res.status(500).json({ errors: [`Invalid language ${language}; must be "STOL", "SeqN", or "Text".`] });
     return next();
   }
 
@@ -386,11 +387,11 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   }
   const language = sequenceTemplates[0].language
   let seqBuilder: SeqBuilder<string, string>;
-  if (language === "STOL") {
+  if (language === SequencingLanguage.STOL) {
     seqBuilder = stolBuilder
-  } else if (language === "SEQN") {
+  } else if (language === SequencingLanguage.SEQN) {
     seqBuilder = seqnBuilder
-  } else if (language === "TEXT") {
+  } else if (language === SequencingLanguage.TEXT) {
     seqBuilder = concatBuilder
   } else {
     throw new Error(

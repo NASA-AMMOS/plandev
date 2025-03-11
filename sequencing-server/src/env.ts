@@ -1,3 +1,5 @@
+import { SequencingLanguage } from "./lib/mustache/enums/language";
+
 export type Env = {
   DICTIONARY_PARSER_PLUGIN: string,
   HASURA_GRAPHQL_ADMIN_SECRET: string;
@@ -9,7 +11,7 @@ export type Env = {
   AERIE_DB_PORT: string;
   SEQUENCING_DB_USER: string;
   SEQUENCING_DB_PASSWORD: string;
-  SEQUENCING_LANGUAGE: string;
+  SEQUENCING_LANGUAGE: SequencingLanguage;
   STORAGE: string;
   SEQUENCING_WORKER_NUM: string;
   SEQUENCING_MAX_WORKER_NUM : string
@@ -28,7 +30,7 @@ export const defaultEnv: Env = {
   SEQUENCING_DB_PASSWORD: '',
   AERIE_DB_PORT: '5432',
   SEQUENCING_DB_USER: '',
-  SEQUENCING_LANGUAGE: "SEQN",
+  SEQUENCING_LANGUAGE: "SeqN" as SequencingLanguage,
   STORAGE: 'sequencing_file_store',
   SEQUENCING_WORKER_NUM: '8',
   SEQUENCING_MAX_WORKER_HEAP_MB: '1000',
@@ -48,7 +50,7 @@ export function getEnv(): Env {
   const AERIE_DB_PORT = env['AERIE_DB_PORT'] ?? defaultEnv.AERIE_DB_PORT;
   const SEQUENCING_DB_USER = env['SEQUENCING_DB_USER'] ?? defaultEnv.SEQUENCING_DB_USER;
   const SEQUENCING_DB_PASSWORD = env['SEQUENCING_DB_PASSWORD'] ?? defaultEnv.SEQUENCING_DB_PASSWORD;
-  const SEQUENCING_LANGUAGE = env['SEQUENCING_LANGUAGE'] ?? defaultEnv.SEQUENCING_LANGUAGE;
+  const SEQUENCING_LANGUAGE = env['SEQUENCING_LANGUAGE'] as SequencingLanguage ?? defaultEnv.SEQUENCING_LANGUAGE;
   const STORAGE = env['SEQUENCING_LOCAL_STORE'] ?? defaultEnv.STORAGE;
   const SEQUENCING_WORKER_NUM = env['SEQUENCING_WORKER_NUM'] ?? defaultEnv.SEQUENCING_WORKER_NUM;
   const SEQUENCING_MAX_WORKER_NUM = env['SEQUENCING_MAX_WORKER_NUM'] ?? defaultEnv.SEQUENCING_MAX_WORKER_NUM;

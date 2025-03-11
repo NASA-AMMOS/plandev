@@ -3,6 +3,7 @@ import Handlebars from "handlebars";
 import * as fs from 'fs';
 import { addTime as addTimeFull, subtractTime as subtractTimeFull, ISO8061toSTOL, STOLToISO8061, SeqNToISO8061, ISO8061toSeqN } from "./time.js";
 import { getEnv } from "../../../env.js";
+import { SequencingLanguage } from "../enums/language.js";
 
 // initialized to environment variable, but this can be changed at runtime.
 const environment = {
@@ -21,7 +22,7 @@ function subtractTime(startTime: string, duration: string) {
 
 // helper to flatten out array
 function flatten(array: any[]): string {
-    if (environment.language === "STOL" || environment.language === "TEXT") {
+    if (environment.language === SequencingLanguage.STOL || environment.language === SequencingLanguage.TEXT) {
         return new Handlebars.SafeString(`[${array.join(", ")}]`).toString();
     }
     else {
@@ -29,9 +30,9 @@ function flatten(array: any[]): string {
     }
 }
 
-// helper to clean dates. must be manually invoked by the user, just in case. here, TEXT and SEQN are handled the same.
+// helper to clean dates. must be manually invoked by the user, just in case. here, Text and SeqN are handled the same.
 function formatAsDate(date: string): string {
-    if (environment.language === "STOL") {
+    if (environment.language === SequencingLanguage.STOL) {
         return ISO8061toSTOL(STOLToISO8061(date))
     }
     else {
@@ -76,7 +77,8 @@ Handlebars.registerHelper("formatAsDate", formatAsDate)
 export class Mustache {
     private template: HandlebarsTemplateDelegate<any>
 
-    constructor(template: string, language?: string) {
+    constructor(template: string, language?: SequencingLanguage) {
+        console.log("DEFAULT LANGUAGE IS", environment.language)
         environment.language = language ?? environment.language
         this.template = Handlebars.compile(template)
     }
@@ -86,11 +88,11 @@ export class Mustache {
         return this.template(data)
     }
 
-    public setLanguage(language: string) {
+    public setLanguage(language: SequencingLanguage) {
         environment.language = language
     }
 
-    public getLanguage(): string {
+    public getLanguage(): SequencingLanguage {
         return environment.language
     }
 }

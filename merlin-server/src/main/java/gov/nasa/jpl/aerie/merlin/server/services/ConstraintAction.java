@@ -52,24 +52,25 @@ public class ConstraintAction {
       final boolean force
   ) throws NoSuchPlanException, MissionModelService.NoSuchMissionModelException, SimulationDatasetMismatchException {
     final var plan = this.planService.getPlanForValidation(planId);
-    final Optional<SimulationResultsHandle> resultsHandle$;
-    final SimulationDatasetId simDatasetId;
+
+    // Get a Handle for the Simulation Results
+    final SimulationResultsHandle resultsHandle;
     if (simulationDatasetId.isPresent()) {
-      resultsHandle$ = this.simulationService.get(planId, simulationDatasetId.get());
-      simDatasetId = resultsHandle$
-          .map(SimulationResultsHandle::getSimulationDatasetId)
-          .orElseThrow(() -> new InputMismatchException("simulation dataset with id `"
-                                                        + simulationDatasetId.get().id()
-                                                        + "` does not exist"));
+      resultsHandle = this.simulationService.get(planId, simulationDatasetId.get())
+                                            .orElseThrow(() -> new InputMismatchException(
+                                                "simulation dataset with id `"
+                                                + simulationDatasetId.get().id()
+                                                + "` does not exist"));
     } else {
       final var revisionData = this.planService.getPlanRevisionData(planId);
-      resultsHandle$ = this.simulationService.get(planId, revisionData);
-      simDatasetId = resultsHandle$
-          .map(SimulationResultsHandle::getSimulationDatasetId)
-          .orElseThrow(() -> new InputMismatchException("plan with id "
-                                                        + planId.id()
-                                                        + " has not yet been simulated at its current revision"));
+      resultsHandle = this.simulationService.get(planId, revisionData)
+                                            .orElseThrow(() -> new InputMismatchException(
+                                                "plan with id "
+                                                + planId.id()
+                                                + " has not yet been simulated at its current revision"));
     }
+
+    final SimulationDatasetId simDatasetId = resultsHandle.getSimulationDatasetId();
 
     final var constraintCode = new HashMap<>(this.planService.getConstraintsForPlan(planId));
     final var constraintResultMap = new HashMap<Constraint, Fallible<?>>();
@@ -83,18 +84,12 @@ public class ConstraintAction {
 
     // If the lengths don't match we need check the left-over constraints.
     if (!constraintCode.isEmpty()) {
-      final var simStartTime = resultsHandle$
-          .map(gov.nasa.jpl.aerie.merlin.server.models.SimulationResultsHandle::startTime)
-          .orElse(plan.simulationStartInstant());
-      final var simDuration = resultsHandle$
-          .map(SimulationResultsHandle::duration)
-          .orElse(plan.simulationDuration());
+      final var simStartTime = resultsHandle.startTime();
+      final var simDuration = resultsHandle.duration();
       final var simOffset = plan.simulationOffset();
 
       final var activities = new ArrayList<ActivityInstance>();
-      final var simulatedActivities = resultsHandle$
-          .map(SimulationResultsHandle::getSimulatedActivities)
-          .orElseGet(Collections::emptyMap);
+      final var simulatedActivities = resultsHandle.getSimulatedActivities();
       for (final var entry : simulatedActivities.entrySet()) {
         final var id = entry.getKey();
         final var activity = entry.getValue();

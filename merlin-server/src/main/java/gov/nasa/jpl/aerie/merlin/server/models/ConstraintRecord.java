@@ -6,6 +6,7 @@ import java.util.Map;
 
 /**
  * A record of a Constraint to be checked, as interpreted from the database.
+ * @param priority The constraint's priority on the plan's specification.
  * @param invocationId The constraint's invocation id on the plan's specification.
  * @param constraintId The constraint's database id.
  * @param revision The revision of the constraint's definition.
@@ -14,6 +15,7 @@ import java.util.Map;
  * @param arguments Arguments to be passed to the constraint. Currently only used with JAR-type constraints.
  */
 public record ConstraintRecord(
+    long priority,
     long invocationId,
     long constraintId,
     long revision,

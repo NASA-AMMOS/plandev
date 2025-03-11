@@ -5,6 +5,7 @@ import gov.nasa.jpl.aerie.constraints.model.Violation;
 import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
 import gov.nasa.jpl.aerie.constraints.time.Interval;
 import gov.nasa.jpl.aerie.json.JsonParseResult.FailureReason;
+import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.types.ActivityInstance;
 import gov.nasa.jpl.aerie.merlin.driver.UnfinishedActivity;
 import gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser;
@@ -17,7 +18,6 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.SimulationDatasetMismatchException;
-import gov.nasa.jpl.aerie.merlin.server.models.Constraint;
 import gov.nasa.jpl.aerie.merlin.server.remotes.MissionModelAccessException;
 import gov.nasa.jpl.aerie.merlin.server.services.ConstraintsDSLCompilationService;
 import gov.nasa.jpl.aerie.merlin.server.services.GetSimulationResultsAction;
@@ -322,7 +322,7 @@ public final class ResponseSerializers {
   }
 
   @SuppressWarnings("unchecked")
-  public static JsonValue serializeConstraintResults(final Map<Constraint, Fallible<?>> resultMap) {
+  public static JsonValue serializeConstraintResults(final Map<ConstraintRecord, Fallible<?>> resultMap) {
     var results = resultMap.entrySet().stream().map(entry -> {
 
       final var constraint = entry.getKey();
@@ -333,7 +333,8 @@ public final class ResponseSerializers {
       if (fallible.getOptional().isEmpty()) {
         return Json.createObjectBuilder()
                    .add("success", JsonValue.FALSE)
-                   .add("constraintId", constraint.id())
+                   .add("constraintId", constraint.constraintId())
+                   .add("constraintInvocationId", constraint.invocationId())
                    .add("constraintName", constraint.name())
                    .add("constraintRevision", constraint.revision())
                    .add("errors", Json.createArrayBuilder().add(
@@ -355,7 +356,8 @@ public final class ResponseSerializers {
       if (fallible.isFailure()) {
         return Json.createObjectBuilder()
                    .add("success", JsonValue.FALSE)
-                   .add("constraintId", constraint.id())
+                   .add("constraintId", constraint.constraintId())
+                   .add("constraintInvocationId", constraint.invocationId())
                    .add("constraintName", constraint.name())
                    .add("constraintRevision", constraint.revision())
                    .add("errors", Json.createArrayBuilder().add(
@@ -371,7 +373,8 @@ public final class ResponseSerializers {
       var constraintResult = (ConstraintResult) fallible.getOptional().get();
       return Json.createObjectBuilder()
                  .add("success", JsonValue.TRUE)
-                 .add("constraintId", constraint.id())
+                 .add("constraintId", constraint.constraintId())
+                 .add("constraintInvocationId", constraint.invocationId())
                  .add("constraintName", constraint.name())
                  .add("constraintRevision", constraint.revision())
                  .add("errors", JsonValue.EMPTY_JSON_ARRAY)
@@ -496,7 +499,7 @@ public final class ResponseSerializers {
                .build();
   }
 
-  public static JsonValue serializeConstraintCompileErrors(final Constraint constraint, final Fallible<ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error> ex) {
+  public static JsonValue serializeConstraintCompileErrors(final ConstraintRecord constraint, final Fallible<ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error> ex) {
 
     final var userCodeError = ex
         .getOptional()
@@ -517,7 +520,7 @@ public final class ResponseSerializers {
 
     return Json.createObjectBuilder()
                .add("success", JsonValue.FALSE)
-               .add("constraintId", constraint.id())
+               .add("constraintId", constraint.constraintId())
                .add("constraintName", constraint.name())
                .add("constraintRevision", constraint.revision())
                .add("errors", userCodeErrorArrayBuilder.build())

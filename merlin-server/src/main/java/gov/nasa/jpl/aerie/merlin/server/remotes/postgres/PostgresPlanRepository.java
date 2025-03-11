@@ -5,7 +5,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
-import gov.nasa.jpl.aerie.merlin.server.models.Constraint;
+import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.server.models.DatasetId;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
 import gov.nasa.jpl.aerie.merlin.server.models.ProfileSet;
@@ -180,21 +180,14 @@ public final class PostgresPlanRepository implements PlanRepository {
   }
 
   @Override
-  public Map<Long, Constraint> getPlanConstraints(final PlanId planId) throws NoSuchPlanException {
+  public Map<Long, ConstraintRecord> getPlanConstraints(final PlanId planId) throws NoSuchPlanException {
     try (final var connection = this.dataSource.getConnection()) {
       try (final var getPlanConstraintsAction = new GetPlanConstraintsAction(connection)) {
         return getPlanConstraintsAction
             .get(planId.id())
             .orElseThrow(() -> new NoSuchPlanException(planId))
             .stream()
-            .collect(Collectors.toMap(
-                ConstraintRecord::id,
-                r -> new Constraint(
-                    r.id(),
-                    r.revision(),
-                    r.name(),
-                    r.description(),
-                    r.definition())));
+            .collect(Collectors.toMap(ConstraintRecord::invocationId, r -> r));
       }
     } catch (final SQLException ex) {
       throw new DatabaseException(

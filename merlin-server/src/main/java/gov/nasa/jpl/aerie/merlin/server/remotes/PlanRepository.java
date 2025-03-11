@@ -4,11 +4,11 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
-import gov.nasa.jpl.aerie.merlin.server.models.Constraint;
 import gov.nasa.jpl.aerie.merlin.server.models.DatasetId;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
 import gov.nasa.jpl.aerie.merlin.server.models.ProfileSet;
 import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
+import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.server.services.RevisionData;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.Plan;
@@ -35,7 +35,7 @@ public interface PlanRepository {
   long getPlanRevision(PlanId planId) throws NoSuchPlanException;
   RevisionData getPlanRevisionData(PlanId planId) throws NoSuchPlanException;
 
-  Map<Long, Constraint> getPlanConstraints(PlanId planId) throws NoSuchPlanException;
+  Map<Long, ConstraintRecord> getPlanConstraints(PlanId planId) throws NoSuchPlanException;
 
   long addExternalDataset(
       PlanId planId,

@@ -61,24 +61,24 @@ describe('String conversion', () => {
             let instant: Temporal.Instant = Temporal.Instant.fromEpochMicroseconds(1735732883000123n);
             let stolString = ISO8061toSeqN(instant)
         
-            expect(stolString).toEqual('2025-001T12:01:23.000123Z')
+            expect(stolString).toEqual('2025-001T12:01:23.000123')
         });
 
         it('should handle padding correctly', () => {
             let normalInstant: Temporal.Instant = Temporal.Instant.fromEpochMicroseconds(1735732883000000n);
             let normalStolString = ISO8061toSeqN(normalInstant)
         
-            expect(normalStolString).toEqual('2025-001T12:01:23Z')
+            expect(normalStolString).toEqual('2025-001T12:01:23')
         
             let msInstant: Temporal.Instant = Temporal.Instant.fromEpochMicroseconds(1735732883010000n);
             let msStolString = ISO8061toSeqN(msInstant)
         
-            expect(msStolString).toEqual('2025-001T12:01:23.010Z')
+            expect(msStolString).toEqual('2025-001T12:01:23.010')
         
             let usInstant: Temporal.Instant = Temporal.Instant.fromEpochMicroseconds(1735732883000010n);
             let usStolString = ISO8061toSeqN(usInstant)
         
-            expect(usStolString).toEqual('2025-001T12:01:23.000010Z')
+            expect(usStolString).toEqual('2025-001T12:01:23.000010')
         });
     });
 

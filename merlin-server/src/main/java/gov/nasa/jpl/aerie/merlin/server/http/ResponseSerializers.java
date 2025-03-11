@@ -322,34 +322,16 @@ public final class ResponseSerializers {
   }
 
   @SuppressWarnings("unchecked")
-  public static JsonValue serializeConstraintResults(final Map<ConstraintRecord, Fallible<?>> resultMap) {
+  public static JsonValue serializeConstraintResults(final Map<ConstraintRecord, Fallible<ConstraintResult, ?>> resultMap) {
     var results = resultMap.entrySet().stream().map(entry -> {
 
       final var constraint = entry.getKey();
       final var fallible = entry.getValue();
 
-      // There should always be a fallible but this is here
-      // just in case
-      if (fallible.getOptional().isEmpty()) {
-        return Json.createObjectBuilder()
-                   .add("success", JsonValue.FALSE)
-                   .add("constraintId", constraint.constraintId())
-                   .add("constraintInvocationId", constraint.invocationId())
-                   .add("constraintName", constraint.name())
-                   .add("constraintRevision", constraint.revision())
-                   .add("errors", Json.createArrayBuilder().add(
-                       Json.createObjectBuilder()
-                           .add("message", "Internal error processing a constraint")
-                           .add("stack", "")
-                           .add("location", JsonValue.EMPTY_JSON_OBJECT).build()).build())
-                   .add("results", JsonValue.EMPTY_JSON_OBJECT)
-                   .build();
-      }
-
       // failure was a compilation error
       if (fallible.isFailure()
-          && fallible.getOptional().get() instanceof ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error) {
-        return serializeConstraintCompileErrors(constraint, (Fallible<ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error>) fallible);
+          && fallible.getFailure() instanceof ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error) {
+        return serializeConstraintCompileErrors(constraint, (Fallible<?, ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error>) fallible);
       }
 
       // failure that are errors exceptions that were captured
@@ -363,6 +345,23 @@ public final class ResponseSerializers {
                    .add("errors", Json.createArrayBuilder().add(
                        Json.createObjectBuilder()
                            .add("message", fallible.getMessage())
+                           .add("stack", "")
+                           .add("location", JsonValue.EMPTY_JSON_OBJECT).build()).build())
+                   .add("results", JsonValue.EMPTY_JSON_OBJECT)
+                   .build();
+      }
+
+      // The Constraint didn't fail, but somehow has no value.
+      if (fallible.getOptional().isEmpty()) {
+        return Json.createObjectBuilder()
+                   .add("success", JsonValue.FALSE)
+                   .add("constraintId", constraint.constraintId())
+                   .add("constraintInvocationId", constraint.invocationId())
+                   .add("constraintName", constraint.name())
+                   .add("constraintRevision", constraint.revision())
+                   .add("errors", Json.createArrayBuilder().add(
+                       Json.createObjectBuilder()
+                           .add("message", "Internal error processing a constraint")
                            .add("stack", "")
                            .add("location", JsonValue.EMPTY_JSON_OBJECT).build()).build())
                    .add("results", JsonValue.EMPTY_JSON_OBJECT)
@@ -499,10 +498,12 @@ public final class ResponseSerializers {
                .build();
   }
 
-  public static JsonValue serializeConstraintCompileErrors(final ConstraintRecord constraint, final Fallible<ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error> ex) {
+  public static JsonValue serializeConstraintCompileErrors(
+      final ConstraintRecord constraint,
+      final Fallible<?, ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error> ex) {
 
     final var userCodeError = ex
-        .getOptional()
+        .getFailureOptional()
         .orElse(new ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error(new ArrayList<>()))
         .errors()
         .stream()

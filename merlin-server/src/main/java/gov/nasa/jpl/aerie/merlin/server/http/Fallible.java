@@ -5,30 +5,44 @@ import java.util.Optional;
 /**
  * A class representing a fallible operation result.
  *
- * @param <T> The type of the value.
+ * @param <SuccessType> The value type stored on success
+ * @param <FailureType> The error type stored on failure
  */
-public class Fallible<T> {
+public class Fallible<SuccessType, FailureType> {
 
-  private final T value;
+  private final SuccessType value;
+  private final FailureType failureValue;
 
   private final String message;
   private final boolean isFailure;
 
   /**
-   * Constructs a Fallible with a value and a flag indicating success or failure.
+   * Construct a Fallible in which the operation succeeded.
    *
    * @param value The result value.
-   * @param message
-   * @param isFailure Indicates whether the operation was a failure.
    */
-  public Fallible(T value, final String message, boolean isFailure) {
+  private Fallible(SuccessType value) {
     this.value = value;
-    this.message = message;
-    this.isFailure = isFailure;
+    this.failureValue = null;
+    this.message = "";
+    this.isFailure = false;
   }
 
   /**
-   * Checks if the operation was a failure.
+   * Construct a Fallible in which the operation failed.
+   *
+   * @param error The failure error.
+   * @param message The failure message.
+   */
+  private Fallible(FailureType error, final String message) {
+    this.value = null;
+    this.failureValue = error;
+    this.message = message;
+    this.isFailure = true;
+  }
+
+  /**
+   * Check if the operation was a failure.
    *
    * @return true if the operation was a failure, otherwise false.
    */
@@ -37,75 +51,73 @@ public class Fallible<T> {
   }
 
   /**
-   * Gets the value
+   * Get the value
    *
-   * @return The value or null;
-
+   * @return The value;
    */
-  public T getOrNull() {
+  public SuccessType get() {
     return value;
   }
 
   /**
-   * Gets the value wrapped in an {@link Optional}.
+   * Get the value wrapped in an {@link Optional}.
    *
-   * @return An {@link Optional} containing the value, or an empty {@link Optional} if the operation is a failure.
+   * @return An {@link Optional} containing the value, or an empty {@link Optional} if the Fallible is a failure.
    */
-  public Optional<T> getOptional() {
+  public Optional<SuccessType> getOptional() {
     return Optional.ofNullable(value);
   }
 
   /**
-   * Gets the message
-   *
-   * @return The message;
-
+   * Get the failure message.
    */
   public String getMessage() {
     return message;
   }
 
   /**
-   * Constructs a Fallible with a successful value.
+   * Get the failure value.
+   */
+  public FailureType getFailure() {return failureValue;}
+
+  /**
+   * Get the failure wrapped in an {@link Optional}.
+   *
+   * @return An {@link Optional} containing the failure, or an empty {@link Optional} if the Fallible is a success.
+   */
+  public Optional<FailureType> getFailureOptional() { return Optional.ofNullable(failureValue); }
+
+  /**
+   * Return a Fallible with a successful value.
    *
    * @param value The successful value.
-   * @param <T>   The type of the value.
+   * @param <SuccessType>   The type of the value.
    * @return A successful Fallible.
    */
-  public static <T> Fallible<T> of(T value) {
-    return new Fallible<>(value, "", false);
+  public static <SuccessType, FailureType> Fallible<SuccessType, FailureType> of(SuccessType value) {
+    return new Fallible<>(value);
   }
 
   /**
-   * Constructs a Fallible representing a failure.
+   * Return a Fallible representing a failure with a value.
    *
-   * @param <T> The type of the value.
-   * @return A failed Fallible.
-   */
-  public static <T> Fallible<T> failure() {
-    return new Fallible<>(null, "", true);
-  }
-
-  /**
-   * Constructs a Fallible representing a failure with a value.
-   *
-   * @param value The value indicating failure.
-   * @param <T>   The type of the value.
+   * @param error The value indicating failure.
+   * @param <FailureType>   The type of the value.
    * @return A failed Fallible with a value.
    */
-  public static <T> Fallible<T> failure(T value) {
-    return new Fallible<>(value, "", true);
+  public static <SuccessType, FailureType> Fallible<SuccessType, FailureType> failure(FailureType error) {
+    return new Fallible<>(error, "");
   }
 
   /**
-   * Constructs a Fallible representing a failure with a value and a message.
+   * Return a Fallible representing a failure with a value and a message.
    *
-   * @param value   The value indicating failure.
+   * @param error   The value indicating failure.
    * @param message The message associated with the failure.
-   * @param <T>     The type of the value.
+   * @param <FailureType>>     The type of the value.
    * @return A failed Fallible with a value and a message.
    */
-  public static <T> Fallible<T> failure(T value, String message) {
-    return new Fallible<>(value, message, true);
+  public static <SuccessType, FailureType> Fallible<SuccessType, FailureType> failure(FailureType error, String message) {
+    return new Fallible<>(error, message);
   }
 }

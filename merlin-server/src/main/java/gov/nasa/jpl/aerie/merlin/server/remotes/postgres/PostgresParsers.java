@@ -116,6 +116,7 @@ public final class PostgresParsers {
     return Duration.of((javaDuration.getSeconds() * 1_000_000L) + (javaDuration.getNano() / 1000L), Duration.MICROSECONDS);
   }
 
+  public static final JsonParser<Map<String, SerializedValue>> constraintArgumentsP = mapP(serializedValueP);
   public static final JsonParser<Map<String, SerializedValue>> activityArgumentsP = mapP(serializedValueP);
 
   public static final JsonParser<Map<String, SerializedValue>> simulationArgumentsP = mapP(serializedValueP);

@@ -104,9 +104,16 @@ public class StartOffsetReducer extends RecursiveTask<HashMap<ActivityDirectiveI
     boolean anchoredToStart = ad.anchoredToStart();
     Duration netOffset = ad.startOffset();
 
+    final var firstId = currentAnchorId;
+
     while(currentAnchorId != null && anchoredToStart){
       currentActivityDirective = completeMapOfDirectives.get(currentAnchorId);
       currentAnchorId = currentActivityDirective.anchorId();
+
+      if (currentAnchorId.equals(firstId)) {
+        throw new IllegalStateException("Anchor ID cycle detected on " + firstId);
+      }
+
       anchoredToStart = currentActivityDirective.anchoredToStart();
       netOffset = netOffset.plus(currentActivityDirective.startOffset());
     }

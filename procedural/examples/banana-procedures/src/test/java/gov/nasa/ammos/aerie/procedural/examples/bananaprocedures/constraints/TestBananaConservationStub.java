@@ -2,18 +2,15 @@ package gov.nasa.ammos.aerie.procedural.examples.bananaprocedures.constraints;
 
 import gov.nasa.ammos.aerie.procedural.constraints.Violation;
 import gov.nasa.ammos.aerie.procedural.timeline.Interval;
-import gov.nasa.ammos.aerie.procedural.timeline.collections.Directives;
 import gov.nasa.ammos.aerie.procedural.timeline.collections.Instances;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyInstance;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Instance;
-import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults;
 import gov.nasa.ammos.aerie.procedural.utils.StubPlan;
 import gov.nasa.ammos.aerie.procedural.utils.StubSimulationResults;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.types.ActivityInstanceId;
 import kotlin.NotImplementedError;
-import kotlin.jvm.functions.Function1;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
@@ -25,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-public class TestBananaConservation {
+public class TestBananaConservationStub {
   private StubSimulationResults makeSimResults(Map<Duration,Integer> picks, Map<Duration, Double> bites) {
     return new StubSimulationResults() {
       @NotNull

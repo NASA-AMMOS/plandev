@@ -17,6 +17,12 @@ import org.jetbrains.annotations.Nullable;
 import java.time.Instant;
 import java.util.List;
 
+/**
+ * A stub of the {@link Plan} interface that throws an exception
+ * on all methods. Used for testing by overriding methods with
+ * hard-coded outputs. You only need to implement the methods
+ * you intend to call.
+ */
 public class StubPlan implements Plan {
   @NotNull
   @Override

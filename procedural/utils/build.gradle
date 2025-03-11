@@ -19,6 +19,7 @@ dependencies {
   implementation project(':scheduler-driver')
   implementation project(':parsing-utilities')
   implementation project(':type-utils')
+  implementation project(':orchestration-utils')
 
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
   testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5'

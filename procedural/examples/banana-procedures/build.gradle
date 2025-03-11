@@ -26,6 +26,7 @@ dependencies {
 
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
   testImplementation project(':procedural:utils')
+  testImplementation project(':orchestration-utils')
 }
 
 tasks.register('buildAllProcedureJars') {
@@ -91,5 +92,8 @@ private static String getMainClassFromGeneratedFile(File file) {
 }
 
 test {
+  testLogging {
+    showStandardStreams = true
+  }
   useJUnitPlatform()
 }

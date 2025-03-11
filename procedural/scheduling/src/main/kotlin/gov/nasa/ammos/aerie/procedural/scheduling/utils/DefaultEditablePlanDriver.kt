@@ -97,6 +97,7 @@ class DefaultEditablePlanDriver(
      * - the results corresponding to this run must be returned from future calls to [latestResultsInternal]
      *   until the next time [simulateInternal] is called.
      */
+    @Throws(Exception::class)
     fun simulate(options: SimulateOptions)
 
     /**

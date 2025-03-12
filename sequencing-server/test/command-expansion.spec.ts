@@ -874,7 +874,7 @@ describe('template expansion', () => {
 
   // TODO: test that fails because multiple languages were used in templates for the same model
   it('should fail correctly when multiple languages are used for the same model', async () => {
-    let seqId = "SequenceFailBasic"
+    let seqId = "SequenceFailMultiLang"
 
     // insert a flawed template for Activity Type A
     await insertSequenceTemplate(
@@ -917,11 +917,10 @@ describe('template expansion', () => {
       await expandTemplates(graphqlClient, missionModelId, [seqId], simulationArtifactPk.simulationDatasetId);
     }
     catch (e) {
-      console.log(JSON.stringify(e))
-      // // verify results
-      // let e_casted: { response: { errors: { extensions: { internal: { response: { body: { extensions: { stack: any } } } } } }[] } } = e as ({ response: { errors: { extensions: { internal: { response: { body: { extensions: { stack: any } } } } } }[] } })
-      // let error = e_casted.response.errors[0].extensions.internal.response.body.extensions.stack
-      // expect(error).toInclude(`Expecting 'CLOSE_RAW_BLOCK', 'CLOSE', 'CLOSE_UNESCAPED', 'OPEN_SEXPR', 'CLOSE_SEXPR', 'ID', 'OPEN_BLOCK_PARAMS', 'STRING', 'NUMBER', 'BOOLEAN', 'UNDEFINED', 'NULL', 'DATA', 'SEP', got 'INVALID'`)
+      // verify results
+      let e_casted: { response: { errors: { extensions: { internal: { response: { body: { extensions: { stack: any } } } } } }[] } } = e as ({ response: { errors: { extensions: { internal: { response: { body: { extensions: { stack: any } } } } } }[] } })
+      let error = e_casted.response.errors[0].extensions.internal.response.body.extensions.stack
+      expect(error).toInclude(`using different languages (STOL,SeqN)`)
     }
 
     // Cleanup
@@ -940,7 +939,7 @@ describe('template expansion', () => {
     // simple test that just demonstrates that relative times get converted to absolute times, and we can use activity arguments
     it('should handle rudimentary SeqN', async () => {
       let seqId = "SeqNSequenceBasic"
-  
+
       // insert a template for Activity Type A
       await insertSequenceTemplate(
         graphqlClient,
@@ -949,35 +948,35 @@ describe('template expansion', () => {
         missionModelId,
         `GrowBanana`,
         language,
-        `R00:00:00 GROW_BANANA {{attributes.arguments.quantity}} 
+        `R00:00:00 GROW_BANANA {{attributes.arguments.quantity}}
 R00:00:01 CMD_ECHO "STARTING"
 R00:01:00 CMD_ECHO "ENDING"`
       );
-  
+
       const activityId_A = await insertActivityDirective(graphqlClient, planId, 'GrowBanana');
-  
+
       // Simulate Plan
       const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
-  
+
       // Create Sequence
       const sequenceId = await createSequence(graphqlClient, seqId, simulationArtifactPk.simulationDatasetId);
-  
+
       // Assign Activities Manually
       // technically using directive IDs, but should match with span ids so its okay...
       await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_A, seqId);
-  
+
       // Expand Plan
       const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, [seqId], simulationArtifactPk.simulationDatasetId);
-  
+
       // verify results
       expect(sequenceId).toEqual(seqId);
       expect(expandedTemplates).not.toBeNull();
-  
+
       const result = expandedTemplates[seqId]
       expect(result).toInclude(`A2020-001T00:00:30.000 GROW_BANANA 1
 A2020-001T00:00:31.000 CMD_ECHO "STARTING"
 A2020-001T00:01:31.000 CMD_ECHO "ENDING"`)
-  
+
       // Cleanup
       // remove sequence
       await removeSequence(graphqlClient, seqId)
@@ -990,7 +989,7 @@ A2020-001T00:01:31.000 CMD_ECHO "ENDING"`)
     // test that interleaves two activities (with relative times)
     it('should merge different activities\' SeqN correctly', async () => {
       let seqId = "SeqNSequenceMerge"
-  
+
       // insert a template for Activity Type A
       await insertSequenceTemplate(
         graphqlClient,
@@ -1015,34 +1014,34 @@ R00:01:00 CMD_ECHO "This is activity A ending"`
         `R00:00:01 CMD_ECHO "This is activity B starting"
 R00:01:00 CMD_ECHO "This is activity B ending"`
       );
-  
+
       const activityId_A = await insertActivityDirective(graphqlClient, planId, 'GrowBanana', '0 milliseconds');
       const activityId_B = await insertActivityDirective(graphqlClient, planId, 'BakeBananaBread', '30 seconds', { temperature: 350, tbSugar: 1, glutenFree: true });
-  
+
       // Simulate Plan
       const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
-  
+
       // Create Sequence
       const sequenceId = await createSequence(graphqlClient, seqId, simulationArtifactPk.simulationDatasetId);
-  
+
       // Assign Activities Manually
       // technically using directive IDs, but should match with span ids so its okay...
       await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_A, seqId);
       await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_B, seqId);
-  
+
       // Expand Plan
       const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, [seqId], simulationArtifactPk.simulationDatasetId);
-  
+
       // verify results
       expect(sequenceId).toEqual(seqId);
       expect(expandedTemplates).not.toBeNull();
-  
+
       const result = expandedTemplates[seqId]
       expect(result).toInclude(`A2020-001T00:00:01.000 CMD_ECHO \"This is activity A starting\"
 A2020-001T00:00:31.000 CMD_ECHO \"This is activity B starting\"
 A2020-001T00:01:01.000 CMD_ECHO \"This is activity A ending\"
 A2020-001T00:01:31.000 CMD_ECHO \"This is activity B ending\"`) // expect interleaving!
-  
+
       // Cleanup
       // remove sequence
       await removeSequence(graphqlClient, seqId)
@@ -1055,7 +1054,7 @@ A2020-001T00:01:31.000 CMD_ECHO \"This is activity B ending\"`) // expect interl
     // one that has an absolute time baked into template (one without (its just hardcoded, could even be before the start time of the activity!!) and one with add-time)
     it('should handle absolute times in templates correctly', async () => {
       let seqId = "SeqNAbsoluteTimeSequence"
-  
+
       // insert a template for Activity Type A
       await insertSequenceTemplate(
         graphqlClient,
@@ -1067,30 +1066,30 @@ A2020-001T00:01:31.000 CMD_ECHO \"This is activity B ending\"`) // expect interl
         `A2024-001T00:00:01 CMD_ECHO "This is activity A starting"
 R00:01:00 CMD_ECHO "This is activity A ending"`
       );
-  
+
       const activityId_A = await insertActivityDirective(graphqlClient, planId, 'GrowBanana', '0 milliseconds');
-  
+
       // Simulate Plan
       const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
-  
+
       // Create Sequence
       const sequenceId = await createSequence(graphqlClient, seqId, simulationArtifactPk.simulationDatasetId);
-  
+
       // Assign Activities Manually
       // technically using directive IDs, but should match with span ids so its okay...
       await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_A, seqId);
-  
+
       // Expand Plan
       const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, [seqId], simulationArtifactPk.simulationDatasetId);
-  
+
       // verify results
       expect(sequenceId).toEqual(seqId);
       expect(expandedTemplates).not.toBeNull();
-  
+
       const result = expandedTemplates[seqId]
       expect(result).toInclude(`A2024-001T00:00:01.000 CMD_ECHO \"This is activity A starting\"
 A2024-001T00:01:01.000 CMD_ECHO \"This is activity A ending\"`) // expect interleaving!
-  
+
       // Cleanup
       // remove sequence
       await removeSequence(graphqlClient, seqId)
@@ -1102,7 +1101,7 @@ A2024-001T00:01:01.000 CMD_ECHO \"This is activity A ending\"`) // expect interl
 
     it('should handle absolute times in templates (using helpers) correctly', async () => {
       let seqId = "SeqNAbsoluteTimeHelperSequence"
-  
+
       // insert a template for Activity Type A
       await insertSequenceTemplate(
         graphqlClient,
@@ -1115,33 +1114,33 @@ A2024-001T00:01:01.000 CMD_ECHO \"This is activity A ending\"`) // expect interl
 A{{formatAsDate (add-time startTime attributes.arguments.growingDuration)}} CMD_ECHO "This is activity A ending"
 R00:01:00 CMD_ECHO "This is activity A cooldown"`
       );
-  
+
       const activityId_A = await insertActivityDirective(graphqlClient, planId, 'GrowBanana', '0 milliseconds');
       const activityId_B = await insertActivityDirective(graphqlClient, planId, 'BakeBananaBread', '30 seconds', { temperature: 350, tbSugar: 1, glutenFree: true });
-  
+
       // Simulate Plan
       const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
-  
+
       // Create Sequence
       const sequenceId = await createSequence(graphqlClient, seqId, simulationArtifactPk.simulationDatasetId);
-  
+
       // Assign Activities Manually
       // technically using directive IDs, but should match with span ids so its okay...
       await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_A, seqId);
       await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_B, seqId);
-  
+
       // Expand Plan
       const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, [seqId], simulationArtifactPk.simulationDatasetId);
-  
+
       // verify results
       expect(sequenceId).toEqual(seqId);
       expect(expandedTemplates).not.toBeNull();
-  
+
       const result = expandedTemplates[seqId]
       expect(result).toInclude(`A2020-001T00:00:00.000 CMD_ECHO \"This is activity A starting\"
 A2020-001T01:00:00.000 CMD_ECHO \"This is activity A ending\"
 A2020-001T01:01:00.000 CMD_ECHO \"This is activity A cooldown\"`) // expect interleaving!
-  
+
       // Cleanup
       // remove sequence
       await removeSequence(graphqlClient, seqId)
@@ -1152,14 +1151,14 @@ A2020-001T01:01:00.000 CMD_ECHO \"This is activity A cooldown\"`) // expect inte
     });
   });
 
-  // STOL/plaintext-specific tests 
+  // STOL/plaintext-specific tests
   describe('STOL/plaintext-specific functionality', () => {
     let language = "STOL"
 
     // test merging. illustrate that if we do a similar example to the seqn one, it WONT be sorted correctly because we do simple concatenation. Same as plaintext.
     it('should(n\'t) merge different activities\' STOL/plaintext correctly', async () => {
       let seqId = "STOLSequenceMerge"
-  
+
       // insert a template for Activity Type A
       await insertSequenceTemplate(
         graphqlClient,
@@ -1184,34 +1183,34 @@ CMD SEQUENCE=FINAL_A AT={{ formatAsDate (add-time startTime attributes.arguments
         `CMD SEQUENCE=START_B AT={{ formatAsDate startTime }}
 CMD SEQUENCE=FINAL_B AT={{ formatAsDate (add-time startTime attributes.arguments.duration) }}`
       );
-  
+
       const activityId_A = await insertActivityDirective(graphqlClient, planId, 'GrowBanana', '0 milliseconds');
       const activityId_B = await insertActivityDirective(graphqlClient, planId, 'DurationParameterActivity', '30 seconds', { duration: 30000 });
-  
+
       // Simulate Plan
       const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
-  
+
       // Create Sequence
       const sequenceId = await createSequence(graphqlClient, seqId, simulationArtifactPk.simulationDatasetId);
-  
+
       // Assign Activities Manually
       // technically using directive IDs, but should match with span ids so its okay...
       await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_A, seqId);
       await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_B, seqId);
-  
+
       // Expand Plan
       const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, [seqId], simulationArtifactPk.simulationDatasetId);
-  
+
       // verify results
       expect(sequenceId).toEqual(seqId);
       expect(expandedTemplates).not.toBeNull();
-  
+
       const result = expandedTemplates[seqId]
       expect(result).toInclude(`CMD SEQUENCE=START_A AT=2020-001/00:00:00Z
 CMD SEQUENCE=FINAL_A AT=2020-001/01:00:00Z
 CMD SEQUENCE=START_B AT=2020-001/00:00:30Z
 CMD SEQUENCE=FINAL_B AT=2020-001/00:00:30.030Z`) // expect interleaving!
-  
+
       // Cleanup
       // remove sequence
       await removeSequence(graphqlClient, seqId)

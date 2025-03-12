@@ -2,13 +2,8 @@ package gov.nasa.jpl.aerie.merlin.server.http;
 
 import gov.nasa.jpl.aerie.constraints.InputMismatchException;
 import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
-import gov.nasa.jpl.aerie.constraints.model.EDSLConstraintResult;
-import gov.nasa.jpl.aerie.constraints.model.Violation;
-import gov.nasa.jpl.aerie.constraints.time.Interval;
 import gov.nasa.jpl.aerie.json.JsonParseResult.FailureReason;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
-import gov.nasa.jpl.aerie.types.ActivityInstance;
-import gov.nasa.jpl.aerie.merlin.driver.UnfinishedActivity;
 import gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser;
 import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.Parameter;
 import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.ValidationNotice;
@@ -33,9 +28,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import javax.json.Json;
 import javax.json.JsonValue;
 import javax.json.stream.JsonParsingException;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -46,11 +38,6 @@ import java.util.stream.IntStream;
 import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
 
 public final class ResponseSerializers {
-  public static <T> JsonValue serializeNullable(final Function<T, JsonValue> serializer, final T value) {
-    if (value != null) return serializer.apply(value);
-    else return JsonValue.NULL;
-  }
-
   public static <T> JsonValue
   serializeIterable(final Function<T, JsonValue> elementSerializer, final Iterable<T> elements) {
     if (elements == null) return JsonValue.NULL;
@@ -118,10 +105,6 @@ public final class ResponseSerializers {
     return serializedValueP.unparse(parameter);
   }
 
-  public static JsonValue serializeArgumentMap(final Map<String, SerializedValue> fields) {
-    return serializeMap(ResponseSerializers::serializeArgument, fields);
-  }
-
   public static JsonValue serializeEffectiveArgumentMap(final Map<String, SerializedValue> fields) {
     return Json.createObjectBuilder()
        .add("success", JsonValue.TRUE)
@@ -160,10 +143,6 @@ public final class ResponseSerializers {
         .add("success", JsonValue.FALSE)
         .add("errors", String.format("Internal error: %s", response))
         .build();
-  }
-
-  public static JsonValue serializeBulkArgumentValidationResponseList(final List<BulkArgumentValidationResponse> responses) {
-    return serializeIterable(ResponseSerializers::serializeBulkArgumentValidationResponse, responses);
   }
 
   public static JsonValue serializeBulkArgumentValidationResponse(BulkArgumentValidationResponse response) {
@@ -213,74 +192,6 @@ public final class ResponseSerializers {
     return Json.createObjectBuilder()
         .add("datasetId", datasetId)
         .build();
-  }
-
-  public static JsonValue serializeConstraintViolation(final Violation violation) {
-    return Json
-        .createObjectBuilder()
-        .add("windows", serializeIterable(ResponseSerializers::serializeInterval, violation.windows()))
-        .add("activityInstanceIds", serializeIterable(Json::createValue, violation.activityInstanceIds()))
-        .build();
-  }
-
-  public static JsonValue serializeConstraintResult(final EDSLConstraintResult list) {
-    return Json
-        .createObjectBuilder()
-        .add("violations", serializeIterable(ResponseSerializers::serializeConstraintViolation, list.violations))
-        .add("gaps", serializeIterable(ResponseSerializers::serializeInterval, list.gaps))
-        .add("resourceIds", serializeIterable(Json::createValue, list.resourceIds))
-        .build();
-  }
-
-  public static JsonValue serializeInterval(final Interval interval) {
-    return Json.createObjectBuilder()
-               .add("start", interval.start.in(Duration.MICROSECONDS))
-               .add("end", interval.end.in(Duration.MICROSECONDS))
-               .build();
-  }
-
-  private static JsonValue serializeSimulatedActivity(final ActivityInstance activityInstance) {
-    return Json
-        .createObjectBuilder()
-        .add("type", activityInstance.type())
-        .add("arguments", serializeArgumentMap(activityInstance.arguments()))
-        .add("startTimestamp", serializeTimestamp(activityInstance.start()))
-        .add("duration", serializeDuration(activityInstance.duration()))
-        .add("parent", serializeNullable(id -> Json.createValue(id.id()), activityInstance.parentId()))
-        .add("children", serializeIterable((id -> Json.createValue(id.id())), activityInstance.childIds()))
-        .add("computedAttributes", serializeArgument(activityInstance.computedAttributes()))
-        .build();
-  }
-
-  private static JsonValue serializeSimulatedActivities(final Map<ActivityDirectiveId, ActivityInstance> simulatedActivities) {
-    return serializeMap(
-        ResponseSerializers::serializeSimulatedActivity,
-        simulatedActivities
-            .entrySet()
-            .stream()
-            .collect(
-                Collectors.toMap(e -> Long.toString(e.getKey().id()), Map.Entry::getValue)));
-  }
-
-  private static JsonValue serializeUnfinishedActivity(final UnfinishedActivity simulatedActivity) {
-    return Json
-        .createObjectBuilder()
-        .add("type", simulatedActivity.type())
-        .add("arguments", serializeArgumentMap(simulatedActivity.arguments()))
-        .add("startTimestamp", serializeTimestamp(simulatedActivity.start()))
-        .add("parent", serializeNullable(id -> Json.createValue(id.id()), simulatedActivity.parentId()))
-        .add("children", serializeIterable((id -> Json.createValue(id.id())), simulatedActivity.childIds()))
-        .build();
-  }
-
-  private static JsonValue serializeUnfinishedActivities(final Map<ActivityDirectiveId, UnfinishedActivity> simulatedActivities) {
-    return serializeMap(
-        ResponseSerializers::serializeUnfinishedActivity,
-        simulatedActivities
-            .entrySet()
-            .stream()
-            .collect(
-                Collectors.toMap(e -> Long.toString(e.getKey().id()), Map.Entry::getValue)));
   }
 
   private static JsonValue serializeUnconstructableActivityFailure(final MissionModelService.ActivityInstantiationFailure reason) {
@@ -414,15 +325,6 @@ public final class ResponseSerializers {
                   .build();
           case null -> throw new IllegalArgumentException("simulation results action response was null");
       };
-  }
-
-  public static JsonValue serializeTimestamp(final TemporalAccessor instant) {
-    final var formattedTimestamp = DateTimeFormatter
-        .ofPattern("uuuu-DDD'T'HH:mm:ss.SSSSSS")
-        .withZone(ZoneOffset.UTC)
-        .format(instant);
-
-    return Json.createValue(formattedTimestamp);
   }
 
   public static JsonValue serializeDuration(final Duration timestamp) {

@@ -3,15 +3,9 @@ import type { SeqBuilder } from '../types/seqBuilder.js';
 
 export type Command = CommandStem | ActivateStep | LoadStep;
 
-export type SeqJsonBuilder = SeqBuilder<Command[], Sequence>
+export type SeqJsonBuilder = SeqBuilder<Command[], Sequence>;
 
-export const seqJsonBuilder: SeqJsonBuilder = (
-    expandedActivities,
-    seqId,
-    seqMetadata,
-    simulationDatasetId,
-) => {
-
+export const seqJsonBuilder: SeqJsonBuilder = (expandedActivities, seqId, seqMetadata, simulationDatasetId) => {
   let allCommands: (CommandStem | ActivateStep | LoadStep)[] = [];
   let convertedCommands: (CommandStem | ActivateStep | LoadStep)[] = [];
   let activityInstanceCount = 0;
@@ -28,12 +22,12 @@ export const seqJsonBuilder: SeqJsonBuilder = (
 
       if (ai.errors.length > 0) {
         allCommands = allCommands.concat(
-            ai.errors.map(e =>
-                CommandStem.new({
-                  stem: '$$ERROR$$',
-                  arguments: [{ message: e.message }],
-                }).METADATA({ simulatedActivityId: ai.id }),
-            ),
+          ai.errors.map(e =>
+            CommandStem.new({
+              stem: '$$ERROR$$',
+              arguments: [{ message: e.message }],
+            }).METADATA({ simulatedActivityId: ai.id }),
+          ),
         );
       }
 
@@ -47,16 +41,21 @@ export const seqJsonBuilder: SeqJsonBuilder = (
        *
        * TODO: we argue that this is actually ideal behavior, but it warrants discussion.
        */
-       // TODO: we argue that this is actually ideal behavior, but it warrants discussion.
-      previousTime = ai.startTime //**** */
+      previousTime = ai.startTime;
       for (const command of ai.expansionResult) {
-
-        const currentCommand = command instanceof CommandStem ? command as CommandStem : command instanceof LoadStep ? command as LoadStep : command as ActivateStep;
+        const currentCommand =
+          command instanceof CommandStem
+            ? (command as CommandStem)
+            : command instanceof LoadStep
+            ? (command as LoadStep)
+            : (command as ActivateStep);
 
         // If any command is epoch-relative or command complete, we can't sort
         if (
-            currentCommand.GET_EPOCH_TIME() ||
-            (!currentCommand.GET_ABSOLUTE_TIME() && !currentCommand.GET_EPOCH_TIME() && !currentCommand.GET_RELATIVE_TIME())
+          currentCommand.GET_EPOCH_TIME() ||
+          (!currentCommand.GET_ABSOLUTE_TIME() &&
+            !currentCommand.GET_EPOCH_TIME() &&
+            !currentCommand.GET_RELATIVE_TIME())
         ) {
           shouldSort = false; // Set the sorting flag to false
           break; // No need to continue checking other commands
@@ -64,7 +63,9 @@ export const seqJsonBuilder: SeqJsonBuilder = (
 
         // If we come across a relative command, convert it to absolute.
         if (currentCommand.GET_RELATIVE_TIME() && previousTime) {
-          const absoluteCommand : CommandStem | LoadStep | ActivateStep = currentCommand.absoluteTiming(previousTime.add(currentCommand.GET_RELATIVE_TIME() as Temporal.Duration));
+          const absoluteCommand: CommandStem | LoadStep | ActivateStep = currentCommand.absoluteTiming(
+            previousTime.add(currentCommand.GET_RELATIVE_TIME() as Temporal.Duration),
+          );
           convertedCommands.push(absoluteCommand);
           previousTime = absoluteCommand.GET_ABSOLUTE_TIME();
         } else {
@@ -83,8 +84,10 @@ export const seqJsonBuilder: SeqJsonBuilder = (
   if (activityInstanceCount > 0 && shouldSort) {
     timeSorted = true;
     allCommands = convertedCommands.sort((a, b) => {
-      const aStep = a instanceof CommandStem ? a as CommandStem : a instanceof LoadStep ? a as LoadStep : a as ActivateStep;
-      const bStep = b instanceof CommandStem ? b as CommandStem : b instanceof LoadStep ? b as LoadStep : b as ActivateStep;
+      const aStep =
+        a instanceof CommandStem ? (a as CommandStem) : a instanceof LoadStep ? (a as LoadStep) : (a as ActivateStep);
+      const bStep =
+        b instanceof CommandStem ? (b as CommandStem) : b instanceof LoadStep ? (b as LoadStep) : (b as ActivateStep);
 
       const aAbsoluteTime = aStep.GET_ABSOLUTE_TIME();
       const bAbsoluteTime = bStep.GET_ABSOLUTE_TIME();

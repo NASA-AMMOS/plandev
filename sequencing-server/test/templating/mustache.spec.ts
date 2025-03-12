@@ -74,10 +74,10 @@ describe('Test built-in helpers', () => {
 
     it('should reformat dates correctly', () => {
         let templateRaw = 'Uncleaned: {{ date }}; Cleaned: {{ formatAsDate date }}; Chained {{ formatAsDate (add-time (formatAsDate date) duration) }}'
-        let input = { date: "2025-001T00:00:00.00Z", duration: "00:05:00" }
+        let input = { date: "2025-001T00:00:00.00", duration: "00:05:00" }
     
         let template = new Mustache(templateRaw, SequencingLanguage.STOL)
         expect(template.execute(input))
-            .toEqual('Uncleaned: 2025-001T00:00:00.00Z; Cleaned: 2025-001/00:00:00Z; Chained 2025-001/00:05:00Z')
+            .toEqual('Uncleaned: 2025-001T00:00:00.00; Cleaned: 2025-001/00:00:00Z; Chained 2025-001/00:05:00Z')
     })
 });

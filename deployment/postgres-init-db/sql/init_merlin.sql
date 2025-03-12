@@ -10,6 +10,7 @@ begin;
   \ir types/merlin/merlin-arguments.sql
   \ir types/merlin/activity-directive-metadata.sql
   \ir types/merlin/plan-merge-types.sql
+  \ir types/merlin/constraint_type.sql
 
   ------------
   -- Tables

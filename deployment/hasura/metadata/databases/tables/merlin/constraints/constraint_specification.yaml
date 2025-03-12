@@ -34,11 +34,11 @@ select_permissions:
 insert_permissions:
   - role: aerie_admin
     permission:
-      columns: [plan_id, constraint_id, constraint_revision, enabled]
+      columns: [plan_id, constraint_id, constraint_revision, enabled, arguments]
       check: {}
   - role: user
     permission:
-      columns: [plan_id, constraint_id, constraint_revision, enabled]
+      columns: [plan_id, constraint_id, constraint_revision, enabled, arguments]
       check: { "_and": [
         # User is a plan owner/collaborator
         { "plan": { "_or": [ { "owner": { "_eq": "X-Hasura-User-Id" } },
@@ -50,11 +50,11 @@ insert_permissions:
 update_permissions:
   - role: aerie_admin
     permission:
-      columns: [constraint_revision, enabled]
+      columns: [constraint_revision, enabled, arguments]
       filter: {}
   - role: user
     permission:
-      columns: [constraint_revision, enabled]
+      columns: [constraint_revision, enabled, arguments]
       filter: { "plan": { "_or": [ { "owner": { "_eq": "X-Hasura-User-Id" } },{ "collaborators": { "collaborator": { "_eq": "X-Hasura-User-Id" }}}]}}
 delete_permissions:
   - role: aerie_admin

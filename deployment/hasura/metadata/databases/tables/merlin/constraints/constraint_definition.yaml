@@ -75,13 +75,13 @@ select_permissions:
 insert_permissions:
   - role: aerie_admin
     permission:
-      columns: [constraint_id, definition]
+      columns: [constraint_id, definition, type, uploaded_jar_id]
       check: {}
       set:
         author: "x-hasura-user-id"
   - role: user
     permission:
-      columns: [constraint_id, definition]
+      columns: [constraint_id, definition, type, uploaded_jar_id]
       check: {"_or":[{"metadata":{"public":{"_eq":true}}},{"metadata":{"owner":{"_eq":"X-Hasura-User-Id"}}}]}
       set:
         author: "x-hasura-user-id"

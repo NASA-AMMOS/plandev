@@ -387,7 +387,6 @@ export async function createSequenceFilter(
 export async function expandTemplates(
   graphqlClient: GraphQLClient,
   modelId: number,
-  parcelId: number,
   seqIds: string[],
   simulationDatasetId: number,
 ): Promise<{ [seqId: string]: string }> {
@@ -398,10 +397,9 @@ export async function expandTemplates(
     };
   }>(
     gql`
-      mutation ExpandTemplates($modelId: Int!, $parcelId: Int!, $seqIds: [String!]!, $simulationDatasetId: Int!) {
+      mutation ExpandTemplates($modelId: Int!, $seqIds: [String!]!, $simulationDatasetId: Int!) {
         expandAllTemplates(
           modelId: $modelId, 
-          parcelId: $parcelId,
           seqIds: $seqIds,
           simulationDatasetId: $simulationDatasetId
         ) {
@@ -412,7 +410,6 @@ export async function expandTemplates(
     `,
     {
       modelId,
-      parcelId,
       seqIds,
       simulationDatasetId,
     },

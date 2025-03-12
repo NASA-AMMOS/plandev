@@ -637,7 +637,7 @@ describe('template expansion', () => {
     await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_B, seqId);
 
     // Expand Plan
-    const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, parcelId, [seqId], simulationArtifactPk.simulationDatasetId);
+    const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, [seqId], simulationArtifactPk.simulationDatasetId);
 
     // verify results
     expect(sequenceId).toEqual(seqId);
@@ -696,7 +696,7 @@ describe('template expansion', () => {
     await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_B, seqId);
 
     // Expand Plan
-    const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, parcelId, [seqId], simulationArtifactPk.simulationDatasetId);
+    const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, [seqId], simulationArtifactPk.simulationDatasetId);
 
     // verify results
     expect(sequenceId).toEqual(seqId);
@@ -755,7 +755,7 @@ describe('template expansion', () => {
     await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_B, seqId);
 
     // Expand Plan
-    const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, parcelId, [seqId], simulationArtifactPk.simulationDatasetId);
+    const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, [seqId], simulationArtifactPk.simulationDatasetId);
 
     // verify results
     expect(sequenceId).toEqual(seqId);
@@ -806,7 +806,7 @@ describe('template expansion', () => {
     await assignActivitiesByFilter(graphqlClient, filterId, simulationArtifactPk.simulationDatasetId, seqId, "2020-001T00:00:00Z", "2020-001T00:00:40Z")
 
     // Expand Plan
-    const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, parcelId, [seqId], simulationArtifactPk.simulationDatasetId);
+    const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, [seqId], simulationArtifactPk.simulationDatasetId);
 
     // verify results
     expect(sequenceId).toEqual(seqId);
@@ -854,13 +854,74 @@ describe('template expansion', () => {
 
     // Expand Plan
     try {
-      await expandTemplates(graphqlClient, missionModelId, parcelId, [seqId], simulationArtifactPk.simulationDatasetId);
+      await expandTemplates(graphqlClient, missionModelId, [seqId], simulationArtifactPk.simulationDatasetId);
     }
     catch (e) {
       // verify results
       let e_casted: { response: { errors: { extensions: { internal: { response: { body: { extensions: { stack: any } } } } } }[] } } = e as ({ response: { errors: { extensions: { internal: { response: { body: { extensions: { stack: any } } } } } }[] } })
       let error = e_casted.response.errors[0].extensions.internal.response.body.extensions.stack
       expect(error).toInclude(`Expecting 'CLOSE_RAW_BLOCK', 'CLOSE', 'CLOSE_UNESCAPED', 'OPEN_SEXPR', 'CLOSE_SEXPR', 'ID', 'OPEN_BLOCK_PARAMS', 'STRING', 'NUMBER', 'BOOLEAN', 'UNDEFINED', 'NULL', 'DATA', 'SEP', got 'INVALID'`)
+    }
+
+    // Cleanup
+    // remove sequence
+    await removeSequence(graphqlClient, seqId)
+    // remove simulation artifact pk
+    await removeSimulationArtifacts(graphqlClient, simulationArtifactPk);
+    // remove associations
+    await removeActivitySequenceAssignments(graphqlClient, seqId)
+  });
+
+  // TODO: test that fails because multiple languages were used in templates for the same model
+  it('should fail correctly when multiple languages are used for the same model', async () => {
+    let seqId = "SequenceFailBasic"
+
+    // insert a flawed template for Activity Type A
+    await insertSequenceTemplate(
+      graphqlClient,
+      `GrowBanana.tpl`,
+      parcelId,
+      missionModelId,
+      `GrowBanana`,
+      `STOL`,
+      `CMD A`
+    );
+
+    // insert a flawed template for Activity Type B
+    await insertSequenceTemplate(
+      graphqlClient,
+      `ThrowBanana.tpl`,
+      parcelId,
+      missionModelId,
+      `ThrowBanana`,
+      `SeqN`,
+      `CMD B`
+    );
+
+    const activityId_A = await insertActivityDirective(graphqlClient, planId, 'GrowBanana');
+    const activityId_B = await insertActivityDirective(graphqlClient, planId, 'ThrowBanana');
+
+    // Simulate Plan
+    const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
+
+    // Create Sequence
+    await createSequence(graphqlClient, seqId, simulationArtifactPk.simulationDatasetId);
+
+    // Assign Activities Manually
+    // technically using directive IDs, but should match with span ids so its okay...
+    await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_A, seqId);
+    await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_B, seqId);
+
+    // Expand Plan
+    try {
+      await expandTemplates(graphqlClient, missionModelId, [seqId], simulationArtifactPk.simulationDatasetId);
+    }
+    catch (e) {
+      console.log(JSON.stringify(e))
+      // // verify results
+      // let e_casted: { response: { errors: { extensions: { internal: { response: { body: { extensions: { stack: any } } } } } }[] } } = e as ({ response: { errors: { extensions: { internal: { response: { body: { extensions: { stack: any } } } } } }[] } })
+      // let error = e_casted.response.errors[0].extensions.internal.response.body.extensions.stack
+      // expect(error).toInclude(`Expecting 'CLOSE_RAW_BLOCK', 'CLOSE', 'CLOSE_UNESCAPED', 'OPEN_SEXPR', 'CLOSE_SEXPR', 'ID', 'OPEN_BLOCK_PARAMS', 'STRING', 'NUMBER', 'BOOLEAN', 'UNDEFINED', 'NULL', 'DATA', 'SEP', got 'INVALID'`)
     }
 
     // Cleanup
@@ -906,7 +967,7 @@ R00:01:00 CMD_ECHO "ENDING"`
       await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_A, seqId);
   
       // Expand Plan
-      const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, parcelId, [seqId], simulationArtifactPk.simulationDatasetId);
+      const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, [seqId], simulationArtifactPk.simulationDatasetId);
   
       // verify results
       expect(sequenceId).toEqual(seqId);
@@ -970,7 +1031,7 @@ R00:01:00 CMD_ECHO "This is activity B ending"`
       await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_B, seqId);
   
       // Expand Plan
-      const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, parcelId, [seqId], simulationArtifactPk.simulationDatasetId);
+      const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, [seqId], simulationArtifactPk.simulationDatasetId);
   
       // verify results
       expect(sequenceId).toEqual(seqId);
@@ -1020,7 +1081,7 @@ R00:01:00 CMD_ECHO "This is activity A ending"`
       await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_A, seqId);
   
       // Expand Plan
-      const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, parcelId, [seqId], simulationArtifactPk.simulationDatasetId);
+      const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, [seqId], simulationArtifactPk.simulationDatasetId);
   
       // verify results
       expect(sequenceId).toEqual(seqId);
@@ -1070,7 +1131,7 @@ R00:01:00 CMD_ECHO "This is activity A cooldown"`
       await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_B, seqId);
   
       // Expand Plan
-      const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, parcelId, [seqId], simulationArtifactPk.simulationDatasetId);
+      const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, [seqId], simulationArtifactPk.simulationDatasetId);
   
       // verify results
       expect(sequenceId).toEqual(seqId);
@@ -1139,7 +1200,7 @@ CMD SEQUENCE=FINAL_B AT={{ formatAsDate (add-time startTime attributes.arguments
       await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_B, seqId);
   
       // Expand Plan
-      const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, parcelId, [seqId], simulationArtifactPk.simulationDatasetId);
+      const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, [seqId], simulationArtifactPk.simulationDatasetId);
   
       // verify results
       expect(sequenceId).toEqual(seqId);

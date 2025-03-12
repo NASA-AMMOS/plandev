@@ -385,17 +385,35 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       `POST /command-expansion/expand-all-sequence-templates: No sequence templates found for modelId=(${modelId}).`,
     );
   }
-  const language = sequenceTemplates[0].language
+
+  // Check that all languages are the same across all templates for this model
+  const languages = sequenceTemplates.map(template => template.language).reduce((previous, current, __, _) => {
+    if (previous.includes(current)) {
+      return previous;
+    }
+    else {
+      previous.push(current);
+      return previous;
+    }
+  }, [] as string[])
+
+  if (languages.length > 1) {
+    throw new Error(
+      `POST /command-expansion/expand-all-sequence-templates: Sequence templates found for modelId=(${modelId}) using different languages (${languages}).`
+    )
+  }
+
+  // Select the correct seqBuilder based on language
   let seqBuilder: SeqBuilder<string, string>;
-  if (language === SequencingLanguage.STOL) {
+  if (languages[0] === SequencingLanguage.STOL) {
     seqBuilder = stolBuilder
-  } else if (language === SequencingLanguage.SEQN) {
+  } else if (languages[0] === SequencingLanguage.SEQN) {
     seqBuilder = seqnBuilder
-  } else if (language === SequencingLanguage.TEXT) {
+  } else if (languages[0] === SequencingLanguage.TEXT) {
     seqBuilder = concatBuilder
   } else {
     throw new Error(
-      `POST /command-expansion/expand-all-sequence-templates: Unsupported sequence language "${language}"`,
+      `POST /command-expansion/expand-all-sequence-templates: Unsupported sequence language "${languages[0]}"`,
     );
   }
 
@@ -476,7 +494,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       if (currentTemplate) {
         // NOTE: if I have some gibberish as a variable that's obviously not defined, there will be no error.
         //    i.e. "CMD {{ dsvsdfs }}" expands to "CMD ".
-        currentTemplate.setLanguage(language)
+        currentTemplate.setLanguage(languages[0])
         const commandString = currentTemplate.execute(stringifyActivity(simulatedActivity))
 
         // add to results

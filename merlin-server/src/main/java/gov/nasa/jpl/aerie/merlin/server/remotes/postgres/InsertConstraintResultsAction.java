@@ -3,6 +3,7 @@ package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
 import gov.nasa.jpl.aerie.constraints.model.EDSLConstraintResult;
 import gov.nasa.jpl.aerie.merlin.server.http.Fallible;
+import gov.nasa.jpl.aerie.merlin.server.http.ResponseSerializers;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.server.models.DBConstraintResult;
 import gov.nasa.jpl.aerie.merlin.server.models.ProceduralConstraintResult;
@@ -12,6 +13,7 @@ import org.intellij.lang.annotations.Language;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Map;
 
 import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.constraintArgumentsP;
@@ -71,7 +73,7 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
 
   public void postResults(
       ConstraintRequestConfiguration configuration,
-      Map<ConstraintRecord, Fallible<ConstraintResult, ?>> constraintToResultsMap
+      Map<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>> constraintToResultsMap
   ) throws SQLException {
     final int requestId = createRequestRecord(
         configuration.planId().id(),
@@ -111,7 +113,7 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
   private void insertConstraintResults(
       long requestId,
       long simulationDatasetId,
-      Map<ConstraintRecord, Fallible<ConstraintResult, ?>> constraintToResultsMap
+      Map<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>> constraintToResultsMap
   ) throws SQLException {
     for (final var entry : constraintToResultsMap.entrySet()) {
       final var constraint = entry.getKey();
@@ -144,13 +146,14 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
           throw new IllegalArgumentException("Unrecognized ConstraintResults type: " + results.getClass());
         }
       } else {
-        final var error = fallible.getFailure();
+        final var errorsArray = ResponseSerializers.serializeConstraintErrors(fallible.getFailureOptional().orElse(List.of()));
+
         insertResultsStatement.setLong(1, constraint.constraintId());
         insertResultsStatement.setLong(2, constraint.revision());
         insertResultsStatement.setLong(3, simulationDatasetId);
         insertResultsStatement.setString(4, constraintArgumentsP.unparse(constraint.arguments()).toString());
         insertResultsStatement.setString(5, "{}");
-        insertResultsStatement.setString(6, "{\"error\": " + error.toString() + "}"); // TODO: FINISH HANDLING FAILURE
+        insertResultsStatement.setString(6, errorsArray.toString());
 
         insertResultsStatement.setLong(7, requestId);
         insertResultsStatement.setLong(8, constraint.invocationId());

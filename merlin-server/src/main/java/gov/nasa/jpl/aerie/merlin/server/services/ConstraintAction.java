@@ -52,7 +52,7 @@ public class ConstraintAction {
    * @throws MissionModelService.NoSuchMissionModelException If the plan's mission model does not exist.
    * @throws SimulationDatasetMismatchException If the specified simulation is not a simulation of the specified plan.
    */
-  public Map<ConstraintRecord, Fallible<ConstraintResult, ?>> getViolations(
+  public Map<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>> getViolations(
       final PlanId planId,
       final Optional<SimulationDatasetId> simulationDatasetId,
       final boolean force,
@@ -80,7 +80,7 @@ public class ConstraintAction {
     final SimulationDatasetId simDatasetId = resultsHandle.getSimulationDatasetId();
 
     final var constraintCode = new ArrayList<>(this.planService.getConstraintsForPlan(planId));
-    final var constraintResultMap = new HashMap<ConstraintRecord, Fallible<ConstraintResult, ?>>();
+    final var constraintResultMap = new HashMap<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>>();
 
     // Load cached results if the force rerun flag is not set
     final var validConstraintRuns = force ? new HashMap<ConstraintRecord, ConstraintResult>() :
@@ -136,7 +136,7 @@ public class ConstraintAction {
                 constraint);
 
             if (compilationResult.isFailure()) {
-              final Fallible<ConstraintResult, ?> r = Fallible.failure(compilationResult.getFailure(), compilationResult.getMessage());
+              final Fallible<ConstraintResult, List<? extends Exception>> r = Fallible.failure(compilationResult.getFailure().errors(), compilationResult.getMessage());
               constraintResultMap.put(constraint, r);
               continue;
             }
@@ -163,15 +163,19 @@ public class ConstraintAction {
       // run constraints
       for(final var constraint : compiledConstraints) {
         final var record = constraint.record();
-        switch (constraint) {
-          case ExecutableConstraint.EDSLConstraint edsl: {
-            constraintResultMap.put(record, Fallible.of(edsl.run(constraintsResults, environment)));
-            break;
+        try {
+          switch (constraint) {
+            case ExecutableConstraint.EDSLConstraint edsl: {
+              constraintResultMap.put(record, Fallible.of(edsl.run(constraintsResults, environment)));
+              break;
+            }
+            case ExecutableConstraint.JARConstraint jar: {
+              constraintResultMap.put(record, Fallible.of(jar.run(timelinePlan, timelineSimResults, merlinResults)));
+              break;
+            }
           }
-          case ExecutableConstraint.JARConstraint jar: {
-            constraintResultMap.put(record, Fallible.of(jar.run(timelinePlan, timelineSimResults, merlinResults)));
-            break;
-          }
+        } catch (Exception e) {
+          constraintResultMap.put(record, Fallible.failure(List.of(e), e.getMessage()));
         }
       }
     }
@@ -213,7 +217,7 @@ public class ConstraintAction {
       return Fallible.failure(
           new ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error(
               new ArrayList<>() {{
-                add(new ConstraintsCompilationError.UserCodeError(
+                add(new ConstraintsCompilationError(
                     ex.getMessage(),
                     ex.toString(),
                     new ConstraintsCompilationError.CodeLocation(0,0),
@@ -230,7 +234,7 @@ public class ConstraintAction {
     } else {
       return Fallible.failure(
           new ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error(List.of(
-              new ConstraintsCompilationError.UserCodeError(
+              new ConstraintsCompilationError(
                   "Unhandled variant of ConstraintsDSLCompilationResult: " + constraintCompilationResult, "",
                   new ConstraintsCompilationError.CodeLocation(0, 0),
                   ""))));

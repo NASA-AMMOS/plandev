@@ -15,7 +15,7 @@ import java.util.Map;
 
 public interface ConstraintRepository {
   void insertConstraintRuns(final ConstraintRequestConfiguration requestConfiguration,
-      final Map<ConstraintRecord, Fallible<ConstraintResult, ?>> constraintToResultsMap);
+      final Map<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>> constraintToResultsMap);
 
   Map<ConstraintRecord, DBConstraintResult> getValidConstraintRuns(List<ConstraintRecord> constraints, SimulationDatasetId simulationDatasetId);
   ConstraintType getConstraintType(final long constraintId, final long revision) throws NoSuchConstraintException;

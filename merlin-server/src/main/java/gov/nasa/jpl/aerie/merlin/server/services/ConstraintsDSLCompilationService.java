@@ -121,6 +121,6 @@ public class ConstraintsDSLCompilationService {
 
   public sealed interface ConstraintsDSLCompilationResult {
     record Success(Expression<EDSLConstraintResult> constraintExpression) implements ConstraintsDSLCompilationResult {}
-    record Error(List<ConstraintsCompilationError.UserCodeError> errors) implements ConstraintsDSLCompilationResult {}
+    record Error(List<ConstraintsCompilationError> errors) implements ConstraintsDSLCompilationResult {}
   }
 }

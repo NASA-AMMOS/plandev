@@ -14,8 +14,8 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.SimulationDatasetMismatchException;
+import gov.nasa.jpl.aerie.merlin.server.models.ConstraintsCompilationError;
 import gov.nasa.jpl.aerie.merlin.server.remotes.MissionModelAccessException;
-import gov.nasa.jpl.aerie.merlin.server.services.ConstraintsDSLCompilationService;
 import gov.nasa.jpl.aerie.merlin.server.services.GetSimulationResultsAction;
 import gov.nasa.jpl.aerie.merlin.server.services.LocalMissionModelService;
 import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService;
@@ -26,9 +26,10 @@ import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.json.Json;
+import javax.json.JsonObjectBuilder;
 import javax.json.JsonValue;
 import javax.json.stream.JsonParsingException;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -233,20 +234,12 @@ public final class ResponseSerializers {
         .build();
   }
 
-  @SuppressWarnings("unchecked")
-  public static JsonValue serializeConstraintResults(final Map<ConstraintRecord, Fallible<ConstraintResult, ?>> resultMap) {
+  public static JsonValue serializeConstraintResults(final Map<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>> resultMap) {
     var results = resultMap.entrySet().stream().map(entry -> {
 
       final var constraint = entry.getKey();
       final var fallible = entry.getValue();
 
-      // failure was a compilation error
-      if (fallible.isFailure()
-          && fallible.getFailure() instanceof ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error) {
-        return serializeConstraintCompileErrors(constraint, (Fallible<?, ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error>) fallible);
-      }
-
-      // failure that are errors exceptions that were captured
       if (fallible.isFailure()) {
         return Json.createObjectBuilder()
                    .add("success", JsonValue.FALSE)
@@ -254,11 +247,7 @@ public final class ResponseSerializers {
                    .add("constraintInvocationId", constraint.invocationId())
                    .add("constraintName", constraint.name())
                    .add("constraintRevision", constraint.revision())
-                   .add("errors", Json.createArrayBuilder().add(
-                       Json.createObjectBuilder()
-                           .add("message", fallible.getMessage())
-                           .add("stack", "")
-                           .add("location", JsonValue.EMPTY_JSON_OBJECT).build()).build())
+                   .add("errors", serializeConstraintErrors(fallible.getFailureOptional().orElse(List.of())))
                    .add("results", JsonValue.EMPTY_JSON_OBJECT)
                    .build();
       }
@@ -275,7 +264,7 @@ public final class ResponseSerializers {
                        Json.createObjectBuilder()
                            .add("message", "Internal error processing a constraint")
                            .add("stack", "")
-                           .add("location", JsonValue.EMPTY_JSON_OBJECT).build()).build())
+                           .add("location", JsonValue.EMPTY_JSON_OBJECT)).build())
                    .add("results", JsonValue.EMPTY_JSON_OBJECT)
                    .build();
       }
@@ -401,35 +390,27 @@ public final class ResponseSerializers {
                .build();
   }
 
-  public static JsonValue serializeConstraintCompileErrors(
-      final ConstraintRecord constraint,
-      final Fallible<?, ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error> ex) {
-
-    final var userCodeError = ex
-        .getFailureOptional()
-        .orElse(new ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error(new ArrayList<>()))
-        .errors()
-        .stream()
-        .map(UserCodeError -> Json.createObjectBuilder()
-                                  .add("stack", UserCodeError.stack())
-                                  .add("message", ex.getMessage() + UserCodeError.message())
-                                  .add("location", Json.createObjectBuilder()
-                                                       .add("line", UserCodeError.location().line())
-                                                       .add("column", UserCodeError.location().column()).build())
-                                  .build())
-        .toList();
-
-    final var userCodeErrorArrayBuilder = Json.createArrayBuilder();
-    userCodeError.forEach(userCodeErrorArrayBuilder::add);
-
-    return Json.createObjectBuilder()
-               .add("success", JsonValue.FALSE)
-               .add("constraintId", constraint.constraintId())
-               .add("constraintName", constraint.name())
-               .add("constraintRevision", constraint.revision())
-               .add("errors", userCodeErrorArrayBuilder.build())
-               .add("results", Json.createObjectBuilder().build())
-               .build();
+  public static JsonValue serializeConstraintErrors(final List<? extends Exception> errors) {
+    final var failureArrayBuilder = Json.createArrayBuilder();
+    for (final var e : errors) {
+      final JsonObjectBuilder errorBuilder = Json.createObjectBuilder();
+      // failure was a compilation error
+      if (e instanceof ConstraintsCompilationError compilationError) {
+        errorBuilder.add("stack", compilationError.getStack())
+                    .add("message", compilationError.getMessage())
+                    .add("location", Json.createObjectBuilder()
+                                         .add("line", compilationError.getLocation().line())
+                                         .add("column", compilationError.getLocation().column()));
+      }
+      // failure was a captured runtime exception
+      else {
+        errorBuilder.add("message", e.getMessage())
+                    .add("stack", Arrays.toString(e.getStackTrace()))
+                    .add("location", JsonValue.EMPTY_JSON_OBJECT);
+      }
+      failureArrayBuilder.add(errorBuilder);
+    }
+    return failureArrayBuilder.build();
   }
 
   public static JsonValue serializeInvalidEntityException(final InvalidEntityException ex) {

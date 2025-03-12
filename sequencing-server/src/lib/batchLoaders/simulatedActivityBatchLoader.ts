@@ -166,10 +166,10 @@ export const simulatedActivityInstanceBySimulatedActivityIdBatchLoader: BatchLoa
         );
       }
 
-      if(spans.length > 1) {
+      if (spans.length > 1) {
         return new ErrorWithStatusCode(
-            `Too many spans with simulated activity id ${simulatedActivityId} found for simulation_dataset with id ${simulationDatasetId}`,
-            404,
+          `Too many spans with simulated activity id ${simulatedActivityId} found for simulation_dataset with id ${simulationDatasetId}`,
+          404,
         );
       }
 

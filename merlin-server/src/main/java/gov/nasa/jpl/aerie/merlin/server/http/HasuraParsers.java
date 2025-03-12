@@ -9,6 +9,7 @@ import java.util.Optional;
 
 import static gov.nasa.jpl.aerie.json.BasicParsers.boolP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.listP;
+import static gov.nasa.jpl.aerie.json.BasicParsers.longP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.mapP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.nullableP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.productP;
@@ -91,6 +92,21 @@ public abstract class HasuraParsers {
                   $ -> tuple($.missionModelId(), Optional.of($.planId()))
               )
       );
+
+   public static final JsonParser<HasuraAction.NewConstraintRevisionEvent> hasuraNewConstraintRevisionEventTriggerP
+      = productP
+      .field("event", productP
+          .field("data", productP
+              .field("new", productP
+                  .field("constraint_id", longP)
+                  .field("revision", longP)
+                  .rest())
+              .rest())
+          .rest())
+      .rest()
+      .map(
+          untuple(HasuraAction.NewConstraintRevisionEvent::new),
+          $ -> tuple($.constraintId(), $.revision()));
 
   public static final JsonParser<HasuraMissionModelEvent> hasuraMissionModelEventTriggerP
       = productP

@@ -43,6 +43,7 @@ import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraMissionM
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraMissionModelEventTriggerP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraPlanActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraExtendExternalDatasetActionP;
+import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraNewConstraintRevisionEventTriggerP;
 import static io.javalin.apibuilder.ApiBuilder.before;
 import static io.javalin.apibuilder.ApiBuilder.path;
 import static io.javalin.apibuilder.ApiBuilder.post;
@@ -106,6 +107,7 @@ public final class MerlinBindings implements Plugin {
       path("addExternalDataset", () -> post(this::addExternalDataset));
       path("extendExternalDataset", () -> post(this::extendExternalDataset));
       path("constraintsDslTypescript", () -> post(this::getConstraintsDslTypescript));
+      path("refreshConstraintProcedureParameterTypes", () -> post(this::refreshConstrainProcedureParameterTypes));
       path("health", () -> get(ctx -> ctx.status(200)));
     });
 
@@ -180,6 +182,27 @@ public final class MerlinBindings implements Plugin {
       ctx.status(404).result(ResponseSerializers.serializeNoSuchMissionModelException(ex).toString());
     } catch (final LocalMissionModelService.MissionModelLoadException ex) {
       ctx.status(400).result(ResponseSerializers.serializeMissionModelLoadException(ex).toString());
+    }
+  }
+
+    /**
+   * action bound to the /refreshSchedulingProcedureParameterTypes endpoint
+   *
+   * Responsible for loading an uploaded procedure jar, asking for its parameter value schema and saving that to the database
+   *
+   * @param ctx the http context of the request from which to read input or post results
+   */
+  private void refreshConstrainProcedureParameterTypes(final Context ctx) {
+    try {
+      final var body = parseJson(ctx.body(), hasuraNewConstraintRevisionEventTriggerP);
+      final var constraintId = body.constraintId();
+      final var revision = body.revision();
+      this.constraintAction.refreshConstraintProcedureParameterTypes(constraintId, revision);
+      ctx.status(200);
+    } catch (final InvalidEntityException ex) {
+      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
+    } catch (final InvalidJsonException ex) {
+      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
     }
   }
 

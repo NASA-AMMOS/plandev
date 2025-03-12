@@ -36,6 +36,15 @@ public class ConstraintAction {
   }
 
   /**
+   * Update the parameter schema of a procedural constraint's definition
+   * @param constraintId The id of the constraint's metadata
+   * @param revision The definition to be updated
+   */
+  public void refreshConstraintProcedureParameterTypes(long constraintId, long revision) {
+    constraintService.refreshConstraintProcedureParameterTypes(constraintId, revision);
+  }
+
+  /**
    * Check the constraints on a plan's specification for violations.
    *
    * @param planId The plan to check.

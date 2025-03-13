@@ -1,0 +1,16 @@
+{
+  "extends": "@tsconfig/node16-strictest-esm/tsconfig.json",
+  "exclude": [
+    "sequencing_file_store",
+    "build",
+    "cdict"
+  ],
+  "compilerOptions": {
+    "lib": [
+      "esnext"
+    ],
+    "module": "esnext",
+    "resolveJsonModule": true,
+    "ignoreDeprecations": "5.0"
+  }
+}

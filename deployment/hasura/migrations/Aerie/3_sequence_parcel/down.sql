@@ -163,7 +163,7 @@ drop table sequencing.parameter_dictionary;
 --------------------------------------
 ---- Drop the Parcel Table
 --------------------------------------
-drop table sequencing.parcel;
+drop table sequencing.parcel cascade;
 
 --------------------------------------
 ---- Drop the Seq Adaptation Table

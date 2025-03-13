@@ -73,14 +73,8 @@ data class SchedulerToProcedurePlanAdapter(
     name: String,
     deserializer: (List<Segment<SerializedValue>>) -> TL
   ): TL {
-    fun constraintsToProceduralInterval(i: ConstraintsInterval) = Interval(
-      i.start,
-      i.end,
-      if (i.includesStart()) Interval.Inclusivity.Inclusive else Interval.Inclusivity.Exclusive,
-      if (i.includesEnd()) Interval.Inclusivity.Inclusive else Interval.Inclusivity.Exclusive
-    )
     fun <V> constraintsToProceduralSegment(seg: ConstraintsSegment<V>) = Segment(
-      constraintsToProceduralInterval(seg.interval),
+      seg.interval.toProceduralInterval(),
       seg.value
     )
     val segments = when (name) {

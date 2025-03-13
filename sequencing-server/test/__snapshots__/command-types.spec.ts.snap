@@ -3236,6 +3236,36 @@ export function doyToInstant(doy: DOY_STRING): Temporal.Instant {
 export function durationToHms(time: Temporal.Duration): HMS_STRING {
   let { days, hours, minutes, seconds, milliseconds } = time;
 
+  while (milliseconds >= 1000) {
+    seconds += 1;
+    milliseconds -= 1000;
+  }
+
+  while (milliseconds <= -1000) {
+    seconds -= 1;
+    milliseconds += 1000;
+  }
+
+  while (seconds >= 60) {
+    minutes += 1;
+    seconds -= 60;
+  }
+
+  while (seconds <= -60) {
+    minutes -= 1;
+    seconds += 60;
+  }
+
+  while (minutes >= 60) {
+    hours += 1;
+    minutes -= 60;
+  }
+
+  while (minutes <= -60) {
+    hours -= 1;
+    minutes += 60;
+  }
+
   const DD = days !== 0 ? \`\${formatNumber(days, 3)}T\` : '';
   const HH = days !== 0 ? formatNumber(hours, 2).replace('-', '') : formatNumber(hours, 2);
   const MM = formatNumber(minutes, 2).replace('-', '');

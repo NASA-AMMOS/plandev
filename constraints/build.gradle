@@ -37,6 +37,7 @@ dependencies {
   implementation project(':parsing-utilities')
   implementation project(':type-utils')
   implementation project(':procedural:timeline')
+  implementation project(':procedural:constraints')
 
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
 

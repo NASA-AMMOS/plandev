@@ -320,7 +320,7 @@ public class CheckpointSimulationFacade implements SimulationFacade {
     this.latestSimulationData = new SimulationData(
         plan,
         driverResults,
-        SimulationResultsConverter.convertToConstraintModelResults(driverResults)
+        new gov.nasa.jpl.aerie.constraints.model.SimulationResults(driverResults)
     );
     return this.latestSimulationData;
   }

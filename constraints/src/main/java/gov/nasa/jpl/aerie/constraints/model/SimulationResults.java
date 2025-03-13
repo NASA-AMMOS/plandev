@@ -1,8 +1,12 @@
 package gov.nasa.jpl.aerie.constraints.model;
 
 import gov.nasa.jpl.aerie.constraints.time.Interval;
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -15,7 +19,8 @@ public final class SimulationResults {
   public final Map<String, DiscreteProfile> discreteProfiles;
 
   public SimulationResults(
-      final Instant planStart, final Interval bounds,
+      final Instant planStart,
+      final Interval bounds,
       final List<ActivityInstance> activities,
       final Map<String, LinearProfile> realProfiles,
       final Map<String, DiscreteProfile> discreteProfiles
@@ -25,6 +30,39 @@ public final class SimulationResults {
     this.activities = activities;
     this.realProfiles = realProfiles;
     this.discreteProfiles = discreteProfiles;
+  }
+
+  public SimulationResults(
+      gov.nasa.jpl.aerie.merlin.driver.SimulationResults merlinResults
+  ) {
+    this.planStart = merlinResults.startTime;
+    this.bounds = Interval.between(Duration.ZERO, merlinResults.duration);
+    this.activities = new ArrayList<>();
+    this.realProfiles = new HashMap<>();
+    this.discreteProfiles = new HashMap<>();
+
+    for(final var entry : merlinResults.realProfiles.entrySet()) {
+      realProfiles.put(entry.getKey(), LinearProfile.fromSimulatedProfile(entry.getValue().segments()));
+    }
+    for(final var entry : merlinResults.discreteProfiles.entrySet()) {
+      discreteProfiles.put(entry.getKey(), DiscreteProfile.fromSimulatedProfile(entry.getValue().segments()));
+    }
+
+    final var simulatedActivities = merlinResults.simulatedActivities;
+    for (final var entry : simulatedActivities.entrySet()) {
+      final var id = entry.getKey();
+      final var activity = entry.getValue();
+
+      final var activityOffset = Duration.of(
+          planStart.until(activity.start(), ChronoUnit.MICROS),
+          Duration.MICROSECONDS);
+
+      activities.add(new ActivityInstance(
+          id.id(),
+          activity.type(),
+          activity.arguments(),
+          Interval.between(activityOffset, activityOffset.plus(activity.duration()))));
+    }
   }
 
   @Override

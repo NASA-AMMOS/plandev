@@ -11,6 +11,7 @@ import gov.nasa.jpl.aerie.merlin.server.exceptions.SimulationDatasetMismatchExce
 import gov.nasa.jpl.aerie.merlin.server.http.Fallible;
 import gov.nasa.jpl.aerie.merlin.server.models.*;
 import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.ConstraintRunRecord;
+import gov.nasa.jpl.aerie.types.MissionModelId;
 
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -41,12 +42,13 @@ public class ConstraintAction {
    * @param simulationDatasetId If provided, the id of the simulation dataset to check constraints against.
    * Defaults to the latest simulation of the plan
    * @param force If true, ignore cached values and rerun all constraints.
+   * @param userSession The Hasura Session that made the request.
    * @return A mapping of each constraint and its result.
    * @throws NoSuchPlanException If the plan does not exist.
    * @throws MissionModelService.NoSuchMissionModelException If the plan's mission model does not exist.
    * @throws SimulationDatasetMismatchException If the specified simulation is not a simulation of the specified plan.
    */
-  public Map<ConstraintRecord, Fallible<?>> getViolations(
+  public Map<ConstraintRecord, Fallible<ConstraintResult, ?>> getViolations(
       final PlanId planId,
       final Optional<SimulationDatasetId> simulationDatasetId,
       final boolean force
@@ -73,9 +75,12 @@ public class ConstraintAction {
     final SimulationDatasetId simDatasetId = resultsHandle.getSimulationDatasetId();
 
     final var constraintCode = new HashMap<>(this.planService.getConstraintsForPlan(planId));
-    final var constraintResultMap = new HashMap<Constraint, Fallible<?>>();
 
-    final var validConstraintRuns = this.constraintService.getValidConstraintRuns(constraintCode, simDatasetId);
+    final var constraintResultMap = new HashMap<ConstraintRecord, Fallible<ConstraintResult, ?>>();
+
+    // temp disable cache loading
+    final var validConstraintRuns = new HashMap<Long, ConstraintRunRecord>();
+    //this.constraintService.getValidConstraintRuns(constraintCode, simDatasetId);
 
     // Remove any constraints that we've already checked, so they aren't rechecked.
     for (ConstraintRunRecord constraintRun : validConstraintRuns.values()) {
@@ -136,121 +141,87 @@ public class ConstraintAction {
 
       // try to compile and run the constraint that were not
       // successful and cached in the past
+
+
+      //compile
+      final var compiledConstraints = new ArrayList<ExecutableConstraint>();
       for (final var entry : constraintCode.entrySet()) {
         final var constraint = entry.getValue();
-        final Expression<ConstraintResult> expression;
 
-        final ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult constraintCompilationResult;
-        try {
-          constraintCompilationResult = constraintsDSLCompilationService.compileConstraintsDSL(
-              plan.missionModelId(),
-              Optional.of(planId),
-              Optional.of(simDatasetId),
-              constraint.definition()
-          );
-        } catch (MissionModelService.NoSuchMissionModelException | NoSuchPlanException ex) {
-          constraintResultMap.put(
-              constraint,
-              Fallible.failure(new Error("Constraint " + constraint.name() + ": " + ex.getMessage())));
-          continue;
-        }
+        switch (constraint.type()) {
+          case ConstraintType.EDSL e -> {
+            final var compilationResult = tryCompileEDSLConstraint(
+                plan.missionModelId(),
+                planId,
+                simDatasetId,
+                constraint);
 
-        // Try to compile the constraint and capture failures
-        if (constraintCompilationResult instanceof ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Success success) {
-          expression = success.constraintExpression();
-        } else if (constraintCompilationResult instanceof ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error error) {
-          constraintResultMap.put(
-              constraint,
-              Fallible.failure(error, "Constraint '" + constraint.name() + "' compilation failed:\n "));
-          continue;
-        } else {
-          constraintResultMap.put(
-              constraint,
-              Fallible.failure(
-                  new ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error(
-                      new ArrayList<>() {{
-                        add(new ConstraintsCompilationError.UserCodeError(
-                            "Unhandled variant of ConstraintsDSLCompilationResult: "
-                            + constraintCompilationResult,
-                            "",
-                            new ConstraintsCompilationError.CodeLocation(
-                                0,
-                                0),
-                            ""));
-                      }})));
-          continue;
-        }
-
-        final var names = new HashSet<String>();
-        expression.extractResources(names);
-
-        final var newNames = new HashSet<String>();
-        for (final var name : names) {
-          if (!realProfiles.containsKey(name) && !discreteProfiles.containsKey(name)) {
-            newNames.add(name);
-          }
-        }
-
-        if (!newNames.isEmpty()) {
-          try {
-            final var newProfiles = resultsHandle$
-                .map($ -> $.getProfiles(new ArrayList<>(newNames)))
-                .orElseThrow(() -> new InputMismatchException("no simulation results found for plan id "
-                                                              + planId.id()));
-
-            for (final var _entry : ProfileSet.unwrapOptional(newProfiles.realProfiles()).entrySet()) {
-              if (!realProfiles.containsKey(_entry.getKey())) {
-                realProfiles.put(_entry.getKey(), LinearProfile.fromSimulatedProfile(_entry.getValue().segments()));
-              }
+            if (compilationResult.isFailure()) {
+              final Fallible<ConstraintResult, ?> r = Fallible.failure(compilationResult.getFailure(), compilationResult.getMessage());
+              constraintResultMap.put(constraint, r);
+              continue;
             }
 
-            for (final var _entry : ProfileSet.unwrapOptional(newProfiles.discreteProfiles()).entrySet()) {
-              if (!discreteProfiles.containsKey(_entry.getKey())) {
-                discreteProfiles.put(
-                    _entry.getKey(),
-                    DiscreteProfile.fromSimulatedProfile(_entry.getValue().segments()));
-              }
+            compiledConstraints.add(new ExecutableConstraint.EDSLConstraint(constraint, compilationResult.getOrNull()));
+
+            /*
+            final Expression<ConstraintResult> expression = compilationResult.getOrNull();
+
+            // Get the expression out of the result
+            final var r = compilationResult.getOrNull();
+            if(r == null) {
+              constraintResultMap.put(constraint, Fallible.failure(
+                  new Error("Expect compiled constraint code. Received null value.")));
+              continue;
             }
-          } catch (InputMismatchException ex) {
-            constraintResultMap.put(constraint, Fallible.failure(ex));
-            continue;
+            */
+
+          }
+          case ConstraintType.JAR j -> {
+            compiledConstraints.add(new ExecutableConstraint.JARConstraint(constraint));
           }
         }
+      }
 
-        final Interval bounds = Interval.between(Duration.ZERO, simDuration);
-        final var preparedResults = new gov.nasa.jpl.aerie.constraints.model.SimulationResults(
-            simStartTime,
-            bounds,
-            activities,
-            realProfiles,
-            discreteProfiles);
+      // sort constraints
+      Collections.sort(compiledConstraints);
 
-        ConstraintResult constraintResult = expression.evaluate(preparedResults, environment);
+      // run constraints
+      for(final var constraint : compiledConstraints) {
+        final var record = constraint.record();
+        switch (constraint) {
+          case ExecutableConstraint.EDSLConstraint edsl: {
+            // Cache resources that haven't yet been used by prior constraints
+            final var resources = edsl.cacheResources(realProfiles, discreteProfiles, resultsHandle);
+            final Interval bounds = Interval.between(Duration.ZERO, simDuration);
+            final var preparedResults = new SimulationResults(
+                simStartTime,
+                bounds,
+                activities,
+                realProfiles,
+                discreteProfiles);
 
-        constraintResult.constraintName = entry.getValue().name();
-        constraintResult.constraintRevision = entry.getValue().revision();
-        constraintResult.constraintId = entry.getKey();
-        constraintResult.resourceIds = List.copyOf(names);
+            constraintResultMap.put(record, Fallible.of(edsl.run(preparedResults, environment, resources)));
+            break;
+          }
+          case ExecutableConstraint.JARConstraint jar: {
 
-        constraintResultMap.put(constraint, Fallible.of(constraintResult));
-
-
+            break;
+          }
+        }
       }
       // Filter for constraints that were compiled and ran with results
       // convert these successful failables to ConstraintResults
       final var compiledConstraintMap = constraintResultMap.entrySet().stream()
                                                            .filter(set -> {
-                                                             Fallible<?> fallible = set.getValue();
+                                                             Fallible<ConstraintResult, ?> fallible = set.getValue();
                                                              return !fallible.isFailure() && (fallible
                                                                                                   .getOptional()
-                                                                                                  .isPresent()
-                                                                                              && fallible
-                                                                                                  .getOptional()
-                                                                                                  .get() instanceof ConstraintResult);
+                                                                                                  .isPresent());
                                                            })
                                                            .collect(Collectors.toMap(
-                                                               entry -> entry.getKey().id(),
-                                                               set -> (ConstraintResult) set
+                                                               entry -> entry.getKey().priority(),
+                                                               set -> set
                                                                    .getValue()
                                                                    .getOptional()
                                                                    .get()));
@@ -262,12 +233,67 @@ public class ConstraintAction {
               Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
       // Only update the db when constraints were compiled and ran with results.
+      /* temp disable caching results in db
       constraintService.createConstraintRuns(
           compileConstraintCode,
           compiledConstraintMap,
           simDatasetId);
+       */
     }
 
     return constraintResultMap;
+  }
+
+  /**
+   * Attempt to compile an EDSL Constraint.
+   * @param modelId The mission model id to get activity and resource types from.
+   * @param planId The plan id to get external resource types from.
+   * @param simDatasetId The simulation dataset id to filter external resource types on.
+   * @param constraint The constraint to be compiled.
+   * @return
+   *    On success, return a {@code Fallible<Expression<ConstraintResult>>} containing the compiled constraint code
+   *      in a form that can be evaluated against simulation results.
+   *    On failure, return a {@code Fallible<Error>} in the Failure state containing the compilation error.
+   */
+  private Fallible<Expression<ConstraintResult>, ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error> tryCompileEDSLConstraint(
+      MissionModelId modelId,
+      PlanId planId,
+      SimulationDatasetId simDatasetId,
+      ConstraintRecord constraint
+  ) {
+    final ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult constraintCompilationResult;
+    try {
+      constraintCompilationResult = constraintsDSLCompilationService.compileConstraintsDSL(
+          modelId,
+          Optional.of(planId),
+          Optional.of(simDatasetId),
+          ((ConstraintType.EDSL) constraint.type()).definition()
+      );
+    } catch (MissionModelService.NoSuchMissionModelException | NoSuchPlanException ex) {
+      return Fallible.failure(
+          new ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error(
+              new ArrayList<>() {{
+                add(new ConstraintsCompilationError.UserCodeError(
+                    ex.getMessage(),
+                    ex.toString(),
+                    new ConstraintsCompilationError.CodeLocation(0,0),
+                    ex.toString()));
+              }}
+          ));
+    }
+
+    // Try to compile the constraint and capture failures
+    if (constraintCompilationResult instanceof ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Success success) {
+      return Fallible.of(success.constraintExpression());
+    } else if (constraintCompilationResult instanceof ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error error) {
+      return Fallible.failure(error, "Constraint '" + constraint.name() + "' compilation failed:\n ");
+    } else {
+      return Fallible.failure(
+          new ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error(List.of(
+              new ConstraintsCompilationError.UserCodeError(
+                  "Unhandled variant of ConstraintsDSLCompilationResult: " + constraintCompilationResult, "",
+                  new ConstraintsCompilationError.CodeLocation(0, 0),
+                  ""))));
+    }
   }
 }

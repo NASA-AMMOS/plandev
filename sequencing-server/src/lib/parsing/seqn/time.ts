@@ -686,7 +686,7 @@ export function getUnixEpochTime(doyTimestamp: string): number {
 
   if (match) {
     const [, year, doy, hours, mins, secs, msecs = '0'] = match;
-    return Date.UTC(+year, 0, +doy, +hours, +mins, +secs, +msecs);
+    return Date.UTC(parseInt(year ?? "2025"), 0, parseInt(doy ?? "01"), parseInt(hours ?? "00"), parseInt(mins ?? "00"), parseInt(secs ?? "00"), parseInt(msecs ?? "000"));
   }
 
   return 0;
@@ -725,7 +725,7 @@ export function parseDoyOrYmdTime(
       ms: parseFloat((parseFloat(dec) * msPerSecond).toFixed(numDecimals)),
       sec: parseInt(sec),
       time: time,
-      year: parseInt(year),
+      year: parseInt(year ?? "2025"),
     };
 
     if (doy !== undefined) {
@@ -737,8 +737,8 @@ export function parseDoyOrYmdTime(
 
     return {
       ...partialReturn,
-      day: parseInt(day),
-      month: parseInt(month),
+      day: parseInt(day ?? "01"),
+      month: parseInt(month ?? "01"),
     };
   }
 
@@ -834,7 +834,7 @@ export function getTimeZoneName() {
  */
 export function removeDateStringMilliseconds(dateString: string): string {
   if (validateTime(dateString, TimeTypes.ABSOLUTE)) {
-    return dateString.split('.')[0];
+    return dateString.split('.')[0] ?? dateString;
   }
   return dateString;
 }

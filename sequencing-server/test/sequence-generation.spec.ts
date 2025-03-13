@@ -3390,7 +3390,7 @@ describe('sequence generation', () => {
       /** End Cleanup */
     }, 30000);
 
-    it('should not sort expansions if there is only one activity instance', async () => {
+    it('should resolve relative time tags to absolute and sort', async () => {
       /** Begin Setup */
       const expansionId = await insertExpansion(
         graphqlClient,
@@ -3398,8 +3398,8 @@ describe('sequence generation', () => {
         `
     export default function SingleCommandExpansion(props: { activityInstance: ActivityType }): ExpansionReturn {
       return [
+        R\`00:00:01.000\`.PICK_BANANA,
         A\`2023-091T08:19:00.000\`.ADD_WATER,
-        R\`04:00:00.000\`.PICK_BANANA,
         A\`2023-091T04:20:00.000\`.GROW_BANANA({ quantity: 10, durationSecs: 7200 })
       ];
     }
@@ -3409,8 +3409,8 @@ describe('sequence generation', () => {
       // Create Expansion Set
       const expansionSetId = await insertExpansionSet(graphqlClient, parcelId, missionModelId, [expansionId]);
 
-      // Create Activity Directives
-      const [activityId1] = await Promise.all([insertActivityDirective(graphqlClient, planId, 'GrowBanana')]);
+      // Create Activity Directive at plan start, 2020-001T00:00:00
+      const [activityId1] = await Promise.all([insertActivityDirective(graphqlClient, planId, 'GrowBanana', "0 seconds")]);
 
       // Simulate Plan
       const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
@@ -3449,21 +3449,14 @@ describe('sequence generation', () => {
       expect(getSequenceSeqJsonResponse.seqJson.metadata).toEqual({
         planId: planId,
         simulationDatasetId: simulationArtifactPk.simulationDatasetId,
-        timeSorted: false,
+        timeSorted: true,
       });
 
       expect(getSequenceSeqJsonResponse.seqJson.steps).toEqual([
         {
           type: 'command',
-          stem: 'ADD_WATER',
-          time: { tag: '2023-091T08:19:00.000', type: TimingTypes.ABSOLUTE },
-          args: [],
-          metadata: { simulatedActivityId: simulatedActivityId1 },
-        },
-        {
-          type: 'command',
           stem: 'PICK_BANANA',
-          time: { tag: '04:00:00.000', type: TimingTypes.COMMAND_RELATIVE },
+          time: { tag: '2020-001T00:00:01.000', type: TimingTypes.ABSOLUTE }, // R00:00:01 from plan start
           args: [],
           metadata: { simulatedActivityId: simulatedActivityId1 },
         },
@@ -3475,6 +3468,13 @@ describe('sequence generation', () => {
             { value: 10, name: 'quantity', type: 'number' },
             { value: 7200, name: 'durationSecs', type: 'number' },
           ],
+          metadata: { simulatedActivityId: simulatedActivityId1 },
+        },
+        {
+          type: 'command',
+          stem: 'ADD_WATER',
+          time: { tag: '2023-091T08:19:00.000', type: TimingTypes.ABSOLUTE },
+          args: [],
           metadata: { simulatedActivityId: simulatedActivityId1 },
         },
       ]);

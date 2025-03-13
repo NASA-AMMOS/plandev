@@ -427,7 +427,7 @@ describe('legacy expansion', () => {
     export default function SingleCommandExpansion(props: { activityInstance: ActivityType }): ExpansionReturn {
       return [
         A\`2023-091T10:00:00.000\`.ADD_WATER,
-        R\`04:00:00.000\`.GROW_BANANA({ quantity: 10, durationSecs: 7200 })
+        A\`2023-091T10:00:01.000\`.GROW_BANANA({ quantity: 10, durationSecs: 7200 })
       ];
     }
     `,
@@ -464,7 +464,7 @@ describe('legacy expansion', () => {
 
     expect(expandedSequence).toEqual({
       id: 'test00000',
-      metadata: { planId: planId, simulationDatasetId: simulationArtifactPk.simulationDatasetId, timeSorted: false },
+      metadata: { planId: planId, simulationDatasetId: simulationArtifactPk.simulationDatasetId, timeSorted: true },
       steps: [
         {
           args: [],
@@ -480,7 +480,7 @@ describe('legacy expansion', () => {
           ],
           metadata: { simulatedActivityId: simulatedActivityId },
           stem: 'GROW_BANANA',
-          time: { tag: '04:00:00.000', type: 'COMMAND_RELATIVE' },
+          time: { tag: '2023-091T10:00:01.000', type: 'ABSOLUTE' },
           type: 'command',
         },
       ],

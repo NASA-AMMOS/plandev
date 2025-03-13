@@ -72,12 +72,12 @@ export function STOLToISO8061(date: string): Temporal.Instant {
 export function AERIEDurationToISO8061(duration: string): string {
   // HHHHHH...:MM:SS.mmmuuu -> PHHMMSS.mmmuuuS
   let split = duration.split(":")
-  let hours = parseInt(split[0])//.padStart(2, '0')
-  let minutes = parseInt(split[1])//.padStart(2, '0')
-  let split2 = split[2].split(".")
-  let seconds = parseInt(split2[0])//.padStart(2, '0')
+  let hours = parseInt(split[0] ?? "0")//.padStart(2, '0')
+  let minutes = parseInt(split[1] ?? "0")//.padStart(2, '0')
+  let split2 = (split[2] ?? "00.000").split(".")
+  let seconds = parseInt(split2[0] ?? "0")//.padStart(2, '0')
   if (split2.length > 1) {
-    let microseconds = parseInt(split2[1])//.padEnd(6, '0')
+    let microseconds = parseInt(split2[1] ?? "0")//.padEnd(6, '0')
 
     return `PT${hours > 0 ? `${hours}H` : ""}${minutes > 0 ? `${minutes}M` : ""}${seconds > 0 && microseconds > 0 ? `${seconds}.${microseconds}S` : (seconds > 0) ? `${seconds}$` : (microseconds > 0) ? `0.${microseconds}S` : ""}`
   }
@@ -92,9 +92,9 @@ export function ISO8061toSTOL(date: Temporal.Instant): string {
 
   // change to DOY
   let split = stringFormat.split("T")
-  let day = new Date(split[0])
+  let day = new Date(split[0] ?? "2025-01-01")
   let doy = getDoy(day)
-  let time = split[1]
+  let time = split[1] ?? "00:00:00"
 
   // extract decimal seconds, if any, and pad by length (ms -> 3 automatically, us -> 6 automatically)
   if (!time.includes(".")) {
@@ -103,7 +103,7 @@ export function ISO8061toSTOL(date: Temporal.Instant): string {
   else {
     const secondSplit = time.split(".")
     const hms = secondSplit[0]
-    const decimal = secondSplit[1].replace("Z", "")
+    const decimal = (secondSplit[1] ?? "000Z").replace("Z", "")
 
     // if the Z is present at the end; it may not be and we don't want to extraneously add it
     const zString = time.includes("Z") ? "Z" : ""
@@ -122,9 +122,9 @@ export function ISO8061toSeqN(date: Temporal.Instant): string { // presently, ca
 
   // change to DOY
   let split = stringFormat.split("T")
-  let day = new Date(split[0])
+  let day = new Date(split[0] ?? "2025-01-01")
   let doy = getDoy(day)
-  let time = split[1]
+  let time = split[1] ?? "00:00:00"
 
   // extract decimal seconds, if any, and pad by length (ms -> 3 automatically, us -> 6 automatically)
   if (!time.includes(".")) {
@@ -133,7 +133,7 @@ export function ISO8061toSeqN(date: Temporal.Instant): string { // presently, ca
   else {
     const secondSplit = time.split(".")
     const hms = secondSplit[0]
-    const decimal = secondSplit[1].replace("Z", "")
+    const decimal = (secondSplit[1] ?? "000Z").replace("Z", "")
 
     // seqN doesn't include "Z" in its strings.
     if (decimal.length <= 3) {
@@ -221,7 +221,7 @@ function parseDoyOrYmdTime(
       ms: parseFloat((parseFloat(dec) * msPerSecond).toFixed(numDecimals)),
       sec: parseInt(sec),
       time: time,
-      year: parseInt(year),
+      year: parseInt(year ?? "2025"),
     };
 
     if (doy !== undefined) {
@@ -233,8 +233,8 @@ function parseDoyOrYmdTime(
 
     return {
       ...partialReturn,
-      day: parseInt(day),
-      month: parseInt(month),
+      day: parseInt(day ?? "01"),
+      month: parseInt(month ?? "01"),
     };
   }
 

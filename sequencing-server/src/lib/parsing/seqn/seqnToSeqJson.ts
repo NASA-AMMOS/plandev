@@ -663,7 +663,7 @@ function parseHardwareCommand(commandNode: SyntaxNode, text: string): HardwareCo
 function parseId(node: SyntaxNode, text: string, sequenceName: string): string {
   const stringNode = node.getChild('IdDeclaration')?.getChild('String');
   if (!stringNode) {
-    return sequenceName.split('.')[0];
+    return sequenceName.split('.')[0] ?? "-1";
   }
 
   const id = JSON.parse(text.slice(stringNode.from, stringNode.to));

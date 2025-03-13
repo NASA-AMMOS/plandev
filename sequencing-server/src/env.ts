@@ -1,4 +1,4 @@
-import { SequencingLanguage } from "./lib/mustache/enums/language";
+import type { SequencingLanguage } from "./lib/mustache/enums/language";
 
 export type Env = {
   DICTIONARY_PARSER_PLUGIN: string,

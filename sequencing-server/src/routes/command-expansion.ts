@@ -1,30 +1,30 @@
-import type { UserCodeError } from '@nasa-jpl/aerie-ts-user-code-runner';
+import type {UserCodeError} from '@nasa-jpl/aerie-ts-user-code-runner';
 import pgFormat from 'pg-format';
-import type { Context } from '../app.js';
-import { db, piscina, promiseThrottler, typeCheckingCache } from './../app.js';
-import { Result } from '@nasa-jpl/aerie-ts-user-code-runner/build/utils/monads.js';
+import type {Context} from '../app.js';
+import {db, piscina, promiseThrottler, typeCheckingCache} from './../app.js';
+import {Result} from '@nasa-jpl/aerie-ts-user-code-runner/build/utils/monads.js';
 import express from 'express';
-import { serializeWithTemporal } from './../utils/temporalSerializers.js';
-import { generateTypescriptForGraphQLActivitySchema } from './../lib/codegen/ActivityTypescriptCodegen.js';
-import { isRejected, isResolved } from './../utils/typeguards.js';
-import type { executeExpansionFromBuildArtifacts, typecheckExpansion } from './../worker.js';
+import {serializeWithTemporal} from './../utils/temporalSerializers.js';
+import {generateTypescriptForGraphQLActivitySchema} from './../lib/codegen/ActivityTypescriptCodegen.js';
+import {isRejected, isResolved} from './../utils/typeguards.js';
+import type {executeExpansionFromBuildArtifacts, typecheckExpansion} from './../worker.js';
 import getLogger from './../utils/logger.js';
-import { InheritedError } from '../utils/InheritedError.js';
-import { unwrapPromiseSettledResults } from '../lib/batchLoaders/index.js';
-import { seqJsonBuilder } from '../builders/seqJsonBuilder.js';
-import { ActivateStep, CommandStem, LoadStep } from './../lib/codegen/CommandEDSLPreface.js';
-import { getUsername } from '../utils/hasura.js';
+import {InheritedError} from '../utils/InheritedError.js';
+import {unwrapPromiseSettledResults} from '../lib/batchLoaders/index.js';
+import {seqJsonBuilder} from '../builders/seqJsonBuilder.js';
+import {ActivateStep, CommandStem, LoadStep} from './../lib/codegen/CommandEDSLPreface.js';
+import {getUsername} from '../utils/hasura.js';
 import * as crypto from 'crypto';
-import type { SimulatedActivity } from '../lib/batchLoaders/simulatedActivityBatchLoader.js';
-import { Mustache } from '../lib/mustache/util/index.js';
-import { seqnBuilder } from '../builders/seqnBuilder.js';
-import type { ExpandedActivity, SeqBuilder } from '../types/seqBuilder.js';
-import { applyActivityLayerFilter } from '../lib/filters/utilities.js';
-import { convertDoyToYmd } from '../lib/mustache/util/time.js';
-import { stringifyActivity } from '../lib/mustache/util/activity.js';
-import { stolBuilder } from '../builders/stolBuilder.js';
-import { concatBuilder } from "../builders/concatBuilder.js";
-import { SequencingLanguage } from '../lib/mustache/enums/language.js';
+import type {SimulatedActivity} from '../lib/batchLoaders/simulatedActivityBatchLoader.js';
+import {Mustache} from '../lib/mustache/util/index.js';
+import {seqnBuilder} from '../builders/seqnBuilder.js';
+import type {ExpandedActivity, SeqBuilder} from '../types/seqBuilder.js';
+import {applyActivityLayerFilter} from '../lib/filters/utilities.js';
+import {convertDoyToYmd} from '../lib/mustache/util/time.js';
+import {stringifyActivity} from '../lib/mustache/util/activity.js';
+import {stolBuilder} from '../builders/stolBuilder.js';
+import {concatBuilder} from "../builders/concatBuilder.js";
+import {SequencingLanguage} from '../lib/mustache/enums/language.js';
 
 const logger = getLogger('app');
 
@@ -160,7 +160,7 @@ commandExpansionRouter.post('/put-template', async (req, res, next) => {
   const parcelId = req.body.input.parcelId as number | null;
   const modelId = req.body.input.modelId as number | null;
   const activityTypeName = req.body.input.activityTypeName as string;
-  const language = req.body.input.language as SequencingLanguage;
+  let language = req.body.input.language as SequencingLanguage;
   const username = getUsername(req.body.session_variables, req.headers.authorization);
 
   // if this makes use of helpers, which is possible, there's no easy way to verify this is valid mustache without
@@ -174,10 +174,14 @@ commandExpansionRouter.post('/put-template', async (req, res, next) => {
     res.status(500).json({ errors: ["Must include parcelId and authoringMissionModelId."] });
     return next();
   }
-  if (["STOL", "SeqN", "Text"].indexOf(language) === -1) {
+  if (["stol", "seqn", "text"].indexOf(language.toLowerCase()) === -1) {
     res.status(500).json({ errors: [`Invalid language ${language}; must be "STOL", "SeqN", or "Text".`] });
     return next();
   }
+
+  if (language.toLowerCase() === "stol") language = SequencingLanguage.STOL;
+  if (language.toLowerCase() === "seqn") language = SequencingLanguage.SEQN;
+  if (language.toLowerCase() === "text") language = SequencingLanguage.TEXT;
 
   const { rows } = await db.query(
     `

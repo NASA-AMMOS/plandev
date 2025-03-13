@@ -1,6 +1,5 @@
 // TODO: Ensure absolute and relative times resolve correctly. Ask about this later.
 
-import { padStart } from 'lodash-es';
 import { ParsedDoyString, ParsedDurationString, ParsedYmdString, TimeTypes } from './types/time.js';
 import { Temporal } from '@js-temporal/polyfill';
 import { SequencingLanguage } from '../enums/language.js';
@@ -166,8 +165,8 @@ export function convertDoyToYmd(doyString: string, includeMsecs = true): string 
       const date = new Date(parsedDoy.year, 0, parsedDoy.doy);
       const ymdString = `${[
         date.getFullYear(),
-        padStart(`${date.getUTCMonth() + 1}`, 2, '0'),
-        padStart(`${date.getUTCDate()}`, 2, '0'),
+        `${date.getUTCMonth() + 1}`.padStart(2, '0'),
+        `${date.getUTCDate()}`.padStart(2, '0'),
       ].join('-')}T${parsedDoy.time}`;
       if (includeMsecs) {
         return `${ymdString}${ymdString.charAt(ymdString.length - 1) !== "Z" ? "Z" : ""}`;

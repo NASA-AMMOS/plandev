@@ -1,4 +1,4 @@
-import { ActivityLayerFilterField, FilterOperator } from "./enums";
+import type { ActivityLayerFilterField, FilterOperator } from "./enums";
 
 export type DynamicFilterDataType = ValueSchema['type'] | 'tag';
 

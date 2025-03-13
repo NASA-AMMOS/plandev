@@ -1,7 +1,6 @@
-import { isArray } from "lodash-es";
-import { ActivityLayerDynamicFilter, ActivityLayerFilter, ActivityType } from "./types";
-import { ActivityLayerFilterField } from "./enums";
-import { SimulatedActivity } from "../batchLoaders/simulatedActivityBatchLoader";
+import type { ActivityLayerDynamicFilter, ActivityLayerFilter, ActivityType } from "./types";
+import type { ActivityLayerFilterField } from "./enums";
+import type { SimulatedActivity } from "../batchLoaders/simulatedActivityBatchLoader";
 
 export function applyActivityLayerFilter(
     filter: ActivityLayerFilter | undefined,
@@ -74,7 +73,7 @@ function applyFiltersToDirectiveOrSpan(
     // Apply other filters on top of the types
     if (filter.other_filters?.length) {
         included =
-            directiveOrSpanMatchesDynamicFilters(simulatedActivity, filter.other_filters) && 
+            directiveOrSpanMatchesDynamicFilters(simulatedActivity, filter.other_filters) &&
             (anyTypeFiltersSpecified ? included : true);
     }
 
@@ -115,7 +114,7 @@ function directiveOrSpanMatchesDynamicFilters(
         //         subsystemTagId = typeDef.subsystem_tag.id;
         //     }
         //     matches = matchesDynamicFilter(subsystemTagId, curr.operator, curr.value);
-        // } else if (curr.field === 'Tags' && isArray((directiveOrSpan as ActivityDirective).tags)) {
+        // } else if (curr.field === 'Tags' && Array.isArray((directiveOrSpan as ActivityDirective).tags)) {
         //     const ids = (directiveOrSpan as ActivityDirective).tags.map(tag => tag.tag.id);
         //     matches = matchesDynamicFilter(ids, curr.operator, curr.value);
         } else if (curr.field === 'Parameter' && curr.subfield) {
@@ -166,8 +165,8 @@ export function matchesDynamicFilter(
                     return false;
                 }
                 return itemValue.indexOf(filterValue) > -1;
-            } else if (isArray(filterValue)) {
-                return !!(isArray(itemValue) ? itemValue : [itemValue]).find(
+            } else if (Array.isArray(filterValue)) {
+                return !!(Array.isArray(itemValue) ? itemValue : [itemValue]).find(
                     item => (filterValue as (typeof itemValue)[]).indexOf(item) > -1,
                 );
             }
@@ -178,8 +177,8 @@ export function matchesDynamicFilter(
                     return true;
                 }
                 return itemValue.indexOf(filterValue) < 0;
-            } else if (isArray(filterValue)) {
-                return !(isArray(itemValue) ? itemValue : [itemValue]).find(
+            } else if (Array.isArray(filterValue)) {
+                return !(Array.isArray(itemValue) ? itemValue : [itemValue]).find(
                     item => (filterValue as (typeof itemValue)[]).indexOf(item) > -1,
                 );
             }
@@ -190,7 +189,7 @@ export function matchesDynamicFilter(
             return itemValue < filterValue;
         case 'is_within':
             if (
-                isArray(filterValue) &&
+                Array.isArray(filterValue) &&
                 filterValue.length === 2 &&
                 typeof filterValue[0] === 'number' &&
                 typeof filterValue[1] === 'number'
@@ -201,7 +200,7 @@ export function matchesDynamicFilter(
             return false;
         case 'is_not_within':
             if (
-                isArray(filterValue) &&
+                Array.isArray(filterValue) &&
                 filterValue.length === 2 &&
                 typeof filterValue[0] === 'number' &&
                 typeof filterValue[1] === 'number'

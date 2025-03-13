@@ -1,6 +1,5 @@
 // Only using: getBalancedDuration, getDurationTimeComponents, parseDurationString, validateTime
 
-import { padStart } from 'lodash-es';
 import parseInterval from 'postgres-interval';
 import { TimeTypes } from './enums/time.js';
 import type { DurationTimeComponents, ParsedDoyString, ParsedDurationString, ParsedYmdString } from './types/time.js';
@@ -371,8 +370,8 @@ export function convertDoyToYmd(doyString: string, includeMsecs = true): string 
       const date = new Date(parsedDoy.year, 0, parsedDoy.doy);
       const ymdString = `${[
         date.getFullYear(),
-        padStart(`${date.getUTCMonth() + 1}`, 2, '0'),
-        padStart(`${date.getUTCDate()}`, 2, '0'),
+        `${date.getUTCMonth() + 1}`.padStart(2, '0'),
+        `${date.getUTCDate()}`.padStart(2, '0'),
       ].join('-')}T${parsedDoy.time}`;
       if (includeMsecs) {
         return `${ymdString}Z`;

@@ -1,4 +1,4 @@
-import { SimulatedActivity } from "../../batchLoaders/simulatedActivityBatchLoader";
+import type { SimulatedActivity } from "../../batchLoaders/simulatedActivityBatchLoader";
 
 // converts SimulatedActivity into something mustache plays well with
 export function stringifyActivity(simulatedActivity: SimulatedActivity): MustacheActivity {
@@ -18,7 +18,7 @@ export function stringifyActivity(simulatedActivity: SimulatedActivity): Mustach
         acc[argumentName] = String(argumentValue)
         return acc
     }, {}) : undefined;
-    
+
     return {
         ...simulatedActivity,
         duration: simulatedActivity.duration ? simulatedActivity.duration.toString() : null,

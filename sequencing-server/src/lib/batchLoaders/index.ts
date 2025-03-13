@@ -12,7 +12,7 @@ export type InferredDataloader<T extends (opts: any) => (keys: readonly any[]) =
   DataLoader<InferredParameters<T>, InferredReturnType<T>>;
 
 export function objectCacheKeyFunction(keyObj: { [key: string]: string | number }): string {
-  return Object.values(keyObj).reduce((accum: string, prop: string | number) => `${accum}:${prop}`, '');
+  return <string>Object.values(keyObj).reduce((accum: string, prop: string | number) => `${accum}:${prop}`, '');
 }
 
 export type BatchLoader<K, V, Options extends { [key: string]: any } = {}> = (

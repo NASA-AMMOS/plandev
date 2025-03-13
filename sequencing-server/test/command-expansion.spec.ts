@@ -867,7 +867,7 @@ describe('template expansion', () => {
     catch (e) {
       // verify results
       let e_casted: { response: { errors: { extensions: { internal: { response: { body: { extensions: { stack: any } } } } } }[] } } = e as ({ response: { errors: { extensions: { internal: { response: { body: { extensions: { stack: any } } } } } }[] } })
-      let error = e_casted.response.errors[0].extensions.internal.response.body.extensions.stack
+      let error = e_casted?.response?.errors[0]?.extensions.internal.response.body.extensions.stack
       expect(error).toInclude(`Expecting 'CLOSE_RAW_BLOCK', 'CLOSE', 'CLOSE_UNESCAPED', 'OPEN_SEXPR', 'CLOSE_SEXPR', 'ID', 'OPEN_BLOCK_PARAMS', 'STRING', 'NUMBER', 'BOOLEAN', 'UNDEFINED', 'NULL', 'DATA', 'SEP', got 'INVALID'`)
     }
 
@@ -927,7 +927,7 @@ describe('template expansion', () => {
     catch (e) {
       // verify results
       let e_casted: { response: { errors: { extensions: { internal: { response: { body: { extensions: { stack: any } } } } } }[] } } = e as ({ response: { errors: { extensions: { internal: { response: { body: { extensions: { stack: any } } } } } }[] } })
-      let error = e_casted.response.errors[0].extensions.internal.response.body.extensions.stack
+      let error = e_casted?.response?.errors[0]?.extensions.internal.response.body.extensions.stack
       expect(error).toInclude(`using different languages (STOL,SeqN)`)
     }
 

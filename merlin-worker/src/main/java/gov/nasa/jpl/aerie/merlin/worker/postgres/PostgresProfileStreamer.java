@@ -27,12 +27,12 @@ public class PostgresProfileStreamer implements Consumer<ResourceProfiles>, Auto
 
   @Override
   public void close() {
-    queryQueue.shutdown();
-      try {
-          queryHandler.close();
-      } catch (SQLException e) {
-          throw new DatabaseException("Error occurred while attempting to close PostgresProfileQueryHandler", e);
-      }
+    queryQueue.close();  // This waits for all submitted jobs to complete before returning
+    try {
+        queryHandler.close();
+    } catch (SQLException e) {
+        throw new DatabaseException("Error occurred while attempting to close PostgresProfileQueryHandler", e);
+    }
   }
 
 }

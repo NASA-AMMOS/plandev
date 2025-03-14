@@ -25,11 +25,11 @@ public class LocalConstraintService implements ConstraintService {
   }
 
   @Override
-  public void createConstraintRuns(
+  public int createConstraintRuns(
       final ConstraintRequestConfiguration requestConfiguration,
       final Map<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>> constraintToResultsMap
   ) {
-    this.constraintRepository.insertConstraintRuns(requestConfiguration, constraintToResultsMap);
+    return this.constraintRepository.insertConstraintRuns(requestConfiguration, constraintToResultsMap);
   }
 
   @Override

@@ -105,7 +105,7 @@ type Query {
 }
 
 type Query {
-  constraintViolations(planId: Int!, simulationDatasetId: Int, force: Boolean): [ConstraintResponse!]!
+  constraintViolations(planId: Int!, simulationDatasetId: Int, force: Boolean): ConstraintResponse!
 }
 
 type Query {
@@ -253,6 +253,11 @@ type ResourceSamplesResponse {
 }
 
 type ConstraintResponse {
+   requestId: Int!,
+   constraintsRun: [ConstraintsRun!]!
+}
+
+type ConstraintsRun {
   success: String!
   constraintId: Int!,
   constraintInvocationId: Int!,

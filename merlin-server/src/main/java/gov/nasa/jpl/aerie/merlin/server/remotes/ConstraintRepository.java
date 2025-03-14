@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 public interface ConstraintRepository {
-  void insertConstraintRuns(final ConstraintRequestConfiguration requestConfiguration,
+  int insertConstraintRuns(final ConstraintRequestConfiguration requestConfiguration,
       final Map<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>> constraintToResultsMap);
 
   Map<ConstraintRecord, DBConstraintResult> getValidConstraintRuns(List<ConstraintRecord> constraints, SimulationDatasetId simulationDatasetId);

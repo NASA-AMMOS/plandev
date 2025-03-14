@@ -234,7 +234,7 @@ public final class ResponseSerializers {
         .build();
   }
 
-  public static JsonValue serializeConstraintResults(final Map<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>> resultMap) {
+  public static JsonValue serializeConstraintResults(final int requestId, final Map<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>> resultMap) {
     var results = resultMap.entrySet().stream().map(entry -> {
 
       final var constraint = entry.getKey();
@@ -286,7 +286,11 @@ public final class ResponseSerializers {
     final var resultsArrayBuilder = Json.createArrayBuilder();
     results.forEach(resultsArrayBuilder::add);
 
-    return resultsArrayBuilder.build();
+    return Json.createObjectBuilder()
+               .add("success", JsonValue.TRUE)
+               .add("requestId", requestId)
+               .add("constraintsRun", resultsArrayBuilder)
+               .build();
   }
 
   public static JsonValue serializeSimulationResultsResponse(final GetSimulationResultsAction.Response response) {

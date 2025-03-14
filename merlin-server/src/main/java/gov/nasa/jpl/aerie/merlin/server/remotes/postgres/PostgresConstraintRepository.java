@@ -24,13 +24,13 @@ public class PostgresConstraintRepository implements ConstraintRepository {
   }
 
   @Override
-  public void insertConstraintRuns(
+  public int insertConstraintRuns(
       final ConstraintRequestConfiguration requestConfiguration,
       final Map<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>> constraintToResultsMap
   ) {
     try (final var connection = this.dataSource.getConnection()) {
       try (final var insertConstraintRunsAction = new InsertConstraintResultsAction(connection)) {
-        insertConstraintRunsAction.postResults(requestConfiguration, constraintToResultsMap);
+        return insertConstraintRunsAction.postResults(requestConfiguration, constraintToResultsMap);
       }
     } catch (final SQLException ex) {
       throw new DatabaseException("Failed to save constraint run", ex);

@@ -71,7 +71,7 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
     this.associateResultsStatement = connection.prepareStatement(associateResultsToRequest);
   }
 
-  public void postResults(
+  public int postResults(
       ConstraintRequestConfiguration configuration,
       Map<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>> constraintToResultsMap
   ) throws SQLException {
@@ -85,6 +85,7 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
         configuration.simulationDatasetId().id(),
         constraintToResultsMap
     );
+    return requestId;
   }
 
   private int createRequestRecord(

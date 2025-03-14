@@ -273,7 +273,7 @@ public final class MerlinBindings implements Plugin {
 
       final var constraintViolations = this.constraintAction.getViolations(planId, simulationDatasetId, force, body.session());
 
-      ctx.result(ResponseSerializers.serializeConstraintResults(constraintViolations).toString());
+      ctx.result(ResponseSerializers.serializeConstraintResults(constraintViolations.getLeft(), constraintViolations.getRight()).toString());
     } catch (final InvalidJsonException ex) {
       ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
     } catch (final InvalidEntityException ex) {

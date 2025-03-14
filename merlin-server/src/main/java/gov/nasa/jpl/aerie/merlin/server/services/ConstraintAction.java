@@ -9,6 +9,7 @@ import gov.nasa.jpl.aerie.merlin.server.exceptions.SimulationDatasetMismatchExce
 import gov.nasa.jpl.aerie.merlin.server.http.Fallible;
 import gov.nasa.jpl.aerie.merlin.server.models.*;
 import gov.nasa.jpl.aerie.types.MissionModelId;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.*;
 
@@ -52,7 +53,7 @@ public class ConstraintAction {
    * @throws MissionModelService.NoSuchMissionModelException If the plan's mission model does not exist.
    * @throws SimulationDatasetMismatchException If the specified simulation is not a simulation of the specified plan.
    */
-  public Map<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>> getViolations(
+  public Pair<Integer, Map<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>>> getViolations(
       final PlanId planId,
       final Optional<SimulationDatasetId> simulationDatasetId,
       final boolean force,
@@ -181,11 +182,11 @@ public class ConstraintAction {
     }
 
     // Store the outcome of the constraint run
-    constraintService.createConstraintRuns(
+    final var requestId = constraintService.createConstraintRuns(
         new ConstraintRequestConfiguration(planId, simDatasetId, force, userSession.hasuraUserId()),
         constraintResultMap);
 
-    return constraintResultMap;
+    return Pair.of(requestId, constraintResultMap);
   }
 
   /**

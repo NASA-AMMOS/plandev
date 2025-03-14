@@ -31,7 +31,7 @@ public class ConstraintsCompilationError extends Exception {
 
   public record CodeLocation(Integer line, Integer column) {}
 
-  private final String message;
+  private String message;
   private final String stack;
   private final CodeLocation location;
   private final String completeStack;
@@ -43,9 +43,14 @@ public class ConstraintsCompilationError extends Exception {
     this.location = location;
     this.completeStack = completeStack;
   }
+
   @Override
   public String getMessage() { return message; }
   public String getStack() { return stack; }
   public CodeLocation getLocation() { return location; }
   public String getCompleteStack() { return completeStack; }
+
+  public void prependMessage(String m) {
+    message = m + this.message;
+  }
 }

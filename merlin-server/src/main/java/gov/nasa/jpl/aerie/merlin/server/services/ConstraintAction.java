@@ -218,7 +218,7 @@ public class ConstraintAction {
           new ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error(
               new ArrayList<>() {{
                 add(new ConstraintsCompilationError(
-                    ex.getMessage(),
+                    "Constraint '" +constraint.name()+ "' compilation failed:\n " + ex.getMessage(),
                     ex.toString(),
                     new ConstraintsCompilationError.CodeLocation(0,0),
                     ex.toString()));
@@ -230,6 +230,8 @@ public class ConstraintAction {
     if (constraintCompilationResult instanceof ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Success success) {
       return Fallible.of(success.constraintExpression());
     } else if (constraintCompilationResult instanceof ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error error) {
+      // Add the leading error message to the errors
+      error.errors().forEach(e -> e.prependMessage("Constraint '" + constraint.name() + "' compilation failed:\n "));
       return Fallible.failure(error, "Constraint '" + constraint.name() + "' compilation failed:\n ");
     } else {
       return Fallible.failure(

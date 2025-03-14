@@ -30,11 +30,12 @@ describe('Basic template functionality', () => {
         
         let badTemplate = new Mustache(badTemplateRaw)
         try {
-            console.log(badTemplate.execute(genericInput))
+            badTemplate.execute(genericInput)
         }
         catch (e) {
             const stringError = String(e);
-            console.error(stringError.split("\t")[0])
+            expect(stringError.split("\t")[0])
+                .toInclude("Expecting 'CLOSE_RAW_BLOCK', 'CLOSE', 'CLOSE_UNESCAPED', 'OPEN_SEXPR', 'CLOSE_SEXPR', 'ID', 'OPEN_BLOCK_PARAMS', 'STRING', 'NUMBER', 'BOOLEAN', 'UNDEFINED', 'NULL', 'DATA', 'SEP', got 'INVALID'")
         }
     });
 });

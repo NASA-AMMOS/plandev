@@ -78,7 +78,6 @@ export class Mustache {
     private template: HandlebarsTemplateDelegate<any>
 
     constructor(template: string, language?: SequencingLanguage) {
-        console.log("DEFAULT LANGUAGE IS", environment.language)
         environment.language = language ?? environment.language
         this.template = Handlebars.compile(template)
     }

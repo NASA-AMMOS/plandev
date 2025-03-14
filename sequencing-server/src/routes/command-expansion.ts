@@ -102,7 +102,7 @@ commandExpansionRouter.post('/assign-activities-by-filter', async (req, res, nex
 
   const filterId = req.body.input.filterId as number;
   const simulationDatasetId = req.body.input.simulationDatasetId as number;
-  const seqId = req.body.input.seqId as number;
+  const seqId = req.body.input.seqId as string;
   const timeRangeStart = Temporal.Instant.from(convertDoyToYmd(req.body.input.timeRangeStart));
   const timeRangeEnd = Temporal.Instant.from(convertDoyToYmd(req.body.input.timeRangeEnd));
 
@@ -122,23 +122,20 @@ commandExpansionRouter.post('/assign-activities-by-filter', async (req, res, nex
   let filteredActivities: SimulatedActivity<Record<string, unknown>, Record<string, unknown>>[] = applyActivityLayerFilter(sequenceFilter.filter, simulatedActivities, timeRangeStart, timeRangeEnd);
 
   // 3. Create new entries in sequencing.seqeunce_to_simulated_activity for just the filtered, simulated activities and the passed-in seqId
-  //    3a. Create query:
-  let query = `
+  const { rows } = await db.query(`
       insert into sequencing.sequence_to_simulated_activity (simulated_activity_id, simulation_dataset_id, seq_id)
-        values
-`
-  for (const entry of filteredActivities.entries()) {
-    if (entry[0] === filteredActivities.length - 1) {
-      query += `          (${entry[1].id}, ${simulationDatasetId}, '${seqId}')\n`
-    }
-    else {
-      query += `          (${entry[1].id}, ${simulationDatasetId}, '${seqId}'),\n`
-    }
-  }
-  query += `        returning simulated_activity_id;`
-
-  //    3b. Execute query:
-  const { rows } = await db.query(query);
+      select *
+      from unnest(
+           $1::int[],
+           array_fill($2::int, array [array_length($1::int[], 1)]),
+           array_fill($3::text, array [array_length($1::int[], 1)])
+      )
+      returning simulated_activity_id;
+`, [
+    filteredActivities.map(entry => entry.id),
+    simulationDatasetId,
+    seqId
+  ]);
   if (rows.length < 1) {
     throw new Error(
       `POST /command-expansion/assign-activities-by-filter: Entries failed to be created for filtered activities.`,

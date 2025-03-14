@@ -1,7 +1,7 @@
 import { ActivateStep, CommandStem, LoadStep, Sequence } from './lib/codegen/CommandEDSLPreface.js';
 import type { SeqBuilder } from './types/seqBuilder';
 
-export const defaultSeqBuilder: SeqBuilder = (
+export const seqJsonBuilder: SeqBuilder = (
   sortedActivityInstancesWithCommands,
   seqId,
   seqMetadata,

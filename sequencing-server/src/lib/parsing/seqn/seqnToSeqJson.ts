@@ -51,43 +51,50 @@ export function seqnToSeqJson(text: string, sequenceName: string): Sequence {
 
   seqJson.id = parseId(baseNode, text, sequenceName);
   seqJson.metadata = { ...parseLGO(baseNode), ...parseMetadata(baseNode, text) };
-  seqJson.locals = parseVariables(baseNode, text, 'LocalDeclaration') ?? undefined;
-  if (seqJson.locals) {
+  let locals = parseVariables(baseNode, text, 'LocalDeclaration');
+  if (locals !== undefined) {
+    seqJson.locals = locals;
     variableList.push(...seqJson.locals.map(value => value.name));
+
   }
-  seqJson.parameters = parseVariables(baseNode, text, 'ParameterDeclaration') ?? undefined;
-  if (seqJson.parameters) {
+  let parameters = parseVariables(baseNode, text, 'ParameterDeclaration');
+  if (parameters !== undefined) {
+    seqJson.parameters = parameters
     variableList.push(...seqJson.parameters.map(value => value.name));
   }
   let child = baseNode.getChild('Commands')?.firstChild;
-  seqJson.steps = [];
+  let steps = []
   while (child) {
     const step = parseStep(child, text);
     if (step) {
-      seqJson.steps.push(step);
+      steps.push(step);
     }
     child = child?.nextSibling;
   }
-  if (!seqJson.steps.length) {
-    seqJson.steps = undefined;
+  if (steps.length) {
+    seqJson.steps = steps;
   }
-  seqJson.immediate_commands =
-    baseNode
-      .getChild('ImmediateCommands')
-      ?.getChildren('Command')
-      .map(command => parseImmediateCommand(command, text)) ?? undefined;
-  seqJson.hardware_commands =
-    baseNode
-      .getChild('HardwareCommands')
-      ?.getChildren('Command')
-      .map(command => parseHardwareCommand(command, text)) ?? undefined;
+  let immediate_commands = baseNode
+    .getChild('ImmediateCommands')
+    ?.getChildren('Command')
+    .map(command => parseImmediateCommand(command, text));
+  if (immediate_commands !== undefined) {
+    seqJson.immediate_commands = immediate_commands;
+  }
+  let hardware_commands = baseNode
+    .getChild('HardwareCommands')
+    ?.getChildren('Command')
+    .map(command => parseHardwareCommand(command, text));
+  if (hardware_commands !== undefined) {
+    seqJson.hardware_commands = hardware_commands
+  }
 
-  seqJson.requests = baseNode
+  let requests = baseNode
     .getChild('Commands')
     ?.getChildren('Request')
     .map(requestNode => parseRequest(requestNode, text));
-  if (seqJson.requests?.length === 0) {
-    seqJson.requests = undefined;
+  if (requests?.length) {
+    seqJson.requests = requests;
   }
 
   return Sequence.fromSeqJson(seqJson);
@@ -131,15 +138,26 @@ function parseRequest(requestNode: SyntaxNode, text: string): Request {
   }
 
   // ground epoch
-  return {
-    description,
-    ground_epoch,
-    metadata,
+  let result: Request = {
     name,
     steps: steps as [Step, ...Step[]],
-    time,
     type: 'request',
   };
+
+  if (description !== undefined) {
+    result.description = description
+  }
+  if (ground_epoch !== undefined) {
+    result.ground_epoch = ground_epoch
+  }
+  if (metadata !== undefined) {
+    result.metadata = metadata
+  }
+  if (time !== undefined) {
+    result.time = time
+  }
+
+  return result;
 }
 
 function parseGroundBlockEvent(stepNode: SyntaxNode, text: string): GroundBlock | GroundEvent {
@@ -155,15 +173,24 @@ function parseGroundBlockEvent(stepNode: SyntaxNode, text: string): GroundBlock 
   const metadata = parseMetadata(stepNode, text);
   const models = parseModel(stepNode, text);
 
-  return {
+  let result: GroundBlock | GroundEvent = {
     args,
-    description,
-    metadata,
-    models,
     name,
     time,
     type: stepNode.name === 'GroundBlock' ? 'ground_block' : 'ground_event',
   };
+
+  if (description !== undefined) {
+    result.description = description
+  }
+  if (models !== undefined) {
+    result.models = models
+  }
+  if (metadata !== undefined) {
+    result.metadata = metadata
+  }
+
+  return result;
 }
 
 function parseActivateLoad(stepNode: SyntaxNode, text: string): Activate | Load {
@@ -182,17 +209,30 @@ function parseActivateLoad(stepNode: SyntaxNode, text: string): Activate | Load 
   const metadata = parseMetadata(stepNode, text);
   const models = parseModel(stepNode, text);
 
-  return {
+  let result: Activate | Load = {
     args,
-    description,
-    engine,
-    epoch,
-    metadata,
-    models,
     sequence,
     time,
     type: stepNode.name === 'Load' ? 'load' : 'activate',
   };
+
+  if (description !== undefined) {
+    result.description = description
+  }
+  if (engine !== undefined) {
+    result.engine = engine
+  }
+  if (epoch !== undefined) {
+    result.epoch = epoch
+  }
+  if (metadata !== undefined) {
+    result.metadata = metadata
+  }
+  if (models !== undefined) {
+    result.models = models
+  }
+
+  return result;
 }
 
 function parseEngine(stepNode: SyntaxNode, text: string): number | undefined {
@@ -359,9 +399,8 @@ function parseTime(commandNode: SyntaxNode, text: string): Time {
       const { isNegative, days, hours, minutes, seconds, milliseconds } = getDurationTimeComponents(
         parseDurationString(timeTagEpochText, 'seconds'),
       );
-      tag = `${isNegative}${days}${days ? 'T' : ''}${hours}:${minutes}:${seconds}${
-        milliseconds ? '.' : ''
-      }${milliseconds}`;
+      tag = `${isNegative}${days}${days ? 'T' : ''}${hours}:${minutes}:${seconds}${milliseconds ? '.' : ''
+        }${milliseconds}`;
       return { tag, type: 'EPOCH_RELATIVE' };
     }
 
@@ -381,9 +420,8 @@ function parseTime(commandNode: SyntaxNode, text: string): Time {
       const { isNegative, days, hours, minutes, seconds, milliseconds } = getDurationTimeComponents(
         parseDurationString(timeTagRelativeText, 'seconds'),
       );
-      tag = `${isNegative}${days}${days ? 'T' : ''}${hours}:${minutes}:${seconds}${
-        milliseconds ? '.' : ''
-      }${milliseconds}`;
+      tag = `${isNegative}${days}${days ? 'T' : ''}${hours}:${minutes}:${seconds}${milliseconds ? '.' : ''
+        }${milliseconds}`;
       return { tag, type: 'COMMAND_RELATIVE' };
     }
 
@@ -610,15 +648,24 @@ function parseCommand(commandNode: SyntaxNode, text: string): Command {
   const metadata: Metadata | undefined = parseMetadata(commandNode, text);
   const models: Model[] | undefined = parseModel(commandNode, text);
 
-  return {
+  let result: Command = {
     args,
-    description,
-    metadata,
-    models,
     stem,
     time,
     type: 'command',
   };
+
+  if (description !== undefined) {
+    result.description = description
+  }
+  if (metadata !== undefined) {
+    result.metadata = metadata
+  }
+  if (models !== undefined) {
+    result.models = models
+  }
+
+  return result;
 }
 
 function parseImmediateCommand(commandNode: SyntaxNode, text: string): ImmediateFswCommand {
@@ -631,12 +678,19 @@ function parseImmediateCommand(commandNode: SyntaxNode, text: string): Immediate
   const description = parseDescription(commandNode, text);
   const metadata: Metadata | undefined = parseMetadata(commandNode, text);
 
-  return {
+  let result: ImmediateFswCommand = {
     args,
-    description,
-    metadata,
     stem,
   };
+
+  if (description !== undefined) {
+    result.description = description
+  }
+  if (metadata !== undefined) {
+    result.metadata = metadata
+  }
+
+  return result;
 }
 
 function parseHardwareCommand(commandNode: SyntaxNode, text: string): HardwareCommand {
@@ -645,11 +699,18 @@ function parseHardwareCommand(commandNode: SyntaxNode, text: string): HardwareCo
   const description = parseDescription(commandNode, text);
   const metadata: Metadata | undefined = parseMetadata(commandNode, text);
 
-  return {
-    description,
-    metadata,
+  let result: HardwareCommand = {
     stem,
   };
+
+  if (description !== undefined) {
+    result.description = description
+  }
+  if (metadata !== undefined) {
+    result.metadata = metadata
+  }
+
+  return result;
 }
 
 /**
@@ -663,7 +724,7 @@ function parseHardwareCommand(commandNode: SyntaxNode, text: string): HardwareCo
 function parseId(node: SyntaxNode, text: string, sequenceName: string): string {
   const stringNode = node.getChild('IdDeclaration')?.getChild('String');
   if (!stringNode) {
-    return sequenceName.split('.')[0];
+    return sequenceName.split('.')[0] ?? "-1";
   }
 
   const id = JSON.parse(text.slice(stringNode.from, stringNode.to));

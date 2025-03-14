@@ -423,7 +423,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
 
   //  3. Pair seqId/SimulatedActivity lists; aggregate all simulated, filtered, activities
   let seqIdToFilteredActivities: { [seqId: string]: { id: number, startOffset: Temporal.Duration }[] } = {};
-  let allFilteredActivities: Map<number, SimulatedActivity> = new Map();
+  let allFilteredActivities: { [id: number]: SimulatedActivity<Record<string, unknown>, Record<string, unknown>> } = [];
 
   for (const entry of seqIds.entries()) {
     let index = entry[0]
@@ -441,8 +441,8 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       // TODO: figure out whether we need to handle the case where a simulated activity is included with multiple
       //        seq IDs in the frontend; it's supported here
       for (const simulatedActivity of filteredActivities) {
-        if (!allFilteredActivities.get(simulatedActivity.id)) {
-          allFilteredActivities.set(simulatedActivity.id, simulatedActivity)
+        if (!allFilteredActivities[simulatedActivity.id]) {
+          allFilteredActivities[simulatedActivity.id] = simulatedActivity
         }
       }
     }
@@ -488,8 +488,10 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }
   } = {}
 
-  for (const [simulatedActivityId, simulatedActivity] of allFilteredActivities) {
-    if (simulatedActivity && !expandedActivities[simulatedActivityId]) {
+  for (const simulatedActivityId of Object.keys(allFilteredActivities).map(Number)) {
+    if (allFilteredActivities[simulatedActivityId] && !expandedActivities[simulatedActivityId]) {
+      const simulatedActivity = allFilteredActivities[simulatedActivityId];
+      if (simulatedActivity === undefined) continue;
       const activityTypeName = simulatedActivity.activityTypeName;
       const currentTemplate = activityTypeNameToTemplate[activityTypeName];
 
@@ -515,8 +517,9 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
 
   // 7. Having expanded each simulated activity, now iterate through each seqId to collect the expanded activities for that seqId
   let expandedSequencesBySeqId: { [seqId: string]: string } = {};
-  for (const seqId in seqIdToFilteredActivities) {
-    const filteredActivities = seqIdToFilteredActivities[seqId]!;
+  for (const seqId of Object.keys(seqIdToFilteredActivities)) {
+    let filteredActivities = seqIdToFilteredActivities[seqId];
+    if (filteredActivities === undefined) continue;
     let sortedActivityInstances = filteredActivities.sort((a, b) => Temporal.Duration.compare(a.startOffset, b.startOffset))
     const sortedSimulatedActivitiesWithCommands: ExpandedActivity<string>[] = sortedActivityInstances.reduce((result: ExpandedActivity<string>[], current) => {
       const expandedActivity = expandedActivities[current.id];

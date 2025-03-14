@@ -77,7 +77,7 @@ export function AERIEDurationToISO8061(duration: string): string {
   let split = duration.split(":")
 
   if (!checkNumDurationComponents(split)) {
-    throw Error(`Invalid duration string: ${duration}`);
+    throw new Error(`Invalid duration string: ${duration}`);
   }
 
   let hours = parseInt(split[0])

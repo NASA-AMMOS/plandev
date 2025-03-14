@@ -175,6 +175,7 @@
 - "!include sequencing/user_sequence.yaml"
 - "!include sequencing/workspace.yaml"
 - "!include sequencing/sequence_template.yaml"
+- "!include sequencing/expanded_templates.yaml"
 
 ############
 #### UI ####

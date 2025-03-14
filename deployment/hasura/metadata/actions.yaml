@@ -55,6 +55,14 @@ actions:
     permissions:
       - role: aerie_admin
       - role: user
+  - name: expandAllTemplates
+    definition:
+      kind: synchronous
+      handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/expand-all-sequence-templates"
+      timeout: 300
+    permissions:
+      - role: aerie_admin
+      - role: user
   - name: getModelEffectiveArguments
     definition:
       kind: ""

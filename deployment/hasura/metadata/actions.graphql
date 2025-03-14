@@ -63,6 +63,14 @@ type Mutation {
   expandAllActivities(expansionSetId: Int!, simulationDatasetId: Int!): ExpandAllActivitiesResponse
 }
 
+type Mutation {
+  expandAllTemplates(
+    seqIds: [String!]!,
+    simulationDatasetId: Int!,
+    modelId: Int!
+  ): ExpandAllSequencesResponse
+}
+
 type Query {
   getModelEffectiveArguments(missionModelId: Int!, modelArguments: ModelArguments!): EffectiveArgumentsResponse
 }
@@ -241,9 +249,15 @@ type AddTemplateExpansionResponse {
   id: Int!
   errors: [UserCodeError!]
 }
+
 type ExpandAllActivitiesResponse {
   id: Int!
   expandedActivityInstances: [ExpandedActivityInstance!]!
+}
+
+type ExpandAllSequencesResponse {
+  success: Boolean!
+  expandedSequencesBySeqId: json!
 }
 
 type ExpandedActivityInstance {

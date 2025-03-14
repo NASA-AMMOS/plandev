@@ -15,6 +15,7 @@ import { parcelBatchLoader } from './lib/batchLoaders/parcelBatchLoader.js';
 import { InferredDataloader, objectCacheKeyFunction } from './lib/batchLoaders/index.js';
 import {
   simulatedActivitiesBatchLoader,
+  simulatedActivityInstanceBySeqIdBatchLoader,
   simulatedActivityInstanceBySimulatedActivityIdBatchLoader,
 } from './lib/batchLoaders/simulatedActivityBatchLoader.js';
 import { generateTypescriptForGraphQLActivitySchema } from './lib/codegen/ActivityTypescriptCodegen.js';
@@ -31,6 +32,7 @@ import { backgroundTranspiler } from './backgroundTranspiler.js';
 import { PluginManager } from './utils/PluginManager.js'
 import { DictionaryType } from './types/types.js';
 import type { ChannelDictionary, CommandDictionary, ParameterDictionary } from '@nasa-jpl/aerie-ampcs';
+import { sequenceTemplateBatchLoader } from './lib/batchLoaders/sequenceTemplateBatchLoader.js';
 
 const logger = getLogger('app');
 const PORT: number = parseInt(getEnv().PORT, 10) ?? 27184;
@@ -77,6 +79,10 @@ export type Context = {
   simulatedActivityInstanceBySimulatedActivityIdDataLoader: InferredDataloader<
     typeof simulatedActivityInstanceBySimulatedActivityIdBatchLoader
   >;
+  simulatedActivityInstanceBySeqIdBatchLoader: InferredDataloader<
+    typeof simulatedActivityInstanceBySeqIdBatchLoader
+  >;
+  sequenceTemplateDataLoader: InferredDataloader<typeof sequenceTemplateBatchLoader>;
   expansionSetDataLoader: InferredDataloader<typeof expansionSetBatchLoader>;
   expansionDataLoader: InferredDataloader<typeof expansionBatchLoader>;
   parcelTypescriptDataLoader: InferredDataloader<typeof parcelBatchLoader>;
@@ -117,8 +123,23 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
         name: null,
       },
     ),
+    sequenceTemplateDataLoader: new DataLoader(
+      sequenceTemplateBatchLoader({
+        graphqlClient
+      })
+    ),
     simulatedActivityInstanceBySimulatedActivityIdDataLoader: new DataLoader(
       simulatedActivityInstanceBySimulatedActivityIdBatchLoader({
+        graphqlClient,
+        activitySchemaDataLoader,
+      }),
+      {
+        cacheKeyFn: objectCacheKeyFunction,
+        name: null,
+      },
+    ),
+    simulatedActivityInstanceBySeqIdBatchLoader: new DataLoader(
+      simulatedActivityInstanceBySeqIdBatchLoader({
         graphqlClient,
         activitySchemaDataLoader,
       }),

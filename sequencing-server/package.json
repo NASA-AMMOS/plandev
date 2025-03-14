@@ -34,6 +34,7 @@
     "dataloader": "~2.2.0",
     "express": "~5.0.0-beta.1",
     "graphql-request": "~5.1.0",
+    "handlebars": "^4.7.8",
     "jwt-decode": "~3.1.2",
     "pg": "~8.9.0",
     "pg-format": "~1.0.4",

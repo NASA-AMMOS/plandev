@@ -1146,28 +1146,42 @@ public class HasuraRequests implements AutoCloseable {
   // endregion
 
   //region Constraints
-  public List<ConstraintRecord> checkConstraints(int planID) throws IOException {
+  /**
+   * Check Constraints and only return the set of constraint results
+   */
+  public List<ConstraintActionResponse.ConstraintRecord> checkConstraintsJustResults(int planID) throws IOException {
+    return checkConstraints(planID).constraintsRun();
+  }
+
+  /**
+   * Check Constraints and only return the set of constraint results
+   */
+  public List<ConstraintActionResponse.ConstraintRecord> checkConstraintsJustResults(int planID, int simulationDatasetID) throws IOException {
+    return checkConstraints(planID, simulationDatasetID).constraintsRun();
+  }
+
+  public ConstraintActionResponse checkConstraints(int planID) throws IOException {
     final var variables = Json.createObjectBuilder()
                               .add("planId", planID)
                               .add("simulationDatasetId", JsonValue.NULL)
                               .build();
-    final var constraintResults = makeRequest(GQL.CHECK_CONSTRAINTS, variables).getJsonArray("constraintViolations");
-    return constraintResults.getValuesAs(e -> ConstraintRecord.fromJSON(e.asJsonObject()));
+    final var constraintResults = makeRequest(GQL.CHECK_CONSTRAINTS, variables).getJsonObject("constraintViolations");
+    return ConstraintActionResponse.fromJson(constraintResults);
   }
 
-  public List<ConstraintRecord> checkConstraints(int planID, int simulationDatasetID) throws IOException {
+  public ConstraintActionResponse checkConstraints(int planID, int simulationDatasetID) throws IOException {
     final var variables = Json.createObjectBuilder()
                               .add("planId", planID)
                               .add("simulationDatasetId", simulationDatasetID)
                               .build();
-    final var constraintResults = makeRequest(GQL.CHECK_CONSTRAINTS, variables).getJsonArray("constraintViolations");
-    return constraintResults.getValuesAs(e -> ConstraintRecord.fromJSON(e.asJsonObject()));
+    final var constraintResults = makeRequest(GQL.CHECK_CONSTRAINTS, variables).getJsonObject("constraintViolations");
+    return ConstraintActionResponse.fromJson(constraintResults);
   }
 
-  public List<CachedConstraintRun> getConstraintRuns(int simulationDatasetId) throws IOException {
-    final var variables = Json.createObjectBuilder().add("simulationDatasetId", simulationDatasetId).build();
-    final var cachedRuns = makeRequest(GQL.GET_CONSTRAINT_RUNS, variables).getJsonArray("constraint_run");
-    return cachedRuns.getValuesAs(e -> CachedConstraintRun.fromJSON(e.asJsonObject()));
+  public ConstraintRequest getConstraintRequest(int requestId) throws IOException {
+    final var variables = Json.createObjectBuilder().add("request_id", requestId).build();
+    final var constraintRequest = makeRequest(GQL.GET_CONSTRAINT_REQUEST, variables).getJsonObject("constraint_request");
+    return ConstraintRequest.fromJSON(constraintRequest);
   }
 
   public ConstraintInvocationId insertPlanConstraint(String name, int planId, String definition, String description) throws IOException {

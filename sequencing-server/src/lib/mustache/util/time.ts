@@ -68,16 +68,24 @@ export function STOLToISO8061(date: string): Temporal.Instant {
   return Temporal.Instant.from(convertDoyToYmd(date))
 }
 
+function checkNumDurationComponents(split: string[]): split is [string, string, string] {
+  return split.length === 3;
+}
+
 export function AERIEDurationToISO8061(duration: string): string {
   // HHHHHH...:MM:SS.mmmuuu -> PHHMMSS.mmmuuuS
   let split = duration.split(":")
-  let hours = parseInt(split[0] ?? "0")//.padStart(2, '0')
-  let minutes = parseInt(split[1] ?? "0")//.padStart(2, '0')
-  let split2 = (split[2] ?? "00.000").split(".")
-  let seconds = parseInt(split2[0] ?? "0")//.padStart(2, '0')
-  if (split2.length > 1) {
-    let microseconds = parseInt(split2[1] ?? "0")//.padEnd(6, '0')
 
+  if (!checkNumDurationComponents(split)) {
+    throw Error(`Invalid duration string: ${duration}`);
+  }
+
+  let hours = parseInt(split[0])
+  let minutes = parseInt(split[1])
+  let split2 = (split[2]).split(".")
+  let seconds = parseInt(split2[0] as string)
+  if (split2.length > 1) {
+    let microseconds = parseInt(split2[1] as string)
     return `PT${hours > 0 ? `${hours}H` : ""}${minutes > 0 ? `${minutes}M` : ""}${seconds > 0 && microseconds > 0 ? `${seconds}.${microseconds}S` : (seconds > 0) ? `${seconds}$` : (microseconds > 0) ? `0.${microseconds}S` : ""}`
   }
   else {
@@ -214,13 +222,17 @@ function parseDoyOrYmdTime(
     const { groups: { year, month, day, doy, time = '00:00:00', hour = '0', min = '0', sec = '0', dec = '.0' } = {} } =
       matches;
 
+    if (year === undefined) {
+      throw new Error(`Could not parse doy string because it's missing the year: ${year}`);
+    }
+
     const partialReturn = {
       hour: parseInt(hour),
       min: parseInt(min),
       ms: parseFloat((parseFloat(dec) * msPerSecond).toFixed(numDecimals)),
       sec: parseInt(sec),
       time: time,
-      year: parseInt(year ?? "2025"),
+      year: parseInt(year as string),
     };
 
     if (doy !== undefined) {

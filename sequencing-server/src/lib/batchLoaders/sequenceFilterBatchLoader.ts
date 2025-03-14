@@ -1,5 +1,5 @@
 import { ErrorWithStatusCode } from '../../utils/ErrorWithStatusCode.js';
-import { SequenceFilter } from '../filters/types.js';
+import type { SequenceFilter } from '../filters/types.js';
 import type { BatchLoader } from './index.js';
 import { gql, GraphQLClient } from 'graphql-request';
 

@@ -441,7 +441,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       // TODO: figure out whether we need to handle the case where a simulated activity is included with multiple
       //        seq IDs in the frontend; it's supported here
       for (const simulatedActivity of filteredActivities) {
-        if (!allFilteredActivities.has(simulatedActivity.id)) {
+        if (!allFilteredActivities.get(simulatedActivity.id)) {
           allFilteredActivities.set(simulatedActivity.id, simulatedActivity)
         }
       }

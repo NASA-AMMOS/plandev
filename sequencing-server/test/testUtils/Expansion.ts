@@ -1,5 +1,5 @@
 import { gql, GraphQLClient } from 'graphql-request';
-import { ActivityLayerFilter } from '../../src/lib/filters/types';
+import type { ActivityLayerFilter } from '../../src/lib/filters/types';
 
 export async function insertExpansion(
   graphqlClient: GraphQLClient,
@@ -325,8 +325,8 @@ export async function assignActivitiesByFilter(
   }>(
     gql`
       mutation AssignActivitiesByFilter(
-        $filterId: Int!, 
-        $simulationDatasetId: Int!, 
+        $filterId: Int!,
+        $simulationDatasetId: Int!,
         $seqId: String!,
         $timeRangeStart: String!,
         $timeRangeEnd: String!
@@ -399,7 +399,7 @@ export async function expandTemplates(
     gql`
       mutation ExpandTemplates($modelId: Int!, $seqIds: [String!]!, $simulationDatasetId: Int!) {
         expandAllTemplates(
-          modelId: $modelId, 
+          modelId: $modelId,
           seqIds: $seqIds,
           simulationDatasetId: $simulationDatasetId
         ) {

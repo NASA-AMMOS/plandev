@@ -7,6 +7,7 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.RecursiveTask;
@@ -104,14 +105,15 @@ public class StartOffsetReducer extends RecursiveTask<HashMap<ActivityDirectiveI
     boolean anchoredToStart = ad.anchoredToStart();
     Duration netOffset = ad.startOffset();
 
-    final var firstId = currentAnchorId;
+    final var seenIds = new HashSet<ActivityDirectiveId>();
+    seenIds.add(currentAnchorId);
 
     while(currentAnchorId != null && anchoredToStart){
       currentActivityDirective = completeMapOfDirectives.get(currentAnchorId);
       currentAnchorId = currentActivityDirective.anchorId();
 
-      if (currentAnchorId.equals(firstId)) {
-        throw new IllegalStateException("Anchor ID cycle detected on " + firstId);
+      if (seenIds.contains(currentAnchorId)) {
+        throw new IllegalStateException("Anchor ID cycle detected on " + currentAnchorId);
       }
 
       anchoredToStart = currentActivityDirective.anchoredToStart();

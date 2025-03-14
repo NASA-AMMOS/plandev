@@ -93,6 +93,7 @@ jobs:
         run: |
           echo "GATEWAY_IMAGE_TAG: $GATEWAY_IMAGE_TAG"
           psql --version
+          echo "GATEWAY_DB_USER: $GATEWAY_DB_USER"
           docker compose -f ./e2e-tests/docker-compose-test.yml up -d --build --quiet-pull
           docker images
           docker ps -a --no-trunc

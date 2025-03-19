@@ -31,11 +31,6 @@ export const seqJsonBuilder: SeqJsonBuilder = (expandedActivities, seqId, seqMet
         );
       }
 
-      // Typeguard only
-      if (ai.expansionResult === null) {
-        break;
-      }
-
       /**
        * Treat the activity start time as the "previous time" for sorting expanded commands that begin with a command-relative time tag.
        *

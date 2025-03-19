@@ -16,7 +16,7 @@ export const seqnBuilder: SeqBuilder<string, string> = (
 };
 
 function seqnActivityToSeqJson(instance: ExpandedActivity<string>): ExpandedActivity<Command[]> {
-  const expansionResult = seqnToSeqJson(instance.expansionResult ?? '', '').steps as Command[];
+  const expansionResult = seqnToSeqJson(instance.expansionResult, '').steps as Command[];
   return {
     ...instance,
     expansionResult

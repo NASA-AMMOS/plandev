@@ -851,36 +851,30 @@ commandExpansionRouter.post('/expand-all-activity-instances', async (req, res, n
       sortedActivityInstances = sortedActivityInstances.filter(ai => seqIdToSimActivityId[seqId]?.has(ai.id));
 
       // retain all information about the simulated activity, but now pair it with the commands from expandedActivityInstances but converted from SeqJSON
-      const sortedSimulatedActivitiesWithCommands = sortedActivityInstances.map(ai => {
+      let sortedSimulatedActivitiesWithCommands: ExpandedActivity<(CommandStem | ActivateStep | LoadStep)[]>[] = [];
+      sortedActivityInstances.forEach(ai => {
         const row = expandedActivityInstances.find(row => row.id === ai.id);
 
         // Hasn't ever been expanded
-        if (!row) {
-          return {
-            ...ai,
-            expansionResult: null,
-            errors: null,
-          };
+        if (!row || !row.commands) {
+          return;
         }
-
-        const errors = row.errors as unknown;
 
         return {
           ...ai,
-          expansionResult:
-            row.commands?.map(c => {
-              switch (c.type) {
-                case 'command':
-                  return CommandStem.fromSeqJson(c);
-                case 'load':
-                  return LoadStep.fromSeqJson(c);
-                case 'activate':
-                  return ActivateStep.fromSeqJson(c);
-                default:
-                  throw new Error(`Unknown command type: ${c.type}`);
-              }
-            }) ?? null,
-          errors: errors as { message: string; stack: string; location: { line: number; column: number } }[],
+          expansionResult: row.commands.map(c => {
+            switch (c.type) {
+              case 'command':
+                return CommandStem.fromSeqJson(c);
+              case 'load':
+                return LoadStep.fromSeqJson(c);
+              case 'activate':
+                return ActivateStep.fromSeqJson(c);
+              default:
+                throw new Error(`Unknown command type: ${c.type}`);
+            }
+          }),
+          errors: row.errors as { message: string; stack: string; location: { line: number; column: number } }[],
         };
       });
 

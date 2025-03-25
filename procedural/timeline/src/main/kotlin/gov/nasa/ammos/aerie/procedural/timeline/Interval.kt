@@ -293,7 +293,7 @@ data class Interval @JvmOverloads constructor(
     override fun iterator() = object : Iterator<Duration> {
       var nextTime = if (includesStart()) start else start + stride
 
-      override fun hasNext() = contains(nextTime)
+      override fun hasNext() = this@Interval.contains(nextTime)
 
       override fun next(): Duration {
         val result = if (hasNext()) nextTime else throw NoSuchElementException()

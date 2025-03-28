@@ -117,49 +117,41 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
       final var constraint = entry.getKey();
       final var fallible = entry.getValue();
 
-      if (!fallible.isFailure()) {
-        final var results = fallible.get();
-        if (results instanceof ConstraintResult.Uncached) {
-          insertResultsStatement.setLong(1, constraint.constraintId());
-          insertResultsStatement.setLong(2, constraint.revision());
-          insertResultsStatement.setLong(3, simulationDatasetId);
-          insertResultsStatement.setString(4, constraintArgumentsP.unparse(constraint.arguments()).toString());
-          insertResultsStatement.setString(5, results.toJSON().toString());
-          insertResultsStatement.setString(6, "{}");
-
-          insertResultsStatement.setLong(7, requestId);
-          insertResultsStatement.setLong(8, constraint.invocationId());
-          insertResultsStatement.setLong(9, constraint.priority());
-
-          // Add to batch
-          insertResultsStatement.addBatch();
-        } else if (results instanceof ConstraintResult.Cached cached) {
-          // If the result is already in the DB, we only need to insert the association
-          associateResultsStatement.setLong(1, requestId);
-          associateResultsStatement.setLong(2, constraint.invocationId());
-          associateResultsStatement.setLong(3, cached.resultId());
-          associateResultsStatement.setLong(4, constraint.priority());
-          associateResultsStatement.addBatch();
-        } else {
-          throw new IllegalArgumentException("Unrecognized ConstraintResults type: " + results.getClass());
-        }
-      } else {
-        final var errorsArray = ResponseSerializers.serializeConstraintErrors(fallible.getFailureOptional().orElse(List.of()));
-
-        insertResultsStatement.setLong(1, constraint.constraintId());
-        insertResultsStatement.setLong(2, constraint.revision());
-        insertResultsStatement.setLong(3, simulationDatasetId);
-        insertResultsStatement.setString(4, constraintArgumentsP.unparse(constraint.arguments()).toString());
-        insertResultsStatement.setString(5, "{}");
-        insertResultsStatement.setString(6, errorsArray.toString());
-
-        insertResultsStatement.setLong(7, requestId);
-        insertResultsStatement.setLong(8, constraint.invocationId());
-        insertResultsStatement.setLong(9, constraint.priority());
-
-        // Add to batch
-        insertResultsStatement.addBatch();
+      if (!fallible.isFailure() && fallible.get() instanceof ConstraintResult.Cached cached) {
+        // If the result is already in the DB, we only need to insert the association
+        associateResultsStatement.setLong(1, requestId);
+        associateResultsStatement.setLong(2, constraint.invocationId());
+        associateResultsStatement.setLong(3, cached.resultId());
+        associateResultsStatement.setLong(4, constraint.priority());
+        associateResultsStatement.addBatch();
+        continue;
       }
+
+      final String resultsString;
+      final String errorsString;
+
+      if (fallible.isFailure()) {
+        resultsString = "{}";
+        final var errorsArray = ResponseSerializers.serializeConstraintErrors(fallible.getFailureOptional().orElse(List.of()));
+        errorsString = errorsArray.toString();
+      } else {
+        resultsString = fallible.get().toJSON().toString();
+        errorsString = "{}";
+      }
+
+      insertResultsStatement.setLong(1, constraint.constraintId());
+      insertResultsStatement.setLong(2, constraint.revision());
+      insertResultsStatement.setLong(3, simulationDatasetId);
+      insertResultsStatement.setString(4, constraintArgumentsP.unparse(constraint.arguments()).toString());
+      insertResultsStatement.setString(5, resultsString);
+      insertResultsStatement.setString(6, errorsString);
+
+      insertResultsStatement.setLong(7, requestId);
+      insertResultsStatement.setLong(8, constraint.invocationId());
+      insertResultsStatement.setLong(9, constraint.priority());
+
+      // Add to batch
+      insertResultsStatement.addBatch();
     }
     // Execute batch
     insertResultsStatement.executeBatch();

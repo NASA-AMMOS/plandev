@@ -6,7 +6,6 @@ import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchConstraintException;
 import gov.nasa.jpl.aerie.merlin.server.http.Fallible;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintType;
-import gov.nasa.jpl.aerie.merlin.server.models.DBConstraintResult;
 import gov.nasa.jpl.aerie.merlin.server.models.ProcedureLoader;
 import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
 import gov.nasa.jpl.aerie.merlin.server.remotes.ConstraintRepository;
@@ -33,7 +32,7 @@ public class LocalConstraintService implements ConstraintService {
   }
 
   @Override
-  public Map<ConstraintRecord, DBConstraintResult> getValidConstraintRuns(List<ConstraintRecord> constraints, SimulationDatasetId simulationDatasetId) {
+  public Map<ConstraintRecord, ConstraintResult> getValidConstraintRuns(List<ConstraintRecord> constraints, SimulationDatasetId simulationDatasetId) {
     return constraintRepository.getValidConstraintRuns(constraints, simulationDatasetId);
   }
 

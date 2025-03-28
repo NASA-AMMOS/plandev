@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.constraints.json;
 
+import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
 import gov.nasa.jpl.aerie.constraints.model.DiscreteProfile;
 import gov.nasa.jpl.aerie.constraints.model.EDSLConstraintResult;
 import gov.nasa.jpl.aerie.constraints.model.LinearProfile;
@@ -318,7 +319,7 @@ public final class ConstraintParsers {
               $ -> tuple($.windows(), $.activityInstanceIds())
           );
 
-  public static final JsonParser<EDSLConstraintResult> edslConstraintResultP =
+  public static final JsonParser<ConstraintResult.Uncached> constraintResultP =
       productP
           .field("violations", listP(violationP))
           .field("gaps", listP(intervalP))
@@ -327,8 +328,8 @@ public final class ConstraintParsers {
           .field("constraintRevision", longP)
           .field("constraintName", stringP)
           .map(
-              untuple((violations, gaps, resourceNames, constraintId, constraintRevision, constraintName) -> new EDSLConstraintResult(violations, gaps, resourceNames, constraintId, constraintRevision, constraintName)),
-              $ -> tuple($.violations, $.gaps, $.resourceIds, $.constraintId, $.constraintRevision, $.constraintName)
+              untuple(ConstraintResult.Uncached::new),
+              (ConstraintResult.Uncached $) -> tuple($.violations(), $.gaps(), $.resourceIds(), $.constraintId(), $.constraintRevision(), $.constraintName())
           );
 
   static final JsonParser<IntervalDuration> intervalDurationP =

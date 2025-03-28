@@ -6,7 +6,6 @@ import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchConstraintException;
 import gov.nasa.jpl.aerie.merlin.server.http.Fallible;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintType;
-import gov.nasa.jpl.aerie.merlin.server.models.DBConstraintResult;
 import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
 import gov.nasa.jpl.aerie.merlin.server.remotes.ConstraintRepository;
 import gov.nasa.jpl.aerie.merlin.server.services.ConstraintRequestConfiguration;
@@ -38,7 +37,7 @@ public class PostgresConstraintRepository implements ConstraintRepository {
   }
 
   @Override
-  public Map<ConstraintRecord, DBConstraintResult> getValidConstraintRuns(
+  public Map<ConstraintRecord, ConstraintResult> getValidConstraintRuns(
       List<ConstraintRecord> constraints,
       SimulationDatasetId simulationDatasetId
   ) {

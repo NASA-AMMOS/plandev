@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.models;
 
+import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
 import gov.nasa.jpl.aerie.constraints.model.EDSLConstraintResult;
 import gov.nasa.jpl.aerie.constraints.model.EvaluationEnvironment;
 import gov.nasa.jpl.aerie.constraints.model.SimulationResults;
@@ -41,7 +42,7 @@ public sealed interface ExecutableConstraint extends Comparable<ExecutableConstr
       return Long.compare(order(), o.order());
     }
 
-    public EDSLConstraintResult run(
+    public ConstraintResult run(
         SimulationResults preparedResults,
         EvaluationEnvironment environment
     ) {
@@ -51,12 +52,15 @@ public sealed interface ExecutableConstraint extends Comparable<ExecutableConstr
 
       // evaluate the constraint
       final var result = expression.evaluate(preparedResults, environment);
-      result.constraintName = record.name();
-      result.constraintRevision = record.revision();
-      result.constraintId = record.constraintId();
-      result.resourceIds = List.copyOf(resources);
 
-      return result;
+      return new ConstraintResult.Uncached(
+          result.violations(),
+          result.gaps(),
+          List.copyOf(resources),
+          record.constraintId(),
+          record.revision(),
+          record.name()
+      );
     }
   }
 
@@ -71,7 +75,7 @@ public sealed interface ExecutableConstraint extends Comparable<ExecutableConstr
       return Long.compare(order(), o.order());
     }
 
-    public ProceduralConstraintResult run(
+    public ConstraintResult run(
         ReadonlyPlan plan,
         gov.nasa.jpl.aerie.merlin.driver.SimulationResults merlinResults
     ) {
@@ -88,7 +92,7 @@ public sealed interface ExecutableConstraint extends Comparable<ExecutableConstr
           .deserialize(SerializedValue.of(record.arguments()))
           .run(plan, simResults), merlinResults);
 
-      return new ProceduralConstraintResult(violations, record);
+      return new ConstraintResult.Uncached(violations, List.of(), List.of(), record.constraintId(), record.revision(), record.name());
     }
   }
 }

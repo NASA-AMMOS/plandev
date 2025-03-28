@@ -1,7 +1,7 @@
 package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 
+import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
-import gov.nasa.jpl.aerie.merlin.server.models.DBConstraintResult;
 import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
 import org.intellij.lang.annotations.Language;
 
@@ -49,8 +49,8 @@ final class GetValidConstraintRunsAction implements AutoCloseable {
   }
 
 
-  public Map<ConstraintRecord, DBConstraintResult> get() throws SQLException {
-    final var cachedResults = new HashMap<ConstraintRecord, DBConstraintResult>(constraints.size());
+  public Map<ConstraintRecord, ConstraintResult> get() throws SQLException {
+    final var cachedResults = new HashMap<ConstraintRecord, ConstraintResult>(constraints.size());
 
     // Sim Dataset id is set ahead of time, as it does not change
     this.statement.setLong(5, this.simulationDatasetId.id());
@@ -66,7 +66,7 @@ final class GetValidConstraintRunsAction implements AutoCloseable {
           try(final var resultsReader = new StringReader(results.getString("results"));
               final var resultsParser = Json.createParser(resultsReader)) {
             resultsParser.next();
-            cachedResults.put(constraint, new DBConstraintResult(results.getLong("id"), resultsParser.getObject()));
+            cachedResults.put(constraint, new ConstraintResult.Cached(results.getLong("id"), resultsParser.getObject()));
           }
         }
       }

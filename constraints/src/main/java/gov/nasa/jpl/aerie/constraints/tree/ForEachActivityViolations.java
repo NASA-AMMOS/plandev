@@ -27,7 +27,7 @@ public record ForEachActivityViolations(
         newEnvironment.activityInstances().put(this.alias, activity);
 
         final var newViolations = this.expression.evaluate(results, bounds, newEnvironment);
-        for (final var violation: newViolations.violations) {
+        for (final var violation: newViolations.violations()) {
           violation.addActivityId(activity.id());
         }
         violations = EDSLConstraintResult.merge(violations, newViolations);

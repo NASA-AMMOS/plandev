@@ -1,12 +1,9 @@
 package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 
 import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
-import gov.nasa.jpl.aerie.constraints.model.EDSLConstraintResult;
 import gov.nasa.jpl.aerie.merlin.server.http.Fallible;
 import gov.nasa.jpl.aerie.merlin.server.http.ResponseSerializers;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
-import gov.nasa.jpl.aerie.merlin.server.models.DBConstraintResult;
-import gov.nasa.jpl.aerie.merlin.server.models.ProceduralConstraintResult;
 import gov.nasa.jpl.aerie.merlin.server.services.ConstraintRequestConfiguration;
 import org.intellij.lang.annotations.Language;
 
@@ -122,7 +119,7 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
 
       if (!fallible.isFailure()) {
         final var results = fallible.get();
-        if (results instanceof EDSLConstraintResult || results instanceof ProceduralConstraintResult) {
+        if (results instanceof ConstraintResult.Uncached) {
           insertResultsStatement.setLong(1, constraint.constraintId());
           insertResultsStatement.setLong(2, constraint.revision());
           insertResultsStatement.setLong(3, simulationDatasetId);
@@ -136,11 +133,11 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
 
           // Add to batch
           insertResultsStatement.addBatch();
-        } else if (results instanceof DBConstraintResult db) {
+        } else if (results instanceof ConstraintResult.Cached cached) {
           // If the result is already in the DB, we only need to insert the association
           associateResultsStatement.setLong(1, requestId);
           associateResultsStatement.setLong(2, constraint.invocationId());
-          associateResultsStatement.setLong(3, db.id());
+          associateResultsStatement.setLong(3, cached.resultId());
           associateResultsStatement.setLong(4, constraint.priority());
           associateResultsStatement.addBatch();
         } else {

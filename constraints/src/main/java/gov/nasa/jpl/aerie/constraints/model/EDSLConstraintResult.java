@@ -2,54 +2,16 @@ package gov.nasa.jpl.aerie.constraints.model;
 
 import gov.nasa.jpl.aerie.constraints.time.Interval;
 
-import javax.json.JsonObject;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-
-import static gov.nasa.jpl.aerie.constraints.json.ConstraintParsers.edslConstraintResultP;
 
 /**
  * A ConstraintResult that is created from evaluating an EDSL Constraint.
  */
-public final class EDSLConstraintResult implements ConstraintResult {
-  // These two will be initialized during constraint AST evaluation.
-  public final List<Violation> violations;
-  public final List<Interval> gaps;
-
-  // The rest will be initialized after AST evaluation by the constraints action.
-  public List<String> resourceIds;
-  public Long constraintId;
-  public Long constraintRevision;
-  public String constraintName;
+public record EDSLConstraintResult(List<Violation> violations, List<Interval> gaps) {
 
   public EDSLConstraintResult() {
     this(List.of(), List.of());
-  }
-
-  public EDSLConstraintResult(List<Violation> violations, List<Interval> gaps) {
-    this.violations = violations;
-    this.gaps = gaps;
-  }
-
-  public EDSLConstraintResult(
-      final List<Violation> violations,
-      final List<Interval> gaps,
-      final List<String> resourceIds,
-      final Long constraintId,
-      final Long constraintRevision,
-      final String constraintName
-  ) {
-    this.violations = violations;
-    this.gaps = gaps;
-    this.resourceIds = resourceIds;
-    this.constraintId = constraintId;
-    this.constraintRevision = constraintRevision;
-    this.constraintName = constraintName;
-  }
-
-  public boolean isEmpty() {
-    return violations.isEmpty() && gaps.isEmpty();
   }
 
   /**
@@ -67,28 +29,5 @@ public final class EDSLConstraintResult implements ConstraintResult {
     gaps.addAll(l2.gaps);
 
     return new EDSLConstraintResult(violations, gaps);
-  }
-
-  @Override
-  public boolean equals(final Object o) {
-    if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
-    EDSLConstraintResult that = (EDSLConstraintResult) o;
-    return violations.equals(that.violations)
-           && gaps.equals(that.gaps)
-           && Objects.equals(resourceIds, that.resourceIds)
-           && Objects.equals(constraintId, that.constraintId)
-           && Objects.equals(constraintRevision, that.constraintRevision)
-           && Objects.equals(constraintName, that.constraintName);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(violations, gaps, resourceIds, constraintId, constraintRevision, constraintName);
-  }
-
-  @Override
-  public JsonObject toJSON() {
-    return edslConstraintResultP.unparse(this).asJsonObject();
   }
 }

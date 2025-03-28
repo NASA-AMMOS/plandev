@@ -3,7 +3,9 @@ package gov.nasa.jpl.aerie.merlin.server.services;
 import gov.nasa.jpl.aerie.constraints.InputMismatchException;
 import gov.nasa.jpl.aerie.constraints.model.DiscreteProfile;
 import gov.nasa.jpl.aerie.constraints.model.*;
+import gov.nasa.jpl.aerie.constraints.time.Interval;
 import gov.nasa.jpl.aerie.constraints.tree.Expression;
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.SimulationDatasetMismatchException;
 import gov.nasa.jpl.aerie.merlin.server.http.Fallible;
@@ -11,6 +13,7 @@ import gov.nasa.jpl.aerie.merlin.server.models.*;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 public class ConstraintAction {
@@ -124,6 +127,10 @@ public class ConstraintAction {
       // try to compile and run the constraint that were not
       // successful and cached in the past
 
+      ConstraintTypes constraintTypes = ConstraintTypes.NONE;
+
+      // sort constraints
+      constraintCode.sort(Comparator.comparingLong(ConstraintRecord::priority));
 
       //compile
       final var compiledConstraints = new ArrayList<ExecutableConstraint>();
@@ -142,41 +149,121 @@ public class ConstraintAction {
               continue;
             }
 
-            compiledConstraints.add(new ExecutableConstraint.EDSLConstraint(constraint, compilationResult.get()));
+            final Expression<EDSLConstraintResult> expression = compilationResult.get();
+            compiledConstraints.add(new ExecutableConstraint.EDSLConstraint(constraint, expression));
+            switch (constraintTypes) {
+              case ConstraintTypes.None c -> constraintTypes = new ConstraintTypes.EdslOnly(new HashSet<>());
+              case ConstraintTypes.EdslOnly c -> expression.extractResources(c.requiredResources);
+              case ConstraintTypes.Mixed c -> {
+              }
+              case ConstraintTypes.ProceduralOnly c -> constraintTypes = ConstraintTypes.MIXED;
+            }
           }
-          case ConstraintType.JAR j -> compiledConstraints.add(new ExecutableConstraint.JARConstraint(constraint));
+          case ConstraintType.JAR j -> {
+            compiledConstraints.add(new ExecutableConstraint.JARConstraint(constraint));
+            switch (constraintTypes) {
+              case ConstraintTypes.None c -> constraintTypes = ConstraintTypes.PROCEDURAL_ONLY;
+              case ConstraintTypes.EdslOnly c -> constraintTypes = ConstraintTypes.MIXED;
+              case ConstraintTypes.Mixed c -> {
+              }
+              case ConstraintTypes.ProceduralOnly c -> {
+              }
+            }
+          }
         }
       }
 
-      // sort constraints
-      Collections.sort(compiledConstraints);
-
-      // prepare simulation results -- all resources need to be fetched ahead of time as it is unknown what profiles
-      //    a procedural constraint will access
-      final var merlinResults = resultsHandle.getSimulationResults();
-      final var constraintsResults = new SimulationResults(merlinResults);
       final var environment = new EvaluationEnvironment(realExternalProfiles, discreteExternalProfiles);
 
-      final var timelinePlan = new ReadonlyPlan(plan, environment);
-      final var timelineSimResults = new ReadonlyProceduralSimResults(merlinResults, timelinePlan);
+      if (constraintTypes instanceof ConstraintTypes.EdslOnly c) {
+        final var realProfiles = new HashMap<String, LinearProfile>();
+        final var discreteProfiles = new HashMap<String, DiscreteProfile>();
 
-
-      // run constraints
-      for(final var constraint : compiledConstraints) {
-        final var record = constraint.record();
-        try {
-          switch (constraint) {
-            case ExecutableConstraint.EDSLConstraint edsl: {
-              constraintResultMap.put(record, Fallible.of(edsl.run(constraintsResults, environment)));
-              break;
-            }
-            case ExecutableConstraint.JARConstraint jar: {
-              constraintResultMap.put(record, Fallible.of(jar.run(timelinePlan, timelineSimResults, merlinResults)));
-              break;
-            }
+        final var newProfiles = resultsHandle.getProfiles(new ArrayList<>(c.requiredResources));
+        for (final var _entry : ProfileSet.unwrapOptional(newProfiles.realProfiles()).entrySet()) {
+          if (!realProfiles.containsKey(_entry.getKey())) {
+            realProfiles.put(_entry.getKey(), LinearProfile.fromSimulatedProfile(_entry.getValue().segments()));
           }
-        } catch (Exception e) {
-          constraintResultMap.put(record, Fallible.failure(List.of(e), e.getMessage()));
+        }
+
+        for (final var _entry : ProfileSet.unwrapOptional(newProfiles.discreteProfiles()).entrySet()) {
+          if (!discreteProfiles.containsKey(_entry.getKey())) {
+            discreteProfiles.put(_entry.getKey(), DiscreteProfile.fromSimulatedProfile(_entry.getValue().segments()));
+          }
+        }
+
+        final var activities = new ArrayList<ActivityInstance>();
+        final var simulatedActivities = resultsHandle.getSimulatedActivities();
+        for (final var entry : simulatedActivities.entrySet()) {
+          final var id = entry.getKey();
+          final var activity = entry.getValue();
+
+          final var activityOffset = Duration.of(
+              resultsHandle.startTime().until(activity.start(), ChronoUnit.MICROS),
+              Duration.MICROSECONDS);
+
+          activities.add(new ActivityInstance(
+              id.id(),
+              activity.type(),
+              activity.arguments(),
+              Interval.between(activityOffset, activityOffset.plus(activity.duration()))));
+        }
+
+        final var constraintSimResults = new gov.nasa.jpl.aerie.constraints.model.SimulationResults(
+            resultsHandle.startTime(),
+            Interval.between(Duration.ZERO, resultsHandle.duration()),
+            activities,
+            realProfiles,
+            discreteProfiles);
+
+        // run constraints
+        for (final var constraint : compiledConstraints) {
+          final var record = constraint.record();
+          try {
+            constraintResultMap.put(record, Fallible.of(((ExecutableConstraint.EDSLConstraint) constraint).run(constraintSimResults, environment)));
+          } catch (Exception e) {
+            constraintResultMap.put(record, Fallible.failure(List.of(e), e.getMessage()));
+          }
+        }
+      } else if (constraintTypes instanceof ConstraintTypes.ProceduralOnly c) {
+        // prepare simulation results -- all resources need to be fetched ahead of time as it is unknown what profiles
+        //    a procedural constraint will access
+        final var merlinSimResults = resultsHandle.getSimulationResults();
+        final var timelinePlan = new ReadonlyPlan(plan, environment);
+
+        // run procedural constraints
+        for (final var constraint : compiledConstraints) {
+          final var record = constraint.record();
+          try {
+            constraintResultMap.put(record, Fallible.of(((ExecutableConstraint.JARConstraint) constraint).run(timelinePlan, merlinSimResults)));
+          } catch (Exception e) {
+            constraintResultMap.put(record, Fallible.failure(List.of(e), e.getMessage()));
+          }
+        }
+      } else {
+        // prepare simulation results -- all resources need to be fetched ahead of time as it is unknown what profiles
+        //    a procedural constraint will access
+        final var merlinSimResults = resultsHandle.getSimulationResults();
+        final var constraintSimResults = new SimulationResults(merlinSimResults);
+        final var timelinePlan = new ReadonlyPlan(plan, environment);
+
+        // run constraints
+        for (final var constraint : compiledConstraints) {
+          final var record = constraint.record();
+          try {
+            switch (constraint) {
+              case ExecutableConstraint.EDSLConstraint edsl: {
+                constraintResultMap.put(record, Fallible.of(edsl.run(constraintSimResults, environment)));
+                break;
+              }
+              case ExecutableConstraint.JARConstraint jar: {
+                constraintResultMap.put(record, Fallible.of(jar.run(timelinePlan, merlinSimResults)));
+                break;
+              }
+            }
+          } catch (Exception e) {
+            constraintResultMap.put(record, Fallible.failure(List.of(e), e.getMessage()));
+          }
         }
       }
     }
@@ -187,6 +274,16 @@ public class ConstraintAction {
         constraintResultMap);
 
     return Pair.of(requestId, constraintResultMap);
+  }
+
+  sealed interface ConstraintTypes {
+    ConstraintTypes NONE = new None();
+    ConstraintTypes MIXED = new Mixed();
+    ConstraintTypes PROCEDURAL_ONLY = new ProceduralOnly();
+    record None() implements ConstraintTypes {}
+    record Mixed() implements ConstraintTypes {}
+    record EdslOnly(Set<String> requiredResources) implements ConstraintTypes {}
+    record ProceduralOnly() implements ConstraintTypes {}
   }
 
   /**

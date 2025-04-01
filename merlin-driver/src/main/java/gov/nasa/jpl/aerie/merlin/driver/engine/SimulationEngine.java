@@ -2622,7 +2622,7 @@ public final class SimulationEngine implements AutoCloseable {
             event -> {
               // TODO can we do this more efficiently?
               EventGraph<EventRecord> output = EventGraph.empty();
-              var spanId = event.provenance() == null ? null : taskToSpanMap.get(event.provenance());
+              var spanId = event.provenance() == null ? null : getSpanId(event.provenance());
               if (spanId == null) return output;
               for (final var serializableTopic : serializableTopics.values()) {
                 Optional<SerializedValue> serializedEvent = trySerializeEvent(event, serializableTopic);

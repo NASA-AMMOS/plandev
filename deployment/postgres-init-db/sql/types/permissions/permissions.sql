@@ -35,6 +35,7 @@ create type permissions.function_permission_key
     'begin_merge',
     'branch_plan',
     'cancel_merge',
+    'check_model_compatability',
     'commit_merge',
     'create_merge_rq',
     'create_snapshot',

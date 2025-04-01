@@ -69,6 +69,16 @@
     - role: aerie_admin
     - role: user
 - function:
+    name: check_model_compatability
+    schema: hasura
+  configuration:
+    custom_root_fields:
+      function: check_model_compatability
+    session_argument: hasura_session
+  permissions:
+    - role: aerie_admin
+    - role: user
+- function:
     name: delete_activity_by_pk_reanchor_plan_start
     schema: hasura
   configuration:

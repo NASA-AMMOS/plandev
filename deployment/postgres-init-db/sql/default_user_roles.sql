@@ -25,6 +25,7 @@ set action_permissions = '{
       "begin_merge": "PLAN_OWNER_TARGET",
       "branch_plan": "NO_CHECK",
       "cancel_merge": "PLAN_OWNER_TARGET",
+      "check_model_compatability": "PLAN_OWNER_COLLABORATOR",
       "commit_merge": "PLAN_OWNER_TARGET",
       "create_merge_rq": "PLAN_OWNER_SOURCE",
       "create_snapshot": "PLAN_OWNER_COLLABORATOR",

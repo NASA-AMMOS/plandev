@@ -42,6 +42,7 @@
 ################
 - "!include hasura/begin_merge_return_value.yaml"
 - "!include hasura/cancel_merge_return_value.yaml"
+- "!include hasura/check_model_compatability_return_value.yaml"
 - "!include hasura/commit_merge_return_value.yaml"
 - "!include hasura/create_merge_return_value.yaml"
 - "!include hasura/create_snapshot_return_value.yaml"

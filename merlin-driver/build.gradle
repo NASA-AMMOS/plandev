@@ -52,6 +52,8 @@ dependencies {
   implementation 'com.google.guava:guava:32.1.2-jre'
   testImplementation 'com.google.guava:guava-testlib:32.1.2-jre'
 
+  testImplementation 'org.junit.platform:junit-platform-suite:1.8.2'
+
   testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 

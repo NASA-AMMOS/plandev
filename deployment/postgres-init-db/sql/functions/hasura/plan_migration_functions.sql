@@ -25,7 +25,7 @@ begin
   end if;
 
   -- Create snapshot before migration
-  perform merlin.create_snapshot(_plan_id, 'Automatic snapshot for migration', 'Automatic snapshot before attempting migration to model id ' || _new_model_id, requester_username);
+  perform merlin.create_snapshot(_plan_id, 'Migration to model '|| _new_model_id || ' on ' || NOW(), 'Automatic snapshot before attempting migration to model id ' || _new_model_id || ' on ' || NOW(), requester_username);
 
   -- Perform model migration
   update merlin.plan
@@ -33,5 +33,5 @@ begin
   where id = _plan_id;
 
   return row('success')::hasura.migrate_plan_to_model_return_value;
-end;
+end
 $$;

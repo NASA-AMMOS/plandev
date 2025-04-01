@@ -59,6 +59,16 @@
     - role: aerie_admin
     - role: user
 - function:
+    name: migrate_plan_to_model
+    schema: hasura
+  configuration:
+    custom_root_fields:
+      function: migrate_plan_to_model
+    session_argument: hasura_session
+  permissions:
+    - role: aerie_admin
+    - role: user
+- function:
     name: delete_activity_by_pk_reanchor_plan_start
     schema: hasura
   configuration:

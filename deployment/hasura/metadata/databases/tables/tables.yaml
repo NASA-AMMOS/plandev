@@ -51,6 +51,7 @@
 - "!include hasura/get_conflicting_activities_return_value.yaml"
 - "!include hasura/get_non_conflicting_activities_return_value.yaml"
 - "!include hasura/get_plan_history_return_value.yaml"
+- "!include hasura/migrate_plan_to_model_return_value.yaml"
 - "!include hasura/refresh_activity_type_logs.yaml"
 - "!include hasura/refresh_model_parameter_logs.yaml"
 - "!include hasura/refresh_resource_types_logs.yaml"

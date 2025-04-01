@@ -38,6 +38,7 @@ set action_permissions = '{
       "get_conflicting_activities": "NO_CHECK",
       "get_non_conflicting_activities": "NO_CHECK",
       "get_plan_history": "NO_CHECK",
+      "migrate_plan_to_model": "PLAN_OWNER_COLLABORATOR",
       "restore_activity_changelog": "PLAN_OWNER_COLLABORATOR",
       "restore_snapshot": "PLAN_OWNER_COLLABORATOR",
       "set_resolution": "PLAN_OWNER_TARGET",

@@ -48,6 +48,7 @@ create type permissions.function_permission_key
     'get_conflicting_activities',
     'get_non_conflicting_activities',
     'get_plan_history',
+    'migrate_plan_to_model',
     'restore_activity_changelog',
     'restore_snapshot',
     'set_resolution',

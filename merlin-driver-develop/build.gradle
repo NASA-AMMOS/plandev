@@ -25,12 +25,14 @@ test {
 
 jar {
   dependsOn ':merlin-sdk:jar'
+  dependsOn ':merlin-driver-protocol:jar'
   dependsOn ':parsing-utilities:jar'
   from {
     configurations.runtimeClasspath.filter{ it.exists() }.collect{ it.isDirectory() ? it : zipTree(it) }
   } {
     exclude 'META-INF/LICENSE.txt', 'META-INF/NOTICE.txt'
   }
+  duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
 jacocoTestReport {
@@ -59,12 +61,15 @@ javadoc.options.links 'https://commons.apache.org/proper/commons-lang/javadocs/a
 javadoc.options.addStringOption('Xdoclint:none', '-quiet')
 
 dependencies {
+  implementation project(":merlin-driver-protocol")
   implementation project(':parsing-utilities')
 
 //  api 'gov.nasa.jpl.aerie:merlin-sdk:+'
   implementation project(':merlin-sdk')
+  implementation project(':type-utils')
   api 'org.glassfish:javax.json:1.1.4'
   implementation 'it.unimi.dsi:fastutil:8.5.12'
+  implementation 'org.slf4j:slf4j-simple:2.0.7'
 
   implementation project(':merlin-driver-protocol')
 

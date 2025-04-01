@@ -1084,6 +1084,24 @@ public final class SimulationEngine implements AutoCloseable {
     }
 
     @Override
+    public <T> void startActivity(final T activity, final Topic<T> inputTopic) {
+      this.emit(activity, inputTopic);
+    }
+
+    @Override
+    public <T> void endActivity(final T result, final Topic<T> outputTopic) {
+      this.emit(result, outputTopic);
+    }
+
+    @Override
+    public <ActivityDirectiveId> void startDirective(
+        final ActivityDirectiveId activityDirectiveId,
+        final Topic<ActivityDirectiveId> activityTopic)
+    {
+      this.emit(activityDirectiveId, activityTopic);
+    }
+
+    @Override
     public void spawn(final InSpan inSpan, final TaskFactory<?> state) {
       // Prepare a span for the child task
       final var childSpan = switch (inSpan) {

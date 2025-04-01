@@ -15,6 +15,7 @@ java {
 }
 
 jar {
+  dependsOn( ':merlin-driver-protocol:jar')
   dependsOn(':parsing-utilities:jar')
   dependsOn(':type-utils:jar')
   dependsOn(':orchestration-utils:jar')

@@ -22,7 +22,6 @@ import static gov.nasa.jpl.aerie.json.BasicParsers.stringP;
 import static gov.nasa.jpl.aerie.json.ProductParsers.productP;
 import static gov.nasa.jpl.aerie.json.Uncurry.tuple;
 import static gov.nasa.jpl.aerie.json.Uncurry.untuple;
-import static gov.nasa.jpl.aerie.merlin.driver.develop.json.SerializedValueJsonParser.serializedValueP;
 
 public final class ValueSchemaJsonParser implements JsonParser<ValueSchema> {
   public static final JsonParser<ValueSchema> valueSchemaP = new ValueSchemaJsonParser();
@@ -55,7 +54,7 @@ public final class ValueSchemaJsonParser implements JsonParser<ValueSchema> {
     };
 
     if (obj.containsKey("metadata")) {
-      final var metadata = mapP(serializedValueP).parse(obj.getJsonObject("metadata"));
+      final var metadata = mapP(SerializedValueJsonParser.serializedValueP).parse(obj.getJsonObject("metadata"));
       return result.mapSuccess($ -> new ValueSchema.MetaSchema(metadata.getSuccessOrThrow(), $));
     }
 

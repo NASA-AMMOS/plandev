@@ -24,8 +24,12 @@ public final class SlabList<T> implements Iterable<T> {
   private Slab<T> tail = this.head;
   /*derived*/
   private int size = 0;
+  private boolean frozen = false;
 
   public void append(final T element) {
+    if (this.frozen) {
+      throw new IllegalStateException("Cannot append to frozen SlabList");
+    }
     this.tail.elements().add(element);
     this.size += 1;
 
@@ -98,5 +102,17 @@ public final class SlabList<T> implements Iterable<T> {
     public Slab() {
       this(new ArrayList<>(SLAB_SIZE), new MutableObject<>(null));
     }
+  }
+
+  public SlabList<T> duplicate() {
+    final SlabList<T> slabList = new SlabList<>();
+    for (T t : this) {
+      slabList.append(t);
+    }
+    return slabList;
+  }
+
+  public void freeze() {
+    this.frozen = true;
   }
 }

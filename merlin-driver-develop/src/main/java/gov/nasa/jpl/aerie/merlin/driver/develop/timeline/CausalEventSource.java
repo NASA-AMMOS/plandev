@@ -5,8 +5,12 @@ import java.util.Arrays;
 public final class CausalEventSource implements EventSource {
   private Event[] points = new Event[2];
   private int size = 0;
+  private boolean frozen = false;
 
   public void add(final Event point) {
+    if (this.frozen) {
+      throw new IllegalStateException("Cannot add to frozen CausalEventSource");
+    }
     if (this.size == this.points.length) {
       this.points = Arrays.copyOf(this.points, 3 * this.size / 2);
     }
@@ -40,5 +44,10 @@ public final class CausalEventSource implements EventSource {
       cell.apply(points, this.index, size);
       this.index = size;
     }
+  }
+
+  @Override
+  public void freeze() {
+    this.frozen = true;
   }
 }

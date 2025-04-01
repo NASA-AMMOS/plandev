@@ -1,19 +1,23 @@
 package gov.nasa.jpl.aerie.merlin.driver.develop;
 
 import gov.nasa.jpl.aerie.merlin.driver.develop.timeline.LiveCells;
+import gov.nasa.jpl.aerie.merlin.protocol.driver.Scheduler;
 import gov.nasa.jpl.aerie.merlin.protocol.driver.Topic;
 import gov.nasa.jpl.aerie.merlin.protocol.model.OutputType;
 import gov.nasa.jpl.aerie.merlin.protocol.model.Resource;
+import gov.nasa.jpl.aerie.merlin.protocol.model.Task;
 import gov.nasa.jpl.aerie.merlin.protocol.model.TaskFactory;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InSpan;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import gov.nasa.jpl.aerie.merlin.protocol.types.TaskStatus;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
+import gov.nasa.jpl.aerie.types.SerializedActivity;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.Executor;
 
 public final class MissionModel<Model> {
   private final Model model;
@@ -55,9 +59,17 @@ public final class MissionModel<Model> {
   }
 
   public TaskFactory<Unit> getDaemon() {
-    return executor -> scheduler -> {
-      MissionModel.this.daemons.forEach($ -> scheduler.spawn(InSpan.Fresh, $));
-      return TaskStatus.completed(Unit.UNIT);
+    return executor -> new Task<>() {
+      @Override
+      public TaskStatus<Unit> step(final Scheduler scheduler) {
+        MissionModel.this.daemons.forEach($ -> scheduler.spawn(InSpan.Fresh, $));
+        return TaskStatus.completed(Unit.UNIT);
+      }
+
+      @Override
+      public Task<Unit> duplicate(final Executor executor) {
+        return this;
+      }
     };
   }
 

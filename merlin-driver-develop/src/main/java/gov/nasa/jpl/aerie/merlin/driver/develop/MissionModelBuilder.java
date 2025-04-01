@@ -57,7 +57,7 @@ public final class MissionModelBuilder implements Initializer {
   }
 
   @Override
-  public void daemon(final String name, final TaskFactory<?> task) {
+  public void daemon(final TaskFactory<?> task) {
     this.state.daemon(task);
   }
 
@@ -131,7 +131,7 @@ public final class MissionModelBuilder implements Initializer {
     }
 
     @Override
-    public void daemon(final String name, final TaskFactory<?> task) {
+    public void daemon(final TaskFactory<?> task) {
       this.daemons.add(task);
     }
 
@@ -186,7 +186,7 @@ public final class MissionModelBuilder implements Initializer {
     }
 
     @Override
-    public void daemon(final String name, final TaskFactory<?> task) {
+    public void daemon(final TaskFactory<?> task) {
       throw new IllegalStateException("Daemons cannot be added after the schema is built");
     }
 

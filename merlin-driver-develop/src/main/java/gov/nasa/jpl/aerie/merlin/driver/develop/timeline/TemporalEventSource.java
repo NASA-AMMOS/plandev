@@ -86,4 +86,8 @@ public record TemporalEventSource(SlabList<TimePoint> points) implements EventSo
     record Delta(Duration delta) implements TimePoint {}
     record Commit(EventGraph<Event> events, Set<Topic<?>> topics) implements TimePoint {}
   }
+
+  public void freeze() {
+    this.points.freeze();
+  }
 }

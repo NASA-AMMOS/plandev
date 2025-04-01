@@ -1,9 +1,9 @@
 package gov.nasa.jpl.aerie.merlin.driver.develop.engine;
 
 import gov.nasa.jpl.aerie.merlin.driver.develop.timeline.CausalEventSource;
+import gov.nasa.jpl.aerie.merlin.driver.develop.timeline.LiveCells;
 import gov.nasa.jpl.aerie.merlin.driver.develop.timeline.Event;
 import gov.nasa.jpl.aerie.merlin.driver.develop.timeline.EventGraph;
-import gov.nasa.jpl.aerie.merlin.driver.develop.timeline.LiveCells;
 import gov.nasa.jpl.aerie.merlin.driver.develop.timeline.Query;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 

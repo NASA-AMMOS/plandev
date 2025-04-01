@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
 
@@ -57,5 +58,19 @@ public final class JobSchedule<JobRef, TimeRef extends SchedulingInstant> {
     this.queue.clear();
   }
 
+  public Optional<Duration> peekNextTime() {
+    if(this.queue.isEmpty()) return Optional.empty();
+    return Optional.ofNullable(this.queue.firstKey()).map(SchedulingInstant::offsetFromStart);
+  }
+
   public record Batch<JobRef>(Duration offsetFromStart, Set<JobRef> jobs) {}
+
+  public JobSchedule<JobRef, TimeRef> duplicate() {
+    final JobSchedule<JobRef, TimeRef> jobSchedule = new JobSchedule<>();
+    for (final var entry : this.queue.entrySet()) {
+      jobSchedule.queue.put(entry.getKey(), new HashSet<>(entry.getValue()));
+    }
+    jobSchedule.scheduledJobs.putAll(this.scheduledJobs);
+    return jobSchedule;
+  }
 }

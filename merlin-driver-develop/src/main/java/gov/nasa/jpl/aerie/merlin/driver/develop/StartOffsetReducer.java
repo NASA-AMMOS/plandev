@@ -1,6 +1,8 @@
 package gov.nasa.jpl.aerie.merlin.driver.develop;
 
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.jpl.aerie.types.ActivityDirective;
+import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.ArrayList;
@@ -137,6 +139,13 @@ public class StartOffsetReducer extends RecursiveTask<HashMap<ActivityDirectiveI
    * @return A new HashMap that has been appropriately filtered.
    */
   public static HashMap<ActivityDirectiveId, List<Pair<ActivityDirectiveId, Duration>>> filterOutNegativeStartOffset(HashMap<ActivityDirectiveId, List<Pair<ActivityDirectiveId, Duration>>> toFilter) {
+    return filterOutStartOffsetBefore(toFilter, Duration.ZERO);
+  }
+
+  public static HashMap<ActivityDirectiveId, List<Pair<ActivityDirectiveId, Duration>>> filterOutStartOffsetBefore(
+      final HashMap<ActivityDirectiveId, List<Pair<ActivityDirectiveId, Duration>>> toFilter,
+      final Duration duration)
+  {
     if(toFilter == null) return null;
 
     // Create a deep copy of toFilter (The Pairs are immutable, so they do not need to be copied)
@@ -155,16 +164,16 @@ public class StartOffsetReducer extends RecursiveTask<HashMap<ActivityDirectiveI
     final var beforeStartTime = new ArrayList<>(toFilter
                                                     .get(null)
                                                     .stream()
-                                                    .filter(pair -> pair.getValue().isNegative())
+                                                    .filter(pair -> pair.getValue().shorterThan(duration))
                                                     .toList());
     while(!beforeStartTime.isEmpty()){
-      final Pair<ActivityDirectiveId, Duration> currentPair = beforeStartTime.remove(beforeStartTime.size() - 1);
+      final Pair<ActivityDirectiveId, Duration> currentPair = beforeStartTime.removeLast();
       if(filtered.containsKey(currentPair.getLeft())) {
         beforeStartTime.addAll(filtered.get(currentPair.getLeft()));
         filtered.remove(currentPair.getLeft());
       }
     }
-    filtered.get(null).removeIf(pair -> pair.getValue().isNegative());
+    filtered.get(null).removeIf(pair -> pair.getValue().shorterThan(duration));
     return filtered;
   }
 }

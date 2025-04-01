@@ -57,4 +57,9 @@ public final class LiveCells {
 
     return Optional.of(cell.get());
   }
+
+  public void freeze() {
+    if (this.parent != null) this.parent.freeze();
+    this.source.freeze();
+  }
 }

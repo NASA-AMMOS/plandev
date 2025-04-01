@@ -50,4 +50,14 @@ public final class Subscriptions<TopicRef, QueryRef> {
     this.topicsByQuery.clear();
     this.queriesByTopic.clear();
   }
+
+  public Subscriptions<TopicRef, QueryRef> duplicate() {
+    final Subscriptions<TopicRef, QueryRef> subscriptions = new Subscriptions<>();
+    for (final var entry : this.topicsByQuery.entrySet()) {
+      final var query = entry.getKey();
+      final var topics = entry.getValue();
+      subscriptions.subscribeQuery(query, new HashSet<>(topics));
+    }
+    return subscriptions;
+  }
 }

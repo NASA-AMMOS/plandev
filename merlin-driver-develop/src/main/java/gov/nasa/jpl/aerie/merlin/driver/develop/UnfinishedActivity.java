@@ -1,6 +1,8 @@
 package gov.nasa.jpl.aerie.merlin.driver.develop;
 
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.jpl.aerie.types.ActivityInstanceId;
 
 import java.time.Instant;
 import java.util.List;
@@ -11,7 +13,7 @@ public record UnfinishedActivity(
   String type,
   Map<String, SerializedValue> arguments,
   Instant start,
-  SimulatedActivityId parentId,
-  List<SimulatedActivityId> childIds,
+  ActivityInstanceId parentId,
+  List<ActivityInstanceId> childIds,
   Optional<ActivityDirectiveId> directiveId
 ) { }

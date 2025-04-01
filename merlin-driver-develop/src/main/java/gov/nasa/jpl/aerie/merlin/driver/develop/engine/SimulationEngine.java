@@ -1,16 +1,15 @@
 package gov.nasa.jpl.aerie.merlin.driver.develop.engine;
 
-import gov.nasa.jpl.aerie.merlin.driver.develop.ActivityDirectiveId;
-import gov.nasa.jpl.aerie.merlin.driver.develop.MissionModel.SerializableTopic;
-import gov.nasa.jpl.aerie.merlin.driver.develop.SerializedActivity;
-import gov.nasa.jpl.aerie.merlin.driver.develop.SimulatedActivity;
-import gov.nasa.jpl.aerie.merlin.driver.develop.SimulatedActivityId;
-import gov.nasa.jpl.aerie.merlin.driver.develop.SimulationResults;
-import gov.nasa.jpl.aerie.merlin.driver.develop.UnfinishedActivity;
+import gov.nasa.jpl.aerie.merlin.driver.develop.resources.SimulationResourceManager;
 import gov.nasa.jpl.aerie.merlin.driver.develop.timeline.Event;
 import gov.nasa.jpl.aerie.merlin.driver.develop.timeline.EventGraph;
 import gov.nasa.jpl.aerie.merlin.driver.develop.timeline.LiveCells;
 import gov.nasa.jpl.aerie.merlin.driver.develop.timeline.TemporalEventSource;
+import gov.nasa.jpl.aerie.merlin.driver.develop.MissionModel.SerializableTopic;
+import gov.nasa.jpl.aerie.types.ActivityInstance;
+import gov.nasa.jpl.aerie.types.ActivityInstanceId;
+import gov.nasa.jpl.aerie.merlin.driver.develop.SimulationResults;
+import gov.nasa.jpl.aerie.merlin.driver.develop.UnfinishedActivity;
 import gov.nasa.jpl.aerie.merlin.protocol.driver.CellId;
 import gov.nasa.jpl.aerie.merlin.protocol.driver.Querier;
 import gov.nasa.jpl.aerie.merlin.protocol.driver.Scheduler;
@@ -25,7 +24,10 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.InSpan;
 import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.TaskStatus;
+import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.jpl.aerie.types.SerializedActivity;
 import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.mutable.MutableObject;
@@ -39,6 +41,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -46,43 +49,215 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
  * A representation of the work remaining to do during a simulation, and its accumulated results.
  */
 public final class SimulationEngine implements AutoCloseable {
+  private boolean closed = false;
+
   /** The set of all jobs waiting for time to pass. */
-  private final JobSchedule<JobId, SchedulingInstant> scheduledJobs = new JobSchedule<>();
+  private final JobSchedule<JobId, SchedulingInstant> scheduledJobs;
   /** The set of all jobs waiting on a condition. */
-  private final Map<ConditionId, TaskId> waitingTasks = new HashMap<>();
+  private final Map<ConditionId, TaskId> waitingTasks;
   /** The set of all tasks blocked on some number of subtasks. */
-  private final Map<TaskId, MutableInt> blockedTasks = new HashMap<>();
+  private final Map<TaskId, MutableInt> blockedTasks;
   /** The set of conditions depending on a given set of topics. */
-  private final Subscriptions<Topic<?>, ConditionId> waitingConditions = new Subscriptions<>();
+  private final Subscriptions<Topic<?>, ConditionId> waitingConditions;
   /** The set of queries depending on a given set of topics. */
-  private final Subscriptions<Topic<?>, ResourceId> waitingResources = new Subscriptions<>();
+  private final Subscriptions<Topic<?>, ResourceId> waitingResources;
 
   /** The execution state for every task. */
-  private final Map<TaskId, ExecutionState<?>> tasks = new HashMap<>();
+  private final Map<TaskId, ExecutionState<?>> tasks;
   /** The getter for each tracked condition. */
-  private final Map<ConditionId, Condition> conditions = new HashMap<>();
+  private final Map<ConditionId, Condition> conditions;
   /** The profiling state for each tracked resource. */
-  private final Map<ResourceId, ProfilingState<?>> resources = new HashMap<>();
+  private final Map<ResourceId, Resource<?>> resources;
+
+  /** Tasks that have been scheduled, but not started */
+  private final Map<TaskId, Duration> unstartedTasks;
 
   /** The set of all spans of work contributed to by modeled tasks. */
-  private final Map<SpanId, Span> spans = new HashMap<>();
+  private final Map<SpanId, Span> spans;
   /** A count of the direct contributors to each span, including child spans and tasks. */
-  private final Map<SpanId, MutableInt> spanContributorCount = new HashMap<>();
+  private final Map<SpanId, MutableInt> spanContributorCount;
 
   /** A thread pool that modeled tasks can use to keep track of their state between steps. */
-  private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+  private final ExecutorService executor;
+
+  /* The top-level simulation timeline. */
+  private final TemporalEventSource timeline;
+  private final TemporalEventSource referenceTimeline;
+  private final LiveCells cells;
+  private Duration elapsedTime;
+
+  public SimulationEngine(LiveCells initialCells) {
+    timeline = new TemporalEventSource();
+    referenceTimeline = new TemporalEventSource();
+    cells = new LiveCells(timeline, initialCells);
+    elapsedTime = Duration.ZERO;
+
+    scheduledJobs = new JobSchedule<>();
+    waitingTasks = new LinkedHashMap<>();
+    blockedTasks = new LinkedHashMap<>();
+    waitingConditions = new Subscriptions<>();
+    waitingResources = new Subscriptions<>();
+    tasks = new LinkedHashMap<>();
+    conditions = new LinkedHashMap<>();
+    resources = new LinkedHashMap<>();
+    unstartedTasks = new LinkedHashMap<>();
+    spans = new LinkedHashMap<>();
+    spanContributorCount = new LinkedHashMap<>();
+    executor = Executors.newVirtualThreadPerTaskExecutor();
+  }
+
+  private SimulationEngine(SimulationEngine other) {
+    other.timeline.freeze();
+    other.referenceTimeline.freeze();
+    other.cells.freeze();
+
+    elapsedTime = other.elapsedTime;
+
+    timeline = new TemporalEventSource();
+    cells = new LiveCells(timeline, other.cells);
+    referenceTimeline = other.combineTimeline();
+
+    // New Executor allows other SimulationEngine to be closed
+    executor = Executors.newVirtualThreadPerTaskExecutor();
+    scheduledJobs = other.scheduledJobs.duplicate();
+    waitingTasks = new LinkedHashMap<>(other.waitingTasks);
+    blockedTasks = new LinkedHashMap<>();
+    for (final var entry : other.blockedTasks.entrySet()) {
+      blockedTasks.put(entry.getKey(), new MutableInt(entry.getValue()));
+    }
+    waitingConditions = other.waitingConditions.duplicate();
+    waitingResources = other.waitingResources.duplicate();
+    tasks = new LinkedHashMap<>();
+    for (final var entry : other.tasks.entrySet()) {
+      tasks.put(entry.getKey(), entry.getValue().duplicate(executor));
+    }
+    conditions = new LinkedHashMap<>(other.conditions);
+    resources = new LinkedHashMap<>(other.resources);
+    unstartedTasks = new LinkedHashMap<>(other.unstartedTasks);
+    spans = new LinkedHashMap<>(other.spans);
+    spanContributorCount = new LinkedHashMap<>();
+    for (final var entry : other.spanContributorCount.entrySet()) {
+      spanContributorCount.put(entry.getKey(), new MutableInt(entry.getValue().getValue()));
+    }
+  }
+
+  /** Initialize the engine by tracking resources and kicking off daemon tasks. **/
+  public void init(Map<String, Resource<?>> resources, TaskFactory<Unit> daemons) throws Throwable {
+    // Begin tracking all resources.
+    for (final var entry : resources.entrySet()) {
+      final var name = entry.getKey();
+      final var resource = entry.getValue();
+
+      this.trackResource(name, resource, elapsedTime);
+    }
+
+    // Start daemon task(s) immediately, before anything else happens.
+    this.scheduleTask(Duration.ZERO, daemons);
+    {
+      final var batch = this.extractNextJobs(Duration.MAX_VALUE);
+      final var results = this.performJobs(batch.jobs(), cells, elapsedTime, Duration.MAX_VALUE);
+      for (final var commit : results.commits()) {
+        timeline.add(commit);
+      }
+      if (results.error.isPresent()) {
+        throw results.error.get();
+      }
+    }
+  }
+
+  public sealed interface Status {
+    record NoJobs() implements Status {}
+    record AtDuration() implements Status{}
+    record Nominal(
+        Duration elapsedTime,
+        Map<String, Pair<ValueSchema, RealDynamics>> realResourceUpdates,
+        Map<String, Pair<ValueSchema, SerializedValue>> dynamicResourceUpdates
+    ) implements Status {}
+  }
+
+  public Duration getElapsedTime() {
+    return elapsedTime;
+  }
+
+  /** Step the engine forward one batch. **/
+  public Status step(Duration simulationDuration) throws Throwable {
+    final var nextTime = this.peekNextTime().orElse(Duration.MAX_VALUE);
+    if (nextTime.longerThan(simulationDuration)) {
+      elapsedTime = Duration.max(elapsedTime, simulationDuration); // avoid lowering elapsed time
+      return new Status.AtDuration();
+    }
+
+    final var batch = this.extractNextJobs(simulationDuration);
+
+    // Increment real time, if necessary.
+    final var delta = batch.offsetFromStart().minus(elapsedTime);
+    elapsedTime = batch.offsetFromStart();
+    timeline.add(delta);
+
+    // TODO: Advance a dense time counter so that future tasks are strictly ordered relative to these,
+    //   even if they occur at the same real time.
+    if (batch.jobs().isEmpty()) return new Status.NoJobs();
+
+    // Run the jobs in this batch.
+    final var results = this.performJobs(batch.jobs(), cells, elapsedTime, simulationDuration);
+    for (final var commit : results.commits()) {
+      timeline.add(commit);
+    }
+    if (results.error.isPresent()) {
+      throw results.error.get();
+    }
+
+    // Serialize the resources updated in this batch
+    final var realResourceUpdates = new HashMap<String, Pair<ValueSchema, RealDynamics>>();
+    final var dynamicResourceUpdates = new HashMap<String, Pair<ValueSchema, SerializedValue>>();
+
+    for (final var update : results.resourceUpdates.updates()) {
+      final var name = update.resourceId().id();
+      final var schema = update.resource().getOutputType().getSchema();
+
+      switch (update.resource.getType()) {
+        case "real" -> realResourceUpdates.put(name, Pair.of(schema, SimulationEngine.extractRealDynamics(update)));
+        case "discrete" -> dynamicResourceUpdates.put(
+            name,
+            Pair.of(
+                schema,
+                SimulationEngine.extractDiscreteDynamics(update)));
+      }
+    }
+
+    return new Status.Nominal(elapsedTime, realResourceUpdates, dynamicResourceUpdates);
+  }
+
+  private static <Dynamics> RealDynamics extractRealDynamics(final ResourceUpdates.ResourceUpdate<Dynamics> update) {
+    final var resource = update.resource;
+    final var dynamics = update.update.dynamics();
+
+    final var serializedSegment = resource.getOutputType().serialize(dynamics).asMap().orElseThrow();
+    final var initial = serializedSegment.get("initial").asReal().orElseThrow();
+    final var rate = serializedSegment.get("rate").asReal().orElseThrow();
+
+    return RealDynamics.linear(initial, rate);
+  }
+
+  private static <Dynamics> SerializedValue extractDiscreteDynamics(final ResourceUpdates.ResourceUpdate<Dynamics> update) {
+    return update.resource.getOutputType().serialize(update.update.dynamics());
+  }
 
   /** Schedule a new task to be performed at the given time. */
   public <Output> SpanId scheduleTask(final Duration startTime, final TaskFactory<Output> state) {
-    if (startTime.isNegative()) throw new IllegalArgumentException("Cannot schedule a task before the start time of the simulation");
+    if (this.closed) throw new IllegalStateException("Cannot schedule task on closed simulation engine");
+    if (startTime.isNegative()) throw new IllegalArgumentException(
+        "Cannot schedule a task before the start time of the simulation");
 
     final var span = SpanId.generate();
     this.spans.put(span, new Span(Optional.empty(), startTime, Optional.empty()));
@@ -92,20 +267,24 @@ public final class SimulationEngine implements AutoCloseable {
     this.tasks.put(task, new ExecutionState<>(span, Optional.empty(), state.create(this.executor)));
     this.scheduledJobs.schedule(JobId.forTask(task), SubInstant.Tasks.at(startTime));
 
+    this.unstartedTasks.put(task, startTime);
+
     return span;
   }
 
   /** Register a resource whose profile should be accumulated over time. */
   public <Dynamics>
   void trackResource(final String name, final Resource<Dynamics> resource, final Duration nextQueryTime) {
+    if (this.closed) throw new IllegalStateException("Cannot track resource on closed simulation engine");
     final var id = new ResourceId(name);
 
-    this.resources.put(id, ProfilingState.create(resource));
+    this.resources.put(id, resource);
     this.scheduledJobs.schedule(JobId.forResource(id), SubInstant.Resources.at(nextQueryTime));
   }
 
   /** Schedules any conditions or resources dependent on the given topic to be re-checked at the given time. */
   public void invalidateTopic(final Topic<?> topic, final Duration invalidationTime) {
+    if (this.closed) throw new IllegalStateException("Cannot invalidate topic on closed simulation engine");
     final var resources = this.waitingResources.invalidateTopic(topic);
     for (final var resource : resources) {
       this.scheduledJobs.schedule(JobId.forResource(resource), SubInstant.Resources.at(invalidationTime));
@@ -122,6 +301,7 @@ public final class SimulationEngine implements AutoCloseable {
 
   /** Removes and returns the next set of jobs to be performed concurrently. */
   public JobSchedule.Batch<JobId> extractNextJobs(final Duration maximumTime) {
+    if (this.closed) throw new IllegalStateException("Cannot extract next jobs on closed simulation engine");
     final var batch = this.scheduledJobs.extractNextJobs(maximumTime);
 
     // If we're signaling based on a condition, we need to untrack the condition before any tasks run.
@@ -138,29 +318,72 @@ public final class SimulationEngine implements AutoCloseable {
     return batch;
   }
 
+  public record ResourceUpdates(List<ResourceUpdate<?>> updates) {
+    public boolean isEmpty() {
+      return updates.isEmpty();
+    }
+
+    public int size() {
+      return updates.size();
+    }
+
+    ResourceUpdates() {
+      this(new ArrayList<>());
+    }
+
+    public <Dynamics> void add(ResourceUpdate<Dynamics> update) {
+      this.updates.add(update);
+    }
+
+    public record ResourceUpdate<Dynamics>(
+        ResourceId resourceId,
+        Resource<Dynamics> resource,
+        Update<Dynamics> update
+    ) {
+      public record Update<Dynamics>(Duration startOffset, Dynamics dynamics) {}
+
+      public ResourceUpdate(
+          final Querier querier,
+          final Duration currentTime,
+          final ResourceId resourceId,
+          final Resource<Dynamics> resource
+      ) {
+        this(resourceId, resource, new Update<>(currentTime, resource.getDynamics(querier)));
+      }
+    }
+  }
+
+  public record StepResult(
+      List<EventGraph<Event>> commits,
+      ResourceUpdates resourceUpdates,
+      Optional<Throwable> error
+  ) {}
+
   /** Performs a collection of tasks concurrently, extending the given timeline by their stateful effects. */
-  public Pair<EventGraph<Event>, Optional<Throwable>> performJobs(
+  public StepResult performJobs(
       final Collection<JobId> jobs,
       final LiveCells context,
       final Duration currentTime,
       final Duration maximumTime
   ) throws SpanException {
+    if (this.closed) throw new IllegalStateException("Cannot perform jobs on closed simulation engine");
     var tip = EventGraph.<Event>empty();
     Mutable<Optional<Throwable>> exception = new MutableObject<>(Optional.empty());
+    final var resourceUpdates = new ResourceUpdates();
     for (final var job$ : jobs) {
       tip = EventGraph.concurrently(tip, TaskFrame.run(job$, context, (job, frame) -> {
         try {
-          this.performJob(job, frame, currentTime, maximumTime);
+          this.performJob(job, frame, currentTime, maximumTime, resourceUpdates);
         } catch (Throwable ex) {
           exception.setValue(Optional.of(ex));
         }
       }));
 
       if (exception.getValue().isPresent()) {
-        return Pair.of(tip, exception.getValue());
+        return new StepResult(List.of(tip), resourceUpdates, exception.getValue());
       }
     }
-    return Pair.of(tip, Optional.empty());
+    return new StepResult(List.of(tip), resourceUpdates, Optional.empty());
   }
 
   /** Performs a single job. */
@@ -168,23 +391,26 @@ public final class SimulationEngine implements AutoCloseable {
       final JobId job,
       final TaskFrame<JobId> frame,
       final Duration currentTime,
-      final Duration maximumTime
+      final Duration maximumTime,
+      final ResourceUpdates resourceUpdates
   ) throws SpanException {
-    if (job instanceof JobId.TaskJobId j) {
-      this.stepTask(j.id(), frame, currentTime);
-    } else if (job instanceof JobId.SignalJobId j) {
-      this.stepTask(this.waitingTasks.remove(j.id()), frame, currentTime);
-    } else if (job instanceof JobId.ConditionJobId j) {
-      this.updateCondition(j.id(), frame, currentTime, maximumTime);
-    } else if (job instanceof JobId.ResourceJobId j) {
-      this.updateResource(j.id(), frame, currentTime);
-    } else {
-      throw new IllegalArgumentException("Unexpected subtype of %s: %s".formatted(JobId.class, job.getClass()));
+    switch (job) {
+      case JobId.TaskJobId j -> this.stepTask(j.id(), frame, currentTime);
+      case JobId.SignalJobId j -> this.stepTask(this.waitingTasks.remove(j.id()), frame, currentTime);
+      case JobId.ConditionJobId j -> this.updateCondition(j.id(), frame, currentTime, maximumTime);
+      case JobId.ResourceJobId j -> this.updateResource(j.id(), frame, currentTime, resourceUpdates);
+      case null -> throw new IllegalArgumentException("Unexpected null value for JobId");
+      default -> throw new IllegalArgumentException("Unexpected subtype of %s: %s".formatted(
+          JobId.class,
+          job.getClass()));
     }
   }
 
   /** Perform the next step of a modeled task. */
-  public void stepTask(final TaskId task, final TaskFrame<JobId> frame, final Duration currentTime) throws SpanException {
+  public void stepTask(final TaskId task, final TaskFrame<JobId> frame, final Duration currentTime)
+  throws SpanException {
+    if (this.closed) throw new IllegalStateException("Cannot step task on closed simulation engine");
+    this.unstartedTasks.remove(task);
     // The handler for the next status of the task is responsible
     //   for putting an updated state back into the task set.
     var state = this.tasks.remove(task);
@@ -211,73 +437,79 @@ public final class SimulationEngine implements AutoCloseable {
     // TODO: Report which cells this activity read from at this point in time. This is useful insight for any user.
 
     // Based on the task's return status, update its execution state and schedule its resumption.
-      switch (status) {
-        case TaskStatus.Completed<Output> s -> {
-          // Propagate completion up the span hierarchy.
-          // TERMINATION: The span hierarchy is a finite tree, so eventually we find a parentless span.
-          var span = scheduler.span;
-          while (true) {
-            if (this.spanContributorCount.get(span).decrementAndGet() > 0) break;
-            this.spanContributorCount.remove(span);
+    switch (status) {
+      case TaskStatus.Completed<Output> s -> {
+        // Propagate completion up the span hierarchy.
+        // TERMINATION: The span hierarchy is a finite tree, so eventually we find a parentless span.
+        var span = scheduler.span;
+        while (true) {
+          if (this.spanContributorCount.get(span).decrementAndGet() > 0) break;
+          this.spanContributorCount.remove(span);
 
-            this.spans.compute(span, (_id, $) -> $.close(currentTime));
+          this.spans.compute(span, (_id, $) -> $.close(currentTime));
 
-            final var span$ = this.spans.get(span).parent;
-            if (span$.isEmpty()) break;
+          final var span$ = this.spans.get(span).parent;
+          if (span$.isEmpty()) break;
 
-            span = span$.get();
+          span = span$.get();
+        }
+
+        // Notify any blocked caller of our completion.
+        progress.caller().ifPresent($ -> {
+          if (this.blockedTasks.get($).decrementAndGet() == 0) {
+            this.blockedTasks.remove($);
+            this.scheduledJobs.schedule(JobId.forTask($), SubInstant.Tasks.at(currentTime));
           }
-
-          // Notify any blocked caller of our completion.
-          progress.caller().ifPresent($ -> {
-            if (this.blockedTasks.get($).decrementAndGet() == 0) {
-              this.blockedTasks.remove($);
-              this.scheduledJobs.schedule(JobId.forTask($), SubInstant.Tasks.at(currentTime));
-            }
-          });
-        }
-
-        case TaskStatus.Delayed<Output> s -> {
-          if (s.delay().isNegative()) throw new IllegalArgumentException("Cannot schedule a task in the past");
-
-          this.tasks.put(task, progress.continueWith(s.continuation()));
-          this.scheduledJobs.schedule(JobId.forTask(task), SubInstant.Tasks.at(currentTime.plus(s.delay())));
-        }
-
-        case TaskStatus.CallingTask<Output> s -> {
-          // Prepare a span for the child task.
-          final var childSpan = switch (s.childSpan()) {
-            case Parent ->
-              scheduler.span;
-
-            case Fresh -> {
-              final var freshSpan = SpanId.generate();
-              SimulationEngine.this.spans.put(freshSpan, new Span(Optional.of(scheduler.span), currentTime, Optional.empty()));
-              SimulationEngine.this.spanContributorCount.put(freshSpan, new MutableInt(1));
-              yield freshSpan;
-            }
-          };
-
-          // Spawn the child task.
-          final var childTask = TaskId.generate();
-          SimulationEngine.this.spanContributorCount.get(scheduler.span).increment();
-          SimulationEngine.this.tasks.put(childTask, new ExecutionState<>(childSpan, Optional.of(task), s.child().create(this.executor)));
-          frame.signal(JobId.forTask(childTask));
-
-          // Arrange for the parent task to resume.... later.
-          SimulationEngine.this.blockedTasks.put(task, new MutableInt(1));
-          this.tasks.put(task, progress.continueWith(s.continuation()));
-        }
-
-        case TaskStatus.AwaitingCondition<Output> s -> {
-          final var condition = ConditionId.generate();
-          this.conditions.put(condition, s.condition());
-          this.scheduledJobs.schedule(JobId.forCondition(condition), SubInstant.Conditions.at(currentTime));
-
-          this.tasks.put(task, progress.continueWith(s.continuation()));
-          this.waitingTasks.put(condition, task);
-        }
+        });
       }
+
+      case TaskStatus.Delayed<Output> s -> {
+        if (s.delay().isNegative()) throw new IllegalArgumentException("Cannot schedule a task in the past");
+
+        this.tasks.put(task, progress.continueWith(s.continuation()));
+        this.scheduledJobs.schedule(JobId.forTask(task), SubInstant.Tasks.at(currentTime.plus(s.delay())));
+      }
+
+      case TaskStatus.CallingTask<Output> s -> {
+        // Prepare a span for the child task.
+        final var childSpan = switch (s.childSpan()) {
+          case Parent -> scheduler.span;
+
+          case Fresh -> {
+            final var freshSpan = SpanId.generate();
+            SimulationEngine.this.spans.put(
+                freshSpan,
+                new Span(Optional.of(scheduler.span), currentTime, Optional.empty()));
+            SimulationEngine.this.spanContributorCount.put(freshSpan, new MutableInt(1));
+            yield freshSpan;
+          }
+        };
+
+        // Spawn the child task.
+        final var childTask = TaskId.generate();
+        SimulationEngine.this.spanContributorCount.get(scheduler.span).increment();
+        SimulationEngine.this.tasks.put(
+            childTask,
+            new ExecutionState<>(
+                childSpan,
+                Optional.of(task),
+                s.child().create(this.executor)));
+        frame.signal(JobId.forTask(childTask));
+
+        // Arrange for the parent task to resume.... later.
+        SimulationEngine.this.blockedTasks.put(task, new MutableInt(1));
+        this.tasks.put(task, progress.continueWith(s.continuation()));
+      }
+
+      case TaskStatus.AwaitingCondition<Output> s -> {
+        final var condition = ConditionId.generate();
+        this.conditions.put(condition, s.condition());
+        this.scheduledJobs.schedule(JobId.forCondition(condition), SubInstant.Conditions.at(currentTime));
+
+        this.tasks.put(task, progress.continueWith(s.continuation()));
+        this.waitingTasks.put(condition, task);
+      }
+    }
   }
 
   /** Determine when a condition is next true, and schedule a signal to be raised at that time. */
@@ -287,6 +519,7 @@ public final class SimulationEngine implements AutoCloseable {
       final Duration currentTime,
       final Duration horizonTime
   ) {
+    if (this.closed) throw new IllegalStateException("Cannot update condition on closed simulation engine");
     final var querier = new EngineQuerier(frame);
     final var prediction = this.conditions
         .get(condition)
@@ -307,29 +540,48 @@ public final class SimulationEngine implements AutoCloseable {
 
   /** Get the current behavior of a given resource and accumulate it into the resource's profile. */
   public void updateResource(
-      final ResourceId resource,
+      final ResourceId resourceId,
       final TaskFrame<JobId> frame,
-      final Duration currentTime
-  ) {
+      final Duration currentTime,
+      final ResourceUpdates resourceUpdates) {
+    if (this.closed) throw new IllegalStateException("Cannot update resource on closed simulation engine");
     final var querier = new EngineQuerier(frame);
-    this.resources.get(resource).append(currentTime, querier);
+    resourceUpdates.add(new ResourceUpdates.ResourceUpdate<>(
+        querier,
+        currentTime,
+        resourceId,
+        this.resources.get(resourceId)));
 
-    this.waitingResources.subscribeQuery(resource, querier.referencedTopics);
+    this.waitingResources.subscribeQuery(resourceId, querier.referencedTopics);
 
     final var expiry = querier.expiry.map(currentTime::plus);
     if (expiry.isPresent()) {
-      this.scheduledJobs.schedule(JobId.forResource(resource), SubInstant.Resources.at(expiry.get()));
+      this.scheduledJobs.schedule(JobId.forResource(resourceId), SubInstant.Resources.at(expiry.get()));
     }
   }
 
   /** Resets all tasks (freeing any held resources). The engine should not be used after being closed. */
   @Override
   public void close() {
+    cells.freeze();
+    timeline.freeze();
+
     for (final var task : this.tasks.values()) {
       task.state().release();
     }
 
     this.executor.shutdownNow();
+    this.closed = true;
+  }
+
+  public void unscheduleAfter(final Duration duration) {
+    if (this.closed) throw new IllegalStateException("Cannot unschedule jobs on closed simulation engine");
+    for (final var taskId : new ArrayList<>(this.tasks.keySet())) {
+      if (this.unstartedTasks.containsKey(taskId) && this.unstartedTasks.get(taskId).longerThan(duration)) {
+        this.tasks.remove(taskId);
+        this.scheduledJobs.unschedule(JobId.forTask(taskId));
+      }
+    }
   }
 
   private record SpanInfo(
@@ -353,7 +605,9 @@ public final class SimulationEngine implements AutoCloseable {
       return this.spanToPlannedDirective.get(id);
     }
 
-    public record Trait(Iterable<SerializableTopic<?>> topics, Topic<ActivityDirectiveId> activityTopic) implements EffectTrait<Consumer<SpanInfo>> {
+    public record Trait(Iterable<SerializableTopic<?>> topics, Topic<ActivityDirectiveId> activityTopic)
+        implements EffectTrait<Consumer<SpanInfo>>
+    {
       @Override
       public Consumer<SpanInfo> empty() {
         return spanInfo -> {};
@@ -361,7 +615,10 @@ public final class SimulationEngine implements AutoCloseable {
 
       @Override
       public Consumer<SpanInfo> sequentially(final Consumer<SpanInfo> prefix, final Consumer<SpanInfo> suffix) {
-        return spanInfo -> { prefix.accept(spanInfo); suffix.accept(spanInfo); };
+        return spanInfo -> {
+          prefix.accept(spanInfo);
+          suffix.accept(spanInfo);
+        };
       }
 
       @Override
@@ -372,7 +629,10 @@ public final class SimulationEngine implements AutoCloseable {
         //   Arguably, this is a model-specific analysis anyway, since we're looking for specific events
         //   and inferring model structure from them, and at this time we're only working with models
         //   for which every activity has a span to itself.
-        return spanInfo -> { left.accept(spanInfo); right.accept(spanInfo); };
+        return spanInfo -> {
+          left.accept(spanInfo);
+          right.accept(spanInfo);
+        };
       }
 
       public Consumer<SpanInfo> atom(final Event ev) {
@@ -417,47 +677,49 @@ public final class SimulationEngine implements AutoCloseable {
     }
   }
 
+
   /**
    * Get an Activity Directive Id from a SpanId, if the span is a descendent of a directive.
    */
-  public static Optional<ActivityDirectiveId> getDirectiveIdFromSpan(
-      final SimulationEngine engine,
+  public DirectiveDetail getDirectiveDetailsFromSpan(
       final Topic<ActivityDirectiveId> activityTopic,
-      final TemporalEventSource timeline,
       final Iterable<SerializableTopic<?>> serializableTopics,
       final SpanId spanId
   ) {
     // Collect per-span information from the event graph.
-    final var spanInfo = new SpanInfo();
-    for (final var point : timeline) {
-      if (!(point instanceof TemporalEventSource.TimePoint.Commit p)) continue;
+    final var spanInfo = computeSpanInfo(activityTopic, serializableTopics, this.timeline);
 
-      final var trait = new SpanInfo.Trait(serializableTopics, activityTopic);
-      p.events().evaluate(trait, trait::atom).accept(spanInfo);
-    }
-
-    // Identify the nearest ancestor directive
+    // Identify the nearest ancestor directive by walking up the parent
+    // span tree. Save the activity trace along the way
     Optional<SpanId> directiveSpanId = Optional.of(spanId);
+    final var activityStackTrace = new LinkedList<SerializedActivity>();
     while (directiveSpanId.isPresent() && !spanInfo.isDirective(directiveSpanId.get())) {
-      directiveSpanId = engine.getSpan(directiveSpanId.get()).parent();
+      activityStackTrace.add(spanInfo.input().get(directiveSpanId.get()));
+      directiveSpanId = this.getSpan(directiveSpanId.get()).parent();
     }
-    return directiveSpanId.map(spanInfo::getDirective);
+
+    // Add final top level parent activity to the stack trace if present
+    if (directiveSpanId.isPresent()) {
+      activityStackTrace.add(spanInfo.input().get(directiveSpanId.get()));
+    }
+
+    return new DirectiveDetail(
+        directiveSpanId.map(spanInfo::getDirective),
+        // remove null activities from the stack trace and reverse order
+        activityStackTrace.stream().filter(a -> a != null).collect(Collectors.toList()).reversed());
   }
 
-  /** Compute a set of results from the current state of simulation. */
-  // TODO: Move result extraction out of the SimulationEngine.
-  //   The Engine should only need to stream events of interest to a downstream consumer.
-  //   The Engine cannot be cognizant of all downstream needs.
-  // TODO: Whatever mechanism replaces `computeResults` also ought to replace `isTaskComplete`.
-  // TODO: Produce results for all tasks, not just those that have completed.
-  //   Planners need to be aware of failed or unfinished tasks.
-  public static SimulationResults computeResults(
-      final SimulationEngine engine,
-      final Instant startTime,
-      final Duration elapsedTime,
+  public record SimulationActivityExtract(
+      Instant startTime,
+      Duration duration,
+      Map<ActivityInstanceId, ActivityInstance> simulatedActivities,
+      Map<ActivityInstanceId, UnfinishedActivity> unfinishedActivities
+  ) {}
+
+  private SpanInfo computeSpanInfo(
       final Topic<ActivityDirectiveId> activityTopic,
-      final TemporalEventSource timeline,
-      final Iterable<SerializableTopic<?>> serializableTopics
+      final Iterable<SerializableTopic<?>> serializableTopics,
+      final TemporalEventSource timeline
   ) {
     // Collect per-span information from the event graph.
     final var spanInfo = new SpanInfo();
@@ -468,53 +730,71 @@ public final class SimulationEngine implements AutoCloseable {
       final var trait = new SpanInfo.Trait(serializableTopics, activityTopic);
       p.events().evaluate(trait, trait::atom).accept(spanInfo);
     }
+    return spanInfo;
+  }
 
-    // Extract profiles for every resource.
-    final var realProfiles = new HashMap<String, Pair<ValueSchema, List<ProfileSegment<RealDynamics>>>>();
-    final var discreteProfiles = new HashMap<String, Pair<ValueSchema, List<ProfileSegment<SerializedValue>>>>();
+  public SimulationActivityExtract computeActivitySimulationResults(
+      final Instant startTime,
+      final Topic<ActivityDirectiveId> activityTopic,
+      final Iterable<SerializableTopic<?>> serializableTopics
+  ) {
+    return computeActivitySimulationResults(
+        startTime,
+        computeSpanInfo(activityTopic, serializableTopics, combineTimeline())
+    );
+  }
 
-    for (final var entry : engine.resources.entrySet()) {
-      final var id = entry.getKey();
-      final var state = entry.getValue();
+  private HashMap<SpanId, ActivityDirectiveId> spanToActivityDirectiveId(
+      final SpanInfo spanInfo
+  )
+  {
+    final var activityDirectiveIds = new HashMap<SpanId, ActivityDirectiveId>();
+    this.spans.forEach((span, state) -> {
+      if (!spanInfo.isActivity(span)) return;
+      if (spanInfo.isDirective(span)) activityDirectiveIds.put(span, spanInfo.getDirective(span));
+    });
+    return activityDirectiveIds;
+  }
 
-      final var name = id.id();
-      final var resource = state.resource();
-
-      switch (resource.getType()) {
-        case "real" -> realProfiles.put(
-            name,
-            Pair.of(
-                resource.getOutputType().getSchema(),
-                serializeProfile(elapsedTime, state, SimulationEngine::extractRealDynamics)));
-
-        case "discrete" -> discreteProfiles.put(
-            name,
-            Pair.of(
-                resource.getOutputType().getSchema(),
-                serializeProfile(elapsedTime, state, SimulationEngine::extractDiscreteDynamics)));
-
-        default ->
-            throw new IllegalArgumentException(
-                "Resource `%s` has unknown type `%s`".formatted(name, resource.getType()));
-      }
+  private HashMap<SpanId, ActivityInstanceId> spanToSimulatedActivities(
+      final SpanInfo spanInfo
+  ) {
+    final var activityDirectiveIds = spanToActivityDirectiveId(spanInfo);
+    final var spanToActivityInstanceId = new HashMap<SpanId, ActivityInstanceId>(activityDirectiveIds.size());
+    final var usedActivityInstanceIds = new HashSet<>();
+    for (final var entry : activityDirectiveIds.entrySet()) {
+      spanToActivityInstanceId.put(entry.getKey(), new ActivityInstanceId(entry.getValue().id()));
+      usedActivityInstanceIds.add(entry.getValue().id());
     }
+    long counter = 1L;
+    for (final var span : this.spans.keySet()) {
+      if (!spanInfo.isActivity(span)) continue;
+      if (spanToActivityInstanceId.containsKey(span)) continue;
 
+      while (usedActivityInstanceIds.contains(counter)) counter++;
+      spanToActivityInstanceId.put(span, new ActivityInstanceId(counter++));
+    }
+    return spanToActivityInstanceId;
+  }
+
+  /**
+   * Computes only activity-related results when resources are not needed
+   */
+  public SimulationActivityExtract computeActivitySimulationResults(
+      final Instant startTime,
+      final SpanInfo spanInfo
+  ) {
     // Identify the nearest ancestor *activity* (excluding intermediate anonymous tasks).
     final var activityParents = new HashMap<SpanId, SpanId>();
-    final var activityDirectiveIds = new HashMap<SpanId, ActivityDirectiveId>();
-    engine.spans.forEach((span, state) -> {
+    final var activityDirectiveIds = spanToActivityDirectiveId(spanInfo);
+    this.spans.forEach((span, state) -> {
       if (!spanInfo.isActivity(span)) return;
-
-      if (spanInfo.isDirective(span)) activityDirectiveIds.put(span, spanInfo.getDirective(span));
 
       var parent = state.parent();
       while (parent.isPresent() && !spanInfo.isActivity(parent.get())) {
-        parent = engine.spans.get(parent.get()).parent();
+        parent = this.spans.get(parent.get()).parent();
       }
-
-      if (parent.isPresent()) {
-        activityParents.put(span, parent.get());
-      }
+      parent.ifPresent(spanId -> activityParents.put(span, spanId));
     });
 
     final var activityChildren = new HashMap<SpanId, List<SpanId>>();
@@ -523,41 +803,32 @@ public final class SimulationEngine implements AutoCloseable {
     });
 
     // Give every task corresponding to a child activity an ID that doesn't conflict with any root activity.
-    final var spanToSimulatedActivityId = new HashMap<SpanId, SimulatedActivityId>(activityDirectiveIds.size());
-    final var usedSimulatedActivityIds = new HashSet<>();
-    for (final var entry : activityDirectiveIds.entrySet()) {
-      spanToSimulatedActivityId.put(entry.getKey(), new SimulatedActivityId(entry.getValue().id()));
-      usedSimulatedActivityIds.add(entry.getValue().id());
-    }
-    long counter = 1L;
-    for (final var span : engine.spans.keySet()) {
-      if (!spanInfo.isActivity(span)) continue;
-      if (spanToSimulatedActivityId.containsKey(span)) continue;
+    final var spanToActivityInstanceId = spanToSimulatedActivities(spanInfo);
 
-      while (usedSimulatedActivityIds.contains(counter)) counter++;
-      spanToSimulatedActivityId.put(span, new SimulatedActivityId(counter++));
-    }
-
-    final var simulatedActivities = new HashMap<SimulatedActivityId, SimulatedActivity>();
-    final var unfinishedActivities = new HashMap<SimulatedActivityId, UnfinishedActivity>();
-    engine.spans.forEach((span, state) -> {
+    final var simulatedActivities = new HashMap<ActivityInstanceId, ActivityInstance>();
+    final var unfinishedActivities = new HashMap<ActivityInstanceId, UnfinishedActivity>();
+    this.spans.forEach((span, state) -> {
       if (!spanInfo.isActivity(span)) return;
 
-      final var activityId = spanToSimulatedActivityId.get(span);
+      final var activityId = spanToActivityInstanceId.get(span);
       final var directiveId = activityDirectiveIds.get(span);
 
       if (state.endOffset().isPresent()) {
         final var inputAttributes = spanInfo.input().get(span);
         final var outputAttributes = spanInfo.output().get(span);
 
-        simulatedActivities.put(activityId, new SimulatedActivity(
+        simulatedActivities.put(activityId, new ActivityInstance(
             inputAttributes.getTypeName(),
             inputAttributes.getArguments(),
             startTime.plus(state.startOffset().in(Duration.MICROSECONDS), ChronoUnit.MICROS),
             state.endOffset().get().minus(state.startOffset()),
-            spanToSimulatedActivityId.get(activityParents.get(span)),
-            activityChildren.getOrDefault(span, Collections.emptyList()).stream().map(spanToSimulatedActivityId::get).toList(),
-            (activityParents.containsKey(span)) ? Optional.empty() : Optional.ofNullable(directiveId),
+            spanToActivityInstanceId.get(activityParents.get(span)),
+            activityChildren
+                .getOrDefault(span, Collections.emptyList())
+                .stream()
+                .map(spanToActivityInstanceId::get)
+                .toList(),
+            Optional.ofNullable(directiveId),
             outputAttributes
         ));
       } else {
@@ -566,33 +837,60 @@ public final class SimulationEngine implements AutoCloseable {
             inputAttributes.getTypeName(),
             inputAttributes.getArguments(),
             startTime.plus(state.startOffset().in(Duration.MICROSECONDS), ChronoUnit.MICROS),
-            spanToSimulatedActivityId.get(activityParents.get(span)),
-            activityChildren.getOrDefault(span, Collections.emptyList()).stream().map(spanToSimulatedActivityId::get).toList(),
-            (activityParents.containsKey(span)) ? Optional.empty() : Optional.of(directiveId)
+            spanToActivityInstanceId.get(activityParents.get(span)),
+            activityChildren
+                .getOrDefault(span, Collections.emptyList())
+                .stream()
+                .map(spanToActivityInstanceId::get)
+                .toList(),
+            Optional.ofNullable(directiveId)
         ));
       }
     });
+    return new SimulationActivityExtract(startTime, elapsedTime, simulatedActivities, unfinishedActivities);
+  }
 
-    final List<Triple<Integer, String, ValueSchema>> topics = new ArrayList<>();
-    final var serializableTopicToId = new HashMap<SerializableTopic<?>, Integer>();
-    for (final var serializableTopic : serializableTopics) {
-      serializableTopicToId.put(serializableTopic, topics.size());
-      topics.add(Triple.of(topics.size(), serializableTopic.name(), serializableTopic.outputType().getSchema()));
-    }
-
-    final var serializedTimeline = new TreeMap<Duration, List<EventGraph<Pair<Integer, SerializedValue>>>>();
+  private TreeMap<Duration, List<EventGraph<EventRecord>>> createSerializedTimeline(
+      final TemporalEventSource combinedTimeline,
+      final Iterable<SerializableTopic<?>> serializableTopics,
+      final HashMap<SpanId, ActivityInstanceId> spanToActivities,
+      final HashMap<SerializableTopic<?>, Integer> serializableTopicToId) {
+    final var serializedTimeline = new TreeMap<Duration, List<EventGraph<EventRecord>>>();
     var time = Duration.ZERO;
-    for (var point : timeline.points()) {
+    for (var point : combinedTimeline.points()) {
       if (point instanceof TemporalEventSource.TimePoint.Delta delta) {
         time = time.plus(delta.delta());
       } else if (point instanceof TemporalEventSource.TimePoint.Commit commit) {
         final var serializedEventGraph = commit.events().substitute(
             event -> {
-              EventGraph<Pair<Integer, SerializedValue>> output = EventGraph.empty();
+              // TODO can we do this more efficiently?
+              EventGraph<EventRecord> output = EventGraph.empty();
               for (final var serializableTopic : serializableTopics) {
                 Optional<SerializedValue> serializedEvent = trySerializeEvent(event, serializableTopic);
                 if (serializedEvent.isPresent()) {
-                  output = EventGraph.concurrently(output, EventGraph.atom(Pair.of(serializableTopicToId.get(serializableTopic), serializedEvent.get())));
+                  // If the event's `provenance` has no simulated activity id, search its ancestors to find the nearest
+                  // simulated activity id, if one exists
+                  if (!spanToActivities.containsKey(event.provenance())) {
+                    var spanId = Optional.of(event.provenance());
+
+                    while (true) {
+                      if (spanToActivities.containsKey(spanId.get())) {
+                        spanToActivities.put(event.provenance(), spanToActivities.get(spanId.get()));
+                        break;
+                      }
+                      spanId = this.getSpan(spanId.get()).parent();
+                      if (spanId.isEmpty()) {
+                        break;
+                      }
+                    }
+                  }
+                  var activitySpanID = Optional.ofNullable(spanToActivities.get(event.provenance())).map(ActivityInstanceId::id);
+                  output = EventGraph.concurrently(
+                      output,
+                      EventGraph.atom(
+                          new EventRecord(serializableTopicToId.get(serializableTopic),
+                                          activitySpanID,
+                                          serializedEvent.get())));
                 }
               }
               return output;
@@ -605,15 +903,100 @@ public final class SimulationEngine implements AutoCloseable {
         }
       }
     }
+    return serializedTimeline;
+  }
 
-    return new SimulationResults(realProfiles,
-                                 discreteProfiles,
-                                 simulatedActivities,
-                                 unfinishedActivities,
-                                 startTime,
-                                 elapsedTime,
-                                 topics,
-                                 serializedTimeline);
+
+  /** Compute a set of results from the current state of simulation. */
+  // TODO: Move result extraction out of the SimulationEngine.
+  //   The Engine should only need to stream events of interest to a downstream consumer.
+  //   The Engine cannot be cognizant of all downstream needs.
+  // TODO: Whatever mechanism replaces `computeResults` also ought to replace `isTaskComplete`.
+  // TODO: Produce results for all tasks, not just those that have completed.
+  //   Planners need to be aware of failed or unfinished tasks.
+  public SimulationResults computeResults (
+      final Instant startTime,
+      final Topic<ActivityDirectiveId> activityTopic,
+      final Iterable<SerializableTopic<?>> serializableTopics,
+      final SimulationResourceManager resourceManager
+  ) {
+    final var combinedTimeline = this.combineTimeline();
+    // Collect per-task information from the event graph.
+    final var spanInfo = computeSpanInfo(activityTopic, serializableTopics, combinedTimeline);
+
+    // Extract profiles for every resource.
+    final var resourceProfiles = resourceManager.computeProfiles(elapsedTime);
+    final var realProfiles = resourceProfiles.realProfiles();
+    final var discreteProfiles = resourceProfiles.discreteProfiles();
+
+    final var activityResults = computeActivitySimulationResults(startTime, spanInfo);
+
+    final List<Triple<Integer, String, ValueSchema>> topics = new ArrayList<>();
+    final var serializableTopicToId = new HashMap<SerializableTopic<?>, Integer>();
+    for (final var serializableTopic : serializableTopics) {
+      serializableTopicToId.put(serializableTopic, topics.size());
+      topics.add(Triple.of(topics.size(), serializableTopic.name(), serializableTopic.outputType().getSchema()));
+    }
+
+    final var serializedTimeline = createSerializedTimeline(
+        combinedTimeline,
+        serializableTopics,
+        spanToSimulatedActivities(spanInfo),
+        serializableTopicToId
+    );
+
+    return new SimulationResults(
+        realProfiles,
+        discreteProfiles,
+        activityResults.simulatedActivities,
+        activityResults.unfinishedActivities,
+        startTime,
+        elapsedTime,
+        topics,
+        serializedTimeline);
+  }
+
+  public SimulationResults computeResults(
+      final Instant startTime,
+      final Topic<ActivityDirectiveId> activityTopic,
+      final Iterable<SerializableTopic<?>> serializableTopics,
+      final SimulationResourceManager resourceManager,
+      final Set<String> resourceNames
+  ) {
+    final var combinedTimeline = this.combineTimeline();
+    // Collect per-task information from the event graph.
+    final var spanInfo = computeSpanInfo(activityTopic, serializableTopics, combinedTimeline);
+
+    // Extract profiles for every resource.
+    final var resourceProfiles = resourceManager.computeProfiles(elapsedTime, resourceNames);
+    final var realProfiles = resourceProfiles.realProfiles();
+    final var discreteProfiles = resourceProfiles.discreteProfiles();
+
+    final var activityResults = computeActivitySimulationResults(startTime, spanInfo);
+
+    final List<Triple<Integer, String, ValueSchema>> topics = new ArrayList<>();
+    final var serializableTopicToId = new HashMap<SerializableTopic<?>, Integer>();
+    for (final var serializableTopic : serializableTopics) {
+      serializableTopicToId.put(serializableTopic, topics.size());
+      topics.add(Triple.of(topics.size(), serializableTopic.name(), serializableTopic.outputType().getSchema()));
+    }
+
+    final var serializedTimeline = createSerializedTimeline(
+        combinedTimeline,
+        serializableTopics,
+        spanToSimulatedActivities(spanInfo),
+        serializableTopicToId
+    );
+
+    return new SimulationResults(
+        realProfiles,
+        discreteProfiles,
+        activityResults.simulatedActivities,
+        activityResults.unfinishedActivities,
+        startTime,
+        elapsedTime,
+        topics,
+        serializedTimeline);
   }
 
   public Span getSpan(SpanId spanId) {
@@ -621,54 +1004,11 @@ public final class SimulationEngine implements AutoCloseable {
   }
 
 
-  private static <EventType> Optional<SerializedValue> trySerializeEvent(Event event, SerializableTopic<EventType> serializableTopic) {
-    return event.extract(serializableTopic.topic(), serializableTopic.outputType()::serialize);
-  }
-
-  private interface Translator<Target> {
-    <Dynamics> Target apply(Resource<Dynamics> resource, Dynamics dynamics);
-  }
-
-  private static <Target, Dynamics>
-  List<ProfileSegment<Target>> serializeProfile(
-      final Duration elapsedTime,
-      final ProfilingState<Dynamics> state,
-      final Translator<Target> translator
+  private static <EventType> Optional<SerializedValue> trySerializeEvent(
+      Event event,
+      SerializableTopic<EventType> serializableTopic
   ) {
-    final var profile = new ArrayList<ProfileSegment<Target>>(state.profile().segments().size());
-
-    final var iter = state.profile().segments().iterator();
-    if (iter.hasNext()) {
-      var segment = iter.next();
-      while (iter.hasNext()) {
-        final var nextSegment = iter.next();
-
-        profile.add(new ProfileSegment<>(
-            nextSegment.startOffset().minus(segment.startOffset()),
-            translator.apply(state.resource(), segment.dynamics())));
-        segment = nextSegment;
-      }
-
-      profile.add(new ProfileSegment<>(
-          elapsedTime.minus(segment.startOffset()),
-          translator.apply(state.resource(), segment.dynamics())));
-    }
-
-    return profile;
-  }
-
-  private static <Dynamics>
-  RealDynamics extractRealDynamics(final Resource<Dynamics> resource, final Dynamics dynamics) {
-    final var serializedSegment = resource.getOutputType().serialize(dynamics).asMap().orElseThrow();
-    final var initial = serializedSegment.get("initial").asReal().orElseThrow();
-    final var rate = serializedSegment.get("rate").asReal().orElseThrow();
-
-    return RealDynamics.linear(initial, rate);
-  }
-
-  private static <Dynamics>
-  SerializedValue extractDiscreteDynamics(final Resource<Dynamics> resource, final Dynamics dynamics) {
-    return resource.getOutputType().serialize(dynamics);
+    return event.extract(serializableTopic.topic(), serializableTopic.outputType()::serialize);
   }
 
   /** A handle for processing requests from a modeled resource or condition. */
@@ -744,29 +1084,10 @@ public final class SimulationEngine implements AutoCloseable {
     }
 
     @Override
-    public <T> void startActivity(final T activity, final Topic<T> inputTopic) {
-      this.emit(activity, inputTopic);
-    }
-
-    @Override
-    public <T> void endActivity(final T result, final Topic<T> outputTopic) {
-      this.emit(result, outputTopic);
-    }
-
-    @Override
-    public <ActivityDirectiveId> void startDirective(
-        final ActivityDirectiveId activityDirectiveId,
-        final Topic<ActivityDirectiveId> activityTopic)
-    {
-      this.emit(activityDirectiveId, activityTopic);
-    }
-
-    @Override
     public void spawn(final InSpan inSpan, final TaskFactory<?> state) {
       // Prepare a span for the child task
       final var childSpan = switch (inSpan) {
-        case Parent ->
-          this.span;
+        case Parent -> this.span;
 
         case Fresh -> {
           final var freshSpan = SpanId.generate();
@@ -778,7 +1099,12 @@ public final class SimulationEngine implements AutoCloseable {
 
       final var childTask = TaskId.generate();
       SimulationEngine.this.spanContributorCount.get(this.span).increment();
-      SimulationEngine.this.tasks.put(childTask, new ExecutionState<>(childSpan, this.caller, state.create(SimulationEngine.this.executor)));
+      SimulationEngine.this.tasks.put(
+          childTask,
+          new ExecutionState<>(
+              childSpan,
+              this.caller,
+              state.create(SimulationEngine.this.executor)));
       this.frame.signal(JobId.forTask(childTask));
 
       this.caller.ifPresent($ -> SimulationEngine.this.blockedTasks.get($).increment());
@@ -821,6 +1147,10 @@ public final class SimulationEngine implements AutoCloseable {
     public ExecutionState<Output> continueWith(final Task<Output> newState) {
       return new ExecutionState<>(this.span, this.caller, newState);
     }
+
+    public ExecutionState<Output> duplicate(Executor executor) {
+      return new ExecutionState<>(span, caller, state.duplicate(executor));
+    }
   }
 
   /** The span of time over which a subtree of tasks has acted. */
@@ -838,5 +1168,40 @@ public final class SimulationEngine implements AutoCloseable {
     public boolean isComplete() {
       return this.endOffset.isPresent();
     }
+  }
+
+  public boolean spanIsComplete(SpanId spanId) {
+    return this.spans.get(spanId).isComplete();
+  }
+
+  public SimulationEngine duplicate() {
+    return new SimulationEngine(this);
+  }
+
+  public Optional<Duration> peekNextTime() {
+    return this.scheduledJobs.peekNextTime();
+  }
+
+  /**
+   * Create a timeline that in the output of the engine's reference timeline combined with its expanded timeline.
+   */
+  public TemporalEventSource combineTimeline() {
+    final TemporalEventSource combinedTimeline = new TemporalEventSource();
+    for (final var timePoint : referenceTimeline.points()) {
+      if (timePoint instanceof TemporalEventSource.TimePoint.Delta t) {
+        combinedTimeline.add(t.delta());
+      } else if (timePoint instanceof TemporalEventSource.TimePoint.Commit t) {
+        combinedTimeline.add(t.events());
+      }
+    }
+
+    for (final var timePoint : timeline) {
+      if (timePoint instanceof TemporalEventSource.TimePoint.Delta t) {
+        combinedTimeline.add(t.delta());
+      } else if (timePoint instanceof TemporalEventSource.TimePoint.Commit t) {
+        combinedTimeline.add(t.events());
+      }
+    }
+    return combinedTimeline;
   }
 }

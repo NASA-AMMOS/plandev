@@ -1,0 +1,22 @@
+{
+  "name": "ampcs-parser",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "npm run build:clean; npm install; tsc --build; npx rollup -c rollup.config.js",
+    "build:clean": "rm -rf ./build",
+    "test": "echo Dictionary parsing validated using Sequencing Server test suite"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "typescript": "^5.5.4"
+  },
+  "dependencies": {
+    "@nasa-jpl/aerie-ampcs": "^1.0.6",
+    "@rollup/plugin-commonjs": "^26.0.1",
+    "@rollup/plugin-node-resolve": "^15.2.3"
+  }
+}

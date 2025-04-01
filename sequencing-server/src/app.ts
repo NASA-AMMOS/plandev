@@ -1,4 +1,3 @@
-import * as ampcs from '@nasa-jpl/aerie-ampcs';
 import bodyParser from 'body-parser';
 import DataLoader from 'dataloader';
 import express, { Application, NextFunction, Request, Response } from 'express';
@@ -29,11 +28,11 @@ import type { Result } from '@nasa-jpl/aerie-ts-user-code-runner/build/utils/mon
 import type { CacheItem, UserCodeError } from '@nasa-jpl/aerie-ts-user-code-runner';
 import { PromiseThrottler } from './utils/PromiseThrottler.js';
 import { backgroundTranspiler } from './backgroundTranspiler.js';
-import type { CommandDictionary, ParameterDictionary } from '@nasa-jpl/aerie-ampcs';
+import { PluginManager } from './utils/PluginManager.js'
 import { DictionaryType } from './types/types.js';
+import type { ChannelDictionary, CommandDictionary, ParameterDictionary } from '@nasa-jpl/aerie-ampcs';
 
 const logger = getLogger('app');
-
 const PORT: number = parseInt(getEnv().PORT, 10) ?? 27184;
 
 logger.info(`Starting sequencing-server app on Node v${process.versions.node}...`);
@@ -55,6 +54,7 @@ export const piscina = new Piscina({
   resourceLimits: { maxOldGenerationSizeMb: parseInt(getEnv().SEQUENCING_MAX_WORKER_HEAP_MB) },
 });
 export const promiseThrottler = new PromiseThrottler(parseInt(getEnv().SEQUENCING_WORKER_NUM) - 2);
+export const pluginManager = new PluginManager();
 export const typeCheckingCache = new Map<string, Promise<Result<CacheItem, ReturnType<UserCodeError['toJSON']>[]>>>();
 
 const temporalPolyfillTypes = fs.readFileSync(
@@ -156,64 +156,61 @@ app.get('/health', (_: Request, res: Response) => {
 
 app.post('/put-dictionary', async (req, res, next) => {
   const dictionary = req.body.input.dictionary as string;
-  const type = req.body.input.type as string;
   logger.info(`Dictionary received`);
 
-  let parsedDictionary: CommandDictionary | ChannelDictionary | ParameterDictionary;
-  let dictionaryPath: string = '';
-  switch (type) {
-    case DictionaryType.COMMAND: {
-      parsedDictionary = ampcs.parse(dictionary, null, { ignoreComment: true });
-      break;
-    }
-    case DictionaryType.CHANNEL: {
-      parsedDictionary = ampcs.parseChannelDictionary(dictionary);
-      break;
-    }
-    case DictionaryType.PARAMETER: {
-      parsedDictionary = ampcs.parseParameterDictionary(dictionary);
-      break;
-    }
-    default:
-      throw new Error(`POST /dictionary: Unsupported dictionary type: ${type}`);
+  let parsedDictionaries : {
+    commandDictionary?: CommandDictionary,
+    channelDictionary?: ChannelDictionary,
+    parameterDictionary?: ParameterDictionary
+  };
+  if (pluginManager.hasPlugin(getEnv().DICTIONARY_PARSER_PLUGIN) && pluginManager.getPlugin(getEnv().DICTIONARY_PARSER_PLUGIN).parseDictionary){
+    parsedDictionaries = pluginManager.getPlugin(getEnv().DICTIONARY_PARSER_PLUGIN).parseDictionary(dictionary)
+  } else {
+    throw new Error(`POST /dictionary: Plugin - ${getEnv().DICTIONARY_PARSER_PLUGIN} \ndoesn't have a 'parseDictionary' method`);
   }
 
-  logger.info(
-    `dictionary parsed - version: ${parsedDictionary.header.version}, mission: ${parsedDictionary.header.mission_name}`,
-  );
-  dictionaryPath = await processDictionary(parsedDictionary, type);
-  logger.info(`lib generated - path: ${dictionaryPath}`);
+  let json = {}
+  for (const dictionaryType of Object.keys(DictionaryType)) {
+    let parsedDictionary : CommandDictionary | ParameterDictionary | ChannelDictionary | undefined;
+    let db_table_name = "";
+    let db_value : any[] = []
+    if (dictionaryType == DictionaryType.COMMAND && parsedDictionaries.commandDictionary) {
+      db_table_name = 'command_dictionary'
+      parsedDictionary = parsedDictionaries.commandDictionary as CommandDictionary
+    }else if (dictionaryType == DictionaryType.CHANNEL && parsedDictionaries.channelDictionary) {
+      db_table_name = 'channel_dictionary'
+      parsedDictionary = parsedDictionaries.channelDictionary as ChannelDictionary
+    }else if (dictionaryType == DictionaryType.PARAMETER && parsedDictionaries.parameterDictionary) {
+      db_table_name = 'parameter_dictionary'
+      parsedDictionary = parsedDictionaries.parameterDictionary as ParameterDictionary
+    }
+    if (!parsedDictionary){
+      continue;
+    }
 
-  let db_table_name = 'command_dictionary';
-  switch (type) {
-    case DictionaryType.CHANNEL:
-      db_table_name = 'channel_dictionary';
-      break;
-    case DictionaryType.PARAMETER:
-      db_table_name = 'parameter_dictionary';
-      break;
+    const dictionaryPath = await processDictionary(parsedDictionary, dictionaryType as DictionaryType);
+    logger.info(`lib generated - path: ${dictionaryPath}`);
+    db_value = [
+      dictionaryPath,
+      parsedDictionary.header.mission_name,
+      parsedDictionary.header.version,
+      parsedDictionary,
+    ]
+    const sqlExpression = `
+      insert into sequencing.${db_table_name} (dictionary_path, mission, version, parsed_json)
+      values ($1, $2, $3, $4)
+      on conflict (mission, version) do update
+        set dictionary_path = $1, parsed_json = $4
+      returning id, dictionary_path, mission, version, parsed_json, created_at;
+    `;
+    const { rows } = await db.query(sqlExpression, db_value);
+    if (rows.length < 1) {
+      throw new Error(`POST /dictionary: No command dictionary was updated in the database`);
+    }
+    json = {...json, ...{[dictionaryType.toLowerCase()] : rows[0]}}
   }
-  const sqlExpression = `
-    insert into sequencing.${db_table_name} (dictionary_path, mission, version, parsed_json)
-    values ($1, $2, $3, $4)
-    on conflict (mission, version) do update
-      set dictionary_path = $1, parsed_json = $4
-    returning id, dictionary_path, mission, version, parsed_json, created_at;
-  `;
 
-  const { rows } = await db.query(sqlExpression, [
-    dictionaryPath,
-    parsedDictionary.header.mission_name,
-    parsedDictionary.header.version,
-    parsedDictionary,
-  ]);
-
-  if (rows.length < 1) {
-    throw new Error(`POST /dictionary: No command dictionary was updated in the database`);
-  }
-  const [row] = rows;
-  row.type = type;
-  res.status(200).json(row);
+  res.status(200).json(json);
   return next();
 });
 
@@ -304,6 +301,8 @@ app.listen(PORT, () => {
               Total workers started: ${piscina.threads.length},
               Max Workers Allowed: ${getEnv().SEQUENCING_MAX_WORKER_NUM},
               Heap Size per Worker: ${getEnv().SEQUENCING_MAX_WORKER_HEAP_MB} MB`);
+
+  pluginManager.loadPlugins();
 
   if (getEnv().TRANSPILER_ENABLED === 'true') {
     //log that the tranpiler is on

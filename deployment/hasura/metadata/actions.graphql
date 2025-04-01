@@ -26,7 +26,7 @@ type Mutation {
 }
 
 type Mutation {
-  uploadDictionary(dictionary: String!, type: String!): DictionaryResponse
+  uploadDictionary(dictionary: String!): DictionaryResponse
 }
 
 type Mutation {
@@ -212,13 +212,9 @@ type TypescriptFile {
 }
 
 type DictionaryResponse {
-  id: Int!
-  dictionary_path: String!
-  mission: String!
-  version: String!
-  parsed_json: Dictionary!
-  created_at: String!
-  type : String!
+  command: Dictionary
+  parameter: Dictionary
+  channel: Dictionary
 }
 
 type ExpansionSetResponse {

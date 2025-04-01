@@ -1,17 +1,16 @@
 package gov.nasa.jpl.aerie.scheduler.plan
 
-import gov.nasa.jpl.aerie.merlin.driver.engine.ProfileSegment
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
 import gov.nasa.ammos.aerie.procedural.timeline.Interval
 import gov.nasa.ammos.aerie.procedural.timeline.collections.Instances
-import gov.nasa.ammos.aerie.procedural.timeline.util.duration.rangeTo
-import gov.nasa.ammos.aerie.procedural.timeline.ops.coalesce.CoalesceSegmentsOp
+import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Activity
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Instance
 import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan
 import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults
+import gov.nasa.ammos.aerie.procedural.timeline.util.duration.rangeTo
+import gov.nasa.jpl.aerie.merlin.driver.engine.ProfileSegment
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
+import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId
 import gov.nasa.jpl.aerie.types.ActivityInstanceId
 import java.time.Instant
@@ -46,7 +45,7 @@ class MerlinToProcedureSimulationResultsAdapter(
     }
   }
 
-  override fun <V: Any, TL: CoalesceSegmentsOp<V, TL>> resource(name: String, deserializer: (List<Segment<SerializedValue>>) -> TL): TL {
+  override fun <V: Any, TL: SerialSegmentOps<V, TL>> resource(name: String, deserializer: (List<Segment<SerializedValue>>) -> TL): TL {
     val profile =
         if (results.discreteProfiles.containsKey(name)) convertProfileWithoutGaps(results.discreteProfiles[name]!!.segments) { it }
         else if (results.realProfiles.containsKey(name)) convertProfileWithoutGaps(results.realProfiles[name]!!.segments) {

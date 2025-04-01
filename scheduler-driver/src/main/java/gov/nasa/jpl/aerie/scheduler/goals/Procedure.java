@@ -9,6 +9,7 @@ import gov.nasa.jpl.aerie.scheduler.ProcedureLoader;
 import gov.nasa.jpl.aerie.scheduler.model.ActivityType;
 import gov.nasa.jpl.aerie.scheduler.model.Plan;
 import gov.nasa.jpl.aerie.scheduler.model.PlanningHorizon;
+import gov.nasa.jpl.aerie.scheduler.model.Problem;
 import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
 import gov.nasa.jpl.aerie.scheduler.plan.InMemoryEditablePlan;
 import gov.nasa.jpl.aerie.scheduler.plan.SchedulerToProcedurePlanAdapter;
@@ -35,7 +36,15 @@ public class Procedure extends Goal {
     this.args = args;
   }
 
-  public void run(Evaluation eval, Plan plan, MissionModel<?> missionModel, Function<String, ActivityType> lookupActivityType, SimulationFacade simulationFacade, DirectiveIdGenerator idGenerator) {
+  public void run(
+      final Problem problem,
+      final Evaluation eval,
+      final Plan plan,
+      final MissionModel<?> missionModel,
+      final Function<String, ActivityType> lookupActivityType,
+      final SimulationFacade simulationFacade,
+      final DirectiveIdGenerator idGenerator
+  ) {
     final ProcedureMapper<?> procedureMapper;
     try {
       procedureMapper = ProcedureLoader.loadProcedure(jarPath);
@@ -47,7 +56,9 @@ public class Procedure extends Goal {
 
     final var planAdapter = new SchedulerToProcedurePlanAdapter(
         plan,
-        planHorizon
+        planHorizon,
+        problem.getDiscreteExternalProfiles(),
+        problem.getRealExternalProfiles()
     );
 
     final var editablePlan = new InMemoryEditablePlan(

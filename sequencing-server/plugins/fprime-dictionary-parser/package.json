@@ -1,0 +1,22 @@
+{
+  "name": "fprime-dictionary-parser",
+  "version": "1.0.0",
+  "description": "fprime-to-ampcs-json",
+  "type": "module",
+  "scripts": {
+    "build": "npm run build:clean; npm install; npm run build:types; tsc --build; npx rollup -c rollup.config.js",
+    "build:clean": "rm -rf ./build",
+    "build:types": "npx json-schema-to-typescript ./schema/fprime-schema.json -o ./schema/fprime-types.ts",
+    "test": "tsc --build; node ./build/test/test.js"
+  },
+  "author": "Ryan Goetz",
+  "license": "ISC",
+  "dependencies": {
+    "@nasa-jpl/aerie-ampcs": "^1.0.6"
+  },
+  "devDependencies": {
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@types/node": "^22.4.1",
+    "rollup": "^4.21.0"
+  }
+}

@@ -19,43 +19,43 @@ beforeAll(async () => {
 describe('upload dictionaries', () => {
   it('should upload a command dictionary and all of the fields should be populated correctly', async () => {
     // During the test we use a uuid for the mission so there's no conflicting command dictionaries.
-    const { id, dictionary_path, mission, parsed_json } = await insertDictionary(graphqlClient, DictionaryType.COMMAND);
+    const { command } = await insertDictionary(graphqlClient, DictionaryType.COMMAND);
 
-    expect(dictionary_path).toBe(`/usr/src/app/sequencing_file_store/${mission}/command_lib.${mission}.ts`);
+    expect(command.dictionary_path).toBe(`/usr/src/app/sequencing_file_store/${command.mission}/command_lib.${command.mission}.ts`);
 
-    expect(parsed_json).toStrictEqual(
-      ampcs.parse(commandDictionaryString.replace(/(Banana Nation|1.0.0.0)/g, mission)),
+    expect(command.parsed_json).toStrictEqual(
+      ampcs.parse(commandDictionaryString.replace(/(Banana Nation|1.0.0.0)/g, command.mission)),
     );
 
-    await removeDictionary(graphqlClient, id, DictionaryType.COMMAND);
+    await removeDictionary(graphqlClient, command.id, DictionaryType.COMMAND);
   }, 30000);
 
   it('should upload a channel dictionary and all of the fields should be populated correctly', async () => {
     // During the test we use a uuid for the mission so there's no conflicting command dictionaries.
-    const { id, dictionary_path, mission, parsed_json } = await insertDictionary(graphqlClient, DictionaryType.CHANNEL);
+    const { channel } = await insertDictionary(graphqlClient, DictionaryType.CHANNEL);
 
-    expect(dictionary_path).toBe(`/usr/src/app/sequencing_file_store/${mission}/channel_lib.${mission}.ts`);
+    expect(channel.dictionary_path).toBe(`/usr/src/app/sequencing_file_store/${channel.mission}/channel_lib.${channel.mission}.ts`);
 
-    expect(parsed_json).toEqual(
-      ampcs.parseChannelDictionary(channelDictionaryString.replace(/(Banana Nation|1.0.0.0)/g, mission)),
+    expect(channel.parsed_json).toEqual(
+      ampcs.parseChannelDictionary(channelDictionaryString.replace(/(Banana Nation|1.0.0.0)/g, channel.mission)),
     );
 
-    await removeDictionary(graphqlClient, id, DictionaryType.CHANNEL);
+    await removeDictionary(graphqlClient, channel.id, DictionaryType.CHANNEL);
   }, 30000);
 
   it('should upload a parameter dictionary and all of the fields should be populated correctly', async () => {
     // During the test we use a uuid for the mission so there's no conflicting command dictionaries.
-    const { id, dictionary_path, mission, parsed_json } = await insertDictionary(
+    const { parameter } = await insertDictionary(
       graphqlClient,
       DictionaryType.PARAMETER,
     );
 
-    expect(dictionary_path).toBe(`/usr/src/app/sequencing_file_store/${mission}/parameter_lib.${mission}.ts`);
+    expect(parameter.dictionary_path).toBe(`/usr/src/app/sequencing_file_store/${parameter.mission}/parameter_lib.${parameter.mission}.ts`);
 
-    expect(parsed_json).toEqual(
-      ampcs.parseParameterDictionary(parameterDictionaryString.replace(/(Banana Nation|1.0.0.1)/g, mission)),
+    expect(parameter.parsed_json).toEqual(
+      ampcs.parseParameterDictionary(parameterDictionaryString.replace(/(Banana Nation|1.0.0.1)/g, parameter.mission)),
     );
 
-    await removeDictionary(graphqlClient, id, DictionaryType.PARAMETER);
+    await removeDictionary(graphqlClient, parameter.id, DictionaryType.PARAMETER);
   }, 30000);
 });

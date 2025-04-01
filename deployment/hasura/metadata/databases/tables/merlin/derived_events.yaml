@@ -1,0 +1,42 @@
+table:
+  name: derived_events
+  schema: merlin
+configuration:
+  custom_name: "derived_events"
+object_relationships:
+  - name: external_source
+    using:
+      manual_configuration:
+        remote_table:
+          name: external_source
+          schema: merlin
+        column_mapping:
+          derivation_group_name: derivation_group_name
+  - name: external_event
+    using:
+      manual_configuration:
+        remote_table:
+          schema: merlin
+          name: external_event
+        insertion_order: null
+        column_mapping:
+          event_type_name: event_type_name
+          event_key: key
+          source_key: source_key
+          derivation_group_name: derivation_group_name
+select_permissions:
+  - role: aerie_admin
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: user
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: viewer
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true

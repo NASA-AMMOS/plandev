@@ -345,6 +345,19 @@ function mapArgumentType(argument: ampcs.FswCommandArgument, enumMap: ampcs.Enum
       return 'FixedString';
     case 'time':
       return 'string';
+    case 'repeat':{
+      let repeatArgs: Array<{ name: string; type: string }> = [];
+      if (argument.repeat === null) {
+        return 'never';
+      }
+      repeatArgs = repeatArgs.concat(
+          argument.repeat.arguments.map(repeatArg => {
+            return { name: `${repeatArg.name}`, type: mapArgumentType(repeatArg, enumMap) };
+          })
+      );
+      return `Array<{ ${repeatArgs.map(repeatArg => `'${repeatArg.name}': ${repeatArg.type}`).join(', ')} }>`
+    }
+
     default:
       throw new Error(`Unsupported argument type: ${argument.arg_type}`);
   }

@@ -1,12 +1,17 @@
 {
   "name": "sequencing-server",
-  "version": "2.21.0",
+  "version": "3.0.1",
   "description": "Aerie sequencing server",
   "type": "module",
   "license": "MIT",
   "private": true,
+  "workspaces": [
+    "./plugins/*"
+  ],
   "scripts": {
-    "build": "npm run build:clean; tsc -p tsconfig.build.json; npm run copy-preface; npm run copy-temporal-polyfill; npm run copy-channel-types; npm run copy-parameter-types;",
+    "build": "npm run build:clean; npm run build:plugins; tsc -p tsconfig.build.json; npm run copy-preface; npm run copy-temporal-polyfill; npm run copy-channel-types; npm run copy-parameter-types;",
+    "build:plugins": "npm run build --workspaces;",
+    "build:server": "tsc -p tsconfig.build.json",
     "build:clean": "rm -rf ./build",
     "copy-preface": "cp ./src/lib/codegen/CommandEDSLPreface.ts ./build/lib/codegen/CommandEDSLPreface.ts;",
     "copy-temporal-polyfill": "cp src/types/TemporalPolyfillTypes.ts ./build/types/TemporalPolyfillTypes.ts;",

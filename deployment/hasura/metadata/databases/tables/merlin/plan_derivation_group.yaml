@@ -1,0 +1,86 @@
+table:
+  name: plan_derivation_group
+  schema: merlin
+configuration:
+  custom_name: "plan_derivation_group"
+object_relationships:
+- name: plan
+  using:
+    foreign_key_constraint_on: plan_id
+- name: derivation_group
+  using:
+    foreign_key_constraint_on: derivation_group_name
+select_permissions:
+  - role: aerie_admin
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: user
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: viewer
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+insert_permissions:
+  - role: aerie_admin
+    permission:
+      columns: [plan_id, derivation_group_name]
+      check: {}
+  - role: user
+    permission:
+      columns: [plan_id, derivation_group_name]
+      check: {
+        "plan": {
+          "_or": [
+            {
+              "owner": { "_eq": "X-Hasura-User-Id" }
+            },
+            {
+              "collaborators": { "collaborator": { "_eq": "X-Hasura-User-Id" } }
+            }
+          ]
+        }
+      }
+update_permissions:
+  - role: aerie_admin
+    permission:
+      columns: [ acknowledged ]
+      filter: {}
+  - role: user
+    permission:
+      columns: [ acknowledged ]
+      filter: {
+        "plan": {
+          "_or": [
+            {
+              "owner": { "_eq": "X-Hasura-User-Id" }
+            },
+            {
+              "collaborators": { "collaborator": { "_eq": "X-Hasura-User-Id" } }
+            }
+          ]
+        }
+      }
+delete_permissions:
+  - role: aerie_admin
+    permission:
+      filter: {}
+  - role: user
+    permission:
+      filter: {
+        "plan": {
+          "_or": [
+            {
+              "owner": { "_eq": "X-Hasura-User-Id" }
+            },
+            {
+              "collaborators": { "collaborator": { "_eq": "X-Hasura-User-Id" } }
+            }
+          ]
+        }
+      }

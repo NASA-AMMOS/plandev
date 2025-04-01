@@ -1,0 +1,63 @@
+table:
+  name: external_source
+  schema: merlin
+configuration:
+  custom_name: "external_source"
+array_relationships:
+  - name: external_events
+    using:
+      foreign_key_constraint_on:
+        columns:
+          - source_key
+          - derivation_group_name
+        table:
+          name: external_event
+          schema: merlin
+object_relationships:
+  - name: external_source_type
+    using:
+      foreign_key_constraint_on: source_type_name
+  - name: derivation_group
+    using:
+      foreign_key_constraint_on: derivation_group_name
+select_permissions:
+  - role: aerie_admin
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: user
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: viewer
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+insert_permissions:
+  - role: aerie_admin
+    permission:
+      columns: [key, source_type_name, valid_at, start_time, end_time, derivation_group_name, created_at]
+      check: {}
+      set:
+        owner: "x-hasura-user-id"
+  - role: user
+    permission:
+      columns: [key, source_type_name, valid_at, start_time, end_time, derivation_group_name, created_at]
+      check: {}
+      set:
+        owner: "x-hasura-user-id"
+delete_permissions:
+  - role: aerie_admin
+    permission:
+      filter: {}
+  - role: user
+    permission:
+      filter: {
+        "_or": [
+          { "owner": { "_eq": "x-hasura-user-id" } },
+          { "derivation_group": { "owner": { "_eq": "x-hasura-user-id" } } }
+        ]
+      }

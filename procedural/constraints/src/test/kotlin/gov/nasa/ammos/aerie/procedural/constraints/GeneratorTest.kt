@@ -2,7 +2,7 @@ package gov.nasa.ammos.aerie.procedural.constraints
 
 import gov.nasa.ammos.aerie.procedural.timeline.Interval
 import gov.nasa.ammos.aerie.procedural.timeline.collections.profiles.Numbers
-import gov.nasa.ammos.aerie.procedural.timeline.ops.coalesce.CoalesceSegmentsOp
+import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment
 import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan
 import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults
@@ -26,7 +26,7 @@ class GeneratorTest: GeneratorConstraint() {
   fun testGenerator() {
     val plan = NotImplementedPlan()
     val simResults = object : NotImplementedSimulationResults() {
-      override fun <V : Any, TL : CoalesceSegmentsOp<V, TL>> resource(
+      override fun <V : Any, TL: SerialSegmentOps<V, TL>> resource(
         name: String,
         deserializer: (List<Segment<SerializedValue>>) -> TL
       ): TL {

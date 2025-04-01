@@ -33,5 +33,8 @@ operator fun Duration.rem(divisor: Duration): Duration = this.remainderOf(diviso
 operator fun Instant.plus(duration: Duration): Instant = plusMillis(duration / MILLISECOND)
     .plusNanos(1000 * ((duration % MILLISECOND) / MICROSECOND))
 
-/** Subtracts a duration from an instant, to produce another instant. */
+/** Subtracts an instant from another instant, represented as a duration. */
 operator fun Instant.minus(other: Instant): Duration = microseconds(other.until(this, ChronoUnit.MICROS))
+
+/** Subtracts a duration from an instant, to produce another instant. */
+operator fun Instant.minus(duration: Duration): Instant = this.plus(-duration)

@@ -18,9 +18,9 @@ let parcelId: number;
 
 beforeAll(async () => {
   graphqlClient = await getGraphQLClient();
-  commandDictionaryId = (await insertDictionary(graphqlClient, DictionaryType.COMMAND)).id;
-  channelDictionaryId = (await insertDictionary(graphqlClient, DictionaryType.CHANNEL)).id;
-  paramaterDictionaryId = (await insertDictionary(graphqlClient, DictionaryType.PARAMETER)).id;
+  commandDictionaryId = (await insertDictionary(graphqlClient, DictionaryType.COMMAND)).command.id;
+  channelDictionaryId = (await insertDictionary(graphqlClient, DictionaryType.CHANNEL)).channel.id;
+  paramaterDictionaryId = (await insertDictionary(graphqlClient, DictionaryType.PARAMETER)).parameter.id;
   parcelId = (
     await insertParcel(
       graphqlClient,

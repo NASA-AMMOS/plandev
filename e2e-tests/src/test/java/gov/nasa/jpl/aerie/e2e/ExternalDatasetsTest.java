@@ -28,12 +28,13 @@ public class ExternalDatasetsTest {
 
   // Cross-Test Constants
   private final String datasetOffset = "06:00:00";
-  private final ProfileInput myBooleanProfile =
+  public static final ProfileInput myBooleanProfile =
       new ProfileInput(
           "/my_boolean",
           "discrete",
           ValueSchema.VALUE_SCHEMA_BOOLEAN,
           List.of(
+              // 3600000000L is 1hr in microseconds
               new ProfileSegmentInput(3600000000L, JsonValue.FALSE),
               new ProfileSegmentInput(3600000000L, JsonValue.NULL),
               new ProfileSegmentInput(3600000000L, JsonValue.TRUE),

@@ -1,4 +1,5 @@
 export type Env = {
+  DICTIONARY_PARSER_PLUGIN: string,
   HASURA_GRAPHQL_ADMIN_SECRET: string;
   LOG_FILE: string;
   LOG_LEVEL: string;
@@ -16,6 +17,7 @@ export type Env = {
 };
 
 export const defaultEnv: Env = {
+  DICTIONARY_PARSER_PLUGIN : '/ampcs-dictionary-parser/ampcs-parser.js',
   HASURA_GRAPHQL_ADMIN_SECRET: '',
   LOG_FILE: 'console',
   LOG_LEVEL: 'info',
@@ -34,7 +36,7 @@ export const defaultEnv: Env = {
 
 export function getEnv(): Env {
   const { env } = process;
-
+  const DICTIONARY_PARSER_PLUGIN = env['DICTIONARY_PARSER_PLUGIN'] ?? defaultEnv.DICTIONARY_PARSER_PLUGIN;
   const HASURA_GRAPHQL_ADMIN_SECRET = env['HASURA_GRAPHQL_ADMIN_SECRET'] ?? defaultEnv.HASURA_GRAPHQL_ADMIN_SECRET;
   const LOG_FILE = env['LOG_FILE'] ?? defaultEnv.LOG_FILE;
   const LOG_LEVEL = env['LOG_LEVEL'] ?? defaultEnv.LOG_LEVEL;
@@ -51,6 +53,7 @@ export function getEnv(): Env {
     env['SEQUENCING_MAX_WORKER_HEAP_MB'] ?? defaultEnv.SEQUENCING_MAX_WORKER_HEAP_MB;
   const TRANSPILER_ENABLED = env['TRANSPILER_ENABLED'] ?? defaultEnv.TRANSPILER_ENABLED;
   return {
+    DICTIONARY_PARSER_PLUGIN,
     HASURA_GRAPHQL_ADMIN_SECRET,
     LOG_FILE,
     LOG_LEVEL,

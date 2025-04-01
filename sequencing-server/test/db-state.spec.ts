@@ -33,9 +33,9 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  commandDictonaryId = (await insertDictionary(graphqlClient, DictionaryType.COMMAND)).id;
-  channelDictionaryId = (await insertDictionary(graphqlClient, DictionaryType.CHANNEL)).id;
-  parameterDictionaryId = (await insertDictionary(graphqlClient, DictionaryType.PARAMETER)).id;
+  commandDictonaryId = (await insertDictionary(graphqlClient, DictionaryType.COMMAND)).command.id;
+  channelDictionaryId = (await insertDictionary(graphqlClient, DictionaryType.CHANNEL)).channel.id;
+  parameterDictionaryId = (await insertDictionary(graphqlClient, DictionaryType.PARAMETER)).parameter.id;
   parcelId = (
     await insertParcel(graphqlClient, commandDictonaryId, channelDictionaryId, parameterDictionaryId, 'db-parcel-test')
   ).parcelId;

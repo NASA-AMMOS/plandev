@@ -1,0 +1,42 @@
+table:
+  name: external_event_type
+  schema: merlin
+configuration:
+  custom_name: "external_event_type"
+array_relationships:
+  - name: external_events
+    using:
+      foreign_key_constraint_on:
+        column: event_type_name
+        table:
+          name: external_event
+          schema: merlin
+select_permissions:
+  - role: aerie_admin
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: user
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: viewer
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+insert_permissions:
+  - role: aerie_admin
+    permission:
+      columns: [name]
+      check: {}
+  - role: user
+    permission:
+      columns: [name]
+      check: {}
+delete_permissions:
+  - role: aerie_admin
+    permission:
+      filter: {}

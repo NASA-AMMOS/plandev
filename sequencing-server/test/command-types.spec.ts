@@ -11,9 +11,9 @@ let parameterDictionaryId: number;
 
 beforeAll(async () => {
   graphqlClient = await getGraphQLClient();
-  commandDictionaryId = (await insertDictionary(graphqlClient, DictionaryType.COMMAND)).id;
-  channelDictionaryId = (await insertDictionary(graphqlClient, DictionaryType.CHANNEL)).id;
-  parameterDictionaryId = (await insertDictionary(graphqlClient, DictionaryType.PARAMETER)).id;
+  commandDictionaryId = (await insertDictionary(graphqlClient, DictionaryType.COMMAND)).command.id;
+  channelDictionaryId = (await insertDictionary(graphqlClient, DictionaryType.CHANNEL)).channel.id;
+  parameterDictionaryId = (await insertDictionary(graphqlClient, DictionaryType.PARAMETER)).parameter.id;
 });
 
 afterAll(async () => {

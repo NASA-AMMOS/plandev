@@ -4,8 +4,8 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
 import gov.nasa.ammos.aerie.procedural.timeline.Interval
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyInstance
-import gov.nasa.ammos.aerie.procedural.timeline.ops.coalesce.CoalesceSegmentsOp
 import gov.nasa.ammos.aerie.procedural.timeline.collections.Instances
+import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps
 
 /** An interface for querying plan information and simulation results. */
 interface SimulationResults {
@@ -16,12 +16,12 @@ interface SimulationResults {
   fun simBounds(): Interval
 
   /**
-   * Query a resource profile from the database
+   * Query a resource profile from this simulation dataset.
    *
    * @param deserializer constructor of the profile, converting [SerializedValue]
    * @param name string name of the resource
    */
-  fun <V: Any, TL: CoalesceSegmentsOp<V, TL>> resource(name: String, deserializer: (List<Segment<SerializedValue>>) -> TL): TL
+  fun <V: Any, TL: SerialSegmentOps<V, TL>> resource(name: String, deserializer: (List<Segment<SerializedValue>>) -> TL): TL
 
   /**
    * Query activity instances.

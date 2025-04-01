@@ -3,7 +3,6 @@ package gov.nasa.jpl.aerie.e2e;
 import com.microsoft.playwright.Playwright;
 import gov.nasa.jpl.aerie.e2e.types.ExternalDataset.ProfileInput;
 import gov.nasa.jpl.aerie.e2e.types.ExternalDataset.ProfileInput.ProfileSegmentInput;
-import gov.nasa.jpl.aerie.e2e.types.GoalInvocationId;
 import gov.nasa.jpl.aerie.e2e.types.Plan;
 import gov.nasa.jpl.aerie.e2e.types.ProfileSegment;
 import gov.nasa.jpl.aerie.e2e.types.SchedulingRequest.SchedulingStatus;
@@ -29,7 +28,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -38,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class SchedulingTests {
+class EdslSchedulingTests {
   // Requests
   private Playwright playwright;
   private HasuraRequests hasura;
@@ -168,10 +166,10 @@ public class SchedulingTests {
                                         .add("growingDuration", 10800000L) // 3h
                                         .build());
     anchors.add(id1);
-    Integer id2 = hasura.insertActivityDirective(planId, "GrowBanana", "5h",
-                                                 Json.createObjectBuilder()
-                                                          .add("growingDuration", 10800000L) // 3h
-                                                          .build());
+    hasura.insertActivityDirective(planId, "GrowBanana", "5h",
+                                   Json.createObjectBuilder()
+                                       .add("growingDuration", 10800000L) // 3h
+                                       .build());
     anchors.add(id1);
     Integer id3 = hasura.insertActivityDirective(planId, "GrowBanana", "10h",
                                                  Json.createObjectBuilder()
@@ -278,7 +276,7 @@ public class SchedulingTests {
   @Test
   void schedulingCoexistenceGoalWithAnchor() throws IOException {
     // Setup: Add Goal and Activities
-    ArrayList<Integer> anchors = insertAnchorActivities();
+    insertAnchorActivities();
     hasura.createSchedulingSpecGoal("Coexistence Scheduling Test Goal", coexistenceGoalWithAnchorsDefinition, schedulingSpecId, 0);
 
 
@@ -1003,175 +1001,4 @@ public class SchedulingTests {
     }
   }
 
-  @Nested
-  class ProceduralSchedulingTests {
-    private int modelId;
-    private int planId;
-    private int specId;
-    private int procedureJarId;
-    private GoalInvocationId procedureId;
-
-    @BeforeEach
-    void beforeEach() throws IOException, InterruptedException {
-      try (final var gateway = new GatewayRequests(playwright)) {
-        modelId = hasura.createMissionModel(
-            gateway.uploadJarFile(),
-            "Banananation (e2e tests)",
-            "aerie_e2e_tests",
-            "Proc Scheduling Tests");
-
-        procedureJarId = gateway.uploadJarFile("../procedural/examples/foo-procedures/build/libs/SampleProcedure.jar");
-      }
-      // Insert the Plan
-      planId = hasura.createPlan(
-          modelId,
-          "Proc Sched Plan - Proc Scheduling Tests",
-          "48:00:00",
-          planStartTimestamp);
-      specId = hasura.getSchedulingSpecId(planId);
-
-      // Add Scheduling Procedure
-      procedureId = hasura.createSchedulingSpecProcedure(
-          "Test Scheduling Procedure",
-          procedureJarId,
-          specId,
-          0);
-    }
-
-    @AfterEach
-    void afterEach() throws IOException {
-      hasura.deleteSchedulingGoal(procedureId.goalId());
-      hasura.deletePlan(planId);
-      hasura.deleteMissionModel(modelId);
-    }
-
-    /**
-     * Upload a procedure jar and add to spec
-     */
-    @Test
-    void proceduralUploadWorks() throws IOException {
-      final var ids = hasura.getSchedulingSpecGoalIds(specId);
-
-      assertEquals(1, ids.size());
-      assertEquals(procedureId.goalId(), ids.getFirst());
-    }
-
-    /**
-     * Run a spec with one procedure in it with required params but no args set
-     * Should fail scheduling run
-     */
-    @Test
-    void executeSchedulingRunWithoutArguments() throws IOException {
-      final var resp = hasura.awaitFailingScheduling(specId);
-      final var message = resp.reason().getString("message");
-      assertTrue(message.contains("java.lang.RuntimeException: Record missing key Component[name=quantity"));
-    }
-
-    /**
-     * Run a spec with one procedure in it
-     */
-    @Test
-    void executeSchedulingRunWithArguments() throws IOException {
-      final var args = Json.createObjectBuilder().add("quantity", 2).build();
-
-      hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
-
-      final var resp = hasura.awaitScheduling(specId);
-
-      final var plan = hasura.getPlan(planId);
-      final var activities = plan.activityDirectives();
-
-      assertEquals(2, activities.size());
-
-      assertTrue(activities.stream().anyMatch(
-          $ -> Objects.equals($.type(), "BiteBanana") && Objects.equals($.startOffset(), "24:00:00")
-      ));
-
-      assertTrue(activities.stream().anyMatch(
-          $ -> Objects.equals($.type(), "BiteBanana") && Objects.equals($.startOffset(), "30:00:00")
-      ));
-    }
-
-    /**
-     * Run a spec with two invocations of the same procedure in it
-     */
-    @Test
-    void executeMultipleInvocationsOfSameProcedure() throws IOException {
-      final var args = Json.createObjectBuilder().add("quantity", 2).build();
-      hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
-
-      final var secondInvocationId = hasura.insertGoalInvocation(procedureId.goalId(), specId);
-      hasura.updateSchedulingSpecGoalArguments(secondInvocationId.invocationId(), args);
-
-      final var resp = hasura.awaitScheduling(specId);
-
-      final var plan = hasura.getPlan(planId);
-      final var activities = plan.activityDirectives();
-
-      assertEquals(4, activities.size());
-    }
-
-    /**
-     * Run a spec with two procedures in it
-     */
-    @Test
-    void executeMultipleProcedures() throws IOException {
-      final var args = Json.createObjectBuilder().add("quantity", 2).build();
-      hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
-
-      final var secondProcedure = hasura.createSchedulingSpecProcedure(
-          "Test Scheduling Procedure 2",
-          procedureJarId,
-          specId,
-          1);
-
-      hasura.updateSchedulingSpecGoalArguments(secondProcedure.invocationId(), args);
-
-      final var resp = hasura.awaitScheduling(specId);
-
-      final var plan = hasura.getPlan(planId);
-      final var activities = plan.activityDirectives();
-
-      assertEquals(4, activities.size());
-    }
-
-    /**
-     * Run a spec with one EDSL goal and one procedure
-     */
-    @Test
-    void executeEDSLAndProcedure() throws IOException {
-      final var args = Json.createObjectBuilder().add("quantity", 4).build();
-      hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
-
-      final int recurrenceGoalId = hasura.createSchedulingSpecGoal(
-          "Recurrence Scheduling Test Goal",
-          recurrenceGoalDefinition,
-          specId,
-          1).goalId();
-
-      final var resp = hasura.awaitScheduling(specId);
-
-      final var plan = hasura.getPlan(planId);
-      final var activities = plan.activityDirectives();
-
-      assertEquals(52, activities.size());
-    }
-
-    /**
-     * Run a spec with one procedure and make sure the activity names are saved to the database
-     */
-    @Test
-    void saveActivityName() throws IOException {
-      final var args = Json.createObjectBuilder().add("quantity", 2).build();
-      hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
-
-      final var resp = hasura.awaitScheduling(specId);
-
-      final var plan = hasura.getPlan(planId);
-      final var activities = plan.activityDirectives();
-
-      assertEquals(2, activities.size());
-      assertEquals("It's a bite banana activity", activities.getFirst().name());
-    }
-  }
 }

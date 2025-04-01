@@ -1,0 +1,488 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "link to file in github repo?",
+  "title": "FPP JSON Dictionary Schema",
+  "description": "Schema for FPP JSON dictionaries",
+  "type": "object",
+  "$defs": {
+    "typeDescriptor": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "integer",
+            "float",
+            "bool",
+            "string",
+            "qualifiedIdentifier"
+          ]
+        },
+        "size": {
+          "type": "number"
+        },
+        "signed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "kind"
+      ]
+    },
+    "enumeratedConstantsDescriptor": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "value": {
+          "type": "number"
+        },
+        "annotation": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "structMemberDescriptor": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/typeDescriptor"
+        },
+        "index": {
+          "type": "number"
+        },
+        "size": {
+          "type": "number"
+        },
+        "format": {
+          "type": "string"
+        },
+        "annotation": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "index"
+      ]
+    },
+    "formalParameter": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "annotation": {
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/typeDescriptor"
+        },
+        "ref": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "ref"
+      ]
+    }
+  },
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "deploymentName": {
+          "type": "string"
+        },
+        "frameworkVersion": {
+          "type": "string"
+        },
+        "projectVersion": {
+          "type": "string"
+        },
+        "libraryVersions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dictionarySpecVersion": {
+          "type": "string"
+        }
+      }
+    },
+    "typeDefinitions": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "array"
+                ]
+              },
+              "qualifiedName": {
+                "type": "string"
+              },
+              "size": {
+                "type": "number"
+              },
+              "elementType": {
+                "$ref": "#/$defs/typeDescriptor"
+              },
+              "default": {
+                "type": "array"
+              },
+              "annotation": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "qualifiedName",
+              "size",
+              "elementType",
+              "default"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "enum"
+                ]
+              },
+              "qualifiedName": {
+                "type": "string"
+              },
+              "representationType": {
+                "$ref": "#/$defs/typeDescriptor"
+              },
+              "enumeratedConstants": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/enumeratedConstantsDescriptor"
+                }
+              },
+              "default": {
+                "type": "string"
+              },
+              "annotation": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "qualifiedName",
+              "representationType",
+              "enumeratedConstants",
+              "default"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "struct"
+                ]
+              },
+              "qualifiedName": {
+                "type": "string"
+              },
+              "annotation": {
+                "type": "string"
+              },
+              "members": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/$defs/structMemberDescriptor"
+                }
+              },
+              "default": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": [
+                    "string",
+                    "number",
+                    "boolean",
+                    "array",
+                    "object"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "kind",
+              "qualifiedName",
+              "members",
+              "default"
+            ]
+          }
+        ]
+      }
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "commandKind": {
+            "type": "string"
+          },
+          "opcode": {
+            "type": "number"
+          },
+          "annotation": {
+            "type": "string"
+          },
+          "formalParams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/formalParameter"
+            }
+          },
+          "priority": {
+            "type": "number"
+          },
+          "queueFullBehavior": {
+            "type": "string",
+            "enum": [
+              "assert",
+              "block",
+              "drop"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "commandKind",
+          "opcode",
+          "formalParams"
+        ]
+      }
+    },
+    "parameters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "annotation": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/$defs/typeDescriptor"
+          },
+          "default": {
+            "type": [
+              "number",
+              "string",
+              "boolean",
+              "object",
+              "array"
+            ]
+          },
+          "id": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "id"
+        ]
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "annotation": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "ACTIVITY_HI",
+              "ACTIVITY_LO",
+              "COMMAND",
+              "DIAGNOSTIC",
+              "FATAL",
+              "WARNING_HI",
+              "WARNING_LO"
+            ]
+          },
+          "formalParams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/formalParameter"
+            }
+          },
+          "id": {
+            "type": "number"
+          },
+          "format": {
+            "type": "string"
+          },
+          "throttle": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "severity",
+          "formalParams",
+          "id"
+        ]
+      }
+    },
+    "telemetryChannels": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "annotation": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/$defs/typeDescriptor"
+          },
+          "id": {
+            "type": "number"
+          },
+          "telemetryUpdate": {
+            "type": "string",
+            "enum": [
+              "always",
+              "on change"
+            ]
+          },
+          "format": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "object",
+            "properties": {
+              "high": {
+                "type": "object",
+                "properties": {
+                  "yellow": {
+                    "type": "number"
+                  },
+                  "orange": {
+                    "type": "number"
+                  },
+                  "red": {
+                    "type": "number"
+                  }
+                }
+              },
+              "low": {
+                "type": "object",
+                "properties": {
+                  "yellow": {
+                    "type": "number"
+                  },
+                  "orange": {
+                    "type": "number"
+                  },
+                  "red": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "id",
+          "telemetryUpdate"
+        ]
+      }
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "annotation": {
+            "type": "string"
+          },
+          "type": {
+            "$ref": "#/$defs/typeDescriptor"
+          },
+          "array": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "id"
+        ]
+      }
+    },
+    "containers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "annotation": {
+            "type": "string"
+          },
+          "id": {
+            "type": "number"
+          },
+          "defaultPriority": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "id"
+        ]
+      }
+    }
+  }
+}

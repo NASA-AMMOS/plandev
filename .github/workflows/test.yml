@@ -78,7 +78,7 @@ jobs:
       - name: Assemble
         run: ./gradlew assemble --parallel
       - name: Build scheduling procedure jars for testing
-        run: ./gradlew procedural:examples:foo-procedures:buildAllSchedulingProcedureJars
+        run: ./gradlew e2e-tests:buildAllSchedulingProcedureJars
       - name: Start Services
         run: |
           docker compose -f ./e2e-tests/docker-compose-test.yml up -d --build

@@ -22,11 +22,21 @@ export async function insertDictionary(
   graphqlClient: GraphQLClient,
   type: DictionaryType,
 ): Promise<{
-  id: number;
-  dictionary_path: string;
-  mission: string;
-  version: string;
-  parsed_json: CommandDictionary | ChannelDictionary | ParameterDictionary;
+  command: {id: number;
+    dictionary_path: string;
+    mission: string;
+    version: string;
+    parsed_json: CommandDictionary}
+  parameter: {id: number;
+    dictionary_path: string;
+    mission: string;
+    version: string;
+    parsed_json: ParameterDictionary}
+  channel: {id: number;
+    dictionary_path: string;
+    mission: string;
+    version: string;
+    parsed_json: ChannelDictionary}
 }> {
   let dictonaryString = commandDictionaryString;
   switch (type) {
@@ -39,28 +49,35 @@ export async function insertDictionary(
   }
   const res = await graphqlClient.request<{
     uploadDictionary: {
-      id: number;
-      dictionary_path: string;
-      mission: string;
-      version: string;
-      parsed_json: CommandDictionary | ChannelDictionary | ParameterDictionary;
+      command: {id: number;
+        dictionary_path: string;
+        mission: string;
+        version: string;
+        parsed_json: CommandDictionary}
+      parameter: {id: number;
+        dictionary_path: string;
+        mission: string;
+        version: string;
+        parsed_json: ParameterDictionary}
+      channel: {id: number;
+        dictionary_path: string;
+        mission: string;
+        version: string;
+        parsed_json: ChannelDictionary}
     };
   }>(
     gql`
-      mutation PutDictionary($dictionary: String!, $type: String!) {
-        uploadDictionary(dictionary: $dictionary, type: $type) {
-          id
-          dictionary_path
-          mission
-          version
-          parsed_json
+      mutation PutDictionary($dictionary: String!) {
+        uploadDictionary(dictionary: $dictionary) {
+          command
+          parameter
+          channel
         }
       }
     `,
     {
       // Generate a UUID for the command dictionary name and version to avoid conflicts when testing.
       dictionary: dictonaryString.replace(/(Banana Nation|1.0.0.0|1.0.0.1)/g, randomUUID()),
-      type,
     },
   );
 

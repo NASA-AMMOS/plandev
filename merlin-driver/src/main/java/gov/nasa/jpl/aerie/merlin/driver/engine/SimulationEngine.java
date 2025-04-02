@@ -2737,7 +2737,11 @@ public final class SimulationEngine implements AutoCloseable {
   }
 
   public Span getSpan(SpanId spanId) {
-    return this.spans.get(spanId);
+    Span s = this.spans.get(spanId);
+    if (s == null) {  // TODO -- Not sure checking older engine is correct.  Used to pass tests without doing this.
+      s = this.oldEngine.getSpan(spanId);   // TODO -- seems like a place where engine data needs to be rolled up.
+    }
+    return s;
   }
 
 

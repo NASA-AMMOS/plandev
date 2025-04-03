@@ -54,6 +54,14 @@ begin
     select new_plan_id, directive_id, tag_id
     from tags.activity_directive_tags adt where adt.plan_id = _plan_id;
 
+  -- derivation groups
+  insert into merlin.plan_derivation_group (plan_id, derivation_group_name)
+    select new_plan_id, derivation_group_name from (
+      select * from merlin.plan_derivation_group where plan_id=validate_plan_id
+    )
+  on conflict
+  	do nothing; -- shouldn't happen...
+
   insert into merlin.plan_latest_snapshot(plan_id, snapshot_id) values(new_plan_id, created_snapshot_id);
   return new_plan_id;
 end

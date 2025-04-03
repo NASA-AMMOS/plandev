@@ -5,6 +5,7 @@ import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.server.models.SimulationResultsHandle;
 
+import java.time.Instant;
 import java.util.function.Consumer;
 
 public final class ResultsProtocol {
@@ -34,11 +35,9 @@ public final class ResultsProtocol {
   public interface WriterRole {
     boolean isCanceled();
 
-    // If the writer aborts because it observes `isCanceled()`,
-    //   it must still complete with `failWith()`.
-    //   Otherwise, the reader would not be able to reclaim unique ownership
-    //   of the underlying resource in order to deallocate it.
-    void succeedWith(SimulationResults results);
+    void writeResults(SimulationResults results);
+    void markSuccess();
+    void markCanceled(final Instant startTime, final Duration duration);
 
     void failWith(SimulationFailure reason);
 

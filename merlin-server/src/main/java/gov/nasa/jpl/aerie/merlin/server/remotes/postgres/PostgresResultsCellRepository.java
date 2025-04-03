@@ -361,18 +361,13 @@ public final class PostgresResultsCellRepository implements ResultsCellRepositor
   private static void postSimulationResults(
       final Connection connection,
       final long datasetId,
-      final SimulationResults results,
-      final SimulationStateRecord state
+      final SimulationResults results
   ) throws SQLException, NoSuchSimulationDatasetException
   {
     final var simulationStart = new Timestamp(results.startTime);
     postActivities(connection, datasetId, results.simulatedActivities, results.unfinishedActivities, simulationStart);
     insertSimulationTopics(connection, datasetId, results.topics);
     insertSimulationEvents(connection, datasetId, results.events, simulationStart);
-
-    try (final var setSimulationStateAction = new SetSimulationStateAction(connection)) {
-      setSimulationStateAction.apply(datasetId, state);
-    }
   }
 
   private static void insertSimulationTopics(
@@ -558,10 +553,10 @@ public final class PostgresResultsCellRepository implements ResultsCellRepositor
     }
 
     @Override
-    public void succeedWith(final SimulationResults results) {
+    public void writeResults(final SimulationResults results) {
       try (final var connection = dataSource.getConnection();
            final var transactionContext = new TransactionContext(connection)) {
-        postSimulationResults(connection, datasetId, results, SimulationStateRecord.success());
+        postSimulationResults(connection, datasetId, results);
         deleteSimulationExtent(connection, datasetId);
         transactionContext.commit();
       } catch (final SQLException ex) {
@@ -570,6 +565,48 @@ public final class PostgresResultsCellRepository implements ResultsCellRepositor
         // A cell should only be created for a valid, existing dataset
         // A dataset should only be deleted by its cell
         throw new Error("Cell references nonexistent simulation dataset");
+      }
+    }
+
+    @Override
+    public void markSuccess() {
+      try (
+          final var connection = dataSource.getConnection();
+          final var transactionContext = new TransactionContext(connection);
+          final var setSimulationStateAction = new SetSimulationStateAction(connection)
+      ) {
+        setSimulationStateAction.apply(datasetId, SimulationStateRecord.success());
+        transactionContext.commit();
+      } catch (SQLException ex) {
+        throw new DatabaseException("Failed to mark simulation status", ex);
+      }
+      catch (NoSuchSimulationDatasetException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    @Override
+    public void markCanceled(final Instant startTime, final Duration duration) {
+      try (
+          final var connection = dataSource.getConnection();
+          final var transactionContext = new TransactionContext(connection);
+          final var setSimulationStateAction = new SetSimulationStateAction(connection)
+      ) {
+        final var reason = new SimulationFailure.Builder()
+            .type("SIMULATION_CANCELED")
+            .data(Json.createObjectBuilder()
+                      .add("elapsedTime", SimulationException.formatDuration(duration))
+                      .add("utcTimeDoy", SimulationException.formatInstant(Duration.addToInstant(startTime, duration)))
+                      .build())
+            .message("Simulation run was canceled")
+            .build();
+        setSimulationStateAction.apply(datasetId, SimulationStateRecord.incomplete(reason));
+        transactionContext.commit();
+      } catch (SQLException ex) {
+        throw new DatabaseException("Failed to mark simulation status", ex);
+      }
+      catch (NoSuchSimulationDatasetException e) {
+        throw new RuntimeException(e);
       }
     }
 
@@ -592,7 +629,9 @@ public final class PostgresResultsCellRepository implements ResultsCellRepositor
     @Override
     public void reportIncompleteResults(final SimulationResults results) {
       try (final var connection = dataSource.getConnection();
-           final var transactionContext = new TransactionContext(connection)) {
+           final var transactionContext = new TransactionContext(connection);
+           final var setSimulationStateAction = new SetSimulationStateAction(connection)
+      ) {
         final var reason = new SimulationFailure.Builder()
             .type("SIMULATION_CANCELED")
             .data(Json.createObjectBuilder()
@@ -601,8 +640,10 @@ public final class PostgresResultsCellRepository implements ResultsCellRepositor
                     .build())
             .message("Simulation run was canceled")
             .build();
-        postSimulationResults(connection, datasetId, results, SimulationStateRecord.incomplete(reason));
+        postSimulationResults(connection, datasetId, results);
+        setSimulationStateAction.apply(datasetId, SimulationStateRecord.incomplete(reason));
         deleteSimulationExtent(connection, datasetId);
+
         transactionContext.commit();
       } catch (final SQLException ex) {
         throw new DatabaseException("Failed to store simulation results", ex);

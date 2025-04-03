@@ -156,6 +156,29 @@ begin
     and msa.merge_request_id = _request_id
     and msa.change_type = 'delete';
 
+  -- Derivation Groups
+  insert into merlin.plan_derivation_group (plan_id, derivation_group_name)
+  	select plan_id_R, derivation_group_name from (
+  		with incoming as (
+  			with original as ( select derivation_group_name from merlin.plan_derivation_group where plan_id=plan_id_R )
+  			select *
+  				from merlin.plan_derivation_group m
+  				where plan_id = snapshot_id_S
+  				and not exists (select derivation_group_name from original where derivation_group_name = m.derivation_group_name)
+  			), outgoing as (
+  			with original as ( select derivation_group_name from merlin.plan_derivation_group where plan_id=snapshot_id_S )
+  			select *
+  				from merlin.plan_derivation_group m
+  				where plan_id = plan_id_R
+  				and not exists (select derivation_group_name from original where derivation_group_name = m.derivation_group_name)
+  			)
+  		select * from incoming
+  		union
+  		select * from outgoing
+  	)
+  on conflict
+  	do nothing;
+
   -- Clean up
   delete from merlin.conflicting_activities where merge_request_id = _request_id;
   delete from merlin.merge_staging_area where merge_staging_area.merge_request_id = _request_id;

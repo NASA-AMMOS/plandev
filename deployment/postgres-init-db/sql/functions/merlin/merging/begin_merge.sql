@@ -20,7 +20,7 @@
             Modify              |             Delete            | Into CA
             Delete              |             Delete            | Dropped
  */
-create procedure merlin.begin_merge(_merge_request_id integer, review_username text)
+create or replace procedure merlin.begin_merge(_merge_request_id integer, review_username text)
   language plpgsql as $$
   declare
     validate_id integer;
@@ -316,8 +316,33 @@ begin
     limit 1
     into validate_non_no_op_status;
 
+    -- allow merging if derivation groups differ
     if validate_non_no_op_status is null then
-      raise exception 'Cannot begin merge. The contents of the two plans are identical.';
+      select * from (
+        select case when count(*) > 0 then 'modify' else null end from (
+          with incoming as (
+            with original as ( select derivation_group_name from merlin.plan_derivation_group where plan_id=plan_id_receiving )
+            select *
+              from merlin.plan_derivation_group m
+              where plan_id = snapshot_id_supplying
+              and not exists (select derivation_group_name from original where derivation_group_name = m.derivation_group_name)
+            ), outgoing as (
+            with original as ( select derivation_group_name from merlin.plan_derivation_group where plan_id=snapshot_id_supplying )
+            select *
+              from merlin.plan_derivation_group m
+              where plan_id = plan_id_receiving
+              and not exists (select derivation_group_name from original where derivation_group_name = m.derivation_group_name)
+            )
+          select * from incoming
+          union
+          select * from outgoing
+        )
+      )
+      into validate_non_no_op_status;
+
+      if validate_non_no_op_status is null then
+        raise exception 'Cannot begin merge. The contents of the two plans are identical.';
+      end if;
     end if;
   end if;
 

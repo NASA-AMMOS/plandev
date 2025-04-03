@@ -20,7 +20,14 @@ public record SimulationAgent (
     MissionModelService missionModelService,
     long simulationProgressPollPeriod
 ) {
-  public void simulate(
+  public sealed interface Status {
+    Status FAILURE = new Failure();
+    Status SUCCESS = new Success();
+    record Success() implements Status {}
+    record Failure() implements Status {}
+    record Canceled(java.time.Instant startTime, Duration duration) implements Status {}
+  }
+  public Status simulate(
       final PlanId planId,
       final RevisionData revisionData,
       final ResultsProtocol.WriterRole writer,
@@ -38,7 +45,7 @@ public record SimulationAgent (
         writer.failWith(b -> b
             .type("SIMULATION_REQUEST_NOT_RELEVANT")
             .message("Simulation request no longer relevant: %s".formatted(failure.reason())));
-        return;
+        return Status.FAILURE;
       }
     } catch (final NoSuchPlanException ex) {
       writer.failWith(b -> b
@@ -46,7 +53,7 @@ public record SimulationAgent (
           .message(ex.toString())
           .data(ResponseSerializers.serializeNoSuchPlanException(ex))
           .trace(ex));
-      return;
+      return Status.FAILURE;
     }
 
     final SimulationResults results;
@@ -63,7 +70,7 @@ public record SimulationAgent (
             .type("PLAN_CONTAINS_UNCONSTRUCTABLE_ACTIVITIES")
             .message("Plan contains unconstructable activities")
             .data(ResponseSerializers.serializeUnconstructableActivityFailures(failures)));
-        return;
+        return Status.FAILURE;
       }
 
       try (final var extentListener = FixedRateListener.callAtFixedRate(
@@ -89,27 +96,30 @@ public record SimulationAgent (
           .message(ex.cause.getMessage())
           .data(errorMsgBuilder.build())
           .trace(ex.cause));
-      return;
+      return Status.FAILURE;
     } catch (final MissionModelService.NoSuchMissionModelException ex) {
       writer.failWith(b -> b
           .type("NO_SUCH_MISSION_MODEL")
           .message(ex.toString())
           .data(ResponseSerializers.serializeNoSuchMissionModelException(ex))
           .trace(ex));
-      return;
+      return Status.FAILURE;
     } catch (final MissionModelService.NoSuchActivityTypeException ex) {
       writer.failWith(b -> b
           .type("NO_SUCH_ACTIVITY_TYPE")
           .message("Activity of type `%s` could not be instantiated".formatted(ex.activityTypeId))
           .data(ResponseSerializers.serializeNoSuchActivityTypeException(ex))
           .trace(ex));
-      return;
+      return Status.FAILURE;
     }
 
-    if(canceledListener.get()) {
+    writer.reportSimulationExtent(results.duration);
+    if (canceledListener.get()) {
       writer.reportIncompleteResults(results);
+      return new Status.Canceled(results.startTime, results.duration);
     } else {
-      writer.succeedWith(results);
+      writer.writeResults(results);
+      return Status.SUCCESS;
     }
   }
 }

@@ -93,8 +93,9 @@ public final class MerlinWorkerAppDriver {
             notification.simulationRevision(),
             notification.simulationTemplateRevision());
         final ResultsProtocol.WriterRole writer = owner.get();
+        SimulationAgent.Status status = null;
         try(final var streamer = new PostgresProfileStreamer(hikariDataSource, datasetId)) {
-          simulationAgent.simulate(
+          status = simulationAgent.simulate(
               planId,
               revisionData,
               writer,
@@ -102,6 +103,7 @@ public final class MerlinWorkerAppDriver {
               new StreamingSimulationResourceManager(streamer));
         } catch (final Throwable ex) {
           ex.printStackTrace(System.err);
+          status = SimulationAgent.Status.FAILURE;
           writer.failWith(b -> b
               .type("UNEXPECTED_SIMULATION_EXCEPTION")
               .message("Something went wrong while simulating")
@@ -109,6 +111,20 @@ public final class MerlinWorkerAppDriver {
         }
         finally {
           canceledListener.unregister();
+          // Write simulation status
+          if (status != null) {
+            switch (status) {
+              case SimulationAgent.Status.Canceled canceled -> {
+                writer.markCanceled(canceled.startTime(), canceled.duration());
+              }
+              case SimulationAgent.Status.Failure failure -> {
+                // Failure has already been marked by this point
+              }
+              case SimulationAgent.Status.Success success -> {
+                writer.markSuccess();
+              }
+            }
+          }
         }
       }
     } finally {

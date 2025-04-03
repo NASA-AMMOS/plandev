@@ -96,6 +96,7 @@ public final class InMemoryResultsCellRepository implements ResultsCellRepositor
     private volatile ResultsProtocol.State state = new ResultsProtocol.State.Incomplete(0);
     public final PlanId planId;
     public final long planRevision;
+    private InMemorySimulationResultsHandle writtenResults;
 
     public InMemoryCell(final PlanId planId, final long planRevision) {
       this.planId = planId;
@@ -118,13 +119,23 @@ public final class InMemoryResultsCellRepository implements ResultsCellRepositor
     }
 
     @Override
-    public void succeedWith(final SimulationResults results) {
+    public void writeResults(final SimulationResults results) {
+      this.writtenResults = new InMemorySimulationResultsHandle(results);
+    }
+
+    @Override
+    public void markSuccess() {
       if (!(this.state instanceof ResultsProtocol.State.Incomplete)) {
         throw new IllegalStateException("Cannot transition to success state from state %s".formatted(
             this.state.getClass().getCanonicalName()));
       }
 
-      this.state = new ResultsProtocol.State.Success(0, new InMemorySimulationResultsHandle(results));
+      this.state = new ResultsProtocol.State.Success(0, this.writtenResults);
+    }
+
+    @Override
+    public void markCanceled(final Instant startTime, final Duration duration) {
+
     }
 
     @Override

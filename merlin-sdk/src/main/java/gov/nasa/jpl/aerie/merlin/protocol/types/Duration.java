@@ -242,48 +242,6 @@ public record Duration(long micros) implements Comparable<Duration> {
             "Duration has incorrect format. Expected format HH:MM:SS (or valid ISO8601). Provided duration: "
             + duration);
       }
-
-//      // try ISO8601 matching
-//      // NOTE: not totally accurate...this could allow PT5HT3S
-//      final var regexp8601 = "(?<negate>[-])?P(?<years>\\d+Y)?(?<months>\\d+M)?(?<days>\\d+D)?(?<hours>T?\\d+H)?(?<minutes>T?\\d+M)?((?<seconds>T?\\d+)(?<micros>[.](\\d{1,6}))?S)?";
-//
-//      final Pattern pattern8601 = Pattern.compile(regexp8601, Pattern.MULTILINE);
-//      final Matcher matcher8601 = pattern8601.matcher(duration);
-//
-//      if (!matcher8601.matches()) {
-//        throw new IllegalArgumentException(
-//            "Duration has incorrect format. Expected format HH:MM:SS. Provided duration: "
-//            + duration);
-//      }
-//
-//      final var sign = Optional.ofNullable(matcher8601.group("negate"));
-//
-//      final var yearsRaw = Optional.ofNullable(matcher8601.group("years"));
-//      final var monthsRaw = Optional.ofNullable(matcher8601.group("months"));
-//      final var daysRaw = Optional.ofNullable(matcher8601.group("days"));
-//      final var hoursRaw = Optional.ofNullable(matcher8601.group("hours"));
-//      final var minutesRaw = Optional.ofNullable(matcher8601.group("minutes"));
-//      final var secondsRaw = Optional.ofNullable(matcher8601.group("seconds"));
-//      final var microsRaw = Optional.ofNullable(matcher8601.group("micros"));
-//
-//      // pour years/months/days into hours. hours does have an ambiguous conversion from years,
-//      //    so we default to 365 days/year, 30 days/month, because we have no context on when this
-//      //    duration is being applied...ideally we just don't get ISO8601 durations with these fields
-//      //    but it has happened a few times
-//      final int hours = (yearsRaw.map(string -> Integer.parseInt(string.replace("Y", "")) * 365 * 24).orElse(0))
-//          + (monthsRaw.map(string -> Integer.parseInt(string.replace("M", "")) * 30 * 24).orElse(0))
-//          + (daysRaw.map(string -> Integer.parseInt(string.replace("D", "")) * 24).orElse(0))
-//          + (hoursRaw.map(string -> Integer.parseInt(string.replace("T", "").replace("H", ""))).orElse(0));
-//      final int minutes = minutesRaw.map(string -> Integer.parseInt(string.replace("T", "").replace("M", ""))).orElse(0);
-//      final int seconds = secondsRaw.map(string -> Integer.parseInt(string.replace("T", ""))).orElse(0);
-//      final int micros = microsRaw.map(value -> Integer.parseInt(value.substring(1)))
-//                                  .orElse(0);
-//
-//      return Duration.of(hours, Duration.HOURS)
-//                     .plus(Duration.of(minutes, Duration.MINUTES))
-//                     .plus(Duration.of(seconds, Duration.SECONDS))
-//                     .plus(Duration.of(micros, Duration.MICROSECONDS))
-//                     .times(sign.isPresent() && sign.get().equals("-") ? -1 : 1);
     }
     final var sign = Optional.ofNullable(matcher.group(1));
     final var hours = Duration.of(Integer.parseInt(matcher.group(2)),Duration.HOURS);

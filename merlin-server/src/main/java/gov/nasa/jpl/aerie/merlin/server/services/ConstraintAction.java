@@ -191,7 +191,7 @@ public class ConstraintAction {
       //    a procedural constraint will access
       final var merlinSimResults = resultsHandle.getSimulationResults();
       final var edslSimResults = new SimulationResults(merlinSimResults);
-      final var environment = new EvaluationEnvironment(realExternalProfiles, discreteExternalProfiles);
+      final var environment = new EvaluationEnvironment(realExternalProfiles, discreteExternalProfiles, externalEvents);
 
       final var timelinePlan = new ReadonlyPlan(plan, environment);
       final var timelineSimResults = new ReadonlyProceduralSimResults(merlinSimResults, timelinePlan);

@@ -21,6 +21,7 @@ public record ForEachActivityViolations(
             new HashMap<>(environment.activityInstances()),
             environment.spansInstances(),
             environment.intervals(),
+            environment.eventsByDerivationGroup(),
             environment.realExternalProfiles(),
             environment.discreteExternalProfiles()
         );

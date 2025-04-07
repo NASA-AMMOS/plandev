@@ -472,7 +472,7 @@ public class ASTTests {
         Map.of(),
         Map.of()
     );
-    final var environment = new EvaluationEnvironment(Map.of("act", act), Map.of(), Map.of(), Map.of(), Map.of());
+    final var environment = new EvaluationEnvironment(Map.of("act", act), Map.of(), Map.of(), Map.of(), Map.of(), Map.of());
 
     final var result = new RealParameter("act", "p1").evaluate(simResults, environment);
 
@@ -809,6 +809,7 @@ public class ASTTests {
         Map.of(),
         Map.of(),
         Map.of(),
+        Map.of(),
         Map.of()
     );
 
@@ -839,6 +840,7 @@ public class ASTTests {
                 Map.of(),
                 Interval.between(4, 8, SECONDS))
         ),
+        Map.of(),
         Map.of(),
         Map.of(),
         Map.of(),
@@ -873,6 +875,7 @@ public class ASTTests {
                 Map.of(),
                 Interval.between(4, 8, SECONDS))
         ),
+        Map.of(),
         Map.of(),
         Map.of(),
         Map.of(),
@@ -955,6 +958,8 @@ public class ASTTests {
     assertEquivalent(expected, result);
   }
 
+  // TODO: add test for external events
+
   @Test
   public void testExternalDiscreteResource() {
     final var simResults = new SimulationResults(
@@ -974,7 +979,8 @@ public class ASTTests {
             "discrete1", new DiscreteProfile(Segment.of(Interval.at(4, SECONDS), SerializedValue.of("one"))),
             "discrete2", new DiscreteProfile(Segment.of(Interval.at(5, SECONDS), SerializedValue.of("two"))),
             "discrete3", new DiscreteProfile(Segment.of(Interval.at(6, SECONDS), SerializedValue.of("three")))
-        )
+        ),
+        Map.of()
     );
 
     final var result = new DiscreteResource("discrete2").evaluate(simResults, environment);
@@ -1003,7 +1009,8 @@ public class ASTTests {
             "discrete1", new DiscreteProfile(Segment.of(Interval.at(4, SECONDS), SerializedValue.of("one"))),
             "discrete2", new DiscreteProfile(Segment.of(Interval.at(5, SECONDS), SerializedValue.of("two"))),
             "discrete3", new DiscreteProfile(Segment.of(Interval.at(6, SECONDS), SerializedValue.of("three")))
-        )
+        ),
+        Map.of()
     );
 
     final var result = new RealResource("real2").evaluate(simResults, environment);
@@ -1029,6 +1036,7 @@ public class ASTTests {
     final var environment = new EvaluationEnvironment(
         Map.of(),
         Map.of("my spans", spans),
+        Map.of(),
         Map.of(),
         Map.of(),
         Map.of()

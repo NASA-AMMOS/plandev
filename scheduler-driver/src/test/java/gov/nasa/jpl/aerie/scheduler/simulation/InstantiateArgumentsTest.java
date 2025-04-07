@@ -59,6 +59,7 @@ public class InstantiateArgumentsTest {
         Map.of(),
         Map.of(),
         Map.of(),
+        Map.of(),
         Map.of());
     final SimulationResults simulationResults = new SimulationResults(
         Instant.EPOCH,

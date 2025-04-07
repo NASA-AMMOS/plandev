@@ -348,6 +348,7 @@ public class CoexistenceGoal extends ActivityTemplateGoal {
           activityInstances,
           existingEnvironment.spansInstances(),
           existingEnvironment.intervals(),
+          existingEnvironment.eventsByDerivationGroup(),
           existingEnvironment.realExternalProfiles(),
           existingEnvironment.discreteExternalProfiles()
       );
@@ -359,6 +360,7 @@ public class CoexistenceGoal extends ActivityTemplateGoal {
           existingEnvironment.activityInstances(),
           existingEnvironment.spansInstances(),
           intervals,
+          existingEnvironment.eventsByDerivationGroup(),
           existingEnvironment.realExternalProfiles(),
           existingEnvironment.discreteExternalProfiles()
       );

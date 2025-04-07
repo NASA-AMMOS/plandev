@@ -48,6 +48,7 @@ public final class MerlinWorkerAppDriver {
 
     final var hikariDataSource = new HikariDataSource(hikariConfig);
 
+    // TODO: could we unify things between this driver and the scheduling one, as far as plan repos and external event handling go???
     final var stores = new Stores(
         new PostgresPlanRepository(hikariDataSource, configuration.merlinFileStore()),
         new PostgresMissionModelRepository(hikariDataSource),

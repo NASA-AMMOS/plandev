@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
@@ -22,6 +23,7 @@ import javax.sql.DataSource;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -281,6 +283,17 @@ public final class PostgresPlanRepository implements PlanRepository {
         result.putAll(schemas);
       }
       return result;
+    } catch (final SQLException ex) {
+      throw new DatabaseException(
+          "Failed to get external resource schemas for plan with id `%s`".formatted(planId), ex
+      );
+    }
+  }
+
+  @Override
+  public Map<String, List<ExternalEvent>> getExternalEvents(final PlanId planId, final Instant horizonStart) throws DatabaseException {
+    try (final var connection = this.dataSource.getConnection()) {
+      return ProfileRepository.getExternalEvents(connection, planId, horizonStart);
     } catch (final SQLException ex) {
       throw new DatabaseException(
           "Failed to get external resource schemas for plan with id `%s`".formatted(planId), ex

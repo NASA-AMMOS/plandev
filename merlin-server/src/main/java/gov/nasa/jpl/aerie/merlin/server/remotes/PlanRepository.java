@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.remotes;
 
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
@@ -9,12 +10,14 @@ import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
 import gov.nasa.jpl.aerie.merlin.server.models.ProfileSet;
 import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
+import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.DatabaseException;
 import gov.nasa.jpl.aerie.merlin.server.services.RevisionData;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.Plan;
 import gov.nasa.jpl.aerie.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,6 +50,7 @@ public interface PlanRepository {
       PlanId planId,
       SimulationDatasetId simulationDatasetId) throws NoSuchPlanException;
   Map<String, ValueSchema> getExternalResourceSchemas(PlanId planId, Optional<SimulationDatasetId> simulationDatasetId) throws NoSuchPlanException;
+  Map<String, List<ExternalEvent>> getExternalEvents(PlanId planId, Instant horizonStart) throws DatabaseException;
 
   record CreatedPlan(PlanId planId, List<ActivityDirectiveId> activityIds) {}
 }

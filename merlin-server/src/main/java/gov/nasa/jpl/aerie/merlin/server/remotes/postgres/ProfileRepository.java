@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.jpl.aerie.merlin.driver.engine.ProfileSegment;
 import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfile;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
@@ -12,6 +13,7 @@ import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -97,6 +99,17 @@ import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.realDynamicsP
     }
 
     return results;
+  }
+
+  // NOTE: can be debated whether this should be included here or whether the action should just be directly invoked in PostgresPlanRepository...
+  static Map<String, List<ExternalEvent>> getExternalEvents(
+      final Connection connection,
+      final PlanId planId,
+      final Instant horizonStart
+  ) throws SQLException {
+    try (final var getExternalEventsAction = new GetExternalEventsAction(connection, planId)) {
+      return getExternalEventsAction.get(horizonStart);
+    }
   }
 
   static List<PlanDatasetRecord> getPlanDatasetsForPlan(

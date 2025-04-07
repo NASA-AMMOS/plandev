@@ -22,6 +22,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.parseOffset;
+
 /*package-local*/ final class GetExternalEventsAction implements AutoCloseable {
   private static final @Language("SQL") String sql = """
     select
@@ -30,8 +32,7 @@ import java.util.Map;
       event_key,
       duration,
       derivation_group_name,
-      source_range,
-      start_time,
+      to_char(start_time, 'YYYY-DDD"T"HH24:MI:SS.FF6') as start_time,
       valid_at
     from merlin.derived_events
     where derived_events.derivation_group_name
@@ -53,10 +54,15 @@ import java.util.Map;
       final var mappedResults = new HashMap<String, List<ExternalEvent>>();
       final var unorganized = new ArrayList<ExternalEvent>();
       while (results.next()) {
-        final var start = new Duration(
-            horizonStart.until(results.getTimestamp("start_time").toInstant(), ChronoUnit.MICROS)
+        // We use here more intricate formatting and parsers to ensure consistency in results regardless of how the
+        //    database formats our result. This insulates against the rare case of Postgres returning ISO8601 formatted
+        //    times, which can happen unpredictably.
+        final var startInstant = Timestamp.fromString(results.getString("start_time")).toInstant();
+        final var startDuration = new Duration(
+            horizonStart.until(startInstant, ChronoUnit.MICROS)
         );
-        final var end = start.plus(Duration.fromString(results.getString("duration")));
+        final var duration = parseOffset(results, "duration");
+        final var endDuration = startDuration.plus(duration);
         unorganized.add(new ExternalEvent(
             results.getString("event_key"),
             results.getString("event_type_name"),
@@ -64,7 +70,7 @@ import java.util.Map;
                 results.getString("source_key"),
                 results.getString("derivation_group_name")
             ),
-            Interval.between(start, end)
+            Interval.between(startDuration, endDuration)
         ));
       }
       for (final var event: unorganized) {

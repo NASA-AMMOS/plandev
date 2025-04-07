@@ -97,6 +97,10 @@ public final class PostgresParsers {
     return Duration.of(microsOfPGInterval(new PGInterval(resultSet.getString(index))), Duration.MICROSECONDS);
   }
 
+  public static Duration parseOffset(final ResultSet resultSet, final String index) throws SQLException {
+    return Duration.of(microsOfPGInterval(new PGInterval(resultSet.getString(index))), Duration.MICROSECONDS);
+  }
+
   static long microsOfPGInterval(final PGInterval interval) {
     if (interval.getYears() != 0) {
       throw new IllegalArgumentException("Cannot convert years to microseconds");

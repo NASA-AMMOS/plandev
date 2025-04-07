@@ -4,6 +4,7 @@ import gov.nasa.ammos.aerie.procedural.timeline.Interval;
 import gov.nasa.ammos.aerie.procedural.timeline.collections.Directives;
 import gov.nasa.ammos.aerie.procedural.timeline.collections.ExternalEvents;
 import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps;
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive;
@@ -22,6 +23,8 @@ import org.jetbrains.annotations.Nullable;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * An immutable version of a Timeline Plan. Primary use is for Procedural Constraints.
@@ -157,7 +160,27 @@ public final class ReadonlyPlan implements Plan {
   @NotNull
   @Override
   public ExternalEvents events(@NotNull final EventQuery query) {
-    throw new NotImplementedError("Procedural Constraints does not currently support External Events");
+    List<ExternalEvent> result = new java.util.ArrayList<>(List.of());
+    if (query.getDerivationGroups() != null) {
+      final List<ExternalEvent> finalResult = result; // create a final alias so forEach is happy
+      query.getDerivationGroups().forEach(it -> {
+        var events = environment.eventsByDerivationGroup().get(it);
+        if (events != null) {
+          finalResult.addAll(events);
+        }
+      });
+    }
+    else {
+      environment.eventsByDerivationGroup().values().forEach(result::addAll);
+    }
+
+    if(query.getEventTypes() != null) {
+      result = result.stream().filter(it -> query.getEventTypes().contains(it.type)).collect(Collectors.toList());
+    }
+    if(query.getEventTypes() != null) {
+      result = result.stream().filter(it -> Objects.requireNonNull(query.getSources()).contains(it.source)).collect(Collectors.toList());
+    }
+    return new ExternalEvents(result);
   }
 
   /** Get all external events across all derivation groups associated with this plan. */

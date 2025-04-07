@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.mocks;
 
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
@@ -111,6 +112,11 @@ public final class StubPlanService implements PlanService {
   @Override
   public Map<String, ValueSchema> getExternalResourceSchemas(final PlanId planId, final Optional<SimulationDatasetId> simulationDatasetId) throws NoSuchPlanException {
     return Map.of("external resource", ValueSchema.BOOLEAN);
+  }
+
+  @Override
+  public Map<String, List<ExternalEvent>> getExternalEvents(final PlanId planId, final Instant horizonStart) throws NoSuchPlanException {
+    return Map.of("DerivationGroup0", List.of());
   }
 
 }

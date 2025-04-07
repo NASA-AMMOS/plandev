@@ -134,6 +134,7 @@ public class ConstraintAction {
     // If the lengths don't match we need check the left-over constraints.
     if (!constraints.isEmpty()) {
       final var externalDatasets = this.planService.getExternalDatasets(planId, simDatasetId);
+      final var externalEvents = this.planService.getExternalEvents(planId, plan.planStartInstant());
       final var realExternalProfiles = new HashMap<String, LinearProfile>();
       final var discreteExternalProfiles = new HashMap<String, DiscreteProfile>();
 

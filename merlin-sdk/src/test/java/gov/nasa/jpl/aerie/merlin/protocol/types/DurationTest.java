@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.EPSILON;
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MILLISECONDS;
+import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MINUTES;
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.duration;
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.roundDownward;
@@ -68,12 +69,29 @@ public final class DurationTest {
     assertEquals(Duration.of(1, Duration.HOURS).plus(Duration.of(0, Duration.MINUTES).plus(Duration.of(0, Duration.SECONDS))),
                  Duration.fromString("+00:60:00"));
 
+    // Test positive ISO8601 duration
+    assertEquals(Duration.of(24 + 23, Duration.HOURS).plus(Duration.of(5, Duration.MINUTES).plus(Duration.of(1, SECONDS))),
+                 Duration.fromString("P1DT23H5M1S"));
+    // Test negative ISO8601 duration
+    assertEquals(Duration.of(-24 - 23, Duration.HOURS).plus(Duration.of(-5, Duration.MINUTES).plus(Duration.of(-1, SECONDS))),
+                 Duration.fromString("-P1DT23H5M1S"));
+    // Test ISO8601 duration with no subseconds
+    assertEquals(Duration.of(1, SECONDS), Duration.fromString("PT1S"));
+    // Test ISO8601 duration with trailing zeros in subseconds
+    assertEquals(Duration.of(50, SECONDS).plus(Duration.of(100100, Duration.MICROSECONDS)), Duration.fromString("PT50.100100S"));
+    // Test ISO8601 duration empty
+    assertEquals(Duration.ZERO, Duration.fromString("PT0S"));
+
+
     assertThrows(IllegalArgumentException.class, () -> Duration.fromString("+20:00"));
     // invalid input
     assertThrows(IllegalArgumentException.class,() -> Duration.fromString("3:2:03"));
     // Test positive duration
     assertThrows(IllegalArgumentException.class, () -> Duration.fromString("a1:023.1234567"));
     assertThrows(IllegalArgumentException.class, () -> Duration.fromString("-01:02:03.12345678901"));
-
+    // Test something with years/months, which are necessarily vague and should never show up
+    assertThrows(IllegalArgumentException.class, () -> Duration.fromString("P1Y2M3DT22H1M"));
+    // Test gibberish
+    assertThrows(IllegalArgumentException.class, () -> Duration.fromString("P1"));
   }
 }

@@ -1,5 +1,7 @@
 package gov.nasa.jpl.aerie.constraints.tree;
 
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalSource;
 import gov.nasa.jpl.aerie.constraints.InputMismatchException;
 import gov.nasa.jpl.aerie.constraints.model.ActivityInstance;
 import gov.nasa.jpl.aerie.constraints.model.DiscreteProfile;
@@ -958,7 +960,39 @@ public class ASTTests {
     assertEquivalent(expected, result);
   }
 
-  // TODO: add test for external events
+  // Simply checks visibility...
+  @Test
+  public void testExternalEvents() {
+    final var simResults = new SimulationResults(
+        Instant.EPOCH, Interval.between(0, 20, SECONDS),
+        List.of(),
+        Map.of(),
+        Map.of()
+    );
+
+    final var source = new ExternalSource("DefaultSource", "DefaultDerivationGroup");
+    final var events = List.of(
+        new ExternalEvent("Event1", "EventTypeA", source, gov.nasa.ammos.aerie.procedural.timeline.Interval.between(Duration.of(1, SECONDS), Duration.of(2, SECONDS))),
+        new ExternalEvent("Event2", "EventTypeA", source, gov.nasa.ammos.aerie.procedural.timeline.Interval.between(Duration.of(3, SECONDS), Duration.of(4, SECONDS))),
+        new ExternalEvent("Event3", "EventTypeA", source, gov.nasa.ammos.aerie.procedural.timeline.Interval.between(Duration.of(5, SECONDS), Duration.of(6, SECONDS)))
+    );
+
+    final var environment = new EvaluationEnvironment(
+        Map.of(
+            "real1", new LinearProfile(Segment.of(Interval.at(1, SECONDS), new LinearEquation(Duration.of(1, SECONDS), 0, 1)))
+        ),
+        Map.of(
+            "discrete1", new DiscreteProfile(Segment.of(Interval.at(4, SECONDS), SerializedValue.of("one")))
+        ),
+        Map.of(
+            "DefaultDerivationGroup", events
+        )
+    );
+
+    final var result = environment.eventsByDerivationGroup().get("DefaultDerivationGroup");
+
+    assertEquivalent(result, events);
+  }
 
   @Test
   public void testExternalDiscreteResource() {

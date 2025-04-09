@@ -4,6 +4,7 @@ import gov.nasa.ammos.aerie.procedural.timeline.Interval;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalSource;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
 import gov.nasa.jpl.aerie.types.Timestamp;
 import org.intellij.lang.annotations.Language;
@@ -11,6 +12,7 @@ import org.intellij.lang.annotations.Language;
 import javax.json.Json;
 import javax.json.JsonArray;
 import javax.json.JsonObject;
+import java.io.Serial;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -22,6 +24,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.activityArgumentsP;
+import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.externalEventAttributesP;
+import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.getJsonColumn;
 import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.parseOffset;
 
 /*package-local*/ final class GetExternalEventsAction implements AutoCloseable {
@@ -31,15 +36,19 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
       event_type_name,
       event_key,
       duration,
-      derivation_group_name,
-      to_char(start_time, 'YYYY-DDD"T"HH24:MI:SS.FF6') as start_time,
-      valid_at
-    from merlin.derived_events
-    where derived_events.derivation_group_name
+      d.attributes as event_attributes,
+      s.attributes as source_attributes,
+      d.derivation_group_name,
+      to_char(d.start_time, 'YYYY-DDD"T"HH24:MI:SS.FF6') as start_time,
+      d.valid_at
+    from merlin.derived_events d
+      join merlin.external_source s
+      on d.source_key = s.key AND d.derivation_group_name = s.derivation_group_name
+    where d.derivation_group_name
     in (
       select derivation_group_name
       from merlin.plan_derivation_group
-      where plan_id=%d
+      where plan_id=1
     )
     """;
 
@@ -68,8 +77,12 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
             results.getString("event_type_name"),
             new ExternalSource(
                 results.getString("source_key"),
-                results.getString("derivation_group_name")
+                results.getString("derivation_group_name"),
+                getJsonColumn(results, "source_attributes", externalEventAttributesP)
+                    .getSuccessOrThrow($ -> new Error("Corrupt source attributes cannot be parsed: " + $.reason()))
             ),
+            getJsonColumn(results, "event_attributes", externalEventAttributesP)
+                .getSuccessOrThrow($ -> new Error("Corrupt source attributes cannot be parsed: " + $.reason())),
             Interval.between(startDuration, endDuration)
         ));
       }

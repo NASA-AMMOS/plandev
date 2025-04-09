@@ -122,6 +122,7 @@ public final class PostgresParsers {
 
   public static final JsonParser<Map<String, SerializedValue>> constraintArgumentsP = mapP(serializedValueP);
   public static final JsonParser<Map<String, SerializedValue>> activityArgumentsP = mapP(serializedValueP);
+  public static final JsonParser<Map<String, SerializedValue>> externalEventAttributesP = mapP(serializedValueP);
 
   public static final JsonParser<Map<String, SerializedValue>> simulationArgumentsP = mapP(serializedValueP);
 

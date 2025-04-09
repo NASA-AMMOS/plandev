@@ -1,0 +1,35 @@
+{
+  "source": {
+    "key": "BananaEventsA.json",
+    "source_type": "BananaSource",
+    "valid_at": "2024-001T00:00:00Z",
+    "period": {
+      "start_time": "1970-001T00:00:00Z",
+      "end_time": "1970-002T00:00:00Z"
+    },
+    "attributes": {
+      "location": "BananaNation"
+    }
+  },
+  "events": [
+    {
+      "key": "BananaWeather001-00-12",
+      "event_type": "BananaWeatherCondition",
+      "start_time": "1970-001T00:00:00Z",
+      "duration": "12:00:00",
+      "attributes": {
+        "weather_cond": "windstorm"
+      }
+    },
+
+    {
+      "key": "BananaSunlight001",
+      "event_type": "BananaSunlightCondition",
+      "start_time": "1970-001T12:00:00Z",
+      "duration": "08:00:00",
+      "attributes": {
+
+      }
+    }
+  ]
+}

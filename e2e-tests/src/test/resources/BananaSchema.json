@@ -1,0 +1,31 @@
+{
+  "event_types": {
+    "BananaWeatherCondition": {
+      "type": "object",
+      "required": ["weather_cond"],
+      "properties": {
+        "weather_cond": {
+          "enum": ["windstorm", "drought", "rainfall"]
+        }
+      }
+    },
+    "BananaSunlightCondition": {
+      "type": "object",
+      "required": [],
+      "properties": {
+
+      }
+    }
+  },
+  "source_types": {
+    "BananaSource": {
+      "type": "object",
+      "required": ["location"],
+      "properties": {
+        "location": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

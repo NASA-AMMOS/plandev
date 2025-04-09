@@ -27,6 +27,9 @@ import java.util.stream.Stream;
  * An adapter from the type-utils {@link Plan} class to the procedural {@link gov.nasa.ammos.aerie.procedural.timeline.plan.Plan} interface.
  */
 public record TypeUtilsPlanAdapter(Plan plan) implements gov.nasa.ammos.aerie.procedural.timeline.plan.Plan {
+
+  // TODO: this should have a settable SimulationResults that TypeUtilsEditablePlanAdapter sets whenever simulation is performed
+
   @NotNull
   @Override
   public Interval totalBounds() {
@@ -88,7 +91,7 @@ public record TypeUtilsPlanAdapter(Plan plan) implements gov.nasa.ammos.aerie.pr
       @NotNull final String name,
       @NotNull final Function1<? super List<Segment<SerializedValue>>, ? extends TL> deserializer)
   {
-    throw new NotImplementedException();
+    throw new NotImplementedException(); // TODO: return results from local SimulationResults object??
   }
 
   @NotNull

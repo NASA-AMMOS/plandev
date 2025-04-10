@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.e2e.procedural.scheduling;
 
+import gov.nasa.jpl.aerie.e2e.procedural.ProceduralSetup;
 import gov.nasa.jpl.aerie.e2e.types.GoalInvocationId;
 import gov.nasa.jpl.aerie.e2e.types.Plan;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
@@ -17,7 +18,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class ExternalEventsSchedulingTests extends ProceduralSchedulingSetup {
+public class ExternalEventsTests extends ProceduralSchedulingSetup {
   private GoalInvocationId procedureId;
   private final static String SOURCE_TYPE = "TestType";
   private final static String EVENT_TYPE = "TestType";

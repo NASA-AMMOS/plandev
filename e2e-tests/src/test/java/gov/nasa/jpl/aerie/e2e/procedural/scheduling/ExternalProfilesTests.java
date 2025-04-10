@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.e2e.procedural.scheduling;
 
 import gov.nasa.jpl.aerie.e2e.ExternalDatasetsTest;
+import gov.nasa.jpl.aerie.e2e.procedural.ProceduralSetup;
 import gov.nasa.jpl.aerie.e2e.types.GoalInvocationId;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import org.junit.jupiter.api.AfterEach;
@@ -14,7 +15,7 @@ import java.util.Objects;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class ExternalProfilesTests extends ProceduralSchedulingSetup {
+public class ExternalProfilesTests extends ProceduralSetup {
   private GoalInvocationId procedureId;
   private int datasetId;
 

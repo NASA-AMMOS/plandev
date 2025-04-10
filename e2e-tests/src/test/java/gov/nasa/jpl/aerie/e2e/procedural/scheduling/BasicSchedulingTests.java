@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.e2e.procedural.scheduling;
 
+import gov.nasa.jpl.aerie.e2e.procedural.ProceduralSetup;
 import gov.nasa.jpl.aerie.e2e.types.GoalInvocationId;
 import gov.nasa.jpl.aerie.e2e.types.Plan;
 import gov.nasa.jpl.aerie.e2e.types.SimulationDataset;

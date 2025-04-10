@@ -723,6 +723,13 @@ public class HasuraRequests implements AutoCloseable {
     makeRequest(GQL.DELETE_SCHEDULING_GOAL, variables);
   }
 
+  public List<Integer> getConstraintSpecIds(int specId) throws IOException {
+    final var vars = Json.createObjectBuilder().add("specId", specId).build();
+    final var goals = makeRequest(GQL.GET_SCHEDULING_SPECIFICATION_GOALS, vars).getJsonArray("goals");
+
+    return goals.stream().map(e -> e.asJsonObject().getInt("goal_id")).toList();
+  }
+
   public int getSchedulingSpecId(int planId) throws IOException {
     final var variables = Json.createObjectBuilder().add("planId", planId).build();
     final var spec = makeRequest(GQL.GET_SCHEDULING_SPECIFICATION_ID, variables).getJsonArray("scheduling_spec");
@@ -816,6 +823,52 @@ public class HasuraRequests implements AutoCloseable {
     return GoalInvocationId.fromJSON(resp);
   }
 
+  public int createConstraintProcedure(
+      String name,
+      int jarId
+  ) throws IOException {
+    final var constraintBuilder = Json.createObjectBuilder()
+        .add("description", "")
+        .add("name", name)
+        .add("public", true)
+        .add("tags", Json.createObjectBuilder()
+            .add("data", Json.createArrayBuilder())
+        )
+        .add("versions", Json.createObjectBuilder()
+            .add("data", Json.createArrayBuilder()
+                .add(Json.createObjectBuilder()
+                         .add("tags", Json.createObjectBuilder()
+                                .add("data", Json.createArrayBuilder())
+                         )
+                         .add("type", "JAR")
+                         .add("uploaded_jar_id", jarId)
+                )
+            )
+        );
+
+    final var variables = Json.createObjectBuilder().add("constraint", constraintBuilder).build();
+    final var resp =  makeRequest(GQL.CREATE_CONSTRAINT_PROC, variables)
+        .getJsonObject("constraint");
+
+    return resp.getInt("id");
+  }
+
+  public int createConstraintProcedureSpec(
+      int planId,
+      int constraintId
+  ) throws IOException {
+    final var constraintSpecBuilder = Json.createObjectBuilder()
+        .add("plan_id", planId)
+        .add("constraint_id", constraintId)
+        .add("enabled", true);
+
+    final var variables = Json.createObjectBuilder().add("constraintSpecsToInsert", constraintSpecBuilder).build();
+    final var resp = makeRequest(GQL.CREATE_CONSTRAINT_SPEC_PROC, variables)
+        .getJsonObject("insertConstraintPlanSpecifications");
+
+    return resp.getJsonArray("returning").get(0).asJsonObject().getInt("invocation_id");
+  }
+
   public GoalInvocationId insertGoalInvocation(int goalId, int specificationId) throws IOException {
     final var variables = Json.createObjectBuilder()
                                     .add("goal_id", goalId)
@@ -877,6 +930,14 @@ public class HasuraRequests implements AutoCloseable {
             .getJsonObject("insert_scheduling_specification_goals_one");
 
     return GoalInvocationId.fromJSON(resp);
+  }
+
+  public void updateConstraintSpecArguments(int invocationId, JsonObject arguments) throws IOException {
+    final var variables = Json.createObjectBuilder()
+                              .add("invocation_id", invocationId)
+                              .add("arguments", arguments)
+                              .build();
+    makeRequest(GQL.UPDATE_CONSTRAINT_SPEC_ARGUMENTS, variables);
   }
 
   public int updateGoalDefinition(int goalId, String definition) throws IOException {
@@ -1315,6 +1376,16 @@ public class HasuraRequests implements AutoCloseable {
     final var variables = Json.createObjectBuilder().add("request_id", requestId).build();
     final var constraintRequest = makeRequest(GQL.GET_CONSTRAINT_REQUEST, variables).getJsonObject("constraint_request");
     return ConstraintRequest.fromJSON(constraintRequest);
+  }
+
+  public ArrayList<Integer> getConstraintSpec(int planId) throws IOException {
+    final var variables = Json.createObjectBuilder().add("planId", planId).build();
+    final var constraintRequest = makeRequest(GQL.GET_CONSTRAINT_SPEC, variables).getJsonArray("constraint_specification");
+    var result = new ArrayList<Integer>();
+    for (var i : constraintRequest) {
+      result.add(i.asJsonObject().getInt("constraint_id"));
+    }
+    return result;
   }
 
   public ConstraintInvocationId insertPlanConstraint(String name, int planId, String definition, String description) throws IOException {

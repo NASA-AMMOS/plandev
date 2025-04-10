@@ -99,6 +99,38 @@ public enum GQL {
         id
       }
     }"""),
+  CREATE_CONSTRAINT_PROC("""
+    mutation CreateConstraint($constraint: constraint_metadata_insert_input!) {
+      constraint: insert_constraint_metadata_one(object: $constraint) {
+        id
+        name
+        description
+        owner
+        public
+        tags {
+          tag_id
+        }
+        versions {
+          revision
+          definition
+          tags {
+            tag_id
+          }
+        }
+      }
+    }"""),
+  CREATE_CONSTRAINT_SPEC_PROC("""
+    mutation UpdateConstraintPlanSpecifications($constraintSpecsToInsert: [constraint_specification_insert_input!]!) {
+       insertConstraintPlanSpecifications: insert_constraint_specification(
+         objects: $constraintSpecsToInsert,
+       ) {
+         returning {
+           invocation_id
+           constraint_revision
+           enabled
+         }
+       }
+    }"""),
   CREATE_EXTERNAL_EVENT_TYPE("""
     mutation CreateExternalEventType($eventType: external_event_type_insert_input!) {
       createExternalEventType: insert_external_event_type_one(object: $eventType) {
@@ -355,6 +387,13 @@ public enum GQL {
             errors
           }
         }
+      }
+    }"""),
+  GET_CONSTRAINT_SPEC("""
+    query GetConstraintSpecification($planId: Int!){
+      constraint_specification(where: {plan_id: {_eq: $planId}}) {
+        plan_id
+        constraint_id
       }
     }"""),
   GET_EFFECTIVE_ACTIVITY_ARGUMENTS_BULK("""
@@ -741,6 +780,35 @@ public enum GQL {
         revision
       }
     }"""),
+
+  BEAR("""
+  mutation UpdateConstraintPlanSpecification($arguments: jsonb, $constraintInvocationId: Int!, $revision: Int!, $enabled: Boolean!, $order: Int!) {
+        updateConstraintPlanSpecification: update_constraint_specification_by_pk(
+                pk_columns: { invocation_id: $constraintInvocationId },
+                _set: {
+                  arguments: $arguments,
+                  constraint_revision: $revision,
+                  enabled: $enabled,
+                  order: $order
+                }
+        ) {
+                constraint_revision
+                enabled
+        }
+  }
+"""),
+  UPDATE_CONSTRAINT_SPEC_ARGUMENTS("""
+      mutation updateConstraintSpecVersion($invocation_id: Int!, $arguments: jsonb!) {
+        update_constraint_specification_by_pk(
+          pk_columns: {invocation_id: $invocation_id},
+          _set: {arguments: $arguments}
+        ) {
+          plan_id
+          constraint_id
+          constraint_revision
+          enabled
+        }
+      }"""),
   UPDATE_CONSTRAINT_SPEC_VERSION("""
       mutation updateConstraintSpecVersion($invocation_id: Int!, $constraint_revision: Int!) {
         update_constraint_specification_by_pk(

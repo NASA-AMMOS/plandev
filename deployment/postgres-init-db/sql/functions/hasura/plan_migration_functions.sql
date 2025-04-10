@@ -30,6 +30,10 @@ begin
   set model_id = _new_model_id
   where id = _plan_id;
 
+  update merlin.activity_directive_validations
+    set status = 'pending'
+  where plan_id = _plan_id;
+
   return row('success')::hasura.migrate_plan_to_model_return_value;
 end
 $$;

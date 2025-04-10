@@ -26,19 +26,6 @@ select_permissions:
       columns: '*'
       filter: {}
       allow_aggregations: true
-insert_permissions:
-  - role: aerie_admin
-    permission:
-      columns: [definition, seq_json, name, owner, is_locked, parcel_id, workspace_id]
-      check: {}
-      set:
-        owner: "x-hasura-user-id"
-  - role: user
-    permission:
-      columns: [definition, seq_json, name, owner, is_locked, parcel_id, workspace_id]
-      check: {}
-      set:
-        owner: "x-hasura-user-id"
 update_permissions:
   - role: aerie_admin
     permission:

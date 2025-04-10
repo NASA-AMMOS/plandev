@@ -1,27 +1,11 @@
 create table sequencing.user_sequence (
-  id integer generated always as identity,
-  created_at timestamptz not null default now(),
+  id integer references sequencing.workspace_files,
+
   definition text not null,
   is_locked boolean not null default false,
   seq_json jsonb,
-  name text not null,
-  owner text,
-  parcel_id integer not null,
-  updated_at timestamptz not null default now(),
-  workspace_id integer not null,
 
-  constraint user_sequence_primary_key primary key (id),
-
-  foreign key (parcel_id)
-    references sequencing.parcel (id)
-    on delete cascade,
-  foreign key (owner)
-    references permissions.users
-    on update cascade
-    on delete cascade,
-  foreign key (workspace_id)
-    references sequencing.workspace (id)
-    on delete cascade
+  constraint user_sequence_primary_key primary key (id)
 );
 
 comment on column sequencing.user_sequence.created_at is e''

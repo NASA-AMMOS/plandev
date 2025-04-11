@@ -18,18 +18,14 @@ import org.jetbrains.annotations.NotNull;
  *    which would be extremely redundant, we provide simply this one constraint.
  */
 @ConstraintProcedure
-public record EventCounter() implements Constraint {
+public record EventCounter(int quantity) implements Constraint {
   @NotNull
   @Override
   public Violations run(@NotNull Plan plan, @NotNull SimulationResults simResults) {
-    final var pickActivities = simResults.instances("PickBanana");
-    EventQuery eventQuery = new EventQuery("Weather Default", null, null);
-
-    var bananaCounter = new Real(pickActivities.collect().size());
+    EventQuery eventQuery = new EventQuery(null, "TestType", null);
     var events = plan.events(eventQuery);
-
     return Violations.on(
-        bananaCounter.equalTo(events.collect().size()),
+        new Real(events.collect().size()).equalTo(quantity),
         false
     );
   }

@@ -25,7 +25,6 @@ public class ExternalEventsTests extends ProceduralSchedulingSetup {
   private final static String ADDITIONAL_EVENT_TYPE = EVENT_TYPE + "_2";
   private final static String SOURCE_KEY = "Test.json";
   private final static String ADDITIONAL_SOURCE_KEY = "NewTest.json";
-
   private final static String DERIVATION_GROUP = "TestGroup";
   private final static String ADDITIONAL_DERIVATION_GROUP = DERIVATION_GROUP + "_2";
 

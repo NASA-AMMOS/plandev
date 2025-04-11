@@ -177,7 +177,7 @@ public final class ReadonlyPlan implements Plan {
     if(query.getEventTypes() != null) {
       result = result.stream().filter(it -> query.getEventTypes().contains(it.type)).collect(Collectors.toList());
     }
-    if(query.getEventTypes() != null) {
+    if(query.getSources() != null) {
       result = result.stream().filter(it -> Objects.requireNonNull(query.getSources()).contains(it.source)).collect(Collectors.toList());
     }
     return new ExternalEvents(result);

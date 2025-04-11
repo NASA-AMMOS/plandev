@@ -48,7 +48,7 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
     in (
       select derivation_group_name
       from merlin.plan_derivation_group
-      where plan_id=1
+      where plan_id=%d
     )
     """;
 

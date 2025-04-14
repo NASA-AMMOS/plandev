@@ -21,12 +21,17 @@ import org.jetbrains.annotations.NotNull;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * An adapter from the type-utils {@link Plan} class to the procedural {@link gov.nasa.ammos.aerie.procedural.timeline.plan.Plan} interface.
+ * An adapter from the type-utils {@link Plan} class to the procedural
+ * {@link gov.nasa.ammos.aerie.procedural.timeline.plan.Plan} interface.
  */
-public record TypeUtilsPlanAdapter(Plan plan) implements gov.nasa.ammos.aerie.procedural.timeline.plan.Plan {
+public record TypeUtilsPlanAdapter(Plan plan, ExternalEvents events)
+    implements gov.nasa.ammos.aerie.procedural.timeline.plan.Plan
+{
 
   // TODO: this should have a settable SimulationResults that TypeUtilsEditablePlanAdapter sets whenever simulation is performed
 
@@ -97,6 +102,30 @@ public record TypeUtilsPlanAdapter(Plan plan) implements gov.nasa.ammos.aerie.pr
   @NotNull
   @Override
   public ExternalEvents events(@NotNull final EventQuery query) {
-    throw new NotImplementedException();
+    return new ExternalEvents(events.collect().stream()
+                                    .filter(e -> {
+                                      if (query.getDerivationGroups() != null && !query
+                                          .getDerivationGroups()
+                                          .isEmpty()) {
+                                        return query.getDerivationGroups().contains(e.source.derivationGroup);
+                                      }
+                                      return true;
+                                    })
+                                    .filter(e -> {
+                                      if (query.getEventTypes() != null && !query.getEventTypes().isEmpty()) {
+                                        return query.getEventTypes().contains(e.type);
+                                      }
+                                      return true;
+                                    })
+                                    .filter(e -> {
+                                      if (query.getSources() != null && !query.getSources().isEmpty()) {
+                                        return query.getSources().stream().anyMatch(
+                                            s -> s.key.equals(e.source.key)
+                                                 && s.derivationGroup.equals(e.source.derivationGroup)
+                                        );
+                                      }
+                                      return true;
+                                    })
+                                    .toList());
   }
 }

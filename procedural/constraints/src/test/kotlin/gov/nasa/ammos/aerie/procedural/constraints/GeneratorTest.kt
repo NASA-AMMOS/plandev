@@ -1,6 +1,7 @@
 package gov.nasa.ammos.aerie.procedural.constraints
 
 import gov.nasa.ammos.aerie.procedural.timeline.Interval
+import gov.nasa.ammos.aerie.procedural.timeline.collections.ExternalEvents
 import gov.nasa.ammos.aerie.procedural.timeline.collections.profiles.Numbers
 import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment
@@ -25,7 +26,7 @@ class GeneratorTest: GeneratorConstraint() {
 
   @Test
   fun testGenerator() {
-    val plan = gov.nasa.ammos.aerie.procedural.utils.StubPlan()
+    val plan = gov.nasa.ammos.aerie.procedural.utils.StubPlan(ExternalEvents(java.util.ArrayList()))
     val simResults = object : StubSimulationResults() {
       override fun <V : Any, TL: SerialSegmentOps<V, TL>> resource(
         name: String,

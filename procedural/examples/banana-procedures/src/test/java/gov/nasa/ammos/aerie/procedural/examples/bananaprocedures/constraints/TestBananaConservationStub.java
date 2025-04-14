@@ -2,6 +2,7 @@ package gov.nasa.ammos.aerie.procedural.examples.bananaprocedures.constraints;
 
 import gov.nasa.ammos.aerie.procedural.constraints.Violation;
 import gov.nasa.ammos.aerie.procedural.timeline.Interval;
+import gov.nasa.ammos.aerie.procedural.timeline.collections.ExternalEvents;
 import gov.nasa.ammos.aerie.procedural.timeline.collections.Instances;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyInstance;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Instance;
@@ -60,7 +61,7 @@ public class TestBananaConservationStub {
   }
   @Test
   public void passesValidPlan() {
-    final var plan = new StubPlan();
+    final var plan = new StubPlan(new ExternalEvents(List.of()));
     final var simResults = makeSimResults(
         Map.of(
             Duration.ZERO, 10,
@@ -79,7 +80,7 @@ public class TestBananaConservationStub {
 
   @Test
   public void singleViolation() {
-    final var plan = new StubPlan();
+    final var plan = new StubPlan(new ExternalEvents(List.of()));
     final var simResults = makeSimResults(
         Map.of(
             Duration.ZERO, 10,
@@ -100,7 +101,7 @@ public class TestBananaConservationStub {
 
   @Test
   public void multipleViolations() {
-    final var plan = new StubPlan();
+    final var plan = new StubPlan(new ExternalEvents(List.of()));
     final var simResults = makeSimResults(
         Map.of(
             Duration.ZERO, 10,

@@ -24,6 +24,13 @@ import java.util.List;
  * you intend to call.
  */
 public class StubPlan implements Plan {
+
+  private final ExternalEvents events;
+
+  public StubPlan(ExternalEvents events) {
+    this.events = events;
+  }
+
   @NotNull
   @Override
   public Interval totalBounds() {
@@ -60,9 +67,34 @@ public class StubPlan implements Plan {
     throw new NotImplementedError();
   }
 
+
   @NotNull
   @Override
   public ExternalEvents events(@NotNull final EventQuery query) {
-    throw new NotImplementedError();
+    return new ExternalEvents(events.collect().stream()
+                                    .filter(e -> {
+                                      if (query.getDerivationGroups() != null && !query
+                                          .getDerivationGroups()
+                                          .isEmpty()) {
+                                        return query.getDerivationGroups().contains(e.source.derivationGroup);
+                                      }
+                                      return true;
+                                    })
+                                    .filter(e -> {
+                                      if (query.getEventTypes() != null && !query.getEventTypes().isEmpty()) {
+                                        return query.getEventTypes().contains(e.type);
+                                      }
+                                      return true;
+                                    })
+                                    .filter(e -> {
+                                      if (query.getSources() != null && !query.getSources().isEmpty()) {
+                                        return query.getSources().stream().anyMatch(
+                                            s -> s.key.equals(e.source.key)
+                                                 && s.derivationGroup.equals(e.source.derivationGroup)
+                                        );
+                                      }
+                                      return true;
+                                    })
+                                    .toList());
   }
 }

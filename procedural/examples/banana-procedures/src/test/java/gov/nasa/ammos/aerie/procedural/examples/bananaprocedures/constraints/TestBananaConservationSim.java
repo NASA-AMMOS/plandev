@@ -4,6 +4,7 @@ import gov.nasa.ammos.aerie.procedural.constraints.Violation;
 import gov.nasa.ammos.aerie.procedural.scheduling.plan.EditablePlan;
 import gov.nasa.ammos.aerie.procedural.scheduling.utils.DefaultEditablePlanDriver;
 import gov.nasa.ammos.aerie.procedural.timeline.Interval;
+import gov.nasa.ammos.aerie.procedural.timeline.collections.ExternalEvents;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart;
 import gov.nasa.ammos.aerie.procedural.utils.TypeUtilsEditablePlanAdapter;
 import gov.nasa.ammos.aerie.procedural.utils.TypeUtilsPlanAdapter;
@@ -64,7 +65,8 @@ public class TestBananaConservationSim {
     plan = new DefaultEditablePlanDriver(
         new TypeUtilsEditablePlanAdapter(
             new TypeUtilsPlanAdapter(
-                new Plan("test plan", new Timestamp(Instant.EPOCH), new Timestamp(Instant.EPOCH.plusSeconds(60 * 60 * 24)), Map.of(), Map.of())
+                new Plan("test plan", new Timestamp(Instant.EPOCH), new Timestamp(Instant.EPOCH.plusSeconds(60 * 60 * 24)), Map.of(), Map.of()),
+                new ExternalEvents(List.of())
             ),
             simUtility,
             model

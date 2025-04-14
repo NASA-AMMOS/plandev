@@ -113,7 +113,7 @@ public class TypeUtilsEditablePlanAdapter implements gov.nasa.ammos.aerie.proced
       changedSinceLastSim = false;
       final var sim = simUtility.simulate(model, plan.plan());
       final var result = sim.get();
-      latestResults = new MerlinToProcedureSimulationResultsAdapter(result, new TypeUtilsPlanAdapter(new Plan(plan.plan())));
+      latestResults = new MerlinToProcedureSimulationResultsAdapter(result, new TypeUtilsPlanAdapter(new Plan(plan.plan()), new ExternalEvents(List.of())));
     }
   }
 

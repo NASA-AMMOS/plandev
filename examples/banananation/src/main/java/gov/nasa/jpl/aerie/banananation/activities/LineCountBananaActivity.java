@@ -14,19 +14,19 @@ import java.nio.file.Path;
 public final class LineCountBananaActivity {
 
   @Parameter
-  public Path path = Path.of("/etc/os-release"); // TODO Make this a required parameter when required parameters are fully
+  public Path file = Path.of("/etc/os-release"); // TODO Make this a required parameter when required parameters are fully
                                                  //  supported. As a placeholder this defaults to a file that should exist.
 
   @Validation("path must exist")
-  @Validation.Subject("path")
+  @Validation.Subject("file")
   public boolean validatePath() {
-    return Files.exists(path);
+    return Files.exists(file);
   }
 
   @EffectModel
   public void run(final Mission mission) {
     try {
-      mission.lineCount.set((int)Files.lines(path).count());
+      mission.lineCount.set((int)Files.lines(file).count());
     } catch (IOException e) {
       throw new Error(e);
     }

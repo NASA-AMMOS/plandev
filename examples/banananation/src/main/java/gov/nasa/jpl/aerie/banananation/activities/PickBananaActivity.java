@@ -12,16 +12,16 @@ import gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Validation;
 @ActivityType("PickBanana")
 public final class PickBananaActivity {
   @Parameter
-  public int quantity = 10;
+  public String quantity = "10";
 
   @Validation("quantity must be positive")
   @Validation.Subject("quantity")
   public boolean validateQuantity() {
-    return this.quantity > 0;
+    return Integer.parseInt(this.quantity) > 0;
   }
 
   @EffectModel
   public void run(final Mission mission) {
-    mission.plant.add(-quantity);
+    mission.plant.add(-Integer.parseInt(quantity));
   }
 }

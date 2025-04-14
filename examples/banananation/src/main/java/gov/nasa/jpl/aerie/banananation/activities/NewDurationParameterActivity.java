@@ -13,8 +13,8 @@ import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
 /**
  * This activity type intentionally takes a duration as a parameter, but is not a ControllableDuration activity
  */
-@ActivityType("DurationParameterActivity")
-public record DurationParameterActivity(Duration duration) {
+@ActivityType("NewDurationParameterActivity")
+public record NewDurationParameterActivity(Duration duration) {
 
   @EffectModel
   public ComputedAttributes run(Mission mission) {

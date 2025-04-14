@@ -26,6 +26,9 @@ public final class BiteBananaActivity {
   @Unit("m")
   public double biteSize = 1.0;
 
+  @Parameter
+  public String newOptionalParameter = "";
+
   @Validation
   public ValidationResult validateBiteSize() {
     return new ValidationResult(this.biteSize > 0, "biteSize", "bite size must be positive");

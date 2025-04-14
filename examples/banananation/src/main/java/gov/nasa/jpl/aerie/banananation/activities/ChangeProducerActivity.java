@@ -13,6 +13,9 @@ public final class ChangeProducerActivity {
   @Parameter
   public String producer = "Dole";
 
+  @Parameter
+  public String newRequiredParameter;
+
   @EffectModel
   public void run(final Mission mission) {
     mission.producer.set(this.producer);

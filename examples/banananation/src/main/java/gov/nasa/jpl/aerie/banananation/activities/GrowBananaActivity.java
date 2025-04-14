@@ -9,6 +9,7 @@ import gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Validation;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 
 import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.*;
+import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.HOURS;
 
 /**
  * Monke has evolve. Monke now make banana. Monke is farmer.
@@ -19,10 +20,10 @@ import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.*;
  * @contact John Doe
  */
 @ActivityType("GrowBanana")
-public record GrowBananaActivity(int quantity, Duration growingDuration) {
+public record GrowBananaActivity(int quantity) {
 
   public static @Template GrowBananaActivity defaults() {
-    return new GrowBananaActivity(1, Duration.of(1, Duration.HOUR));
+    return new GrowBananaActivity(1);
   }
 
   @Validation("Quantity must be positive")
@@ -31,18 +32,11 @@ public record GrowBananaActivity(int quantity, Duration growingDuration) {
     return this.quantity() > 0;
   }
 
-  @Validation("Growing Duration must be positive")
-  @Validation.Subject("growingDuration")
-  public boolean validateGrowingDuration() {
-    return this.growingDuration().longerThan(Duration.ZERO);
-  }
-
   @EffectModel
-  @ControllableDuration(parameterName = "growingDuration")
   public void run(final Mission mission) {
-    final var rate = this.quantity() / (double) this.growingDuration().ratioOver(Duration.SECOND);
+    final var rate = this.quantity() / (double) Duration.of(2, HOURS).ratioOver(Duration.SECOND);
     mission.fruit.rate.add(rate);
-    delay(this.growingDuration());
+    delay(Duration.of(2, HOURS));
     mission.fruit.rate.add(-rate);
     mission.plant.add(this.quantity());
   }

@@ -21,8 +21,7 @@
 @WithActivityType(DecomposingSpawnActivity.DecomposingSpawnChildActivity.class)
 @WithActivityType(DownloadBananaActivity.class)
 @WithActivityType(BakeBananaBreadActivity.class)
-@WithActivityType(BananaNapActivity.class)
-@WithActivityType(DurationParameterActivity.class)
+@WithActivityType(NewDurationParameterActivity.class)
 @WithActivityType(ControllableDurationActivity.class)
 @WithActivityType(RipenBananaActivity.class)
 @WithActivityType(ExceptionActivity.class)
@@ -30,7 +29,6 @@
 package gov.nasa.jpl.aerie.banananation;
 
 import gov.nasa.jpl.aerie.banananation.activities.BakeBananaBreadActivity;
-import gov.nasa.jpl.aerie.banananation.activities.BananaNapActivity;
 import gov.nasa.jpl.aerie.banananation.activities.Banannotation;
 import gov.nasa.jpl.aerie.banananation.activities.BiteBananaActivity;
 import gov.nasa.jpl.aerie.banananation.activities.ChangeProducerActivity;
@@ -38,7 +36,7 @@ import gov.nasa.jpl.aerie.banananation.activities.ControllableDurationActivity;
 import gov.nasa.jpl.aerie.banananation.activities.DecomposingActivity;
 import gov.nasa.jpl.aerie.banananation.activities.DecomposingSpawnActivity;
 import gov.nasa.jpl.aerie.banananation.activities.DownloadBananaActivity;
-import gov.nasa.jpl.aerie.banananation.activities.DurationParameterActivity;
+import gov.nasa.jpl.aerie.banananation.activities.NewDurationParameterActivity;
 import gov.nasa.jpl.aerie.banananation.activities.ExceptionActivity;
 import gov.nasa.jpl.aerie.banananation.activities.GrowBananaActivity;
 import gov.nasa.jpl.aerie.banananation.activities.LineCountBananaActivity;

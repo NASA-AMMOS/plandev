@@ -23,21 +23,16 @@ import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.HOURS;
 public final class PeelBananaActivity {
   private static final double MASHED_BANANA_AMOUNT = 1.0;
 
-  public enum PeelDirectionEnum {
-    fromStem,
-    fromTip,
-  }
-
   @Parameter
   @Unit("direction")
-  public PeelDirectionEnum peelDirection = PeelDirectionEnum.fromStem;
+  public String peelDirection = "fromStem";
 
   @ActivityType.MaximumDuration
   public static final Duration DURATION_UPPER_BOUND = Duration.of(1, HOURS);
 
   @EffectModel
   public void run(final Mission mission) {
-    if (peelDirection.equals(PeelDirectionEnum.fromStem)) {
+    if (peelDirection.equals("fromStem")) {
       mission.fruit.subtract(MASHED_BANANA_AMOUNT);
     }
     mission.peel.subtract(1.0);

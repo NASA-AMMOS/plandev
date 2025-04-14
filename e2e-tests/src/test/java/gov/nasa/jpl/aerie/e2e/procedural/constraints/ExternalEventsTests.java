@@ -25,9 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class ExternalEventsTests extends ProceduralSetup {
 
-  // TODO: just need a test to verify events are in constraints, because comprehensive tests of functionality are covered in the scheduler
-
-  // TODO: second one to verify attributes
+  // External Source Variables
   private final static String SOURCE_TYPE = "TestType";
   private final static String EVENT_TYPE = "TestType";
   private final static String ADDITIONAL_EVENT_TYPE = EVENT_TYPE + "_2";
@@ -35,6 +33,11 @@ public class ExternalEventsTests extends ProceduralSetup {
   private final static String ADDITIONAL_SOURCE_KEY = "NewTest.json";
   private final static String DERIVATION_GROUP = "TestGroup";
   private final static String ADDITIONAL_DERIVATION_GROUP = DERIVATION_GROUP + "_2";
+
+  // Constraint Variables
+  private int constraintId;
+  private int invocationId;
+  private int simulationDatasetId;
 
   void uploadExternalSourceEventTypes() throws IOException {
     final String event_types = """
@@ -218,6 +221,22 @@ public class ExternalEventsTests extends ProceduralSetup {
     }
   }
 
+  void uploadConstraint(String constraintName) throws IOException {
+    try (final var gateway = new GatewayRequests(playwright)) {
+      // Upload JAR file
+      int procedureJarId = gateway.uploadJarFile("build/libs/" + constraintName + ".jar");
+
+      // Create Constraint Procedure
+      constraintId = hasura.createConstraintProcedure(constraintName, procedureJarId);
+
+      // Link it to plan's constraint spec
+      invocationId = hasura.createConstraintProcedureSpec(planId, constraintId);
+
+      // Get Simulation Id
+      simulationDatasetId = hasura.awaitSimulation(planId).simDatasetId();
+    }
+  }
+
   @BeforeEach
   void localBeforeEach() throws IOException {
     // Upload some External Events
@@ -245,26 +264,13 @@ public class ExternalEventsTests extends ProceduralSetup {
   @Test
   void testExternalEventCount() throws IOException {
     // upload the jar
-    int procedureJarId;
-    int constraintId;
-    int invocationId;
-    int simulationDatasetId;
-    try (final var gateway = new GatewayRequests(playwright)) {
-      procedureJarId = gateway.uploadJarFile("build/libs/EventCounter.jar");
+    uploadConstraint("EventCounter");
 
-      // Create Constraint Procedure
-      constraintId = hasura.createConstraintProcedure("EventCounter", procedureJarId);
-
-      // Link it to plan's constraint spec
-      invocationId = hasura.createConstraintProcedureSpec(planId, constraintId);
-
-      // Get Simulation Id
-      simulationDatasetId = hasura.awaitSimulation(planId).simDatasetId();
-    }
-
+    // set parameters
     final var args = Json.createObjectBuilder().add("quantity", 4).build();
     hasura.updateConstraintSpecArguments(invocationId, args);
 
+    // run constraint check
     final var resp = hasura.checkConstraints(planId, simulationDatasetId).constraintsRun();
     assertEquals(1, resp.size());
 
@@ -283,14 +289,40 @@ public class ExternalEventsTests extends ProceduralSetup {
     assertTrue(constraintResult.gaps().isEmpty());
 
     // delete constraint!
-    hasura.deleteSchedulingGoal(constraintId);
+    hasura.deleteConstraint(constraintId);
   }
 
   @Test
   void testExternalEventAttributes() throws IOException {
+    // upload the jar
+    uploadConstraint("EventsAndAttributes");
 
+    // set parameters
+    final var args = Json.createObjectBuilder()
+                         .add("eventAttributeCount", 3)
+                         .add("sourceAttributeCount", 3)
+                         .build();
+    hasura.updateConstraintSpecArguments(invocationId, args);
+
+    // check constraints
+    final var resp = hasura.checkConstraints(planId, simulationDatasetId).constraintsRun();
+    assertEquals(1, resp.size());
+
+    // it should pass
+    final var constraintResponse = resp.getFirst();
+    assertTrue(constraintResponse.success());
+    assertEquals(constraintId, constraintResponse.constraintId());
+    assertEquals("EventsAndAttributes", constraintResponse.constraintName());
+    assertTrue(constraintResponse.result().isPresent());
+    final var constraintResult = constraintResponse.result().get();
+
+    // Violations
+    assertEquals(0, constraintResult.violations().size());
+
+    // Gaps (NOTE: not sure how to fill these up)
+    assertTrue(constraintResult.gaps().isEmpty());
+
+    // delete constraint!
+    hasura.deleteConstraint(constraintId);
   }
-
-
-
 }

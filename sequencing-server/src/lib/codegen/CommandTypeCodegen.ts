@@ -345,17 +345,17 @@ function mapArgumentType(argument: ampcs.FswCommandArgument, enumMap: ampcs.Enum
       return 'FixedString';
     case 'time':
       return 'string';
-    case 'repeat':{
+    case 'repeat': {
       let repeatArgs: Array<{ name: string; type: string }> = [];
       if (argument.repeat === null) {
         return 'never';
       }
       repeatArgs = repeatArgs.concat(
-          argument.repeat.arguments.map(repeatArg => {
-            return { name: `${repeatArg.name}`, type: mapArgumentType(repeatArg, enumMap) };
-          })
+        argument.repeat.arguments.map(repeatArg => {
+          return { name: `${repeatArg.name}`, type: mapArgumentType(repeatArg, enumMap) };
+        }),
       );
-      return `Array<{ ${repeatArgs.map(repeatArg => `'${repeatArg.name}': ${repeatArg.type}`).join(', ')} }>`
+      return `Array<{ ${repeatArgs.map(repeatArg => `'${repeatArg.name}': ${repeatArg.type}`).join(', ')} }>`;
     }
 
     default:
@@ -384,8 +384,9 @@ export async function processDictionary(
 
       await fs.promises.mkdir(folder, { recursive: true });
 
+      // wx flag to error if the file already exists because command dictionaries are unique on name and version.
       await fs.promises.writeFile(folder + fileName, prefaceString + jsonSpecString + declarations + values, {
-        flag: 'w',
+        flag: 'wx',
       });
       return folder + fileName;
     }

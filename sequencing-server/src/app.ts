@@ -29,11 +29,12 @@ import type { Result } from '@nasa-jpl/aerie-ts-user-code-runner/build/utils/mon
 import type { CacheItem, UserCodeError } from '@nasa-jpl/aerie-ts-user-code-runner';
 import { PromiseThrottler } from './utils/PromiseThrottler.js';
 import { backgroundTranspiler } from './backgroundTranspiler.js';
-import { PluginManager } from './utils/PluginManager.js'
+import { PluginManager } from './utils/PluginManager.js';
 import { DictionaryType } from './types/types.js';
 import type { ChannelDictionary, CommandDictionary, ParameterDictionary } from '@nasa-jpl/aerie-ampcs';
 import { sequenceTemplateBatchLoader } from './lib/batchLoaders/sequenceTemplateBatchLoader.js';
 import { sequenceFilterBatchLoader } from './lib/batchLoaders/sequenceFilterBatchLoader.js';
+import { uploadFile } from './utils/gateway.js';
 
 const logger = getLogger('app');
 const PORT: number = parseInt(getEnv().PORT, 10) ?? 27184;
@@ -80,9 +81,7 @@ export type Context = {
   simulatedActivityInstanceBySimulatedActivityIdDataLoader: InferredDataloader<
     typeof simulatedActivityInstanceBySimulatedActivityIdBatchLoader
   >;
-  simulatedActivityInstanceBySeqIdBatchLoader: InferredDataloader<
-    typeof simulatedActivityInstanceBySeqIdBatchLoader
-  >;
+  simulatedActivityInstanceBySeqIdBatchLoader: InferredDataloader<typeof simulatedActivityInstanceBySeqIdBatchLoader>;
   sequenceFilterDataLoader: InferredDataloader<typeof sequenceFilterBatchLoader>;
   sequenceTemplateDataLoader: InferredDataloader<typeof sequenceTemplateBatchLoader>;
   expansionSetDataLoader: InferredDataloader<typeof expansionSetBatchLoader>;
@@ -127,13 +126,13 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
     ),
     sequenceTemplateDataLoader: new DataLoader(
       sequenceTemplateBatchLoader({
-        graphqlClient
-      })
+        graphqlClient,
+      }),
     ),
     sequenceFilterDataLoader: new DataLoader(
       sequenceFilterBatchLoader({
-        graphqlClient
-      })
+        graphqlClient,
+      }),
     ),
     simulatedActivityInstanceBySimulatedActivityIdDataLoader: new DataLoader(
       simulatedActivityInstanceBySimulatedActivityIdBatchLoader({
@@ -186,33 +185,38 @@ app.post('/put-dictionary', async (req, res, next) => {
   const dictionary = req.body.input.dictionary as string;
   logger.info(`Dictionary received`);
 
-  let parsedDictionaries : {
-    commandDictionary?: CommandDictionary,
-    channelDictionary?: ChannelDictionary,
-    parameterDictionary?: ParameterDictionary
+  let parsedDictionaries: {
+    commandDictionary?: CommandDictionary;
+    channelDictionary?: ChannelDictionary;
+    parameterDictionary?: ParameterDictionary;
   };
-  if (pluginManager.hasPlugin(getEnv().DICTIONARY_PARSER_PLUGIN) && pluginManager.getPlugin(getEnv().DICTIONARY_PARSER_PLUGIN).parseDictionary){
-    parsedDictionaries = pluginManager.getPlugin(getEnv().DICTIONARY_PARSER_PLUGIN).parseDictionary(dictionary)
+  if (
+    pluginManager.hasPlugin(getEnv().DICTIONARY_PARSER_PLUGIN) &&
+    pluginManager.getPlugin(getEnv().DICTIONARY_PARSER_PLUGIN).parseDictionary
+  ) {
+    parsedDictionaries = pluginManager.getPlugin(getEnv().DICTIONARY_PARSER_PLUGIN).parseDictionary(dictionary);
   } else {
-    throw new Error(`POST /dictionary: Plugin - ${getEnv().DICTIONARY_PARSER_PLUGIN} \ndoesn't have a 'parseDictionary' method`);
+    throw new Error(
+      `POST /dictionary: Plugin - ${getEnv().DICTIONARY_PARSER_PLUGIN} \ndoesn't have a 'parseDictionary' method`,
+    );
   }
 
-  let json = {}
+  let json = {};
   for (const dictionaryType of Object.keys(DictionaryType)) {
-    let parsedDictionary : CommandDictionary | ParameterDictionary | ChannelDictionary | undefined;
-    let db_table_name = "";
-    let db_value : any[] = []
+    let parsedDictionary: CommandDictionary | ParameterDictionary | ChannelDictionary | undefined;
+    let db_table_name = '';
+    let db_value: any[] = [];
     if (dictionaryType == DictionaryType.COMMAND && parsedDictionaries.commandDictionary) {
-      db_table_name = 'command_dictionary'
-      parsedDictionary = parsedDictionaries.commandDictionary as CommandDictionary
-    }else if (dictionaryType == DictionaryType.CHANNEL && parsedDictionaries.channelDictionary) {
-      db_table_name = 'channel_dictionary'
-      parsedDictionary = parsedDictionaries.channelDictionary as ChannelDictionary
-    }else if (dictionaryType == DictionaryType.PARAMETER && parsedDictionaries.parameterDictionary) {
-      db_table_name = 'parameter_dictionary'
-      parsedDictionary = parsedDictionaries.parameterDictionary as ParameterDictionary
+      db_table_name = 'command_dictionary';
+      parsedDictionary = parsedDictionaries.commandDictionary as CommandDictionary;
+    } else if (dictionaryType == DictionaryType.CHANNEL && parsedDictionaries.channelDictionary) {
+      db_table_name = 'channel_dictionary';
+      parsedDictionary = parsedDictionaries.channelDictionary as ChannelDictionary;
+    } else if (dictionaryType == DictionaryType.PARAMETER && parsedDictionaries.parameterDictionary) {
+      db_table_name = 'parameter_dictionary';
+      parsedDictionary = parsedDictionaries.parameterDictionary as ParameterDictionary;
     }
-    if (!parsedDictionary){
+    if (!parsedDictionary) {
       continue;
     }
 
@@ -223,7 +227,7 @@ app.post('/put-dictionary', async (req, res, next) => {
       parsedDictionary.header.mission_name,
       parsedDictionary.header.version,
       parsedDictionary,
-    ]
+    ];
     const sqlExpression = `
       insert into sequencing.${db_table_name} (dictionary_path, mission, version, parsed_json)
       values ($1, $2, $3, $4)

@@ -14,7 +14,7 @@ insert into ui.file_extension_content_type(file_extension, content_type)
 values ('.txt', 'Text'),
        ('.bin', 'Binary'),
        ('.json', 'JSON'),
-       ('.metadata', 'Metadata'),
+       ('.aerie', 'Metadata'),
        ('.seq', 'Sequence'),
        ('.seqN.txt', 'Sequence'),
        ('.seq.json', 'Sequence'),

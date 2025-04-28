@@ -8,12 +8,12 @@ object_relationships:
     using:
       foreign_key_constraint_on: parcel_id
 array_relationships:
-  - name: user_sequences
+  - name: collaborators
     using:
       foreign_key_constraint_on:
         column: workspace_id
         table:
-          name: user_sequence
+          name: workspace_collaborators
           schema: sequencing
   - name: actions
     using:

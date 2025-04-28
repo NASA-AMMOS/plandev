@@ -177,7 +177,6 @@
 - "!include sequencing/sequence.yaml"
 - "!include sequencing/sequence_adaptation.yaml"
 - "!include sequencing/sequence_to_simulated_activity.yaml"
-- "!include sequencing/user_sequence.yaml"
 - "!include sequencing/workspace.yaml"
 - "!include sequencing/sequence_filter.yaml"
 - "!include sequencing/sequence_template.yaml"

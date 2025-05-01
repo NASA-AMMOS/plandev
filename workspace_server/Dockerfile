@@ -8,8 +8,8 @@ FROM eclipse-temurin:21-jre-jammy
 
 COPY --from=extractor /usr/src/app/extracted /usr/src/app
 
-# HEALTHCHECK --interval=2s --timeout=2s --start-period=2s --retries=15 \
-  #CMD /bin/sh -c 'curl -sf http://localhost:$PORT/health || exit 1'
+HEALTHCHECK --interval=30s --timeout=2s --start-period=2s --retries=15 \
+CMD curl --sf http://localhost:$PORT/health || exit 1
 
 WORKDIR /usr/src/app
 ENTRYPOINT ["/usr/src/app/bin/workspace_server"]

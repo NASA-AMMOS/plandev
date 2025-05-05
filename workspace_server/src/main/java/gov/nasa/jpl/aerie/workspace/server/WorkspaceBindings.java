@@ -1,13 +1,17 @@
 package gov.nasa.jpl.aerie.workspace.server;
 
+import com.auth0.jwt.exceptions.JWTVerificationException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import io.javalin.Javalin;
 import io.javalin.http.ContentType;
 import io.javalin.http.Context;
+import io.javalin.http.UnauthorizedResponse;
 import io.javalin.plugin.Plugin;
 
+import javax.json.Json;
 import javax.json.stream.JsonParsingException;
 import java.io.IOException;
+import java.io.StringReader;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.Optional;
@@ -67,20 +71,58 @@ public class WorkspaceBindings implements Plugin {
         get(this::listFiles);
         delete(this::deleteWorkspace);
       });
-      // Permits a query string "name", which will set the name to the given value
-      path("/ws/create/{workspaceLocation}", () -> post(this::createWorkspace));
+      path("/ws/create", () -> post(this::createWorkspace));
     });
 
     // This exception is expected when the request body entity is not a legal JsonValue.
     javalin.exception(JsonParsingException.class, (ex, ctx) -> ctx.status(400).result("Invalid json body"));
   }
 
+  private JWTService.UserSession authorize(Context context) {
+    final var authHeader = context.header("Authorization");
+    final var activeRole = context.header("x-hasura-role");
+    try{
+      return jwtService.validateAuthorization(authHeader, activeRole);
+    } catch (JWTVerificationException jve) {
+      context.status(401);
+      throw new UnauthorizedResponse();
+    }
+  }
+
   private void createWorkspace(Context context) {
-    final var workspaceLocation = context.pathParam("workspaceLocation");
-    final var workspaceName = context.queryParam("name") == null ? context.queryParam("name") : workspaceLocation;
+    final Path workspaceLocation;
+    final String workspaceName;
+    final int parcelId;
+    final var user = authorize(context);
 
-    final Optional<Integer> workspaceId = workspaceService.createWorkspace(workspaceLocation, workspaceName);
+    try(final var reader = Json.createReader(new StringReader(context.body()))) {
+      final var bodyJson = reader.readObject();
 
+      parcelId = bodyJson.getInt("parcelId");
+      final var workspaceString = bodyJson.getString("workspaceLocation");
+      if(workspaceString.contains("/")){
+        context.status(400).result("Workspace location may not contain '/'");
+      }
+
+      workspaceLocation = Path.of(bodyJson.getString("workspaceLocation"));
+      workspaceName = bodyJson.containsKey("workspaceName") ? bodyJson.getString("workspaceName") : workspaceLocation.toString();
+    } catch (NullPointerException npe) {
+      context.status(400).result(
+          "Mandatory body parameter is null. Request body format is the following: \n" +
+          """
+          {
+            "workspaceLocation": text     // Name of the folder the workspace will live in
+            "parcelId": number            // Id of the workspace's parcel
+            "workspaceName": text?        // Optional. If provided, the workspace will be called the specified value (defaults to the value of "workspaceLocation")
+          }""");
+      return;
+    }
+
+    final Optional<Integer> workspaceId = workspaceService.createWorkspace(
+        workspaceLocation,
+        workspaceName,
+        user.userId(),
+        parcelId);
     if(workspaceId.isPresent()) {
       context.status(200).result(workspaceId.get().toString());
     } else {
@@ -99,6 +141,8 @@ public class WorkspaceBindings implements Plugin {
       }
     } catch (NoSuchWorkspaceException ex) {
       context.status(404).result(ex.getMessage());
+    } catch (SQLException e) {
+      context.status(500).result("Unable to delete workspace. " +e.getMessage());
     }
   }
 

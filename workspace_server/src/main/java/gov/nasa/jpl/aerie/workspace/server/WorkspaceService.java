@@ -15,8 +15,8 @@ import java.util.Optional;
  */
 public interface WorkspaceService {
 
-  Optional<Integer> createWorkspace(String workspaceLocation, String workspaceName);
-  boolean deleteWorkspace(int workspaceId) throws NoSuchWorkspaceException;
+  Optional<Integer> createWorkspace(Path workspaceLocation, String workspaceName, String username, int parcelId);
+  boolean deleteWorkspace(int workspaceId) throws NoSuchWorkspaceException, SQLException;
 
 
   /**
@@ -54,5 +54,4 @@ public interface WorkspaceService {
 
   boolean createDirectory(int workspaceId, Path directoryPath) throws IOException, NoSuchWorkspaceException;
   boolean deleteDirectory(int workspaceId, Path directoryPath) throws IOException, NoSuchWorkspaceException;
-
 }

@@ -19,9 +19,11 @@ import static io.javalin.apibuilder.ApiBuilder.post;
 import static io.javalin.apibuilder.ApiBuilder.put;
 
 public class WorkspaceBindings implements Plugin {
+  private final JWTService jwtService;
   private final WorkspaceService workspaceService;
 
-  public WorkspaceBindings(final WorkspaceService workspaceService) {
+  public WorkspaceBindings(final JWTService jwtService, final WorkspaceService workspaceService) {
+    this.jwtService = jwtService;
     this.workspaceService = workspaceService;
   }
 

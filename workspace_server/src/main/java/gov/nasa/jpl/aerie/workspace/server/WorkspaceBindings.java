@@ -65,8 +65,7 @@ public class WorkspaceBindings implements Plugin {
         ApiBuilder.get(this::listContents);
         ApiBuilder.delete(this::deleteWorkspace);
       });
-      // Permits a query string "name", which will set the name to the given value
-      path("/ws/create/{workspaceLocation}", () -> post(this::createWorkspace));
+      path("/ws/create", () -> ApiBuilder.post(this::createWorkspace));
     });
 
     // Default exception handlers for common endpoint exceptions
@@ -89,11 +88,43 @@ public class WorkspaceBindings implements Plugin {
   }
 
   private void createWorkspace(Context context) {
-    final var workspaceLocation = context.pathParam("workspaceLocation");
-    final var workspaceName = context.queryParam("name") == null ? context.queryParam("name") : workspaceLocation;
+    final String helpText = """
+        {
+            "workspaceLocation": text     // Name of the folder the workspace will live in
+            "parcelId": number            // Id of the workspace's parcel
+            "workspaceName": text?        // Optional. If provided, the workspace will be called the specified value (defaults to the value of "workspaceLocation")
+        }
+        """;
+    final Path workspaceLocation;
+    final String workspaceName;
+    final int parcelId;
+    final var user = authorize(context);
 
-    final Optional<Integer> workspaceId = workspaceService.createWorkspace(workspaceLocation, workspaceName);
+    try(final var reader = Json.createReader(new StringReader(context.body()))) {
+      final var bodyJson = reader.readObject();
 
+      parcelId = bodyJson.getInt("parcelId");
+      final var workspaceString = bodyJson.getString("workspaceLocation");
+      if(workspaceString.contains("/")){
+        context.status(400).result("Workspace location may not contain '/'");
+        return;
+      }
+
+      workspaceLocation = Path.of(bodyJson.getString("workspaceLocation"));
+      workspaceName = bodyJson.containsKey("workspaceName") ? bodyJson.getString("workspaceName") : workspaceLocation.toString();
+    } catch (NullPointerException npe) {
+      context.status(400).result("Mandatory body parameter is null. Request body format is:\n" + helpText);
+      return;
+    } catch (JsonException je) {
+      context.status(400).result("Request body is malformed. Request body format is:\n" + helpText);
+      return;
+    }
+
+    final Optional<Integer> workspaceId = workspaceService.createWorkspace(
+        workspaceLocation,
+        workspaceName,
+        user.userId(),
+        parcelId);
     if(workspaceId.isPresent()) {
       context.status(200).result(workspaceId.get().toString());
     } else {
@@ -112,6 +143,8 @@ public class WorkspaceBindings implements Plugin {
       }
     } catch (NoSuchWorkspaceException ex) {
       context.status(404).result(ex.getMessage());
+    } catch (SQLException e) {
+      context.status(500).result("Unable to delete workspace. " +e.getMessage());
     }
   }
 

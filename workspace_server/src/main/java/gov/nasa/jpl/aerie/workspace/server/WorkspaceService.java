@@ -16,8 +16,8 @@ import java.util.Optional;
 public interface WorkspaceService {
   record FileStream(InputStream readingStream, String fileName, long fileSize){}
 
-  Optional<Integer> createWorkspace(String workspaceLocation, String workspaceName);
-  boolean deleteWorkspace(int workspaceId) throws NoSuchWorkspaceException;
+  Optional<Integer> createWorkspace(Path workspaceLocation, String workspaceName, String username, int parcelId);
+  boolean deleteWorkspace(int workspaceId) throws NoSuchWorkspaceException, SQLException;
 
 
   /**

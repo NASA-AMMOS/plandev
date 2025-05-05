@@ -6,6 +6,7 @@ import gov.nasa.jpl.aerie.workspace.server.postgres.WorkspacePostgresRepository;
 import io.javalin.http.UploadedFile;
 import io.javalin.util.FileUtil;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -23,12 +24,71 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
-  public Optional<Integer> createWorkspace(final String workspaceLocation, final String workspaceName) {
-    return Optional.empty();
+  public Optional<Integer> createWorkspace(final Path workspaceLocation, final String workspaceName, String username, int parcelId) {
+    final var repoPath = postgresRepository.getBaseRepositoryPath().resolve(workspaceLocation);
+    if(repoPath.toFile().mkdirs()){
+      try {
+        final int workspaceId = postgresRepository.createWorkspace(workspaceLocation.toString(), workspaceName, username, parcelId);
+        return Optional.of(workspaceId);
+      } catch (SQLException ex) {
+        return Optional.empty();
+      }
+    } else {
+      return Optional.empty();
+    }
+  }
+
+  /**
+   * Helper method that behaves like "rm -r <DIRECTORY>".
+   * This means it will:
+   *  1) remove symlinks without following them
+   *  2) attempt to delete as much of the contents of "directory" as possible, not stopping on failure
+   *  3) recursively enter subdirectories
+   * @param directory the directory to be removed from the file system.
+   * @return whether the directory was successfully deleted.
+   */
+  private boolean rmDirectory(final File directory) {
+    boolean success = true;
+
+    final var contents = directory.listFiles();
+    if(contents == null) {
+      return rm(directory);
+    }
+
+    for(final var f : contents) {
+      if(Files.isSymbolicLink(f.toPath()) || !f.isDirectory()) {
+        success = success && rm(f);
+      } else {
+        success = success && rmDirectory(f);
+      }
+    }
+
+    return success && rm(directory);
+  }
+
+  /**
+   * Helper method to remove a file or empty directory while swallowing any SecurityManager exception.
+   * This method can be removed and replaced with `file.delete()` when the project moves to Java 24+
+   *
+   * @param file the file to removed from the file system
+   * @return whether the file was successfully deleted
+   */
+  private boolean rm(final File file) {
+    try {
+      return file.delete();
+    } catch (SecurityException se) {
+      return false;
+    }
   }
 
   @Override
-  public boolean deleteWorkspace(final int workspaceId) throws NoSuchWorkspaceException {
+  public boolean deleteWorkspace(final int workspaceId) throws NoSuchWorkspaceException, SQLException {
+    final var repoDir = postgresRepository.workspaceRootPath(workspaceId).toFile();
+    // Only remove DB entry if the files were successfully deleted
+    // This allows the user to attempt deleting via this endpoint again
+    if(rmDirectory(repoDir)) {
+      return postgresRepository.deleteWorkspace(workspaceId);
+    }
     return false;
   }
 

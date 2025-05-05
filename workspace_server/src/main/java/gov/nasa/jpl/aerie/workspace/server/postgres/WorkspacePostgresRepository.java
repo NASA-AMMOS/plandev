@@ -19,6 +19,25 @@ public final class WorkspacePostgresRepository {
     this(Path.of(baseRepositoryPath), dataSource);
   }
 
+  public Path getBaseRepositoryPath() {
+    return baseRepositoryPath;
+  }
+
+  public int createWorkspace(String workspaceLocation, String workspaceName, String username, int parcelId)
+  throws SQLException {
+    try(final var connection = dataSource.getConnection();
+        final var createWorkspace = new CreateWorkspaceAction(connection)) {
+      return createWorkspace.create(workspaceLocation, workspaceName, username, parcelId);
+    }
+  }
+
+  public boolean deleteWorkspace(int workspaceId) throws SQLException {
+    try(final var connection = dataSource.getConnection();
+        final var deleteWorkspace = new DeleteWorkspaceAction(connection)) {
+      return deleteWorkspace.delete(workspaceId);
+    }
+  }
+
   public Path workspaceRootPath(int workspaceId) throws NoSuchWorkspaceException {
     try(final var connection = dataSource.getConnection();
         final var getRootPath = new GetWorkspaceRootPathAction(connection)) {

@@ -7,7 +7,7 @@ import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 
 import javax.json.JsonObject;
-import java.util.Arrays;
+import java.util.ArrayList;
 
 /**
  * A service for decoding JWTs.
@@ -65,8 +65,8 @@ public final class JWTService {
 
     // Validate the active role, if present
     if(activeRole != null && !activeRole.isBlank()) {
-      final String[] allowedRoles = (String[]) hasuraClaims.get("x-hasura-allowed-roles");
-      if (!Arrays.asList(allowedRoles).contains(activeRole)) {
+      final var allowedRoles = (ArrayList<String>) hasuraClaims.get("x-hasura-allowed-roles");
+      if (!allowedRoles.contains(activeRole)) {
         throw new JWTVerificationException("Provided active role is not in the set of permitted roles.");
       }
       return new UserSession(username, activeRole);

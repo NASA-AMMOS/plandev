@@ -145,7 +145,9 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     // Converting our API to the Files API
     final var walkDepth = depth == -1 ? Integer.MAX_VALUE : depth + 1;
     try(final Stream<Path> walkOutput = Files.walk(path, walkDepth)) {
-      return new DirectoryTree(path, walkOutput.toList(), postgresRepository.getExtensionMapping());
+      final var walkList = new ArrayList<>(walkOutput.toList());
+      walkList.removeFirst(); // remove the initial path
+      return new DirectoryTree(path, walkList, postgresRepository.getExtensionMapping());
     } catch (IOException io) {
       return null;
     }

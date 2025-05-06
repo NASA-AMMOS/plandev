@@ -49,7 +49,7 @@ public class WorkspaceBindings implements Plugin {
       path("/health", () -> get(ctx -> ctx.status(200)));
 
       // CRUD operations for Files:
-      path("/ws/{workspaceId}/file/<filePath>/{fileName}",
+      path("/ws/{workspaceId}/file/<filePath>",
            () -> {
              get(this::loadFile);
              put(this::saveFile);
@@ -57,7 +57,7 @@ public class WorkspaceBindings implements Plugin {
              // post(this::handlePostFile); <- work out, move and rename are the same op
            });
       // CRUD operations for Directories <- confirm that file endpoint is not being hit instead
-      path("/ws/{workspaceId}/dir/<directoryPath>/",
+      path("/ws/{workspaceId}/dir/<directoryPath>",
            () -> {
              get(this::listFiles);
              put(this::createDirectory);

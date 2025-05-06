@@ -171,7 +171,7 @@ public class WorkspaceBindings implements Plugin {
     final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
     final var fileName = context.pathParam("fileName");
     final var filePath = Path.of(context.pathParam("filePath"), fileName);
-    final var file = context.uploadedFile("fileName");
+    final var file = context.uploadedFile(fileName);
 
     if (file == null) {
       context.status(400).result("No file provided with the name "+fileName);

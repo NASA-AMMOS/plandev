@@ -263,7 +263,7 @@ public class WorkspaceBindings implements Plugin {
         return;
       }
 
-      context.status(200).json(fileTree.toJson());
+      context.status(200).json(fileTree.toJson().toString());
     } catch (SQLException e) {
       context.status(500).result(e.getMessage());
     } catch (NoSuchWorkspaceException ex) {

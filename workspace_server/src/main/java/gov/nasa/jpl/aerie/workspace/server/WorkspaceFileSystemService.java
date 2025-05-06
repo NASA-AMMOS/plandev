@@ -121,6 +121,8 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
     final var path = repoPath.resolve(filePath);
 
+    if(path.toFile().isDirectory()) return false;
+
     FileUtil.streamToFile(file.content(), path.toString());
     return true;
   }

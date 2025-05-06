@@ -65,6 +65,8 @@ public final class JWTService {
 
     // Validate the active role, if present
     if(activeRole != null && !activeRole.isBlank()) {
+      // Confirmed via runtime inspection that this String Array in the token is stored as an ArrayList in the Map
+      @SuppressWarnings("unchecked")
       final var allowedRoles = (ArrayList<String>) hasuraClaims.get("x-hasura-allowed-roles");
       if (!allowedRoles.contains(activeRole)) {
         throw new JWTVerificationException("Provided active role is not in the set of permitted roles.");

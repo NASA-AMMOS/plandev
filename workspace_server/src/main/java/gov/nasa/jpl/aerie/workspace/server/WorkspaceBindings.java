@@ -211,18 +211,17 @@ public class WorkspaceBindings implements Plugin {
   }
 
   private void deleteFile(Context context) {
-    final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
-    final var fileName = context.pathParam("fileName");
-    final var filePath = Path.of(context.pathParam("filePath"), fileName);
+    final var pathInfo = PathInformation.ofFile(context);
+    final var fileName = pathInfo.filePath.getFileName().toString();
 
     try {
-      if (!workspaceService.checkFileExists(workspaceId, filePath)) {
-        context.status(404).result("No such file exists in the workspace: " + filePath);
+      if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
+        context.status(404).result("No such file exists in the workspace: " + pathInfo.filePath);
         return;
       }
 
       try {
-        if (workspaceService.deleteFile(workspaceId, filePath)) {
+        if (workspaceService.deleteFile(pathInfo.workspaceId, pathInfo.filePath)) {
           context.status(200).result("File " + fileName + " deleted.");
         } else {
           context.status(500).result("Could not delete file.");

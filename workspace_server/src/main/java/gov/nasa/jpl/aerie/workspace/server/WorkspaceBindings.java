@@ -284,17 +284,16 @@ public class WorkspaceBindings implements Plugin {
   private void handlePostDirectory(Context context) {}
 
   private void deleteDirectory(Context context) {
-    final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
-    final var directoryPath = Path.of(context.pathParam("directoryPath"));
+    final var pathInfo = PathInformation.ofDirectory(context);
 
     try {
-      if (!workspaceService.checkFileExists(workspaceId, directoryPath)) {
-        context.status(404).html("No such directory exists in the workspace: " + directoryPath);
+      if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
+        context.status(404).html("No such directory exists in the workspace: " + pathInfo.filePath);
         return;
       }
 
       try {
-        if (workspaceService.deleteDirectory(workspaceId, directoryPath)) {
+        if (workspaceService.deleteDirectory(pathInfo.workspaceId, pathInfo.filePath)) {
           context.status(200).result("Directory deleted.");
         } else {
           context.status(500).result("Could not delete directory.");

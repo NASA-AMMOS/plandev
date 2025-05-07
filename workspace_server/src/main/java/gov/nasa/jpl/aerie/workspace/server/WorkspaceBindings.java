@@ -32,13 +32,19 @@ public class WorkspaceBindings implements Plugin {
     this.workspaceService = workspaceService;
   }
 
-  private record PathInformation(int workspaceId, String fileName, Path filePath) {
-    static PathInformation of(Context context) {
+  private record PathInformation(int workspaceId, Path filePath) {
+    static PathInformation ofFile(Context context) {
       final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
-      final var fileName = context.pathParam("fileName");
-      final var filePath = Path.of(context.pathParam("filePath"), fileName);
+      final var filePath = Path.of(context.pathParam("filePath"));
 
-      return new PathInformation(workspaceId, fileName, filePath);
+      return new PathInformation(workspaceId, filePath);
+    }
+
+    static PathInformation ofDirectory(Context context) {
+      final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
+      final var directoryPath = Path.of(context.pathParam("directoryPath"));
+
+      return new PathInformation(workspaceId, directoryPath);
     }
   }
 

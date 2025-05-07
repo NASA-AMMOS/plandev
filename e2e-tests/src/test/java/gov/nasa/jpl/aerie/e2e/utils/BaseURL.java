@@ -11,7 +11,8 @@ public enum BaseURL {
   MERLIN_WORKER_2("http://localhost:27188"),
   SCHEDULER_WORKER_1("http://localhost:27189"),
   SCHEDULER_WORKER_2("http://localhost:27190"),
-  ACTION_SERVER("http://localhost:27186");
+  ACTION_SERVER("http://localhost:27186"),
+  WORKSPACE_SERVER("http://localhost:28000");
 
   public final String url;
   BaseURL(String url) {

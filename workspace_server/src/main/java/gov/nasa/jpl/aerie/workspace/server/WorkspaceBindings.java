@@ -155,7 +155,6 @@ public class WorkspaceBindings implements Plugin {
 
   private void loadFile(Context context) {
     final var pathInfo = PathInformation.ofFile(context);
-    final var fileName = pathInfo.filePath.getFileName().toString();
 
     try {
       if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
@@ -168,11 +167,11 @@ public class WorkspaceBindings implements Plugin {
         final var fileReader = new BufferedInputStream(fileStream.readingStream());
         context.header("x-render-type", workspaceService.getFileType(pathInfo.filePath).name());
         context.contentType(ContentType.OCTET_STREAM);
-        context.header("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+        context.header("Content-Disposition", "attachment; filename=\"" + pathInfo.fileName() + "\"");
         context.header("Content-Length", "" + fileStream.fileSize());
         context.status(200).result(fileReader);
       } catch (IOException | SQLException e) {
-        context.status(500).result("Could not load file " + fileName);
+        context.status(500).result("Could not load file " + pathInfo.fileName());
       }
     } catch (NoSuchWorkspaceException ex) {
       context.status(404).result(ex.getMessage());

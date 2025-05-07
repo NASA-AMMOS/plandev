@@ -212,7 +212,6 @@ public class WorkspaceBindings implements Plugin {
 
   private void deleteFile(Context context) {
     final var pathInfo = PathInformation.ofFile(context);
-    final var fileName = pathInfo.filePath.getFileName().toString();
 
     try {
       if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
@@ -222,7 +221,7 @@ public class WorkspaceBindings implements Plugin {
 
       try {
         if (workspaceService.deleteFile(pathInfo.workspaceId, pathInfo.filePath)) {
-          context.status(200).result("File " + fileName + " deleted.");
+          context.status(200).result("File " + pathInfo.fileName() + " deleted.");
         } else {
           context.status(500).result("Could not delete file.");
         }

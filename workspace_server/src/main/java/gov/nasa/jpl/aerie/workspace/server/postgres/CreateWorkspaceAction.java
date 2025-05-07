@@ -6,7 +6,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
-public class CreateWorkspaceAction implements AutoCloseable {
+/*package-local*/ final class CreateWorkspaceAction implements AutoCloseable {
   private static final @Language("SQL") String sql = """
     insert into sequencing.workspace(disk_location, name, parcel_id, owner, updated_by)
     values (?, ?, ?, ?, ?)

@@ -6,7 +6,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
-public class DeleteWorkspaceAction implements AutoCloseable {
+/*package-local*/ final class DeleteWorkspaceAction implements AutoCloseable {
   private static final @Language("SQL") String sql = """
     delete from sequencing.workspace
     where id = ?

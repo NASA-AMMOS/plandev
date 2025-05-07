@@ -10,6 +10,7 @@ import io.javalin.plugin.Plugin;
 
 import javax.json.Json;
 import javax.json.stream.JsonParsingException;
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Path;
@@ -155,9 +156,13 @@ public class WorkspaceBindings implements Plugin {
         return;
       }
 
-      try (final var fileReader = workspaceService.loadFile(pathInfo.workspaceId, pathInfo.filePath)) {
-        context.contentType(ContentType.MULTIPART_FORM_DATA);
+      try {
+        final var fileStream = workspaceService.loadFile(pathInfo.workspaceId, pathInfo.filePath());
+        final var fileReader = new BufferedInputStream(fileStream.readingStream());
         context.header("x-render-type", workspaceService.getFileType(pathInfo.filePath).name());
+        context.contentType(ContentType.OCTET_STREAM);
+        context.header("Content-Disposition", "attachment; filename=\"" + pathInfo.fileName + "\"");
+        context.header("Content-Length", "" + fileStream.fileSize());
         context.status(200).result(fileReader);
       } catch (IOException | SQLException e) {
         context.status(500).result("Could not load file " + pathInfo.fileName);

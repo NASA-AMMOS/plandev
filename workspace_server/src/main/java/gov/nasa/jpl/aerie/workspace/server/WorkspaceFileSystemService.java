@@ -9,12 +9,10 @@ import io.javalin.util.FileUtil;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -109,11 +107,11 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
-  public InputStream loadFile(final int workspaceId, final Path filePath) throws IOException, NoSuchWorkspaceException {
+  public FileStream loadFile(final int workspaceId, final Path filePath) throws IOException, NoSuchWorkspaceException {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
     final var file = repoPath.resolve(filePath).toFile();
 
-    return new FileInputStream(file);
+    return new FileStream(new FileInputStream(file), file.getName(), Files.size(file.toPath()));
   }
 
   @Override

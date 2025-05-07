@@ -14,6 +14,7 @@ import java.util.Optional;
  * An interface that defines how the Aerie system can interact with the Workspaces backend.
  */
 public interface WorkspaceService {
+  record FileStream(InputStream readingStream, String fileName, long fileSize){}
 
   Optional<Integer> createWorkspace(Path workspaceLocation, String workspaceName, String username, int parcelId);
   boolean deleteWorkspace(int workspaceId) throws NoSuchWorkspaceException, SQLException;
@@ -28,7 +29,7 @@ public interface WorkspaceService {
 
   RenderType getFileType(final Path filePath) throws SQLException;
 
-  InputStream loadFile(final int workspaceId, final Path filePath) throws IOException, NoSuchWorkspaceException;
+  FileStream loadFile(final int workspaceId, final Path filePath) throws IOException, NoSuchWorkspaceException;
 
   /**
    * Save an uploaded file to a workspace

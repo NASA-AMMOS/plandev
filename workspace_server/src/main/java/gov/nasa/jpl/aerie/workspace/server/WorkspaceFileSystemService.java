@@ -126,6 +126,28 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
+  public boolean moveFile(final int workspaceId, final Path oldFilePath, final Path newFilePath)
+  throws NoSuchWorkspaceException, SQLException
+  {
+    final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
+    final var oldPath = repoPath.resolve(oldFilePath);
+    final var newPath = repoPath.resolve(newFilePath);
+    boolean success = true;
+
+    // find hidden metadata files, if they exist, and move them
+    final var metadataExtensions = postgresRepository.getMetadataExtensions();
+    for(final var extension : metadataExtensions) {
+      final File oldFile = Path.of(oldPath + extension).toFile();
+      if(oldFile.exists()) {
+        final var newFile = Path.of(newPath + extension).toFile();
+        success = success && oldFile.renameTo(newFile);
+      }
+    }
+
+    return success && oldPath.toFile().renameTo(newPath.toFile());
+  }
+
+  @Override
   public boolean deleteFile(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
     final var file = repoPath.resolve(filePath).toFile();
@@ -159,6 +181,16 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var path = repoPath.resolve(directoryPath);
     Files.createDirectories(path);
     return true;
+  }
+
+  @Override
+  public boolean moveDirectory(final int workspaceId, final Path oldDirectoryPath, final Path newDirectoryPath)
+  throws NoSuchWorkspaceException
+  {
+    final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
+    final var oldPath = repoPath.resolve(oldDirectoryPath);
+    final var newPath = repoPath.resolve(newDirectoryPath);
+    return oldPath.toFile().renameTo(newPath.toFile());
   }
 
   @Override

@@ -9,6 +9,7 @@ import io.javalin.http.UnauthorizedResponse;
 import io.javalin.plugin.Plugin;
 
 import javax.json.Json;
+import javax.json.JsonException;
 import javax.json.stream.JsonParsingException;
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -65,7 +66,7 @@ public class WorkspaceBindings implements Plugin {
              get(this::loadFile);
              put(this::saveFile);
              delete(this::deleteFile);
-             // post(this::handlePostFile); <- work out, move and rename are the same op
+             post(this::handlePostFile);
            });
       // CRUD operations for Directories <- confirm that file endpoint is not being hit instead
       path("/ws/{workspaceId}/dir/<directoryPath>",
@@ -73,9 +74,8 @@ public class WorkspaceBindings implements Plugin {
              get(this::listFiles);
              put(this::createDirectory);
              delete(this::deleteDirectory);
-             // post(this::handlePostDirectory); <- work out, move and rename are the same op
+             post(this::handlePostDirectory);
            });
-
 
       // CRD operations for Workspaces
       path("/ws/{workspaceId}", () -> {
@@ -204,12 +204,38 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
-  // Move metadata, if it exists
-  // <some file>.<some extension>.aerie
   private void handlePostFile(Context context) {
-    // parse what the post request is for (move)
-    // perform the request
-    // { moveTo: destination }
+    final String helpText = """
+                            {
+                              "moveTo": text  // Path to where in the workspace the file should be moved to
+                            }
+                            """;
+    final var pathInfo = PathInformation.ofFile(context);
+
+    try(final var bodyReader = Json.createReader(new StringReader(context.body()))){
+      final var bodyJson = bodyReader.readObject();
+
+      // Parse what the post request is for
+      final var moveRq = bodyJson.containsKey("moveTo");
+
+      // Perform the request
+      if(moveRq){
+        try {
+          final var destinationPath = Path.of(bodyJson.getString("moveTo"));
+          if(workspaceService.moveFile(pathInfo.workspaceId, pathInfo.filePath, destinationPath)){
+            context.status(200);
+          } else {
+            context.status(500).result("Unable to move file.");
+          }
+        } catch (SQLException e) {
+          context.status(500).result("Unable to move file. " + e.getMessage());
+        }
+      }
+    } catch (JsonException je) {
+      context.status(400).result("Request body is malformed. Request body format is:\n" + helpText);
+    } catch (NoSuchWorkspaceException ex) {
+      context.status(404).result(ex.getMessage());
+    }
   }
 
   private void deleteFile(Context context) {
@@ -282,7 +308,35 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
-  private void handlePostDirectory(Context context) {}
+  private void handlePostDirectory(Context context) {
+    final String helpText = """
+                            {
+                              "moveTo": text  // Path to where in the workspace the directory should be moved to
+                            }
+                            """;
+    final var pathInfo = PathInformation.ofDirectory(context);
+
+    try(final var bodyReader = Json.createReader(new StringReader(context.body()))){
+      final var bodyJson = bodyReader.readObject();
+
+      // Parse what the post request is for
+      final var moveRq = bodyJson.containsKey("moveTo");
+
+      // Perform the request
+      if(moveRq){
+        final var destinationPath = Path.of(bodyJson.getString("moveTo"));
+        if(workspaceService.moveDirectory(pathInfo.workspaceId, pathInfo.filePath, destinationPath)){
+          context.status(200);
+        } else {
+          context.status(500).result("Unable to move directory.");
+        }
+      }
+    } catch (JsonException je) {
+      context.status(400).result("Request body is malformed. Request body format is:\n" + helpText);
+    } catch (NoSuchWorkspaceException ex) {
+      context.status(404).result(ex.getMessage());
+    }
+  }
 
   private void deleteDirectory(Context context) {
     final var pathInfo = PathInformation.ofDirectory(context);

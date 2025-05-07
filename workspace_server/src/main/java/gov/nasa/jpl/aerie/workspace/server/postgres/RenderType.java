@@ -8,13 +8,23 @@ import java.util.Map;
  * Content types that the Aerie UI supports
  */
 public enum RenderType {
-  TEXT,
-  BINARY,
-  JSON,
-  SEQUENCE,
-  METADATA, // Aerie metadata file
-  UNKNOWN, // If the filetype is unknown to the Aerie system
-  DIRECTORY;
+  TEXT ("Text"),
+  BINARY ("Binary"),
+  JSON ("JSON"),
+  SEQUENCE ("Sequence"),
+  METADATA ("Metadata"), // Aerie metadata file
+  UNKNOWN (null), // If the filetype is unknown to the Aerie system
+  DIRECTORY (null);
+
+  private final String dbName;
+  RenderType(String dbName) {
+    this.dbName = dbName;
+  }
+
+  /**
+   * Get the name of this type in the DB, if it exists.
+   */
+  public String dbName() { return dbName; }
 
   /**
    * Return the RenderType of the file.

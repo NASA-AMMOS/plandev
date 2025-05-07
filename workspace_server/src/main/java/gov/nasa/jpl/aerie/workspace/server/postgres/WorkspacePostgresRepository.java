@@ -3,6 +3,7 @@ package gov.nasa.jpl.aerie.workspace.server.postgres;
 import javax.sql.DataSource;
 import java.nio.file.Path;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Map;
 
 public final class WorkspacePostgresRepository {
@@ -50,6 +51,13 @@ public final class WorkspacePostgresRepository {
     try(final var connection = dataSource.getConnection();
         final var getMappingAction = new GetExtensionMappingsAction(connection)) {
       return getMappingAction.get();
+    }
+  }
+
+  public List<String> getMetadataExtensions() throws SQLException {
+    try(final var connection = dataSource.getConnection();
+        final var getMappingAction = new GetExtensionMappingsAction(connection)) {
+      return getMappingAction.get(RenderType.METADATA);
     }
   }
 }

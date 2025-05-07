@@ -40,6 +40,15 @@ public interface WorkspaceService {
    */
   boolean saveFile(final int workspaceId, final Path filePath, final UploadedFile file) throws IOException,
                                                                                                NoSuchWorkspaceException;
+  /**
+   * Move a file in a workspace to a new location in the workspace.
+   * @param workspaceId the id of the workspace
+   * @param oldFilePath the path, relative to the workspace's root, that the file is currently at
+   * @param newFilePath the new path of the file
+   * @return true if the file was moved, false otherwise
+   */
+  boolean moveFile(final int workspaceId, final Path oldFilePath, final Path newFilePath)
+  throws NoSuchWorkspaceException, SQLException;
 
   /**
    * Delete a file from a workspace
@@ -53,6 +62,8 @@ public interface WorkspaceService {
   DirectoryTree listFiles(final int workspaceId, final Optional<Path> directoryPath, final int depth) throws SQLException,
                                                                                                              NoSuchWorkspaceException;
 
-  boolean createDirectory(int workspaceId, Path directoryPath) throws IOException, NoSuchWorkspaceException;
-  boolean deleteDirectory(int workspaceId, Path directoryPath) throws IOException, NoSuchWorkspaceException;
+  boolean createDirectory(final int workspaceId, final Path directoryPath) throws IOException, NoSuchWorkspaceException;
+  boolean moveDirectory(final int workspaceId, final Path oldDirectoryPath, final Path newDirectoryPath)
+    throws NoSuchWorkspaceException;
+  boolean deleteDirectory(final int workspaceId, final Path directoryPath) throws IOException, NoSuchWorkspaceException;
 }

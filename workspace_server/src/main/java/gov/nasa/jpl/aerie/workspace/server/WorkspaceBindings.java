@@ -101,6 +101,13 @@ public class WorkspaceBindings implements Plugin {
   }
 
   private void createWorkspace(Context context) {
+    final String helpText = """
+        {
+            "workspaceLocation": text     // Name of the folder the workspace will live in
+            "parcelId": number            // Id of the workspace's parcel
+            "workspaceName": text?        // Optional. If provided, the workspace will be called the specified value (defaults to the value of "workspaceLocation")
+        }
+        """;
     final Path workspaceLocation;
     final String workspaceName;
     final int parcelId;
@@ -118,14 +125,10 @@ public class WorkspaceBindings implements Plugin {
       workspaceLocation = Path.of(bodyJson.getString("workspaceLocation"));
       workspaceName = bodyJson.containsKey("workspaceName") ? bodyJson.getString("workspaceName") : workspaceLocation.toString();
     } catch (NullPointerException npe) {
-      context.status(400).result(
-          "Mandatory body parameter is null. Request body format is the following: \n" +
-          """
-          {
-            "workspaceLocation": text     // Name of the folder the workspace will live in
-            "parcelId": number            // Id of the workspace's parcel
-            "workspaceName": text?        // Optional. If provided, the workspace will be called the specified value (defaults to the value of "workspaceLocation")
-          }""");
+      context.status(400).result("Mandatory body parameter is null. Request body format is:\n" + helpText);
+      return;
+    } catch (JsonException je) {
+      context.status(400).result("Request body is malformed. Request body format is:\n" + helpText);
       return;
     }
 

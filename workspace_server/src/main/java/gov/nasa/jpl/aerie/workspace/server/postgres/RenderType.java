@@ -32,11 +32,11 @@ public enum RenderType {
    * @return the RenderType of the extension, or "Unknown" if the extension is not registered in the system.
    */
   public static RenderType getRenderType(String fileName, Map<String, RenderType> extensionMappings) {
-    final var extensionsList = new ArrayList<>(List.of(fileName.split(".")));
+    final var extensionsList = new ArrayList<>(List.of(fileName.split("\\.")));
     extensionsList.removeFirst(); // remove the non-extension section of the file name
 
     while(!extensionsList.isEmpty()) {
-      final String extension = String.join(".", extensionsList.subList(1, extensionsList.size()));
+      final var extension = "." + String.join(".", extensionsList);
 
       if(extensionMappings.containsKey(extension)) {
         return extensionMappings.get(extension);

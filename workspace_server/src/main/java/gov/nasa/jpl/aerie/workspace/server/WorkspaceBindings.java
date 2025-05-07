@@ -46,6 +46,10 @@ public class WorkspaceBindings implements Plugin {
 
       return new PathInformation(workspaceId, directoryPath);
     }
+
+    String fileName() {
+      return filePath.getFileName().toString();
+    }
   }
 
   @Override

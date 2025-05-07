@@ -180,19 +180,18 @@ public class WorkspaceBindings implements Plugin {
   }
 
   private void saveFile(Context context) {
-    final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
-    final var filePath = Path.of(context.pathParam("filePath"));
-    final var fileName = filePath.getFileName();
+    final var pathInfo = PathInformation.ofFile(context);
+    final var fileName = pathInfo.filePath.getFileName().toString();
     final var file = context.uploadedFile("file");
 
-    if (file == null || !fileName.toString().equals(file.filename())) {
+    if (file == null || !fileName.equals(file.filename())) {
       context.status(400).result("No file provided with the name "+fileName);
       return;
     }
 
     try {
-      if (workspaceService.saveFile(workspaceId, filePath, file)) {
-        context.status(200).result("File " + fileName + " uploaded to " + filePath);
+      if (workspaceService.saveFile(pathInfo.workspaceId, pathInfo.filePath, file)) {
+        context.status(200).result("File " + fileName + " uploaded to " + pathInfo.filePath);
       } else {
         context.status(500).result("Could not save file.");
       }

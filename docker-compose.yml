@@ -101,8 +101,8 @@ services:
   aerie_sequencing:
     build:
       context: ./sequencing-server
-      dockerfile: Dockerfile
-      #dockerfile: Dockerfile.dev #-- Uncomment for development
+      # dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev #-- Uncomment for development
     container_name: aerie_sequencing
     depends_on: ["postgres"]
     environment:
@@ -123,8 +123,8 @@ services:
       SEQUENCING_MAX_WORKER_HEAP_MB: 1000
       TRANSPILER_ENABLED: "true"
     image: aerie_sequencing
-    ports: ["27184:27184"]
-    #ports: [ "27184:27184",'9229:9229'] #-- Uncomment for development
+    # ports: ["27184:27184"]
+    ports: [ "27184:27184",'9229:9229'] #-- Uncomment for development
     restart: always
     volumes:
       - ./sequencing-server:/app:cached
@@ -141,8 +141,8 @@ services:
       PUBLIC_HASURA_CLIENT_URL: http://localhost:8080/v1/graphql
       PUBLIC_HASURA_SERVER_URL: http://hasura:8080/v1/graphql
       PUBLIC_HASURA_WEB_SOCKET_URL: ws://localhost:8080/v1/graphql
-      PUBLIC_COMMAND_EXPANSION_MODE: "typescript"
-    image: "ghcr.io/nasa-ammos/aerie-ui:develop"
+      PUBLIC_COMMAND_EXPANSION_MODE: "templating"
+    image: "ghcr.io/nasa-ammos/aerie-ui:v3.4.0"
     ports: ["80:80"]
     restart: always
   aerie_merlin_worker_1:

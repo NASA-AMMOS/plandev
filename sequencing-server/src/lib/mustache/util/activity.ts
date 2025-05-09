@@ -3,21 +3,21 @@ import type { SimulatedActivity } from "../../batchLoaders/simulatedActivityBatc
 // converts SimulatedActivity into something mustache plays well with
 export function stringifyActivity(simulatedActivity: SimulatedActivity): MustacheActivity {
     // https://stackoverflow.com/questions/62905565/typescript-iterate-over-a-record-type-and-return-updated-record
-    const updatedArguments: Record<string, string> = Object.entries(simulatedActivity.attributes.arguments).reduce<Record<string, string>>((acc, curr) => {
-        const argumentName = curr[0]
-        const argumentValue = curr[1]
+    // const updatedArguments: Record<string, string> = Object.entries(simulatedActivity.attributes.arguments).reduce<Record<string, string>>((acc, curr) => {
+    //     const argumentName = curr[0]
+    //     const argumentValue = curr[1]
 
-        acc[argumentName] = String(argumentValue)
-        return acc
-    }, {});
+    //     acc[argumentName] = String(argumentValue)
+    //     return acc
+    // }, {});
 
-    const updatedComputed: Record<string, string> | undefined = simulatedActivity.attributes.computed ? Object.entries(simulatedActivity.attributes.computed).reduce<Record<string, string>>((acc, curr) => {
-        const argumentName = curr[0]
-        const argumentValue = curr[1]
+    // const updatedComputed: Record<string, string> | undefined = simulatedActivity.attributes.computed ? Object.entries(simulatedActivity.attributes.computed).reduce<Record<string, string>>((acc, curr) => {
+    //     const argumentName = curr[0]
+    //     const argumentValue = curr[1]
 
-        acc[argumentName] = String(argumentValue)
-        return acc
-    }, {}) : undefined;
+    //     acc[argumentName] = String(argumentValue)
+    //     return acc
+    // }, {}) : undefined;
 
     return {
         ...simulatedActivity,
@@ -26,9 +26,11 @@ export function stringifyActivity(simulatedActivity: SimulatedActivity): Mustach
         startTime: simulatedActivity.startTime.toString(),
         endTime: simulatedActivity.endTime ? simulatedActivity.endTime.toString() : null,
         attributes: {
-            arguments: updatedArguments,
+            // arguments: updatedArguments,
+            arguments: simulatedActivity.attributes.arguments,
             directiveId: simulatedActivity.attributes.directiveId,
-            computed: updatedComputed
+            // computed: updatedComputed
+            computed: simulatedActivity.attributes.computed
         }
     }
 }
@@ -42,9 +44,9 @@ export type MustacheActivity = {
         };
     };
     attributes: {
-        arguments: Record<string, string>;
+        arguments: Record<string, any>;
         directiveId: number | undefined;
-        computed: Record<string, string> | undefined;
+        computed: Record<string, any> | undefined;
     };
     duration: string | null;
     startOffset: string;

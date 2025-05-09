@@ -42,12 +42,16 @@ function formatAsDate(date: string): string {
     }
 }
 
+function lengthHelper(arr: any[]): number {
+  return arr.length;
+}
+
 /////////////// AERIE HELPER REGISTRATION ///////////////
 Handlebars.registerHelper("add-time", addTime)
 Handlebars.registerHelper("subtract-time", subtractTime)
 Handlebars.registerHelper("flatten", flatten)
 Handlebars.registerHelper("format-as-date", formatAsDate)
-
+Handlebars.registerHelper("length", lengthHelper)
 
 /////////////// EXPOSE TO SEQUENCING-SERVER ///////////////
 export class Mustache {

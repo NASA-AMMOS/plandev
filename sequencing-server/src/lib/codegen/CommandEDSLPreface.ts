@@ -3627,8 +3627,9 @@ function convertInterfacesToArgs(interfaces: Args, localNames?: String[], parame
             } else if (parameterNames && parameterNames.includes(arg.value)) {
               variable.setKind('parameters');
             } else {
-              const errorMsg = `Variable '${arg.value}' is not defined as a local or parameter\n`;
-              variable = Variable.new({ name: `${arg.value} //ERROR: ${errorMsg}`, type: VariableType.INT });
+              // Global
+              // const errorMsg = `Variable '${arg.value}' is not defined as a local or parameter\n`;
+              // variable = Variable.new({ name: `${arg.value} //ERROR: ${errorMsg}`, type: VariableType.INT });
               variable.setKind('unknown');
             }
             return { [argName]: variable };

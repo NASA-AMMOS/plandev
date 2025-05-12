@@ -3,26 +3,24 @@ package gov.nasa.jpl.aerie.workspace.server;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import io.javalin.Javalin;
+import io.javalin.apibuilder.ApiBuilder;
 import io.javalin.http.ContentType;
 import io.javalin.http.Context;
 import io.javalin.http.UnauthorizedResponse;
 import io.javalin.plugin.Plugin;
+import io.javalin.validation.ValidationException;
 
 import javax.json.Json;
 import javax.json.JsonException;
-import javax.json.stream.JsonParsingException;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Path;
 import java.sql.SQLException;
+import java.util.Objects;
 import java.util.Optional;
 
-import static io.javalin.apibuilder.ApiBuilder.delete;
-import static io.javalin.apibuilder.ApiBuilder.get;
 import static io.javalin.apibuilder.ApiBuilder.path;
-import static io.javalin.apibuilder.ApiBuilder.post;
-import static io.javalin.apibuilder.ApiBuilder.put;
 
 public class WorkspaceBindings implements Plugin {
   private final JWTService jwtService;
@@ -34,18 +32,11 @@ public class WorkspaceBindings implements Plugin {
   }
 
   private record PathInformation(int workspaceId, Path filePath) {
-    static PathInformation ofFile(Context context) {
+    static PathInformation of(Context context) {
       final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
       final var filePath = Path.of(context.pathParam("filePath"));
 
       return new PathInformation(workspaceId, filePath);
-    }
-
-    static PathInformation ofDirectory(Context context) {
-      final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
-      final var directoryPath = Path.of(context.pathParam("directoryPath"));
-
-      return new PathInformation(workspaceId, directoryPath);
     }
 
     String fileName() {
@@ -58,37 +49,33 @@ public class WorkspaceBindings implements Plugin {
     javalin.routes(() -> {
       //before("/ws/*", authorize); <- dont want to force auth on the health check.
       // Health check
-      path("/health", () -> get(ctx -> ctx.status(200)));
+      path("/health", () -> ApiBuilder.get(ctx -> ctx.status(200)));
 
-      // CRUD operations for Files:
-      path("/ws/{workspaceId}/file/<filePath>",
+      // CRUD operations for Files and Directories:
+      path("/ws/{workspaceId}/<filePath>",
            () -> {
-             get(this::loadFile);
-             put(this::saveFile);
-             delete(this::deleteFile);
-             post(this::handlePostFile);
-           });
-      // CRUD operations for Directories <- confirm that file endpoint is not being hit instead
-      path("/ws/{workspaceId}/dir/<directoryPath>",
-           () -> {
-             get(this::listFiles);
-             put(this::createDirectory);
-             delete(this::deleteDirectory);
-             post(this::handlePostDirectory);
+             ApiBuilder.get(this::get);
+             ApiBuilder.put(this::put);
+             ApiBuilder.delete(this::delete);
+             ApiBuilder.post(this::post);
            });
 
       // CRD operations for Workspaces
       path("/ws/{workspaceId}", () -> {
-        get(this::listFiles);
-        delete(this::deleteWorkspace);
+        ApiBuilder.get(this::listContents);
+        ApiBuilder.delete(this::deleteWorkspace);
       });
-      path("/ws/create", () -> post(this::createWorkspace));
+      path("/ws/create", () -> ApiBuilder.post(this::createWorkspace));
     });
 
-    // This exception is expected when the request body entity is not a legal JsonValue.
-    javalin.exception(JsonParsingException.class, (ex, ctx) -> ctx.status(400).result("Invalid json body"));
+    // Default exception handlers for common endpoint exceptions
+    javalin.exception(NoSuchWorkspaceException.class, (ex, ctx) -> ctx.status(404).result(ex.getMessage()));
+    javalin.exception(IOException.class, (ex, ctx) -> ctx.status(500).result(ex.getMessage()));
   }
 
+  /**
+   * Validate that the request has a valid authorization
+   */
   private JWTService.UserSession authorize(Context context) {
     final var authHeader = context.header("Authorization");
     final var activeRole = context.header("x-hasura-role");
@@ -120,6 +107,7 @@ public class WorkspaceBindings implements Plugin {
       final var workspaceString = bodyJson.getString("workspaceLocation");
       if(workspaceString.contains("/")){
         context.status(400).result("Workspace location may not contain '/'");
+        return;
       }
 
       workspaceLocation = Path.of(bodyJson.getString("workspaceLocation"));
@@ -160,133 +148,12 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
-  private void loadFile(Context context) {
-    final var pathInfo = PathInformation.ofFile(context);
-
-    try {
-      if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
-        context.status(404).result("No such file exists in the workspace: " + pathInfo.filePath);
-        return;
-      }
-
-      try {
-        final var fileStream = workspaceService.loadFile(pathInfo.workspaceId, pathInfo.filePath());
-        final var fileReader = new BufferedInputStream(fileStream.readingStream());
-        context.header("x-render-type", workspaceService.getFileType(pathInfo.filePath).name());
-        context.contentType(ContentType.OCTET_STREAM);
-        context.header("Content-Disposition", "attachment; filename=\"" + pathInfo.fileName() + "\"");
-        context.header("Content-Length", "" + fileStream.fileSize());
-        context.status(200).result(fileReader);
-      } catch (IOException | SQLException e) {
-        context.status(500).result("Could not load file " + pathInfo.fileName());
-      }
-    } catch (NoSuchWorkspaceException ex) {
-      context.status(404).result(ex.getMessage());
-    }
-  }
-
-  private void saveFile(Context context) {
-    final var pathInfo = PathInformation.ofFile(context);
-    final var file = context.uploadedFile("file");
-
-    if (file == null || !pathInfo.fileName().equals(file.filename())) {
-      context.status(400).result("No file provided with the name "+pathInfo.fileName());
-      return;
-    }
-
-    try {
-      if (workspaceService.saveFile(pathInfo.workspaceId, pathInfo.filePath, file)) {
-        context.status(200).result("File " + pathInfo.fileName() + " uploaded to " + pathInfo.filePath);
-      } else {
-        context.status(500).result("Could not save file.");
-      }
-    } catch (IOException io) {
-      context.status(500).result(io.getMessage());
-    } catch (NoSuchWorkspaceException ex) {
-      context.status(404).result(ex.getMessage());
-    }
-  }
-
-  private void handlePostFile(Context context) {
-    final String helpText = """
-                            {
-                              "moveTo": text  // Path to where in the workspace the file should be moved to
-                            }
-                            """;
-    final var pathInfo = PathInformation.ofFile(context);
-
-    try(final var bodyReader = Json.createReader(new StringReader(context.body()))){
-      final var bodyJson = bodyReader.readObject();
-
-      // Parse what the post request is for
-      final var moveRq = bodyJson.containsKey("moveTo");
-
-      // Perform the request
-      if(moveRq){
-        try {
-          final var destinationPath = Path.of(bodyJson.getString("moveTo"));
-          if(workspaceService.moveFile(pathInfo.workspaceId, pathInfo.filePath, destinationPath)){
-            context.status(200);
-          } else {
-            context.status(500).result("Unable to move file.");
-          }
-        } catch (SQLException e) {
-          context.status(500).result("Unable to move file. " + e.getMessage());
-        }
-      }
-    } catch (JsonException je) {
-      context.status(400).result("Request body is malformed. Request body format is:\n" + helpText);
-    } catch (NoSuchWorkspaceException ex) {
-      context.status(404).result(ex.getMessage());
-    }
-  }
-
-  private void deleteFile(Context context) {
-    final var pathInfo = PathInformation.ofFile(context);
-
-    try {
-      if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
-        context.status(404).result("No such file exists in the workspace: " + pathInfo.filePath);
-        return;
-      }
-
-      try {
-        if (workspaceService.deleteFile(pathInfo.workspaceId, pathInfo.filePath)) {
-          context.status(200).result("File " + pathInfo.fileName() + " deleted.");
-        } else {
-          context.status(500).result("Could not delete file.");
-        }
-      } catch (IOException io) {
-        context.status(500).result(io.getMessage());
-      }
-    } catch (NoSuchWorkspaceException ex) {
-      context.status(404).result(ex.getMessage());
-    }
-  }
-
-  private void createDirectory(Context context) {
-    final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
-    final var directoryPath = Path.of(context.pathParam("directoryPath"));
-
-    try {
-      if (workspaceService.createDirectory(workspaceId, directoryPath)) {
-        context.status(200).result("Directory created.");
-      } else {
-        context.status(500).result("Could not create directory.");
-      }
-    } catch (IOException io) {
-      context.status(500).result(io.getMessage());
-    } catch (NoSuchWorkspaceException ex) {
-      context.status(404).result(ex.getMessage());
-    }
-  }
-
-  private void listFiles(Context context) {
+  private void listContents(Context context) {
     final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
 
     final Optional<Path> directoryPath;
-    if(context.pathParamMap().containsKey("directoryPath")) {
-      directoryPath = Optional.of(Path.of(context.pathParam("directoryPath")));
+    if(context.pathParamMap().containsKey("filePath")) {
+      directoryPath = Optional.of(Path.of(context.pathParam("filePath")));
     } else {
       directoryPath = Optional.empty();
     }
@@ -311,56 +178,153 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
-  private void handlePostDirectory(Context context) {
-    final String helpText = """
-                            {
-                              "moveTo": text  // Path to where in the workspace the directory should be moved to
-                            }
-                            """;
-    final var pathInfo = PathInformation.ofDirectory(context);
+  private void get(Context context) throws NoSuchWorkspaceException {
+    final var pathInfo = PathInformation.of(context);
 
-    try(final var bodyReader = Json.createReader(new StringReader(context.body()))){
+    if (workspaceService.isDirectory(pathInfo.workspaceId, pathInfo.filePath)) {
+      listContents(context);
+    } else {
+      if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
+        context.status(404).result("No such file exists in the workspace: " + pathInfo.filePath);
+        return;
+      }
+
+      try {
+        final var fileStream = workspaceService.loadFile(pathInfo.workspaceId, pathInfo.filePath());
+        final var fileReader = new BufferedInputStream(fileStream.readingStream());
+        context.header("x-render-type", workspaceService.getFileType(pathInfo.filePath).name());
+        context.contentType(ContentType.OCTET_STREAM);
+        context.header("Content-Disposition", "attachment; filename=\"" + pathInfo.fileName() + "\"");
+        context.header("Content-Length", "" + fileStream.fileSize());
+        context.status(200).result(fileReader);
+      } catch (IOException | SQLException e) {
+        context.status(500).result("Could not load file " + pathInfo.fileName());
+      }
+    }
+  }
+
+  private void put(Context context) throws NoSuchWorkspaceException, IOException {
+    final var pathInfo = PathInformation.of(context);
+    final String type;
+    final boolean overwrite;
+
+    // Validate the permitted query parameters on Put requests
+    try {
+      type = context.queryParamAsClass("type", String.class)
+                    .allowNullable()
+                    .check(Objects::nonNull, "'type' must be provided.")
+                    .check(ts -> ts.equalsIgnoreCase("file") || ts.equalsIgnoreCase("directory"),
+                           "'type' must be one of 'file' or 'directory'")
+                    .get();
+      overwrite = context.queryParamAsClass("overwrite", Boolean.class).getOrDefault(false);
+    } catch (ValidationException ve) {
+      context.status(400).result(ve.getMessage());
+      return;
+    }
+
+    // Report a "Conflict" status if the object already exists and "overwrite" is false
+    if(workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath) && !overwrite) {
+      context.status(409).result(pathInfo.fileName() + " already exists.");
+      return;
+    }
+
+    if ("file".equalsIgnoreCase(type)) {
+      // Reject the request if the file isn't provided.
+      final var file = context.uploadedFile("file");
+      if (file == null || !pathInfo.fileName().equals(file.filename())) {
+        context.status(400).result("No file provided with the name " + pathInfo.fileName());
+        return;
+      }
+
+      if (workspaceService.saveFile(pathInfo.workspaceId, pathInfo.filePath, file)) {
+        context.status(200).result("File " + pathInfo.fileName() + " uploaded to " + pathInfo.filePath);
+      } else {
+        context.status(500).result("Could not save file.");
+      }
+    } else if ("directory".equalsIgnoreCase(type)) {
+      if (workspaceService.createDirectory(pathInfo.workspaceId, pathInfo.filePath)) {
+        context.status(200).result("Directory created.");
+      } else {
+        context.status(500).result("Could not create directory.");
+      }
+    } else {
+      context.status(400).result("Query param 'type' has invalid value "+type);
+    }
+  }
+
+  private void post(Context context) throws NoSuchWorkspaceException, IOException {
+    final var pathInfo = PathInformation.of(context);
+
+    try (final var bodyReader = Json.createReader(new StringReader(context.body()))) {
       final var bodyJson = bodyReader.readObject();
 
       // Parse what the post request is for
       final var moveRq = bodyJson.containsKey("moveTo");
 
       // Perform the request
-      if(moveRq){
-        final var destinationPath = Path.of(bodyJson.getString("moveTo"));
-        if(workspaceService.moveDirectory(pathInfo.workspaceId, pathInfo.filePath, destinationPath)){
-          context.status(200);
+      if (moveRq) {
+        final var destination = Path.of(bodyJson.getString("moveTo"));
+
+        // Reject if source does not exist
+        if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
+          context.status(404).result(pathInfo.fileName() + " does not exist in the workspace.");
+          return;
+        }
+        // Return "Conflicted" if destination exists
+        if (workspaceService.checkFileExists(pathInfo.workspaceId, destination)) {
+          context.status(409).result(destination.getFileName().toString() + " already exists");
+          return;
+        }
+
+        if (workspaceService.isDirectory(pathInfo.workspaceId, pathInfo.filePath())) {
+          if (workspaceService.moveDirectory(pathInfo.workspaceId, pathInfo.filePath, destination)) {
+            context.status(200);
+          } else {
+            context.status(500).result("Unable to move directory.");
+          }
         } else {
-          context.status(500).result("Unable to move directory.");
+          try {
+            if (workspaceService.moveFile(pathInfo.workspaceId, pathInfo.filePath, destination)) {
+              context.status(200);
+            } else {
+              context.status(500).result("Unable to move file.");
+            }
+          } catch (SQLException e) {
+            context.status(500).result("Unable to move file. " + e.getMessage());
+          }
         }
       }
     } catch (JsonException je) {
+      final String helpText = """
+          {
+            "moveTo": text  // Path to where in the workspace the file should be moved to
+          }
+          """;
       context.status(400).result("Request body is malformed. Request body format is:\n" + helpText);
-    } catch (NoSuchWorkspaceException ex) {
-      context.status(404).result(ex.getMessage());
     }
   }
 
-  private void deleteDirectory(Context context) {
-    final var pathInfo = PathInformation.ofDirectory(context);
+  private void delete(Context context) throws NoSuchWorkspaceException, IOException {
+    final var pathInfo = PathInformation.of(context);
 
-    try {
-      if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
-        context.status(404).html("No such directory exists in the workspace: " + pathInfo.filePath);
-        return;
-      }
+    if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
+      context.status(404).result(pathInfo.fileName() + " does not exist.");
+      return;
+    }
 
-      try {
-        if (workspaceService.deleteDirectory(pathInfo.workspaceId, pathInfo.filePath)) {
-          context.status(200).result("Directory deleted.");
-        } else {
-          context.status(500).result("Could not delete directory.");
-        }
-      } catch (IOException io) {
-        context.status(500).result(io.getMessage());
+    if (workspaceService.isDirectory(pathInfo.workspaceId, pathInfo.filePath)) {
+      if (workspaceService.deleteDirectory(pathInfo.workspaceId, pathInfo.filePath)) {
+        context.status(200).result("Directory deleted.");
+      } else {
+        context.status(500).result("Could not delete directory.");
       }
-    } catch (NoSuchWorkspaceException ex) {
-      context.status(404).result(ex.getMessage());
+    } else {
+      if (workspaceService.deleteFile(pathInfo.workspaceId, pathInfo.filePath)) {
+        context.status(200).result("File deleted.");
+      } else {
+        context.status(500).result("Could not delete file.");
+      }
     }
   }
+
 }

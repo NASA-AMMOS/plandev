@@ -101,6 +101,14 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
+  public boolean isDirectory(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException {
+    final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
+    final var path = repoPath.resolve(filePath);
+
+    return path.toFile().isDirectory();
+  }
+
+  @Override
   public RenderType getFileType(final Path filePath) throws SQLException {
     final var fileName = filePath.getFileName().toString();
     return RenderType.getRenderType(fileName, postgresRepository.getExtensionMapping());

@@ -27,6 +27,13 @@ public interface WorkspaceService {
    */
   boolean checkFileExists(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException;
 
+  /**
+   * Check if the specified file is a directory
+   * @param workspaceId the id of the workspace the file lives in
+   * @param filePath the path to the file, relative to the workspace's root
+   */
+  boolean isDirectory(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException;
+
   RenderType getFileType(final Path filePath) throws SQLException;
 
   FileStream loadFile(final int workspaceId, final Path filePath) throws IOException, NoSuchWorkspaceException;

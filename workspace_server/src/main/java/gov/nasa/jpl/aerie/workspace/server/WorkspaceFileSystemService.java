@@ -185,11 +185,16 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   @Override
   public boolean moveDirectory(final int workspaceId, final Path oldDirectoryPath, final Path newDirectoryPath)
-  throws NoSuchWorkspaceException
+  throws NoSuchWorkspaceException, IOException
   {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
     final var oldPath = repoPath.resolve(oldDirectoryPath);
     final var newPath = repoPath.resolve(newDirectoryPath);
+
+    // Do not permit the workspace's root directory to be moved
+    // Or to move a directory to replace the root directory
+    if(Files.isSameFile(oldPath, repoPath) || Files.isSameFile(newPath, repoPath)) return false;
+
     return oldPath.toFile().renameTo(newPath.toFile());
   }
 

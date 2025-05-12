@@ -71,6 +71,6 @@ public interface WorkspaceService {
 
   boolean createDirectory(final int workspaceId, final Path directoryPath) throws IOException, NoSuchWorkspaceException;
   boolean moveDirectory(final int workspaceId, final Path oldDirectoryPath, final Path newDirectoryPath)
-    throws NoSuchWorkspaceException;
+  throws NoSuchWorkspaceException, IOException;
   boolean deleteDirectory(final int workspaceId, final Path directoryPath) throws IOException, NoSuchWorkspaceException;
 }

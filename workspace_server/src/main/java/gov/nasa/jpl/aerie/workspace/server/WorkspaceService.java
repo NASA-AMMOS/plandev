@@ -45,8 +45,8 @@ public interface WorkspaceService {
    * @param file the contents of the file to be saved
    * @return true if the file was saved, false otherwise
    */
-  boolean saveFile(final int workspaceId, final Path filePath, final UploadedFile file) throws IOException,
-                                                                                               NoSuchWorkspaceException;
+  boolean saveFile(final int workspaceId, final Path filePath, final UploadedFile file)
+  throws IOException, NoSuchWorkspaceException;
   /**
    * Move a file in a workspace to a new location in the workspace.
    * @param workspaceId the id of the workspace

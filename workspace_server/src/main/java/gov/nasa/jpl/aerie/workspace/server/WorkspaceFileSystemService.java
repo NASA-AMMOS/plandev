@@ -123,7 +123,8 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
-  public boolean saveFile(final int workspaceId, final Path filePath, final UploadedFile file) throws NoSuchWorkspaceException {
+  public boolean saveFile(final int workspaceId, final Path filePath, final UploadedFile file)
+  throws NoSuchWorkspaceException {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
     final var path = repoPath.resolve(filePath);
 
@@ -142,13 +143,16 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var newPath = repoPath.resolve(newFilePath);
     boolean success = true;
 
-    // find hidden metadata files, if they exist, and move them
+    // Do not move the file if the destination already exists
+    if(newPath.toFile().exists()) return false;
+
+    // Find hidden metadata files, if they exist, and move them
     final var metadataExtensions = postgresRepository.getMetadataExtensions();
     for(final var extension : metadataExtensions) {
       final File oldFile = Path.of(oldPath + extension).toFile();
       if(oldFile.exists()) {
         final var newFile = Path.of(newPath + extension).toFile();
-        success = success && oldFile.renameTo(newFile);
+        success = success && oldFile.renameTo(newFile); // Do not fast-fail
       }
     }
 

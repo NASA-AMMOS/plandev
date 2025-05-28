@@ -35,7 +35,7 @@ function formatAsDate(date: string): string {
         return InstanttoSTOL(STOLToInstant(date))
     }
     else if (environment.language === SequencingLanguage.TEXT) {
-        return TextToISO8601(date)
+        return InstanttoSeqN(SeqNToInstant(date))
     }
     else {
         return InstanttoSeqN(SeqNToInstant(date))

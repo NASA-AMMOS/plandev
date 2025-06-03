@@ -1,9 +1,11 @@
+/* eslint-disable func-style */
 import * as vm from "node:vm";
-import type { ActionConfig, ActionResponse } from "../type/types";
-import { ActionsAPI } from "@nasa-jpl/aerie-actions";
-import { PoolClient } from "pg";
+import type { PoolClient } from "pg";
 import { createLogger, format, transports } from "winston";
+import { ActionsAPI } from "@nasa-jpl/aerie-actions";
 import { configuration } from "../config";
+import type { ActionConfig, ActionResponse } from "../type/types";
+import { ENVIRONMENT_VARIALBE_PREFIX } from "./consts";
 
 // todo put this inside a more limited closure scope or it will get reused...
 // const logBuffer: string[] = [];
@@ -17,7 +19,9 @@ function injectLogger(oldConsole: any, logBuffer: string[]) {
       format.timestamp(),
       format.printf(({ level, message, timestamp }) => {
         const logLine = `${timestamp} [${level.toUpperCase()}] ${message}`;
+
         logBuffer.push(logLine);
+
         return logLine;
       }),
     ),
@@ -36,10 +40,21 @@ function injectLogger(oldConsole: any, logBuffer: string[]) {
 }
 
 function getGlobals() {
-  let aerieGlobal = Object.defineProperties({ ...global }, Object.getOwnPropertyDescriptors(global));
+  const aerieGlobal = Object.defineProperties({ ...global }, Object.getOwnPropertyDescriptors(global));
+  const permittedEnvironmentVariables: Record<string, string> = {};
+
+  // Look at the global environment variables and only pass the ones with our permitted prefix to the action.
+  Object.keys(global.process.env).forEach((env) => {
+    if (env.startsWith(ENVIRONMENT_VARIALBE_PREFIX) && global.process.env[env]) {
+      permittedEnvironmentVariables[env] = global.process.env[env];
+    }
+  });
+
   aerieGlobal.exports = {};
   aerieGlobal.require = require;
   aerieGlobal.__dirname = __dirname;
+  aerieGlobal.process.env = permittedEnvironmentVariables;
+
   // todo: pass env variables from the parent process?
   return aerieGlobal;
 }
@@ -58,7 +73,8 @@ export const jsExecute = async (
   // to be passed to the context so it has access to eg. node built-ins
   const aerieGlobal = getGlobals();
   // inject custom logger to capture logs from action run
-  let logBuffer: string[] = [];
+  const logBuffer: string[] = [];
+
   aerieGlobal.console = injectLogger(aerieGlobal.console, logBuffer);
 
   const context = vm.createContext(aerieGlobal);
@@ -69,19 +85,27 @@ export const jsExecute = async (
     const actionConfig: ActionConfig = { ACTION_FILE_STORE: ACTION_LOCAL_STORE, SEQUENCING_FILE_STORE: SEQUENCING_LOCAL_STORE };
     const actionsAPI = new ActionsAPI(client, workspaceId, actionConfig);
     const results = await context.main(parameters, settings, actionsAPI);
+
     return { results, console: logBuffer, errors: null };
-  } catch (err: any) {
+  } catch (error: any) {
     // wrap `throw 10` into a `new throw(10)`
     let errorResponse: Error;
-    if ((err !== null && typeof err !== "object") || !("message" in err && "stack" in err)) {
-      errorResponse = new Error(String(err));
+
+    if ((error !== null && typeof error !== "object") || !("message" in error && "stack" in error)) {
+      errorResponse = new Error(String(error));
     } else {
-      errorResponse = err;
+      errorResponse = error;
     }
     // also push errors into run logs - useful to have them there
-    if (errorResponse.message) aerieGlobal.console.error(errorResponse.message);
-    if (errorResponse.stack) aerieGlobal.console.error(errorResponse.stack);
-    if (errorResponse.cause) aerieGlobal.console.error(errorResponse.cause);
+    if (errorResponse.message) {
+      aerieGlobal.console.error(errorResponse.message);
+    }
+    if (errorResponse.stack) {
+      aerieGlobal.console.error(errorResponse.stack);
+    }
+    if (errorResponse.cause) {
+      aerieGlobal.console.error(errorResponse.cause);
+    }
 
     return Promise.resolve({
       results: null,
@@ -95,7 +119,9 @@ export const jsExecute = async (
   }
 };
 
-// todo correct return type for schemas?
+/**
+ * Todo correct return type for schemas?
+ */
 export const extractSchemas = async (code: string): Promise<any> => {
   // todo: do we need to pass globals/console for this part?
 
@@ -106,15 +132,18 @@ export const extractSchemas = async (code: string): Promise<any> => {
   try {
     vm.runInContext(code, context);
     const { parameterDefinitions, settingDefinitions } = context.exports;
+
     return { parameterDefinitions, settingDefinitions };
   } catch (error: any) {
     // wrap `throw 10` into a `new throw(10)`
     let errorResponse: Error;
+
     if ((error !== null && typeof error !== "object") || !("message" in error && "stack" in error)) {
       errorResponse = new Error(String(error));
     } else {
       errorResponse = error;
     }
+
     return Promise.resolve({
       results: null,
       errors: {

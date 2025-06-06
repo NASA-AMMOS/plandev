@@ -258,11 +258,16 @@ public class WorkspaceBindings implements Plugin {
     try (final var bodyReader = Json.createReader(new StringReader(context.body()))) {
       final var bodyJson = bodyReader.readObject();
 
+      boolean sameWorkspace;
       // Parse what the post request is for
-      final var moveRq = bodyJson.containsKey("moveTo");
+      if (bodyJson.containsKey("toWorkspace") && pathInfo.workspaceId() != bodyJson.getInt("toWorkspace")) {
+        sameWorkspace = false;
+      } else {
+        sameWorkspace = true;
+      }
 
       // Perform the request
-      if (moveRq) {
+      if (sameWorkspace) {
         final var destination = Path.of(bodyJson.getString("moveTo"));
 
         // Reject if source does not exist
@@ -293,11 +298,51 @@ public class WorkspaceBindings implements Plugin {
             context.status(500).result("Unable to move file. " + e.getMessage());
           }
         }
+      } else {
+        final var destination = Path.of(bodyJson.getString("moveTo"));
+        final int targetWorkspace = bodyJson.getInt("toWorkspace");
+
+        // Reject if source does not exist
+        if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
+          context.status(404).result(pathInfo.fileName() + " does not exist in the source workspace.");
+          return;
+        }
+
+        // Reject if target workspace does not exist
+        if (!workspaceService.checkFileExists(targetWorkspace, Path.of("/"))) {
+          context.status(404).result("Target workspace with ID "+targetWorkspace+" does not exist.");
+          return;
+        }
+
+        // Return "Conflicted" if destination exists
+        if (workspaceService.checkFileExists(targetWorkspace, destination)) {
+          context.status(409).result(destination.getFileName().toString() + " already exists");
+          return;
+        }
+
+        if (workspaceService.isDirectory(pathInfo.workspaceId, pathInfo.filePath())) {
+          if (workspaceService.moveDirectoryToWorkspace(pathInfo.workspaceId, pathInfo.filePath, targetWorkspace, destination)) {
+            context.status(200);
+          } else {
+            context.status(500).result("Unable to move directory.");
+          }
+        } else {
+          try {
+            if (workspaceService.moveFileToWorkspace(pathInfo.workspaceId, pathInfo.filePath, targetWorkspace, destination)) {
+              context.status(200);
+            } else {
+              context.status(500).result("Unable to move file.");
+            }
+          } catch (SQLException e) {
+            context.status(500).result("Unable to move file. " + e.getMessage());
+          }
+        }
       }
     } catch (JsonException je) {
       final String helpText = """
           {
-            "moveTo": text  // Path to where in the workspace the file should be moved to
+            "moveTo": text,     // Path to where in the workspace the file should be moved to
+            "toWorkspace": int  // Id of the target workspace if different from source workspace (optional)
           }
           """;
       context.status(400).result("Request body is malformed. Request body format is:\n" + helpText);

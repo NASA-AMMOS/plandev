@@ -96,7 +96,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   public boolean checkFileExists(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
     final var path = repoPath.resolve(filePath);
-
+    System.out.println("Looking for file "+path.toString());
     return path.toFile().exists();
   }
 
@@ -160,6 +160,33 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
+  public boolean moveFileToWorkspace(final int oldWorkspaceId, final Path oldFilePath, final int newWorkspaceId, final Path newFilePath)
+  throws NoSuchWorkspaceException, SQLException
+  {
+    final var oldRepoPath = postgresRepository.workspaceRootPath(oldWorkspaceId);
+    final var oldPath = oldRepoPath.resolve(oldFilePath);
+    final var newRepoPath = postgresRepository.workspaceRootPath(newWorkspaceId);
+    final var newPath = newRepoPath.resolve(newFilePath);
+    boolean success = true;
+
+    // Do not move the file if the destination already exists
+    if(newPath.toFile().exists()) return false;
+
+    // Find hidden metadata files, if they exist, and move them
+    final var metadataExtensions = postgresRepository.getMetadataExtensions();
+    for(final var extension : metadataExtensions) {
+      final File oldFile = Path.of(oldPath + extension).toFile();
+      if(oldFile.exists()) {
+        final var newFile = Path.of(newPath + extension).toFile();
+        success = success && oldFile.renameTo(newFile); // Do not fast-fail
+      }
+    }
+
+    return success && oldPath.toFile().renameTo(newPath.toFile());
+  }
+
+
+  @Override
   public boolean deleteFile(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
     final var file = repoPath.resolve(filePath).toFile();
@@ -206,6 +233,26 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     // Do not permit the workspace's root directory to be moved
     // Or to move a directory to replace the root directory
     if(Files.isSameFile(oldPath, repoPath) || Files.isSameFile(newPath, repoPath)) return false;
+
+    return oldPath.toFile().renameTo(newPath.toFile());
+  }
+
+  @Override
+  public boolean moveDirectoryToWorkspace(final int oldWorkspaceId, final Path oldDirectoryPath, final int newWorkspaceId, final Path newDirectoryPath)
+  throws NoSuchWorkspaceException, IOException
+  {
+    final var oldRepoPath = postgresRepository.workspaceRootPath(oldWorkspaceId);
+    final var oldPath = oldRepoPath.resolve(oldDirectoryPath);
+    final var newRepoPath = postgresRepository.workspaceRootPath(newWorkspaceId);
+    final var newPath = newRepoPath.resolve(newDirectoryPath);
+
+    // Sanity check: if both workspaces are the same, we shouldn't be in this function at all
+    if(oldWorkspaceId == newWorkspaceId) return false;
+
+    // Do not permit the workspace's root directory to be moved
+    // Or to move a directory to replace the root directory
+    if(Files.isSameFile(oldPath, oldRepoPath) || Files.isSameFile(newPath, oldRepoPath)) return false;
+    //TODO: any more checks we should perform?
 
     return oldPath.toFile().renameTo(newPath.toFile());
   }

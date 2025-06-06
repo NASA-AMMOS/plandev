@@ -200,7 +200,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   @Override
   public boolean copyDirectory(final int sourceWorkspaceId, final Path sourceFilePath, final int destWorkspaceId, final Path destFilePath)
-  throws NoSuchWorkspaceException, SQLException
+  throws NoSuchWorkspaceException
   {
     final var sourceRepoPath = postgresRepository.workspaceRootPath(sourceWorkspaceId);
     final var sourcePath = sourceRepoPath.resolve(sourceFilePath);
@@ -291,7 +291,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   @Override
   public boolean moveDirectory(final int oldWorkspaceId, final Path oldDirectoryPath, final int newWorkspaceId, final Path newDirectoryPath)
-  throws NoSuchWorkspaceException, IOException
+  throws NoSuchWorkspaceException, IOException, SQLException
   {
     final var oldRepoPath = postgresRepository.workspaceRootPath(oldWorkspaceId);
     final var oldPath = oldRepoPath.resolve(oldDirectoryPath);

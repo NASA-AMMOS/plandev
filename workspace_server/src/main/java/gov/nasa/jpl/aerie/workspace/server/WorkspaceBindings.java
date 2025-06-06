@@ -276,6 +276,30 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
+  private boolean isCopyOrMoveValid(Context context, int sourceWorkspace, Path sourceFile, int targetWorkspace, Path targetFile)
+  throws NoSuchWorkspaceException
+  {
+    // Reject if source does not exist
+    if (!workspaceService.checkFileExists(sourceWorkspace, sourceFile)) {
+      context.status(404).result(sourceFile + " does not exist in the source workspace.");
+      return false;
+    }
+
+    // Reject if target workspace does not exist
+    if (!workspaceService.checkFileExists(targetWorkspace, Path.of("/"))) {
+      context.status(404).result("Target workspace with ID "+targetWorkspace+" does not exist.");
+      return false;
+    }
+
+    // Return "Conflicted" if destination exists
+    if (workspaceService.checkFileExists(targetWorkspace, targetFile)) {
+      context.status(409).result(targetFile + " already exists");
+      return false;
+    }
+
+    return true;
+  }
+
   private void handleMove(Context context, JsonObject bodyJson)
   throws IOException, NoSuchWorkspaceException, SQLException {
     final var pathInfo = PathInformation.of(context);
@@ -287,23 +311,8 @@ public class WorkspaceBindings implements Plugin {
       targetWorkspace = bodyJson.getInt("toWorkspace");
     }
 
-    // Reject if source does not exist
-    if (!workspaceService.checkFileExists(sourceWorkspace, pathInfo.filePath)) {
-      context.status(404).result(pathInfo.fileName() + " does not exist in the source workspace.");
-      return;
-    }
-
-    // Reject if target workspace does not exist
-    if (!workspaceService.checkFileExists(targetWorkspace, Path.of("/"))) {
-      context.status(404).result("Target workspace with ID "+targetWorkspace+" does not exist.");
-      return;
-    }
-
-    // Return "Conflicted" if destination exists
-    if (workspaceService.checkFileExists(targetWorkspace, destination)) {
-      context.status(409).result(destination.getFileName().toString() + " already exists");
-      return;
-    }
+    boolean validMove = isCopyOrMoveValid(context, sourceWorkspace, pathInfo.filePath, targetWorkspace, destination);
+    if (!validMove) return;
 
     if (workspaceService.isDirectory(sourceWorkspace, pathInfo.filePath())) {
       if (workspaceService.moveDirectory(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination)) {
@@ -325,7 +334,7 @@ public class WorkspaceBindings implements Plugin {
   }
 
   private void handleCopy(Context context, JsonObject bodyJson)
-  throws IOException, NoSuchWorkspaceException, SQLException {
+  throws NoSuchWorkspaceException, SQLException {
     final var pathInfo = PathInformation.of(context);
 
     final var destination = Path.of(bodyJson.getString("copyTo"));
@@ -335,23 +344,9 @@ public class WorkspaceBindings implements Plugin {
       targetWorkspace = bodyJson.getInt("toWorkspace");
     }
 
-    // Reject if source does not exist
-    if (!workspaceService.checkFileExists(sourceWorkspace, pathInfo.filePath)) {
-      context.status(404).result(pathInfo.fileName() + " does not exist in the source workspace.");
-      return;
-    }
+    boolean validCopy = isCopyOrMoveValid(context, sourceWorkspace, pathInfo.filePath, targetWorkspace, destination);
+    if (!validCopy) return;
 
-    // Reject if target workspace does not exist
-    if (!workspaceService.checkFileExists(targetWorkspace, Path.of("/"))) {
-      context.status(404).result("Target workspace with ID "+targetWorkspace+" does not exist.");
-      return;
-    }
-
-    // Return "Conflicted" if destination exists
-    if (workspaceService.checkFileExists(targetWorkspace, destination)) {
-      context.status(409).result(destination.getFileName().toString() + " already exists");
-      return;
-    }
 
     if (workspaceService.isDirectory(sourceWorkspace, pathInfo.filePath())) {
       if (workspaceService.copyDirectory(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination)) {

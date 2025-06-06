@@ -91,7 +91,7 @@ public interface WorkspaceService {
    * @return true if the directory was moved, false otherwise
    */
   boolean moveDirectory(final int oldWorkspaceId, final Path oldDirectoryPath, final int newWorkspaceId, final Path newDirectoryPath)
-  throws NoSuchWorkspaceException, IOException;
+  throws NoSuchWorkspaceException, IOException, SQLException;
 
 
   /**

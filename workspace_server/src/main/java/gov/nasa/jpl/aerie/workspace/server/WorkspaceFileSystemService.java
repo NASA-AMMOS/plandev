@@ -97,7 +97,6 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   public boolean checkFileExists(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
     final var path = repoPath.resolve(filePath);
-    System.out.println("Looking for file "+path.toString());
     return path.toFile().exists();
   }
 
@@ -232,17 +231,6 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         });
       }
 
-      // TODO: Do metadata file exist for directories? No, right?
-//      // Copy metadata files if any exist
-//      final var metadataExtensions = postgresRepository.getMetadataExtensions();
-//      for (final var extension : metadataExtensions) {
-//        final var metaSource = Path.of(sourcePath + extension);
-//        final var metaDest = Path.of(destPath + extension);
-//        if (Files.exists(metaSource)) {
-//          Files.copy(metaSource, metaDest);
-//        }
-//      }
-
       return true;
     } catch (IOException | UncheckedIOException e) {
       e.printStackTrace();
@@ -298,17 +286,12 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var newRepoPath = postgresRepository.workspaceRootPath(newWorkspaceId);
     final var newPath = newRepoPath.resolve(newDirectoryPath);
 
-    // Sanity check: if both workspaces are the same, we shouldn't be in this function at all
-    if(oldWorkspaceId == newWorkspaceId) return false;
-
     // Do not permit the workspace's root directory to be moved
     if(Files.isSameFile(oldPath, oldRepoPath)) return false;
 
     // Do not permit a directory to replace the root directory
     // TODO: maybe we want to allow this? This check fails anyways because newPath is not a real file at this point
     // if(Files.isSameFile(newPath, newRepoPath)) return false;
-
-    // TODO: any more checks we should perform?
 
     return oldPath.toFile().renameTo(newPath.toFile());
   }

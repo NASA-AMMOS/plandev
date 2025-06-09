@@ -254,9 +254,6 @@ public class WorkspaceBindings implements Plugin {
   }
 
   private void post(Context context) throws IOException, SQLException, NoSuchWorkspaceException {
-    System.out.println("Request body: " + context.body());
-
-    final var pathInfo = PathInformation.of(context);
 
     try (final var bodyReader = Json.createReader(new StringReader(context.body()))) {
       final var bodyJson = bodyReader.readObject();
@@ -277,8 +274,7 @@ public class WorkspaceBindings implements Plugin {
   }
 
   private boolean isCopyOrMoveValid(Context context, int sourceWorkspace, Path sourceFile, int targetWorkspace, Path targetFile)
-  throws NoSuchWorkspaceException
-  {
+  throws NoSuchWorkspaceException {
     // Reject if source does not exist
     if (!workspaceService.checkFileExists(sourceWorkspace, sourceFile)) {
       context.status(404).result(sourceFile + " does not exist in the source workspace.");

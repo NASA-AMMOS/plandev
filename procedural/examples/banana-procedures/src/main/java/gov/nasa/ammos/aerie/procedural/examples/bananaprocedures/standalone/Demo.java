@@ -21,23 +21,21 @@ public class Demo {
     Configuration c = Configuration.defaultConfiguration();
     final var simStartTime = Instant.EPOCH;
     final var missionModel = SimulationUtility.instantiateMissionModel(new GeneratedModelType(), simStartTime, c);
-    var simulationUtility = new SimulationUtility();
 
     Plan plan = new Plan("plan0",
                          new Timestamp(simStartTime),
                          new Timestamp(simStartTime.plus(1, ChronoUnit.HOURS)),
                          Map.of(),
                          Map.of());
-    Future<SimulationResults> results =
-        simulationUtility.simulate(missionModel, plan);
-    try {
-      System.out.println(results.get().realProfiles);
+    try (final var simulationUtility = new SimulationUtility()) {
+      var results =
+          simulationUtility.simulate(missionModel, plan).get();
+      //var latest = new MerlinToProcedureSimulationResultsAdapter(results, plan);
+      System.out.println(results.realProfiles);
     } catch (InterruptedException e) {
-        throw new RuntimeException(e);
+      throw new RuntimeException(e);
     } catch (ExecutionException e) {
-        throw new RuntimeException(e);
+      throw new RuntimeException(e);
     }
-    System.out.println("Hello world.");
   }
-
 }

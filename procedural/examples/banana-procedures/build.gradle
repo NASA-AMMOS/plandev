@@ -26,6 +26,7 @@ dependencies {
   implementation project(':examples:banananation')
 
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+  implementation project(':procedural:utils')
   testImplementation project(':procedural:utils')
   implementation project(':orchestration-utils')
   testImplementation project(':orchestration-utils')

@@ -19,7 +19,7 @@ public class GetExtensionMappingsAction implements AutoCloseable {
   private static final @Language("SQL") String getListSql = """
     select file_extension
     from ui.file_extension_content_type
-    where content_type = ?::ui.supprted_content_type;
+    where content_type = ?::ui.supported_content_types;
     """;
 
   private final PreparedStatement mappingStatement;

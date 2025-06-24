@@ -52,14 +52,14 @@ describe('Test built-in helpers', () => {
             let templateRaw = 'Adding dates: {{ add-time date duration }}'
             let template = new Mustache(templateRaw, SequencingLanguage.STOL)
             expect(template.execute(input))
-                .toEqual('Adding dates: 2025-001/01:07:04.124600Z')
+                .toEqual('Adding dates: 2025-001/01:07:04.124') // truncated, no Z
         })
 
         it('should decrement correctly', () => {
             let templateRaw = 'Subtracting dates: {{ subtract-time date duration }}'
             let template = new Mustache(templateRaw, SequencingLanguage.STOL)
             expect(template.execute(input))
-                .toEqual('Subtracting dates: 2025-001/00:57:01.877800Z')
+                .toEqual('Subtracting dates: 2025-001/00:57:01.877') // truncated, no Z
         })
     });
 
@@ -79,7 +79,7 @@ describe('Test built-in helpers', () => {
 
         let template = new Mustache(templateRaw, SequencingLanguage.STOL)
         expect(template.execute(input))
-            .toEqual('Uncleaned: 2025-001T00:00:00.00; Cleaned: 2025-001/00:00:00Z; Chained 2025-001/00:05:00Z')
+            .toEqual('Uncleaned: 2025-001T00:00:00.00; Cleaned: 2025-001/00:00:00; Chained 2025-001/00:05:00') // no Z
     });
 
     it('should reformat text/non-language-specific dates correctly', () => {

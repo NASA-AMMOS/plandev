@@ -770,7 +770,7 @@ describe('template expansion', () => {
     expect(expandedTemplates).not.toBeNull();
 
     const result = expandedTemplates[seqId]
-    expect(result).toEqual('CMD ENDTIME=2020-001/01:00:30Z SETUP=2019-365/23:00:30Z\nCMD TEMPERATURE=350')
+    expect(result).toEqual('CMD ENDTIME=2020-001/01:00:30 SETUP=2019-365/23:00:30\nCMD TEMPERATURE=350')
 
     // Cleanup
     // remove sequence
@@ -821,7 +821,7 @@ describe('template expansion', () => {
     expect(expandedTemplates).not.toBeNull();
 
     const result = expandedTemplates[seqId]
-    expect(result).toEqual('CMD SETUP=2019-365/23:00:30Z') // only 1 activity. rest filtered by type and time!
+    expect(result).toEqual('CMD SETUP=2019-365/23:00:30') // only 1 activity. rest filtered by type and time!
 
     // Cleanup
     // remove sequence
@@ -1214,10 +1214,10 @@ CMD SEQUENCE=FINAL_B AT={{ format-as-date (add-time startTime attributes.argumen
       expect(expandedTemplates).not.toBeNull();
 
       const result = expandedTemplates[seqId]
-      expect(result).toInclude(`CMD SEQUENCE=START_A AT=2020-001/00:00:00Z
-CMD SEQUENCE=FINAL_A AT=2020-001/01:00:00Z
-CMD SEQUENCE=START_B AT=2020-001/00:00:30Z
-CMD SEQUENCE=FINAL_B AT=2020-001/00:00:30.030Z`) // expect interleaving!
+      expect(result).toInclude(`CMD SEQUENCE=START_A AT=2020-001/00:00:00
+CMD SEQUENCE=FINAL_A AT=2020-001/01:00:00
+CMD SEQUENCE=START_B AT=2020-001/00:00:30
+CMD SEQUENCE=FINAL_B AT=2020-001/00:00:30.030`) // expect interleaving!
 
       // Cleanup
       // remove sequence

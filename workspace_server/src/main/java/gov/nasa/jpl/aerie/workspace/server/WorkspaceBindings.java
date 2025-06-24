@@ -2,6 +2,7 @@ package gov.nasa.jpl.aerie.workspace.server;
 
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
+import gov.nasa.jpl.aerie.workspace.server.postgres.WorkspaceFileOpException;
 import io.javalin.Javalin;
 import io.javalin.apibuilder.ApiBuilder;
 import io.javalin.http.ContentType;
@@ -311,10 +312,16 @@ public class WorkspaceBindings implements Plugin {
     if (!validMove) return;
 
     if (workspaceService.isDirectory(sourceWorkspace, pathInfo.filePath())) {
-      if (workspaceService.moveDirectory(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination)) {
-        context.status(200);
-      } else {
-        context.status(500).result("Unable to move directory.");
+      try {
+        if (workspaceService.moveDirectory(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination)) {
+          context.status(200);
+        } else {
+          context.status(500).result("Unable to move directory.");
+        }
+      } catch (NoSuchWorkspaceException ex) {
+        context.status(404).result(ex.getMessage());
+      } catch (SQLException | WorkspaceFileOpException e) {
+        context.status(500).result("Unable to move directory: " + e.getMessage());
       }
     } else {
       try {
@@ -323,7 +330,9 @@ public class WorkspaceBindings implements Plugin {
         } else {
           context.status(500).result("Unable to move file.");
         }
-      } catch (SQLException e) {
+      } catch (NoSuchWorkspaceException ex) {
+        context.status(404).result(ex.getMessage());
+      } catch (SQLException | WorkspaceFileOpException e) {
         context.status(500).result("Unable to move file. " + e.getMessage());
       }
     }
@@ -343,12 +352,17 @@ public class WorkspaceBindings implements Plugin {
     boolean validCopy = isCopyOrMoveValid(context, sourceWorkspace, pathInfo.filePath, targetWorkspace, destination);
     if (!validCopy) return;
 
-
     if (workspaceService.isDirectory(sourceWorkspace, pathInfo.filePath())) {
-      if (workspaceService.copyDirectory(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination)) {
-        context.status(200);
-      } else {
-        context.status(500).result("Unable to copy directory.");
+      try {
+        if (workspaceService.copyDirectory(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination)) {
+          context.status(200);
+        } else {
+          context.status(500).result("Unable to copy directory.");
+        }
+      } catch (NoSuchWorkspaceException ex) {
+        context.status(404).result(ex.getMessage());
+      } catch (SQLException | WorkspaceFileOpException e) {
+        context.status(500).result("Unable to copy directory: " + e.getMessage());
       }
     } else {
       try {
@@ -357,8 +371,10 @@ public class WorkspaceBindings implements Plugin {
         } else {
           context.status(500).result("Unable to copy file.");
         }
-      } catch (SQLException e) {
-        context.status(500).result("Unable to copy file. " + e.getMessage());
+      } catch (NoSuchWorkspaceException ex) {
+        context.status(404).result(ex.getMessage());
+      } catch (SQLException | WorkspaceFileOpException e) {
+        context.status(500).result("Unable to copy file: " + e.getMessage());
       }
     }
   }

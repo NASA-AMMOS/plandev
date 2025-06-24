@@ -2,6 +2,7 @@ package gov.nasa.jpl.aerie.workspace.server;
 
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.RenderType;
+import gov.nasa.jpl.aerie.workspace.server.postgres.WorkspaceFileOpException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.WorkspacePostgresRepository;
 import io.javalin.http.UploadedFile;
 import io.javalin.util.FileUtil;
@@ -136,7 +137,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   @Override
   public boolean moveFile(final int oldWorkspaceId, final Path oldFilePath, final int newWorkspaceId, final Path newFilePath)
-  throws NoSuchWorkspaceException, SQLException
+  throws NoSuchWorkspaceException, SQLException, WorkspaceFileOpException
   {
     final var oldRepoPath = postgresRepository.workspaceRootPath(oldWorkspaceId);
     final var oldPath = oldRepoPath.resolve(oldFilePath);
@@ -145,7 +146,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     boolean success = true;
 
     // Do not move the file if the destination already exists
-    if(newPath.toFile().exists()) return false;
+    if(newPath.toFile().exists()) throw new WorkspaceFileOpException("Destination file \"%s\" in workspace %d already exists.".formatted(newFilePath, newWorkspaceId));
 
     // Find hidden metadata files, if they exist, and move them
     final var metadataExtensions = postgresRepository.getMetadataExtensions();
@@ -162,7 +163,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   @Override
   public boolean copyFile(final int sourceWorkspaceId, final Path sourceFilePath, final int destWorkspaceId, final Path destFilePath)
-  throws NoSuchWorkspaceException, SQLException
+  throws NoSuchWorkspaceException, SQLException, WorkspaceFileOpException
   {
     final var sourceRepoPath = postgresRepository.workspaceRootPath(sourceWorkspaceId);
     final var sourcePath = sourceRepoPath.resolve(sourceFilePath);
@@ -171,10 +172,10 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
     try {
       // Do not copy the file if the source file does not exist
-      if(!sourcePath.toFile().exists()) return false;
+      if(!sourcePath.toFile().exists()) throw new WorkspaceFileOpException("Source file \"%s\" in workspace %d does not exist.".formatted(sourceFilePath, sourceWorkspaceId));
 
       // Do not copy the file if the destination already exists
-      if(destPath.toFile().exists()) return false;
+      if(destPath.toFile().exists()) throw new WorkspaceFileOpException("Destination file \"%s\" in workspace %d already exists.".formatted(destFilePath, destWorkspaceId));
 
       // Copy the main file
       Files.copy(sourcePath, destPath);
@@ -199,7 +200,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   @Override
   public boolean copyDirectory(final int sourceWorkspaceId, final Path sourceFilePath, final int destWorkspaceId, final Path destFilePath)
-  throws NoSuchWorkspaceException
+  throws NoSuchWorkspaceException, WorkspaceFileOpException
   {
     final var sourceRepoPath = postgresRepository.workspaceRootPath(sourceWorkspaceId);
     final var sourcePath = sourceRepoPath.resolve(sourceFilePath);
@@ -208,10 +209,12 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
     try {
       // Validate source exists and is a directory
-      if (!Files.exists(sourcePath) || !Files.isDirectory(sourcePath)) return false;
+      if (!Files.exists(sourcePath)) throw new WorkspaceFileOpException("Source directory \"%s\" in workspace %d does not exist.".formatted(sourceFilePath, sourceWorkspaceId));
+      if (!Files.isDirectory(sourcePath)) throw new WorkspaceFileOpException("Source directory \"%s\" in workspace %d is not actually a directory. This is a bug.".formatted(sourceFilePath, sourceWorkspaceId));
 
       // Do not copy if destination already exists
-      if (Files.exists(destPath)) return false;
+      if (Files.exists(destPath)) throw new WorkspaceFileOpException("Destination directory \"%s\" in workspace %d already exists.".formatted(destFilePath, destWorkspaceId));
+
 
       // Walk source directory and copy files/subdirectories -- note we have to use a try-with-resources thing here
       // to ensure the stream autocloses
@@ -279,7 +282,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   @Override
   public boolean moveDirectory(final int oldWorkspaceId, final Path oldDirectoryPath, final int newWorkspaceId, final Path newDirectoryPath)
-  throws NoSuchWorkspaceException, IOException, SQLException
+  throws NoSuchWorkspaceException, IOException, SQLException, WorkspaceFileOpException
   {
     final var oldRepoPath = postgresRepository.workspaceRootPath(oldWorkspaceId);
     final var oldPath = oldRepoPath.resolve(oldDirectoryPath);
@@ -287,7 +290,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var newPath = newRepoPath.resolve(newDirectoryPath);
 
     // Do not permit the workspace's root directory to be moved
-    if(Files.isSameFile(oldPath, oldRepoPath)) return false;
+    if(Files.isSameFile(oldPath, oldRepoPath)) throw new WorkspaceFileOpException("Cannot move the workspace root directory.");
 
     // Do not permit a directory to replace the root directory
     // TODO: maybe we want to allow this? This check fails anyways because newPath is not a real file at this point

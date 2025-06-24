@@ -2,6 +2,7 @@ package gov.nasa.jpl.aerie.workspace.server;
 
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.RenderType;
+import gov.nasa.jpl.aerie.workspace.server.postgres.WorkspaceFileOpException;
 import io.javalin.http.UploadedFile;
 
 import java.io.IOException;
@@ -57,7 +58,7 @@ public interface WorkspaceService {
   * @return true if the file was copied, false otherwise
   */
   boolean copyFile(final int sourceWorkspaceId, final Path sourceFilePath, final int destWorkspaceId, final Path destFilePath)
-  throws NoSuchWorkspaceException, SQLException;
+  throws NoSuchWorkspaceException, SQLException, WorkspaceFileOpException;
 
   /**
    * Copy a directory within a workspace or between workspaces.
@@ -68,7 +69,7 @@ public interface WorkspaceService {
    * @return true if the directory was copied, false otherwise
    */
   boolean copyDirectory(final int sourceWorkspaceId, final Path sourceFilePath, final int destWorkspaceId, final Path destFilePath)
-  throws NoSuchWorkspaceException, SQLException;
+  throws NoSuchWorkspaceException, SQLException, WorkspaceFileOpException;
 
 
   /**
@@ -80,7 +81,7 @@ public interface WorkspaceService {
    * @return true if the file was moved, false otherwise
    */
   boolean moveFile(final int oldWorkspaceId, final Path oldFilePath, final int newWorkspaceId, final Path newFilePath)
-  throws NoSuchWorkspaceException, SQLException;
+  throws NoSuchWorkspaceException, SQLException, WorkspaceFileOpException;
 
   /**
    * Move a directory within a workspace or between workspaces.
@@ -91,7 +92,7 @@ public interface WorkspaceService {
    * @return true if the directory was moved, false otherwise
    */
   boolean moveDirectory(final int oldWorkspaceId, final Path oldDirectoryPath, final int newWorkspaceId, final Path newDirectoryPath)
-  throws NoSuchWorkspaceException, IOException, SQLException;
+  throws NoSuchWorkspaceException, IOException, SQLException, WorkspaceFileOpException;
 
 
   /**

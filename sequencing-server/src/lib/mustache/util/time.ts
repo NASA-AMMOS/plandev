@@ -63,7 +63,7 @@ export function subtractTime(startTime: string, duration: string, environment: {
   else if (environment.language === SequencingLanguage.TEXT) {
     return InstantToText(date)
   }
-  else { // Text and SeqN are handled the same.
+  else { 
     return InstanttoSeqN(date)
   }
 
@@ -86,7 +86,6 @@ export function TextToISO8601(date: string): string {
   }
   else { // doy string
     const result = new Date(convertDoyToYmd(date)).toISOString()
-    console.log('result doy', result)
     return result + (result.includes("Z") ? "" : "Z")
   }
 }

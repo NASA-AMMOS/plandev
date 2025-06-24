@@ -178,7 +178,16 @@ export function InstanttoSeqN(date: Temporal.Instant): string { // presently, ca
 
 export function InstantToText(date: Temporal.Instant): string {
   const result = date.toString();
-  return result + (result.includes("Z") ? "" : "Z");
+  if (result.includes(".") && result.split(".").length == 2) {
+    let split = result.split(".")
+    let rest = split[0]
+    let micros = split[1]?.replace("Z", "")
+    micros = micros?.padEnd(6, "0")
+    return rest + "." + micros + "Z"
+  }
+  else {
+    return result + (result.includes("Z") ? "" : "Z");
+  }
 }
 
 /////////////// AERIE-UI HELPERS ///////////////

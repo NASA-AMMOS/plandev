@@ -131,20 +131,18 @@ export function InstanttoSTOL(date: Temporal.Instant): string {
 
   // extract decimal seconds, if any, and pad by length (ms -> 3 automatically, us -> 6 automatically)
   if (!time.includes(".")) {
-    return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${time}`
+    return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${time}`.replace("Z", "")
   }
   else {
     const secondSplit = time.split(".")
     const hms = secondSplit[0]
     const decimal = (secondSplit[1]!).replace("Z", "")
 
-    // if the Z is present at the end; it may not be and we don't want to extraneously add it
-    const zString = time.includes("Z") ? "Z" : ""
     if (decimal.length <= 3) {
-      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${hms}.${decimal.padEnd(3, '0')}${zString}`
+      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${hms}.${decimal.padEnd(3, '0')}`
     }
     else {
-      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${hms}.${decimal.padEnd(6, '0')}${zString}`
+      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${hms}.${decimal.substring(0, 3)}`
     }
   }
 

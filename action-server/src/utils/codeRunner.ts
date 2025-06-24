@@ -9,7 +9,7 @@ import type { ActionConfig, ActionResponse } from "../type/types";
 // todo put this inside a more limited closure scope or it will get reused...
 // const logBuffer: string[] = [];
 
-function injectLogger(oldConsole: any, logBuffer: string[]) {
+function injectLogger(oldConsole: any, logBuffer: string[], secrets: Record<string, any> | undefined) {
   // inject a winston logger to be passed to the action VM, replacing its normal `console`,
   // so we can capture the console outputs and return them with the action results
   const logger = createLogger({
@@ -17,9 +17,19 @@ function injectLogger(oldConsole: any, logBuffer: string[]) {
     format: format.combine(
       format.timestamp(),
       format.printf(({ level, message, timestamp }) => {
-        const logLine = `${timestamp} [${level.toUpperCase()}] ${message}`;
+        const logLine = `${timestamp} [${level.toUpperCase()}] `;
+        let output = message as string;
 
-        logBuffer.push(logLine);
+        // If the action has secrets filter them out of the log.
+        if (secrets !== undefined && Object.keys(secrets).length > 0) {
+          const secretValues = Object.values(secrets);
+
+          for (const secretValue of secretValues) {
+            output = output.replaceAll(secretValue, "*****");
+          }
+        }
+
+        logBuffer.push(logLine + output);
 
         return logLine;
       }),
@@ -67,6 +77,7 @@ export const jsExecute = async (
   authToken: string | undefined,
   client: PoolClient,
   workspaceId: number,
+  secrets: Record<string, string> | undefined,
 ): Promise<ActionResponse> => {
   // create a clone of the global object (including getters/setters/non-enumerable properties)
   // to be passed to the context so it has access to eg. node built-ins
@@ -74,14 +85,18 @@ export const jsExecute = async (
   // inject custom logger to capture logs from action run
   const logBuffer: string[] = [];
 
-  aerieGlobal.console = injectLogger(aerieGlobal.console, logBuffer);
+  aerieGlobal.console = injectLogger(aerieGlobal.console, logBuffer, secrets);
 
   const context = vm.createContext(aerieGlobal);
 
   try {
     vm.runInContext(code, context);
     // todo: main runs outside of VM - is that OK?
-    const actionConfig: ActionConfig = { ACTION_FILE_STORE: ACTION_LOCAL_STORE, SEQUENCING_FILE_STORE: SEQUENCING_LOCAL_STORE };
+    const actionConfig: ActionConfig = {
+      ACTION_FILE_STORE: ACTION_LOCAL_STORE,
+      SEQUENCING_FILE_STORE: SEQUENCING_LOCAL_STORE,
+      SECRETS: secrets,
+    };
     const actionsAPI = new ActionsAPI(client, workspaceId, actionConfig);
     const results = await context.main(parameters, settings, actionsAPI);
 

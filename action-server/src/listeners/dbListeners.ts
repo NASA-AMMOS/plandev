@@ -1,15 +1,15 @@
 import { readFile } from "node:fs/promises";
 import type http from "node:http";
 import * as path from "node:path";
-import type { Pool, PoolClient } from "pg";
+import type { PoolClient } from "pg";
 import { configuration } from "../config";
 import { ActionsDbManager } from "../db";
 import { ActionWorkerPool } from "../threads/workerPool";
 import type { ActionDefinitionInsertedPayload, ActionResponse, ActionRunInsertedPayload } from "../type/types";
 import { extractSchemas } from "../utils/codeRunner";
-import { createLogger, format, transports } from "winston";
 import logger from "../utils/logger";
 import { ActionRunCancellationRequestPayload } from "../type/types";
+import { ActionSecrets } from "../type/actionSecrets";
 
 let listenClient: PoolClient | undefined;
 
@@ -17,7 +17,9 @@ async function readFileFromStore(fileName: string): Promise<string> {
   // read file from aerie file store and return [resolve] it as a string
   const fileStoreBasePath = configuration().ACTION_LOCAL_STORE;
   const filePath = path.join(fileStoreBasePath, fileName);
+
   logger.info(`path is ${filePath}`);
+
   return await readFile(filePath, "utf-8");
 }
 
@@ -42,6 +44,7 @@ async function refreshActionDefinitionSchema(payload: ActionDefinitionInsertedPa
       JSON.stringify(schemas.settingDefinitions),
       payload.action_definition_id,
     ]);
+
     logger.info("Updated action_definition:", res.rows[0]);
   } catch (error) {
     logger.error("Error updating row:", error);
@@ -52,31 +55,76 @@ async function cancelAction(payload: ActionRunCancellationRequestPayload) {
   ActionWorkerPool.cancelTask(payload.action_run_id);
 }
 
+function delay(ms: number): Promise<unknown> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForSecrets(actionRunId: number): Promise<any> {
+  let actionSecrets;
+  let counter = 0;
+
+  logger.info(`Waiting for secrets for action run ${actionRunId}`);
+
+  // Check for the secret every 10 seconds for a minute, and then give up and skip running the action.
+  while (counter < 5) {
+    actionSecrets = ActionSecrets.getActionSecret(actionRunId);
+
+    if (actionSecrets !== undefined) {
+      logger.info(`Secret for action run ${actionRunId} found`);
+
+      ActionSecrets.removeActionSecret(actionRunId);
+
+      return actionSecrets;
+    }
+
+    await delay(10000);
+
+    counter++;
+  }
+}
+
 async function runAction(payload: ActionRunInsertedPayload) {
-  const actionRunId = payload.action_run_id;
-  const actionFilePath = payload.action_file_path;
-  logger.info(`action run ${actionRunId} inserted (${actionFilePath})`);
+  const { action_file_path, action_run_id, parameters, secrets, settings, workspace_id } = payload;
+  const actionRunId = Number(action_run_id);
+
+  logger.info(`action run ${action_run_id} inserted (${action_file_path})`);
+
+  let taskError, actionSecrets;
+
+  // If the secrets flag is set, we need to wait for another call to send the secrets the action needs.
+  if (secrets) {
+    actionSecrets = await waitForSecrets(actionRunId);
+
+    if (actionSecrets === undefined) {
+      const message = `action run ${action_run_id} timed out waiting for secrets`;
+
+      logger.error(message);
+      taskError = { message };
+    }
+  }
+
   // event payload contains a file path for the action file which should be run
-  const actionJS = await readFileFromStore(actionFilePath);
+  const actionJS = await readFileFromStore(action_file_path);
 
   // NOTE: Authentication tokens are unavailable in PostgreSQL Listen/Notify
   // const authToken = req.header("authorization");
   // if (!authToken) console.warn("No valid `authorization` header in action-run request");
 
-  const { parameters, settings } = payload;
-  const workspaceId = payload.workspace_id;
   const pool = ActionsDbManager.getDb();
-  logger.info(`Submitting task to worker pool for action run ${actionRunId}`);
+
+  logger.info(`Submitting task to worker pool for action run ${action_run_id}`);
   const start = performance.now();
-  let run, taskError;
+  let run;
+
   try {
     run = (await ActionWorkerPool.submitTask({
       actionJS: actionJS,
-      action_run_id: actionRunId,
+      action_run_id: action_run_id,
       message_port: null,
       parameters: parameters,
       settings: settings,
-      workspaceId: workspaceId,
+      workspaceId: workspace_id,
+      secrets: actionSecrets,
     })) satisfies ActionResponse;
   } catch (error: any) {
     if (error?.name === "AbortError") {
@@ -92,7 +140,6 @@ async function runAction(payload: ActionRunInsertedPayload) {
   const status = taskError || run?.errors ? "failed" : "success";
   logger.info(`Finished run ${actionRunId} in ${duration / 1000}s - ${status}`);
   const errorValue = JSON.stringify(taskError || run?.errors || {});
-
   const logStr = run ? run.console.join("\n") : "";
 
   // update action_run row in DB with status/results/errors/logs
@@ -118,6 +165,7 @@ async function runAction(payload: ActionRunInsertedPayload) {
         payload.action_run_id,
       ],
     );
+
     logger.info("Updated action_run:", res.rows[0]);
   } catch (error) {
     logger.error("Error updating row:", error);
@@ -141,10 +189,12 @@ export async function setupListeners() {
 
   listenClient.on("notification", async (msg) => {
     console.info(`PG notify event: ${JSON.stringify(msg, null, 2)}`);
+
     if (!msg.payload) {
       console.warn(`warning: PG event with no message or payload: ${JSON.stringify(msg, null, 2)}`);
       return;
     }
+
     const payload = JSON.parse(msg.payload);
 
     if (msg.channel === "action_definition_inserted") {
@@ -155,11 +205,13 @@ export async function setupListeners() {
       await cancelAction(payload);
     }
   });
+
   logger.info("Initialized PG event listeners");
 }
 
-export function cleanup(server: http.Server) {
+export function cleanup(server: http.Server): void {
   console.log("shutting down...");
+
   if (listenClient) {
     listenClient.release();
   }

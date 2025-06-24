@@ -3,6 +3,7 @@ import { configuration } from "./config";
 import { corsMiddleware, jsonErrorMiddleware } from "./middleware";
 import { ActionWorkerPool } from "./threads/workerPool";
 import { cleanup, setupListeners } from "./listeners/dbListeners";
+import { ActionSecrets } from "./type/actionSecrets";
 
 const port = configuration().PORT;
 
@@ -32,6 +33,14 @@ app.get("/", async (req, res, next) => {
 
 app.get("/health", async (req, res, next) => {
   res.status(200).send();
+});
+
+app.post("/secrets", async (req, res, next) => {
+  const { action_run_id, secrets } = req.body;
+
+  ActionSecrets.addActionSecret(action_run_id as number, secrets);
+
+  res.status(200).send({ success: true });
 });
 
 // handle termination signals

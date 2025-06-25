@@ -85,19 +85,19 @@ describe('Test built-in helpers', () => {
     it('should reformat text/non-language-specific dates correctly', () => {
         // doy
         let templateRawDoy = 'Uncleaned: {{ date }}; Cleaned: {{ format-as-date date }}; Chained {{ format-as-date (add-time (format-as-date date) duration) }}'
-        let inputDoy = { date: "2025-001T00:00:00.00", duration: "00:05:00" }
+        let inputDoy = { date: "2025-001T00:00:00.00", duration: "00:05:00.250" }
 
         let templateDoy = new Mustache(templateRawDoy, SequencingLanguage.TEXT)
         expect(templateDoy.execute(inputDoy))
-            .toEqual('Uncleaned: 2025-001T00:00:00.00; Cleaned: 2025-01-01T00:00:00.000Z; Chained 2025-01-01T00:05:00.000Z')
+            .toEqual('Uncleaned: 2025-001T00:00:00.00; Cleaned: 2025-01-01T00:00:00Z; Chained 2025-01-01T00:05:00.250000Z')
 
 
         // ymd
         let templateRawYmd = 'Uncleaned: {{ date }}; Cleaned: {{ format-as-date date }}; Chained {{ format-as-date (add-time (format-as-date date) duration) }}'
-        let inputYmd = { date: "2025-01-01T00:00:00.00Z", duration: "00:05:00" } // excluding the Z with ymd leads to time zone conversions...
+        let inputYmd = { date: "2025-01-01T00:00:00.00Z", duration: "00:05:00.250" } // excluding the Z with ymd leads to time zone conversions...
 
         let templateYmd = new Mustache(templateRawYmd, SequencingLanguage.TEXT)
         expect(templateYmd.execute(inputYmd))
-            .toEqual('Uncleaned: 2025-01-01T00:00:00.00Z; Cleaned: 2025-01-01T00:00:00.000Z; Chained 2025-01-01T00:05:00.000Z')
+            .toEqual('Uncleaned: 2025-01-01T00:00:00.00Z; Cleaned: 2025-01-01T00:00:00Z; Chained 2025-01-01T00:05:00.250000Z')
     });
 });

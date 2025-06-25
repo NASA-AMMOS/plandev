@@ -1229,5 +1229,89 @@ CMD SEQUENCE=FINAL_B AT=2020-001/00:00:30.030`) // expect interleaving!
     });
   });
 
+  // STOL/plaintext-specific tests
+  describe('Plaintext sequences', () => {
+    let language = 'TEXT';
+
+    it.only('should format dates and simply concatenate strings', async () => {
+      let seqId = 'TextSequenceMerge';
+
+      await insertSequenceTemplate(
+        graphqlClient,
+        `GrowBanana.tpl`,
+        parcelId,
+        missionModelId,
+        `GrowBanana`,
+        language,
+        [
+          `A{{ format-as-date startTime }} GROW_BANANA_1`,
+          `A{{ format-as-date (add-time startTime attributes.arguments.growingDuration) }} GROW_BANANA_2`,
+        ].join(`\n`),
+      );
+
+      await insertSequenceTemplate(
+        graphqlClient,
+        `DurationParameterActivity.tpl`,
+        parcelId,
+        missionModelId,
+        `DurationParameterActivity`,
+        language,
+        [
+          `A{{ format-as-date startTime }} DURATION_ACTIVITY_1`,
+          `A{{ format-as-date (add-time startTime attributes.arguments.duration) }} DURATION_ACTIVITY_2`,
+        ].join(`\n`),
+      );
+
+      const activityId_A = await insertActivityDirective(graphqlClient, planId, 'GrowBanana', '0 milliseconds');
+      const activityId_B = await insertActivityDirective(
+        graphqlClient,
+        planId,
+        'DurationParameterActivity',
+        '30 seconds',
+        { duration: 30000 },
+      );
+
+      // Simulate Plan
+      const simulationArtifactPk = await executeSimulation(graphqlClient, planId);
+
+      // Create Sequence
+      const sequenceId = await createSequence(graphqlClient, seqId, simulationArtifactPk.simulationDatasetId);
+
+      // Assign Activities Manually
+      await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_A, seqId);
+      await assignActivityToSequence(graphqlClient, simulationArtifactPk.simulationDatasetId, activityId_B, seqId);
+
+      // Expand Plan
+      const expandedTemplates: { [seqId: string]: string } = await expandTemplates(
+        graphqlClient,
+        missionModelId,
+        [seqId],
+        simulationArtifactPk.simulationDatasetId,
+      );
+
+      // verify results
+      expect(sequenceId).toEqual(seqId);
+      expect(expandedTemplates).not.toBeNull();
+
+      const result = expandedTemplates[seqId];
+      expect(result).toInclude(
+        [
+          `A2020-01-01T00:00:00Z GROW_BANANA_1`,
+          `A2020-01-01T01:00:00Z GROW_BANANA_2`,
+          `A2020-01-01T00:00:30Z DURATION_ACTIVITY_1`,
+          `A2020-01-01T00:00:30.030000Z DURATION_ACTIVITY_2`,
+        ].join(`\n`),
+      );
+
+      // Cleanup
+      // remove sequence
+      await removeSequence(graphqlClient, seqId);
+      // remove simulation artifact pk
+      await removeSimulationArtifacts(graphqlClient, simulationArtifactPk);
+      // remove associations
+      await removeActivitySequenceAssignments(graphqlClient, seqId);
+    });
+  });
+
   // TODO: DAVID'S EDGE CASES
 })

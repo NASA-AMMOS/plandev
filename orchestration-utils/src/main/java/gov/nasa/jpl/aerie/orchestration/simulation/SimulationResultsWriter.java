@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.RecursiveTask;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.EventGraphFlattener;
+import gov.nasa.jpl.aerie.merlin.driver.timeline.EventGraphFlattener;
 import gov.nasa.jpl.aerie.types.Plan;
 import gov.nasa.jpl.aerie.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
@@ -35,9 +35,9 @@ import org.apache.commons.lang3.tuple.Triple;
 
 import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
 import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
-import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.realDynamicsP;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.activityArgumentsP;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.simulationArgumentsP;
+import static gov.nasa.jpl.aerie.merlin.driver.json.Parsers.realDynamicsP;
+import static gov.nasa.jpl.aerie.merlin.driver.json.Parsers.activityArgumentsP;
+import static gov.nasa.jpl.aerie.merlin.driver.json.Parsers.simulationArgumentsP;
 
 
 public class SimulationResultsWriter {

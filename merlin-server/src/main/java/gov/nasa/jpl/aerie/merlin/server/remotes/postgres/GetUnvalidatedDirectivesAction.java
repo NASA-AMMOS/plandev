@@ -14,7 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.activityArgumentsP;
+import static gov.nasa.jpl.aerie.merlin.driver.json.Parsers.activityArgumentsP;
 import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.getJsonColumn;
 
 public class GetUnvalidatedDirectivesAction implements AutoCloseable {

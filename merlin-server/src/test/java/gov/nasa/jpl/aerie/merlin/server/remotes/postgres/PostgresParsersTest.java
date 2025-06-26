@@ -1,7 +1,7 @@
 package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 
 import javax.json.Json;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.pgTimestampP;
+import static gov.nasa.jpl.aerie.merlin.driver.json.Parsers.pgTimestampP;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import gov.nasa.jpl.aerie.types.Timestamp;

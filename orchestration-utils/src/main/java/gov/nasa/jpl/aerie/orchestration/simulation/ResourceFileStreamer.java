@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.UUID;
 
 import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
-import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.realDynamicsP;
+import static gov.nasa.jpl.aerie.merlin.driver.json.Parsers.realDynamicsP;
 
 /**
  * A consumer that writes resource segments to the file system.

@@ -1,6 +1,5 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.jpl.aerie.merlin.driver.timeline;
 
-import gov.nasa.jpl.aerie.merlin.driver.timeline.EventGraph;
 import net.jqwik.api.Arbitraries;
 import net.jqwik.api.Arbitrary;
 import net.jqwik.api.ForAll;
@@ -10,8 +9,8 @@ import net.jqwik.api.Provide;
 import org.junit.jupiter.api.Test;
 
 import static gov.nasa.jpl.aerie.merlin.driver.timeline.EffectExpressionDisplay.displayGraph;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.EventGraphFlattener.flatten;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.EventGraphUnflattener.unflatten;
+import static gov.nasa.jpl.aerie.merlin.driver.timeline.EventGraphFlattener.flatten;
+import static gov.nasa.jpl.aerie.merlin.driver.timeline.EventGraphUnflattener.unflatten;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public final class EventGraphFlattenerTest {

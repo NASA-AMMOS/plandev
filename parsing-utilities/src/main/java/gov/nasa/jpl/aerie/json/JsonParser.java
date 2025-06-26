@@ -3,6 +3,9 @@ package gov.nasa.jpl.aerie.json;
 import javax.json.Json;
 import javax.json.JsonObject;
 import javax.json.JsonValue;
+import javax.json.stream.JsonParsingException;
+import java.io.StringReader;
+import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
 
@@ -163,5 +166,26 @@ public interface JsonParser<T> {
    */
   default <S> JsonParser<S> map(final Function<T, S> from, final Function<S, T> to) {
     return this.map(Convert.between(from, to));
+  }
+
+  /**
+   * parses the provided json string into the object type understood by the given parser
+   *
+   * @param subject the input json string to parse
+   * @param parser the parser to use to convert it to an object
+   * @param <T> the data type of the returned object
+   * @return the object represented by the input json string
+   * @throws InvalidEntityException if the parser rejects the input json
+   * @throws InvalidJsonException if the json structure itself is malformed
+   */
+  static <T> T parseJson(final String subject, final JsonParser<T> parser)
+  throws InvalidJsonException, InvalidEntityException {
+    try {
+      final var requestJson = Json.createReader(new StringReader(subject)).readValue();
+      final var result = parser.parse(requestJson);
+      return result.getSuccessOrThrow($ -> new InvalidEntityException(List.of($)));
+    } catch (JsonParsingException e) {
+      throw new InvalidJsonException(e);
+    }
   }
 }

@@ -20,9 +20,9 @@ import java.sql.Statement;
 import java.util.HashMap;
 
 import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
-import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.realDynamicsP;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.discreteProfileTypeP;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.realProfileTypeP;
+import static gov.nasa.jpl.aerie.merlin.driver.json.MerlinParsers.realDynamicsP;
+import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.discreteProfileTypeP;
+import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.realProfileTypeP;
 
 /**
  * Utility class to handle upload of resource profiles to the database.

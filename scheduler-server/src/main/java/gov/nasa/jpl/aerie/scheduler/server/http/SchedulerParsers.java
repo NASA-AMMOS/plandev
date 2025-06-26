@@ -8,10 +8,6 @@ import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleFailure;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import gov.nasa.jpl.aerie.types.Timestamp;
 
-import javax.json.Json;
-import javax.json.stream.JsonParsingException;
-import java.io.StringReader;
-import java.util.List;
 import java.util.Optional;
 
 import static gov.nasa.jpl.aerie.json.BasicParsers.anyP;
@@ -125,16 +121,4 @@ public final class SchedulerParsers {
       .map(
           untuple(HasuraAction.HasuraSchedulingGoalEvent::new),
           $ -> tuple($.goalId(), $.revision()));
-
-  public static <T> T parseJson(final String jsonStr, final JsonParser<T> parser)
-  throws InvalidJsonException, InvalidEntityException
-  {
-    try (final var reader = Json.createReader(new StringReader(jsonStr))) {
-      final var requestJson = reader.readValue();
-      final var result = parser.parse(requestJson);
-      return result.getSuccessOrThrow(reason -> new InvalidEntityException(List.of(reason)));
-    } catch (JsonParsingException e) {
-      throw new InvalidJsonException(e);
-    }
-  }
 }

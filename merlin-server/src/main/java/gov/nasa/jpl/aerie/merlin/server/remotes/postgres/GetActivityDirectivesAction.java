@@ -8,7 +8,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.activityArgumentsP;
+import static gov.nasa.jpl.aerie.merlin.driver.json.MerlinParsers.activityArgumentsP;
 import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.getJsonColumn;
 
 /*package-local*/ final class GetActivityDirectivesAction implements AutoCloseable {

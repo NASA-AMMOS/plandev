@@ -3,7 +3,6 @@ package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationFailure;
 import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.Parameter;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers;
 import gov.nasa.jpl.aerie.merlin.server.http.ResponseSerializers;
 import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService;
 import gov.nasa.jpl.aerie.types.Timestamp;
@@ -96,7 +95,7 @@ public final class PreparedStatements {
   {
     statement.setString(parameter, reason == null ?
         null :
-        MerlinParsers.simulationFailureP.unparse(reason).toString());
+        PostgresParsers.simulationFailureP.unparse(reason).toString());
   }
 
   public static Optional<SimulationFailure> getFailureReason(final ResultSet results, final int column)
@@ -110,7 +109,7 @@ public final class PreparedStatements {
 
   private static SimulationFailure deserializeScheduleFailure(final String failureJson) {
     try (final var reader = Json.createReader(new ByteArrayInputStream(failureJson.getBytes(StandardCharsets.UTF_8)))) {
-      return MerlinParsers.simulationFailureP.parse(reader.readValue()).getSuccessOrThrow();
+      return PostgresParsers.simulationFailureP.parse(reader.readValue()).getSuccessOrThrow();
     }
   }
 }

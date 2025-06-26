@@ -1,17 +1,18 @@
 package gov.nasa.jpl.aerie.scheduler.server.http;
 
 import javax.json.Json;
-import javax.json.stream.JsonParsingException;
 import java.io.IOException;
-import java.io.StringReader;
-import java.util.List;
 import java.util.Objects;
+
+import static gov.nasa.jpl.aerie.json.JsonParser.parseJson;
 import static gov.nasa.jpl.aerie.scheduler.server.http.ResponseSerializers.*;
 import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.hasuraSchedulingDSLTypescriptActionP;
 import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.hasuraSchedulingGoalEventTriggerP;
 import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.hasuraSpecificationActionP;
 import static io.javalin.apibuilder.ApiBuilder.*;
-import gov.nasa.jpl.aerie.json.JsonParser;
+
+import gov.nasa.jpl.aerie.json.InvalidEntityException;
+import gov.nasa.jpl.aerie.json.InvalidJsonException;
 import gov.nasa.jpl.aerie.permissions.Action;
 import gov.nasa.jpl.aerie.permissions.PermissionsService;
 import gov.nasa.jpl.aerie.permissions.exceptions.ExceptionSerializers;
@@ -175,30 +176,6 @@ public record SchedulerBindings(
       ctx.status(400).result(serializeInvalidEntityException(ex).toString());
     } catch (final InvalidJsonException ex) {
       ctx.status(400).result(serializeInvalidJsonException(ex).toString());
-    }
-  }
-
-  /**
-   * parses the provided json string into the object type understood by the given parser
-   *
-   * @param jsonStr the input json string to parse
-   * @param parser the parser to use to convert it to an object
-   * @param <T> the data type of the returned object
-   * @return the object represented by the input json string
-   * @throws InvalidEntityException if the parser rejects the input json
-   * @throws InvalidJsonException if the json structure itself is malformed
-   */
-  //TODO: unify these little parser utility methods nearby parser code itself (copied from MerlinBindings)
-  //TODO: elevate these exceptions to json utility itself
-  private <T> T parseJson(final String jsonStr, final JsonParser<T> parser)
-  throws InvalidJsonException, InvalidEntityException
-  {
-    try {
-      final var requestJson = Json.createReader(new StringReader(jsonStr)).readValue();
-      final var result = parser.parse(requestJson);
-      return result.getSuccessOrThrow(reason -> new InvalidEntityException(List.of(reason)));
-    } catch (JsonParsingException e) {
-      throw new InvalidJsonException(e);
     }
   }
 }

@@ -1,8 +1,8 @@
 package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
 
+import gov.nasa.jpl.aerie.json.InvalidEntityException;
+import gov.nasa.jpl.aerie.json.InvalidJsonException;
 import gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser;
-import gov.nasa.jpl.aerie.scheduler.server.http.InvalidEntityException;
-import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonException;
 import gov.nasa.jpl.aerie.scheduler.model.GoalId;
 import gov.nasa.jpl.aerie.scheduler.server.models.GoalInvocationRecord;
 import gov.nasa.jpl.aerie.scheduler.server.models.GoalSource;
@@ -16,7 +16,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.parseJson;
+import static gov.nasa.jpl.aerie.json.JsonParser.parseJson;
 
 /*package-local*/ final class GetSpecificationGoalsAction implements AutoCloseable {
   private final @Language("SQL") String sql = """

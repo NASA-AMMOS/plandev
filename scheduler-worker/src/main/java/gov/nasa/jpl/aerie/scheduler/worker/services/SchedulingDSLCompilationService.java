@@ -1,8 +1,8 @@
 package gov.nasa.jpl.aerie.scheduler.worker.services;
 
 import gov.nasa.jpl.aerie.json.JsonParser;
-import gov.nasa.jpl.aerie.scheduler.server.http.InvalidEntityException;
-import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonException;
+import gov.nasa.jpl.aerie.json.InvalidEntityException;
+import gov.nasa.jpl.aerie.json.InvalidJsonException;
 import gov.nasa.jpl.aerie.scheduler.server.models.PlanId;
 import gov.nasa.jpl.aerie.scheduler.server.models.ResourceType;
 import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingCompilationError;
@@ -14,14 +14,14 @@ import gov.nasa.jpl.aerie.scheduler.server.services.TypescriptCodeGenerationServ
 
 import javax.json.Json;
 import javax.json.JsonObject;
-import javax.json.stream.JsonParsingException;
 import java.io.File;
 import java.io.IOException;
-import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+
+import static gov.nasa.jpl.aerie.json.JsonParser.parseJson;
 
 public class SchedulingDSLCompilationService {
 
@@ -150,18 +150,6 @@ public class SchedulingDSLCompilationService {
       };
     } catch (IOException e) {
       throw new Error(e);
-    }
-  }
-
-  private static <T> T parseJson(final String jsonStr, final JsonParser<T> parser)
-  throws InvalidJsonException, InvalidEntityException
-  {
-    try (final var reader = Json.createReader(new StringReader(jsonStr))) {
-      final var requestJson = reader.readValue();
-      final var result = parser.parse(requestJson);
-      return result.getSuccessOrThrow(reason -> new InvalidEntityException(List.of(reason)));
-    } catch (JsonParsingException e) {
-      throw new InvalidJsonException(e);
     }
   }
 

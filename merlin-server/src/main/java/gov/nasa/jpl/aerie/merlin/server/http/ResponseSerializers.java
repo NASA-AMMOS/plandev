@@ -3,6 +3,8 @@ package gov.nasa.jpl.aerie.merlin.server.http;
 import gov.nasa.jpl.aerie.constraints.InputMismatchException;
 import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
 import gov.nasa.jpl.aerie.json.JsonParseResult.FailureReason;
+import gov.nasa.jpl.aerie.json.InvalidEntityException;
+import gov.nasa.jpl.aerie.json.InvalidJsonException;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser;
 import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.Parameter;
@@ -16,6 +18,7 @@ import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.SimulationDatasetMismatchException;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintsCompilationError;
 import gov.nasa.jpl.aerie.merlin.server.remotes.MissionModelAccessException;
+import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers;
 import gov.nasa.jpl.aerie.merlin.server.services.GetSimulationResultsAction;
 import gov.nasa.jpl.aerie.merlin.server.services.LocalMissionModelService;
 import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService;
@@ -309,7 +312,7 @@ public final class ResponseSerializers {
                   .createObjectBuilder()
                   .add("status", "failed")
                   .add("simulationDatasetId", r.simulationDatasetId())
-                  .add("reason", MerlinParsers.simulationFailureP.unparse(r.reason()))
+                  .add("reason", PostgresParsers.simulationFailureP.unparse(r.reason()))
                   .build();
           case GetSimulationResultsAction.Response.Complete r -> Json
                   .createObjectBuilder()

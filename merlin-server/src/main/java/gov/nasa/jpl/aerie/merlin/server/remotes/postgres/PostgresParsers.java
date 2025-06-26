@@ -2,76 +2,30 @@ package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 
 import gov.nasa.jpl.aerie.json.JsonParseResult;
 import gov.nasa.jpl.aerie.json.JsonParser;
-import gov.nasa.jpl.aerie.json.SchemaCache;
 import gov.nasa.jpl.aerie.json.Unit;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationFailure;
+import gov.nasa.jpl.aerie.merlin.driver.json.MerlinParsers;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
-import gov.nasa.jpl.aerie.merlin.server.services.UnexpectedSubtypeError;
 import gov.nasa.jpl.aerie.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 import org.postgresql.util.PGInterval;
 
 import javax.json.Json;
-import javax.json.JsonObject;
-import javax.json.JsonValue;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeFormatterBuilder;
-import java.time.format.DateTimeParseException;
-import java.time.temporal.ChronoField;
 import java.util.Map;
+import java.util.Optional;
 
 import static gov.nasa.jpl.aerie.json.BasicParsers.*;
 import static gov.nasa.jpl.aerie.json.Uncurry.tuple;
 import static gov.nasa.jpl.aerie.json.Uncurry.untuple;
+import static gov.nasa.jpl.aerie.merlin.driver.json.MerlinParsers.activityArgumentsP;
 import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
 import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
 
 public final class PostgresParsers {
-
-  public static final JsonParser<Timestamp> pgTimestampP = new JsonParser<>() {
-    private static final DateTimeFormatter format =
-        new DateTimeFormatterBuilder()
-            .append(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
-            .appendFraction(ChronoField.MICRO_OF_SECOND, 0, 6, true)
-            .toFormatter();
-
-    @Override
-    public JsonObject getSchema(final SchemaCache anchors) {
-      return Json
-          .createObjectBuilder(stringP.getSchema())
-          .add("format", "date-time")
-          .build();
-    }
-
-    @Override
-    public JsonParseResult<Timestamp> parse(final JsonValue json) {
-      final var result = stringP.parse(json);
-      if (result instanceof final JsonParseResult.Success<String> s) {
-        try {
-          final var instant = LocalDateTime.parse(s.result(), format).atZone(ZoneOffset.UTC);
-          return JsonParseResult.success(new Timestamp(instant));
-        } catch (final DateTimeParseException e) {
-          return JsonParseResult.failure("invalid timestamp format "+e);
-        }
-      } else if (result instanceof final JsonParseResult.Failure<?> f) {
-        return f.cast();
-      } else {
-        throw new UnexpectedSubtypeError(JsonParseResult.class, result);
-      }
-    }
-
-    @Override
-    public JsonValue unparse(final Timestamp value) {
-      final var s = format.format(value.toInstant().atZone(ZoneOffset.UTC));
-      return stringP.unparse(s);
-    }
-  };
-
   public static final JsonParser<Pair<String, ValueSchema>> discreteProfileTypeP =
       productP
           .field("type", literalP("discrete"))
@@ -87,6 +41,17 @@ public final class PostgresParsers {
           .map(
               untuple((type, schema) -> Pair.of("real", schema)),
               $ -> tuple(Unit.UNIT, $.getRight()));
+
+  public static final JsonParser<SimulationFailure> simulationFailureP = productP
+      .field("type", stringP)
+      .field("message", stringP)
+      .field("data", anyP)
+      .optionalField("trace", stringP)
+      .field("timestamp", MerlinParsers.pgTimestampP)
+      .map(
+          untuple((type, message, data, trace, timestamp) -> new SimulationFailure(type, message, data, trace.orElse(""), timestamp.toInstant())),
+          failure -> tuple(failure.type(), failure.message(), failure.data(), Optional.ofNullable(failure.trace()), new Timestamp(failure.timestamp()))
+      );
 
   static final JsonParser<Pair<String, ValueSchema>> profileTypeP =
       chooseP(
@@ -117,9 +82,6 @@ public final class PostgresParsers {
   }
 
   public static final JsonParser<Map<String, SerializedValue>> constraintArgumentsP = mapP(serializedValueP);
-  public static final JsonParser<Map<String, SerializedValue>> activityArgumentsP = mapP(serializedValueP);
-
-  public static final JsonParser<Map<String, SerializedValue>> simulationArgumentsP = mapP(serializedValueP);
 
   public static final JsonParser<ActivityAttributesRecord> activityAttributesP = productP
       .optionalField("directiveId", longP)

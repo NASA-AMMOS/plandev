@@ -9,6 +9,8 @@ import gov.nasa.jpl.aerie.merlin.server.exceptions.SimulationDatasetMismatchExce
 import gov.nasa.jpl.aerie.merlin.server.http.Fallible;
 import gov.nasa.jpl.aerie.merlin.server.models.*;
 import gov.nasa.jpl.aerie.types.MissionModelId;
+import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
+import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.*;

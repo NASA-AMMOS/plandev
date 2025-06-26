@@ -1,40 +1,40 @@
 package gov.nasa.jpl.aerie.merlin.server.http;
 
 import gov.nasa.jpl.aerie.json.JsonParser;
+import gov.nasa.jpl.aerie.json.Unit;
 import gov.nasa.jpl.aerie.merlin.driver.engine.ProfileSegment;
 import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfile;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.models.DiscreteProfile;
 import gov.nasa.jpl.aerie.merlin.server.models.ProfileSet;
 import gov.nasa.jpl.aerie.merlin.server.models.RealProfile;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.HashMap;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static gov.nasa.jpl.aerie.json.BasicParsers.chooseP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.doubleP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.listP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.literalP;
+import static gov.nasa.jpl.aerie.json.BasicParsers.longP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.mapP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.productP;
 import static gov.nasa.jpl.aerie.json.Uncurry.tuple;
 import static gov.nasa.jpl.aerie.json.Uncurry.untuple;
+import static gov.nasa.jpl.aerie.merlin.driver.json.MerlinParsers.realDynamicsP;
 import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
 import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
-import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.durationP;
 
 public final class ProfileParsers {
-  public static final JsonParser<RealDynamics> realDynamicsP
-      = productP
-      . field("initial", doubleP)
-      . field("rate", doubleP)
+  public static final JsonParser<Duration> durationP
+      = longP
       . map(
-          untuple(RealDynamics::linear),
-          $ -> tuple($.initial, $.rate));
-
+          microseconds -> Duration.of(microseconds, Duration.MICROSECONDS),
+          duration -> duration.in(Duration.MICROSECONDS));
   public static final JsonParser<ProfileSegment<Optional<RealDynamics>>> realProfileSegmentP
       = productP
       . field("duration", durationP)
@@ -104,4 +104,25 @@ public final class ProfileParsers {
             return profiles;
           }
       );
+
+  public static final JsonParser<Pair<String, ValueSchema>> discreteProfileTypeP =
+      productP
+          .field("type", literalP("discrete"))
+          .field("schema", valueSchemaP)
+          .map(
+              untuple((type, schema) -> Pair.of("discrete", schema)),
+              $ -> tuple(Unit.UNIT, $.getRight()));
+
+  public static final JsonParser<Pair<String, ValueSchema>> realProfileTypeP =
+      productP
+          .field("type", literalP("real"))
+          .field("schema", valueSchemaP)
+          .map(
+              untuple((type, schema) -> Pair.of("real", schema)),
+              $ -> tuple(Unit.UNIT, $.getRight()));
+
+  public static final JsonParser<Pair<String, ValueSchema>> profileTypeP =
+      chooseP(
+          discreteProfileTypeP,
+          realProfileTypeP);
 }

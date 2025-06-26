@@ -1,11 +1,6 @@
 package gov.nasa.jpl.aerie.orchestration;
 
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.activityArgumentsP;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.pgTimestampP;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.simulationArgumentsP;
-
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 
 import gov.nasa.jpl.aerie.types.ActivityDirective;
@@ -22,6 +17,10 @@ import java.io.FileReader;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
+
+import static gov.nasa.jpl.aerie.merlin.driver.json.MerlinParsers.activityArgumentsP;
+import static gov.nasa.jpl.aerie.merlin.driver.json.MerlinParsers.simulationArgumentsP;
+import static gov.nasa.jpl.aerie.merlin.driver.json.MerlinParsers.pgTimestampP;
 
 /**
  * Class to parse a plan.json file.

@@ -1,10 +1,21 @@
 package gov.nasa.jpl.aerie.merlin.server.http;
 
+import gov.nasa.jpl.aerie.json.JsonParseResult;
 import gov.nasa.jpl.aerie.json.JsonParser;
+import gov.nasa.jpl.aerie.json.SchemaCache;
+import gov.nasa.jpl.aerie.merlin.server.models.DatasetId;
+import gov.nasa.jpl.aerie.types.MissionModelId;
+import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
 import gov.nasa.jpl.aerie.merlin.server.models.HasuraAction;
 import gov.nasa.jpl.aerie.merlin.server.models.HasuraMissionModelEvent;
+import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
+import gov.nasa.jpl.aerie.types.Timestamp;
 
+import javax.json.Json;
+import javax.json.JsonObject;
+import javax.json.JsonValue;
+import java.time.format.DateTimeParseException;
 import java.util.Optional;
 
 import static gov.nasa.jpl.aerie.json.BasicParsers.boolP;
@@ -17,11 +28,6 @@ import static gov.nasa.jpl.aerie.json.BasicParsers.stringP;
 import static gov.nasa.jpl.aerie.json.Uncurry.tuple;
 import static gov.nasa.jpl.aerie.json.Uncurry.untuple;
 import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
-import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.datasetIdP;
-import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.missionModelIdP;
-import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.planIdP;
-import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.simulationDatasetIdP;
-import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.timestampP;
 import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.profileSetP;
 
 public abstract class HasuraParsers {
@@ -46,11 +52,21 @@ public abstract class HasuraParsers {
             $ -> tuple($.name(), $.input(), $.session(), ""));
   }
 
+  public static final JsonParser<MissionModelId> missionModelIdP
+      = longP
+      . map(
+          MissionModelId::new,
+          MissionModelId::id);
   public static final JsonParser<HasuraAction<HasuraAction.MissionModelInput>> hasuraMissionModelActionP
       = hasuraActionF(productP
                           .field("missionModelId", missionModelIdP)
                           .map(HasuraAction.MissionModelInput::new, HasuraAction.MissionModelInput::missionModelId));
 
+  public static final JsonParser<PlanId> planIdP
+      = longP
+      . map(
+          PlanId::new,
+          PlanId::id);
   public static final JsonParser<HasuraAction<HasuraAction.PlanInput>> hasuraPlanActionP
       = hasuraActionF(productP
                           .field("planId", planIdP)
@@ -67,6 +83,11 @@ public abstract class HasuraParsers {
               )
   );
 
+  public static final JsonParser<SimulationDatasetId> simulationDatasetIdP
+      = longP
+      . map(
+          SimulationDatasetId::new,
+          SimulationDatasetId::id);
   public static final JsonParser<HasuraAction<HasuraAction.ConstraintViolationsInput>> hasuraConstraintsViolationsActionP
       = hasuraActionF(
       productP
@@ -162,6 +183,36 @@ public abstract class HasuraParsers {
   public static final JsonParser<HasuraAction<HasuraAction.ActivityInput>> hasuraActivityActionP
       = hasuraActionF(hasuraActivityInputP);
 
+  public static final JsonParser<Timestamp> timestampP = new JsonParser<>() {
+    @Override
+    public JsonObject getSchema(final SchemaCache anchors) {
+      return Json
+          .createObjectBuilder(stringP.getSchema())
+          .add("format", "date-time")
+          .build();
+    }
+
+    @Override
+    public JsonParseResult<Timestamp> parse(final JsonValue json) {
+      final var result = stringP.parse(json);
+      if (result instanceof JsonParseResult.Success<String> s) {
+        try {
+          return JsonParseResult.success(Timestamp.fromString(s.result()));
+        } catch (DateTimeParseException e) {
+          return JsonParseResult.failure("invalid timestamp format");
+        }
+      } else if (result instanceof JsonParseResult.Failure<?> f) {
+        return f.cast();
+      } else {
+        throw new Error("Unexpected subtype of " + JsonParseResult.class + ": " + result);
+      }
+    }
+
+    @Override
+    public JsonValue unparse(final Timestamp value) {
+      return stringP.unparse(value.toString());
+    }
+  };
   public static final JsonParser<HasuraAction<HasuraAction.UploadExternalDatasetInput>> hasuraUploadExternalDatasetActionP
       = hasuraActionF(
           productP
@@ -181,6 +232,11 @@ public abstract class HasuraParsers {
                     $.datasetStart(),
                     $.profileSet())));
 
+  public static final JsonParser<DatasetId> datasetIdP
+      = longP
+      . map(
+          DatasetId::new,
+          DatasetId::id);
   public static final JsonParser<HasuraAction<HasuraAction.ExtendExternalDatasetInput>> hasuraExtendExternalDatasetActionP
       = hasuraActionF(
           productP

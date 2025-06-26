@@ -1,6 +1,5 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.jpl.aerie.merlin.driver.timeline;
 
-import gov.nasa.jpl.aerie.merlin.driver.timeline.EventGraph;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.List;

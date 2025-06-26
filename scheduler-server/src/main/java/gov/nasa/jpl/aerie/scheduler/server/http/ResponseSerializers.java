@@ -7,6 +7,8 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import gov.nasa.jpl.aerie.json.JsonParseResult;
+import gov.nasa.jpl.aerie.json.InvalidEntityException;
+import gov.nasa.jpl.aerie.json.InvalidJsonException;
 import gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchPlanException;

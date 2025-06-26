@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.merlin.server.http;
+package gov.nasa.jpl.aerie.json;
 
 import java.util.List;
 

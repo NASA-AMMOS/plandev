@@ -1,6 +1,8 @@
 package gov.nasa.jpl.aerie.merlin.server.http;
 
 import gov.nasa.jpl.aerie.constraints.InputMismatchException;
+import gov.nasa.jpl.aerie.json.InvalidEntityException;
+import gov.nasa.jpl.aerie.json.InvalidJsonException;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
@@ -30,7 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.parseJson;
+import static gov.nasa.jpl.aerie.json.JsonParser.parseJson;
 
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraActivityActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraActivityBulkActionP;

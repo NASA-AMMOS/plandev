@@ -42,6 +42,7 @@ dependencies {
   implementation project(':type-utils')
   implementation 'it.unimi.dsi:fastutil:8.5.12'
   implementation 'org.slf4j:slf4j-simple:2.0.7'
+  implementation 'org.postgresql:postgresql:42.6.1' // for PGInterval (un)parsing
 
   testImplementation project(':merlin-framework')
   testImplementation project(':merlin-framework-junit')

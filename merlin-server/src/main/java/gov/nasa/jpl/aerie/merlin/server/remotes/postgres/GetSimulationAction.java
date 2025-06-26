@@ -10,7 +10,7 @@ import java.sql.SQLException;
 import java.util.Optional;
 
 import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.getJsonColumn;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.simulationArgumentsP;
+import static gov.nasa.jpl.aerie.merlin.driver.json.MerlinParsers.simulationArgumentsP;
 
 /*package local*/ final class GetSimulationAction implements AutoCloseable {
   private static final @Language("SQL") String sql = """

@@ -19,8 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.discreteProfileTypeP;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.realProfileTypeP;
+import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.discreteProfileTypeP;
+import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.realProfileTypeP;
 
 /*package-local*/ final class PostProfilesAction implements AutoCloseable {
   private final @Language("SQL") String sql = """

@@ -115,7 +115,49 @@ comment on column sequencing.workspace_collaborators.collaborator is e''
   'The username of the collaborator';
 
 -- Update workspace table
+alter table sequencing.workspace
+ add column disk_location text,
+ add column parcel_id integer,
+ add column created_at timestamptz not null default now(),
+ add column updated_at timestamptz not null default now(),
+ add foreign key (parcel_id)
+    references sequencing.parcel
+    on update cascade
+    on delete restrict;
 
+comment on column sequencing.workspace.id is e''
+  'The unique id of the workspace.';
+comment on column sequencing.workspace.disk_location is e''
+  'The location of the workspace on disk.';
+comment on column sequencing.workspace.parcel_id is e''
+  'The parcel that files in the workspace use.';
+comment on column sequencing.workspace.updated_at is e''
+  'Time the workspace was last updated.';
 
+-- Data migration: disk_location
+update sequencing.workspace ws
+set disk_location = replace(replace(ws.name, ' ', '_'), '/', '_');
+
+-- Fix conflicts
+update sequencing.workspace ws
+set disk_location = disk_location || '(' || ir.row || ')'
+from (
+select id, row_number() over (partition by disk_location) - 1 as row
+from sequencing.workspace
+where disk_location in (
+  select disk_location
+  from sequencing.workspace
+  group by disk_location
+  having count(1) > 1)) as ir
+where ir.id = ws.id
+and row > 0;
+
+-- Set unique and not null to match table definition
+alter table sequencing.workspace
+ add unique(disk_location),
+ alter column disk_location set not null;
+
+-- Data migration: parcel_id
+-- ??????
 
 perform migrations.mark_migration_applied(24, true);

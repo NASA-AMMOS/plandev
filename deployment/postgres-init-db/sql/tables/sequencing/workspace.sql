@@ -31,7 +31,7 @@ create table sequencing.workspace (
 comment on table sequencing.workspace is e''
   'A container for multiple sequences.';
 comment on column sequencing.workspace.id is e''
-  'The name of the workspace.';
+  'The unique id of the workspace.';
 comment on column sequencing.workspace.name is e''
   'The name of the workspace.';
 comment on column sequencing.workspace.disk_location is e''

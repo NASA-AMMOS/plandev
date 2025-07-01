@@ -18,5 +18,6 @@ export default tseslint.config(sheriff(sheriffOptions), {
     "@typescript-eslint/naming-convention": "off",
     "func-style": "off",
     "no-restricted-syntax": "off",
+    "@typescript-eslint/no-dynamic-delete": "off",
   },
 });

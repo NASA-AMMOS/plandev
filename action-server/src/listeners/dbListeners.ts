@@ -9,7 +9,7 @@ import type { ActionDefinitionInsertedPayload, ActionResponse, ActionRunInserted
 import { extractSchemas } from "../utils/codeRunner";
 import logger from "../utils/logger";
 import { ActionRunCancellationRequestPayload } from "../type/types";
-import { ActionSecrets } from "../type/actionSecrets";
+import { ActionRunner } from "../type/actionRunner";
 
 let listenClient: PoolClient | undefined;
 
@@ -55,53 +55,13 @@ async function cancelAction(payload: ActionRunCancellationRequestPayload) {
   ActionWorkerPool.cancelTask(payload.action_run_id);
 }
 
-function delay(ms: number): Promise<unknown> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function waitForSecrets(actionRunId: number): Promise<any> {
-  let actionSecrets;
-  let counter = 0;
-
-  logger.info(`Waiting for secrets for action run ${actionRunId}`);
-
-  // Check for the secret every 10 seconds for a minute, and then give up and skip running the action.
-  while (counter < 5) {
-    actionSecrets = ActionSecrets.getActionSecret(actionRunId);
-
-    if (actionSecrets !== undefined) {
-      logger.info(`Secret for action run ${actionRunId} found`);
-
-      ActionSecrets.removeActionSecret(actionRunId);
-
-      return actionSecrets;
-    }
-
-    await delay(10000);
-
-    counter++;
-  }
-}
-
-async function runAction(payload: ActionRunInsertedPayload) {
-  const { action_file_path, action_run_id, parameters, secrets, settings, workspace_id } = payload;
+export async function runAction(payload: ActionRunInsertedPayload, actionSecrets?: Record<string, any>): Promise<void> {
+  const { action_file_path, action_run_id, parameters, settings, workspace_id } = payload;
   const actionRunId = Number(action_run_id);
 
   logger.info(`action run ${action_run_id} inserted (${action_file_path})`);
 
-  let taskError, actionSecrets;
-
-  // If the secrets flag is set, we need to wait for another call to send the secrets the action needs.
-  if (secrets) {
-    actionSecrets = await waitForSecrets(actionRunId);
-
-    if (actionSecrets === undefined) {
-      const message = `action run ${action_run_id} timed out waiting for secrets`;
-
-      logger.error(message);
-      taskError = { message };
-    }
-  }
+  let taskError;
 
   // event payload contains a file path for the action file which should be run
   const actionJS = await readFileFromStore(action_file_path);
@@ -118,11 +78,11 @@ async function runAction(payload: ActionRunInsertedPayload) {
 
   try {
     run = (await ActionWorkerPool.submitTask({
-      actionJS: actionJS,
-      action_run_id: action_run_id,
+      actionJS,
+      action_run_id,
       message_port: null,
-      parameters: parameters,
-      settings: settings,
+      parameters,
+      settings,
       workspaceId: workspace_id,
       secrets: actionSecrets,
     })) satisfies ActionResponse;
@@ -200,7 +160,7 @@ export async function setupListeners() {
     if (msg.channel === "action_definition_inserted") {
       await refreshActionDefinitionSchema(payload);
     } else if (msg.channel === "action_run_inserted") {
-      await runAction(payload);
+      void ActionRunner.addActionRun(payload as ActionRunInsertedPayload);
     } else if (msg.channel === "action_run_cancel_requested") {
       await cancelAction(payload);
     }

@@ -2,9 +2,9 @@
 import * as vm from "node:vm";
 import type { PoolClient } from "pg";
 import { createLogger, format, transports } from "winston";
-import { ActionsAPI } from "@nasa-jpl/aerie-actions";
+import { ActionsAPI, User } from "@nasa-jpl/aerie-actions";
 import { configuration } from "../config";
-import type { ActionConfig, ActionResponse } from "../type/types";
+import type {ActionConfig, ActionResponse } from "../type/types";
 
 // todo put this inside a more limited closure scope or it will get reused...
 // const logBuffer: string[] = [];
@@ -58,7 +58,7 @@ function getGlobals() {
   return aerieGlobal;
 }
 
-const { ACTION_LOCAL_STORE, SEQUENCING_LOCAL_STORE } = configuration();
+const { ACTION_LOCAL_STORE, SEQUENCING_LOCAL_STORE , WORKSPACE_BASE_URL} = configuration();
 
 export const jsExecute = async (
   code: string,
@@ -81,8 +81,19 @@ export const jsExecute = async (
   try {
     vm.runInContext(code, context);
     // todo: main runs outside of VM - is that OK?
-    const actionConfig: ActionConfig = { ACTION_FILE_STORE: ACTION_LOCAL_STORE, SEQUENCING_FILE_STORE: SEQUENCING_LOCAL_STORE };
-    const actionsAPI = new ActionsAPI(client, workspaceId, actionConfig);
+    const actionConfig: ActionConfig = { ACTION_FILE_STORE: ACTION_LOCAL_STORE, SEQUENCING_FILE_STORE: SEQUENCING_LOCAL_STORE, WORKSPACE_BASE_URL: WORKSPACE_BASE_URL };
+    const user: User = {
+      id: "x",
+      token: authToken ?? "x",
+      activeRole: "aerie-admin",
+      allowedRoles: ["aerie-admin"],
+      defaultRole: "aerie-admin"
+    };
+
+    console.log("Using user: ", user);
+    console.log("Node version:", process.version);
+    console.log("typeof fetch:", typeof fetch);
+    const actionsAPI = new ActionsAPI(client, workspaceId, actionConfig, user);
     const results = await context.main(parameters, settings, actionsAPI);
 
     return { results, console: logBuffer, errors: null };

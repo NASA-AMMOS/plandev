@@ -50,7 +50,7 @@ export type ActionRunInsertedPayload = {
   action_definition_id: number;
   workspace_id: number;
   action_file_path: string;
-  secrets: boolean;
+  has_secrets: boolean;
 };
 
 export type ActionRunCancellationRequestPayload = {

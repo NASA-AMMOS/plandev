@@ -160,7 +160,7 @@ export async function setupListeners() {
     if (msg.channel === "action_definition_inserted") {
       await refreshActionDefinitionSchema(payload);
     } else if (msg.channel === "action_run_inserted") {
-      void ActionRunner.addActionRun(payload as ActionRunInsertedPayload);
+      await ActionRunner.addActionRun(payload as ActionRunInsertedPayload);
     } else if (msg.channel === "action_run_cancel_requested") {
       await cancelAction(payload);
     }

@@ -39,7 +39,7 @@ app.post("/secrets", async (req, res, next) => {
   const { action_run_id, secrets } = req.body;
   const actionRunId = action_run_id as string;
 
-  void ActionRunner.addActionSecret(actionRunId, secrets as Record<string, string>);
+  ActionRunner.addActionSecret(actionRunId, secrets as Record<string, string>);
 
   res.status(200).send({ success: true });
 });

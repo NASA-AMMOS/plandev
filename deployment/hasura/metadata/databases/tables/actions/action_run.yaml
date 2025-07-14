@@ -26,13 +26,13 @@ select_permissions:
 insert_permissions:
   - role: aerie_admin
     permission:
-      columns: [settings, parameters, action_definition_id, secrets]
+      columns: [settings, parameters, action_definition_id, has_secrets]
       check: {}
       set:
         requested_by: "x-hasura-user-id"
   - role: user
     permission:
-      columns: [settings, parameters, action_definition_id, secrets]
+      columns: [settings, parameters, action_definition_id, has_secrets]
       check: {}
       set:
         requested_by: "x-hasura-user-id"

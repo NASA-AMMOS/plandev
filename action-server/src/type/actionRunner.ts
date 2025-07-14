@@ -14,12 +14,16 @@ export class ActionRunner {
 
     this.actionRuns[actionRunId] = actionRun;
     this.actionRunQueue[actionRunId] = async (runId: string) => {
-      await ActionRunner.runAction(runId);
-      this.deleteActionRun(runId);
+      try {
+        await ActionRunner.runAction(runId);
+        this.deleteActionRun(runId);
+      } catch (error) {
+        this.deleteActionRun(runId);
+      }
     };
 
     // If there aren't any secrets execute the action run immediately.
-    if (!actionRun.secrets) {
+    if (!actionRun.has_secrets) {
       await this.actionRunQueue[actionRunId](actionRunId);
     } else {
       logger.info(`Action Run: ${actionRunId} waiting for secrets...`);
@@ -56,11 +60,7 @@ export class ActionRunner {
   private static async runAction(actionRunId: string): Promise<void> {
     const action = this.actionRuns[actionRunId];
 
-    if (action?.secrets) {
-      await runAction(action, this.actionSecrets[actionRunId]);
-    } else {
-      await runAction(action);
-    }
+    await runAction(action, action.has_secrets ? this.actionSecrets[actionRunId] : undefined);
 
     this.deleteActionRun(actionRunId);
     this.deleteActionSecret(actionRunId);

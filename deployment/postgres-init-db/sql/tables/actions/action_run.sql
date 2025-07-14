@@ -7,7 +7,7 @@ create table actions.action_run (
   error jsonb not null default '{}'::jsonb,
   results jsonb not null default '{}'::jsonb,
   status util_functions.request_status not null default 'pending',
-  secrets boolean not null default false,
+  has_secrets boolean not null default false,
 
   action_definition_id integer not null,
 
@@ -53,7 +53,7 @@ comment on column actions.action_run.duration is e''
   'The duration of the action run, if it has completed; null otherwise';
 comment on column actions.action_run.canceled is e''
   'Whether the user has requested that this action be cancelled.';
-comment on column actions.action_run.secrets is e''
+comment on column actions.action_run.has_secrets is e''
   'A flag that is set to true if the run has secrets, otherwise false.';
 
 create function actions.notify_action_run_inserted()
@@ -66,7 +66,7 @@ begin
                  settings,
                  parameters,
                  action_definition_id,
-                 secrets,
+                 has_secrets,
                  workspace_id,
                  action_file_path) as
            (
@@ -74,7 +74,7 @@ begin
                     NEW.settings,
                     NEW.parameters,
                     NEW.action_definition_id,
-                    NEW.secrets,
+                    NEW.has_secrets,
                     ad.workspace_id,
                     encode(uf.path, 'escape') as path
              from actions.action_definition ad

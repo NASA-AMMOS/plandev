@@ -12,6 +12,13 @@ import requests
 def clear_screen():
   os.system('cls' if os.name == 'nt' else 'clear')
 
+def print_error(message: str):
+  """
+  Print an error message to the terminal
+
+  :param message: Message to be printed.
+  """
+  print("\033[91mError\033[0m: " + message)
 
 def exit_with_error(message: str, exit_code=1):
   """
@@ -20,7 +27,7 @@ def exit_with_error(message: str, exit_code=1):
   :param message: Error message to display before exiting.
   :param exit_code: Error code to exit with. Defaults to 1.
   """
-  print("\033[91mError\033[0m: "+message)
+  print_error(message)
   sys.exit(exit_code)
 
 
@@ -63,7 +70,7 @@ class Hasura:
 
     # Check that Hasura CLI is installed
     if not shutil.which('hasura'):
-      sys.exit(f'Hasura CLI is not installed. Exiting...')
+      exit_with_error(f'Hasura CLI is not installed. Exiting...')
     else:
       self.execute('version')
 
@@ -515,6 +522,7 @@ def createArgsParser() -> argparse.ArgumentParser:
     action='store_true')
 
   return parser
+
 
 if __name__ == "__main__":
   # Generate arguments and kick off correct subfunction

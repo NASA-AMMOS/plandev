@@ -216,6 +216,41 @@ class DB_Migration:
   def add_migration_step(self, _migration_step):
     self.steps = sorted(_migration_step, key=lambda x: int(x.split('_')[0]))
 
+  def get_available_steps(self, hasura: Hasura, apply: bool) -> ([], str):
+    """
+    Filter out the steps that can't be applied given the current mode and currently applied steps
+    :param hasura: Hasura object connected to the venue to be migrated
+    :param apply: Whether migrations will be applied or reverted
+    :return: The subset of available steps, and a print-ready string declaring what those steps are.
+    """
+    display_string = "\n\033[4mMIGRATION STEPS AVAILABLE:\033[0m\n"
+    _output = hasura.get_migrate_status()
+    display_string += _output[0] + "\n"
+
+    available_steps = self.steps.copy()
+    for i in range(1, len(_output)):
+      split = list(filter(None, _output[i].split(" ")))
+
+      if len(split) >= 5 and "Not Present" == (split[2] + " " + split[3]):
+        exit_with_error("Migration files exist on server that do not exist on this machine. "
+                        "Synchronize files and try again.\n")
+
+      folder = os.path.join(self.migrations_folder, f'{split[0]}_{split[1]}')
+      if apply:
+        # If there are four words, they must be "<NUMBER> <MIGRATION NAME> Present Present"
+        if (len(split) == 4 and "Present" == split[-1]) or (not os.path.isfile(os.path.join(folder, 'up.sql'))):
+          available_steps.remove(f'{split[0]}_{split[1]}')
+        else:
+          display_string += _output[i] + "\n"
+      else:
+        # If there are only five words, they must be "<NUMBER> <MIGRATION NAME> Present Not Present"
+        if (len(split) == 5 and "Not Present" == (split[-2] + " " + split[-1])) or (
+        not os.path.isfile(os.path.join(folder, 'down.sql'))):
+          available_steps.remove(f'{split[0]}_{split[1]}')
+        else:
+          display_string += _output[i] + "\n"
+
+    return available_steps, display_string
 
 def step_by_step_migration(hasura: Hasura, db_migration: DB_Migration, apply: bool):
   """
@@ -225,35 +260,8 @@ def step_by_step_migration(hasura: Hasura, db_migration: DB_Migration, apply: bo
   :param db_migration: DB_Migration containing the complete list of migrations available
   :param apply: Whether to apply or revert migrations
   """
-  display_string = "\n\033[4mMIGRATION STEPS AVAILABLE:\033[0m\n"
-  _output = hasura.get_migrate_status()
-  display_string += _output[0] + "\n"
-
-  # Filter out the steps that can't be applied given the current mode and currently applied steps
-  available_steps = db_migration.steps.copy()
-  for i in range(1, len(_output)):
-    split = list(filter(None, _output[i].split(" ")))
-
-    if len(split) >= 5 and "Not Present" == (split[2]+" "+split[3]):
-      print("\n\033[91mError\033[0m: Migration files exist on server that do not exist on this machine. "
-            "Synchronize files and try again.\n")
-      input("Press Enter to continue...")
-      return
-
-    folder = os.path.join(db_migration.migrations_folder, f'{split[0]}_{split[1]}')
-    if apply:
-      # If there are four words, they must be "<NUMBER> <MIGRATION NAME> Present Present"
-      if (len(split) == 4 and "Present" == split[-1]) or (not os.path.isfile(os.path.join(folder, 'up.sql'))):
-        available_steps.remove(f'{split[0]}_{split[1]}')
-      else:
-        display_string += _output[i] + "\n"
-    else:
-      # If there are only five words, they must be "<NUMBER> <MIGRATION NAME> Present Not Present"
-      if (len(split) == 5 and "Not Present" == (split[-2] + " " + split[-1])) or (not os.path.isfile(os.path.join(folder, 'down.sql'))):
-        available_steps.remove(f'{split[0]}_{split[1]}')
-      else:
-        display_string += _output[i] + "\n"
-
+  # Get only the available migration steps
+  available_steps, display_string = db_migration.get_available_steps(hasura, apply)
   if available_steps:
     print(display_string)
   else:
@@ -261,7 +269,7 @@ def step_by_step_migration(hasura: Hasura, db_migration: DB_Migration, apply: bo
 
   for step in available_steps:
     print("\033[4mCURRENT STEP:\033[0m\n")
-    timestamp = step.split("_")[0]
+    timestamp = int(step.split("_")[0])
 
     if apply:
       hasura.migrate('apply', f'--version {timestamp} --dry-run --log-level WARN')
@@ -283,13 +291,21 @@ def step_by_step_migration(hasura: Hasura, db_migration: DB_Migration, apply: bo
       if apply:
         print('Applying...')
         exit_code = hasura.migrate('apply', f'--version {timestamp} --type up')
+        print()
+        if exit_code != 0:
+          hasura.reload_metadata()
+          return
+        if not hasura.apply_after(timestamp, apply):
+          hasura.reload_metadata()
+          exit_with_error("Incomplete 'after' tasks, cannot proceed.", 2)
       else:
         print('Reverting...')
         exit_code = hasura.migrate('apply', f'--version {timestamp} --type down')
-      print()
-      if exit_code != 0:
-        hasura.reload_metadata()
-        return
+        print()
+        if exit_code != 0:
+          hasura.reload_metadata()
+          return
+
     elif _value == "n":
       hasura.reload_metadata()
       return
@@ -297,20 +313,33 @@ def step_by_step_migration(hasura: Hasura, db_migration: DB_Migration, apply: bo
   input("Press Enter to continue...")
 
 
-def bulk_migration(hasura: Hasura, apply: bool):
+def bulk_migration(hasura: Hasura, db_migration: DB_Migration, apply: bool):
   """
   Migrate the database until there are no migrations left to be applied[reverted].
 
   :param hasura: Hasura object connected to the venue to be migrated
+  :param db_migration: Set of migrations to be applied
   :param apply: Whether to apply or revert migrations.
   """
   # Migrate the database
   exit_with = 0
   if apply:
-    hasura.migrate('apply', f'--dry-run --log-level WARN')
-    exit_code = hasura.migrate('apply')
-    if exit_code != 0:
-      exit_with = 1
+    # Get only the available migration steps
+    available_steps, display_string = db_migration.get_available_steps(hasura, apply)
+    for step in available_steps:
+      timestamp = int(step.split("_")[0])
+
+      # Display dry-run message
+      hasura.migrate('apply', f'--version {timestamp} --type up --dry-run --log-level WARN')
+
+      exit_code = hasura.migrate('apply', f'--version {timestamp} --type up')
+      if exit_code != 0:
+        exit_with = 2
+        break
+      if not hasura.apply_after(timestamp, apply):
+        print_error("Incomplete 'after' tasks, cannot proceed.")
+        exit_with = 2
+        break
   else:
     hasura.migrate('apply', f'--down {hasura.current_version} --dry-run --log-level WARN')
     exit_code = hasura.migrate('apply', f'--down {hasura.current_version}')
@@ -342,16 +371,16 @@ def migrate(args: argparse.Namespace):
         f'\nAERIE DATABASE MIGRATION HELPER'
         f'\n###############################'
         f'\n\nMigrating database at {hasura.endpoint}')
+  # Find all migration folders for the database
+  migration_path = os.path.abspath(args.hasura_path + "/migrations/Aerie")
+  migration = DB_Migration(migration_path, args.revert)
+
   # Enter step-by-step mode if not otherwise specified
   if not args.all:
-    # Find all migration folders for the database
-    migration_path = os.path.abspath(args.hasura_path+"/migrations/Aerie")
-    migration = DB_Migration(migration_path, args.revert)
-
     # Go step-by-step through the migrations available for the selected database
     step_by_step_migration(hasura, migration, args.apply)
   else:
-    bulk_migration(hasura, args.apply)
+    bulk_migration(hasura, migration, args.apply)
 
 
 def status(args: argparse.Namespace):

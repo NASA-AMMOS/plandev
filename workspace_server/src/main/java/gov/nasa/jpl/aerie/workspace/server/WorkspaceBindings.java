@@ -1,10 +1,12 @@
 package gov.nasa.jpl.aerie.workspace.server;
 
+import com.auth0.jwt.exceptions.JWTVerificationException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import io.javalin.Javalin;
 import io.javalin.apibuilder.ApiBuilder;
 import io.javalin.http.ContentType;
 import io.javalin.http.Context;
+import io.javalin.http.UnauthorizedResponse;
 import io.javalin.plugin.Plugin;
 import io.javalin.validation.ValidationException;
 
@@ -21,9 +23,11 @@ import java.util.Optional;
 import static io.javalin.apibuilder.ApiBuilder.path;
 
 public class WorkspaceBindings implements Plugin {
+  private final JWTService jwtService;
   private final WorkspaceService workspaceService;
 
-  public WorkspaceBindings(final WorkspaceService workspaceService) {
+  public WorkspaceBindings(final JWTService jwtService, final WorkspaceService workspaceService) {
+    this.jwtService = jwtService;
     this.workspaceService = workspaceService;
   }
 
@@ -68,6 +72,20 @@ public class WorkspaceBindings implements Plugin {
     // Default exception handlers for common endpoint exceptions
     javalin.exception(NoSuchWorkspaceException.class, (ex, ctx) -> ctx.status(404).result(ex.getMessage()));
     javalin.exception(IOException.class, (ex, ctx) -> ctx.status(500).result(ex.getMessage()));
+  }
+
+  /**
+   * Validate that the request has a valid authorization
+   */
+  private JWTService.UserSession authorize(Context context) {
+    final var authHeader = context.header("Authorization");
+    final var activeRole = context.header("x-hasura-role");
+    try{
+      return jwtService.validateAuthorization(authHeader, activeRole);
+    } catch (JWTVerificationException jve) {
+      context.status(401);
+      throw new UnauthorizedResponse();
+    }
   }
 
   private void createWorkspace(Context context) {

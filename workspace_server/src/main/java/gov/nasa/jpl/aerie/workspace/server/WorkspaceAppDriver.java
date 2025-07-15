@@ -18,6 +18,9 @@ import org.eclipse.jetty.server.handler.StatisticsHandler;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.slf4j.LoggerFactory;
 
+import javax.json.Json;
+import javax.json.JsonObject;
+import java.io.StringReader;
 import java.nio.file.Path;
 
 public final class WorkspaceAppDriver {
@@ -28,7 +31,7 @@ public final class WorkspaceAppDriver {
     final var stores = loadStores(configuration);
 
     // Assemble the core non-web object graph.
-    final var workspaceBindings = new WorkspaceBindings(stores.workspace);
+    final var workspaceBindings = new WorkspaceBindings(stores.jwt, stores.workspace);
     // Configure an HTTP server.
     //default javalin jetty server has a QueuedThreadPool with maxThreads to 250
     final var server = new Server(new QueuedThreadPool(250));
@@ -63,7 +66,7 @@ public final class WorkspaceAppDriver {
     }));
   }
 
-  private record Stores (WorkspaceService workspace) {}
+  private record Stores (JWTService jwt, WorkspaceService workspace) {}
 
   private static Stores loadStores(final AppConfiguration config) {
     final var store = config.store();
@@ -82,7 +85,9 @@ public final class WorkspaceAppDriver {
 
       final var hikariDataSource = new HikariDataSource(hikariConfig);
 
-      return new Stores(new WorkspaceFileSystemService(new WorkspacePostgresRepository(config.workspacesFileStore(), hikariDataSource)));
+      final var jwt = new JWTService(config.jwtSecret());
+      final var workspace = new WorkspaceFileSystemService(new WorkspacePostgresRepository(config.workspacesFileStore(), hikariDataSource));
+      return new Stores(jwt, workspace);
     } else {
       throw new UnexpectedSubtypeError(Store.class, store);
     }
@@ -95,10 +100,21 @@ public final class WorkspaceAppDriver {
 
   private static AppConfiguration loadConfiguration() {
     final var logger = LoggerFactory.getLogger(WorkspaceAppDriver.class);
+    final var secretString = getEnv("HASURA_GRAPHQL_JWT_SECRET", "");
+    final JsonObject jwtSecret;
+    if (secretString.isBlank()) {
+      jwtSecret = JsonObject.EMPTY_JSON_OBJECT;
+    } else {
+      try(final var reader = Json.createReader(new StringReader(secretString))) {
+        jwtSecret = reader.readObject();
+      }
+    }
+
     return new AppConfiguration(
         Integer.parseInt(getEnv("WORKSPACE_PORT", "28000")),
         logger.isDebugEnabled(),
         Path.of(getEnv("WORKSPACE_STORE", "/usr/src/ws")),
+        jwtSecret,
         new PostgresStore(getEnv("AERIE_DB_HOST", "postgres"),
                           getEnv("SEQUENCING_DB_USER", ""),
                           Integer.parseInt(getEnv("AERIE_DB_PORT", "5432")),

@@ -43,4 +43,4 @@ create trigger notify_action_run_inserted
   for each row
 execute function actions.notify_action_run_inserted();
 
-call migrations.mark_migration_applied('19');
+call migrations.mark_migration_applied('24');

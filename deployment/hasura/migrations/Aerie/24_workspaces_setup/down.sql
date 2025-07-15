@@ -1,9 +1,10 @@
 ----------------------
 ----- SEQUENCING -----
 ----------------------
-
 -- Revert workspace table
-
+alter table sequencing.workspace
+  drop column parcel_id,
+  drop column disk_location;
 
 -- Drop workspace collaborators
 drop table sequencing.workspace_collaborators;
@@ -57,5 +58,4 @@ alter table migrations.schema_migrations
   drop column after_done,
   drop column pause_after;
 
-
-perform migrations.mark_migration_rolled_back('24')
+call migrations.mark_migration_rolled_back('24')

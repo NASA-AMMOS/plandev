@@ -21,6 +21,7 @@ begin;
   \ir tables/sequencing/sequence_to_simulated_activity.sql
   \ir tables/sequencing/parcel_to_parameter_dictionary.sql
   \ir tables/sequencing/workspace.sql
+  \ir tables/sequencing/workspace_collaborators.sql
   \ir tables/sequencing/expanded_sequences.sql
   \ir tables/sequencing/sequence_filter.sql
   \ir tables/sequencing/sequence_template.sql

@@ -109,6 +109,8 @@ public final class SimulationDriver {
           simulationExtentConsumer.accept(engine.getElapsedTime());
         }
 
+        simulationExtentConsumer.accept(engine.getElapsedTime()); // Report the final simulation time
+
       } catch (SpanException ex) {
         // Swallowing the spanException as the internal `spanId` is not user meaningful info.
         final var topics = missionModel.getTopics();

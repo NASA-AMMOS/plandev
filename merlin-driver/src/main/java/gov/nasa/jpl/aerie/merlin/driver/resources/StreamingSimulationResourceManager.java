@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Consumer;
 
 /**
  * A variant of a SimulationResourceManager that streams resources as needed in order to conserve memory.
@@ -21,7 +20,7 @@ public class StreamingSimulationResourceManager implements SimulationResourceMan
   private final HashMap<String, ResourceSegments<RealDynamics>> realResourceSegments;
   private final HashMap<String, ResourceSegments<SerializedValue>> discreteResourceSegments;
 
-  private final Consumer<ResourceProfiles> streamer;
+  private final AsyncConsumer<ResourceProfiles> streamer;
 
   private Duration lastReceivedTime;
 
@@ -31,11 +30,11 @@ public class StreamingSimulationResourceManager implements SimulationResourceMan
   private static final int DEFAULT_THRESHOLD = 1024;
   private final int threshold;
 
-  public StreamingSimulationResourceManager(final Consumer<ResourceProfiles> streamer) {
+  public StreamingSimulationResourceManager(final AsyncConsumer<ResourceProfiles> streamer) {
     this(streamer, DEFAULT_THRESHOLD);
   }
 
-  public StreamingSimulationResourceManager(final Consumer<ResourceProfiles> streamer, int threshold) {
+  public StreamingSimulationResourceManager(final AsyncConsumer<ResourceProfiles> streamer, int threshold) {
     realResourceSegments = new HashMap<>();
     discreteResourceSegments = new HashMap<>();
     this.threshold = threshold;
@@ -82,6 +81,7 @@ public class StreamingSimulationResourceManager implements SimulationResourceMan
     }
 
     streamer.accept(profiles);
+    streamer.close(); // Wait for streamer to finish before continuing
     return profiles;
   }
 

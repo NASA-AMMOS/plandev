@@ -118,8 +118,6 @@ comment on column sequencing.workspace_collaborators.collaborator is e''
 alter table sequencing.workspace
  add column disk_location text,
  add column parcel_id integer,
- add column created_at timestamptz not null default now(),
- add column updated_at timestamptz not null default now(),
  add foreign key (parcel_id)
     references sequencing.parcel
     on update cascade
@@ -133,6 +131,45 @@ comment on column sequencing.workspace.parcel_id is e''
   'The parcel that files in the workspace use.';
 comment on column sequencing.workspace.updated_at is e''
   'Time the workspace was last updated.';
+
+-- Data migration: parcel_id
+-- Create a new copy of the workspace for every parcel after the first.
+
+/*
+  Big SQL statement that,
+   - Updates existing workspaces to have a parcel id
+  If there are multiple parcels in use across the user sequences in the workspace, it:
+    1) creates a clone workspace for each additional parcel, with the name <OLD WS NAME>(<PARCEL_NAME>). I.E. "My Workspace (2.8.0-Lite)"
+    2) moves the user sequences that are using the additional parcels to the correct clone ws
+ */
+with parcels_per_ws as (
+  -- Number each parcel in use on each workspace
+  select parcel_id, workspace_id, pname, row_number() over (partition by workspace_id) as wrow
+    from (select distinct parcel_id, workspace_id, p.name as pname
+  from sequencing.user_sequence us join sequencing.parcel p on us.parcel_id = p.id
+  order by workspace_id, parcel_id) a
+), inserted_ws(new_wid, name, pid) as (
+  -- Create a new workspace for each additional parcel used on the workspace
+  insert into sequencing.workspace (name, parcel_id, owner, created_at, updated_by, updated_at)
+   select name || ' (' || ppw.pname ||')' as name, ppw.parcel_id, owner, created_at, updated_by, updated_at
+   from parcels_per_ws ppw join sequencing.workspace ws on (ppw.workspace_id = ws.id)
+   where ppw.wrow > 1
+   returning id, name, parcel_id
+), update_ws as (
+  -- Update the already existing workspaces to have parcel ids
+  update sequencing.workspace ws
+    set parcel_id = ppw.parcel_id
+    from parcels_per_ws ppw
+    where ws.id = ppw.workspace_id and wrow = 1
+)
+  -- Move user sequences to the new workspaces as needed
+  update sequencing.user_sequence us
+    set workspace_id = iws.new_wid
+  from inserted_ws iws, parcels_per_ws ppw, sequencing.workspace ws
+  where us.workspace_id = ws.id
+    and iws.name = ws.name || ' (' || ppw.pname ||')'
+    and us.parcel_id = iws.pid;
+
 
 -- Data migration: disk_location
 update sequencing.workspace ws
@@ -155,9 +192,7 @@ and row > 0;
 -- Set unique and not null to match table definition
 alter table sequencing.workspace
  add unique(disk_location),
- alter column disk_location set not null;
+ alter column disk_location set not null,
+ alter column parcel_id set not null;
 
--- Data migration: parcel_id
--- ??????
-
-perform migrations.mark_migration_applied(24, true);
+call migrations.mark_migration_applied(24, true);

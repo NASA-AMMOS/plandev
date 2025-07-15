@@ -1,5 +1,6 @@
 plugins {
   id 'java'
+  id 'maven-publish'
 }
 
 java {
@@ -10,4 +11,34 @@ java {
 
 dependencies {
   implementation 'org.glassfish:javax.json:1.1.4'
+}
+
+// NOTE: This module is published ONLY to satisfy a transitive dependency in orchestration-utils.
+// It is NOT a stable public API and will be deprecated in a future version.
+// TODO: remove this block and the `maven-publish` plugin above once dependencies have been refactored
+publishing {
+  publications {
+    library(MavenPublication) {
+      version = findProperty('publishing.version')
+      from components.java
+
+      pom {
+        name.set("permissions (INTERNAL)")
+        description.set("This module is not supported. It was published only to satisfy a transitive dependency and will be removed in a future version.")
+      }
+    }
+  }
+
+  publishing {
+    repositories {
+      maven {
+        name = findProperty("publishing.name")
+        url = findProperty("publishing.url")
+        credentials {
+          username = System.getenv(findProperty("publishing.usernameEnvironmentVariable"))
+          password = System.getenv(findProperty("publishing.passwordEnvironmentVariable"))
+        }
+      }
+    }
+  }
 }

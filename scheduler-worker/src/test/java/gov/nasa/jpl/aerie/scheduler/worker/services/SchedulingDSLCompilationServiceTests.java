@@ -29,6 +29,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.scheduler.TimeUtility;
 import gov.nasa.jpl.aerie.scheduler.constraints.timeexpressions.TimeAnchor;
+import gov.nasa.jpl.aerie.scheduler.model.GoalId;
 import gov.nasa.jpl.aerie.scheduler.model.PersistentTimeAnchor;
 import gov.nasa.jpl.aerie.scheduler.model.Problem;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchPlanException;
@@ -42,6 +43,7 @@ import gov.nasa.jpl.aerie.scheduler.server.models.ResourceType;
 import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingDSL;
 import gov.nasa.jpl.aerie.scheduler.server.services.MerlinDatabaseService;
 import gov.nasa.jpl.aerie.scheduler.server.services.MerlinServiceException;
+import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.AfterAll;
@@ -121,6 +123,13 @@ class SchedulingDSLCompilationServiceTests {
     @Override
     public Collection<ResourceType> getResourceTypes(final PlanId planId) {
       return null;
+    }
+
+    @Override
+    public Map<ActivityDirectiveId, GoalId> getActivityIdToGoalIdMap(final PlanId planId)
+    throws MerlinServiceException, IOException
+    {
+      return Map.of();
     }
   };
   SchedulingDSLCompilationService schedulingDSLCompilationService;

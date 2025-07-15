@@ -127,4 +127,6 @@ public interface Plan {
   Evaluation getEvaluation();
 
   Duration calculateAbsoluteStartOffsetAnchoredActivity(SchedulingActivity actAnchorTo);
+
+  Plan replaceIds(Map<ActivityDirectiveId, ActivityDirectiveId> map);
 }

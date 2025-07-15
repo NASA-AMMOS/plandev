@@ -1,4 +1,3 @@
-version: "3.7"
 services:
   aerie_action:
     container_name: aerie_action

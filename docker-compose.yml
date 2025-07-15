@@ -1,4 +1,3 @@
-version: "3.7"
 services:
   aerie_action:
     build:
@@ -19,6 +18,7 @@ services:
       ACTION_LOCAL_STORE: /usr/src/app/action_file_store
       ACTION_WORKER_NUM: 1
       ACTION_MAX_WORKER_NUM: 1
+      SEQUENCING_LOCAL_STORE: /usr/src/app/sequencing_file_store
     image: aerie_action
     ports: [ "27186:27186" ]
     #ports: [ "27186:27186",'9229:9229'] #-- Uncomment for development

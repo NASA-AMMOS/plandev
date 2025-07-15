@@ -4,9 +4,9 @@
 import type * as ampcs from '@nasa-jpl/aerie-ampcs';
 import fs from 'fs';
 import reservedWords from 'reserved-words';
-import { getEnv } from '../../env.js';
 import type { ChannelDictionary, ParameterDictionary } from '@nasa-jpl/aerie-ampcs';
 import { DictionaryType } from '../../types/types.js';
+import { writeFile } from '../../utils/file.js';
 
 const typescriptReservedWords = ['boolean', 'string', 'number'];
 
@@ -345,17 +345,17 @@ function mapArgumentType(argument: ampcs.FswCommandArgument, enumMap: ampcs.Enum
       return 'FixedString';
     case 'time':
       return 'string';
-    case 'repeat':{
+    case 'repeat': {
       let repeatArgs: Array<{ name: string; type: string }> = [];
       if (argument.repeat === null) {
         return 'never';
       }
       repeatArgs = repeatArgs.concat(
-          argument.repeat.arguments.map(repeatArg => {
-            return { name: `${repeatArg.name}`, type: mapArgumentType(repeatArg, enumMap) };
-          })
+        argument.repeat.arguments.map(repeatArg => {
+          return { name: `${repeatArg.name}`, type: mapArgumentType(repeatArg, enumMap) };
+        }),
       );
-      return `Array<{ ${repeatArgs.map(repeatArg => `'${repeatArg.name}': ${repeatArg.type}`).join(', ')} }>`
+      return `Array<{ ${repeatArgs.map(repeatArg => `'${repeatArg.name}': ${repeatArg.type}`).join(', ')} }>`;
     }
 
     default:
@@ -367,7 +367,7 @@ export async function processDictionary(
   dictionary: ampcs.CommandDictionary | ampcs.ChannelDictionary | ampcs.ParameterDictionary,
   type: 'COMMAND' | 'CHANNEL' | 'PARAMETER' = 'COMMAND',
 ): Promise<string> {
-  const folder = `${getEnv().STORAGE}/${dictionary.header.mission_name.toLowerCase()}/`;
+  const folderName = `${dictionary.header.mission_name.toLowerCase()}`;
 
   switch (type) {
     case DictionaryType.COMMAND: {
@@ -382,24 +382,17 @@ export async function processDictionary(
 
       const { values, declarations } = generateTypescriptCode(dictionary as ampcs.CommandDictionary); //update sql table store seprate
 
-      await fs.promises.mkdir(folder, { recursive: true });
-
-      await fs.promises.writeFile(folder + fileName, prefaceString + jsonSpecString + declarations + values, {
-        flag: 'w',
-      });
-      return folder + fileName;
+      return await writeFile(fileName, folderName, prefaceString + jsonSpecString + declarations + values);
     }
     case DictionaryType.CHANNEL: {
       const fileName = `channel_lib.${dictionary.header.version}.ts`;
-      await fs.promises.mkdir(folder, { recursive: true });
-      await fs.promises.writeFile(folder + fileName, JSON.stringify(dictionary as ChannelDictionary), { flag: 'w' });
-      return folder + fileName;
+
+      return await writeFile(fileName, folderName, JSON.stringify(dictionary as ChannelDictionary));
     }
     case DictionaryType.PARAMETER: {
       const fileName = `parameter_lib.${dictionary.header.version}.ts`;
-      await fs.promises.mkdir(folder, { recursive: true });
-      await fs.promises.writeFile(folder + fileName, JSON.stringify(dictionary as ParameterDictionary), { flag: 'w' });
-      return folder + fileName;
+
+      return await writeFile(fileName, folderName, JSON.stringify(dictionary as ParameterDictionary));
     }
     default:
       return 'Error processing command dictionary';

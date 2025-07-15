@@ -19,6 +19,8 @@ import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
 import gov.nasa.jpl.aerie.scheduler.simulation.CheckpointSimulationFacade;
 import gov.nasa.jpl.aerie.scheduler.simulation.SimulationFacade;
 import gov.nasa.jpl.aerie.scheduler.solver.PrioritySolver;
+import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.jpl.aerie.types.ActivityInstance;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +29,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 import static gov.nasa.jpl.aerie.constraints.time.Interval.Inclusivity.Exclusive;
@@ -352,5 +355,22 @@ public class SimulationFacadeTest {
     final var plan = solver.getNextSolution().orElseThrow();
     assertTrue(TestUtility.containsExactlyActivity(plan, act2));
     assertTrue(TestUtility.doesNotContainActivity(plan, act1));
+  }
+
+  @Test
+  public void testIdMapOnCachedPlan() throws SchedulingInterruptedException, SimulationFacade.SimulationException {
+    final var plan = makeTestPlanP0B1();
+    facade.simulateWithResults(plan, tEnd);
+
+    final var oldId = plan.getActivitiesById().keySet().iterator().next();
+    final var newId = new ActivityDirectiveId(12345);
+    final var newPlan = plan.replaceIds(Map.of(oldId, newId));
+    assert(newPlan.getActivitiesById().containsKey(newId));
+    final var results = facade.simulateWithResults(newPlan, tEnd);
+
+    final var simulatedIds = results.driverResults().simulatedActivities.values().stream().map(
+        ActivityInstance::directiveId
+    ).toList();
+    assert(simulatedIds.contains(Optional.of(newId)));
   }
 }

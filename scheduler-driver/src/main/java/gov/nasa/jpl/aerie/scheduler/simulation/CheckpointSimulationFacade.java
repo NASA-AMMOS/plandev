@@ -119,7 +119,6 @@ public class CheckpointSimulationFacade implements SimulationFacade {
         planSimCorrespondence.directiveIdActivityDirectiveMap().put(replacements.getValue(), value);
       }
       //replace the anchor ids in the plan
-      final var replacementMap = new HashMap<ActivityDirectiveId, ActivityDirective>();
       for (final var act : planSimCorrespondence.directiveIdActivityDirectiveMap().entrySet()) {
         if (act.getValue().anchorId() != null && act.getValue().anchorId().equals(replacements.getKey())) {
           final var replacementActivity = new ActivityDirective(
@@ -127,12 +126,8 @@ public class CheckpointSimulationFacade implements SimulationFacade {
               act.getValue().serializedActivity(),
               replacements.getValue(),
               act.getValue().anchoredToStart());
-          replacementMap.put(act.getKey(), replacementActivity);
+          planSimCorrespondence.directiveIdActivityDirectiveMap().put(act.getKey(), replacementActivity);
         }
-      }
-      for (final var replacement : replacementMap.entrySet()) {
-        planSimCorrespondence.directiveIdActivityDirectiveMap().remove(replacement.getKey());
-        planSimCorrespondence.directiveIdActivityDirectiveMap().put(replacement.getKey(), replacement.getValue());
       }
     }
   }
@@ -313,7 +308,11 @@ public class CheckpointSimulationFacade implements SimulationFacade {
     if (this.initialSimulationResults != null) {
       final var inputPlan = scheduleFromPlan(plan, schedulerModel);
       final var initialPlan = scheduleFromPlan(this.initialSimulationResults.plan(), schedulerModel);
-      if (inputPlan.equals(initialPlan)) return initialSimulationResults;
+
+      final var equalPlanIdMap = initialPlan.equalsWithIdMap(inputPlan);
+      if (equalPlanIdMap.isPresent()) {
+        return initialSimulationResults.replaceIds(equalPlanIdMap.get());
+      }
     }
     final var resultsInput = simulateNoResults(plan, until);
     final var driverResults = resultsInput.simulationResultsComputerInputs().computeResults(resourceNames);

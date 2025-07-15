@@ -26,10 +26,10 @@
     "ts-node": "^10.9.2"
   },
   "dependencies": {
-    "@nasa-jpl/aerie-actions": "^0.1.4",
+    "@nasa-jpl/aerie-actions": "0.1.8",
     "express": "^5.0.1",
     "pg": "^8.13.3",
-    "piscina": "^5.0.0-alpha.0",
+    "piscina": "4.9.2",
     "winston": "^3.17.0"
   }
 }

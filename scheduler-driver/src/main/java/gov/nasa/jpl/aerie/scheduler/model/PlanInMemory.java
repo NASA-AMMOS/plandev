@@ -56,7 +56,7 @@ public class PlanInMemory implements Plan {
   }
 
   @Override
-  public Plan duplicate() {
+  public PlanInMemory duplicate() {
     return new PlanInMemory(this);
   }
 
@@ -224,5 +224,34 @@ public class PlanInMemory implements Plan {
       return calculateAbsoluteStartOffsetAnchoredActivity(parent).plus(act.anchoredToStart() ? act.startOffset() : act.startOffset().plus(parent.duration()));
     }
     return act.startOffset();
+  }
+
+  @Override
+  public PlanInMemory replaceIds(Map<ActivityDirectiveId, ActivityDirectiveId> map) {
+    final var result = duplicate();
+
+    for (final var entry : result.actsByTime.entrySet()) {
+      final var actList = entry.getValue()
+          .stream()
+          .map($ -> {
+            if (($.id() != null && map.containsKey($.id())) || ($.anchorId() != null && map.containsKey($.anchorId()))) {
+              return new SchedulingActivity(
+                  $.id() != null ? map.getOrDefault($.id(), $.id()) : null,
+                  $.type(),
+                  $.startOffset(),
+                  $.duration(),
+                  $.arguments(),
+                  $.topParent(),
+                  $.anchorId() != null ? map.getOrDefault($.anchorId(), $.anchorId()) : null,
+                  $.anchoredToStart(),
+                  $.name()
+              );
+            } else return $;
+          })
+          .toList();
+      entry.setValue(actList);
+    }
+
+    return result;
   }
 }

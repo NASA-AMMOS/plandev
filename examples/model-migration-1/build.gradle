@@ -1,0 +1,46 @@
+plugins {
+  id 'java-library'
+  id 'jacoco'
+}
+
+java {
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(21)
+  }
+}
+
+jar {
+  from {
+    configurations.runtimeClasspath.filter{ it.exists() }.collect{ it.isDirectory() ? it : zipTree(it) }
+  } {
+    exclude 'META-INF/LICENSE.txt', 'META-INF/NOTICE.txt'
+  }
+}
+
+test {
+  useJUnitPlatform()
+  testLogging {
+    exceptionFormat = 'full'
+  }
+}
+
+jacocoTestReport {
+  dependsOn test
+  reports {
+    xml.required = true
+  }
+}
+
+dependencies {
+  annotationProcessor project(':merlin-framework-processor')
+
+  implementation project(':merlin-framework')
+  implementation project(':contrib')
+
+  testImplementation project(':merlin-framework-junit')
+  testImplementation 'org.assertj:assertj-core:3.24.2'
+
+  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}

@@ -11,7 +11,7 @@ import gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSpecificationException;
-import gov.nasa.jpl.aerie.scheduler.server.models.GoalId;
+import gov.nasa.jpl.aerie.scheduler.model.GoalId;
 import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingCompilationError;
 import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleAction;
 import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleResults;

@@ -2,6 +2,7 @@ package gov.nasa.jpl.aerie.constraints.model;
 
 import gov.nasa.jpl.aerie.constraints.time.Interval;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -79,5 +80,23 @@ public final class SimulationResults {
   @Override
   public int hashCode() {
     return Objects.hash(this.bounds, this.activities, this.realProfiles, this.discreteProfiles);
+  }
+
+  public SimulationResults replaceIds(final Map<ActivityDirectiveId, ActivityDirectiveId> map) {
+    return new SimulationResults(
+        planStart,
+        bounds,
+        activities.stream().map($ -> {
+          if ($.directiveId().isPresent()) {
+            final var id = $.directiveId().get();
+            if (map.containsKey(id)) {
+              return $.withDirectiveId(map.get(id));
+            }
+          }
+          return $;
+        }).toList(),
+        realProfiles,
+        discreteProfiles
+    );
   }
 }

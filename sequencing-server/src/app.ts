@@ -29,11 +29,13 @@ import type { Result } from '@nasa-jpl/aerie-ts-user-code-runner/build/utils/mon
 import type { CacheItem, UserCodeError } from '@nasa-jpl/aerie-ts-user-code-runner';
 import { PromiseThrottler } from './utils/PromiseThrottler.js';
 import { backgroundTranspiler } from './backgroundTranspiler.js';
-import { PluginManager } from './utils/PluginManager.js'
+import { PluginManager } from './utils/PluginManager.js';
 import { DictionaryType } from './types/types.js';
 import type { ChannelDictionary, CommandDictionary, ParameterDictionary } from '@nasa-jpl/aerie-ampcs';
 import { sequenceTemplateBatchLoader } from './lib/batchLoaders/sequenceTemplateBatchLoader.js';
 import { sequenceFilterBatchLoader } from './lib/batchLoaders/sequenceFilterBatchLoader.js';
+import { writeFile } from './utils/file.js';
+import { randomBytes } from 'node:crypto';
 
 const logger = getLogger('app');
 const PORT: number = parseInt(getEnv().PORT, 10) ?? 27184;
@@ -80,9 +82,7 @@ export type Context = {
   simulatedActivityInstanceBySimulatedActivityIdDataLoader: InferredDataloader<
     typeof simulatedActivityInstanceBySimulatedActivityIdBatchLoader
   >;
-  simulatedActivityInstanceBySeqIdBatchLoader: InferredDataloader<
-    typeof simulatedActivityInstanceBySeqIdBatchLoader
-  >;
+  simulatedActivityInstanceBySeqIdBatchLoader: InferredDataloader<typeof simulatedActivityInstanceBySeqIdBatchLoader>;
   sequenceFilterDataLoader: InferredDataloader<typeof sequenceFilterBatchLoader>;
   sequenceTemplateDataLoader: InferredDataloader<typeof sequenceTemplateBatchLoader>;
   expansionSetDataLoader: InferredDataloader<typeof expansionSetBatchLoader>;
@@ -127,13 +127,13 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
     ),
     sequenceTemplateDataLoader: new DataLoader(
       sequenceTemplateBatchLoader({
-        graphqlClient
-      })
+        graphqlClient,
+      }),
     ),
     sequenceFilterDataLoader: new DataLoader(
       sequenceFilterBatchLoader({
-        graphqlClient
-      })
+        graphqlClient,
+      }),
     ),
     simulatedActivityInstanceBySimulatedActivityIdDataLoader: new DataLoader(
       simulatedActivityInstanceBySimulatedActivityIdBatchLoader({
@@ -184,58 +184,77 @@ app.get('/health', (_: Request, res: Response) => {
 
 app.post('/put-dictionary', async (req, res, next) => {
   const dictionary = req.body.input.dictionary as string;
+  const persistDictionaryToFilesystem = req.body.input.persistDictionaryToFilesystem as boolean;
   logger.info(`Dictionary received`);
 
-  let parsedDictionaries : {
-    commandDictionary?: CommandDictionary,
-    channelDictionary?: ChannelDictionary,
-    parameterDictionary?: ParameterDictionary
+  let parsedDictionaries: {
+    commandDictionary?: CommandDictionary;
+    channelDictionary?: ChannelDictionary;
+    parameterDictionary?: ParameterDictionary;
   };
-  if (pluginManager.hasPlugin(getEnv().DICTIONARY_PARSER_PLUGIN) && pluginManager.getPlugin(getEnv().DICTIONARY_PARSER_PLUGIN).parseDictionary){
-    parsedDictionaries = pluginManager.getPlugin(getEnv().DICTIONARY_PARSER_PLUGIN).parseDictionary(dictionary)
+  if (
+    pluginManager.hasPlugin(getEnv().DICTIONARY_PARSER_PLUGIN) &&
+    pluginManager.getPlugin(getEnv().DICTIONARY_PARSER_PLUGIN).parseDictionary
+  ) {
+    parsedDictionaries = pluginManager.getPlugin(getEnv().DICTIONARY_PARSER_PLUGIN).parseDictionary(dictionary);
   } else {
-    throw new Error(`POST /dictionary: Plugin - ${getEnv().DICTIONARY_PARSER_PLUGIN} \ndoesn't have a 'parseDictionary' method`);
+    throw new Error(
+      `POST /dictionary: Plugin - ${getEnv().DICTIONARY_PARSER_PLUGIN} \ndoesn't have a 'parseDictionary' method`,
+    );
   }
 
-  let json = {}
+  let json = {};
   for (const dictionaryType of Object.keys(DictionaryType)) {
-    let parsedDictionary : CommandDictionary | ParameterDictionary | ChannelDictionary | undefined;
-    let db_table_name = "";
-    let db_value : any[] = []
+    let parsedDictionary: CommandDictionary | ParameterDictionary | ChannelDictionary | undefined;
+    let db_table_name = '';
+    let db_value: any[] = [];
+
     if (dictionaryType == DictionaryType.COMMAND && parsedDictionaries.commandDictionary) {
-      db_table_name = 'command_dictionary'
-      parsedDictionary = parsedDictionaries.commandDictionary as CommandDictionary
-    }else if (dictionaryType == DictionaryType.CHANNEL && parsedDictionaries.channelDictionary) {
-      db_table_name = 'channel_dictionary'
-      parsedDictionary = parsedDictionaries.channelDictionary as ChannelDictionary
-    }else if (dictionaryType == DictionaryType.PARAMETER && parsedDictionaries.parameterDictionary) {
-      db_table_name = 'parameter_dictionary'
-      parsedDictionary = parsedDictionaries.parameterDictionary as ParameterDictionary
+      db_table_name = 'command_dictionary';
+      parsedDictionary = parsedDictionaries.commandDictionary as CommandDictionary;
+    } else if (dictionaryType == DictionaryType.CHANNEL && parsedDictionaries.channelDictionary) {
+      db_table_name = 'channel_dictionary';
+      parsedDictionary = parsedDictionaries.channelDictionary as ChannelDictionary;
+    } else if (dictionaryType == DictionaryType.PARAMETER && parsedDictionaries.parameterDictionary) {
+      db_table_name = 'parameter_dictionary';
+      parsedDictionary = parsedDictionaries.parameterDictionary as ParameterDictionary;
     }
-    if (!parsedDictionary){
+    if (!parsedDictionary) {
       continue;
     }
 
     const dictionaryPath = await processDictionary(parsedDictionary, dictionaryType as DictionaryType);
+    let dictionaryFilePath = undefined;
+
+    if (persistDictionaryToFilesystem) {
+      dictionaryFilePath = await writeFile(
+        `${randomBytes(20).toString('hex')}`,
+        parsedDictionary.header.mission_name.toLowerCase(),
+        dictionary,
+      );
+    }
+
     logger.info(`lib generated - path: ${dictionaryPath}`);
     db_value = [
       dictionaryPath,
       parsedDictionary.header.mission_name,
       parsedDictionary.header.version,
       parsedDictionary,
-    ]
+      dictionaryFilePath,
+    ];
+
     const sqlExpression = `
-      insert into sequencing.${db_table_name} (dictionary_path, mission, version, parsed_json)
-      values ($1, $2, $3, $4)
+      insert into sequencing.${db_table_name} (dictionary_path, mission, version, parsed_json, dictionary_file_path)
+      values ($1, $2, $3, $4, $5)
       on conflict (mission, version) do update
-        set dictionary_path = $1, parsed_json = $4
-      returning id, dictionary_path, mission, version, parsed_json, created_at;
+        set dictionary_path = $1, parsed_json = $4, dictionary_file_path = $5
+      returning id, dictionary_path, mission, version, parsed_json, created_at, dictionary_file_path;
     `;
     const { rows } = await db.query(sqlExpression, db_value);
     if (rows.length < 1) {
-      throw new Error(`POST /dictionary: No command dictionary was updated in the database`);
+      throw new Error(`POST /dictionary: No dictionary was updated in the database`);
     }
-    json = {...json, ...{[dictionaryType.toLowerCase()] : rows[0]}}
+    json = { ...json, ...{ [dictionaryType.toLowerCase()]: rows[0] } };
   }
 
   res.status(200).json(json);

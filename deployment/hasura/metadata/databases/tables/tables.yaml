@@ -42,6 +42,8 @@
 ################
 - "!include hasura/begin_merge_return_value.yaml"
 - "!include hasura/cancel_merge_return_value.yaml"
+- "!include hasura/check_model_compatibility_return_value.yaml"
+- "!include hasura/check_model_compatibility_for_plan_return_value.yaml"
 - "!include hasura/commit_merge_return_value.yaml"
 - "!include hasura/create_merge_return_value.yaml"
 - "!include hasura/create_snapshot_return_value.yaml"
@@ -51,6 +53,7 @@
 - "!include hasura/get_conflicting_activities_return_value.yaml"
 - "!include hasura/get_non_conflicting_activities_return_value.yaml"
 - "!include hasura/get_plan_history_return_value.yaml"
+- "!include hasura/migrate_plan_to_model_return_value.yaml"
 - "!include hasura/refresh_activity_type_logs.yaml"
 - "!include hasura/refresh_model_parameter_logs.yaml"
 - "!include hasura/refresh_resource_types_logs.yaml"

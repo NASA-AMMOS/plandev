@@ -13,7 +13,6 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.DurationType
 import gov.nasa.jpl.aerie.scheduler.DirectiveIdGenerator
 import gov.nasa.jpl.aerie.scheduler.model.*
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId
-import java.time.Instant
 import kotlin.jvm.optionals.getOrNull
 import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan;
 

@@ -714,12 +714,22 @@ public class HasuraRequests implements AutoCloseable {
     makeRequest(GQL.UPDATE_SCHEDULING_SPECIFICATION_PLAN_REVISION, variables);
   }
 
-
   public GoalInvocationId createSchedulingSpecProcedure(
       String name,
       int jarId,
       int specificationId,
       int priority
+  ) throws IOException {
+    return createSchedulingSpecProcedure(name, jarId, specificationId, priority, true);
+  }
+
+
+  public GoalInvocationId createSchedulingSpecProcedure(
+      String name,
+      int jarId,
+      int specificationId,
+      int priority,
+      boolean simulateAfter
   ) throws IOException {
     final var specGoalBuilder = Json.createObjectBuilder()
                                     .add("goal_metadata",
@@ -737,7 +747,8 @@ public class HasuraRequests implements AutoCloseable {
                                                                                  .add("uploaded_jar_id", jarId)
                                                                         )))))
                                     .add("specification_id", specificationId)
-                                    .add("priority", priority);
+                                    .add("priority", priority)
+                                    .add("simulate_after", simulateAfter);
     final var variables = Json.createObjectBuilder().add("spec_goal", specGoalBuilder).build();
     final var resp =  makeRequest(GQL.CREATE_SCHEDULING_SPEC_GOAL, variables)
         .getJsonObject("insert_scheduling_specification_goals_one");
@@ -772,6 +783,18 @@ public class HasuraRequests implements AutoCloseable {
       String description,
       int specificationId,
       int priority
+  ) throws IOException
+  {
+    return createSchedulingSpecGoal(name, definition, description, specificationId, priority, true);
+  }
+
+  public GoalInvocationId createSchedulingSpecGoal(
+      String name,
+      String definition,
+      String description,
+      int specificationId,
+      int priority,
+      boolean simulateAfter
   ) throws IOException {
     final var specGoalBuilder = Json.createObjectBuilder()
                                     .add("goal_metadata",
@@ -787,6 +810,7 @@ public class HasuraRequests implements AutoCloseable {
                                                                         .add(Json.createObjectBuilder()
                                                                                  .add("definition", definition))))))
                                     .add("specification_id", specificationId)
+                                    .add("simulate_after", simulateAfter)
                                     .add("priority", priority);
     final var variables = Json.createObjectBuilder().add("spec_goal", specGoalBuilder).build();
     final var resp =  makeRequest(GQL.CREATE_SCHEDULING_SPEC_GOAL, variables)

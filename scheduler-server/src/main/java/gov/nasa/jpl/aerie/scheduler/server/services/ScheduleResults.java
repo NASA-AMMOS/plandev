@@ -3,7 +3,7 @@ package gov.nasa.jpl.aerie.scheduler.server.services;
 import java.util.Collection;
 import java.util.Map;
 
-import gov.nasa.jpl.aerie.scheduler.server.models.GoalId;
+import gov.nasa.jpl.aerie.scheduler.model.GoalId;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 
 /**

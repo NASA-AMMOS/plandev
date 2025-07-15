@@ -32,7 +32,7 @@ begin;
   \ir init_merlin.sql
 
   -- Scheduling
-  \ir init_scheduler.sql
+  \ir init_scheduler_post_merlin.sql
 
   -- Sequencing
   \ir init_sequencing.sql

@@ -145,7 +145,7 @@ jobs:
           - aerie-scheduler
           - aerie-scheduler-worker
           - aerie-sequencing
-          - aerie-actions
+          - aerie-action
           - aerie-hasura
           - aerie-postgres
       fail-fast: false

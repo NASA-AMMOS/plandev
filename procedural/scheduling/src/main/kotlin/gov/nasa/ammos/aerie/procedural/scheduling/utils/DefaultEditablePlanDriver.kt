@@ -49,7 +49,7 @@ import java.lang.ref.WeakReference
  * previous sets from getting gc'ed in the event of a rollback. Only the plan object actually mutates the set.
  */
 class DefaultEditablePlanDriver(
-  private val adapter: PlanEditAdapter
+  val adapter: PlanEditAdapter
 ): EditablePlan, Plan by adapter {
 
   interface PlanEditAdapter: Plan {

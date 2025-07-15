@@ -42,7 +42,7 @@ import gov.nasa.jpl.aerie.scheduler.server.models.GoalType;
 import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingConditionId;
 import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingConditionRecord;
 import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingConditionSource;
-import gov.nasa.jpl.aerie.scheduler.server.models.GoalId;
+import gov.nasa.jpl.aerie.scheduler.model.GoalId;
 import gov.nasa.jpl.aerie.scheduler.server.models.GoalInvocationRecord;
 import gov.nasa.jpl.aerie.scheduler.server.models.GoalSource;
 import gov.nasa.jpl.aerie.scheduler.server.models.PlanId;

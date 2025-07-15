@@ -10,6 +10,7 @@ import gov.nasa.jpl.aerie.scheduler.constraints.scheduling.GlobalConstraintWithI
 import gov.nasa.jpl.aerie.scheduler.goals.Goal;
 import gov.nasa.jpl.aerie.scheduler.simulation.SimulationFacade;
 import gov.nasa.jpl.aerie.scheduler.simulation.SimulationData;
+import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -59,6 +60,8 @@ public class Problem {
    */
   private Optional<SimulationData> initialSimulationResults;
 
+  public final Map<ActivityDirectiveId, GoalId> sourceSchedulingGoals;
+
   /**
    * container of all goals in the problem, indexed by name
    */
@@ -79,7 +82,9 @@ public class Problem {
       MissionModel<?> mission,
       PlanningHorizon planningHorizon,
       SimulationFacade simulationFacade,
-      SchedulerModel schedulerModel) {
+      SchedulerModel schedulerModel,
+      Map<ActivityDirectiveId, GoalId> sourceSchedulingGoals
+  ) {
     this.missionModel = mission;
     this.schedulerModel = schedulerModel;
     this.initialPlan = new PlanInMemory();
@@ -95,6 +100,16 @@ public class Problem {
       this.simulationFacade.addActivityTypes(this.getActivityTypes());
     }
     this.initialSimulationResults = Optional.empty();
+    this.sourceSchedulingGoals = sourceSchedulingGoals;
+  }
+
+  public Problem(
+      MissionModel<?> mission,
+      PlanningHorizon planningHorizon,
+      SimulationFacade simulationFacade,
+      SchedulerModel schedulerModel
+  ) {
+    this(mission, planningHorizon, simulationFacade, schedulerModel, new HashMap<>());
   }
 
   public SimulationFacade getSimulationFacade(){

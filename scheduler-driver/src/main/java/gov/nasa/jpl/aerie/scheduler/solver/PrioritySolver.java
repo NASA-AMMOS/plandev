@@ -265,10 +265,34 @@ public class PrioritySolver implements Solver {
    *
    * the output plan member is updated directly with the devised solution
    */
-  private void solve() throws SchedulingInterruptedException{
+  private void solve() throws SchedulingInterruptedException {
     //construct a priority sorted goal container
     final var goalQ = getGoalQueue();
     assert goalQ != null;
+
+    // perform at-beginning auto deletions first
+    boolean simulateAfter = false;
+    for (final var goal: goalQ) {
+      if (goal instanceof Procedure p) {
+        simulateAfter = simulateAfter || p.deleteAtBeginning(
+            problem,
+            plan,
+            problem.getMissionModel(),
+            this.problem::getActivityType,
+            this.simulationFacade,
+            this.idGenerator,
+            this.problem.getEventsByDerivationGroup()
+        );
+      }
+    }
+
+    if (simulateAfter) {
+      try {
+        simulationFacade.simulateNoResults(plan, problem.getPlanningHorizon().getAerieHorizonDuration());
+      } catch (SimulationFacade.SimulationException e) {
+        logger.error("Simulation error after auto deleting activities: ", e);
+      }
+    }
 
     //process each goal independently in that order
     while (!goalQ.isEmpty()) {
@@ -299,7 +323,7 @@ public class PrioritySolver implements Solver {
     final var rawGoals = problem.getGoals();
     assert rawGoals != null;
 
-    this.atLeastOneSimulateAfter = rawGoals.stream().filter(g -> g.simulateAfter).findFirst().isPresent();
+    this.atLeastOneSimulateAfter = rawGoals.stream().anyMatch(g -> g.simulateAfter);
 
     //create queue container using comparator and pre-sized for all goals
     final var capacity = rawGoals.size();

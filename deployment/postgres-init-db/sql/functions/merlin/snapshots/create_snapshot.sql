@@ -19,17 +19,17 @@ begin
     raise exception 'Plan % does not exist.', _plan_id;
   end if;
 
-  insert into merlin.plan_snapshot(plan_id, revision, snapshot_name, description, taken_by)
-    select id, revision, _snapshot_name, _description, _user
+  insert into merlin.plan_snapshot(plan_id, model_id, revision, snapshot_name, description, taken_by)
+    select id, model_id, revision, _snapshot_name, _description, _user
     from merlin.plan where id = _plan_id
     returning snapshot_id into inserted_snapshot_id;
   insert into merlin.plan_snapshot_activities(
-      snapshot_id, id, name, source_scheduling_goal_id, created_at, created_by,
+      snapshot_id, id, name, source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, created_by,
       last_modified_at, last_modified_by, start_offset, type,
       arguments, last_modified_arguments_at, metadata, anchor_id, anchored_to_start)
     select
       inserted_snapshot_id,                              -- this is the snapshot id
-      id, name, source_scheduling_goal_id, created_at, created_by, -- these are the rest of the data for an activity row
+      id, name, source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, created_by, -- these are the rest of the data for an activity row
       last_modified_at, last_modified_by, start_offset, type,
       arguments, last_modified_arguments_at, metadata, anchor_id, anchored_to_start
     from merlin.activity_directive where activity_directive.plan_id = _plan_id;
@@ -60,7 +60,7 @@ comment on function merlin.create_snapshot(integer) is e''
 
 comment on function merlin.create_snapshot(integer, text, text, text) is e''
   'Create a snapshot of the specified plan. A snapshot consists of:'
-  '  - The plan''s id and revision'
+  '  - The plan''s id, model id, and revision'
   '  - All the activities in the plan'
   '  - The preset status of those activities'
   '  - The tags on those activities'

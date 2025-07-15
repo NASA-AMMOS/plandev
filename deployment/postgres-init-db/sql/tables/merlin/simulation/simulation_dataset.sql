@@ -2,6 +2,7 @@ create table merlin.simulation_dataset (
   id integer generated always as identity,
   simulation_id integer not null,
   dataset_id integer null,
+  model_id integer null,
 
   -- This column may be removed in the future in favor of simulation_start_time
   offset_from_plan_start interval not null,
@@ -47,6 +48,11 @@ create table merlin.simulation_dataset (
     foreign key (requested_by) references permissions.users
     on update cascade
     on delete set null,
+  constraint simulation_dataset_references_model
+    foreign key (model_id)
+    references merlin.mission_model
+    on update cascade
+    on delete set null,
   constraint start_before_end
     check (simulation_start_time <= simulation_end_time)
 );
@@ -64,6 +70,8 @@ comment on column merlin.simulation_dataset.simulation_id is e''
   'The simulation determining the contents of the associated dataset.';
 comment on column merlin.simulation_dataset.dataset_id is e''
   'The dataset containing simulated results for the simulation. NULL if the dataset has not been constructed yet.';
+comment on column merlin.simulation_dataset.model_id is e''
+  'The model id used for this simulation.';
 comment on column merlin.simulation_dataset.plan_revision is e''
   'The revision of the plan corresponding to the given revision of the dataset.';
 comment on column merlin.simulation_dataset.model_revision is e''
@@ -111,6 +119,7 @@ begin
   new.plan_revision = plan_ref.revision;
   new.simulation_template_revision = template_ref.revision;
   new.simulation_revision = simulation_ref.revision;
+  new.model_id = plan_ref.model_id;
 
   -- Create the dataset
   insert into merlin.dataset

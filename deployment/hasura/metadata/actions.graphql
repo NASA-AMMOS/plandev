@@ -26,7 +26,7 @@ type Mutation {
 }
 
 type Mutation {
-  uploadDictionary(dictionary: String!): DictionaryResponse
+  uploadDictionary(dictionary: String!, persistDictionaryToFilesystem: Boolean!): DictionaryResponse
 }
 
 type Mutation {

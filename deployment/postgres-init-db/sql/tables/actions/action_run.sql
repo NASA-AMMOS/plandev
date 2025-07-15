@@ -13,6 +13,7 @@ create table actions.action_run (
   requested_by text,
   requested_at timestamptz not null default now(),
   duration integer,
+  canceled boolean not null default false,
 
   constraint action_run_synthetic_key
     primary key (id),
@@ -49,6 +50,8 @@ comment on column actions.action_run.requested_at is e''
   'The time that the run was requested at.';
 comment on column actions.action_run.duration is e''
   'The duration of the action run, if it has completed; null otherwise';
+comment on column actions.action_run.canceled is e''
+  'Whether the user has requested that this action be cancelled.';
 
 create function actions.notify_action_run_inserted()
   returns trigger
@@ -83,3 +86,24 @@ create trigger notify_action_run_inserted
   after insert on actions.action_run
   for each row
 execute function actions.notify_action_run_inserted();
+
+create function actions.notify_action_run_cancel_requested()
+  returns trigger
+  security definer
+  language plpgsql as $$
+begin
+  perform pg_notify('action_run_cancel_requested', json_build_object(
+      'action_run_id', NEW.id
+  )::text);
+  return null;
+end$$;
+
+create trigger notify_action_run_cancel_requested
+  after update on actions.action_run
+  for each row
+  when (
+    (OLD.status != 'success' or OLD.status != 'failed')
+    and NEW.canceled
+    and OLD.canceled is distinct from NEW.canceled
+  )
+execute function actions.notify_action_run_cancel_requested();

@@ -3,7 +3,7 @@ package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
 import gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser;
 import gov.nasa.jpl.aerie.scheduler.server.http.InvalidEntityException;
 import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonException;
-import gov.nasa.jpl.aerie.scheduler.server.models.GoalId;
+import gov.nasa.jpl.aerie.scheduler.model.GoalId;
 import gov.nasa.jpl.aerie.scheduler.server.models.GoalInvocationRecord;
 import gov.nasa.jpl.aerie.scheduler.server.models.GoalSource;
 import gov.nasa.jpl.aerie.scheduler.server.models.GoalType;
@@ -13,10 +13,8 @@ import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.parseJson;
 

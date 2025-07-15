@@ -13,6 +13,7 @@ begin;
   \ir functions/hasura/plan_branching_functions.sql
   \ir functions/hasura/plan_merge_functions.sql
   \ir functions/hasura/snapshot_functions.sql
+  \ir functions/hasura/plan_migration_functions.sql
 
   -- Event Views
   \ir views/hasura/hasura_event_logs.sql

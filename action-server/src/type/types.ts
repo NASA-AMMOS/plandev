@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import { MessagePort } from "worker_threads";
 
 export type ActionRunRequest = {
   actionJS: string;
@@ -20,12 +21,19 @@ export type ConsoleOutput = {
   warn: string[];
 };
 
+export type ActionConfig = {
+  ACTION_FILE_STORE: string;
+  SEQUENCING_FILE_STORE: string;
+};
+
 export type ActionTask = {
   actionJS: string;
+  action_run_id: string;
   parameters: Record<string, any>;
   settings: Record<string, any>;
   auth?: string;
   workspaceId: number;
+  message_port: MessagePort | null;
 };
 
 export type ActionDefinitionInsertedPayload = {
@@ -40,6 +48,11 @@ export type ActionRunInsertedPayload = {
   action_definition_id: number;
   workspace_id: number;
   action_file_path: string;
+};
+
+export type ActionRunCancellationRequestPayload = {
+  action_run_id: string;
+  canceled: boolean;
 };
 
 export type ActionResponse =

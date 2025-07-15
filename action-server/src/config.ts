@@ -13,6 +13,7 @@ export interface Config {
   MERLIN_GRAPHQL_URL: string;
   PORT: string;
   STORAGE: string;
+  SEQUENCING_LOCAL_STORE: string;
 }
 
 export const configuration = (): Config => {
@@ -33,5 +34,6 @@ export const configuration = (): Config => {
     MERLIN_GRAPHQL_URL: env.MERLIN_GRAPHQL_URL ?? "http://localhost:8080/graphql",
     PORT: "27186",
     STORAGE: env.STORAGE ?? "local",
+    SEQUENCING_LOCAL_STORE: env.SEQUENCING_LOCAL_STORE ?? "/usr/src/app/sequencing_file_store",
   };
 };

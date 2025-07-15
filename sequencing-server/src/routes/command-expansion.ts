@@ -141,9 +141,7 @@ commandExpansionRouter.post('/assign-activities-by-filter', async (req, res, nex
       `POST /command-expansion/assign-activities-by-filter: Entries failed to be created for filtered activities.`,
     );
   }
-  logger.info(
-    `POST /command-expansion/expand-all-activity-instances: Inserted entries for filtered activities.`,
-  );
+  logger.info(`POST /command-expansion/assign-activities-by-filter: Inserted entries for filtered activities.`);
 
   //    3c. Return
   res.status(200).json({

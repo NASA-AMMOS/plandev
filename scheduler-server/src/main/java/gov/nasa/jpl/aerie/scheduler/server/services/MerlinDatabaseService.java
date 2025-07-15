@@ -15,7 +15,7 @@ import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonException;
 import gov.nasa.jpl.aerie.scheduler.server.models.ActivityType;
 import gov.nasa.jpl.aerie.scheduler.server.models.DatasetId;
 import gov.nasa.jpl.aerie.scheduler.server.models.ExternalProfiles;
-import gov.nasa.jpl.aerie.scheduler.server.models.GoalId;
+import gov.nasa.jpl.aerie.scheduler.model.GoalId;
 import gov.nasa.jpl.aerie.scheduler.server.models.MerlinPlan;
 import gov.nasa.jpl.aerie.scheduler.server.models.PlanId;
 import gov.nasa.jpl.aerie.scheduler.server.models.PlanMetadata;
@@ -114,6 +114,9 @@ public interface MerlinDatabaseService {
      */
     Collection<ResourceType> getResourceTypes(final PlanId planId)
     throws IOException, MerlinServiceException, NoSuchPlanException;
+
+    Map<ActivityDirectiveId, GoalId> getActivityIdToGoalIdMap(final PlanId planId)
+      throws MerlinServiceException, IOException;
   }
 
   interface WriterRole {

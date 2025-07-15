@@ -6,6 +6,8 @@ declare
   validate_planIds integer;
   supplying_snapshot_id integer;
   merge_request_id integer;
+  model_id_receiving integer;
+  model_id_supplying integer;
 begin
   if plan_id_receiving = plan_id_supplying then
     raise exception 'Cannot create a merge request between a plan and itself.';
@@ -24,6 +26,12 @@ begin
   select merlin.get_merge_base(plan_id_receiving, supplying_snapshot_id) into merge_base_snapshot_id;
   if merge_base_snapshot_id is null then
     raise exception 'Cannot create merge request between unrelated plans.';
+  end if;
+
+  select model_id from merlin.plan where plan.id = plan_id_receiving into model_id_receiving;
+  select model_id from merlin.plan where plan.id = plan_id_supplying into model_id_supplying;
+  if model_id_receiving is distinct from model_id_supplying then
+    raise exception 'Cannot create merge request: plan supplying changes is using a different model (%) than the receiving plan (%)', model_id_supplying, model_id_receiving;
   end if;
 
   insert into merlin.merge_request(plan_id_receiving_changes, snapshot_id_supplying_changes, merge_base_snapshot_id, requester_username)

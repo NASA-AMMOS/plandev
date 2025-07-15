@@ -27,6 +27,9 @@ begin;
   \ir tables/merlin/plan.sql
   \ir tables/merlin/plan_collaborators.sql
 
+  -- Scheduling Goals and Scheduling Goal Specification
+  \ir init_scheduler_mid_merlin.sql
+  
   -- Activity Directives
   \ir tables/merlin/activity_directive/activity_directive_metadata_schema.sql
   \ir tables/merlin/activity_directive/activity_directive.sql

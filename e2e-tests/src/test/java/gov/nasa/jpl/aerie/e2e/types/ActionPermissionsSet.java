@@ -11,6 +11,8 @@ public record ActionPermissionsSet(Map<ActionKey, Permission> permissions){
       create_expansion_rule,
       create_expansion_set,
       expand_all_activities,
+      expand_all_templates,
+      assign_activities_by_filter,
       insert_ext_dataset,
       resource_samples,
       schedule,

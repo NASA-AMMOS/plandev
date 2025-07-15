@@ -5,7 +5,7 @@ import gov.nasa.jpl.aerie.scheduler.ProcedureLoader;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSchedulingGoalException;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSpecificationException;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.SpecificationLoadException;
-import gov.nasa.jpl.aerie.scheduler.server.models.GoalId;
+import gov.nasa.jpl.aerie.scheduler.model.GoalId;
 import gov.nasa.jpl.aerie.scheduler.server.models.GoalType;
 import gov.nasa.jpl.aerie.scheduler.server.models.Specification;
 import gov.nasa.jpl.aerie.scheduler.server.models.SpecificationId;

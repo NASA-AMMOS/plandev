@@ -16,4 +16,15 @@ public record UnfinishedActivity(
   ActivityInstanceId parentId,
   List<ActivityInstanceId> childIds,
   Optional<ActivityDirectiveId> directiveId
-) { }
+) {
+  public UnfinishedActivity withDirectiveId(ActivityDirectiveId directiveId) {
+    return new UnfinishedActivity(
+        type,
+        arguments,
+        start,
+        parentId,
+        childIds,
+        Optional.of(directiveId)
+    );
+  }
+}

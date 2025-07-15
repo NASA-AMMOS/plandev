@@ -4,7 +4,7 @@ alter table actions.action_run
 comment on column actions.action_run.has_secrets is e''
   'A flag that is set to true if the run has secrets, otherwise false.';
 
-drop trigger notify_action_run_inserted;
+drop trigger notify_action_run_inserted on actions.action_run;
 drop function actions.notify_action_run_inserted;
 
 create function actions.notify_action_run_inserted()

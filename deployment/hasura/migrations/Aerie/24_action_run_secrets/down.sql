@@ -1,7 +1,7 @@
 alter table actions.action_run
   drop column has_secrets;
 
-drop trigger notify_action_run_inserted;
+drop trigger notify_action_run_inserted on actions.action_run;
 drop function actions.notify_action_run_inserted;
 
 create function actions.notify_action_run_inserted()

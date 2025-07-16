@@ -94,10 +94,21 @@ jobs:
           retention-days: 1
       - name: Checkout Latest
         uses: actions/checkout@v4
-      - name: Restart Hasura
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+      - name: Validate Gradle Wrapper
+        uses: gradle/wrapper-validation-action@v2
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+      - name: Assemble Workspace Server
+        run: ./gradlew workspace_server:assemble --parallel
+      - name: Restart Hasura and Start Additional Containers
         run: |
           docker compose down
-          docker compose up -d postgres hasura
+          docker compose up -d postgres hasura aerie_workspace
           docker images
           docker ps -a
       - name: Sleep for 30 seconds

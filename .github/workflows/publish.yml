@@ -70,8 +70,8 @@ jobs:
             context: action-server
             file: action-server/Dockerfile
           - image: aerie-workspaces
-            context: workspace-server
-            file: workspace-server/Dockerfile
+            context: workspace_server
+            file: workspace_server/Dockerfile
           - image: aerie-hasura
             context: .
             file: docker/Dockerfile.hasura

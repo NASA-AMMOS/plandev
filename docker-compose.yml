@@ -316,5 +316,5 @@ services:
 
 volumes:
   aerie_file_store:
-  workspaces_file_store:
   postgres_data:
+  workspaces_file_store:

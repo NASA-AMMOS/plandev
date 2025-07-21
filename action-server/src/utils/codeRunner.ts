@@ -4,7 +4,7 @@ import type { PoolClient } from "pg";
 import { createLogger, format, transports } from "winston";
 import { ActionsAPI } from "@nasa-jpl/aerie-actions";
 import { configuration } from "../config";
-import type {ActionConfig, ActionResponse } from "../type/types";
+import type { ActionConfig, ActionResponse } from "../type/types";
 
 // todo put this inside a more limited closure scope or it will get reused...
 // const logBuffer: string[] = [];
@@ -58,7 +58,7 @@ function getGlobals() {
   return aerieGlobal;
 }
 
-const { ACTION_LOCAL_STORE, SEQUENCING_LOCAL_STORE , WORKSPACE_BASE_URL} = configuration();
+const { ACTION_LOCAL_STORE, SEQUENCING_LOCAL_STORE, WORKSPACE_BASE_URL} = configuration();
 
 export const jsExecute = async (
   code: string,

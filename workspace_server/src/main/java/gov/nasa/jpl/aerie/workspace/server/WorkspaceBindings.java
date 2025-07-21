@@ -2,7 +2,6 @@ package gov.nasa.jpl.aerie.workspace.server;
 
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
-import gov.nasa.jpl.aerie.workspace.server.postgres.WorkspaceFileOpException;
 import io.javalin.Javalin;
 import io.javalin.apibuilder.ApiBuilder;
 import io.javalin.http.ContentType;

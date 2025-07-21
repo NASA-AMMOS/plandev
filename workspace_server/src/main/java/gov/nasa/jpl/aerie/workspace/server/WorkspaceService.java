@@ -2,7 +2,6 @@ package gov.nasa.jpl.aerie.workspace.server;
 
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.RenderType;
-import gov.nasa.jpl.aerie.workspace.server.postgres.WorkspaceFileOpException;
 import io.javalin.http.UploadedFile;
 
 import java.io.IOException;

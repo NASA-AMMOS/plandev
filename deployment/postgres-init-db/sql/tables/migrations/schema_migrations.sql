@@ -1,5 +1,5 @@
 create table migrations.schema_migrations (
-  migration_id varchar primary key,
+  migration_id integer primary key,
   pause_after boolean not null,
   after_done boolean not null default false
 );
@@ -17,7 +17,7 @@ begin
 end
 $$;
 
-create procedure migrations.mark_migration_rolled_back(_migration_id int)
+create procedure migrations.mark_migration_rolled_back(_migration_id integer)
 language plpgsql as $$
 begin
   delete from migrations.schema_migrations

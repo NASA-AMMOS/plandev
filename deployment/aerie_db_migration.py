@@ -201,6 +201,10 @@ class Hasura:
 
     :return: True if there is an open "after" task for the migration, else returns False
     """
+    # If the migration id is before the one that introduces after tasks, return False
+    if migration_id < 24:
+      return False
+
     # Query the database
     run_sql_url = f'{self.endpoint}/v2/query'
     headers = {
@@ -457,7 +461,7 @@ def step_by_step_migration(hasura: Hasura, db_migration: DB_Migration, apply: bo
 
   for step in available_steps:
     print("\033[4mCURRENT STEP:\033[0m\n")
-    timestamp = step.split("_")[0]
+    timestamp = int(step.split("_")[0])
 
     if apply:
       hasura.migrate('apply', f'--version {timestamp} --dry-run --log-level WARN')
@@ -479,16 +483,21 @@ def step_by_step_migration(hasura: Hasura, db_migration: DB_Migration, apply: bo
       if apply:
         print('Applying...')
         exit_code = hasura.migrate('apply', f'--version {timestamp} --type up')
+        print()
+        if exit_code != 0:
+          hasura.reload_metadata()
+          return
         if not hasura.apply_after(timestamp, apply):
           hasura.reload_metadata()
           exit_with_error("Incomplete 'after' tasks, cannot proceed.", 2)
       else:
         print('Reverting...')
         exit_code = hasura.migrate('apply', f'--version {timestamp} --type down')
-      print()
-      if exit_code != 0:
-        hasura.reload_metadata()
-        return
+        print()
+        if exit_code != 0:
+          hasura.reload_metadata()
+          return
+
     elif _value == "n":
       hasura.reload_metadata()
       return
@@ -510,17 +519,17 @@ def bulk_migration(hasura: Hasura, db_migration: DB_Migration, apply: bool):
     # Get only the available migration steps
     available_steps, display_string = db_migration.get_available_steps(hasura, apply)
     for step in available_steps:
-      timestamp = step.split("_")[0]
+      timestamp = int(step.split("_")[0])
 
       # Display dry-run message
       hasura.migrate('apply', f'--version {timestamp} --type up --dry-run --log-level WARN')
 
       exit_code = hasura.migrate('apply', f'--version {timestamp} --type up')
-      if not hasura.apply_after(timestamp, apply):
-        print_error("Incomplete 'after' tasks, cannot proceed.")
+      if exit_code != 0:
         exit_with = 2
         break
-      if exit_code != 0:
+      if not hasura.apply_after(timestamp, apply):
+        print_error("Incomplete 'after' tasks, cannot proceed.")
         exit_with = 2
         break
   else:

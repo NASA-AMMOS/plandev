@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: aerie-dev
+  name: aerie-workspaces
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aerie-workspaces
+  template:
+    metadata:
+      name: aerie-workspaces
+      labels:
+        app: aerie-workspaces
+    spec:
+      containers:
+        - name: aerie-workspaces
+          image: ghcr.io/nasa-ammos/aerie-workspaces:develop
+          ports:
+            - containerPort: 28000
+          volumeMounts:
+            - mountPath: /usr/src/ws
+              name: workspaces_file_store
+          env:
+            - name: JAVA_OPTS
+              value: |
+                -Dorg.slf4j.simpleLogger.defaultLogLevel=INFO -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO -Dorg.slf4j.simpleLogger.logFile=System.err
+            - name: AERIE_DB_HOST
+              value: postgres
+            - name: AERIE_DB_PORT
+              value: "5432"
+            - name: SEQUENCING_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: dev-env
+                  key: SEQUENCING_USERNAME
+            - name: SEQUENCING_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dev-env
+                  key: SEQUENCING_PASSWORD
+            - name: WORKSPACE_STORE
+              value: /usr/src/ws
+            - name: WORKSPACE_PORT
+              value: "28000"
+            - name: HASURA_GRAPHQL_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: dev-env
+                  key: HASURA_GRAPHQL_JWT_SECRET
+      restartPolicy: Always
+      volumes:
+        - name: workspaces_file_store
+          persistentVolumeClaim:
+            claimName: workspaces_file_store

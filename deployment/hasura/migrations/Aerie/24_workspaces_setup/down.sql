@@ -12,6 +12,25 @@ drop table sequencing.workspace_collaborators;
 --------------
 ----- UI -----
 --------------
+-- Revoke Sequencing User access to the UI Schema (table permissions will be handled by dropping the tables)
+do $$
+  declare
+    seq_user text;
+  begin
+    select grantee
+    from information_schema.role_table_grants
+    where table_schema = 'sequencing'
+      and table_name = 'user_sequence'
+      and privilege_type = 'INSERT'
+      and grantee != (select current_user)
+    limit 1
+    into seq_user;
+
+    execute format('revoke usage on schema ui from %I', seq_user);
+  end
+$$;
+
+
 -- File extension information
 drop table ui.file_extension_content_type;
 

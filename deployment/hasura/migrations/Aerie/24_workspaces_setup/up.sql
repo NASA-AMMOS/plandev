@@ -41,7 +41,7 @@ comment on procedure migrations.mark_migration_applied is e''
 
 -- Update "mark_migration_rolled_back"
 drop procedure migrations.mark_migration_rolled_back(_migration_id varchar);
-create procedure migrations.mark_migration_rolled_back(_migration_id int)
+create procedure migrations.mark_migration_rolled_back(_migration_id integer)
 language plpgsql as $$
 begin
   delete from migrations.schema_migrations
@@ -85,6 +85,26 @@ values ('.txt', 'Text'),
        ('.vml', 'Sequence'),
        ('.sasf', 'Sequence'),
        ('.satf', 'Sequence');
+
+-- Grant Sequencing User access to these tables
+do $$
+  declare
+    seq_user text;
+  begin
+    select grantee
+    from information_schema.role_table_grants
+    where table_schema = 'sequencing'
+      and table_name = 'user_sequence'
+      and privilege_type = 'INSERT'
+      and grantee != (select current_user)
+    limit 1
+    into seq_user;
+
+    execute format('grant usage on schema ui to %I', seq_user);
+    execute format('grant select on table ui.file_extension_content_type to %I', seq_user);
+    execute format('grant usage on type ui.supported_content_types to %I', seq_user);
+  end
+$$;
 
 ----------------------
 ----- SEQUENCING -----
@@ -188,6 +208,12 @@ where disk_location in (
   having count(1) > 1)) as ir
 where ir.id = ws.id
 and row > 0;
+
+-- Remove any empty workspaces (No user sequences, and no set parcel id)
+delete from sequencing.workspace
+where
+  id not in (select workspace_id from sequencing.user_sequence)
+  and workspace.parcel_id is null;
 
 -- Set unique and not null to match table definition
 alter table sequencing.workspace

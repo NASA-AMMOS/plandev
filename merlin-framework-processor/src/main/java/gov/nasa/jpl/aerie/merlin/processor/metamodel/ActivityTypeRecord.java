@@ -11,6 +11,7 @@ public record ActivityTypeRecord(
     String fullyQualifiedClass,
     String name,
     Optional<String> subsystem,
+    Optional<String> description,
     InputTypeRecord inputType,
     Optional<EffectModelRecord> effectModel
 ) {

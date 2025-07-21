@@ -37,6 +37,10 @@ public interface DirectiveType<Model, Arguments, Result> {
   //   the output data is emitted.
   OutputType<Result> getOutputType();
 
+  default Optional<String> getDescription() {
+    return Optional.empty();
+  }
+
   /**
    * Gets the subsystem of this directive.
    *

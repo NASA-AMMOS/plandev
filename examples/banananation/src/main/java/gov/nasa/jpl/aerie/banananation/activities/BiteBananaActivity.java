@@ -7,6 +7,7 @@ import gov.nasa.jpl.aerie.contrib.models.ValidationResult;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType.EffectModel;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.AutoValueMapper;
+import gov.nasa.jpl.aerie.merlin.framework.annotations.Description;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Parameter;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Validation;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.Subsystem;
@@ -20,6 +21,7 @@ import gov.nasa.jpl.aerie.merlin.framework.annotations.Subsystem;
  */
 @ActivityType("BiteBanana")
 @Subsystem("Eat")
+@Description("Takes a bite out of the banana")
 public final class BiteBananaActivity {
   @Parameter
 

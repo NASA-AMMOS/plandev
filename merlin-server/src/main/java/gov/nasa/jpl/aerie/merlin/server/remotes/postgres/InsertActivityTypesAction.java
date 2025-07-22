@@ -15,13 +15,14 @@ import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueS
 
 /*package-local*/ final class InsertActivityTypesAction implements AutoCloseable {
   private static final @Language("SQL") String sql = """
-    insert into merlin.activity_type (model_id, name, parameters, required_parameters, computed_attributes_value_schema, subsystem)
-    values (?, ?, ?::json, ?::json, ?::json, ?)
+    insert into merlin.activity_type (model_id, name, parameters, required_parameters, computed_attributes_value_schema, subsystem, description)
+    values (?, ?, ?::json, ?::json, ?::json, ?, ?)
     on conflict (model_id, name) do update
       set parameters = excluded.parameters,
       required_parameters = excluded.required_parameters,
       computed_attributes_value_schema = excluded.computed_attributes_value_schema,
-      subsystem = excluded.subsystem
+      subsystem = excluded.subsystem,
+      description = excluded.description
     """;
 
   private final PreparedStatement statement;
@@ -54,6 +55,12 @@ import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueS
           this.statement.setInt(6, subsystemIndex);
         } else {
           this.statement.setObject(6, null);
+        }
+
+        if (activityType.description().isPresent()) {
+          this.statement.setString(7, activityType.description().get());
+        } else {
+          this.statement.setString(7, null);
         }
 
         statement.addBatch();

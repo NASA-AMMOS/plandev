@@ -11,5 +11,6 @@ public record ActivityType(
     List<Parameter> parameters,
     List<String> requiredParameters,
     ValueSchema computedAttributesValueSchema,
-    Optional<String> subsystem
+    Optional<String> subsystem,
+    Optional<String> description
 ) {}

@@ -214,12 +214,12 @@ public class WorkspaceBindings implements Plugin {
       type = context.queryParamAsClass("type", String.class)
                     .allowNullable()
                     .check(Objects::nonNull, "'type' must be provided.")
-                    .check(ts -> ts.equalsIgnoreCase("file") || ts.equalsIgnoreCase("directory"),
+                    .check(ts -> ts == null || ts.equalsIgnoreCase("file") || ts.equalsIgnoreCase("directory"),
                            "'type' must be one of 'file' or 'directory'")
                     .get();
       overwrite = context.queryParamAsClass("overwrite", Boolean.class).getOrDefault(false);
     } catch (ValidationException ve) {
-      context.status(400).result(ve.getMessage());
+      context.status(400).result(ve.getMessage() != null ? ve.getMessage() : "Invalid request");
       return;
     }
 
@@ -234,7 +234,7 @@ public class WorkspaceBindings implements Plugin {
     if ("file".equalsIgnoreCase(type)) {
       // Reject the request if the file isn't provided.
       final var file = context.uploadedFile("file");
-      if (file == null || !pathInfo.fileName().equals(file.filename())) {
+      if (file == null) {
         context.status(400).result("No file provided with the name " + pathInfo.fileName());
         return;
       }
@@ -271,7 +271,7 @@ public class WorkspaceBindings implements Plugin {
       context.status(200).result("Success");
     } catch (Exception e) {
       e.printStackTrace();
-      context.status(400).result("Error: " + e.getMessage());
+      context.status(400).result("Error: " + e.getMessage() != null ? e.getMessage() : "Invalid request");
     }
   }
 

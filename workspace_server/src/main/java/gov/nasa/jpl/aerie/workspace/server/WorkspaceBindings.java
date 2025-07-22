@@ -4,6 +4,7 @@ import com.auth0.jwt.exceptions.JWTVerificationException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import io.javalin.Javalin;
 import io.javalin.apibuilder.ApiBuilder;
+import io.javalin.http.BadRequestResponse;
 import io.javalin.http.ContentType;
 import io.javalin.http.Context;
 import io.javalin.http.UnauthorizedResponse;
@@ -275,27 +276,26 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
-  private boolean isCopyOrMoveValid(Context context, int sourceWorkspace, Path sourceFile, int targetWorkspace, Path targetFile)
+  private record CopyMoveValid(boolean valid, int status, String message){};
+
+  private CopyMoveValid isCopyOrMoveValid(int sourceWorkspace, Path sourceFile, int targetWorkspace, Path targetFile)
   throws NoSuchWorkspaceException {
     // Reject if source does not exist
     if (!workspaceService.checkFileExists(sourceWorkspace, sourceFile)) {
-      context.status(404).result(sourceFile + " does not exist in the source workspace.");
-      return false;
+      return new CopyMoveValid(false, 404, sourceFile + " does not exist in the source workspace.");
     }
 
     // Reject if target workspace does not exist
     if (!workspaceService.checkFileExists(targetWorkspace, Path.of("/"))) {
-      context.status(404).result("Target workspace with ID "+targetWorkspace+" does not exist.");
-      return false;
+      return new CopyMoveValid(false, 404, "Target workspace with ID "+targetWorkspace+" does not exist.");
     }
 
     // Return "Conflicted" if destination exists
     if (workspaceService.checkFileExists(targetWorkspace, targetFile)) {
-      context.status(409).result(targetFile + " already exists");
-      return false;
+      return new CopyMoveValid(false, 409, targetFile + " already exists");
     }
 
-    return true;
+    return new CopyMoveValid(true, 0, "");
   }
 
   private void handleMove(Context context, JsonObject bodyJson)
@@ -309,8 +309,11 @@ public class WorkspaceBindings implements Plugin {
       targetWorkspace = bodyJson.getInt("toWorkspace");
     }
 
-    boolean validMove = isCopyOrMoveValid(context, sourceWorkspace, pathInfo.filePath, targetWorkspace, destination);
-    if (!validMove) return;
+    CopyMoveValid validMove = isCopyOrMoveValid(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination);
+    if (!validMove.valid) {
+      context.status(validMove.status).result(validMove.message);
+      return;
+    }
 
     if (workspaceService.isDirectory(sourceWorkspace, pathInfo.filePath())) {
       try {
@@ -350,8 +353,11 @@ public class WorkspaceBindings implements Plugin {
       targetWorkspace = bodyJson.getInt("toWorkspace");
     }
 
-    boolean validCopy = isCopyOrMoveValid(context, sourceWorkspace, pathInfo.filePath, targetWorkspace, destination);
-    if (!validCopy) return;
+    CopyMoveValid validCopy = isCopyOrMoveValid(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination);
+    if (!validCopy.valid) {
+        context.status(validCopy.status).result(validCopy.message);
+        return;
+    }
 
     if (workspaceService.isDirectory(sourceWorkspace, pathInfo.filePath())) {
       try {

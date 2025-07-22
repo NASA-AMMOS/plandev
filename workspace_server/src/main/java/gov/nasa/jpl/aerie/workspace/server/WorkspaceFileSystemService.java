@@ -176,6 +176,9 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       // Do not copy the file if the destination already exists
       if(destPath.toFile().exists()) throw new WorkspaceFileOpException("Destination file \"%s\" in workspace %d already exists.".formatted(destFilePath, destWorkspaceId));
 
+      // Create any parent directories that don't already exist
+      Files.createDirectories(destPath.getParent());
+
       // Copy the main file
       Files.copy(sourcePath, destPath);
 

@@ -1,8 +1,5 @@
 alter table actions.action_run
-  add column has_secrets boolean not null default false;
-
-comment on column actions.action_run.has_secrets is e''
-  'A flag that is set to true if the run has secrets, otherwise false.';
+  drop column has_secrets;
 
 drop trigger notify_action_run_inserted on actions.action_run;
 drop function actions.notify_action_run_inserted;
@@ -17,7 +14,6 @@ begin
                  settings,
                  parameters,
                  action_definition_id,
-                 has_secrets,
                  workspace_id,
                  action_file_path) as
            (
@@ -25,7 +21,6 @@ begin
                     NEW.settings,
                     NEW.parameters,
                     NEW.action_definition_id,
-                    NEW.has_secrets,
                     ad.workspace_id,
                     encode(uf.path, 'escape') as path
              from actions.action_definition ad
@@ -43,4 +38,4 @@ create trigger notify_action_run_inserted
   for each row
 execute function actions.notify_action_run_inserted();
 
-call migrations.mark_migration_applied('24');
+call migrations.mark_migration_rolled_back('25');

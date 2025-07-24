@@ -92,13 +92,15 @@ public class MissionModelTests {
             "glutenFree", new Parameter(2, VALUE_SCHEMA_BOOLEAN),
             "temperature", new Parameter(0, VALUE_SCHEMA_REAL)),
         VALUE_SCHEMA_INT,
-        "Prepare"));
+        "Prepare",
+        "Bakes banana bread at a certain temperature"));
     activityTypes.add(new ActivityType("BananaNap", Map.of()));
     activityTypes.add(new ActivityType(
         "BiteBanana",
         Map.of("biteSize", new Parameter(0, new ValueSchemaMeta(Map.of("unit", Json.createObjectBuilder(Map.of("value", "m")).build(), "banannotation", Json.createObjectBuilder().add("value", Json.createValue("Specifies the size of bite to take")).build()), VALUE_SCHEMA_REAL))),
         new ValueSchemaStruct(Map.of("biteSizeWasBig", VALUE_SCHEMA_BOOLEAN, "newFlag", new ValueSchemaVariant(List.of(new Variant("A", "A"), new Variant("B", "B"))))),
-        "Eat"
+        "Eat",
+        "Takes a bite out of the banana"
     ));
     activityTypes.add(new ActivityType("ChangeProducer", Map.of("producer", new Parameter(0, VALUE_SCHEMA_STRING))));
     activityTypes.add(new ActivityType("child", Map.of("counter", new Parameter(0, VALUE_SCHEMA_INT))));

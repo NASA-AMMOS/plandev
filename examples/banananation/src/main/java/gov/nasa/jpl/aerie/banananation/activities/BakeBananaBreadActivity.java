@@ -4,12 +4,14 @@ import gov.nasa.jpl.aerie.banananation.Mission;
 import gov.nasa.jpl.aerie.contrib.models.ValidationResult;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType.EffectModel;
+import gov.nasa.jpl.aerie.merlin.framework.annotations.Description;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Validation;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.Export.WithDefaults;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.Subsystem;
 
 @ActivityType("BakeBananaBread")
 @Subsystem("Prepare")
+@Description("Bakes banana bread at a certain temperature")
 public record BakeBananaBreadActivity(double temperature, int tbSugar, boolean glutenFree) {
 
   @Validation

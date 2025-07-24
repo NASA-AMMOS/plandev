@@ -15,7 +15,8 @@ public final class ProcedureLoader {
   throws ProcedureLoadException
   {
     final var className = getImplementingClassName(path);
-    final var classLoader = new URLClassLoader(new URL[] {pathToUrl(path)});
+    final var parentClassLoader = Thread.currentThread().getContextClassLoader();
+    final var classLoader = new URLClassLoader(new URL[] {pathToUrl(path)}, parentClassLoader);
 
     try {
       final var pluginClass$ = classLoader.loadClass(className);

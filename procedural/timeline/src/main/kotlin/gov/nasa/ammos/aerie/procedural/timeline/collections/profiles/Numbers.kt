@@ -223,5 +223,38 @@ data class Numbers<N: Number>(private val timeline: Timeline<Segment<N>, Numbers
       }
       seg.withNewValue(number)
     }) }
+
+    /**
+     * Converts a list of serialized value segments into an integer [Numbers] profile;
+     * for use with [gov.nasa.ammos.aerie.procedural.timeline.plan.Plan.resource].
+     *
+     * @throws ArithmeticException if any of the segment values are not integers
+     */
+    @JvmStatic fun intDeserializer() = { list: List<Segment<SerializedValue>> -> Numbers(list.map { seg ->
+      val bigDecimal = seg.value.asNumeric().orElseThrow { Exception("value was not numeric: $seg") }
+      seg.withNewValue(bigDecimal.intValueExact())
+    }) }
+
+    /**
+     * Converts a list of serialized value segments into a double [Numbers] profile;
+     * for use with [gov.nasa.ammos.aerie.procedural.timeline.plan.Plan.resource].
+     *
+     * @throws ArithmeticException if any of the segment values are not doubles
+     */
+    @JvmStatic fun doubleDeserializer() = { list: List<Segment<SerializedValue>> -> Numbers(list.map { seg ->
+      val bigDecimal = seg.value.asNumeric().orElseThrow { Exception("value was not numeric: $seg") }
+      seg.withNewValue(bigDecimal.toDouble())
+    }) }
+
+    /**
+     * Converts a list of serialized value segments into a long [Numbers] profile;
+     * for use with [gov.nasa.ammos.aerie.procedural.timeline.plan.Plan.resource].
+     *
+     * @throws ArithmeticException if any of the segment values are not longs
+     */
+    @JvmStatic fun longDeserializer() = { list: List<Segment<SerializedValue>> -> Numbers(list.map { seg ->
+      val bigDecimal = seg.value.asNumeric().orElseThrow { Exception("value was not numeric: $seg") }
+      seg.withNewValue(bigDecimal.longValueExact())
+    }) }
   }
 }

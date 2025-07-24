@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.contrib.models.counters;
 
 import gov.nasa.jpl.aerie.contrib.cells.counters.CounterCell;
+import gov.nasa.jpl.aerie.contrib.models.NamedResource;
 import gov.nasa.jpl.aerie.merlin.framework.CellRef;
 import gov.nasa.jpl.aerie.merlin.framework.resources.discrete.DiscreteResource;
 
@@ -8,7 +9,7 @@ import java.util.function.BinaryOperator;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
-public final class Counter<T> implements DiscreteResource<T> {
+public final class Counter<T> extends NamedResource<T> implements DiscreteResource<T> {
   private final CellRef<T, CounterCell<T>> ref;
 
   public Counter(final T initialValue, final T zero, final BinaryOperator<T> adder, final UnaryOperator<T> duplicator) {

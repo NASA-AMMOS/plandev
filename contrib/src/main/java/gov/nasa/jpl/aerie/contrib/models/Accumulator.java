@@ -7,7 +7,7 @@ import gov.nasa.jpl.aerie.merlin.framework.CellRef;
 import gov.nasa.jpl.aerie.merlin.framework.resources.real.RealResource;
 import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
 
-public final class Accumulator implements RealResource {
+public final class Accumulator extends NamedResource<RealDynamics> implements RealResource {
   private final CellRef<LinearAccumulationEvent, LinearIntegrationCell> ref;
 
   public final Rate rate = new Rate();

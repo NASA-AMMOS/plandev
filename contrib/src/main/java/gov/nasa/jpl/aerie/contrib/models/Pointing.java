@@ -54,7 +54,7 @@ public final class Pointing {
     addRate(previousRate);         // Reset rate to previous rate
   }
 
-  public static final class Component implements RealResource {
+  public static final class Component extends NamedResource<RealDynamics> implements RealResource {
     private final Accumulator acc;
     public final Accumulator.Rate rate;
 

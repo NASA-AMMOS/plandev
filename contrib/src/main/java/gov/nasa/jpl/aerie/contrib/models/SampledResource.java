@@ -13,7 +13,7 @@ import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.*;
  * Simple resource that samples arbitrarily many existing resources/values at a specified period (default period is once
  * per second).
  */
-public class SampledResource<T> implements DiscreteResource<T> {
+public class SampledResource<T> extends NamedResource<T> implements DiscreteResource<T> {
   private final Register<T> result;
   private final Supplier<T> sampler;
   private final Register<Double> period;

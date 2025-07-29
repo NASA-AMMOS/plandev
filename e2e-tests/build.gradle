@@ -65,7 +65,7 @@ dependencies {
   implementation project(':merlin-sdk')
   implementation project(':type-utils')
   implementation project(':contrib')
-  compileOnly project(':examples:banananation')
+  implementation project(':examples:banananation')
 
   testImplementation "com.zaxxer:HikariCP:5.1.0"
   testImplementation("org.postgresql:postgresql:42.6.0")
@@ -119,6 +119,9 @@ tasks.create("generateProcedureJarTasks") {
       archiveClassifier.set(nameWithoutExtension) // set output jar name
       manifest {
         attributes 'Main-Class': getMainClassFromGeneratedFile(file)
+      }
+      dependencies {
+        exclude(project(":examples:banananation"))
       }
       minimize()
     }

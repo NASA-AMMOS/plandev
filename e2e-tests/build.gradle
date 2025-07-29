@@ -60,6 +60,7 @@ dependencies {
   annotationProcessor project(':procedural:processor')
 
   implementation project(":procedural:scheduling")
+  implementation project(":procedural:constraints")
   implementation project(":procedural:timeline")
   implementation project(':merlin-sdk')
   implementation project(':type-utils')

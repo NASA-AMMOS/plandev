@@ -76,10 +76,19 @@ public sealed interface ExecutableConstraint extends Comparable<ExecutableConstr
         ReadonlyProceduralSimResults simResults,
         gov.nasa.jpl.aerie.merlin.driver.SimulationResults merlinResults
     ) {
+      return run(plan, simResults, merlinResults, Thread.currentThread().getContextClassLoader());
+    }
+
+    public ProceduralConstraintResult run(
+        ReadonlyPlan plan,
+        ReadonlyProceduralSimResults simResults,
+        gov.nasa.jpl.aerie.merlin.driver.SimulationResults merlinResults,
+        ClassLoader missionModelClassLoader
+    ) {
       final ProcedureMapper<?> procedureMapper;
       try {
         final var jar = (ConstraintType.JAR) record.type();
-        procedureMapper = ProcedureLoader.loadProcedure(jar.path());
+        procedureMapper = ProcedureLoader.loadProcedure(jar.path(), missionModelClassLoader);
       } catch (ProcedureLoader.ProcedureLoadException e) {
         throw new RuntimeException(e);
       }

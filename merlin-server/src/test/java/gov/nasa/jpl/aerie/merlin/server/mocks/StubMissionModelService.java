@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.mocks;
 
+import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import gov.nasa.jpl.aerie.types.Plan;
@@ -205,6 +206,16 @@ public final class StubMissionModelService implements MissionModelService {
     }
 
     return SUCCESSFUL_SIMULATION_RESULTS;
+  }
+
+  @Override
+  public MissionModel<?> loadAndInstantiateMissionModel(final MissionModelId missionModelId)
+  throws NoSuchMissionModelException, MissionModelLoadException
+  {
+    if (!Objects.equals(missionModelId, EXISTENT_MISSION_MODEL_ID)) {
+      throw new NoSuchMissionModelException(missionModelId);
+    }
+    return null;
   }
 
   @Override

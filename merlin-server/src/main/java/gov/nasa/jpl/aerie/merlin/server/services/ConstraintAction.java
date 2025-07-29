@@ -10,6 +10,7 @@ import gov.nasa.jpl.aerie.merlin.server.http.Fallible;
 import gov.nasa.jpl.aerie.merlin.server.models.*;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import org.apache.commons.lang3.tuple.Pair;
+import gov.nasa.ammos.aerie.procedural.timeline.util.WithModel;
 
 import java.util.*;
 
@@ -18,17 +19,20 @@ public class ConstraintAction {
   private final ConstraintService constraintService;
   private final PlanService planService;
   private final SimulationService simulationService;
+  private final MissionModelService missionModelService;
 
   public ConstraintAction(
       final ConstraintsDSLCompilationService constraintsDSLCompilationService,
       final ConstraintService constraintService,
       final PlanService planService,
-      final SimulationService simulationService
+      final SimulationService simulationService,
+      final MissionModelService missionModelService
   ) {
     this.constraintsDSLCompilationService = constraintsDSLCompilationService;
     this.constraintService = constraintService;
     this.planService = planService;
     this.simulationService = simulationService;
+    this.missionModelService = missionModelService;
   }
 
   /**
@@ -160,6 +164,9 @@ public class ConstraintAction {
       final var timelinePlan = new ReadonlyPlan(plan, environment);
       final var timelineSimResults = new ReadonlyProceduralSimResults(merlinSimResults, timelinePlan);
 
+      // Load mission model for constraint procedures that use WithModel interface
+      final var missionModel = this.missionModelService.loadAndInstantiateMissionModel(plan.missionModelId());
+      WithModel.setModelSingleton(missionModel.getModel());
 
       // run constraints
       for(final var constraint : compiledConstraints) {
@@ -171,7 +178,7 @@ public class ConstraintAction {
               break;
             }
             case ExecutableConstraint.JARConstraint jar: {
-              constraintResultMap.put(record, Fallible.of(jar.run(timelinePlan, timelineSimResults, merlinSimResults)));
+              constraintResultMap.put(record, Fallible.of(jar.run(timelinePlan, timelineSimResults, merlinSimResults, missionModel.getModel().getClass().getClassLoader())));
               break;
             }
           }

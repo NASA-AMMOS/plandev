@@ -11,11 +11,14 @@ import java.util.Objects;
 import java.util.jar.JarFile;
 
 public final class ProcedureLoader {
-  public static ProcedureMapper<?> loadProcedure(final Path path)
+  public static ProcedureMapper<?> loadProcedure(final Path path) throws ProcedureLoadException {
+    return loadProcedure(path, Thread.currentThread().getContextClassLoader());
+  }
+
+  public static ProcedureMapper<?> loadProcedure(final Path path, final ClassLoader parentClassLoader)
   throws ProcedureLoadException
   {
     final var className = getImplementingClassName(path);
-    final var parentClassLoader = Thread.currentThread().getContextClassLoader();
     final var classLoader = new URLClassLoader(new URL[] {pathToUrl(path)}, parentClassLoader);
 
     try {

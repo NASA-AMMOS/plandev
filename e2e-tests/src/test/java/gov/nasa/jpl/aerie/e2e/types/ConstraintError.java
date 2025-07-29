@@ -5,7 +5,8 @@ import javax.json.JsonObject;
 public record ConstraintError(String message, String stack, Location location ){
   record Location(int column, int line){
     public static Location fromJSON(JsonObject json){
-      return new Location(json.getJsonNumber("column").intValue(), json.getJsonNumber("line").intValue());
+      if (!json.containsKey("column") || !json.containsKey("line") || json.isNull("column") || json.isNull("line")) return null;
+      else return new Location(json.getJsonNumber("column").intValue(), json.getJsonNumber("line").intValue());
     }
   };
 

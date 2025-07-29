@@ -82,7 +82,7 @@ public class Procedure extends Goal {
 
     final var simResults = editablePlan.latestResults();
 
-    instantiateGoal();
+    instantiateGoal(missionModel.getModel().getClass().getClassLoader());
 
     this.shouldDelete = this.goal.shouldDeletePastCreations(editablePlan, simResults);
 
@@ -103,7 +103,7 @@ public class Procedure extends Goal {
       final DirectiveIdGenerator idGenerator,
       Map<String, List<ExternalEvent>> eventsByDerivationGroup
   ) {
-    instantiateGoal();
+    instantiateGoal(missionModel.getModel().getClass().getClassLoader());
 
     List<SchedulingActivity> newActivities = new ArrayList<>();
 
@@ -150,10 +150,14 @@ public class Procedure extends Goal {
   }
 
   private void instantiateGoal() {
+    instantiateGoal(Thread.currentThread().getContextClassLoader());
+  }
+
+  private void instantiateGoal(final ClassLoader missionModelClassLoader) {
     if (this.goal == null) {
       final ProcedureMapper<?> procedureMapper;
       try {
-        procedureMapper = ProcedureLoader.loadProcedure(jarPath);
+        procedureMapper = ProcedureLoader.loadProcedure(jarPath, missionModelClassLoader);
       } catch (ProcedureLoader.ProcedureLoadException e) {
         throw new RuntimeException(e);
       }

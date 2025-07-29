@@ -26,7 +26,7 @@ public final class Registrar {
 
   public <Value> void discrete(final String name, final Resource<Value> resource, final ValueMapper<Value> mapper) {
     if (resource instanceof NameableResource) {
-      ((NameableResource) resource).setName(name);
+      ((NameableResource<?>) resource).setName(name);
     }
 
     this.builder.resource(name, makeResource("discrete", resource, mapper.getValueSchema(), mapper::serializeValue));
@@ -42,7 +42,7 @@ public final class Registrar {
 
   private void real(final String name, final Resource<RealDynamics> resource, UnaryOperator<ValueSchema> schemaModifier) {
     if (resource instanceof NameableResource) {
-      ((NameableResource) resource).setName(name);
+      ((NameableResource<?>) resource).setName(name);
     }
 
     this.builder.resource(

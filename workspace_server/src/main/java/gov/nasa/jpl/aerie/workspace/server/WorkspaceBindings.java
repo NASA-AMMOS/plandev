@@ -19,6 +19,8 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Path;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -107,6 +109,11 @@ public class WorkspaceBindings implements Plugin {
 
     try(final var reader = Json.createReader(new StringReader(context.body()))) {
       final var bodyJson = reader.readObject();
+      var missingKeys = checkRequiredKeys(bodyJson, "parcelId", "workspaceLocation", "workspaceName");
+      if (!missingKeys.isEmpty()) {
+        context.status(400).result("Mandatory body parameters missing: " + missingKeys + " Request body format is:\n" + helpText);
+        return;
+      }
 
       parcelId = bodyJson.getInt("parcelId");
       final var workspaceString = bodyJson.getString("workspaceLocation");
@@ -117,9 +124,6 @@ public class WorkspaceBindings implements Plugin {
 
       workspaceLocation = Path.of(bodyJson.getString("workspaceLocation"));
       workspaceName = bodyJson.containsKey("workspaceName") ? bodyJson.getString("workspaceName") : workspaceLocation.toString();
-    } catch (NullPointerException npe) {
-      context.status(400).result("Mandatory body parameter is null. Request body format is:\n" + helpText);
-      return;
     } catch (JsonException je) {
       context.status(400).result("Request body is malformed. Request body format is:\n" + helpText);
       return;
@@ -135,6 +139,16 @@ public class WorkspaceBindings implements Plugin {
     } else {
       context.status(500).result("Unable to create workspace.");
     }
+  }
+
+  private List<String> checkRequiredKeys(JsonObject jsonObject, String... keys) {
+    var missingKeys = new ArrayList<String>();
+    for (var key : keys) {
+      if (jsonObject.get(key) == null) {
+        missingKeys.add(key);
+      }
+    }
+    return missingKeys;
   }
 
   private void deleteWorkspace(Context context) {

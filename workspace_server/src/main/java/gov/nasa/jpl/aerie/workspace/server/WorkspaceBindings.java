@@ -108,7 +108,16 @@ public class WorkspaceBindings implements Plugin {
     try(final var reader = Json.createReader(new StringReader(context.body()))) {
       final var bodyJson = reader.readObject();
 
+      if (bodyJson.get("parcelId") == null) {
+        context.status(400).result("Mandatory body parameter 'parcelId' is missing or null. Request body format is:\n" + helpText);
+        return;
+      }
       parcelId = bodyJson.getInt("parcelId");
+
+      if (bodyJson.get("workspaceLocation") == null) {
+        context.status(400).result("Mandatory body parameter 'workspaceLocation' is missing or null. Request body format is:\n" + helpText);
+        return;
+      }
       final var workspaceString = bodyJson.getString("workspaceLocation");
       if(workspaceString.contains("/")){
         context.status(400).result("Workspace location may not contain '/'");
@@ -116,10 +125,15 @@ public class WorkspaceBindings implements Plugin {
       }
 
       workspaceLocation = Path.of(bodyJson.getString("workspaceLocation"));
-      workspaceName = bodyJson.containsKey("workspaceName") ? bodyJson.getString("workspaceName") : workspaceLocation.toString();
-    } catch (NullPointerException npe) {
-      context.status(400).result("Mandatory body parameter is null. Request body format is:\n" + helpText);
-      return;
+      if (bodyJson.containsKey("workspaceName")) {
+        if (bodyJson.get("workspaceName") == null) {
+          context.status(400).result("Mandatory body parameter 'workspaceName' is null. Request body format is:\n" + helpText);
+          return;
+        }
+        workspaceName = bodyJson.getString("workspaceName");
+      } else {
+        workspaceName = workspaceLocation.toString();
+      }
     } catch (JsonException je) {
       context.status(400).result("Request body is malformed. Request body format is:\n" + helpText);
       return;

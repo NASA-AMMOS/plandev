@@ -31,7 +31,7 @@ public class SimulationResults implements SimulationResultsInterface {
   public final Map<ActivityInstanceId, UnfinishedActivity> unfinishedActivities;
   public final Set<ActivityInstanceId> removedActivities;
   public final List<Triple<Integer, String, ValueSchema>> topics;
-  public final Map<Duration, List<EventGraph<EventRecord>>> events;
+  public final SortedMap<Duration, List<EventGraph<EventRecord>>> events;
 
   public SimulationResults(
       final Map<String, ResourceProfile<RealDynamics>> realProfiles,

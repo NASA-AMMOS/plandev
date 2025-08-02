@@ -1,9 +1,9 @@
 package gov.nasa.jpl.aerie.constraints.tree;
 
+import gov.nasa.jpl.aerie.constraints.model.EDSLConstraintResult;
 import gov.nasa.jpl.aerie.constraints.model.EvaluationEnvironment;
 import gov.nasa.jpl.aerie.constraints.model.SimulationResults;
 import gov.nasa.jpl.aerie.constraints.model.Violation;
-import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
 import gov.nasa.jpl.aerie.constraints.time.Interval;
 import gov.nasa.jpl.aerie.constraints.time.Windows;
 
@@ -13,7 +13,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.StreamSupport;
 
-public final class ViolationsOfWindows implements Expression<ConstraintResult> {
+public final class ViolationsOfWindows implements Expression<EDSLConstraintResult> {
   public final Expression<Windows> expression;
 
   public ViolationsOfWindows(Expression<Windows> expression) {
@@ -21,9 +21,9 @@ public final class ViolationsOfWindows implements Expression<ConstraintResult> {
   }
 
   @Override
-  public ConstraintResult evaluate(SimulationResults results, final Interval bounds, EvaluationEnvironment environment) {
+  public EDSLConstraintResult evaluate(SimulationResults results, final Interval bounds, EvaluationEnvironment environment) {
     final var windows = this.expression.evaluate(results, bounds, environment);
-    return new ConstraintResult(
+    return new EDSLConstraintResult(
         StreamSupport.stream(windows.iterateEqualTo(false).spliterator(), false)
                      .map(i -> new Violation(List.of(i), new ArrayList<>()))
                      .toList(),

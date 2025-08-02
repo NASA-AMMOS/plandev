@@ -2,6 +2,7 @@ create table sequencing.user_sequence (
   id integer generated always as identity,
   created_at timestamptz not null default now(),
   definition text not null,
+  is_locked boolean not null default false,
   seq_json jsonb,
   name text not null,
   owner text,
@@ -27,6 +28,8 @@ comment on column sequencing.user_sequence.created_at is e''
   'Time the user sequence was created.';
 comment on column sequencing.user_sequence.definition is e''
   'The user sequence definition string.';
+comment on column sequencing.user_sequence.is_locked is e''
+  'A boolean representing whether this user sequence is editable.';
 comment on column sequencing.user_sequence.seq_json is e''
   'The SeqJson representation of the user sequence.';
 comment on column sequencing.user_sequence.id is e''
@@ -42,7 +45,38 @@ comment on column sequencing.user_sequence.updated_at is e''
 comment on column sequencing.user_sequence.workspace_id is e''
   'The workspace the sequence is associated with.';
 
-create trigger set_timestamp
+create function sequencing.check_is_locked_update()
+returns trigger
+language plpgsql as $$
+begin
+  if old.is_locked and new.is_locked then
+    raise exception 'Cannot update locked user sequence.';
+  end if;
+
+  -- Update the updated_at timestamp
+  new.updated_at = now();
+  return new;
+end
+$$;
+
+create trigger check_locked_update
 before update on sequencing.user_sequence
 for each row
-execute function util_functions.set_updated_at();
+execute function sequencing.check_is_locked_update();
+
+create function sequencing.check_is_locked_delete()
+returns trigger
+language plpgsql as $$
+begin
+  if old.is_locked then
+    raise exception 'Cannot delete locked user sequence.';
+  end if;
+
+  return old;
+end
+$$;
+
+create trigger check_locked_delete
+before delete on sequencing.user_sequence
+for each row
+execute function sequencing.check_is_locked_delete();

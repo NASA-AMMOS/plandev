@@ -1,12 +1,12 @@
 package gov.nasa.jpl.aerie.scheduler.plan
 
+import gov.nasa.ammos.aerie.procedural.scheduling.utils.PerishableSimulationResults
 import gov.nasa.ammos.aerie.procedural.timeline.Interval
 import gov.nasa.ammos.aerie.procedural.timeline.collections.Instances
 import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Instance
 import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan
-import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults
 import gov.nasa.ammos.aerie.procedural.timeline.util.duration.rangeTo
 import gov.nasa.jpl.aerie.merlin.driver.engine.ProfileSegment
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
@@ -18,9 +18,15 @@ import kotlin.jvm.optionals.getOrNull
 
 class MerlinToProcedureSimulationResultsAdapter(
     private val results: gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface,
-    private val stale: Boolean,
+
+    /** A copy of the plan that will not be mutated after creation. */
     private val plan: Plan
-): SimulationResults {
+): PerishableSimulationResults {
+
+  private var stale = false;
+  override fun setStale(stale: Boolean) {
+    this.stale = stale;
+  }
 
   override fun isStale() = stale
 
@@ -119,4 +125,6 @@ class MerlinToProcedureSimulationResultsAdapter(
     }
     return Instances(instances)
   }
+
+  override fun <A : Any> inputDirectives(deserializer: (SerializedValue) -> A) = plan.directives(null, deserializer)
 }

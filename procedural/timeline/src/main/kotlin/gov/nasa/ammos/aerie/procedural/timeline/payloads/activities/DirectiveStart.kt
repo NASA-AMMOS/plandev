@@ -44,5 +44,19 @@ sealed interface DirectiveStart {
     }
 
     override fun atNewTime(time: Duration) = Anchor(parentId, offset + time - estimatedStart, anchorPoint, time)
+
+    // Override equality so that it doesn't check `estimatedStart`. Start estimate is not part of the source of truth.
+    override fun equals(other: Any?) = when (other) {
+      is Anchor -> parentId == other.parentId && offset == other.offset && anchorPoint == other.anchorPoint
+      else -> false
+    }
+
+    // Override hashing so that it doesn't include `estimatedStart`.
+    override fun hashCode(): Int {
+      var result = parentId.hashCode()
+      result = 31 * result + offset.hashCode()
+      result = 31 * result + anchorPoint.hashCode()
+      return result
+    }
   }
 }

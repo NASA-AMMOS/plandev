@@ -5,7 +5,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
-import gov.nasa.jpl.aerie.merlin.server.models.Constraint;
+import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.server.models.DatasetId;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
 import gov.nasa.jpl.aerie.merlin.server.models.ProfileSet;
@@ -19,6 +19,7 @@ import gov.nasa.jpl.aerie.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.sql.DataSource;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -30,9 +31,11 @@ import java.util.stream.Collectors;
 
 public final class PostgresPlanRepository implements PlanRepository {
   private final DataSource dataSource;
+  private final Path rootFilePath;
 
-  public PostgresPlanRepository(final DataSource dataSource) {
+  public PostgresPlanRepository(final DataSource dataSource, final Path rootFilePath) {
     this.dataSource = dataSource;
+    this.rootFilePath = rootFilePath;
   }
 
   // GetAllPlans is exclusively used in tests currently and none of its usages are for simulation
@@ -180,21 +183,12 @@ public final class PostgresPlanRepository implements PlanRepository {
   }
 
   @Override
-  public Map<Long, Constraint> getPlanConstraints(final PlanId planId) throws NoSuchPlanException {
+  public List<ConstraintRecord> getPlanConstraints(final PlanId planId) throws NoSuchPlanException {
     try (final var connection = this.dataSource.getConnection()) {
-      try (final var getPlanConstraintsAction = new GetPlanConstraintsAction(connection)) {
+      try (final var getPlanConstraintsAction = new GetPlanConstraintsAction(connection, rootFilePath)) {
         return getPlanConstraintsAction
             .get(planId.id())
-            .orElseThrow(() -> new NoSuchPlanException(planId))
-            .stream()
-            .collect(Collectors.toMap(
-                ConstraintRecord::id,
-                r -> new Constraint(
-                    r.id(),
-                    r.revision(),
-                    r.name(),
-                    r.description(),
-                    r.definition())));
+            .orElseThrow(() -> new NoSuchPlanException(planId));
       }
     } catch (final SQLException ex) {
       throw new DatabaseException(

@@ -1,8 +1,8 @@
 package gov.nasa.jpl.aerie.constraints.tree;
 
+import gov.nasa.jpl.aerie.constraints.model.EDSLConstraintResult;
 import gov.nasa.jpl.aerie.constraints.model.EvaluationEnvironment;
 import gov.nasa.jpl.aerie.constraints.model.SimulationResults;
-import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
 import gov.nasa.jpl.aerie.constraints.time.Interval;
 
 import java.util.HashMap;
@@ -10,11 +10,11 @@ import java.util.Set;
 
 public record ForEachActivityViolations(
     String activityType, String alias,
-    Expression<ConstraintResult> expression) implements Expression<ConstraintResult> {
+    Expression<EDSLConstraintResult> expression) implements Expression<EDSLConstraintResult> {
 
   @Override
-  public ConstraintResult evaluate(final SimulationResults results, final Interval bounds, final EvaluationEnvironment environment) {
-    var violations = new ConstraintResult();
+  public EDSLConstraintResult evaluate(final SimulationResults results, final Interval bounds, final EvaluationEnvironment environment) {
+    var violations = new EDSLConstraintResult();
     for (final var activity : results.activities) {
       if (activity.type().equals(this.activityType)) {
         final var newEnvironment = new EvaluationEnvironment(
@@ -30,7 +30,7 @@ public record ForEachActivityViolations(
         for (final var violation: newViolations.violations) {
           violation.addActivityId(activity.id());
         }
-        violations = ConstraintResult.merge(violations, newViolations);
+        violations = EDSLConstraintResult.merge(violations, newViolations);
       }
     }
     return violations;

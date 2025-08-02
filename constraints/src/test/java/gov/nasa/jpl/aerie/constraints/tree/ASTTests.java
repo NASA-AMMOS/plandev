@@ -3,12 +3,12 @@ package gov.nasa.jpl.aerie.constraints.tree;
 import gov.nasa.jpl.aerie.constraints.InputMismatchException;
 import gov.nasa.jpl.aerie.constraints.model.ActivityInstance;
 import gov.nasa.jpl.aerie.constraints.model.DiscreteProfile;
+import gov.nasa.jpl.aerie.constraints.model.EDSLConstraintResult;
 import gov.nasa.jpl.aerie.constraints.model.EvaluationEnvironment;
 import gov.nasa.jpl.aerie.constraints.model.LinearProfile;
 import gov.nasa.jpl.aerie.constraints.model.LinearEquation;
 import gov.nasa.jpl.aerie.constraints.model.SimulationResults;
 import gov.nasa.jpl.aerie.constraints.model.Violation;
-import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
 import gov.nasa.jpl.aerie.constraints.time.Interval;
 import gov.nasa.jpl.aerie.constraints.time.IntervalMap;
 import gov.nasa.jpl.aerie.constraints.time.Segment;
@@ -708,7 +708,7 @@ public class ASTTests {
             "TypeB",
             "act",
             new UniqueSupplier<>(
-                () -> new ConstraintResult(
+                () -> new EDSLConstraintResult(
                     List.of(new Violation(List.of(Interval.between(1, 2, SECONDS)), new ArrayList<>())),
                     new ArrayList<>()
                 )
@@ -718,7 +718,7 @@ public class ASTTests {
 
     // We expect two violations because there are two activities of TypeA
     // The details of the violation will be the same, since we are using a supplier
-    final var expected = new ConstraintResult(
+    final var expected = new EDSLConstraintResult(
         List.of(
             new Violation(List.of(Interval.between(1, 2, SECONDS)), List.of(1L, 2L)),
             new Violation(List.of(Interval.between(1, 2, SECONDS)), List.of(3L, 2L))
@@ -774,7 +774,7 @@ public class ASTTests {
 
     final var result = new ViolationsOfWindows(new Supplier<>(windows)).evaluate(simResults, new EvaluationEnvironment());
 
-    final var expected = new ConstraintResult(
+    final var expected = new EDSLConstraintResult(
         List.of(new Violation(List.of(Interval.between(5, 6, SECONDS)), List.of())),
         List.of(
             Interval.between(Duration.ZERO, Inclusive, Duration.SECOND, Exclusive),
@@ -1234,7 +1234,7 @@ public class ASTTests {
         RollingThreshold.RollingThresholdAlgorithm.ExcessHull
     ).evaluate(simResults);
 
-    final var expected1 = new ConstraintResult(
+    final var expected1 = new EDSLConstraintResult(
         List.of(
             new Violation(List.of(Interval.between(0, 5, SECONDS)), List.of()),
             new Violation(List.of(Interval.between(14, 19, SECONDS)), List.of())
@@ -1251,7 +1251,7 @@ public class ASTTests {
         RollingThreshold.RollingThresholdAlgorithm.ExcessSpans
     ).evaluate(simResults);
 
-    final var expected2 = new ConstraintResult(
+    final var expected2 = new EDSLConstraintResult(
         List.of(
             new Violation(
                 List.of(
@@ -1299,7 +1299,7 @@ public class ASTTests {
         RollingThreshold.RollingThresholdAlgorithm.DeficitHull
     ).evaluate(simResults);
 
-    final var expected1 = new ConstraintResult(
+    final var expected1 = new EDSLConstraintResult(
         List.of(
             new Violation(List.of(Interval.between(1, Exclusive, 18, Exclusive, SECONDS)), List.of())
         ),
@@ -1315,7 +1315,7 @@ public class ASTTests {
         RollingThreshold.RollingThresholdAlgorithm.DeficitSpans
     ).evaluate(simResults);
 
-    final var expected2 = new ConstraintResult(
+    final var expected2 = new EDSLConstraintResult(
         List.of(
             new Violation(List.of(
                 Interval.between(1, Exclusive, 2, Exclusive, SECONDS),

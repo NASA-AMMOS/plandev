@@ -68,17 +68,18 @@ begin
 
   return query
   update merlin.activity_directive as ad
-  set name                       = c.name,
-      source_scheduling_goal_id  = c.source_scheduling_goal_id,
-      start_offset               = c.start_offset,
-      type                       = c.type,
-      arguments                  = c.arguments,
-      last_modified_arguments_at = c.changed_arguments_at,
-      metadata                   = c.metadata,
-      anchor_id                  = c.anchor_id,
-      anchored_to_start          = c.anchored_to_start,
-      last_modified_at           = c.changed_at,
-      last_modified_by           = c.changed_by
+  set name                                  = c.name,
+      source_scheduling_goal_id             = c.source_scheduling_goal_id,
+      source_scheduling_goal_invocation_id  = c.source_scheduling_goal_invocation_id,
+      start_offset                          = c.start_offset,
+      type                                  = c.type,
+      arguments                             = c.arguments,
+      last_modified_arguments_at            = c.changed_arguments_at,
+      metadata                              = c.metadata,
+      anchor_id                             = c.anchor_id,
+      anchored_to_start                     = c.anchored_to_start,
+      last_modified_at                      = c.changed_at,
+      last_modified_by                      = c.changed_by
   from merlin.activity_directive_changelog as c
   where ad.id                    = _activity_directive_id
     and c.activity_directive_id  = _activity_directive_id

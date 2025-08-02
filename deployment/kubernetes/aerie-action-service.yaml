@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: aerie-dev
+  name: aerie-action
+spec:
+  ports:
+    - name: "27186"
+      port: 27186
+      targetPort: 27186
+  selector:
+    app: aerie-action

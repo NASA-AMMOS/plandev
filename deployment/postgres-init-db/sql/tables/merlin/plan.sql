@@ -96,10 +96,11 @@ create function merlin.populate_constraint_spec_new_plan()
 returns trigger
 language plpgsql as $$
 begin
-  insert into merlin.constraint_specification (plan_id, constraint_id, constraint_revision)
-  select new.id, cms.constraint_id, cms.constraint_revision
+  insert into merlin.constraint_specification (plan_id, constraint_id, constraint_revision, arguments, priority)
+  select new.id, cms.constraint_id, cms.constraint_revision, cms.arguments, cms.priority
   from merlin.constraint_model_specification cms
-  where cms.model_id = new.model_id;
+  where cms.model_id = new.model_id
+  order by priority;
   return new;
 end;
 $$;

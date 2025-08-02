@@ -32,14 +32,14 @@ import java.util.function.Supplier;
 
 public class SimulationUtility implements AutoCloseable {
   private final ExecutorService exec;
-  private final SimulationResourceManager rmgr;
+  private final ResourceFileStreamer resourceFileStreamer;
 
   /**
    * Create a new SimulationUtility that manages resources using an InMemorySimulationResourceManager.
    */
   public SimulationUtility() {
     this.exec = Executors.newSingleThreadExecutor();
-    rmgr = new InMemorySimulationResourceManager();
+    resourceFileStreamer = null;
   }
 
   /**
@@ -48,7 +48,7 @@ public class SimulationUtility implements AutoCloseable {
    */
   public SimulationUtility(ResourceFileStreamer resourceStreamer) {
     this.exec = Executors.newSingleThreadExecutor();
-    rmgr = new StreamingSimulationResourceManager(resourceStreamer);
+    resourceFileStreamer = resourceStreamer;
   }
 
   /**
@@ -127,6 +127,12 @@ public class SimulationUtility implements AutoCloseable {
       Supplier<Boolean> canceledListener,
       Consumer<Duration> extentConsumer
   ) {
+    final SimulationResourceManager resourceManager;
+    if (resourceFileStreamer != null) {
+      resourceManager = new StreamingSimulationResourceManager(resourceFileStreamer);
+    } else {
+      resourceManager = new InMemorySimulationResourceManager();
+    }
     final var simulationDuration = Duration.of(plan.simulationStartTimestamp
                                                    .microsUntil(plan.simulationEndTimestamp), Duration.MICROSECOND);
     final var resultsThread = new Callable<SimulationResultsInterface>() {
@@ -141,7 +147,7 @@ public class SimulationUtility implements AutoCloseable {
             plan.duration(),
             canceledListener,
             extentConsumer,
-            rmgr);
+            resourceManager);
       }
     };
 

@@ -1,5 +1,6 @@
 create table merlin.external_source_type (
     name text not null,
+    attribute_schema jsonb not null default '{ "type": "object", "required": [], "properties": {} }',
 
     constraint external_source_type_pkey
       primary key (name)
@@ -12,3 +13,6 @@ comment on table merlin.external_source_type is e''
 
 comment on column merlin.external_source_type.name is e''
   'The identifier for this external_source_type, as well as its name.';
+
+comment on column merlin.external_source_type.attribute_schema is e''
+  'The JSON schema used to validate attributes for sources using this source type.';

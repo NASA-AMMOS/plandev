@@ -59,7 +59,7 @@ begin
   update scheduler.scheduling_specification
   set revision = revision + 1
   where id = new.specification_id;
-  return new;
+  return old;
 end;
 $$;
 

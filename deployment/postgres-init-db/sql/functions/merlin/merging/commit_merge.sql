@@ -32,11 +32,13 @@ begin
   select snapshot_id_supplying_changes from merlin.merge_request mr where mr.id = _request_id into snapshot_id_S;
 
   insert into merlin.merge_staging_area(
-    merge_request_id, activity_id, name, tags, source_scheduling_goal_id, created_at, created_by, last_modified_by,
+    merge_request_id, activity_id, name, tags, source_scheduling_goal_id, source_scheduling_goal_invocation_id,
+    created_at, created_by, last_modified_by,
     start_offset, type, arguments, metadata, anchor_id, anchored_to_start, change_type)
     -- gather delete data from the opposite tables
     select  _request_id, activity_id, name, tags.tag_ids_activity_directive(ca.activity_id, ad.plan_id),
-            source_scheduling_goal_id, created_at, created_by, last_modified_by, start_offset, type, arguments, metadata, anchor_id, anchored_to_start,
+            source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, created_by, last_modified_by,
+            start_offset, type, arguments, metadata, anchor_id, anchored_to_start,
             'delete'::merlin.activity_change_type
       from  merlin.conflicting_activities ca
       join  merlin.activity_directive ad
@@ -47,7 +49,8 @@ begin
         and ca.change_type_supplying = 'delete'
     union
     select  _request_id, activity_id, name, tags.tag_ids_activity_snapshot(ca.activity_id, psa.snapshot_id),
-            source_scheduling_goal_id, created_at, created_by, last_modified_by, start_offset, type, arguments, metadata, anchor_id, anchored_to_start,
+            source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at,
+            created_by, last_modified_by, start_offset, type, arguments, metadata, anchor_id, anchored_to_start,
             'delete'::merlin.activity_change_type
       from  merlin.conflicting_activities ca
       join  merlin.plan_snapshot_activities psa
@@ -58,7 +61,8 @@ begin
         and ca.change_type_receiving = 'delete'
     union
     select  _request_id, activity_id, name, tags.tag_ids_activity_directive(ca.activity_id, ad.plan_id),
-            source_scheduling_goal_id, created_at, created_by, last_modified_by, start_offset, type, arguments, metadata, anchor_id, anchored_to_start,
+            source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, created_by, last_modified_by,
+            start_offset, type, arguments, metadata, anchor_id, anchored_to_start,
             'none'::merlin.activity_change_type
       from  merlin.conflicting_activities ca
       join  merlin.activity_directive ad
@@ -69,7 +73,8 @@ begin
         and ca.change_type_receiving = 'modify'
     union
     select  _request_id, activity_id, name, tags.tag_ids_activity_snapshot(ca.activity_id, psa.snapshot_id),
-            source_scheduling_goal_id, created_at, created_by, last_modified_by, start_offset, type, arguments, metadata, anchor_id, anchored_to_start,
+            source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, created_by, last_modified_by,
+            start_offset, type, arguments, metadata, anchor_id, anchored_to_start,
             'modify'::merlin.activity_change_type
       from  merlin.conflicting_activities ca
       join  merlin.plan_snapshot_activities psa
@@ -87,19 +92,19 @@ begin
   -- Update the plan's activities to match merge-staging-area's activities
   -- Add
   insert into merlin.activity_directive(
-                id, plan_id, name, source_scheduling_goal_id, created_at, created_by, last_modified_by,
-                start_offset, type, arguments, metadata, anchor_id, anchored_to_start )
-  select  activity_id, plan_id_R, name, source_scheduling_goal_id, created_at, created_by, last_modified_by,
-            start_offset, type, arguments, metadata, anchor_id, anchored_to_start
+                id, plan_id, name, source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at,
+                created_by, last_modified_by, start_offset, type, arguments, metadata, anchor_id, anchored_to_start )
+  select  activity_id, plan_id_R, name, source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at,
+          created_by, last_modified_by, start_offset, type, arguments, metadata, anchor_id, anchored_to_start
    from merlin.merge_staging_area
   where merge_staging_area.merge_request_id = _request_id
     and change_type = 'add';
 
   -- Modify
   insert into merlin.activity_directive(
-    id, plan_id, "name", source_scheduling_goal_id, created_at, created_by, last_modified_by,
-    start_offset, "type", arguments, metadata, anchor_id, anchored_to_start )
-  select  activity_id, plan_id_R, "name", source_scheduling_goal_id, created_at, created_by, last_modified_by,
+    id, plan_id, "name", source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, created_by,
+    last_modified_by, start_offset, "type", arguments, metadata, anchor_id, anchored_to_start )
+  select  activity_id, plan_id_R, "name", source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, created_by, last_modified_by,
           start_offset, "type", arguments, metadata, anchor_id, anchored_to_start
   from merlin.merge_staging_area
   where merge_staging_area.merge_request_id = _request_id
@@ -108,6 +113,7 @@ begin
   do update
   set name = excluded.name,
       source_scheduling_goal_id = excluded.source_scheduling_goal_id,
+      source_scheduling_goal_invocation_id = excluded.source_scheduling_goal_invocation_id,
       created_at = excluded.created_at,
       created_by = excluded.created_by,
       last_modified_by = excluded.last_modified_by,

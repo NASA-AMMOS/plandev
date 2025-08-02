@@ -1,0 +1,40 @@
+table:
+  name: constraint_request
+  schema: merlin
+configuration:
+  custom_name: "constraint_request"
+object_relationships:
+  - name: plan
+    using:
+      foreign_key_constraint_on: plan_id
+  - name: simulation_dataset
+    using:
+      foreign_key_constraint_on: simulation_dataset_id
+array_relationships:
+  - name: constraints_run
+    using:
+      foreign_key_constraint_on:
+        column: request_id
+        table:
+          name: constraint_run
+          schema: merlin
+select_permissions:
+  - role: aerie_admin
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: user
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: viewer
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+delete_permissions:
+  - role: aerie_admin
+    permission:
+      filter: {}

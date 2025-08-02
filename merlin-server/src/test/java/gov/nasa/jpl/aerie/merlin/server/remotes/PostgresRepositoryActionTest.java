@@ -4,6 +4,8 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresPlanRepository;
 
+import java.nio.file.Path;
+
 public class PostgresRepositoryActionTest {
 
   public static void main(final String[] args) {
@@ -19,7 +21,7 @@ public class PostgresRepositoryActionTest {
 
     final var hikariDataSource = new HikariDataSource(hikariConfig);
 
-    final var plans = new PostgresPlanRepository(hikariDataSource);
+    final var plans = new PostgresPlanRepository(hikariDataSource, Path.of("/usr/src/app/merlin_file_store"));
 
     System.out.println(plans.getAllPlans());
   }

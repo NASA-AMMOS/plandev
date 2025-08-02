@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: aerie-dev
+  name: aerie-action
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aerie-action
+  template:
+    metadata:
+      labels:
+        app: aerie-action
+    spec:
+      containers:
+        - name: aerie-action
+          image: ghcr.io/nasa-ammos/aerie-action:develop
+          ports:
+            - containerPort: 27186
+          resources: {}
+          volumeMounts:
+            - mountPath: /usr/src/app/action_file_store
+              name: aerie-file-store
+          env:
+            - name: HASURA_GRAPHQL_ADMIN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: dev-env
+                  key: HASURA_GRAPHQL_ADMIN_SECRET
+            - name: LOG_FILE
+              value: console
+            - name: LOG_LEVEL
+              value: warn
+            - name: MERLIN_GRAPHQL_URL
+              value: http://hasura:8080/v1/graphql
+            - name: AERIE_DB_PORT
+              value: "5432"
+            - name: AERIE_DB_HOST
+              value: postgres
+            - name: ACTION_LOCAL_STORE
+              value: /usr/src/app/action_file_store
+            - name: ACTION_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: dev-env
+                  key: SEQUENCING_USERNAME
+            - name: ACTION_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dev-env
+                  key: SEQUENCING_PASSWORD
+      restartPolicy: Always
+      volumes:
+        - name: aerie-file-store
+          persistentVolumeClaim:
+            claimName: aerie-file-store

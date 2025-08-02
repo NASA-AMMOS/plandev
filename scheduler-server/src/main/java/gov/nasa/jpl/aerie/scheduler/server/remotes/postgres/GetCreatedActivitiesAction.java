@@ -1,6 +1,6 @@
 package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.scheduler.server.models.GoalId;
+import gov.nasa.jpl.aerie.scheduler.model.GoalId;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import org.intellij.lang.annotations.Language;
 
@@ -11,7 +11,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 /*package-local*/ final class GetCreatedActivitiesAction implements AutoCloseable {
   private static final @Language("SQL") String sql = """

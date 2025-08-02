@@ -138,6 +138,11 @@ final class MerlinDatabaseTestHelper {
     return insertActivity(planId, startOffset, arguments, admin);
   }
 
+  int insertActivity(final int planId, final String startOffset, final String type, final String arguments) throws SQLException {
+    return insertActivity(planId, startOffset, type, arguments, admin);
+  }
+
+
   int insertActivity(final int planId, final String startOffset, final String arguments, User user) throws SQLException {
     try (final var statement = connection.createStatement()) {
       final var res = statement
@@ -148,6 +153,23 @@ final class MerlinDatabaseTestHelper {
               VALUES ('test-activity', '%s', '%s', '%s', '%s', '%s')
               RETURNING id;
               """.formatted(planId, startOffset, arguments, user.name, user.name)
+          );
+
+      res.next();
+      return res.getInt("id");
+    }
+  }
+
+  int insertActivity(final int planId, final String startOffset, final String type, final String arguments, User user) throws SQLException {
+    try (final var statement = connection.createStatement()) {
+      final var res = statement
+          .executeQuery(
+              //language=sql
+              """
+              INSERT INTO merlin.activity_directive (type, plan_id, start_offset, arguments, last_modified_by, created_by)
+              VALUES ('%s', '%s', '%s', '%s', '%s', '%s')
+              RETURNING id;
+              """.formatted(type, planId, startOffset, arguments, user.name, user.name)
           );
 
       res.next();
@@ -212,6 +234,18 @@ final class MerlinDatabaseTestHelper {
           INSERT INTO merlin.activity_type (model_id, name, parameters, required_parameters, computed_attributes_value_schema)
           VALUES (%d, '%s', '{}', '[]', '{}');
           """.formatted(modelId, name)
+      );
+    }
+  }
+
+  void insertActivityType(final int modelId, final String name, final String parameters) throws SQLException {
+    try(final var statement = connection.createStatement()) {
+      statement.execute(
+          //language=sql
+          """
+          INSERT INTO merlin.activity_type (model_id, name, parameters, required_parameters, computed_attributes_value_schema)
+          VALUES (%d, '%s', '%s'::json, '[]', '{}');
+          """.formatted(modelId, name, parameters)
       );
     }
   }

@@ -9,3 +9,8 @@
 CVE-2023-24538
 CVE-2023-24540
 CVE-2024-24790
+
+# Not relevant to Aerie, as it requires an attacker to craft a malicious JSON string to perform a Denial of Service attack
+# https://access.redhat.com/security/cve/CVE-2023-7272
+# This is not part of our threat model, we intentionally allow users to perform many long-running actions that could cause DoS
+CVE-2023-7272

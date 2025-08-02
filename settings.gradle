@@ -17,10 +17,10 @@ include 'procedural:processor'
 include 'procedural:timeline'
 include 'procedural:constraints'
 include 'procedural:scheduling'
-include 'procedural:remote'
+include 'procedural:utils'
 
 // Procedural examples
-include 'procedural:examples:foo-procedures'
+include 'procedural:examples:banana-procedures'
 
 // Services for deployment within the Aerie infrastructure
 include 'merlin-server'
@@ -28,6 +28,7 @@ include 'merlin-worker'
 include 'scheduler-server'
 include 'scheduler-worker'
 include 'sequencing-server'
+include 'action-server'
 
 // Command-line interface direct to services
 include 'constraints'
@@ -46,6 +47,8 @@ include 'examples:foo-missionmodel'
 include 'examples:config-with-defaults'
 include 'examples:config-without-defaults'
 include 'examples:minimal-mission-model'
+include 'examples:model-migration-1'
+include 'examples:model-migration-2'
 include 'examples:streamline-demo'
 include 'stateless-aerie'
 include 'orchestration-utils'

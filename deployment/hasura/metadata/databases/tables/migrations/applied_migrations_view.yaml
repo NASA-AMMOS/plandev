@@ -1,0 +1,11 @@
+table:
+  name: applied_migrations
+  schema: migrations
+configuration:
+  custom_name: "applied_migrations"
+select_permissions:
+  - role: aerie_admin
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true

@@ -108,7 +108,7 @@ class ConstraintsDSLCompilationServiceTests {
     ));
     if (actualErrors.errors()
                     .stream()
-                    .noneMatch(e -> e.message().contains(error))) {
+                    .noneMatch(e -> e.getMessage().contains(error))) {
       fail("Expected error:\n" + error + "\nIn list of errors:\n" + actualErrors.errors() + "\n");
     }
   }

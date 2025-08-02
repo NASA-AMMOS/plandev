@@ -1,0 +1,26 @@
+plugins {
+  id 'com.github.node-gradle.node' version '5.0.0'
+}
+
+node {
+  version = '22.13.1'
+  download = true
+}
+
+task assemble(type: NpmTask) {
+  dependsOn npmInstall
+  args = ['--silent', 'run', 'build']
+}
+
+task build {
+  dependsOn assemble
+}
+
+task clean(type: Delete) {
+  delete 'build'
+}
+
+task e2eTest(type: NpmTask) {
+  dependsOn npmInstall
+  args = ['--silent', 'run', 'test']
+}

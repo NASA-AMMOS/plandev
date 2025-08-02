@@ -1,6 +1,6 @@
 package gov.nasa.jpl.aerie.scheduler.server.exceptions;
 
-import gov.nasa.jpl.aerie.scheduler.server.models.GoalId;
+import gov.nasa.jpl.aerie.scheduler.model.GoalId;
 
 public final class NoSuchSchedulingGoalException extends Exception {
   public final GoalId goalId;

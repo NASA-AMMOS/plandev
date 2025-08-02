@@ -22,6 +22,11 @@ import gov.nasa.ammos.aerie.procedural.timeline.util.duration.rangeTo
 interface ParallelOps<T: IntervalLike<T>, THIS: ParallelOps<T, THIS>>: GeneralOps<T, THIS>, CoalesceNoOp<T, THIS> {
 
   override fun isAlwaysSorted() = false
+  
+  /**
+   * Returns just the intervals from the timeline, without coalescing.
+   */
+  fun collectIntervals() = collect().map { it.interval }
 
   /** [(DOC)][highlightAll] Highlights all objects in the timeline in a new [Windows] timeline. */
   fun highlightAll() = unsafeMap(::Windows, BoundsTransformer.IDENTITY, true) { it.interval }
@@ -137,6 +142,9 @@ interface ParallelOps<T: IntervalLike<T>, THIS: ParallelOps<T, THIS>>: GeneralOp
           },
           true
       ) { t -> t.interval.shiftBy(shiftStart, shiftEnd) }
+
+  /** [(DOC)][extend] Extends just the end of each object's interval by a duration. The duration can be negative. */
+  fun extend(shiftEnd: Duration) = shiftEndpoints(Duration.ZERO, shiftEnd)
 
   /** [(DOC)][active] Returns a [Booleans] profile that is true when this timeline has an active object. */
   fun active() = flattenIntoProfile(::Booleans) { _ -> true }.assignGaps(Booleans(false))

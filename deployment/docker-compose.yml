@@ -1,11 +1,33 @@
-version: "3.7"
 services:
+  aerie_action:
+    container_name: aerie_action
+    depends_on: [ "postgres" ]
+    environment:
+      HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
+      LOG_FILE: console
+      LOG_LEVEL: debug
+      MERLIN_GRAPHQL_URL: http://hasura:8080/v1/graphql
+      AERIE_DB_HOST: postgres
+      AERIE_DB_PORT: 5432
+      ACTION_DB_USER: "${SEQUENCING_USERNAME}"
+      ACTION_DB_PASSWORD: "${SEQUENCING_PASSWORD}"
+      ACTION_LOCAL_STORE: /usr/src/app/action_file_store
+      ACTION_WORKER_NUM: 1
+      ACTION_MAX_WORKER_NUM: 1
+    image: "${REPOSITORY_DOCKER_URL}/aerie-action:${DOCKER_TAG}"
+    ports: [ "27186:27186" ]
+    restart: always
+    volumes:
+      - aerie_file_store:/usr/src/app/action_file_store
+    networks:
+      - aerie_net
   aerie_gateway:
     container_name: aerie_gateway
     depends_on: ["postgres"]
     environment:
       AUTH_TYPE: none
       GQL_API_URL: http://localhost:8080/v1/graphql
+      HASURA_API_URL: http://hasura:8080/
       HASURA_GRAPHQL_JWT_SECRET: "${HASURA_GRAPHQL_JWT_SECRET}"
       LOG_FILE: console
       LOG_LEVEL: warn
@@ -124,6 +146,7 @@ services:
       SEQUENCING_DB_USER: "${SEQUENCING_USERNAME}"
       SEQUENCING_DB_PASSWORD: "${SEQUENCING_PASSWORD}"
       SEQUENCING_LOCAL_STORE: /usr/src/app/sequencing_file_store
+      SEQUENCING_LANGUAGE: "SEQN"
       #DICTIONARY_PARSER_PLUGIN: "/fprime-dictionary-parser/fprime-parser.js" #-- Uncomment to use a different commmand dictionary parser
       SEQUENCING_WORKER_NUM: 8
       SEQUENCING_MAX_WORKER_NUM : 8
@@ -156,7 +179,7 @@ services:
     container_name: hasura
     depends_on: ["postgres"]
     environment:
-      AERIE_DATABASE_URL: "postgres://${AERIE_USERNAME}:${AERIE_PASSWORD}@postgres:5432/aerie?options=-c%20search_path%3Dutil_functions%2Chasura%2Cpermissions%2Ctags%2Cmerlin%2Cscheduler%2Csequencing%2Cpublic"
+      AERIE_DATABASE_URL: "postgres://${AERIE_USERNAME}:${AERIE_PASSWORD}@postgres:5432/aerie?options=-c%20search_path%3Dutil_functions%2Chasura%2Cpermissions%2Ctags%2Cmerlin%2Cscheduler%2Csequencing%2Cactions%2Cpublic"
       AERIE_MERLIN_URL: "http://aerie_merlin:27183"
       AERIE_SCHEDULER_URL: "http://aerie_scheduler:27185"
       AERIE_SEQUENCING_URL: "http://aerie_sequencing:27184"

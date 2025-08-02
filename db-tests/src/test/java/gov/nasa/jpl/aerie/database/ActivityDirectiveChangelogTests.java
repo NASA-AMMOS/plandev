@@ -68,6 +68,7 @@ public class ActivityDirectiveChangelogTests {
           res.getInt("plan_id"),
           res.getString("name"),
           res.getInt("source_scheduling_goal_id"),
+          res.getInt("source_scheduling_goal_invocation_id"),
           res.getString("created_at"),
           res.getString("created_by"),
           res.getString("last_modified_at"),
@@ -176,6 +177,7 @@ public class ActivityDirectiveChangelogTests {
         assertEquals(current.planId(), res.getInt("plan_id"));
         assertEquals(current.name(), res.getString("name"));
         assertEquals(current.sourceSchedulingGoalId(), res.getInt("source_scheduling_goal_id"));
+        assertEquals(current.sourceSchedulingGoalInvocationId(), res.getInt("source_scheduling_goal_invocation_id"));
         assertEquals(current.lastModifiedAt(), res.getString("changed_at"));
         assertEquals(current.lastModifiedBy(), res.getString("changed_by"));
         assertEquals(current.startOffset(), res.getString("start_offset"));

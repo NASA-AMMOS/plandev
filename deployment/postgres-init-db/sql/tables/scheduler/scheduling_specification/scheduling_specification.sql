@@ -50,8 +50,8 @@ begin
   returning id into spec_id;
 
   -- Populate the scheduling specification
-  insert into scheduler.scheduling_specification_goals (specification_id, goal_id, goal_revision, priority)
-  select spec_id, msg.goal_id, msg.goal_revision, msg.priority
+  insert into scheduler.scheduling_specification_goals (specification_id, goal_id, goal_revision, priority, arguments)
+  select spec_id, msg.goal_id, msg.goal_revision, msg.priority, msg.arguments
   from scheduler.scheduling_model_specification_goals msg
   where msg.model_id = new.model_id
   order by msg.priority;

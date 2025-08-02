@@ -241,8 +241,8 @@ public class TestRecurrenceGoalExtended {
         .build();
     problem.setGoals(List.of(goal));
     final var initialPlan = new PlanInMemory();
-    initialPlan.add(SchedulingActivity.of(idGenerator.next(), activityType, Duration.ZERO, Duration.of(2, SECONDS), null, true, false));
-    initialPlan.add(SchedulingActivity.of(idGenerator.next(), activityType, SECONDS.times(10), Duration.of(2, SECONDS), null, true, false));
+    initialPlan.add(SchedulingActivity.of(idGenerator.next(), activityType, Duration.ZERO, Duration.of(2, SECONDS), null, true));
+    initialPlan.add(SchedulingActivity.of(idGenerator.next(), activityType, SECONDS.times(10), Duration.of(2, SECONDS), null, true));
     problem.setInitialPlan(initialPlan);
     final var solver = new PrioritySolver(problem);
     var plan = solver.getNextSolution().orElseThrow();
@@ -271,9 +271,9 @@ public class TestRecurrenceGoalExtended {
         .build();
     problem.setGoals(List.of(goal));
     final var initialPlan = new PlanInMemory();
-    initialPlan.add(SchedulingActivity.of(idGenerator.next(), controllableActivity, Duration.ZERO, Duration.of(2, SECONDS), null, true, false));
-    initialPlan.add(SchedulingActivity.of(idGenerator.next(), controllableActivity, SECONDS.times(10), Duration.of(2, SECONDS), null, true, false));
-    initialPlan.add(SchedulingActivity.of(idGenerator.next(), basicActivity, SECONDS.times(5), Duration.of(2, SECONDS), null, true, false));
+    initialPlan.add(SchedulingActivity.of(idGenerator.next(), controllableActivity, Duration.ZERO, Duration.of(2, SECONDS), null, true));
+    initialPlan.add(SchedulingActivity.of(idGenerator.next(), controllableActivity, SECONDS.times(10), Duration.of(2, SECONDS), null, true));
+    initialPlan.add(SchedulingActivity.of(idGenerator.next(), basicActivity, SECONDS.times(5), Duration.of(2, SECONDS), null, true));
     problem.setInitialPlan(initialPlan);
     createMutex(controllableActivity, basicActivity).forEach(problem::add);
     final var solver = new PrioritySolver(problem);
@@ -307,7 +307,7 @@ public class TestRecurrenceGoalExtended {
         .build();
     problem.setGoals(List.of(goal));
     final var initialPlan = new PlanInMemory();
-    initialPlan.add(SchedulingActivity.of(idGenerator.next(), basicActivity, SECONDS.times(8), Duration.of(4, SECONDS), null, true, false));
+    initialPlan.add(SchedulingActivity.of(idGenerator.next(), basicActivity, SECONDS.times(8), Duration.of(4, SECONDS), null, true));
     problem.setInitialPlan(initialPlan);
     createMutex(controllableActivity, basicActivity).forEach(problem::add);
     final var solver = new PrioritySolver(problem);
@@ -342,7 +342,7 @@ public class TestRecurrenceGoalExtended {
         .build();
     problem.setGoals(List.of(goal));
     final var initialPlan = new PlanInMemory();
-    initialPlan.add(SchedulingActivity.of(idGenerator.next(), basicActivity, SECONDS.times(13), Duration.of(3, SECONDS), null, true, false));
+    initialPlan.add(SchedulingActivity.of(idGenerator.next(), basicActivity, SECONDS.times(13), Duration.of(3, SECONDS), null, true));
     problem.setInitialPlan(initialPlan);
     createMutex(controllableActivity, basicActivity).forEach(problem::add);
     final var solver = new PrioritySolver(problem);
@@ -377,7 +377,7 @@ public class TestRecurrenceGoalExtended {
         .build();
     problem.setGoals(List.of(goal));
     final var initialPlan = new PlanInMemory();
-    initialPlan.add(SchedulingActivity.of(idGenerator.next(), basicActivity, SECONDS.times(7), Duration.of(7, SECONDS), null, true, false));
+    initialPlan.add(SchedulingActivity.of(idGenerator.next(), basicActivity, SECONDS.times(7), Duration.of(7, SECONDS), null, true));
     problem.setInitialPlan(initialPlan);
     createMutex(controllableActivity, basicActivity).forEach(problem::add);
     final var solver = new PrioritySolver(problem);

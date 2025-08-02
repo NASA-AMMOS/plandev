@@ -29,24 +29,24 @@ select_permissions:
 insert_permissions:
   - role: aerie_admin
     permission:
-      columns: [definition, seq_json, name, owner, parcel_id, workspace_id]
+      columns: [definition, seq_json, name, owner, is_locked, parcel_id, workspace_id]
       check: {}
       set:
         owner: "x-hasura-user-id"
   - role: user
     permission:
-      columns: [definition, seq_json, name, owner, parcel_id, workspace_id]
+      columns: [definition, seq_json, name, owner, is_locked, parcel_id, workspace_id]
       check: {}
       set:
         owner: "x-hasura-user-id"
 update_permissions:
   - role: aerie_admin
     permission:
-      columns: [definition, seq_json, name, owner, parcel_id, workspace_id]
+      columns: [definition, seq_json, name, owner, is_locked, parcel_id, workspace_id]
       filter: {}
   - role: user
     permission:
-      columns: [definition, seq_json, name, owner, parcel_id, workspace_id]
+      columns: [definition, seq_json, name, owner, is_locked, parcel_id, workspace_id]
       filter: { "owner": { "_eq": "x-hasura-user-id" } }
 delete_permissions:
   - role: aerie_admin

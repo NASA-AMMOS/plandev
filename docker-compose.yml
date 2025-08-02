@@ -1,5 +1,31 @@
-version: "3.7"
 services:
+  aerie_action:
+    build:
+      context: ./action-server
+      dockerfile: Dockerfile
+      #dockerfile: Dockerfile.dev #-- Uncomment for development
+    container_name: aerie_action
+    depends_on: [ "postgres" ]
+    environment:
+      HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
+      LOG_FILE: console
+      LOG_LEVEL: debug
+      MERLIN_GRAPHQL_URL: http://hasura:8080/v1/graphql
+      AERIE_DB_HOST: postgres
+      AERIE_DB_PORT: 5432
+      ACTION_DB_USER: "${SEQUENCING_USERNAME}"
+      ACTION_DB_PASSWORD: "${SEQUENCING_PASSWORD}"
+      ACTION_LOCAL_STORE: /usr/src/app/action_file_store
+      ACTION_WORKER_NUM: 1
+      ACTION_MAX_WORKER_NUM: 1
+      SEQUENCING_LOCAL_STORE: /usr/src/app/sequencing_file_store
+    image: aerie_action
+    ports: [ "27186:27186" ]
+    #ports: [ "27186:27186",'9229:9229'] #-- Uncomment for development
+    restart: always
+    volumes:
+      - ./action-server:/app:cached
+      - aerie_file_store:/usr/src/app/action_file_store
   aerie_gateway:
     container_name: aerie_gateway
     depends_on: ["postgres"]
@@ -7,6 +33,7 @@ services:
       AUTH_TYPE: none
       AUTH_URL: https://atb-ocio-12b.jpl.nasa.gov:8443/cam-api
       GQL_API_URL: http://localhost:8080/v1/graphql
+      HASURA_API_URL: http://hasura:8080/
       HASURA_GRAPHQL_JWT_SECRET: "${HASURA_GRAPHQL_JWT_SECRET}"
       LOG_FILE: console
       LOG_LEVEL: debug
@@ -91,6 +118,7 @@ services:
       SEQUENCING_DB_USER: "${SEQUENCING_USERNAME}"
       SEQUENCING_DB_PASSWORD: "${SEQUENCING_PASSWORD}"
       SEQUENCING_LOCAL_STORE: /usr/src/app/sequencing_file_store
+      SEQUENCING_LANGUAGE: "SEQN"
       #DICTIONARY_PARSER_PLUGIN: "/fprime-dictionary-parser/fprime-parser.js" #-- Relative to sequencing-server/plugins, Uncomment to use a different command dictionary parser
       SEQUENCING_WORKER_NUM: 8
       SEQUENCING_MAX_WORKER_NUM : 8
@@ -116,6 +144,7 @@ services:
       PUBLIC_HASURA_CLIENT_URL: http://localhost:8080/v1/graphql
       PUBLIC_HASURA_SERVER_URL: http://hasura:8080/v1/graphql
       PUBLIC_HASURA_WEB_SOCKET_URL: ws://localhost:8080/v1/graphql
+      PUBLIC_COMMAND_EXPANSION_MODE: "typescript"
     image: "ghcr.io/nasa-ammos/aerie-ui:v3.0.1"
     ports: ["80:80"]
     restart: always
@@ -233,7 +262,7 @@ services:
     container_name: aerie_hasura
     depends_on: ["postgres"]
     environment:
-      AERIE_DATABASE_URL: "postgres://${AERIE_USERNAME}:${AERIE_PASSWORD}@postgres:5432/aerie?options=-c%20search_path%3Dutil_functions%2Chasura%2Cpermissions%2Ctags%2Cmerlin%2Cscheduler%2Csequencing%2Cpublic"
+      AERIE_DATABASE_URL: "postgres://${AERIE_USERNAME}:${AERIE_PASSWORD}@postgres:5432/aerie?options=-c%20search_path%3Dutil_functions%2Chasura%2Cpermissions%2Ctags%2Cmerlin%2Cscheduler%2Csequencing%2Cactions%2Cpublic"
       AERIE_MERLIN_URL: "http://aerie_merlin:27183"
       AERIE_SCHEDULER_URL: "http://aerie_scheduler:27185"
       AERIE_SEQUENCING_URL: "http://aerie_sequencing:27184"

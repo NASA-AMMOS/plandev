@@ -98,20 +98,17 @@ create function scheduler.update_scheduling_specification_goal_func()
   returns trigger
   language plpgsql as $$
   declare
-    next_priority integer;
+    max_priority integer;
 begin
-  select coalesce(
-    (select priority
-     from scheduler.scheduling_specification_goals ssg
-     where ssg.specification_id = new.specification_id
-     order by priority desc
-     limit 1), -1) + 1
-  into next_priority;
+  select count(goal_invocation_id) - 1
+  from scheduler.scheduling_specification_goals ssg
+  where ssg.specification_id = new.specification_id
+  into max_priority;
 
-  if new.priority > next_priority then
+  if new.priority > max_priority then
     raise numeric_value_out_of_range using
-      message = ('Updated priority % for specification_id % is not consecutive', new.priority, new.specification_id),
-      hint = ('The next available priority is %.', next_priority);
+      message = ('Updated priority '|| new.priority ||' for specification '|| new.specification_id ||' is out of bounds.'),
+      hint = ('There are only '|| (max_priority + 1) ||' goals on the specification');
   end if;
 
   if new.priority > old.priority then
@@ -119,13 +116,13 @@ begin
     set priority = priority - 1
     where specification_id = new.specification_id
       and priority between old.priority + 1 and new.priority
-      and goal_id != new.goal_id;
+      and goal_invocation_id != new.goal_invocation_id;
   else
     update scheduler.scheduling_specification_goals
     set priority = priority + 1
     where specification_id = new.specification_id
       and priority between new.priority and old.priority - 1
-      and goal_id != new.goal_id;
+      and goal_invocation_id != new.goal_invocation_id;
   end if;
   return new;
 end;

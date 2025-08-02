@@ -17,4 +17,17 @@ public record ActivityInstance(
   List<ActivityInstanceId> childIds,
   Optional<ActivityDirectiveId> directiveId,
   SerializedValue computedAttributes
-) { }
+) {
+  public ActivityInstance withDirectiveId(ActivityDirectiveId directiveId) {
+    return new ActivityInstance(
+        type,
+        arguments,
+        start,
+        duration,
+        parentId,
+        childIds,
+        Optional.of(directiveId),
+        computedAttributes
+    );
+  }
+}

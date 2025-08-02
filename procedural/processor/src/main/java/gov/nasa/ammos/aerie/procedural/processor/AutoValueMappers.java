@@ -59,7 +59,7 @@ public class AutoValueMappers {
             .addAnnotation(
                 AnnotationSpec
                     .builder(javax.annotation.processing.Generated.class)
-                    .addMember("value", "$S", SchedulingProcedureProcessor.class.getCanonicalName())
+                    .addMember("value", "$S", ProcedureProcessor.class.getCanonicalName())
                     .build())
             .addAnnotation(
                 AnnotationSpec

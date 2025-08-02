@@ -15,6 +15,4 @@ interface Constraint {
    * @param simResults the [SimulationResults] that the result will be collected with
    */
   fun run(plan: Plan, simResults: SimulationResults): Violations
-
-
 }

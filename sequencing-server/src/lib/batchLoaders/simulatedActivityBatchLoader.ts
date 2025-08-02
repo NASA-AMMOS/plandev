@@ -166,10 +166,10 @@ export const simulatedActivityInstanceBySimulatedActivityIdBatchLoader: BatchLoa
         );
       }
 
-      if(spans.length > 1) {
+      if (spans.length > 1) {
         return new ErrorWithStatusCode(
-            `Too many spans with simulated activity id ${simulatedActivityId} found for simulation_dataset with id ${simulationDatasetId}`,
-            404,
+          `Too many spans with simulated activity id ${simulatedActivityId} found for simulation_dataset with id ${simulationDatasetId}`,
+          404,
         );
       }
 
@@ -191,6 +191,105 @@ export const simulatedActivityInstanceBySimulatedActivityIdBatchLoader: BatchLoa
           missionModelId: simulation_dataset.simulation.plan.model_id,
           activityTypeName: simulatedActivity.activity_type_name,
         }),
+      );
+    }),
+  );
+};
+
+export const simulatedActivityInstanceBySeqIdBatchLoader: BatchLoader<
+  { simulationDatasetId: number; seqId: number },
+  SimulatedActivity[],
+  { graphqlClient: GraphQLClient; activitySchemaDataLoader: InferredDataloader<typeof activitySchemaBatchLoader> }
+> = opts => async keys => {
+  const result = await opts.graphqlClient.batchRequests<
+    {
+      data: {
+        simulation_dataset: {
+          id: number;
+          simulation_start_time: string;
+          simulation: {
+            plan: {
+              id: number;
+              model_id: number;
+            };
+          }
+        };
+        sequence_to_simulated_activity: { spans: GQLSpan }[];
+      };
+    }[]
+  >(
+    keys.map(key => ({
+      document: gql`
+        query ($simulationDatasetId: Int!, $seqId: String!) {
+          simulation_dataset: simulation_dataset_by_pk(id: $simulationDatasetId) {
+            id
+            simulation_start_time
+            simulation {
+              plan {
+                id
+                model_id
+              }
+            }
+          }
+          sequence_to_simulated_activity(where: {_and: [{simulation_dataset_id: {_eq: $simulationDatasetId}},  {seq_id: {_eq: $seqId}}]}) {
+            spans: simulated_activity {
+              span_id: id
+              attributes
+              start_offset
+              duration
+              activity_type_name
+            }
+          }
+        }
+      `,
+      variables: {
+        simulationDatasetId: key.simulationDatasetId,
+        seqId: key.seqId,
+      },
+    })),
+  );
+
+  return Promise.all(
+    keys.map(async ({ simulationDatasetId, seqId }) => {
+      const simulation_dataset = result.find(res => res.data.simulation_dataset.id === simulationDatasetId)?.data
+        .simulation_dataset;
+      if (simulation_dataset === undefined) {
+        return new ErrorWithStatusCode(`No simulation_dataset with id: ${simulationDatasetId}`, 404);
+      }
+
+      const filteredSpans = result.find(res => res.data.simulation_dataset.id === simulationDatasetId)?.data.sequence_to_simulated_activity;
+      if (filteredSpans === undefined || filteredSpans.length === 0 || filteredSpans[0] === undefined) {
+        return new ErrorWithStatusCode(
+          `No simulated, filtered activities with id: ${simulationDatasetId} and seqId: ${seqId}`,
+          404,
+        );
+      }
+
+      const simulatedActivities: GraphQLSimulatedActivityInstance[] = filteredSpans.map(span => {
+        const simulatedActivity = span.spans
+        return {
+          id: simulatedActivity.span_id,
+          simulation_dataset_id: simulation_dataset.id,
+          plan_id: simulation_dataset.simulation.plan.id,
+          model_id: simulation_dataset.simulation.plan.model_id,
+          attributes: simulatedActivity.attributes,
+          duration: simulatedActivity.duration,
+          start_offset: simulatedActivity.start_offset,
+          simulation_start_time: simulation_dataset.simulation_start_time,
+          activity_type_name: simulatedActivity.activity_type_name,
+        };
+      });
+
+      return Promise.all(
+        simulatedActivities.map(async simulatedActivity =>
+          mapGraphQLActivityInstance(
+            simulatedActivity,
+            await opts.activitySchemaDataLoader.load({
+              missionModelId: simulation_dataset.simulation.plan.model_id,
+              activityTypeName: simulatedActivity.activity_type_name,
+            }),
+          ),
+        ),
       );
     }),
   );
@@ -315,7 +414,7 @@ function convertType(value: any, schema: Schema): any {
       return value;
     case SchemaTypes.Duration:
       if (value !== null) {
-        return Temporal.Duration.from(parse(value).toISOString());
+        return Temporal.Duration.from({ microseconds: value });
       }
       return value;
     case SchemaTypes.Boolean:

@@ -1,5 +1,6 @@
 package gov.nasa.ammos.aerie.procedural.timeline
 
+import gov.nasa.ammos.aerie.procedural.timeline.collections.Windows
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.ammos.aerie.procedural.timeline.util.duration.rangeTo
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.IntervalLike
@@ -218,6 +219,8 @@ data class Interval @JvmOverloads constructor(
     return between(start, end, startInclusivity, endInclusivity)
   }
 
+  infix fun intersection(other: Windows) = other intersection this
+
   /**
    * Calculates the union between this interval and another, as a list of intervals.
    *
@@ -251,6 +254,8 @@ data class Interval @JvmOverloads constructor(
     }
     return listOf(between(start, end, startInclusivity, endInclusivity))
   }
+
+  infix fun union(other: Windows) = other union this
 
   /** The smallest interval that contains both this and another interval. */
   infix fun hull(other: Interval): Interval {

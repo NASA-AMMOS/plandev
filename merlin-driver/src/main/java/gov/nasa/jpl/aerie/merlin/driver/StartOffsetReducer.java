@@ -7,8 +7,10 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.RecursiveTask;
 
 
@@ -98,21 +100,31 @@ public class StartOffsetReducer extends RecursiveTask<HashMap<ActivityDirectiveI
    *   ActivityDirectiveID: the ID of the activity that must finish being simulated before we can simulate the specified activity
    *   Duration: the net start offset from that ID
    */
-  private Pair<ActivityDirectiveId, Duration> getNetOffset(ActivityDirective ad){
+  private Pair<ActivityDirectiveId, Duration> getNetOffset(ActivityDirective ad) {
     ActivityDirective currentActivityDirective;
     ActivityDirectiveId currentAnchorId = ad.anchorId();
     boolean anchoredToStart = ad.anchoredToStart();
     Duration netOffset = ad.startOffset();
 
-    while(currentAnchorId != null && anchoredToStart){
-      currentActivityDirective = completeMapOfDirectives.get(currentAnchorId);
-      currentAnchorId = currentActivityDirective.anchorId();
-      anchoredToStart = currentActivityDirective.anchoredToStart();
-      netOffset = netOffset.plus(currentActivityDirective.startOffset());
+    // Keep track of all seen anchor IDs
+    final Set<ActivityDirectiveId> seenAnchorIds = new HashSet<>();
+    seenAnchorIds.add(currentAnchorId);
+
+    while(currentAnchorId != null && anchoredToStart) {
+        currentActivityDirective = completeMapOfDirectives.get(currentAnchorId);
+        currentAnchorId = currentActivityDirective.anchorId();
+
+        // Check if we've seen this anchor ID before
+        if (currentAnchorId != null && !seenAnchorIds.add(currentAnchorId)) {
+            throw new IllegalStateException("Anchor ID cycle detected involving ID: " + currentAnchorId);
+        }
+
+        anchoredToStart = currentActivityDirective.anchoredToStart();
+        netOffset = netOffset.plus(currentActivityDirective.startOffset());
     }
 
     if(currentAnchorId == null && !anchoredToStart) {
-      return Pair.of(null, planDuration.plus(netOffset)); // Add plan duration if anchored to plan end for net
+        return Pair.of(null, planDuration.plus(netOffset)); // Add plan duration if anchored to plan end for net
     }
     return Pair.of(currentAnchorId, netOffset);
   }

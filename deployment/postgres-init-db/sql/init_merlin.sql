@@ -10,6 +10,7 @@ begin;
   \ir types/merlin/merlin-arguments.sql
   \ir types/merlin/activity-directive-metadata.sql
   \ir types/merlin/plan-merge-types.sql
+  \ir types/merlin/constraint_type.sql
 
   ------------
   -- Tables
@@ -26,6 +27,9 @@ begin;
   \ir tables/merlin/plan.sql
   \ir tables/merlin/plan_collaborators.sql
 
+  -- Scheduling Goals and Scheduling Goal Specification
+  \ir init_scheduler_mid_merlin.sql
+  
   -- Activity Directives
   \ir tables/merlin/activity_directive/activity_directive_metadata_schema.sql
   \ir tables/merlin/activity_directive/activity_directive.sql
@@ -57,6 +61,8 @@ begin;
   \ir tables/merlin/constraints/constraint_definition.sql
   \ir tables/merlin/constraints/constraint_model_specification.sql
   \ir tables/merlin/constraints/constraint_specification.sql
+  \ir tables/merlin/constraints/constraint_request.sql
+  \ir tables/merlin/constraints/constraint_results.sql
   \ir tables/merlin/constraints/constraint_run.sql
 
   -- Snapshots

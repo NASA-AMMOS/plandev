@@ -1,6 +1,6 @@
 package gov.nasa.jpl.aerie.constraints.tree;
 
-import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
+import gov.nasa.jpl.aerie.constraints.model.EDSLConstraintResult;
 import gov.nasa.jpl.aerie.constraints.model.EvaluationEnvironment;
 import gov.nasa.jpl.aerie.constraints.model.LinearEquation;
 import gov.nasa.jpl.aerie.constraints.model.LinearProfile;
@@ -16,7 +16,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
-public record RollingThreshold(Expression<Spans> spans, Expression<Duration> width, Expression<Duration> threshold, RollingThresholdAlgorithm algorithm) implements Expression<ConstraintResult> {
+public record RollingThreshold(
+    Expression<Spans> spans,
+    Expression<Duration> width,
+    Expression<Duration> threshold,
+    RollingThresholdAlgorithm algorithm
+) implements Expression<EDSLConstraintResult> {
 
   public enum RollingThresholdAlgorithm {
     ExcessSpans,
@@ -26,7 +31,7 @@ public record RollingThreshold(Expression<Spans> spans, Expression<Duration> wid
   }
 
   @Override
-  public ConstraintResult evaluate(SimulationResults results, final Interval bounds, EvaluationEnvironment environment) {
+  public EDSLConstraintResult evaluate(SimulationResults results, final Interval bounds, EvaluationEnvironment environment) {
     final var width = this.width.evaluate(results, bounds, environment);
     final var spans = this.spans.evaluate(results, bounds, environment);
 
@@ -98,7 +103,7 @@ public record RollingThreshold(Expression<Spans> spans, Expression<Duration> wid
       final var violation = new Violation(violationIntervals, violationActivityIds);
       violations.add(violation);
     }
-    return new ConstraintResult(violations, List.of());
+    return new EDSLConstraintResult(violations, List.of());
   }
 
   @Override

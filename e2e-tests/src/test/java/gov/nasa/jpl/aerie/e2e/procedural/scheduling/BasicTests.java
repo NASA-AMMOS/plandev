@@ -134,6 +134,14 @@ public class BasicTests extends ProceduralSchedulingSetup {
     final var args = Json.createObjectBuilder().add("quantity", 4).build();
     hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
 
+    final String recurrenceGoalDefinition =
+        """
+        export default function myGoal() {
+          return Goal.ActivityRecurrenceGoal({
+            activityTemplate: ActivityTemplates.PeelBanana({peelDirection: 'fromStem'}),
+            interval: Temporal.Duration.from({hours:1})
+        })}""";
+
     hasura.createSchedulingSpecGoal(
         "Recurrence Scheduling Test Goal",
         recurrenceGoalDefinition,

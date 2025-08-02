@@ -1,7 +1,6 @@
 package gov.nasa.jpl.aerie.e2e.procedural.scheduling;
 
 import com.microsoft.playwright.Playwright;
-import gov.nasa.jpl.aerie.e2e.types.GoalInvocationId;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
 import org.junit.jupiter.api.AfterAll;
@@ -26,13 +25,7 @@ public abstract class ProceduralSchedulingSetup {
 
   // Cross-Test Constants
   protected final String planStartTimestamp = "2023-01-01T00:00:00+00:00";
-  protected final String recurrenceGoalDefinition =
-      """
-      export default function myGoal() {
-        return Goal.ActivityRecurrenceGoal({
-          activityTemplate: ActivityTemplates.PeelBanana({peelDirection: 'fromStem'}),
-          interval: Temporal.Duration.from({hours:1})
-      })}""";
+
 
   @BeforeAll
   void beforeAll() {

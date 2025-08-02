@@ -12,6 +12,7 @@ object_relationships:
     manual_configuration:
       column_mapping:
         simulated_activity_id: id
+        simulation_dataset_id: simulation_dataset_id
       remote_table:
         name: simulated_activity
         schema: merlin

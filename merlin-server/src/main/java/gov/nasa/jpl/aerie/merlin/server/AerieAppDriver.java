@@ -152,7 +152,7 @@ public final class AerieAppDriver {
       final var hikariDataSource = new HikariDataSource(hikariConfig);
 
       return new Stores(
-          new PostgresPlanRepository(hikariDataSource),
+          new PostgresPlanRepository(hikariDataSource, config.merlinFileStore()),
           new PostgresMissionModelRepository(hikariDataSource),
           new PostgresResultsCellRepository(hikariDataSource),
           new PostgresConstraintRepository(hikariDataSource));

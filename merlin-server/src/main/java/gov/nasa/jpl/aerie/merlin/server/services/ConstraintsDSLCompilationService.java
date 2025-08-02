@@ -1,6 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.services;
 
-import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
+import gov.nasa.jpl.aerie.constraints.model.EDSLConstraintResult;
 import gov.nasa.jpl.aerie.constraints.tree.Expression;
 import gov.nasa.jpl.aerie.json.JsonParser;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
@@ -120,7 +120,7 @@ public class ConstraintsDSLCompilationService {
   }
 
   public sealed interface ConstraintsDSLCompilationResult {
-    record Success(Expression<ConstraintResult> constraintExpression) implements ConstraintsDSLCompilationResult {}
-    record Error(List<ConstraintsCompilationError.UserCodeError> errors) implements ConstraintsDSLCompilationResult {}
+    record Success(Expression<EDSLConstraintResult> constraintExpression) implements ConstraintsDSLCompilationResult {}
+    record Error(List<ConstraintsCompilationError> errors) implements ConstraintsDSLCompilationResult {}
   }
 }

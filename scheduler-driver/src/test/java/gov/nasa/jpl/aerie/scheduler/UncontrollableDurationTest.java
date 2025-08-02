@@ -152,7 +152,7 @@ public class UncontrollableDurationTest {
   public void testBug() throws SchedulingInterruptedException {
     final var controllableDurationActivity = SchedulingActivity.of(idGenerator.next(), problem.getActivityType("ControllableDurationActivity"),
                                                                    Duration.of(1, Duration.MICROSECONDS),
-                                                                   Duration.of(3, Duration.MICROSECONDS), null, true, false);
+                                                                   Duration.of(3, Duration.MICROSECONDS), null, true);
 
     final var zeroDurationUncontrollableActivity = new ActivityExpression.Builder()
         .ofType(problem.getActivityType("ZeroDurationUncontrollableActivity"))

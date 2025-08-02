@@ -36,9 +36,9 @@ public class CheckpointSimulationFacadeTest {
   private static PlanInMemory makePlanA012(Map<String, ActivityType> activityTypeMap) {
     final var plan = new PlanInMemory();
     final var actTypeA = activityTypeMap.get("BasicActivity");
-    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t0, null, null, true, false));
-    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t1hr, null, null, true, false));
-    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t2hr, null, null, true, false));
+    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t0, null, null, true));
+    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t1hr, null, null, true));
+    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t2hr, null, null, true));
     return plan;
   }
   @BeforeEach
@@ -107,7 +107,7 @@ public class CheckpointSimulationFacadeTest {
   {
     final var plan = new PlanInMemory();
     final var actTypeA = activityTypes.get("ControllableDurationActivity");
-    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t0, HOUR.times(200), null, true, false));
+    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t0, HOUR.times(200), null, true));
     final var results = newSimulationFacade.simulateNoResultsAllActivities(plan).computeResults();
     assertEquals(H.getEndAerie(), results.getDuration());
     assert(results.getUnfinishedActivities().size() == 1);

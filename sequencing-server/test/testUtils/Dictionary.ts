@@ -67,8 +67,8 @@ export async function insertDictionary(
     };
   }>(
     gql`
-      mutation PutDictionary($dictionary: String!) {
-        uploadDictionary(dictionary: $dictionary) {
+      mutation PutDictionary($dictionary: String!,  $persistDictionaryToFilesystem: Boolean!) {
+        uploadDictionary(dictionary: $dictionary, persistDictionaryToFilesystem: $persistDictionaryToFilesystem) {
           command
           parameter
           channel
@@ -78,6 +78,7 @@ export async function insertDictionary(
     {
       // Generate a UUID for the command dictionary name and version to avoid conflicts when testing.
       dictionary: dictonaryString.replace(/(Banana Nation|1.0.0.0|1.0.0.1)/g, randomUUID()),
+      persistDictionaryToFilesystem: false
     },
   );
 

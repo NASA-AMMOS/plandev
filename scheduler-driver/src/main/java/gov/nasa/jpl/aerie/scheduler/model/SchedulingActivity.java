@@ -30,7 +30,6 @@ import java.util.Optional;
  * @param duration the length of time this activity instances lasts for after its start
  * @param arguments arguments are stored in a String/SerializedValue hashmap.
  * @param topParent the parent activity if any
- * @param isNew whether this activity was created in this scheduling run, or already existed in the plan
  */
 public record SchedulingActivity(
     ActivityDirectiveId id,
@@ -41,7 +40,6 @@ public record SchedulingActivity(
     ActivityDirectiveId topParent,
     ActivityDirectiveId anchorId,
     boolean anchoredToStart,
-    boolean isNew,
     String name
 ) {
 
@@ -51,8 +49,7 @@ public record SchedulingActivity(
       Duration startOffset,
       Duration duration,
       ActivityDirectiveId anchorId,
-      boolean anchoredToStart,
-      boolean isNew
+      boolean anchoredToStart
   ) {
     return new SchedulingActivity(
         id,
@@ -63,7 +60,6 @@ public record SchedulingActivity(
         null,
         anchorId,
         anchoredToStart,
-        isNew,
         null
     );
   }
@@ -76,8 +72,7 @@ public record SchedulingActivity(
       Map<String, SerializedValue> parameters,
       ActivityDirectiveId topParent,
       ActivityDirectiveId anchorId,
-      boolean anchoredToStart,
-      boolean isNew
+      boolean anchoredToStart
   ) {
     return new SchedulingActivity(
         id,
@@ -88,7 +83,6 @@ public record SchedulingActivity(
         topParent,
         anchorId,
         anchoredToStart,
-        isNew,
         null
     );
   }
@@ -103,7 +97,6 @@ public record SchedulingActivity(
         this.topParent,
         this.anchorId,
         this.anchoredToStart,
-        this.isNew(),
         this.name
     );
   }
@@ -118,7 +111,6 @@ public record SchedulingActivity(
         this.topParent,
         anchorId,
         anchoredToStart,
-        this.isNew,
         this.name
     );
   }
@@ -133,7 +125,6 @@ public record SchedulingActivity(
         this.topParent,
         this.anchorId,
         this.anchoredToStart,
-        this.isNew,
         this.name
     );
   }
@@ -148,7 +139,6 @@ public record SchedulingActivity(
         topParent,
         this.anchorId,
         this.anchoredToStart,
-        this.isNew,
         this.name
     );
   }
@@ -163,7 +153,6 @@ public record SchedulingActivity(
         null,
         activity.anchorId(),
         activity.anchoredToStart(),
-        false,
         null
     );
   }

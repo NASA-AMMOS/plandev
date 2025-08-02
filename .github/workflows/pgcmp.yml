@@ -111,7 +111,7 @@ jobs:
           AERIE_PASSWORD=${AERIE_PASSWORD}
           EOF
           python -m pip install -r requirements.txt
-          python aerie_db_migration.py --apply --all
+          python aerie_db_migration.py migrate --apply --all
           cd ..
       - name: Clone PGCMP
         uses: actions/checkout@v4
@@ -204,7 +204,7 @@ jobs:
           AERIE_PASSWORD=${AERIE_PASSWORD}
           EOF
           python -m pip install -r requirements.txt
-          python aerie_db_migration.py --revert --all
+          python aerie_db_migration.py migrate --revert --all
           cd ..
       - name: Dump Migrated Database
         run: |

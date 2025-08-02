@@ -66,6 +66,9 @@ jobs:
           - image: aerie-sequencing
             context: sequencing-server
             file: sequencing-server/Dockerfile
+          - image: aerie-action
+            context: action-server
+            file: action-server/Dockerfile
           - image: aerie-hasura
             context: .
             file: docker/Dockerfile.hasura
@@ -142,6 +145,7 @@ jobs:
           - aerie-scheduler
           - aerie-scheduler-worker
           - aerie-sequencing
+          - aerie-action
           - aerie-hasura
           - aerie-postgres
       fail-fast: false
@@ -151,6 +155,9 @@ jobs:
 
       - name: Scan ${{ matrix.image }} for vulnerabilities
         uses: aquasecurity/trivy-action@0.24.0
+        env:
+          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db
+          TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.image }}:develop
           ignore-unfixed: true

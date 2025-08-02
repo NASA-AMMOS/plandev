@@ -46,7 +46,6 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MICROSECOND;
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.ZERO;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.min;
 
 /**
  * prototype scheduling algorithm that schedules activities for a plan
@@ -266,10 +265,34 @@ public class PrioritySolver implements Solver {
    *
    * the output plan member is updated directly with the devised solution
    */
-  private void solve() throws SchedulingInterruptedException{
+  private void solve() throws SchedulingInterruptedException {
     //construct a priority sorted goal container
     final var goalQ = getGoalQueue();
     assert goalQ != null;
+
+    // perform at-beginning auto deletions first
+    boolean simulateAfter = false;
+    for (final var goal: goalQ) {
+      if (goal instanceof Procedure p) {
+        simulateAfter = simulateAfter || p.deleteAtBeginning(
+            problem,
+            plan,
+            problem.getMissionModel(),
+            this.problem::getActivityType,
+            this.simulationFacade,
+            this.idGenerator,
+            this.problem.getEventsByDerivationGroup()
+        );
+      }
+    }
+
+    if (simulateAfter) {
+      try {
+        simulationFacade.simulateNoResults(plan, problem.getPlanningHorizon().getAerieHorizonDuration());
+      } catch (SimulationFacade.SimulationException e) {
+        logger.error("Simulation error after auto deleting activities: ", e);
+      }
+    }
 
     //process each goal independently in that order
     while (!goalQ.isEmpty()) {
@@ -300,7 +323,7 @@ public class PrioritySolver implements Solver {
     final var rawGoals = problem.getGoals();
     assert rawGoals != null;
 
-    this.atLeastOneSimulateAfter = rawGoals.stream().filter(g -> g.simulateAfter).findFirst().isPresent();
+    this.atLeastOneSimulateAfter = rawGoals.stream().anyMatch(g -> g.simulateAfter);
 
     //create queue container using comparator and pre-sized for all goals
     final var capacity = rawGoals.size();
@@ -323,7 +346,16 @@ public class PrioritySolver implements Solver {
       satisfyOptionGoal(optionGoal);
     } else if (goal instanceof Procedure procedure) {
       if (!analysisOnly) {
-        procedure.run(problem, plan.getEvaluation(), plan, problem.getMissionModel(), this.problem::getActivityType, this.simulationFacade, this.idGenerator);
+        procedure.run(
+            problem,
+            plan.getEvaluation(),
+            plan,
+            problem.getMissionModel(),
+            this.problem::getActivityType,
+            this.simulationFacade,
+            this.idGenerator,
+            this.problem.getEventsByDerivationGroup()
+        );
       }
     } else {
       satisfyGoalGeneral(goal);
@@ -491,8 +523,8 @@ public class PrioritySolver implements Solver {
       assert missing != null;
       logger.info("Processing conflict " + (++i));
       logger.info(missing.toString());
-      //determine the best activities to satisfy the conflict
-      ConflictSolverResult conflictSolverReturn = null;
+      //initialize conflict result to unsatisfied + no activities created
+      var conflictSolverReturn = new ConflictSolverResult();
       if (!analysisOnly && (missing instanceof MissingActivityInstanceConflict missingActivityInstanceConflict)) {
         conflictSolverReturn = solveActivityInstanceConflict(missingActivityInstanceConflict, goal);
       } else if (!analysisOnly && (missing instanceof MissingActivityTemplateConflict missingActivityTemplateConflict)) {
@@ -1230,7 +1262,6 @@ public class PrioritySolver implements Solver {
               null,
               null,
               true,
-              true,
               null
           );
           Duration computedDuration = null;
@@ -1291,7 +1322,6 @@ public class PrioritySolver implements Solver {
           instantiatedArguments,
           null,
           null,
-          true,
           true
       ));
     } else if (activityExpression.type().getDurationType() instanceof DurationType.Fixed dt) {
@@ -1315,7 +1345,6 @@ public class PrioritySolver implements Solver {
               activityExpression.type()),
           null,
           null,
-          true,
           true
       ));
     } else if (activityExpression.type().getDurationType() instanceof DurationType.Parametric dt) {
@@ -1341,7 +1370,6 @@ public class PrioritySolver implements Solver {
                 instantiatedArgs,
                 null,
                 null,
-                true,
                 true
             );
             history.add(new EquationSolvingAlgorithms.FunctionCoordinate<>(start, start.plus(duration)), new ActivityMetadata(activity));

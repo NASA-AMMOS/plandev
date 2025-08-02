@@ -1,0 +1,12 @@
+table:
+  name: migrate_plan_to_model_return_value
+  schema: hasura
+select_permissions:
+  - role: aerie_admin
+    permission:
+      columns: '*'
+      filter: {}
+  - role: user
+    permission:
+      columns: '*'
+      filter: {}

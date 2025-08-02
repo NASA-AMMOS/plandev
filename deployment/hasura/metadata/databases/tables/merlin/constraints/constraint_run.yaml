@@ -3,24 +3,19 @@ table:
   schema: merlin
 configuration:
   custom_name: "constraint_run"
+  column_config:
+    priority:
+      custom_name: order
 object_relationships:
-  - name: constraint_definition
+  - name: request
     using:
-      foreign_key_constraint_on:
-       - constraint_id
-       - constraint_revision
-  - name: constraint_metadata
+      foreign_key_constraint_on: request_id
+  - name: constraint_invocation
     using:
-      manual_configuration:
-        column_mapping:
-          constraint_id: id
-        insertion_order: null
-        remote_table:
-          name: constraint_metadata
-          schema: merlin
-  - name: simulation_dataset
+      foreign_key_constraint_on: constraint_invocation_id
+  - name: results
     using:
-      foreign_key_constraint_on: simulation_dataset_id
+      foreign_key_constraint_on: constraint_results_id
 select_permissions:
   - role: aerie_admin
     permission:

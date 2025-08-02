@@ -439,6 +439,7 @@ public class PlanCollaborationTests {
           res.getInt("plan_id"),
           res.getString("name"),
           res.getInt("source_scheduling_goal_id"),
+          res.getInt("source_scheduling_goal_invocation_id"),
           res.getString("created_at"),
           res.getString("created_by"),
           res.getString("last_modified_at"),
@@ -472,6 +473,7 @@ public class PlanCollaborationTests {
             res.getInt("plan_id"),
             res.getString("name"),
             res.getInt("source_scheduling_goal_id"),
+            res.getInt("source_scheduling_goal_invocation_id"),
             res.getString("created_at"),
             res.getString("created_by"),
             res.getString("last_modified_at"),
@@ -507,6 +509,7 @@ public class PlanCollaborationTests {
             res.getInt("snapshot_id"),
             res.getString("name"),
             res.getInt("source_scheduling_goal_id"),
+            res.getInt("source_scheduling_goal_invocation_id"),
             res.getString("created_at"),
             res.getString("created_by"),
             res.getString("last_modified_at"),
@@ -562,6 +565,23 @@ public class PlanCollaborationTests {
     assertEquals(expected.activityId, actual.activityId);
     assertEquals(expected.name, actual.name);
     assertEquals(expected.sourceSchedulingGoalId, actual.sourceSchedulingGoalId);
+    assertEquals(expected.sourceSchedulingGoalInvocationId, actual.sourceSchedulingGoalInvocationId);
+    assertEquals(expected.createdAt, actual.createdAt);
+    assertEquals(expected.createdBy, actual.createdBy);
+    assertEquals(expected.startOffset, actual.startOffset);
+    assertEquals(expected.type, actual.type);
+    assertEquals(expected.arguments, actual.arguments);
+    assertEquals(expected.metadata, actual.metadata);
+    assertEquals(expected.anchorId, actual.anchorId);
+    assertEquals(expected.anchoredToStart, actual.anchoredToStart);
+  }
+
+  private static void assertActivityEqualsSnapshot(final Activity expected, final SnapshotActivity actual) {
+    // validate all shared properties
+    assertEquals(expected.activityId, actual.activityId);
+    assertEquals(expected.name, actual.name);
+    assertEquals(expected.sourceSchedulingGoalId, actual.sourceSchedulingGoalId);
+    assertEquals(expected.sourceSchedulingGoalInvocationId, actual.sourceSchedulingGoalInvocationId);
     assertEquals(expected.createdAt, actual.createdAt);
     assertEquals(expected.createdBy, actual.createdBy);
     assertEquals(expected.startOffset, actual.startOffset);
@@ -579,6 +599,7 @@ public class PlanCollaborationTests {
       int planId,
       String name,
       int sourceSchedulingGoalId,
+      int sourceSchedulingGoalInvocationId,
       String createdAt,
       String createdBy,
       String lastModifiedAt,
@@ -603,6 +624,7 @@ public class PlanCollaborationTests {
       int snapshotId,
       String name,
       int sourceSchedulingGoalId,
+      int sourceSchedulingGoalInvocationId,
       String createdAt,
       String createdBy,
       String lastModifiedAt,
@@ -646,21 +668,12 @@ public class PlanCollaborationTests {
         assertTrue(activityIds.contains(planActivities.get(i).activityId));
         assertTrue(activityIds.contains(snapshotActivities.get(i).activityId));
         // validate all shared properties
-        assertEquals(planActivities.get(i).activityId, snapshotActivities.get(i).activityId);
-        assertEquals(planActivities.get(i).name, snapshotActivities.get(i).name);
+        assertActivityEqualsSnapshot(planActivities.get(i), snapshotActivities.get(i));
 
-        assertEquals(planActivities.get(i).sourceSchedulingGoalId, snapshotActivities.get(i).sourceSchedulingGoalId);
-        assertEquals(planActivities.get(i).createdAt, snapshotActivities.get(i).createdAt);
-        assertEquals(planActivities.get(i).createdBy, snapshotActivities.get(i).createdBy);
+        // validate "modifiedAt" columns
         assertEquals(planActivities.get(i).lastModifiedAt, snapshotActivities.get(i).lastModifiedAt);
         assertEquals(planActivities.get(i).lastModifiedBy, snapshotActivities.get(i).lastModifiedBy);
-        assertEquals(planActivities.get(i).startOffset, snapshotActivities.get(i).startOffset);
-        assertEquals(planActivities.get(i).type, snapshotActivities.get(i).type);
-        assertEquals(planActivities.get(i).arguments, snapshotActivities.get(i).arguments);
         assertEquals(planActivities.get(i).lastModifiedArgumentsAt, snapshotActivities.get(i).lastModifiedArgumentsAt);
-        assertEquals(planActivities.get(i).metadata, snapshotActivities.get(i).metadata);
-        assertEquals(planActivities.get(i).anchorId, snapshotActivities.get(i).anchorId);
-        assertEquals(planActivities.get(i).anchoredToStart, snapshotActivities.get(i).anchoredToStart);
 
         activityIds.remove(planActivities.get(i).activityId);
       }
@@ -929,20 +942,11 @@ public class PlanCollaborationTests {
         assertTrue(activityIds.contains(planActivities.get(i).activityId));
         assertTrue(activityIds.contains(childActivities.get(i).activityId));
         // validate all shared properties
-        assertEquals(planActivities.get(i).activityId, childActivities.get(i).activityId);
-        assertEquals(planActivities.get(i).name, childActivities.get(i).name);
+        assertActivityEquals(planActivities.get(i), childActivities.get(i));
 
-        assertEquals(planActivities.get(i).sourceSchedulingGoalId, childActivities.get(i).sourceSchedulingGoalId);
-        assertEquals(planActivities.get(i).createdAt, childActivities.get(i).createdAt);
+        // validate "modified columns
         assertEquals(planActivities.get(i).lastModifiedAt, childActivities.get(i).lastModifiedAt);
-        assertEquals(planActivities.get(i).startOffset, childActivities.get(i).startOffset);
-        assertEquals(planActivities.get(i).type, childActivities.get(i).type);
-        assertEquals(planActivities.get(i).arguments, childActivities.get(i).arguments);
         assertEquals(planActivities.get(i).lastModifiedArgumentsAt, childActivities.get(i).lastModifiedArgumentsAt);
-        assertEquals(planActivities.get(i).metadata, childActivities.get(i).metadata);
-
-        assertEquals(planActivities.get(i).anchorId, childActivities.get(i).anchorId);
-        assertEquals(planActivities.get(i).anchoredToStart, childActivities.get(i).anchoredToStart);
 
         activityIds.remove(planActivities.get(i).activityId);
       }

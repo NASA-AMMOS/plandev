@@ -16,7 +16,10 @@ import gov.nasa.jpl.aerie.types.Timestamp;
 import javax.json.Json;
 import javax.json.JsonObject;
 import javax.json.JsonValue;
+import javax.json.stream.JsonParsingException;
+import java.io.StringReader;
 import java.time.format.DateTimeParseException;
+import java.util.List;
 import java.util.Optional;
 import static gov.nasa.jpl.aerie.json.BasicParsers.*;
 import static gov.nasa.jpl.aerie.json.Uncurry.tuple;
@@ -103,4 +106,17 @@ public abstract class MerlinParsers {
           untuple((type, message, data, trace, timestamp) -> new SimulationFailure(type, message, data, trace.orElse(""), timestamp.toInstant())),
           failure -> tuple(failure.type(), failure.message(), failure.data(), Optional.ofNullable(failure.trace()), new Timestamp(failure.timestamp()))
       );
+
+  public static <T> T parseJson(final String subject, final JsonParser<T> parser)
+  throws InvalidJsonException, InvalidEntityException
+  {
+    try {
+      final var requestJson = Json.createReader(new StringReader(subject)).readValue();
+      final var result = parser.parse(requestJson);
+      return result.getSuccessOrThrow($ -> new InvalidEntityException(List.of($)));
+    } catch (JsonParsingException e) {
+      throw new InvalidJsonException(e);
+    }
+  }
+
 }

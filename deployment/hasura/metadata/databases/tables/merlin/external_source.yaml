@@ -39,13 +39,13 @@ select_permissions:
 insert_permissions:
   - role: aerie_admin
     permission:
-      columns: [key, source_type_name, valid_at, start_time, end_time, derivation_group_name, created_at]
+      columns: [key, source_type_name, valid_at, start_time, end_time, derivation_group_name, created_at, attributes]
       check: {}
       set:
         owner: "x-hasura-user-id"
   - role: user
     permission:
-      columns: [key, source_type_name, valid_at, start_time, end_time, derivation_group_name, created_at]
+      columns: [key, source_type_name, valid_at, start_time, end_time, derivation_group_name, created_at, attributes]
       check: {}
       set:
         owner: "x-hasura-user-id"

@@ -37,4 +37,14 @@ public record ActivityInstance(
   public long id() {
     return this.instanceId().id();
   }
+
+  public ActivityInstance withDirectiveId(final ActivityDirectiveId directiveId) {
+    return new ActivityInstance(
+        instanceId,
+        type,
+        parameters,
+        interval,
+        Optional.of(directiveId)
+    );
+  }
 }

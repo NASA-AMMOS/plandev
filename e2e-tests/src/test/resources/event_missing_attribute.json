@@ -1,0 +1,24 @@
+{
+  "source": {
+    "attributes": { "version": 1, "operator": "alpha" },
+    "derivation_group_name": "TestDerivationGroup",
+    "period": {
+      "start_time": "2024-01-21T00:00:00",
+      "end_time": "2024-01-28T00:00:00"
+    },
+    "key": "TestExternalSourceKey",
+    "source_type_name": "TestSourceType",
+    "valid_at": "2024-01-19T00:00:00"
+  },
+  "events": [
+    {
+      "attributes": {
+        "projectUser": "UserA"
+      },
+      "duration": "01:00:00",
+      "event_type_name": "TestEventType",
+      "key": "Event_01",
+      "start_time": "2024-01-21T01:00:00"
+    }
+  ]
+}

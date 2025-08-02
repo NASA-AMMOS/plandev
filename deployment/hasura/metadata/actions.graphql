@@ -26,7 +26,7 @@ type Mutation {
 }
 
 type Mutation {
-  uploadDictionary(dictionary: String!): DictionaryResponse
+  uploadDictionary(dictionary: String!, persistDictionaryToFilesystem: Boolean!): DictionaryResponse
 }
 
 type Mutation {
@@ -36,6 +36,27 @@ type Mutation {
     parcelId: Int
     authoringMissionModelId: Int
   ): AddCommandExpansionResponse
+}
+
+type Mutation {
+  assignActivitiesByFilter(
+    filterId: Int!,
+    simulationDatasetId: Int!,
+    seqId: String!,
+    timeRangeStart: String!,
+    timeRangeEnd: String!
+  ): AssignActivitiesByFilterResponse
+}
+
+type Mutation {
+  addTemplate(
+    name: String!
+    modelId: Int!
+    parcelId: Int!
+    templateDefinition: String!
+    activityTypeName: String!
+    language: String!
+  ): AddTemplateResponse
 }
 
 type Mutation {
@@ -50,6 +71,14 @@ type Mutation {
 
 type Mutation {
   expandAllActivities(expansionSetId: Int!, simulationDatasetId: Int!): ExpandAllActivitiesResponse
+}
+
+type Mutation {
+  expandAllTemplates(
+    seqIds: [String!]!,
+    simulationDatasetId: Int!,
+    modelId: Int!
+  ): ExpandAllSequencesResponse
 }
 
 type Query {
@@ -105,7 +134,7 @@ type Query {
 }
 
 type Query {
-  constraintViolations(planId: Int!, simulationDatasetId: Int): [ConstraintResponse!]!
+  constraintViolations(planId: Int!, simulationDatasetId: Int, force: Boolean): ConstraintResponse!
 }
 
 type Query {
@@ -226,9 +255,23 @@ type AddCommandExpansionResponse {
   errors: [UserCodeError!]
 }
 
+type AddTemplateResponse {
+  id: Int!
+  errors: [UserCodeError!]
+}
+
+type AssignActivitiesByFilterResponse {
+  success: Boolean!
+}
+
 type ExpandAllActivitiesResponse {
   id: Int!
   expandedActivityInstances: [ExpandedActivityInstance!]!
+}
+
+type ExpandAllSequencesResponse {
+  success: Boolean!
+  expandedSequencesBySeqId: json!
 }
 
 type ExpandedActivityInstance {
@@ -253,8 +296,14 @@ type ResourceSamplesResponse {
 }
 
 type ConstraintResponse {
+   requestId: Int!,
+   constraintsRun: [ConstraintsRun!]!
+}
+
+type ConstraintsRun {
   success: String!
   constraintId: Int!,
+  constraintInvocationId: Int!,
   constraintRevision: Int!,
   constraintName: String!,
   errors: [UserCodeError!]!

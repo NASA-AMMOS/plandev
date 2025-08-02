@@ -18,10 +18,12 @@ create type permissions.permission
 
 create type permissions.action_permission_key
   as enum (
+    'assign_activities_by_filter',
     'check_constraints',
     'create_expansion_rule',
     'create_expansion_set',
     'expand_all_activities',
+    'expand_all_templates',
     'insert_ext_dataset',
     'resource_samples',
     'schedule',
@@ -48,6 +50,7 @@ create type permissions.function_permission_key
     'get_conflicting_activities',
     'get_non_conflicting_activities',
     'get_plan_history',
+    'migrate_plan_to_model',
     'restore_activity_changelog',
     'restore_snapshot',
     'set_resolution',

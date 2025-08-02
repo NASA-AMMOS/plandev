@@ -1,0 +1,46 @@
+{
+  "source": {
+    "attributes": { "version": 2, "optional": "present" },
+    "derivation_group_name": "TestGroup_2",
+    "period": {
+      "start_time": "2023-01-01T00:00:00",
+      "end_time": "2023-01-08T00:00:00"
+    },
+    "key": "NewTest.json",
+    "source_type_name": "TestType",
+    "valid_at": "2024-01-01T00:00:00"
+  },
+  "events": [
+    {
+      "attributes": {
+        "projectUser": "UserB",
+        "code": "B",
+        "optional": "present"
+      },
+      "duration": "01:00:00",
+      "event_type_name": "TestType",
+      "key": "Event_01",
+      "start_time": "2023-01-02T01:00:00"
+    },
+    {
+      "attributes": {
+        "projectUser": "UserB",
+        "code": "B"
+      },
+      "duration": "01:00:00",
+      "event_type_name": "TestType_2",
+      "key": "Event_02",
+      "start_time": "2023-01-02T03:00:00"
+    },
+    {
+      "attributes": {
+        "projectUser": "UserA",
+        "code": "A"
+      },
+      "duration": "01:00:00",
+      "event_type_name": "TestType_2",
+      "key": "Event_03",
+      "start_time": "2023-01-02T05:00:00"
+    }
+  ]
+}

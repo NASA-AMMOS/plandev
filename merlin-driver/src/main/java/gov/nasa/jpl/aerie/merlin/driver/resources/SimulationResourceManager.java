@@ -14,6 +14,8 @@ public interface SimulationResourceManager {
   /**
    * Compute all ProfileSegments stored in this resource manager
    * @param elapsedDuration the amount of time elapsed since the start of simulation.
+   *
+   * This method blocks until all profile segments have finished being processed
    */
   ResourceProfiles computeProfiles(final Duration elapsedDuration);
 

@@ -93,26 +93,26 @@ public class PrioritySolverTest {
   private static PlanInMemory makePlanA012(Problem problem) {
     final var plan = new PlanInMemory();
     final var actTypeA = problem.getActivityType("ControllableDurationActivity");
-    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t0, d1min, null, true, false));
-    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t1hr, d1min, null, true, false));
-    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t2hr, d1min, null, true, false));
+    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t0, d1min, null, true));
+    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t1hr, d1min, null, true));
+    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t2hr, d1min, null, true));
     return plan;
   }
 
   private static PlanInMemory makePlanA12(Problem problem) {
     final var plan = new PlanInMemory();
     final var actTypeA = problem.getActivityType("ControllableDurationActivity");
-    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t1hr, d1min, null, true, false));
-    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t2hr, d1min, null, true, false));
+    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t1hr, d1min, null, true));
+    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t2hr, d1min, null, true));
     return plan;
   }
 
   private static PlanInMemory makePlanAB012(Problem problem) {
     final var plan = makePlanA012(problem);
     final var actTypeB = problem.getActivityType("OtherControllableDurationActivity");
-    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeB, t0, d1min, null, true, false));
-    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeB, t1hr, d1min, null, true, false));
-    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeB, t2hr, d1min, null, true, false));
+    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeB, t0, d1min, null, true));
+    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeB, t1hr, d1min, null, true));
+    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeB, t2hr, d1min, null, true));
     return plan;
   }
 

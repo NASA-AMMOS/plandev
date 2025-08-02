@@ -69,7 +69,7 @@ export async function uploadMissionModel(graphqlClient: GraphQLClient): Promise<
 async function login() {
   const response = await fetch(`${process.env['MERLIN_GATEWAY_URL']}/auth/login`, {
     method: 'POST',
-    body: `{"username": "AerieE2ETests", "password": "password"}`,
+    body: `{"username": "AerieE2ESequencingTests", "password": "password"}`,
     headers: { 'Content-Type': 'application/json' },
   });
   if (!response.ok) {

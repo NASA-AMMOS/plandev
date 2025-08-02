@@ -10,7 +10,7 @@ data class Directive<A: Any>(
   @JvmField val inner: A,
 
   /** The name of this specific directive. */
-  @JvmField val name: String,
+  @JvmField val name: String?,
 
   /** The directive id. */
   @JvmField val id: ActivityDirectiveId,

@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.orchestration.simulation;
 
+import gov.nasa.jpl.aerie.merlin.driver.resources.AsyncConsumer;
 import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfiles;
 
 import javax.json.Json;
@@ -8,7 +9,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.UUID;
-import java.util.function.Consumer;
 
 import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
 import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.realDynamicsP;
@@ -16,7 +16,7 @@ import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.realDynamicsP
 /**
  * A consumer that writes resource segments to the file system.
  */
-public class ResourceFileStreamer implements Consumer<ResourceProfiles> {
+public class ResourceFileStreamer implements AsyncConsumer<ResourceProfiles> {
   private final UUID uuid;
   private final HashMap<String, String> fileNames;
 
@@ -99,4 +99,10 @@ public class ResourceFileStreamer implements Consumer<ResourceProfiles> {
     return fileName;
   }
 
+  @Override
+  public void close() {
+    // No-op.
+    // ResourceFileStreamer's accept method is self-contained and
+    // doesn't leave any state that needs to be cleaned up
+  }
 }

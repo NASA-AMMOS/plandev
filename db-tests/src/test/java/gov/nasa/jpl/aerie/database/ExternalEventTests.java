@@ -57,13 +57,20 @@ public class ExternalEventTests {
   final static String DERIVATION_GROUP = "Test Default";
   final static String EVENT_TYPE = "Test";
   final static String CREATED_AT = "2024-01-01T00:00:00Z";
+  final static String EMPTY_ATTRIBUTES = "{}";
+  final static String EMPTY_ATTRIBUTE_SCHEMA = "{}";
   //endregion
 
 
   //region Records
-  protected record ExternalEvent(String key, String event_type_name, String source_key, String derivation_group_name, String start_time, String duration) {
+  protected record ExternalEvent(String key, String event_type_name, String source_key, String derivation_group_name, String start_time, String duration, String attributes) {
+    // no attributes
+    ExternalEvent(String key, String event_type_name, String source_key, String derivation_group_name, String start_time, String duration) {
+      this(key, event_type_name, source_key, derivation_group_name, start_time, duration, "{}");
+    }
+
     ExternalEvent(String key, String start_time, String duration, ExternalSource source) {
-      this(key, EVENT_TYPE, source.key(), source.derivation_group_name(), start_time, duration);
+      this(key, EVENT_TYPE, source.key(), source.derivation_group_name(), start_time, duration, "{}");
     }
   }
   protected record ExternalSource(String key, String source_type_name, String derivation_group_name, String valid_at, String start_time, String end_time, String created_at){}
@@ -73,7 +80,7 @@ public class ExternalEventTests {
 
 
   //region Helper Functions
-  protected void insertExternalEventType(String event_type_name) throws SQLException {
+  protected void insertExternalEventType(String event_type_name, String attribute_schema) throws SQLException {
     try(final var statement = connection.createStatement()) {
       // create the event type
       statement.executeUpdate(
@@ -81,13 +88,13 @@ public class ExternalEventTests {
           """
           INSERT INTO
             merlin.external_event_type
-          VALUES ('%s');
-          """.formatted(event_type_name)
+          VALUES ('%s', '%s');
+          """.formatted(event_type_name, attribute_schema)
       );
     }
   }
 
-  protected void insertExternalSourceType(String source_type_name) throws SQLException {
+  protected void insertExternalSourceType(String source_type_name, String attribute_schema) throws SQLException {
     try(final var statement = connection.createStatement()) {
       // create the source type
       statement.executeUpdate(
@@ -95,8 +102,8 @@ public class ExternalEventTests {
           """
           INSERT INTO
             merlin.external_source_type
-          VALUES ('%s');
-          """.formatted(source_type_name)
+          VALUES ('%s', '%s');
+          """.formatted(source_type_name, attribute_schema)
       );
     }
   }
@@ -301,9 +308,9 @@ public class ExternalEventTests {
     if (!skip_types) {
       String[] externalEventTypes = {"DerivationA", "DerivationB", "DerivationC", "DerivationD"};
       for (String eventType : externalEventTypes) {
-        insertExternalEventType(eventType);
+        insertExternalEventType(eventType, EMPTY_ATTRIBUTE_SCHEMA);
       }
-      insertExternalSourceType(SOURCE_TYPE);
+      insertExternalSourceType(SOURCE_TYPE, EMPTY_ATTRIBUTE_SCHEMA);
     }
 
     // Fourth, insert derivation group
@@ -331,10 +338,10 @@ public class ExternalEventTests {
 
   protected void insertStandardTypes() throws SQLException {
     // insert external event type
-    insertExternalEventType(EVENT_TYPE);
+    insertExternalEventType(EVENT_TYPE, EMPTY_ATTRIBUTE_SCHEMA);
 
     // insert external source type
-    insertExternalSourceType(SOURCE_TYPE);
+    insertExternalSourceType(SOURCE_TYPE, EMPTY_ATTRIBUTE_SCHEMA);
 
     // insert derivation group
     insertDerivationGroup(DERIVATION_GROUP, SOURCE_TYPE);
@@ -357,7 +364,7 @@ public class ExternalEventTests {
      *    separate, extracted tests that don't really evaluate events and instead just that sources play together
      *    correctly. As such we test "empty" sources to make sure their overlapped windows work correctly.
      * We add events that span a very short DURATION simply so that the sources show up in derived_events, but we aren't
-     *    testing any properties of said events.
+     *    testing any attributes of said events.
      */
     @Nested
     @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -1402,7 +1409,7 @@ public class ExternalEventTests {
     }
 
     /**
-     * This class separates a few tests that don't test a particular rule, but rather general properties of the derivation
+     * This class separates a few tests that don't test a particular rule, but rather general attributes of the derivation
      *    process.
      */
     @Nested
@@ -1777,7 +1784,7 @@ public class ExternalEventTests {
 
       // add source type and derivation group
       // create the source type
-      insertExternalSourceType(endBeforeStart.source_type_name());
+      insertExternalSourceType(endBeforeStart.source_type_name(), EMPTY_ATTRIBUTE_SCHEMA);
 
       // create the derivation_group
       insertDerivationGroup(endBeforeStart.derivation_group_name(), endBeforeStart.source_type_name());
@@ -1925,7 +1932,7 @@ public class ExternalEventTests {
 
         // insert the source and all relevant groups and types
         // create a source type
-        insertExternalSourceType(SOURCE_TYPE);
+        insertExternalSourceType(SOURCE_TYPE, EMPTY_ATTRIBUTE_SCHEMA);
 
         // create a Derivation Group
         insertDerivationGroup(DERIVATION_GROUP, SOURCE_TYPE);
@@ -1970,7 +1977,7 @@ public class ExternalEventTests {
 
       // add types
       // create a source type
-      insertExternalSourceType(SOURCE_TYPE);
+      insertExternalSourceType(SOURCE_TYPE, EMPTY_ATTRIBUTE_SCHEMA);
 
       // create a Derivation Group
       insertDerivationGroup(DERIVATION_GROUP, SOURCE_TYPE);
@@ -2024,7 +2031,7 @@ public class ExternalEventTests {
 
         // add types
         // create a source type
-        insertExternalSourceType(SOURCE_TYPE);
+        insertExternalSourceType(SOURCE_TYPE, EMPTY_ATTRIBUTE_SCHEMA);
 
         // create a Derivation Group
         insertDerivationGroup(DERIVATION_GROUP, SOURCE_TYPE);
@@ -2178,7 +2185,7 @@ public class ExternalEventTests {
       );
       final List<PlanDerivationGroup> actualResultsInitial = getPlanDerivationGroupAssociations();
 
-      // first, check other properties
+      // first, check other attributes
       assertEqualsAsideFromLastAcknowledged(expectedResultsInitial, actualResultsInitial);
 
       // insert a source to the changing derivation group
@@ -2205,7 +2212,7 @@ public class ExternalEventTests {
       );
       final List<PlanDerivationGroup> actualResults = getPlanDerivationGroupAssociations();
 
-      // first, check other properties
+      // first, check other attributes
       assertEquals(expectedResults.size(), actualResults.size());
       assertTrue(actualResults.containsAll(expectedResults));
 
@@ -2233,7 +2240,7 @@ public class ExternalEventTests {
       assertTrue(postUpdateResults.get(2).last_acknowledged_at().compareTo(
           actualResultsInitial.get(2).last_acknowledged_at()) > 0);
 
-      // check the other properties
+      // check the other attributes
       assertEqualsAsideFromLastAcknowledged(actualResultsInitial, postUpdateResults);
     }
   }

@@ -17,6 +17,8 @@ services:
         AERIE_HOST: ${AERIE_HOST}
     networks:
       - aerie_net
+  aerie_action:
+    ports: !reset [ ]
   aerie_gateway:
     ports: !reset []
     environment:

@@ -62,3 +62,5 @@ docs/source/constraints-edsl-api/
 docs/source/scheduling-edsl-api/
 .doctrees
 *.log
+/sequencing-server/plugins/ampcs-dictionary-parser/ampcs-parser.js
+/sequencing-server/plugins/fprime-dictionary-parser/fprime-parser.js

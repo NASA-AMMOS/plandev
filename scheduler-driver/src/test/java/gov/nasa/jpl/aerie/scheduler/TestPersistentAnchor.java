@@ -439,21 +439,21 @@ public class TestPersistentAnchor {
     SchedulingActivity act1 = SchedulingActivity.of(idGenerator.next(), actTypeA, planningHorizon.getStartAerie(), Duration.of(activityDurationHours, Duration.HOURS), Map.of(
         "quantity", SerializedValue.of(1),
         "growingDuration", SerializedValue.of(Duration.HOUR.times(activityDurationHours).in(Duration.HOURS))
-    ), null, null, true, false);
+    ), null, null, true);
     partialPlan.add(act1);
     actsToBeAnchored.add(act1);
 
     SchedulingActivity act2 = SchedulingActivity.of(idGenerator.next(), actTypeA, planningHorizon.getStartAerie().plus(Duration.of(5, Duration.HOURS)), Duration.of(activityDurationHours, Duration.HOURS), Map.of(
         "quantity", SerializedValue.of(1),
         "growingDuration", SerializedValue.of(Duration.HOUR.times(activityDurationHours).in(Duration.HOURS))
-    ), null, null, true, false);
+    ), null, null, true);
     partialPlan.add(act2);
     actsToBeAnchored.add(act2);
 
     SchedulingActivity act3 = SchedulingActivity.of(idGenerator.next(), actTypeA, planningHorizon.getStartAerie().plus(Duration.of(10, Duration.HOURS)), Duration.of(activityDurationHours, Duration.HOURS), Map.of(
         "quantity", SerializedValue.of(1),
         "growingDuration", SerializedValue.of(Duration.HOUR.times(activityDurationHours).in(Duration.HOURS))
-    ), null, null, true, false);
+    ), null, null, true);
     partialPlan.add(act3);
     actsToBeAnchored.add(act3);
 
@@ -480,17 +480,17 @@ public class TestPersistentAnchor {
     if(missingActAssociationsWithAnchor){
       // Activities with anchors
       SchedulingActivity act4 = SchedulingActivity.of(idGenerator.next(), actTypeB, relativeOffset, Duration.of(activityDurationHours, Duration.HOURS), Map.of(
-          "quantity", SerializedValue.of(1)), null, act1.id(), anchoredToStart, false);
+          "quantity", SerializedValue.of(1)), null, act1.id(), anchoredToStart);
       partialPlan.add(act4);
       templateActsAlreadyAnchor.add(act4);
 
       SchedulingActivity act5 = SchedulingActivity.of(idGenerator.next(), actTypeB, relativeOffset, Duration.of(activityDurationHours, Duration.HOURS), Map.of(
-          "quantity", SerializedValue.of(1)), null, act2.id(), anchoredToStart, false);
+          "quantity", SerializedValue.of(1)), null, act2.id(), anchoredToStart);
       partialPlan.add(act5);
       templateActsAlreadyAnchor.add(act5);
 
       SchedulingActivity act6 = SchedulingActivity.of(idGenerator.next(), actTypeB, relativeOffset, Duration.of(activityDurationHours, Duration.HOURS), Map.of(
-          "quantity", SerializedValue.of(1)), null, act3.id(), anchoredToStart, false);
+          "quantity", SerializedValue.of(1)), null, act3.id(), anchoredToStart);
       partialPlan.add(act6);
       templateActsAlreadyAnchor.add(act6);
     }
@@ -498,15 +498,15 @@ public class TestPersistentAnchor {
     if(missingActAssociationsWithoutAnchor){
       // Activities without anchors
       SchedulingActivity act7 = SchedulingActivity.of(idGenerator.next(), actTypeB, planningHorizon.getStartAerie().plus(offsetWithDuration), Duration.of(activityDurationHours, Duration.HOURS), Map.of(
-          "quantity", SerializedValue.of(1)), null, null, anchoredToStart, false);
+          "quantity", SerializedValue.of(1)), null, null, anchoredToStart);
       partialPlan.add(act7);
 
       SchedulingActivity act8 = SchedulingActivity.of(idGenerator.next(), actTypeB, planningHorizon.getStartAerie().plus(Duration.of(5, Duration.HOURS)).plus(offsetWithDuration), Duration.of(activityDurationHours, Duration.HOURS), Map.of(
-          "quantity", SerializedValue.of(1)), null, null, anchoredToStart, false);
+          "quantity", SerializedValue.of(1)), null, null, anchoredToStart);
       partialPlan.add(act8);
 
       SchedulingActivity act9 = SchedulingActivity.of(idGenerator.next(), actTypeB, planningHorizon.getStartAerie().plus(Duration.of(10, Duration.HOURS)).plus(offsetWithDuration), Duration.of(activityDurationHours, Duration.HOURS), Map.of(
-          "quantity", SerializedValue.of(1)), null, null, anchoredToStart, false);
+          "quantity", SerializedValue.of(1)), null, null, anchoredToStart);
       partialPlan.add(act9);
 
       if (!persistentAnchor.equals(PersistentTimeAnchor.DISABLED) && !missingActAssociationsWithAnchor) {

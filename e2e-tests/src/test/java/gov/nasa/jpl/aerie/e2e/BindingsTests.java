@@ -426,7 +426,12 @@ public class BindingsTests {
                                 .toString();
         final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
-        assertEquals(JsonValue.EMPTY_JSON_ARRAY, getArrayBody(response));
+
+        final var body = getBody(response);
+        assertTrue(body.containsKey("requestId"));
+        assertFalse(body.isNull("requestId"));
+        assertTrue(body.containsKey("constraintsRun"));
+        assertEquals(JsonValue.EMPTY_JSON_ARRAY, body.getJsonArray("constraintsRun"));
       }
 
       @Test
@@ -447,7 +452,11 @@ public class BindingsTests {
                                 .toString();
         final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
-        assertEquals(JsonValue.EMPTY_JSON_ARRAY, getArrayBody(response));
+        final var body = getBody(response);
+        assertTrue(body.containsKey("requestId"));
+        assertFalse(body.isNull("requestId"));
+        assertTrue(body.containsKey("constraintsRun"));
+        assertEquals(JsonValue.EMPTY_JSON_ARRAY, body.getJsonArray("constraintsRun"));
       }
     }
 

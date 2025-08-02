@@ -1,0 +1,35 @@
+table:
+  name: expanded_templates
+  schema: sequencing
+configuration:
+  custom_name: "expanded_templates"
+object_relationships:
+  - name: sequence
+    using:
+      foreign_key_constraint_on:
+        - seq_id
+        - simulation_dataset_id
+  - name: simulation_dataset
+    using:
+      foreign_key_constraint_on:
+        - simulation_dataset_id
+select_permissions:
+  - role: aerie_admin
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: user
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: viewer
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+delete_permissions:
+  - role: aerie_admin
+    permission:
+      filter: {}

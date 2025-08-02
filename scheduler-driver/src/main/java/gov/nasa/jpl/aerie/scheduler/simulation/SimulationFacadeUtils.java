@@ -99,8 +99,7 @@ public class SimulationFacadeUtils {
             activity.arguments(),
             rootParent.get(),
             null,
-            true,
-            false
+            true
         );
         plan.add(activityInstance);
       }

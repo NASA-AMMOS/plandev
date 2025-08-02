@@ -3,6 +3,7 @@ package gov.nasa.ammos.aerie.procedural.scheduling.plan
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
 import gov.nasa.ammos.aerie.procedural.scheduling.simulation.SimulateOptions
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart
 import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan
 import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults
@@ -32,6 +33,27 @@ interface EditablePlan: Plan {
       type,
       start
   ))
+
+  /** Delete an activity specified by directive id, and throw an error if any activities are anchored to it. */
+  fun delete(id: ActivityDirectiveId) = delete(id, DeletedAnchorStrategy.Error)
+
+  /**
+   * Delete an activity specified by directive id, with a strategy to handle activities that are anchored to it.
+   *
+   * If other anchored activities are affected, extra addition and deletion edits may be created.
+   */
+  fun delete(id: ActivityDirectiveId, strategy: DeletedAnchorStrategy)
+
+  /** Delete an activity and throw an error if any activities are anchored to it. */
+  fun delete(directive: Directive<AnyDirective>) = delete(directive, DeletedAnchorStrategy.Error)
+
+  /**
+   * Delete an activity with a strategy to handle activities that are anchored to it.
+   *
+   * If other anchored activities are affected, extra addition and deletion edits may be created.
+   */
+  fun delete(directive: Directive<AnyDirective>, strategy: DeletedAnchorStrategy)
+
 
   /** Commit plan edits, making them final. */
   fun commit()

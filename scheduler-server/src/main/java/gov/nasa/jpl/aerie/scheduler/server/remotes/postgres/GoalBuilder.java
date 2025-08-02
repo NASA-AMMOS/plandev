@@ -25,6 +25,7 @@ import gov.nasa.jpl.aerie.scheduler.goals.OptionGoal;
 import gov.nasa.jpl.aerie.scheduler.goals.Procedure;
 import gov.nasa.jpl.aerie.scheduler.goals.RecurrenceGoal;
 import gov.nasa.jpl.aerie.scheduler.model.ActivityType;
+import gov.nasa.jpl.aerie.scheduler.model.GoalId;
 import gov.nasa.jpl.aerie.scheduler.model.PersistentTimeAnchor;
 import gov.nasa.jpl.aerie.scheduler.model.PlanningHorizon;
 import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingDSL;
@@ -43,7 +44,9 @@ public class GoalBuilder {
       final Timestamp horizonStartTimestamp,
       final Timestamp horizonEndTimestamp,
       final Function<String, ActivityType> lookupActivityType,
-      final boolean simulateAfter) {
+      final boolean simulateAfter,
+      final GoalId goalId
+  ) {
     final var planningHorizon = new PlanningHorizon(
         horizonStartTimestamp.toInstant(),
         horizonEndTimestamp.toInstant());
@@ -110,11 +113,16 @@ public class GoalBuilder {
       case SchedulingDSL.GoalSpecifier.GoalAnd g -> {
         var builder = new CompositeAndGoal.Builder();
         for (final var subGoalSpecifier : g.goals()) {
-          builder = builder.and(goalOfGoalSpecifier(subGoalSpecifier,
-                                                    horizonStartTimestamp,
-                                                    horizonEndTimestamp,
-                                                    lookupActivityType,
-                                                    simulateAfter));
+          builder = builder.and(
+              goalOfGoalSpecifier(
+                  subGoalSpecifier,
+                  horizonStartTimestamp,
+                  horizonEndTimestamp,
+                  lookupActivityType,
+                  simulateAfter,
+                  goalId
+              )
+          );
         }
         builder.simulateAfter(simulateAfter);
         builder.withinPlanHorizon(planningHorizon);
@@ -126,11 +134,16 @@ public class GoalBuilder {
       case SchedulingDSL.GoalSpecifier.GoalOr g -> {
         var builder = new OptionGoal.Builder();
         for (final var subGoalSpecifier : g.goals()) {
-          builder = builder.or(goalOfGoalSpecifier(subGoalSpecifier,
-                                                   horizonStartTimestamp,
-                                                   horizonEndTimestamp,
-                                                   lookupActivityType,
-                                                   simulateAfter));
+          builder = builder.or(
+              goalOfGoalSpecifier(
+                  subGoalSpecifier,
+                  horizonStartTimestamp,
+                  horizonEndTimestamp,
+                  lookupActivityType,
+                  simulateAfter,
+                  goalId
+              )
+          );
         }
         builder.simulateAfter(simulateAfter);
         builder.withinPlanHorizon(planningHorizon);
@@ -140,7 +153,7 @@ public class GoalBuilder {
       }
 
       case SchedulingDSL.GoalSpecifier.GoalApplyWhen g -> {
-        var goal = goalOfGoalSpecifier(g.goal(), horizonStartTimestamp, horizonEndTimestamp, lookupActivityType, simulateAfter);
+        var goal = goalOfGoalSpecifier(g.goal(), horizonStartTimestamp, horizonEndTimestamp, lookupActivityType, simulateAfter, goalId);
         goal.setTemporalContext(g.windows());
         return goal;
       }
@@ -165,7 +178,7 @@ public class GoalBuilder {
       }
 
       case SchedulingDSL.GoalSpecifier.Procedure g -> {
-        return new Procedure(planningHorizon, g.jarPath(), g.arguments(), simulateAfter);
+        return new Procedure(planningHorizon, g.jarPath(), g.arguments(), simulateAfter, goalId);
       }
     }
   }

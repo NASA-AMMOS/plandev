@@ -31,6 +31,22 @@ actions:
     permissions:
       - role: aerie_admin
       - role: user
+  - name: assignActivitiesByFilter
+    definition:
+      kind: synchronous
+      handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/assign-activities-by-filter"
+      timeout: 300
+    permissions:
+      - role: aerie_admin
+      - role: user
+  - name: addTemplate
+    definition:
+      kind: synchronous
+      handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/put-template"
+      timeout: 300
+    permissions:
+      - role: aerie_admin
+      - role: user
   - name: createExpansionSet
     definition:
       kind: synchronous
@@ -43,6 +59,14 @@ actions:
     definition:
       kind: synchronous
       handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/expand-all-activity-instances"
+      timeout: 300
+    permissions:
+      - role: aerie_admin
+      - role: user
+  - name: expandAllTemplates
+    definition:
+      kind: synchronous
+      handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/expand-all-sequence-templates"
       timeout: 300
     permissions:
       - role: aerie_admin

@@ -4,7 +4,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
-import gov.nasa.jpl.aerie.merlin.server.models.Constraint;
+import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.server.models.DatasetId;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
 import gov.nasa.jpl.aerie.merlin.server.models.ProfileSet;
@@ -77,9 +77,8 @@ public final class StubPlanService implements PlanService {
   }
 
   @Override
-  public Map<Long, Constraint> getConstraintsForPlan(final PlanId planId)
-  throws NoSuchPlanException {
-    return Map.of();
+  public List<ConstraintRecord> getConstraintsForPlan(final PlanId planId) {
+    return List.of();
   }
 
   @Override

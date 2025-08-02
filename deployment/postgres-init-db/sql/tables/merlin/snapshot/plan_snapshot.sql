@@ -8,6 +8,9 @@ create table merlin.plan_snapshot(
   plan_id integer
     references merlin.plan
     on delete set null,
+  model_id integer
+    references merlin.mission_model
+      on delete set null,
   revision integer not null,
 
   snapshot_name text,
@@ -24,6 +27,8 @@ comment on column merlin.plan_snapshot.snapshot_id is e''
 	'The identifier of the snapshot.';
 comment on column merlin.plan_snapshot.plan_id is e''
 	'The plan that this is a snapshot of.';
+comment on column merlin.plan_snapshot.model_id is e''
+    'The model that this plan was using at the time the snapshot was taken.';
 comment on column merlin.plan_snapshot.revision is e''
 	'The revision of the plan at the time the snapshot was taken.';
 comment on column merlin.plan_snapshot.snapshot_name is e''

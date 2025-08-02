@@ -1,7 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.http;
 
 import gov.nasa.jpl.aerie.constraints.InputMismatchException;
-import gov.nasa.jpl.aerie.json.JsonParser;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
@@ -27,10 +26,11 @@ import io.javalin.plugin.Plugin;
 import javax.json.Json;
 import javax.json.stream.JsonParsingException;
 import java.io.IOException;
-import java.io.StringReader;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.parseJson;
 
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraActivityActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraActivityBulkActionP;
@@ -43,6 +43,7 @@ import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraMissionM
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraMissionModelEventTriggerP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraPlanActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraExtendExternalDatasetActionP;
+import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraNewConstraintRevisionEventTriggerP;
 import static io.javalin.apibuilder.ApiBuilder.before;
 import static io.javalin.apibuilder.ApiBuilder.path;
 import static io.javalin.apibuilder.ApiBuilder.post;
@@ -106,6 +107,7 @@ public final class MerlinBindings implements Plugin {
       path("addExternalDataset", () -> post(this::addExternalDataset));
       path("extendExternalDataset", () -> post(this::extendExternalDataset));
       path("constraintsDslTypescript", () -> post(this::getConstraintsDslTypescript));
+      path("refreshConstraintProcedureParameterTypes", () -> post(this::refreshConstrainProcedureParameterTypes));
       path("health", () -> get(ctx -> ctx.status(200)));
     });
 
@@ -183,6 +185,27 @@ public final class MerlinBindings implements Plugin {
     }
   }
 
+    /**
+   * action bound to the /refreshSchedulingProcedureParameterTypes endpoint
+   *
+   * Responsible for loading an uploaded procedure jar, asking for its parameter value schema and saving that to the database
+   *
+   * @param ctx the http context of the request from which to read input or post results
+   */
+  private void refreshConstrainProcedureParameterTypes(final Context ctx) {
+    try {
+      final var body = parseJson(ctx.body(), hasuraNewConstraintRevisionEventTriggerP);
+      final var constraintId = body.constraintId();
+      final var revision = body.revision();
+      this.constraintAction.refreshConstraintProcedureParameterTypes(constraintId, revision);
+      ctx.status(200);
+    } catch (final InvalidEntityException ex) {
+      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
+    } catch (final InvalidJsonException ex) {
+      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
+    }
+  }
+
   private void getSimulationResults(final Context ctx) {
     try {
       final var body = parseJson(ctx.body(), hasuraSimulateActionP);
@@ -246,10 +269,11 @@ public final class MerlinBindings implements Plugin {
       this.checkPermissions(Action.check_constraints, body.session(), planId);
 
       final var simulationDatasetId = input.simulationDatasetId();
+      final var force = input.force().orElse(false);
 
-      final var constraintViolations = this.constraintAction.getViolations(planId, simulationDatasetId);
+      final var constraintViolations = this.constraintAction.getViolations(planId, simulationDatasetId, force, body.session());
 
-      ctx.result(ResponseSerializers.serializeConstraintResults(constraintViolations).toString());
+      ctx.result(ResponseSerializers.serializeConstraintResults(constraintViolations.getLeft(), constraintViolations.getRight()).toString());
     } catch (final InvalidJsonException ex) {
       ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
     } catch (final InvalidEntityException ex) {
@@ -510,18 +534,6 @@ public final class MerlinBindings implements Plugin {
       ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
     } catch (final InvalidJsonException ex) {
       ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
-    }
-  }
-
-  private <T> T parseJson(final String subject, final JsonParser<T> parser)
-  throws InvalidJsonException, InvalidEntityException
-  {
-    try {
-      final var requestJson = Json.createReader(new StringReader(subject)).readValue();
-      final var result = parser.parse(requestJson);
-      return result.getSuccessOrThrow($ -> new InvalidEntityException(List.of($)));
-    } catch (JsonParsingException e) {
-      throw new InvalidJsonException(e);
     }
   }
 

@@ -567,6 +567,7 @@ public final class PostgresResultsCellRepository implements ResultsCellRepositor
         postSimulationResults(connection, datasetId, results, SimulationStateRecord.success());
         deleteSimulationExtent(connection, datasetId);
         transactionContext.commit();
+        logger.info("%s set simulation status to success".formatted(Duration.microseconds(System.nanoTime() / 1000)));
       } catch (final SQLException ex) {
         throw new DatabaseException("Failed to store simulation results", ex);
       } catch (final NoSuchSimulationDatasetException ex) {
@@ -583,6 +584,7 @@ public final class PostgresResultsCellRepository implements ResultsCellRepositor
         failSimulation(connection, datasetId, reason);
         deleteSimulationExtent(connection, datasetId);
         transactionContext.commit();
+        logger.info("%s set simulation status to failed".formatted(Duration.microseconds(System.nanoTime() / 1000)));
       } catch (final SQLException ex) {
         throw new DatabaseException("Failed to update simulation state to failure", ex);
       } catch (final NoSuchSimulationDatasetException ex) {

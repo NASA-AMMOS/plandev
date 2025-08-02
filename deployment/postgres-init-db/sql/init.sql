@@ -12,6 +12,7 @@ begin;
   -- Migrations
   \ir tables/migrations/schema_migrations.sql
   \ir applied_migrations.sql
+  \ir views/migrations/applied_migrations_view.sql
 
   -- Util Functions
   \ir functions/util_functions/shared_update_functions.sql
@@ -31,7 +32,7 @@ begin;
   \ir init_merlin.sql
 
   -- Scheduling
-  \ir init_scheduler.sql
+  \ir init_scheduler_post_merlin.sql
 
   -- Sequencing
   \ir init_sequencing.sql
@@ -47,4 +48,7 @@ begin;
 
   -- Initialize DB User permissions
   \ir init_db_users.sql
+
+  -- Actions
+  \ir init_actions.sql
 end;

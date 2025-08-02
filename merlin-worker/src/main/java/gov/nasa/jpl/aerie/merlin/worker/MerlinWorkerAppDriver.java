@@ -51,7 +51,7 @@ public final class MerlinWorkerAppDriver {
     final var hikariDataSource = new HikariDataSource(hikariConfig);
 
     final var stores = new Stores(
-        new PostgresPlanRepository(hikariDataSource),
+        new PostgresPlanRepository(hikariDataSource, configuration.merlinFileStore()),
         new PostgresMissionModelRepository(hikariDataSource),
         new PostgresResultsCellRepository(hikariDataSource));
 

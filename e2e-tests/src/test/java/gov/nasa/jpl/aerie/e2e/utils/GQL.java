@@ -48,30 +48,34 @@ public enum GQL {
   CHECK_CONSTRAINTS("""
     query checkConstraints($planId: Int!, $simulationDatasetId: Int) {
       constraintViolations(planId: $planId, simulationDatasetId: $simulationDatasetId) {
-        success
-        constraintId
-        constraintRevision
-        constraintName
-        results {
-          resourceIds
-          gaps {
-            end
-            start
-          }
-          violations {
-            activityInstanceIds
-            windows {
+        requestId
+        constraintsRun {
+          success
+          constraintInvocationId
+          constraintId
+          constraintRevision
+          constraintName
+          results {
+            resourceIds
+            gaps {
               end
               start
             }
+            violations {
+              activityInstanceIds
+              windows {
+                end
+                start
+              }
+            }
           }
-        }
-        errors {
-          message
-          stack
-          location {
-            column
-            line
+          errors {
+            message
+            stack
+            location {
+              column
+              line
+            }
           }
         }
       }
@@ -80,6 +84,38 @@ public enum GQL {
     mutation CreateActivityDirective($activityDirectiveInsertInput: activity_directive_insert_input!) {
       createActivityDirective: insert_activity_directive_one(object: $activityDirectiveInsertInput) {
         id
+      }
+    }"""),
+  CREATE_EXTERNAL_EVENT_TYPE("""
+    mutation CreateExternalEventType($eventType: external_event_type_insert_input!) {
+      createExternalEventType: insert_external_event_type_one(object: $eventType) {
+        name
+      }
+    }"""),
+  CREATE_EXTERNAL_EVENTS("""
+    mutation InsertExternalEvents($objects: [external_event_insert_input!]!) {
+      insertExternalEvents: insert_external_event(objects: $objects) {
+        returning {
+           key
+        }
+      }
+    }"""),
+  CREATE_EXTERNAL_SOURCE("""
+    mutation InsertExternalSource($object: external_source_insert_input!) {
+      insertExternalSource: insert_external_source_one(object: $object) {
+        key
+      }
+    }"""),
+  CREATE_EXTERNAL_SOURCE_TYPE("""
+    mutation CreateExternalSourceType($sourceType: external_source_type_insert_input!) {
+      createExternalSourceType: insert_external_source_type_one(object: $sourceType) {
+        name
+      }
+    }"""),
+  CREATE_DERIVATION_GROUP("""
+    mutation CreateDerivationGroup($derivationGroup: derivation_group_insert_input!) {
+      createDerivationGroup: insert_derivation_group_one(object: $derivationGroup) {
+        name
       }
     }"""),
   CREATE_MISSION_MODEL("""
@@ -93,6 +129,12 @@ public enum GQL {
       insert_plan_one(object: $plan) {
         id
         revision
+      }
+    }"""),
+  CREATE_PLAN_DERIVATION_GROUP("""
+    mutation CreatePlanDerivationGroup($source: plan_derivation_group_insert_input!) {
+      planExternalSourceLink: insert_plan_derivation_group_one(object: $source) {
+        derivation_group_name
       }
     }"""),
   CREATE_SCHEDULING_SPEC_GOAL("""
@@ -140,10 +182,44 @@ public enum GQL {
         id
       }
     }"""),
+  DELETE_DERIVATION_GROUP("""
+    mutation DeleteDerivationGroup($name: String!) {
+      deleteDerivationGroup: delete_derivation_group(where: { name: { _eq: $name } }) {
+        returning {
+          name
+        }
+      }
+    }"""),
   DELETE_EXTERNAL_DATASET("""
     mutation deleteExtProfile($plan_id: Int!, $dataset_id: Int!) {
       delete_plan_dataset_by_pk(plan_id:$plan_id, dataset_id:$dataset_id) {
         dataset_id
+      }
+    }"""),
+  DELETE_EXTERNAL_EVENT_TYPE("""
+    mutation DeleteExternalEventType($name: String!) {
+      deleteExternalEventType: delete_external_event_type_by_pk(name: $name) {
+        name
+      }
+    }"""),
+  DELETE_EXTERNAL_SOURCE("""
+    mutation DeleteExternalSource($derivationGroupName: String!, $sourceKey: String!) {
+      deleteExternalSource: delete_external_source_by_pk(derivation_group_name: $derivationGroupName, key: $sourceKey) {
+        key
+      }
+    }"""),
+  DELETE_EXTERNAL_EVENTS_BY_SOURCE("""
+   mutation DeleteExternalEventsBySource($externalSourceKey: String!, $derivationGroupName: String!) {
+     deleteExternalEventsBySource: delete_external_event(where: {_and: [{source_key: {_eq: $externalSourceKey}}, {derivation_group_name: {_eq: $derivationGroupName}}]}) {
+       returning {
+         key
+       }
+     }
+   }"""),
+  DELETE_EXTERNAL_SOURCE_TYPE("""
+    mutation DeleteExternalSourceType($name: String!) {
+      deleteExternalSourceType: delete_external_source_type_by_pk(name: $name) {
+        name
       }
     }"""),
   DELETE_MISSION_MODEL("""
@@ -172,6 +248,12 @@ public enum GQL {
           constraint_id
           constraint_revision
         }
+      }
+    }"""),
+  DELETE_PLAN_DERIVATION_GROUP("""
+    mutation DeletePlanExternalSource($derivationGroupName: String!, $planId: Int!) {
+      planDerivationGroupLink: delete_plan_derivation_group_by_pk(derivation_group_name: $derivationGroupName, plan_id: $planId) {
+        derivation_group_name
       }
     }"""),
   DELETE_SCHEDULING_GOAL("""
@@ -213,15 +295,24 @@ public enum GQL {
         computed_attributes_value_schema
       }
     }"""),
-  GET_CONSTRAINT_RUNS("""
-    query getConstraintRuns($simulationDatasetId: Int!) {
-      constraint_run(where: {simulation_dataset_id: {_eq: $simulationDatasetId}}) {
-        constraint_id
-        constraint_revision
+  GET_CONSTRAINT_REQUEST("""
+    query getConstraintRequest($request_id: Int!) {
+      constraint_request: constraint_request_by_pk(id: $request_id) {
+        id
+        plan_id
         simulation_dataset_id
-        results
-        constraint_definition {
-          definition
+        constraints_run {
+          constraint_invocation_id
+          order
+          results {
+            id
+            constraint_id
+            constraint_revision
+            simulation_dataset_id
+            arguments
+            results
+            errors
+          }
         }
       }
     }"""),
@@ -328,6 +419,8 @@ public enum GQL {
           startOffset: start_offset
           type
           name
+          anchorId: anchor_id
+          anchoredToStart: anchored_to_start
         }
         constraint_specification {
           constraint_id
@@ -511,6 +604,7 @@ public enum GQL {
     mutation insertConstraintAssignToPlanSpec($constraint: constraint_specification_insert_input!) {
       constraint: insert_constraint_specification_one(object: $constraint){
         constraint_id
+        invocation_id
       }
     }"""),
   INSERT_PROFILE("""
@@ -585,9 +679,9 @@ public enum GQL {
       }
     }"""),
   UPDATE_CONSTRAINT_SPEC_VERSION("""
-      mutation updateConstraintSpecVersion($plan_id: Int!, $constraint_id: Int!, $constraint_revision: Int!) {
+      mutation updateConstraintSpecVersion($invocation_id: Int!, $constraint_revision: Int!) {
         update_constraint_specification_by_pk(
-          pk_columns: {constraint_id: $constraint_id, plan_id: $plan_id},
+          pk_columns: {invocation_id: $invocation_id},
           _set: {constraint_revision: $constraint_revision}
         ) {
           plan_id
@@ -597,13 +691,14 @@ public enum GQL {
         }
       }"""),
   UPDATE_CONSTRAINT_SPEC_ENABLED("""
-      mutation updateConstraintSpecVersion($plan_id: Int!, $constraint_id: Int!, $enabled: Boolean!) {
+      mutation updateConstraintSpecVersion($invocation_id: Int!, $enabled: Boolean!) {
         update_constraint_specification_by_pk(
-          pk_columns: {constraint_id: $constraint_id, plan_id: $plan_id},
+          pk_columns: {invocation_id: $invocation_id},
           _set: {enabled: $enabled}
         ) {
           plan_id
           constraint_id
+          invocation_id
           constraint_revision
           enabled
         }

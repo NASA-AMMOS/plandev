@@ -129,6 +129,25 @@ public final class Interval implements Comparable<Interval>{
     return at(Duration.of(quantity, unit));
   }
 
+  public gov.nasa.ammos.aerie.procedural.timeline.Interval toProceduralInterval() {
+    return new gov.nasa.ammos.aerie.procedural.timeline.Interval(
+        start,
+        end,
+        this.includesStart() ? gov.nasa.ammos.aerie.procedural.timeline.Interval.Inclusivity.Inclusive
+                             : gov.nasa.ammos.aerie.procedural.timeline.Interval.Inclusivity.Exclusive,
+        this.includesEnd()   ? gov.nasa.ammos.aerie.procedural.timeline.Interval.Inclusivity.Inclusive
+                             : gov.nasa.ammos.aerie.procedural.timeline.Interval.Inclusivity.Exclusive);
+  }
+
+  public static Interval fromProceduralInterval(gov.nasa.ammos.aerie.procedural.timeline.Interval interval) {
+    return new Interval(
+        interval.start,
+        interval.includesStart() ? Inclusive : Exclusive,
+        interval.end,
+        interval.includesEnd() ? Inclusive : Exclusive);
+  }
+
+
   public static final Interval EMPTY = new Interval(Duration.ZERO, Duration.ZERO.minus(Duration.EPSILON));
   public static final Interval FOREVER = new Interval(Duration.MIN_VALUE, Duration.MAX_VALUE);
 

@@ -247,10 +247,10 @@ interface GeneralOps<V: IntervalLike<V>, THIS: GeneralOps<V, THIS>>: Timeline<V,
    */
   fun filterByDuration(validInterval: Interval) = filter(true) { validInterval.contains(it.interval.duration()) }
 
-  /** [(DOC)][filterShorterThan] Removes objects whose duration is shorter than a given duration. */
-  fun filterShorterThan(dur: Duration) = filter(true) { it.interval.duration() >= dur }
-  /** [(DOC)][filterLongerThan] Removes objects whose duration is longer than a given duration. */
-  fun filterLongerThan(dur: Duration) = filter(true) { it.interval.duration() <= dur }
+  /** [(DOC)][filterShorterThan] Removes objects whose duration is longer than a given duration. */
+  fun filterShorterThan(dur: Duration) = filter(true) { it.interval.duration() <= dur }
+  /** [(DOC)][filterLongerThan] Removes objects whose duration is shorter than a given duration. */
+  fun filterLongerThan(dur: Duration) = filter(true) { it.interval.duration() >= dur }
 
   /**
    * [(DOC)][filterByWindows] Filters out payload objects whose intervals are not contained in the

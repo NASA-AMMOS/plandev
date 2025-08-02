@@ -107,3 +107,30 @@ After your pull request is merged, you can safely delete your branch and pull th
   ```shell
   git branch -D my-fix-branch
   ```
+
+## <a name="submit-pr"></a> Required Checks on PRs
+
+When you submit a PR, we use Github Workflows to automatically run a number of CI-type checks on it, all of which must pass before the PR can be merged. These vary slightly from one repo to another, but mostly consist of unit tests, as well as end-to-end (e2e) tests for the backend and frontend (`aerie` and `aerie-ui`) repos. If your PR adds new tests to our existing test suites, they will automatically be run & validated with your PR.
+
+You can see the status of these checks at the bottom of the PR on Github - it should say "All checks have passed" if all is well. If it says "Some checks are not successful", you'll need to troubleshoot the cause of the failure before your PR can be accepted. Click "show all checks", then "details" to get detailed server logs from every step of the GH action that failed. Note that some of these runs may also have *files attached* to the run, which contain more detailed logs.
+
+If you can't determine the cause of the failure from logs alone, it may be helpful to try and reproduce the problem locally. You can see the commands run by the Required Check actions by looking in each repo under `.github/workflows` - each `yml` file in this folder contains the setup & commands necessary to run the check locally yourself.
+
+## <a name="submit-pr"></a> Running E2E Tests with specific branches/images
+
+Both `aerie` and `aerie-ui` repos contain **end-to-end (E2E) tests** which depend on code from other Aerie repos. Specifically:
+- The `aerie` backend e2e test suite, which tests a fully running Aerie API, depends on `aerie-gateway` since it is part of the API
+- The `aerie-ui` e2e suite, which tests a full Aerie UI + backend, depends on `aerie` and `aerie-gateway` code since it is a full stack test
+
+Sometimes a new feature requires code changes in *multiple repos simultaneously*, eg. a UI PR may add a new UI element that displays a new database field, but relies on a corresponding backend PR to add the new field. In this case, the UI PR's e2e tests will fail unless it has a way to *specify* which backend PR(s)/branches should be used for the e2e test.
+
+To handle this situation, follow these steps with your PRs:
+1. When you submit an `aerie` or `aerie-gateway` PR, if your PR contains code that *other PRs depend on*, add the GH label **"publish"** to the PR. This will cause an additional workflow to run which *publishes* the code in that branch to a docker image called eg. `pr-9999` for use by other PRs.
+2. When you submit an `aerie-ui` or `aerie` PR, if it *depends on other PR(s)* (aerie or gateway) for its tests to pass, edit the **body of your PR** to contain one or both of the following lines:
+```
+___REQUIRES_AERIE_PR___="9999"
+___REQUIRES_GATEWAY_PR___="9999"
+```
+Replace "9999" with the **PR number(s)** of the relevant `aerie`/`gateway` PR(s). PRs to `aerie-ui` allow either/both of these fields, while `aerie` PRs only allow a `gateway` PR to be specified.
+
+For example, see [this PR](https://github.com/NASA-AMMOS/aerie-ui/pull/1420) or [this PR](https://github.com/NASA-AMMOS/aerie-ui/pull/1492).

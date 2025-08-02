@@ -3233,13 +3233,36 @@ export function doyToInstant(doy: DOY_STRING): Temporal.Instant {
 export function durationToHms(time: Temporal.Duration): HMS_STRING {
   let { days, hours, minutes, seconds, milliseconds } = time;
 
+  const isNegative = days < 0 || hours < 0 || minutes < 0 || seconds < 0 || milliseconds < 0;
+
+  if (isNegative) {
+    days = Math.abs(days);
+    hours = Math.abs(hours);
+    minutes = Math.abs(minutes);
+    seconds = Math.abs(seconds);
+    milliseconds = Math.abs(milliseconds);
+  }
+
+  seconds += Math.floor(milliseconds / 1000);
+  milliseconds %= 1000;
+
+  minutes += Math.floor(seconds / 60);
+  seconds %= 60;
+
+  hours += Math.floor(minutes / 60);
+  minutes %= 60;
+
+  days += Math.floor(hours / 24);
+  hours %= 24;
+
+
   const DD = days !== 0 ? `${formatNumber(days, 3)}T` : '';
   const HH = days !== 0 ? formatNumber(hours, 2).replace('-', '') : formatNumber(hours, 2);
   const MM = formatNumber(minutes, 2).replace('-', '');
   const SS = formatNumber(seconds, 2).replace('-', '');
   const sss = formatNumber(milliseconds, 3).replace('-', '');
 
-  return `${DD}${HH}:${MM}:${SS}.${sss}` as HMS_STRING;
+  return `${isNegative ? '-' : ''}${DD}${HH}:${MM}:${SS}.${sss}` as HMS_STRING;
 }
 
 export function hmsToDuration(hms: HMS_STRING, epoch: boolean = false): Temporal.Duration {

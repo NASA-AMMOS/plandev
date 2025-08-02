@@ -1,0 +1,51 @@
+table:
+  name: constraint_results
+  schema: merlin
+configuration:
+  custom_name: "constraint_results"
+object_relationships:
+  - name: constraint_definition
+    using:
+      foreign_key_constraint_on:
+       - constraint_id
+       - constraint_revision
+  - name: constraint_metadata
+    using:
+      manual_configuration:
+        column_mapping:
+          constraint_id: id
+        insertion_order: null
+        remote_table:
+          name: constraint_metadata
+          schema: merlin
+  - name: simulation_dataset
+    using:
+      foreign_key_constraint_on: simulation_dataset_id
+array_relationships:
+  - name: constraint_runs
+    using:
+      foreign_key_constraint_on:
+        column: constraint_results_id
+        table:
+          name: constraint_run
+          schema: merlin
+select_permissions:
+  - role: aerie_admin
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: user
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: viewer
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+delete_permissions:
+  - role: aerie_admin
+    permission:
+      filter: {}

@@ -24,6 +24,7 @@ dependencies {
   implementation project(':permissions')
   implementation project(':constraints')
   implementation project(':scheduler-driver')
+  implementation project(':procedural:timeline')
   implementation project(':procedural:scheduling')
   implementation project(':type-utils')
 

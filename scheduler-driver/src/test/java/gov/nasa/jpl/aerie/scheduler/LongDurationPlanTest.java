@@ -41,10 +41,10 @@ public class LongDurationPlanTest {
     final var plan = new PlanInMemory();
     final var actTypeA = problem.getActivityType("GrowBanana");
     final var idGenerator = new DirectiveIdGenerator(0);
-    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t0, d1min, null, true, false));
-    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t1year, d1min, null, true, false));
-    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t2year, d1min, null, true, false));
-    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t3year, d1min, null, true, false));
+    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t0, d1min, null, true));
+    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t1year, d1min, null, true));
+    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t2year, d1min, null, true));
+    plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t3year, d1min, null, true));
     return plan;
   }
 

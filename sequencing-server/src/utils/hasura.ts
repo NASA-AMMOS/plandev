@@ -43,6 +43,8 @@ const ENDPOINTS_TO_ACTION_KEY: Record<string, string> = {
   '/command-expansion/put-expansion-set': 'create_expansion_set',
   '/command-expansion/put-expansion': 'create_expansion_rule',
   '/command-expansion/expand-all-activity-instances': 'expand_all_activities',
+  '/command-expansion/expand-all-sequence-templates': 'expand_all_templates',
+  '/command-expansion/assign-activities-by-filter': 'assign_activities_by_filter',
   '/seqjson/bulk-get-seqjson-for-seqid-and-simulation-dataset': 'sequence_seq_json_bulk',
 };
 

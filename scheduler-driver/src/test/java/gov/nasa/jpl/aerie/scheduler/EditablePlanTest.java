@@ -40,8 +40,8 @@ public class EditablePlanTest {
 
   @BeforeEach
   public void setUp() {
-    missionModel = SimulationUtility.getBananaMissionModel();
-    final var schedulerModel = SimulationUtility.getBananaSchedulerModel();
+    missionModel = SimulationUtility.buildBananaMissionModel();
+    final var schedulerModel = SimulationUtility.buildBananaSchedulerModel();
     facade = new CheckpointSimulationFacade(horizon, missionModel, schedulerModel);
     problem = new Problem(missionModel, horizon, facade, schedulerModel);
     final var editAdapter = new SchedulerPlanEditAdapter(

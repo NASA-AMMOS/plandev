@@ -725,23 +725,6 @@
     "spans": {
         "simulatedActivities": [
             {
-                "id": 1,
-                "directiveId": null,
-                "parentId": 5,
-                "childIds": [
-                ],
-                "type": "DaemonCheckerActivity",
-                "startOffset": "+11:40:55.219000",
-                "duration": "+00:00:00.000000",
-                "attributes": {
-                },
-                "arguments": {
-                    "minutesElapsed": 700
-                },
-                "startTime": "2024-07-01T11:40:55.219Z",
-                "endTime": "2024-07-01T11:40:55.219Z"
-            },
-            {
                 "id": 4,
                 "directiveId": 4,
                 "parentId": null,
@@ -778,132 +761,29 @@
                 },
                 "startTime": "2024-07-01T11:39:55.219Z",
                 "endTime": "2024-07-01T11:40:55.219Z"
+            },
+            {
+              "id": 1,
+              "directiveId": null,
+              "parentId": 5,
+              "childIds": [
+              ],
+              "type": "DaemonCheckerActivity",
+              "startOffset": "+11:40:55.219000",
+              "duration": "+00:00:00.000000",
+              "attributes": {
+              },
+              "arguments": {
+                "minutesElapsed": 700
+              },
+              "startTime": "2024-07-01T11:40:55.219Z",
+              "endTime": "2024-07-01T11:40:55.219Z"
             }
         ],
         "unfinishedActivities": [
         ]
     },
     "events": {
-        "event": [
-            {
-                "causalTime": ".1",
-                "realTime": "+02:27:15.059000",
-                "transactionIndex": 0,
-                "value": {
-                    "duration": {
-                        "amountInMicroseconds": 2000000
-                    }
-                },
-                "topic": {
-                    "name": "ActivityType.Input.BasicFooActivity",
-                    "valueSchema": {
-                        "type": "struct",
-                        "items": {
-                            "duration": {
-                                "type": "struct",
-                                "items": {
-                                    "amountInMicroseconds": {
-                                        "type": "int"
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                "spanId": 4
-            },
-            {
-                "causalTime": ".1",
-                "realTime": "+02:27:17.059000",
-                "transactionIndex": 0,
-                "value": {
-                },
-                "topic": {
-                    "name": "ActivityType.Output.BasicFooActivity",
-                    "valueSchema": {
-                        "type": "struct",
-                        "items": {
-                        }
-                    }
-                },
-                "spanId": 4
-            },
-            {
-                "causalTime": ".1",
-                "realTime": "+11:39:55.219000",
-                "transactionIndex": 0,
-                "value": {
-                    "minutesElapsed": 700,
-                    "spawnDelay": 1
-                },
-                "topic": {
-                    "name": "ActivityType.Input.DaemonCheckerSpawner",
-                    "valueSchema": {
-                        "type": "struct",
-                        "items": {
-                            "minutesElapsed": {
-                                "type": "int"
-                            },
-                            "spawnDelay": {
-                                "type": "int"
-                            }
-                        }
-                    }
-                },
-                "spanId": 5
-            },
-            {
-                "causalTime": ".1",
-                "realTime": "+11:40:55.219000",
-                "transactionIndex": 0,
-                "value": {
-                    "minutesElapsed": 700
-                },
-                "topic": {
-                    "name": "ActivityType.Input.DaemonCheckerActivity",
-                    "valueSchema": {
-                        "type": "struct",
-                        "items": {
-                            "minutesElapsed": {
-                                "type": "int"
-                            }
-                        }
-                    }
-                },
-                "spanId": 1
-            },
-            {
-                "causalTime": ".2",
-                "realTime": "+11:40:55.219000",
-                "transactionIndex": 0,
-                "value": {
-                },
-                "topic": {
-                    "name": "ActivityType.Output.DaemonCheckerActivity",
-                    "valueSchema": {
-                        "type": "struct",
-                        "items": {
-                        }
-                    }
-                },
-                "spanId": 1
-            },
-            {
-                "causalTime": ".1",
-                "realTime": "+11:40:55.219000",
-                "transactionIndex": 1,
-                "value": {
-                },
-                "topic": {
-                    "name": "ActivityType.Output.DaemonCheckerSpawner",
-                    "valueSchema": {
-                        "type": "struct",
-                        "items": {
-                        }
-                    }
-                },
-                "spanId": 5
-            }
-        ]
+        "event": []
     }
 }

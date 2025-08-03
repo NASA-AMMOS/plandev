@@ -364,7 +364,7 @@ public class SimulationFacadeTest {
     assert(newPlan.getActivitiesById().containsKey(newId));
     final var results = facade.simulateWithResults(newPlan, tEnd);
 
-    final var simulatedIds = results.driverResults().simulatedActivities.values().stream().map(
+    final var simulatedIds = results.driverResults().getSimulatedActivities().values().stream().map(
         ActivityInstance::directiveId
     ).toList();
     assert(simulatedIds.contains(Optional.of(newId)));

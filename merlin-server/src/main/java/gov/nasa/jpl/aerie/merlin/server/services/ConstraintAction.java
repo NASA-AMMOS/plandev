@@ -151,7 +151,7 @@ public class ConstraintAction {
       // sort constraints
       Collections.sort(compiledConstraints);
 
-      // prepare simulation results -- all resources need to be fetched ahead of time as it is unknown what profiles
+      // prepare simulation results -- all resourc  es need to be fetched ahead of time as it is unknown what profiles
       //    a procedural constraint will access
       final var merlinSimResults = resultsHandle.getSimulationResults();
       final var edslSimResults = new SimulationResults(merlinSimResults);

@@ -9,6 +9,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.ActivityInstance;
 import gov.nasa.jpl.aerie.types.ActivityInstanceId;
 import org.apache.commons.lang3.ObjectUtils;
@@ -305,6 +306,12 @@ public class CombinedSimulationResults implements SimulationResultsInterface {
                  .collect(Collectors.toMap(Pair::getKey, Pair::getValue, (list1, list2) -> list2));
     return _events;
   }
+
+  @Override
+  public SimulationResultsInterface replaceIds(final Map<ActivityDirectiveId, ActivityDirectiveId> map) {
+    return new CombinedSimulationResults(nr.replaceIds(map), or.replaceIds(map), timeline);
+  }
+
   private Map<Duration, List<EventGraph<EventRecord>>> _events = null;
 
   @Override

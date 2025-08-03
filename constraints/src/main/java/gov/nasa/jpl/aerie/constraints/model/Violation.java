@@ -13,14 +13,14 @@ public record Violation(List<Interval> windows, ArrayList<Long> activityInstance
     this(windows, new ArrayList<>(activityInstanceIds));
   }
 
-  public static List<Violation> fromProceduralViolations(Violations violations, gov.nasa.jpl.aerie.merlin.driver.SimulationResults simResults) {
+  public static List<Violation> fromProceduralViolations(Violations violations, gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface simResults) {
     final var proceduralViolations = violations.collect();
     final ArrayList<Violation> constraintViolations = new ArrayList<>(proceduralViolations.size());
     for(final var v : proceduralViolations) {
       final List<Long> activityInstanceIds = new ArrayList<>(v.getIds().size());
       for(final var id : v.getIds()) {
         switch (id) {
-          case ActivityDirectiveId dId -> simResults.simulatedActivities
+          case ActivityDirectiveId dId -> simResults.getSimulatedActivities()
                                                     .entrySet()
                                                     .stream()
                                                     .filter(e -> e.getValue().directiveId().isPresent()
@@ -31,7 +31,7 @@ public record Violation(List<Interval> windows, ArrayList<Long> activityInstance
                                                                          "Activity instance with activity directive id "
                                                                          +dId.id()+" not present in simulation results.");});
           case ActivityInstanceId aId -> {
-            if (simResults.simulatedActivities.containsKey(aId)) {
+            if (simResults.getSimulatedActivities().containsKey(aId)) {
               activityInstanceIds.add(aId.id());
               break;
             }

@@ -34,22 +34,22 @@ public final class SimulationResults {
   }
 
   public SimulationResults(
-      gov.nasa.jpl.aerie.merlin.driver.SimulationResults merlinResults
+      gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface merlinResults
   ) {
-    this.planStart = merlinResults.startTime;
-    this.bounds = Interval.between(Duration.ZERO, merlinResults.duration);
+    this.planStart = merlinResults.getStartTime();
+    this.bounds = Interval.between(Duration.ZERO, merlinResults.getDuration());
     this.activities = new ArrayList<>();
     this.realProfiles = new HashMap<>();
     this.discreteProfiles = new HashMap<>();
 
-    for(final var entry : merlinResults.realProfiles.entrySet()) {
+    for(final var entry : merlinResults.getRealProfiles().entrySet()) {
       realProfiles.put(entry.getKey(), LinearProfile.fromSimulatedProfile(entry.getValue().segments()));
     }
-    for(final var entry : merlinResults.discreteProfiles.entrySet()) {
+    for(final var entry : merlinResults.getDiscreteProfiles().entrySet()) {
       discreteProfiles.put(entry.getKey(), DiscreteProfile.fromSimulatedProfile(entry.getValue().segments()));
     }
 
-    final var simulatedActivities = merlinResults.simulatedActivities;
+    final var simulatedActivities = merlinResults.getSimulatedActivities();
     for (final var entry : simulatedActivities.entrySet()) {
       final var id = entry.getKey();
       final var activity = entry.getValue();

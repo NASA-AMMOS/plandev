@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.scheduler.simulation;
 
+import gov.nasa.jpl.aerie.constraints.model.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationDriver;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsComputerInputs;
@@ -295,7 +296,7 @@ public class IncrementalSimulationFacade<Model> implements SimulationFacade {
     final var driverResults = resultsInput.simulationResultsComputerInputs().computeResults(resourceNames);
     this.latestSimulationData = new SimulationData(
         plan, driverResults,
-        SimulationResultsConverter.convertToConstraintModelResults(driverResults));
+        new SimulationResults(driverResults));
     return this.latestSimulationData;
   }
 

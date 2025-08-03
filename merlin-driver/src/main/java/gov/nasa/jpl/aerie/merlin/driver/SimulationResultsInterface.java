@@ -8,6 +8,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.ActivityInstance;
 import gov.nasa.jpl.aerie.types.ActivityInstanceId;
 import org.apache.commons.lang3.tuple.Pair;
@@ -48,4 +49,5 @@ public interface SimulationResultsInterface {
   List<Triple<Integer, String, ValueSchema>> getTopics();
 
   Map<Duration, List<EventGraph<EventRecord>>> getEvents();
+  SimulationResultsInterface replaceIds(Map<ActivityDirectiveId, ActivityDirectiveId> map);
 }

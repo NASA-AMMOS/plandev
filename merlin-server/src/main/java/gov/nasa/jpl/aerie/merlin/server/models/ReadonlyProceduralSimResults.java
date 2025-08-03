@@ -31,6 +31,19 @@ public class ReadonlyProceduralSimResults implements SimulationResults {
     this.plan = plan;
   }
 
+  public ReadonlyProceduralSimResults(
+      gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface merlinResults,
+      Plan plan
+  ) {
+    if (merlinResults instanceof gov.nasa.jpl.aerie.merlin.driver.SimulationResults) {
+      this.merlinResults = (gov.nasa.jpl.aerie.merlin.driver.SimulationResults) merlinResults;
+    } else {
+      throw new RuntimeException("ReadonlyProceduralSimResults():  Expected results of type " +
+                                 gov.nasa.jpl.aerie.merlin.driver.SimulationResults.class + " but got " +
+                                 merlinResults.getClass() + ".");
+    }
+    this.plan = plan;
+  }
   /** Queries all activity instances, deserializing them as [AnyInstance]. **/
   @NotNull
   @Override
@@ -60,7 +73,7 @@ public class ReadonlyProceduralSimResults implements SimulationResults {
     final var instances = new ArrayList<Instance<A>>();
 
     // Add the simulated activities of the correct type
-    instances.addAll(merlinResults.simulatedActivities
+    instances.addAll(merlinResults.getSimulatedActivities()
         .entrySet()
         .stream()
         // Filter on type if it's defined, else return all simulated activities
@@ -84,7 +97,7 @@ public class ReadonlyProceduralSimResults implements SimulationResults {
         .toList());
 
     // Add the unfinished activities of the correct type
-    instances.addAll(merlinResults.unfinishedActivities
+    instances.addAll(merlinResults.getUnfinishedActivities()
         .entrySet()
         .stream()
         // Filter on type if it's defined, else return all unfinished activities
@@ -123,8 +136,8 @@ public class ReadonlyProceduralSimResults implements SimulationResults {
       @NotNull final Function1<? super List<Segment<SerializedValue>>, ? extends TL> deserializer)
   {
     final List<Segment<SerializedValue>> segments = new ArrayList<>();
-    if (merlinResults.realProfiles.containsKey(name)) {
-      final var s = merlinResults.realProfiles
+    if (merlinResults.getRealProfiles().containsKey(name)) {
+      final var s = merlinResults.getRealProfiles()
           .get(name)
           .segments();
       // Add initial segment
@@ -144,8 +157,8 @@ public class ReadonlyProceduralSimResults implements SimulationResults {
         ));
         priorStart = priorStart.plus(s.get(i).extent());
       }
-    } else if (merlinResults.discreteProfiles.containsKey(name)) {
-      final var s = merlinResults.discreteProfiles
+    } else if (merlinResults.getDiscreteProfiles().containsKey(name)) {
+      final var s = merlinResults.getDiscreteProfiles()
           .get(name)
           .segments();
       // Add initial segment
@@ -169,7 +182,7 @@ public class ReadonlyProceduralSimResults implements SimulationResults {
   @NotNull
   @Override
   public Interval simBounds() {
-    return Interval.between(plan.toRelative(merlinResults.startTime), merlinResults.duration);
+    return Interval.between(plan.toRelative(merlinResults.getStartTime()), merlinResults.getDuration());
   }
 
   /** Whether these results are up-to-date with all changes. */

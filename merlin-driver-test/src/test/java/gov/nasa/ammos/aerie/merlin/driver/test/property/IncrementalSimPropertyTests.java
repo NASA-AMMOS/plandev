@@ -134,7 +134,7 @@ public class IncrementalSimPropertyTests {
       final var startOffsets = new ArrayList<Duration>();
       final var additionalStartOffsets = new ArrayList<>(allStartOffsets);
       final long schedule1Size = Math.round(allStartOffsets.size() * 0.8);
-      for (var i = 0; i < schedule1Size; i++) {
+      for (long i = 0; i < schedule1Size; i++) {
         startOffsets.add(additionalStartOffsets.removeLast());
       }
 

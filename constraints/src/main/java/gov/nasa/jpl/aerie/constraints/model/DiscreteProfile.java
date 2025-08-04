@@ -164,7 +164,6 @@ public final class DiscreteProfile implements Profile<DiscreteProfile>, Iterable
       final var nextCursor = cursor.plus(pair.extent());
 
       final var value = transform.apply(pair.dynamics());
-
       final Duration finalCursor = cursor;
       final var isLast = c == profile.size() - 1;
       value.ifPresent(

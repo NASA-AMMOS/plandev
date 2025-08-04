@@ -846,7 +846,6 @@ public class TemporalEventSource implements EventSource, Iterable<TemporalEventS
     var oldEntry = oldIter != null && oldIter.hasNext() ? oldIter.next() : null;
     var oldEntryTime = oldEntry == null ? Duration.MAX_VALUE : oldEntry.getKey();
     var stale = TemporalEventSource.this.isTopicStale(cell.getTopic(), cellTime);
-    if (debug) new Throwable().printStackTrace();
     if (debug) System.out.println("" + i + " BEGIN stepUp(" + cell.getTopic() + ", " + endTime + "): cellState = " + cell.toString() + ", stale = " + stale + ", cellTime = " + cellTime + ", oldCellState = " + oldCell.getState().toString() + ", oldCellTime = " + oldCellTime);
     if (debug) System.out.println("" + i + " stepUp(): entry = " + entry + ", entryTime = " + entryTime);
     if (debug) System.out.println("" + i + " stepUp(): oldEntry = " + oldEntry + ", oldEntryTime = " + oldEntryTime);

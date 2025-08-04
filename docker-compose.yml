@@ -68,7 +68,7 @@ services:
         -Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
         -Dorg.slf4j.simpleLogger.logFile=System.err
-      UNTRUE_PLAN_START: "2000-01-01T11:58:55.816Z"
+      UNTRUE_PLAN_START: "${UNTRUE_PLAN_START:-2000-01-01T11:58:55.816Z}"
     image: aerie_merlin
     ports: ["27183:27183", "5005:5005"]
     restart: always
@@ -166,9 +166,8 @@ services:
         -Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
         -Dorg.slf4j.simpleLogger.logFile=System.err
-        -Xmx34g
-      #UNTRUE_PLAN_START: "${UNTRUE_PLAN_START:-2030-01-01T00:00:00Z}"
-      UNTRUE_PLAN_START: "${UNTRUE_PLAN_START:-2030-01-01T00:00:00Z}"
+        -Xmx8g
+      UNTRUE_PLAN_START: "${UNTRUE_PLAN_START:-2000-01-01T11:58:55.816Z}"
     image: "aerie_merlin_worker_1"
     ports: ["5007:5005", "27187:8080"]
     restart: always
@@ -193,9 +192,8 @@ services:
         -Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
         -Dorg.slf4j.simpleLogger.logFile=System.err
-        -Xmx34g
-      #UNTRUE_PLAN_START: "${UNTRUE_PLAN_START:-2030-01-01T00:00:00Z}"
-      UNTRUE_PLAN_START: "${UNTRUE_PLAN_START:-2030-01-01T00:00:00Z}"
+        -Xmx8g
+      UNTRUE_PLAN_START: "${UNTRUE_PLAN_START:-2000-01-01T11:58:55.816Z}"
     image: "aerie_merlin_worker_2"
     ports: ["5008:5005", "27188:8080"]
     restart: always
@@ -223,7 +221,7 @@ services:
         -Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
         -Dorg.slf4j.simpleLogger.logFile=System.err
-        -Xmx35g
+        -Xmx8g
     image: "aerie_scheduler_worker_1"
     ports: ["5009:5005", "27189:8080"]
     restart: always
@@ -251,7 +249,7 @@ services:
         -Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
         -Dorg.slf4j.simpleLogger.logFile=System.err
-        -Xmx35g
+        -Xmx8g
     image: "aerie_scheduler_worker_2"
     ports: ["5010:5005", "27190:8080"]
     restart: always

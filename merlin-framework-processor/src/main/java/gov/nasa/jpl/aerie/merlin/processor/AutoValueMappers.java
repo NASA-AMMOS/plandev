@@ -13,6 +13,7 @@ import com.squareup.javapoet.TypeVariableName;
 import gov.nasa.jpl.aerie.contrib.serialization.mappers.RecordValueMapper;
 import gov.nasa.jpl.aerie.merlin.framework.Result;
 import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
+import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.AutoValueMapper;
 import gov.nasa.jpl.aerie.merlin.processor.metamodel.MissionModelRecord;
 import gov.nasa.jpl.aerie.merlin.processor.metamodel.TypeRule;
@@ -59,6 +60,24 @@ public class AutoValueMappers {
             .toList(),
         generatedClassName,
         ClassName.get((TypeElement) autoValueMapperElement).canonicalName().replace(".", "_"));
+  }
+
+  static TypeRule activityTypeRule(final Element activityTypeElement, final ClassName generatedClassName) throws InvalidMissionModelException {
+    if (!(activityTypeElement.getKind().equals(ElementKind.CLASS) || activityTypeElement.getKind().equals(ElementKind.RECORD))) { //todo: check if activities are constrained to class and record
+      throw new InvalidMissionModelException(
+          "@%s is only allowed on classes and records".formatted(
+              ActivityType.class.getSimpleName()),
+          activityTypeElement);
+    }
+
+    return new TypeRule(
+        new TypePattern.ClassPattern(
+            ClassName.get(ValueMapper.class),
+            List.of(TypePattern.from(activityTypeElement.asType()))),
+        Set.of(),
+        List.of(),
+        generatedClassName,
+        ClassName.get((TypeElement) activityTypeElement).canonicalName().replace("activities", "generated_activitiesValueMappers").replace(".", "_") + "ValueMapper");
   }
 
   static TypeRule annotationTypeRule(final Element autoValueMapperElement, final ClassName generatedClassName) throws InvalidMissionModelException {

@@ -35,6 +35,10 @@ public record MissionModelRecord(
     return ClassName.get(this.$package.getQualifiedName() + ".generated", "ActivityActions");
   }
 
+  public ClassName getActivityValueMappers() {
+    return ClassName.get(this.$package.getQualifiedName() + ".generated", "ActivityValueMappers");
+  }
+
   public ClassName getTypesName() {
     return ClassName.get(this.$package.getQualifiedName() + ".generated", "ActivityTypes");
   }

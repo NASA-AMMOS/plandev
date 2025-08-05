@@ -9,10 +9,11 @@ import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.Export;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.MissionModel;
 import gov.nasa.jpl.aerie.merlin.processor.metamodel.ActivityTypeRecord;
+import gov.nasa.jpl.aerie.merlin.processor.metamodel.ActivityValueMapperRecord;
 import gov.nasa.jpl.aerie.merlin.processor.metamodel.InputTypeRecord;
 import gov.nasa.jpl.aerie.merlin.processor.metamodel.EffectModelRecord;
 import gov.nasa.jpl.aerie.merlin.processor.metamodel.ExportDefaultsStyle;
-import gov.nasa.jpl.aerie.merlin.processor.metamodel.MapperRecord;
+import gov.nasa.jpl.aerie.merlin.processor.metamodel.ActivityMapperRecord;
 import gov.nasa.jpl.aerie.merlin.processor.metamodel.MissionModelRecord;
 import gov.nasa.jpl.aerie.merlin.processor.metamodel.ParameterRecord;
 import gov.nasa.jpl.aerie.merlin.processor.metamodel.ParameterValidationRecord;
@@ -183,9 +184,10 @@ import java.util.stream.Collectors;
     final var name = declaration.getSimpleName().toString();
     final var parameters = getExportParameters(declaration);
     final var validations = this.getExportValidations(declaration, parameters);
-    final var mapper = getExportMapper(missionModelElement, declaration);
+    final var activityMapper = getExportActivityMapper(missionModelElement, declaration);
+    final var valueMapper = getExportValueMapper(missionModelElement, declaration);
     final var defaultsStyle = getExportDefaultsStyle(declaration);
-    return Optional.of(new InputTypeRecord(name, declaration, parameters, validations, mapper, defaultsStyle));
+    return Optional.of(new InputTypeRecord(name, declaration, parameters, validations, activityMapper, valueMapper, defaultsStyle));
   }
 
   private List<TypeElement> getMissionModelMapperClasses(final PackageElement missionModelElement)
@@ -381,7 +383,8 @@ import java.util.stream.Collectors;
   {
     final var fullyQualifiedClassName = activityTypeElement.getQualifiedName();
     final var name = this.getActivityTypeName(activityTypeElement);
-    final var mapper = this.getExportMapper(missionModelElement, activityTypeElement);
+    final var activityMapper = getExportActivityMapper(missionModelElement, activityTypeElement);
+    final var valueMapper = getExportValueMapper(missionModelElement, activityTypeElement);
     final var parameters = this.getExportParameters(activityTypeElement);
     final var validations = this.getExportValidations(activityTypeElement, parameters);
     final var effectModel = this.getActivityEffectModel(activityTypeElement);
@@ -409,7 +412,7 @@ import java.util.stream.Collectors;
     return new ActivityTypeRecord(
         fullyQualifiedClassName.toString(),
         name,
-        new InputTypeRecord(name, activityTypeElement, parameters, validations, mapper, defaultsStyle),
+        new InputTypeRecord(name, activityTypeElement, parameters, validations, activityMapper, valueMapper, defaultsStyle),
         effectModel);
   }
 
@@ -486,12 +489,12 @@ import java.util.stream.Collectors;
     return (String) nameAttribute.getValue();
   }
 
-  private MapperRecord getExportMapper(final PackageElement missionModelElement, final TypeElement exportTypeElement)
+  private ActivityMapperRecord getExportActivityMapper(final PackageElement missionModelElement, final TypeElement exportTypeElement)
   throws InvalidMissionModelException
   {
     final var annotationMirror = this.getAnnotationMirrorByType(exportTypeElement, ActivityType.WithMapper.class);
     if (annotationMirror.isEmpty()) {
-      return MapperRecord.generatedFor(
+      return ActivityMapperRecord.generatedFor(
           ClassName.get(exportTypeElement),
           missionModelElement);
     }
@@ -503,7 +506,27 @@ import java.util.stream.Collectors;
             annotationMirror.get()))
         .getValue();
 
-    return MapperRecord.custom(
+    return ActivityMapperRecord.custom(
+        ClassName.get((TypeElement) mapperType.asElement()));
+  }
+  private ActivityValueMapperRecord getExportValueMapper(final PackageElement missionModelElement, final TypeElement exportTypeElement)
+  throws InvalidMissionModelException
+  {
+    final var annotationMirror = this.getAnnotationMirrorByType(exportTypeElement, ActivityType.WithMapper.class);
+    if (annotationMirror.isEmpty()) {
+      return ActivityValueMapperRecord.generatedFor(
+          ClassName.get(exportTypeElement),
+          missionModelElement);
+    }
+
+    final var mapperType = (DeclaredType) getAnnotationAttribute(annotationMirror.get(), "value")
+        .orElseThrow(() -> new InvalidMissionModelException(
+            "Unable to get value attribute of annotation",
+            exportTypeElement,
+            annotationMirror.get()))
+        .getValue();
+
+    return ActivityValueMapperRecord.custom(
         ClassName.get((TypeElement) mapperType.asElement()));
   }
 

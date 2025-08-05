@@ -1,7 +1,10 @@
 package gov.nasa.jpl.aerie.merlin.processor;
 
+import com.squareup.javapoet.JavaFile;
+import com.squareup.javapoet.TypeName;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.AutoValueMapper;
+import gov.nasa.jpl.aerie.merlin.framework.annotations.Export;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.MissionModel;
 import gov.nasa.jpl.aerie.merlin.processor.generator.MissionModelGenerator;
 import gov.nasa.jpl.aerie.merlin.processor.metamodel.MissionModelRecord;
@@ -26,6 +29,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -92,9 +96,10 @@ public final class MissionModelProcessor implements Processor {
     for (final var element : roundEnv.getElementsAnnotatedWith(MissionModel.class)) {
       final var recordAutoValueMapperRequests = roundEnv.getElementsAnnotatedWith(AutoValueMapper.Record.class);
       final var annotationAutoValueMapperRequests = roundEnv.getElementsAnnotatedWith(AutoValueMapper.Annotation.class);
+
       final var packageElement = (PackageElement) element;
       try {
-        final var missionModelRecord$ = missionModelParser.parseMissionModel(packageElement);
+        final var missionModelRecord$ = missionModelParser.parseMissionModel(packageElement); //todo: add typerules for activity parameters
 
         final var concatenatedTypeRules = new ArrayList<>(missionModelRecord$.typeRules());
         for (final var request : recordAutoValueMapperRequests) {
@@ -102,6 +107,9 @@ public final class MissionModelProcessor implements Processor {
         }
         for (final var request : annotationAutoValueMapperRequests) {
           concatenatedTypeRules.add(AutoValueMappers.annotationTypeRule(request, missionModelRecord$.getAutoValueMappersName()));
+        }
+        for(final var request : this.foundActivityTypes) {
+          concatenatedTypeRules.add(AutoValueMappers.activityTypeRule(request, missionModelRecord$.getActivityValueMappers()));
         }
 
         final var missionModelRecord = new MissionModelRecord(
@@ -112,6 +120,7 @@ public final class MissionModelProcessor implements Processor {
             concatenatedTypeRules,
             missionModelRecord$.activityTypes()
         );
+
 
         final var generatedFiles = new ArrayList<>(List.of(
             missionModelGen.generateMerlinPlugin(missionModelRecord),
@@ -134,12 +143,15 @@ public final class MissionModelProcessor implements Processor {
             annotationAutoValueMapperRequests);
         generatedFiles.add(autoValueMappers);
 
+
         for (final var activityRecord : missionModelRecord.activityTypes()) {
           this.ownedActivityTypes.add(activityRecord.inputType().declaration());
-          if (!activityRecord.inputType().mapper().isCustom) {
+          if (!activityRecord.inputType().activityMapper().isCustom) {
             missionModelGen.generateActivityMapper(missionModelRecord, activityRecord).ifPresent(generatedFiles::add);
           }
         }
+
+        generatedFiles.add(missionModelGen.generateActivityValueMappers(missionModelRecord));
 
         for (final var generatedFile : generatedFiles) {
           generatedFile.writeTo(this.filer);

@@ -8,6 +8,7 @@ public record InputTypeRecord(
     TypeElement declaration,
     List<ParameterRecord> parameters,
     List<ParameterValidationRecord> validations,
-    MapperRecord mapper,
+    ActivityMapperRecord activityMapper,
+    ActivityValueMapperRecord valueMapper,
     ExportDefaultsStyle defaultsStyle
 ) {}

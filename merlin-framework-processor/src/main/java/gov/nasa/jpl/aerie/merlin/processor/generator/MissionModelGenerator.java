@@ -13,8 +13,10 @@ import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 import com.squareup.javapoet.WildcardTypeName;
 import gov.nasa.jpl.aerie.merlin.framework.ActivityMapper;
+import gov.nasa.jpl.aerie.merlin.framework.ActivityValueMapper;
 import gov.nasa.jpl.aerie.merlin.framework.EmptyInputType;
 import gov.nasa.jpl.aerie.merlin.framework.ModelActions;
+import gov.nasa.jpl.aerie.merlin.framework.Result;
 import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
 import gov.nasa.jpl.aerie.merlin.processor.MissionModelProcessor;
 import gov.nasa.jpl.aerie.merlin.processor.Resolver;
@@ -126,9 +128,9 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
 
   /** Generate `ConfigurationMapper` class. */
   public Optional<JavaFile> generateMissionModelConfigurationMapper(final MissionModelRecord missionModel, final InputTypeRecord configType) {
-    return generateInputType(missionModel, configType, configType.mapper().name.simpleName())
+    return generateInputType(missionModel, configType, configType.activityMapper().name.simpleName())
         .map(typeSpec -> JavaFile
-            .builder(configType.mapper().name.packageName(), typeSpec)
+            .builder(configType.activityMapper().name.packageName(), typeSpec)
             .skipJavaLangImports(true)
             .build());
   }
@@ -179,12 +181,12 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                     .addAnnotation(Override.class)
                     .returns(
                         missionModel.modelConfigurationType()
-                            .map(configType -> configType.mapper().name)
+                            .map(configType -> configType.activityMapper().name)
                             .orElse(ClassName.get(EmptyInputType.class)))
                     .addStatement(
                         "return new $T()",
                         missionModel.modelConfigurationType()
-                            .map(configType -> configType.mapper().name)
+                            .map(configType -> configType.activityMapper().name)
                             .orElse(ClassName.get(EmptyInputType.class)))
                 .build())
             .addMethod(
@@ -263,6 +265,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
   public JavaFile generateSchedulerModel(final MissionModelRecord missionModel) {
     final var typeName = missionModel.getSchedulerModelName();
     final var durationValueMapperCodeBlock = generateDurationMapperBlock(missionModel);
+
     final var typeSpec =
         TypeSpec
             .classBuilder(typeName)
@@ -296,7 +299,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                                                           .map($ -> {
                                                             if ($.durationParameter().isPresent()) return CodeBlock.of("controllable(\"$L\")", $.durationParameter().get());
                                                             else if ($.fixedDurationExpr().isPresent()) return CodeBlock.of("fixed($L.$L)", activityTypeRecord.fullyQualifiedClass(), $.fixedDurationExpr().get());
-                                                            else if ($.parametricDuration().isPresent()) return CodeBlock.of("parametric($$ -> (new $L().new InputMapper()).instantiate($$).$L())", activityTypeRecord.inputType().mapper().name, $.parametricDuration().get());
+                                                            else if ($.parametricDuration().isPresent()) return CodeBlock.of("parametric($$ -> (new $L().new InputMapper()).instantiate($$).$L())", activityTypeRecord.inputType().activityMapper().name, $.parametricDuration().get());
                                                             else return CodeBlock.of("uncontrollable()");
                                                           })
                                                           .orElse(CodeBlock.of("fixed($T.ZERO)", ClassName.get(Duration.class)))))
@@ -336,9 +339,9 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                            .addAnnotation(Override.class)
                            .returns(SerializedValue.class)
                            .addParameter(
-                           TypeName.get(Duration.class),
-                           "duration",
-                           Modifier.FINAL)
+                               TypeName.get(Duration.class),
+                               "duration",
+                               Modifier.FINAL)
                            .addStatement(
                                "return $L.serializeValue(duration)", durationValueMapperCodeBlock.get()
                            )
@@ -348,15 +351,14 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                            .addModifiers(Modifier.PUBLIC)
                            .addAnnotation(Override.class)
                            .addParameter(
-                           TypeName.get(SerializedValue.class),
-                           "serializedDuration",
-                           Modifier.FINAL)
+                               TypeName.get(SerializedValue.class),
+                               "serializedDuration",
+                               Modifier.FINAL)
                            .addStatement(
                                "return $L.deserializeValue(serializedDuration).getSuccessOrThrow()", durationValueMapperCodeBlock.get()
                            )
                            .returns(Duration.class)
                            .build())
-
             .build();
 
     return JavaFile
@@ -403,7 +405,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                                     "final var $L = $T.$L",
                                     "mapper",
                                     missionModel.getTypesName(),
-                                    entry.inputType().mapper().name.canonicalName().replace(".", "_"))
+                                    entry.inputType().activityMapper().name.canonicalName().replace(".", "_"))
                                 .addStatement(
                                     "$T.spawnWithSpan($L.getTaskFactory($L, $L))",
                                     gov.nasa.jpl.aerie.merlin.framework.ModelActions.class,
@@ -430,7 +432,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                                     "final var $L = $T.$L",
                                     "mapper",
                                     missionModel.getTypesName(),
-                                    entry.inputType().mapper().name.canonicalName().replace(".", "_"))
+                                    entry.inputType().activityMapper().name.canonicalName().replace(".", "_"))
                                 .addStatement(
                                     "$T.deferWithSpan($L, $L.getTaskFactory($L, $L))",
                                     gov.nasa.jpl.aerie.merlin.framework.ModelActions.class,
@@ -486,7 +488,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                                     "final var $L = $T.$L",
                                     "mapper",
                                     missionModel.getTypesName(),
-                                    entry.inputType().mapper().name.canonicalName().replace(".", "_"))
+                                    entry.inputType().activityMapper().name.canonicalName().replace(".", "_"))
                                 .addStatement(
                                     "$T.callWithSpan($L.getTaskFactory($L, $L))",
                                     gov.nasa.jpl.aerie.merlin.framework.ModelActions.class,
@@ -521,10 +523,10 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                     .stream()
                     .map(activityType -> FieldSpec
                         .builder(
-                            activityType.inputType().mapper().name,
-                            activityType.inputType().mapper().name.canonicalName().replace(".", "_"),
+                            activityType.inputType().activityMapper().name,
+                            activityType.inputType().activityMapper().name.canonicalName().replace(".", "_"),
                             Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
-                        .initializer("new $T()", activityType.inputType().mapper().name)
+                        .initializer("new $T()", activityType.inputType().activityMapper().name)
                         .build())
                     .toList())
             .addField(
@@ -551,7 +553,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                                     "\n$T.entry($S, $L)",
                                     ClassName.get(Map.class),
                                     activityType.name(),
-                                    activityType.inputType().mapper().name.canonicalName().replace(".", "_")))
+                                    activityType.inputType().activityMapper().name.canonicalName().replace(".", "_")))
                             .reduce((x, y) -> x.add(",").add(y.build()))
                             .orElse(CodeBlock.builder())
                             .build())
@@ -607,14 +609,13 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
   private record ComputedAttributesCodeBlocks(TypeName typeName, FieldSpec fieldDef) {}
 
   /** Generate an `InputType` implementation. */
-  public Optional<TypeSpec> generateInputType(final MissionModelRecord missionModel,
-                                              final InputTypeRecord inputType,
-                                              final String name) {
+  public Optional<TypeSpec> generateInputType(final MissionModelRecord missionModel, final InputTypeRecord inputType, final String name) {
     final var mapperBlocks$ = generateParameterMapperBlocks(missionModel, inputType);
     if (mapperBlocks$.isEmpty()) return Optional.empty();
     final var mapperBlocks = mapperBlocks$.get();
 
     final var mapperMethodMaker = MapperMethodMaker.make(inputType);
+
     return Optional.of(TypeSpec
         .classBuilder(name)
         // The location of the missionModel package determines where to put this class.
@@ -633,16 +634,16 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
         .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
         .addFields(
             inputType.parameters()
-                     .stream()
-                     .map(parameter -> FieldSpec
-                         .builder(
-                             ParameterizedTypeName.get(
-                                 ClassName.get(gov.nasa.jpl.aerie.merlin.framework.ValueMapper.class),
-                                 TypeName.get(parameter.type).box()),
-                             "mapper_" + parameter.name)
-                         .addModifiers(Modifier.PRIVATE, Modifier.FINAL)
-                         .build())
-                     .collect(Collectors.toList()))
+                .stream()
+                .map(parameter -> FieldSpec
+                    .builder(
+                        ParameterizedTypeName.get(
+                            ClassName.get(gov.nasa.jpl.aerie.merlin.framework.ValueMapper.class),
+                            TypeName.get(parameter.type).box()),
+                        "mapper_" + parameter.name)
+                    .addModifiers(Modifier.PRIVATE, Modifier.FINAL)
+                    .build())
+                .collect(Collectors.toList()))
         .addMethod(
             MethodSpec
                 .constructorBuilder()
@@ -657,15 +658,15 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                         .build())
                 .addCode(
                     inputType.parameters()
-                             .stream()
-                             .map(parameter -> CodeBlock
-                                 .builder()
-                                 .addStatement(
-                                     "this.mapper_$L =\n$L",
-                                     parameter.name,
-                                     mapperBlocks.get(parameter.name)))
-                             .reduce(CodeBlock.builder(), (x, y) -> x.add(y.build()))
-                             .build())
+                        .stream()
+                        .map(parameter -> CodeBlock
+                            .builder()
+                            .addStatement(
+                                "this.mapper_$L =\n$L",
+                                parameter.name,
+                                mapperBlocks.get(parameter.name)))
+                        .reduce(CodeBlock.builder(), (x, y) -> x.add(y.build()))
+                        .build())
                 .build())
         .addMethod(mapperMethodMaker.makeGetRequiredParametersMethod())
         .addMethod(mapperMethodMaker.makeGetParametersMethod())
@@ -673,6 +674,45 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
         .addMethod(mapperMethodMaker.makeInstantiateMethod())
         .addMethod(mapperMethodMaker.makeGetValidationFailuresMethod())
         .build());
+  }
+
+  /** Generate `ActivityValueMappers` class. */
+  public JavaFile generateActivityValueMappers(final MissionModelRecord missionModel) {
+    final var typeName = missionModel.getTypesName();
+
+    final var typeSpec =
+        TypeSpec
+            .classBuilder("ActivityValueMappers")
+            .addAnnotation(
+                AnnotationSpec
+                    .builder(javax.annotation.processing.Generated.class)
+                    .addMember("value", "$S", MissionModelProcessor.class.getCanonicalName())
+                    .build())
+            .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
+            .addMethods(
+                missionModel.activityTypes()
+                            .stream()
+                            .map(activityType -> MethodSpec
+                                .methodBuilder(activityType.inputType().valueMapper().name.canonicalName().replace(".", "_"))
+                                     .returns(ParameterizedTypeName.get(
+                                             ClassName.get(gov.nasa.jpl.aerie.merlin.framework.ValueMapper.class),
+                                             TypeName.get(activityType.inputType().declaration().asType())))
+                                .addModifiers(Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+                                .addCode(CodeBlock.builder().add("return new $T(new $T(), $S);",
+                                                                 ParameterizedTypeName.get(
+                                                                     ClassName.get(gov.nasa.jpl.aerie.merlin.framework.ActivityValueMapper.class),
+                                                                     TypeName.get(activityType.inputType().declaration().asType())),
+                                                                 activityType.inputType().activityMapper().name,
+                                                                 activityType.name()).build())
+                                .build())
+                            .toList()
+            )
+            .build();
+
+    return JavaFile
+        .builder(typeName.packageName(), typeSpec)
+        .skipJavaLangImports(true)
+        .build();
   }
 
   private Optional<ComputedAttributesCodeBlocks> getComputedAttributesCodeBlocks(
@@ -725,10 +765,9 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
     final var inputTypeMapper$ = generateInputType(missionModel, activityType.inputType(), "InputMapper");
     if (inputTypeMapper$.isEmpty()) return Optional.empty();
     final var inputTypeMapper = inputTypeMapper$.get();
-
     final var computedAttributesCodeBlocks = computedAttributesCodeBlocks$.get();
     final var typeSpec = TypeSpec
-        .classBuilder(activityType.inputType().mapper().name)
+        .classBuilder(activityType.inputType().activityMapper().name)
         // The location of the missionModel package determines where to put this class.
         .addOriginatingElement(missionModel.$package())
         // The fields and methods of the activity determines the overall behavior of this class.
@@ -785,7 +824,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
             .returns(ParameterizedTypeName.get(
                 ClassName.get(InputType.class),
                 ClassName.get(activityType.inputType().declaration())))
-            .addStatement("return new $T()", activityType.inputType().mapper().name.nestedClass(inputTypeMapper.name))
+            .addStatement("return new $T()", activityType.inputType().activityMapper().name.nestedClass(inputTypeMapper.name))
             .build())
         .addMethod(MethodSpec
             .methodBuilder("getOutputType")
@@ -794,7 +833,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
             .returns(ParameterizedTypeName.get(
                 ClassName.get(OutputType.class),
                 computedAttributesCodeBlocks.typeName().box()))
-            .addStatement("return new $T()", activityType.inputType().mapper().name.nestedClass("OutputMapper"))
+            .addStatement("return new $T()", activityType.inputType().activityMapper().name.nestedClass("OutputMapper"))
             .build())
         .addMethod(
             MethodSpec
@@ -880,7 +919,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
         .build();
 
     return Optional.of(JavaFile
-        .builder(activityType.inputType().mapper().name.packageName(), typeSpec)
+        .builder(activityType.inputType().activityMapper().name.packageName(), typeSpec)
         .skipJavaLangImports(true)
         .build());
   }
@@ -910,7 +949,19 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                          "return this." + COMPUTED_ATTRIBUTES_VALUE_MAPPER_FIELD_NAME + ".serializeValue(returnValue)")
                      .build();
   }
-
+  private Optional<CodeBlock> generateDurationMapperBlock(final MissionModelRecord missionModel){
+    final var resolver = new Resolver(this.typeUtils, this.elementUtils, missionModel.typeRules());
+    final var mapperBlock = resolver.instantiateNullableMapperFor(
+        elementUtils.getTypeElement(Duration.class.getName()).asType());
+    if (mapperBlock.isPresent()) {
+      return mapperBlock;
+    } else {
+      messager.printMessage(
+          Diagnostic.Kind.ERROR,
+          "Failed to generate value mapper for Duration");
+      return Optional.empty();
+    }
+  }
   private Optional<Map<String, CodeBlock>> generateParameterMapperBlocks(final MissionModelRecord missionModel, final InputTypeRecord inputType)
   {
     final var resolver = new Resolver(this.typeUtils, this.elementUtils, missionModel.typeRules());
@@ -931,19 +982,5 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
     }
 
     return failed ? Optional.empty() : Optional.of(mapperBlocks);
-  }
-
-  private Optional<CodeBlock> generateDurationMapperBlock(final MissionModelRecord missionModel){
-    final var resolver = new Resolver(this.typeUtils, this.elementUtils, missionModel.typeRules());
-    final var mapperBlock = resolver.instantiateNullableMapperFor(
-        elementUtils.getTypeElement(Duration.class.getName()).asType());
-    if (mapperBlock.isPresent()) {
-      return mapperBlock;
-    } else {
-      messager.printMessage(
-          Diagnostic.Kind.ERROR,
-          "Failed to generate value mapper for Duration");
-      return Optional.empty();
-    }
   }
 }

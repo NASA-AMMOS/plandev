@@ -12,6 +12,13 @@ import requests
 def clear_screen():
   os.system('cls' if os.name == 'nt' else 'clear')
 
+def print_error(message: str):
+  """
+  Print an error message to the terminal
+
+  :param message: Message to be printed.
+  """
+  print("\033[91mError\033[0m: " + message)
 
 def exit_with_error(message: str, exit_code=1):
   """
@@ -20,7 +27,7 @@ def exit_with_error(message: str, exit_code=1):
   :param message: Error message to display before exiting.
   :param exit_code: Error code to exit with. Defaults to 1.
   """
-  print("\033[91mError\033[0m: "+message)
+  print_error(message)
   sys.exit(exit_code)
 
 
@@ -30,12 +37,13 @@ class Hasura:
   """
   command_suffix = ''
   migrate_suffix = ''
+  metadata_suffix = ''
   endpoint = ''
   admin_secret = ''
   db_name = 'Aerie'
   current_version = 0
 
-  def __init__(self, endpoint: str, admin_secret: str, hasura_path: str,  env_path: str, db_name='Aerie'):
+  def __init__(self, endpoint: str, admin_secret: str, hasura_path: str, env_path: str, db_name='Aerie'):
     """
     Initialize a Hasura object.
 
@@ -60,10 +68,12 @@ class Hasura:
 
     # Set up the suffix flags to use when calling the 'migrate' subcommand on the CLI
     self.migrate_suffix = f"--database-name {self.db_name} --endpoint {self.endpoint} --admin-secret '{self.admin_secret}'"
+    # Suffix flags to use when calling the 'metadata' subcommands on the CLI
+    self.metadata_suffix = f"--endpoint {self.endpoint} --admin-secret '{self.admin_secret}'"
 
     # Check that Hasura CLI is installed
     if not shutil.which('hasura'):
-      sys.exit(f'Hasura CLI is not installed. Exiting...')
+      exit_with_error(f'Hasura CLI is not installed. Exiting...')
     else:
       self.execute('version')
 
@@ -145,6 +155,7 @@ class Hasura:
     session = requests.Session()
     resp = session.post(url=run_sql_url, headers=headers, json=body)
     if not resp.ok:
+      print(resp.text)
       exit_with_error("Error while fetching current schema information.")
 
     migration_ids = resp.json()['result']
@@ -179,8 +190,231 @@ class Hasura:
     """
     Apply and reload the metadata.
     """
-    self.execute('metadata apply')
-    self.execute('metadata reload')
+    self.execute(f'metadata apply', self.metadata_suffix)
+    self.execute(f'metadata reload', self.metadata_suffix)
+
+  def __check_pause_after__(self, migration_id: int) -> bool:
+    """
+    Checks if the given migration has an "after" task that needs to be completed.
+
+    Only checked during "up" migrations.
+
+    :return: True if there is an open "after" task for the migration, else returns False
+    """
+    # If the migration id is before the one that introduces after tasks, return False
+    if migration_id < 25:
+      return False
+
+    # Query the database
+    run_sql_url = f'{self.endpoint}/v2/query'
+    headers = {
+      "content-type": "application/json",
+      "x-hasura-admin-secret": self.admin_secret,
+      "x-hasura-role": "admin"
+    }
+    body = {
+      "type": "run_sql",
+      "args": {
+        "source": self.db_name,
+        "sql": f"SELECT pause_after, after_done FROM migrations.schema_migrations WHERE migration_id = {migration_id};",
+        "read_only": True
+      }
+    }
+    session = requests.Session()
+    resp = session.post(url=run_sql_url, headers=headers, json=body)
+    if not resp.ok:
+      exit_with_error("Error while fetching migration information.")
+
+    results = resp.json()['result']
+    # results looks like [['pause_after', 'after_done'], [f, f]]
+    if results.pop(0)[0] != 'pause_after':
+      exit_with_error("Error while fetching current schema information.")
+
+    (pause_after, after_done) = results[0]
+
+    # Return "True" if there is an incomplete "after" task
+    if pause_after == 't' and after_done == 'f':
+      return True
+    return False
+
+  def mark_after_done(self, migration_id):
+    """
+    Mark that the after tasks have been completed for the specified migration.
+
+    :param migration_id: The migration to be updated
+    """
+    # Mutate the DB
+    run_sql_url = f'{self.endpoint}/v2/query'
+    headers = {
+      "content-type": "application/json",
+      "x-hasura-admin-secret": self.admin_secret,
+      "x-hasura-role": "admin"
+    }
+    body = {
+      "type": "run_sql",
+      "args": {
+        "source": self.db_name,
+        "sql": f"UPDATE migrations.schema_migrations SET after_done = true WHERE migration_id = {migration_id};",
+        "read_only": False
+      }
+    }
+
+    session = requests.Session()
+    resp = session.post(url=run_sql_url, headers=headers, json=body)
+    if not resp.ok:
+      exit_with_error("Error while updating migration information.")
+
+  def apply_after(self, migration_id: int, apply: bool) -> bool:
+    """
+    Apply the 'after' task for the migration, if one exists.
+
+    Only does anything when the script runs in "up" mode.
+
+    :param migration_id: The migration to be checked.
+    :param apply: Whether the script is in "up" mode.
+    :return: True, if there were no errors in the "after" task,
+        or if there was no "after" task. Else, False
+    """
+    # Return immediately if this is "revert" mode
+    if not apply:
+      return True
+
+    # Return if there are no after tasks to apply
+    if not self.__check_pause_after__(migration_id):
+      return True
+
+    # Apply after task for the specific migration
+    # TODO: Refactor this method to call on a up.py file within the individual migration's directory
+    #   alongside the up.sql and down.sql
+    if migration_id == 25:  # update id number
+      mStatus = self.__apply_workspaces_migration__()
+    else:
+      print_error("Migration " + str(migration_id) + " does not have an after procedure in this version of the script."
+                  "\nCheck for an updated version.")
+      mStatus = False
+
+    if not mStatus:
+      print_error("'After' steps unsuccessfully applied.")
+      return False
+
+    self.mark_after_done(migration_id)
+    return True
+
+  def __apply_workspaces_migration__(self) -> bool:
+    """
+    Migrate the workspaces and user sequences in the DB into the Workspaces Server
+
+    :return: True, if the migration was a success, else False
+    """
+    print("This migration will move your user sequences onto the Workspace Server.")
+    print("As a prerequisite, the Workspace Server must be up and accessible.")
+    print("Checking envvar WORKSPACE_SEVER_ENDPOINT for URL of Workspace Server...")
+    endpoint = os.environ.get('WORKSPACE_SERVER_ENDPOINT', None)
+
+    if endpoint is None:
+      print("WORKSPACE_SERVER_ENDPOINT is not defined. "
+            "Attempting to derive Workspace Server endpoint from Hasura endpoint...")
+
+      endpoint = self.endpoint.rpartition(":")[0] + ":28000"
+
+    print(f"Connecting to the Workspace Server using URL: {endpoint}")
+    session = requests.session()
+    resp = session.get(url=endpoint+"/health")
+    if not resp.ok:
+      exit_with_error("Error while connecting to Workspace server.")
+
+    # Get the contents of the user sequencing table
+    # Query the database
+    run_sql_url = f'{self.endpoint}/v2/query'
+    headers = {
+      "content-type": "application/json",
+      "x-hasura-admin-secret": self.admin_secret,
+      "x-hasura-role": "admin"
+    }
+    body = {
+      "type": "run_sql",
+      "args": {
+        "source": self.db_name,
+        "sql": "SELECT id, name, workspace_id, definition, seq_json FROM sequencing.user_sequence ORDER BY id;",
+        "read_only": True
+      }
+    }
+    session = requests.Session()
+    resp = session.post(url=run_sql_url, headers=headers, json=body)
+    if not resp.ok:
+      exit_with_error("Error while fetching user sequences from the database.")
+
+    results = resp.json()['result']
+    # results looks like [['id', 'name',...], ['1', 'seqName',...], ...]
+    if results.pop(0)[0] != 'id':
+      exit_with_error("Error while fetching user sequences from the database.")
+
+    # admin headers for making requests to the workspace service without a JWT
+    workspace_service_headers = {
+      "x-hasura-admin-secret": self.admin_secret,
+      "x-hasura-role": "aerie_admin",
+      "x-hasura-user-id": "Aerie Legacy"
+    }
+
+    # Assign each seqId to a unique name
+    claimed_names = {}  # map of workspace_id -> set of claimed names in that workspace
+    for row in results:
+      seqId = int(row[0])
+      name = row[1]
+      workspace_id = int(row[2])
+
+      if workspace_id not in claimed_names:
+        claimed_names[workspace_id] = set()
+
+      names_in_workspace = claimed_names[workspace_id]
+      if name not in names_in_workspace:  # Prefer the original name if it is unique so far
+        row.append(name)
+        names_in_workspace.add(name)
+      elif f"{name}_{seqId}" not in names_in_workspace:  # If there's a name clash, append the seq_id
+        row.append(f"{name}_{seqId}")
+        names_in_workspace.add(f"{name}_{seqId}")
+      else:
+        counter = 1
+        while f"{name}_{seqId}_{counter}" in names_in_workspace:  # Fall back to a counter if we still have a collision
+          counter += 1
+        row.append(f"{name}_{seqId}_{counter}")
+        names_in_workspace.add(f"{name}_{seqId}_{counter}")
+
+    # Upload files to workspace -- saveFile in WorkspaceService.java will make the workspace's root dir
+    # Save definition (.seq) and seq_json (.seq.json)
+    for row in results:
+      seqId = int(row[0])
+      name = row[1]
+      workspace_id = int(row[2])
+      definition = row[3]
+      seq_json = row[4]
+      unique_name = row[-1]  # We appended this item above
+
+      # Save definition (saving as file extension `.seq`)
+      seq_filename = f"{unique_name}.seq"
+      resp = session.put(
+        url=f'{endpoint}/ws/{workspace_id}/{seq_filename}?type=file',
+        headers=workspace_service_headers,
+        files={'file': (seq_filename, definition)})
+      if not resp.ok:
+        print_error(f"Received {resp.status_code} status while uploading sequence to the Workspaces Server.\n"
+                    f"Error message: {resp.text}")
+        return False
+
+      # Save SeqJson
+      seq_json_filename = f"{unique_name}.seq.json"
+      resp = session.put(
+        url=f'{endpoint}/ws/{workspace_id}/{seq_json_filename}?type=file',
+        headers=workspace_service_headers,
+        files={'file': (seq_json_filename, seq_json)})
+
+      if not resp.ok:
+        print_error(f"Received {resp.status_code} status while uploading seq JSON sequence to the Workspaces Server.\n"
+                    f"Error message: {resp.text}")
+        return False
+
+    print("Successfully applied workspace file migration\n")
+    return True
 
 
 class DB_Migration:
@@ -209,6 +443,41 @@ class DB_Migration:
   def add_migration_step(self, _migration_step):
     self.steps = sorted(_migration_step, key=lambda x: int(x.split('_')[0]))
 
+  def get_available_steps(self, hasura: Hasura, apply: bool) -> ([], str):
+    """
+    Filter out the steps that can't be applied given the current mode and currently applied steps
+    :param hasura: Hasura object connected to the venue to be migrated
+    :param apply: Whether migrations will be applied or reverted
+    :return: The subset of available steps, and a print-ready string declaring what those steps are.
+    """
+    display_string = "\n\033[4mMIGRATION STEPS AVAILABLE:\033[0m\n"
+    _output = hasura.get_migrate_status()
+    display_string += _output[0] + "\n"
+
+    available_steps = self.steps.copy()
+    for i in range(1, len(_output)):
+      split = list(filter(None, _output[i].split(" ")))
+
+      if len(split) >= 5 and "Not Present" == (split[2] + " " + split[3]):
+        exit_with_error("Migration files exist on server that do not exist on this machine. "
+                        "Synchronize files and try again.\n")
+
+      folder = os.path.join(self.migrations_folder, f'{split[0]}_{split[1]}')
+      if apply:
+        # If there are four words, they must be "<NUMBER> <MIGRATION NAME> Present Present"
+        if (len(split) == 4 and "Present" == split[-1]) or (not os.path.isfile(os.path.join(folder, 'up.sql'))):
+          available_steps.remove(f'{split[0]}_{split[1]}')
+        else:
+          display_string += _output[i] + "\n"
+      else:
+        # If there are only five words, they must be "<NUMBER> <MIGRATION NAME> Present Not Present"
+        if (len(split) == 5 and "Not Present" == (split[-2] + " " + split[-1])) or (
+        not os.path.isfile(os.path.join(folder, 'down.sql'))):
+          available_steps.remove(f'{split[0]}_{split[1]}')
+        else:
+          display_string += _output[i] + "\n"
+
+    return available_steps, display_string
 
 def step_by_step_migration(hasura: Hasura, db_migration: DB_Migration, apply: bool):
   """
@@ -218,35 +487,8 @@ def step_by_step_migration(hasura: Hasura, db_migration: DB_Migration, apply: bo
   :param db_migration: DB_Migration containing the complete list of migrations available
   :param apply: Whether to apply or revert migrations
   """
-  display_string = "\n\033[4mMIGRATION STEPS AVAILABLE:\033[0m\n"
-  _output = hasura.get_migrate_status()
-  display_string += _output[0] + "\n"
-
-  # Filter out the steps that can't be applied given the current mode and currently applied steps
-  available_steps = db_migration.steps.copy()
-  for i in range(1, len(_output)):
-    split = list(filter(None, _output[i].split(" ")))
-
-    if len(split) >= 5 and "Not Present" == (split[2]+" "+split[3]):
-      print("\n\033[91mError\033[0m: Migration files exist on server that do not exist on this machine. "
-            "Synchronize files and try again.\n")
-      input("Press Enter to continue...")
-      return
-
-    folder = os.path.join(db_migration.migrations_folder, f'{split[0]}_{split[1]}')
-    if apply:
-      # If there are four words, they must be "<NUMBER> <MIGRATION NAME> Present Present"
-      if (len(split) == 4 and "Present" == split[-1]) or (not os.path.isfile(os.path.join(folder, 'up.sql'))):
-        available_steps.remove(f'{split[0]}_{split[1]}')
-      else:
-        display_string += _output[i] + "\n"
-    else:
-      # If there are only five words, they must be "<NUMBER> <MIGRATION NAME> Present Not Present"
-      if (len(split) == 5 and "Not Present" == (split[-2] + " " + split[-1])) or (not os.path.isfile(os.path.join(folder, 'down.sql'))):
-        available_steps.remove(f'{split[0]}_{split[1]}')
-      else:
-        display_string += _output[i] + "\n"
-
+  # Get only the available migration steps
+  available_steps, display_string = db_migration.get_available_steps(hasura, apply)
   if available_steps:
     print(display_string)
   else:
@@ -254,7 +496,7 @@ def step_by_step_migration(hasura: Hasura, db_migration: DB_Migration, apply: bo
 
   for step in available_steps:
     print("\033[4mCURRENT STEP:\033[0m\n")
-    timestamp = step.split("_")[0]
+    timestamp = int(step.split("_")[0])
 
     if apply:
       hasura.migrate('apply', f'--version {timestamp} --dry-run --log-level WARN')
@@ -276,13 +518,21 @@ def step_by_step_migration(hasura: Hasura, db_migration: DB_Migration, apply: bo
       if apply:
         print('Applying...')
         exit_code = hasura.migrate('apply', f'--version {timestamp} --type up')
+        print()
+        if exit_code != 0:
+          hasura.reload_metadata()
+          return
+        if not hasura.apply_after(timestamp, apply):
+          hasura.reload_metadata()
+          exit_with_error("Incomplete 'after' tasks, cannot proceed.", 2)
       else:
         print('Reverting...')
         exit_code = hasura.migrate('apply', f'--version {timestamp} --type down')
-      print()
-      if exit_code != 0:
-        hasura.reload_metadata()
-        return
+        print()
+        if exit_code != 0:
+          hasura.reload_metadata()
+          return
+
     elif _value == "n":
       hasura.reload_metadata()
       return
@@ -290,20 +540,33 @@ def step_by_step_migration(hasura: Hasura, db_migration: DB_Migration, apply: bo
   input("Press Enter to continue...")
 
 
-def bulk_migration(hasura: Hasura, apply: bool):
+def bulk_migration(hasura: Hasura, db_migration: DB_Migration, apply: bool):
   """
   Migrate the database until there are no migrations left to be applied[reverted].
 
   :param hasura: Hasura object connected to the venue to be migrated
+  :param db_migration: Set of migrations to be applied
   :param apply: Whether to apply or revert migrations.
   """
   # Migrate the database
   exit_with = 0
   if apply:
-    hasura.migrate('apply', f'--dry-run --log-level WARN')
-    exit_code = hasura.migrate('apply')
-    if exit_code != 0:
-      exit_with = 1
+    # Get only the available migration steps
+    available_steps, display_string = db_migration.get_available_steps(hasura, apply)
+    for step in available_steps:
+      timestamp = int(step.split("_")[0])
+
+      # Display dry-run message
+      hasura.migrate('apply', f'--version {timestamp} --type up --dry-run --log-level WARN')
+
+      exit_code = hasura.migrate('apply', f'--version {timestamp} --type up')
+      if exit_code != 0:
+        exit_with = 2
+        break
+      if not hasura.apply_after(timestamp, apply):
+        print_error("Incomplete 'after' tasks, cannot proceed.")
+        exit_with = 2
+        break
   else:
     hasura.migrate('apply', f'--down {hasura.current_version} --dry-run --log-level WARN')
     exit_code = hasura.migrate('apply', f'--down {hasura.current_version}')
@@ -331,20 +594,25 @@ def migrate(args: argparse.Namespace):
   hasura = create_hasura(arguments)
 
   clear_screen()
+
+  # Check that the latest version doesn't have a pending "after" task to be addressed and apply it if so
+  if not hasura.apply_after(hasura.current_version, args.apply):
+    exit(2)
+
   print(f'\n###############################'
         f'\nAERIE DATABASE MIGRATION HELPER'
         f'\n###############################'
         f'\n\nMigrating database at {hasura.endpoint}')
+  # Find all migration folders for the database
+  migration_path = os.path.abspath(args.hasura_path + "/migrations/Aerie")
+  migration = DB_Migration(migration_path, args.revert)
+
   # Enter step-by-step mode if not otherwise specified
   if not args.all:
-    # Find all migration folders for the database
-    migration_path = os.path.abspath(args.hasura_path+"/migrations/Aerie")
-    migration = DB_Migration(migration_path, args.revert)
-
     # Go step-by-step through the migrations available for the selected database
     step_by_step_migration(hasura, migration, args.apply)
   else:
-    bulk_migration(hasura, args.apply)
+    bulk_migration(hasura, migration, args.apply)
 
 
 def status(args: argparse.Namespace):
@@ -363,6 +631,10 @@ def status(args: argparse.Namespace):
 
   display_string = f"\n\033[4mMIGRATION STATUS:\033[0m\n"
   display_string += "\n".join(hasura.get_migrate_status())
+
+  if hasura.__check_pause_after__(hasura.current_version):
+    display_string += (f'\nCurrent version {hasura.current_version} has pending tasks to run!')
+
   print(display_string)
 
 
@@ -516,10 +788,12 @@ def createArgsParser() -> argparse.ArgumentParser:
 
   return parser
 
+
 if __name__ == "__main__":
   # Generate arguments and kick off correct subfunction
   arguments = createArgsParser().parse_args()
   try:
     arguments.func(arguments)
-  except AttributeError:
+  except AttributeError as e:
+    print(e)
     createArgsParser().print_help()

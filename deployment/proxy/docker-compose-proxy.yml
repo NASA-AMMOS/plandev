@@ -33,6 +33,8 @@ services:
     ports: !reset []
   aerie_sequencing:
     ports: !reset []
+  aerie_workspace:
+    ports: !reset []
   aerie_ui:
     ports: !reset []
     environment:

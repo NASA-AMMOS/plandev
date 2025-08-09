@@ -1,0 +1,35 @@
+table:
+  name: file_extension_content_type
+  schema: ui
+configuration:
+  custom_name: "file_extension_content_type"
+select_permissions:
+  - role: aerie_admin
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: user
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: viewer
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+insert_permissions:
+  - role: aerie_admin
+    permission:
+      columns: [file_extension, content_type]
+      check: {}
+update_permissions:
+  - role: aerie_admin
+    permission:
+      columns: [content_type]
+      filter: {}
+delete_permissions:
+  - role: aerie_admin
+    permission:
+      filter: {}

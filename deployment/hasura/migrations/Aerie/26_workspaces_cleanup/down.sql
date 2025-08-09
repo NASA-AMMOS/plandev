@@ -80,3 +80,5 @@ create trigger check_locked_delete
 before delete on sequencing.user_sequence
 for each row
 execute function sequencing.check_is_locked_delete();
+
+call migrations.mark_migration_rolled_back(26);

@@ -1,6 +1,6 @@
 {
   "name": "sequencing-server",
-  "version": "3.5.1",
+  "version": "3.6.0",
   "description": "Aerie sequencing server",
   "type": "module",
   "license": "MIT",
@@ -60,7 +60,7 @@
     "ajv": "~8.12.0",
     "concurrently": "~7.6.0",
     "dotenv": "~16.0.3",
-    "form-data": "~4.0.0",
+    "form-data": "~4.0.4",
     "jest": "~29.4.1",
     "jest-circus": "~29.5.0",
     "jest-extended": "~3.2.4",
@@ -75,6 +75,9 @@
   "overrides": {
     "express": {
       "qs": "6.11.0"
+    },
+    "graphql-request": {
+      "form-data": "^3.0.4"
     }
   }
 }

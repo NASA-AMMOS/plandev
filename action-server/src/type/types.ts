@@ -24,6 +24,8 @@ export type ConsoleOutput = {
 export type ActionConfig = {
   ACTION_FILE_STORE: string;
   SEQUENCING_FILE_STORE: string;
+  WORKSPACE_BASE_URL: string;
+  HASURA_GRAPHQL_ADMIN_SECRET: string;
 };
 
 export type ActionTask = {

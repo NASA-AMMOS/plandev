@@ -493,14 +493,26 @@ public final class ResponseSerializers {
   public static JsonValue serializeInputMismatchException(final InputMismatchException ex) {
     return Json.createObjectBuilder()
                .add("message", "input mismatch exception")
-               .add("cause", ex.getMessage())
+               .add("extensions", serializeCauseAsExtension(ex.getMessage()))
                .build();
   }
 
   public static JsonValue serializeSimulationDatasetMismatchException(final SimulationDatasetMismatchException ex){
      return Json.createObjectBuilder()
                .add("message", "simulation dataset mismatch exception")
-               .add("cause", ex.getMessage())
+               .add("extensions", serializeCauseAsExtension(ex.getMessage()))
                .build();
+  }
+
+  /**
+   * Any exception that gets sent through a Hasura action needs to be wrapped in an "extensions" object to be
+   * preserved in the response.
+   * <a href="https://hasura.io/docs/2.0/actions/action-handlers/#returning-an-error-response">Reference</a>
+   *
+   * @param message
+   * @return An object builder that sets "cause" to the message.
+   */
+  public static JsonObjectBuilder serializeCauseAsExtension(String message) {
+    return Json.createObjectBuilder().add("cause", message);
   }
 }

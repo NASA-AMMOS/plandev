@@ -2,74 +2,57 @@ import { ParsedDoyString, ParsedDurationString, ParsedYmdString, TimeTypes } fro
 import { Temporal } from '@js-temporal/polyfill';
 import { SequencingLanguage } from '../enums/language.js';
 
+/**
+ * Time Helpers
+ */
+export function addTime(startTime: string, duration: string, language: SequencingLanguage): string {
+  return serializeInstant(parseInstant(startTime, language).add(parseDuration(duration)), language);
+}
 
-/////////////// SEQUENCING-SERVER-SPECIFIC HELPERS ///////////////
-export function addTime(startTime: string, duration: string, environment: { language: SequencingLanguage }): string {
-  let date: Temporal.Instant
-  if (environment.language === SequencingLanguage.STOL) {
-    date = STOLToInstant(startTime)
-  }
-  else if (environment.language === SequencingLanguage.TEXT) {
-    date = Temporal.Instant.from(TextToISO8601(startTime))
-  }
-  else {
-    date = SeqNToInstant(startTime)
-  }
+export function subtractTime(startTime: string, duration: string, language: SequencingLanguage): string {
+  return serializeInstant(parseInstant(startTime, language).subtract(parseDuration(duration)), language);
+}
 
-  let dur: Temporal.Duration;
-  if (duration.includes(":")) {
-    dur = Temporal.Duration.from(AERIEDurationToISO8601(duration))
-  }
-  else {
-    dur = Temporal.Duration.from(duration)
-  }
-  date = date.add(dur)
+export function formatTime(time: string, language: SequencingLanguage): string {
+  return serializeInstant(parseInstant(time, language), language);
+}
 
-  if (environment.language === SequencingLanguage.STOL) {
-    return InstanttoSTOL(date)
-  }
-  else if (environment.language === SequencingLanguage.TEXT) {
-    return InstantToText(date)
-  }
-  else { 
-    return InstanttoSeqN(date)
+/**
+ * Utilities for parsing and serializing times used in sequence templates
+ */
+
+function parseInstant(instant: string, language: SequencingLanguage): Temporal.Instant {
+  if (language === SequencingLanguage.STOL) {
+    return STOLToInstant(instant);
+  } else if (language === SequencingLanguage.TEXT) {
+    return Temporal.Instant.from(TextToISO8601(instant));
+  } else if (language === SequencingLanguage.SEQN) {
+    return SeqNToInstant(instant);
+  } else {
+    throw new Error('Unknown language: ' + language)
   }
 }
 
-export function subtractTime(startTime: string, duration: string, environment: { language: SequencingLanguage }): string {
-  let date: Temporal.Instant
-  if (environment.language === SequencingLanguage.STOL) {
-    date = STOLToInstant(startTime)
+function serializeInstant(instant: Temporal.Instant, language: SequencingLanguage): string {
+  if (language === SequencingLanguage.STOL) {
+    return InstanttoSTOL(instant);
+  } else if (language === SequencingLanguage.TEXT) {
+    return InstantToText(instant);
+  } else if (language === SequencingLanguage.SEQN) {
+    return InstanttoSeqN(instant);
+  } else {
+    throw new Error('Unknown language: ' + language)
   }
-  else if (environment.language === SequencingLanguage.TEXT) {
-    date = Temporal.Instant.from(TextToISO8601(startTime))
-  }
-  else {
-    date = SeqNToInstant(startTime)
-  }
-
-  let dur: Temporal.Duration;
-  if (duration.includes(":")) {
-    dur = Temporal.Duration.from(AERIEDurationToISO8601(duration))
-  }
-  else {
-    dur = Temporal.Duration.from(duration)
-  }
-  date = date.subtract(dur)
-
-  if (environment.language === SequencingLanguage.STOL) {
-    return InstanttoSTOL(date)
-  }
-  else if (environment.language === SequencingLanguage.TEXT) {
-    return InstantToText(date)
-  }
-  else { 
-    return InstanttoSeqN(date)
-  }
-
 }
 
-// TIME PARSING
+function parseDuration(duration: string): Temporal.Duration {
+  if (duration.includes(':')) {
+    return Temporal.Duration.from(AERIEDurationToISO8601(duration));
+  } else {
+    return Temporal.Duration.from(duration);
+  }
+}
+
 export function SeqNToInstant(date: string): Temporal.Instant {
   return Temporal.Instant.from(convertDoyToYmd(date));
 }
@@ -129,7 +112,6 @@ export function AERIEDurationToISO8601(duration: string): string {
   }
 }
 
-// CONVERSION BACK TO STRINGS
 export function InstanttoSTOL(date: Temporal.Instant): string {
   const stringFormat = date.toString();
 
@@ -195,7 +177,6 @@ export function InstantToText(date: Temporal.Instant): string {
   }
 }
 
-/////////////// AERIE-UI HELPERS ///////////////
 const ABSOLUTE_TIME = /^(\d{4})-(\d{3})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?$/;
 const RELATIVE_TIME =
   /^(?<doy>([0-9]{3}))?(T)?(?<hr>([0-9]{2})):(?<mins>([0-9]{2})):(?<secs>[0-9]{2})?(\.)?(?<ms>([0-9]+))?$/;

@@ -71,22 +71,23 @@ export function subtractTime(startTime: string, duration: string, environment: {
 
 // TIME PARSING
 export function SeqNToInstant(date: string): Temporal.Instant {
-  return Temporal.Instant.from(convertDoyToYmd(date))
+  return Temporal.Instant.from(convertDoyToYmd(date));
 }
 
 export function STOLToInstant(date: string): Temporal.Instant {
-  return Temporal.Instant.from(convertDoyToYmd(date))
+  return Temporal.Instant.from(convertDoyToYmd(date));
 }
 
 export function TextToISO8601(date: string): string {
   // https://stackoverflow.com/questions/881085/count-the-number-of-occurrences-of-a-character-in-a-string-in-javascript
-  if ((date.match(/-/g) || []).length === 2) { // YYYY-MM-DD string
-    const result = new Date(date).toISOString()
-    return result + (result.includes("Z") ? "" : "Z")
-  }
-  else { // doy string
-    const result = new Date(convertDoyToYmd(date)).toISOString()
-    return result + (result.includes("Z") ? "" : "Z")
+  if ((date.match(/-/g) || []).length === 2) {
+    // YYYY-MM-DD string
+    const result = new Date(date).toISOString();
+    return result + (result.includes('Z') ? '' : 'Z');
+  } else {
+    // doy string
+    const result = new Date(convertDoyToYmd(date)).toISOString();
+    return result + (result.includes('Z') ? '' : 'Z');
   }
 }
 
@@ -96,96 +97,101 @@ function checkNumDurationComponents(split: string[]): split is [string, string, 
 
 export function AERIEDurationToISO8601(duration: string): string {
   // HHHHHH...:MM:SS.mmmuuu -> PHHMMSS.mmmuuuS
-  duration = duration.replace("Z", "");
-  let split = duration.split(":")
-  let isNegative = duration.includes("-")
+  duration = duration.replace('Z', '');
+  let split = duration.split(':');
+  let isNegative = duration.includes('-');
 
-  if (!checkNumDurationComponents(split)) { // required so editor wouldn't flag a type error
+  if (!checkNumDurationComponents(split)) {
+    // required so editor wouldn't flag a type error
     throw new Error(`Invalid duration string: ${duration}`);
   }
 
-  let hours = parseInt(split[0].replace("-", ""))
-  let minutes = parseInt(split[1])
-  let split2 = (split[2]).split(".")
-  let seconds = parseInt(split2[0] as string)
+  let hours = parseInt(split[0].replace('-', ''));
+  let minutes = parseInt(split[1]);
+  let split2 = split[2].split('.');
+  let seconds = parseInt(split2[0] as string);
   if (split2.length > 1) {
-    let microseconds = parseInt(split2[1]?.padEnd(6, "0") as string)
-    let microsecondsString = `${microseconds}`.padStart(6, "0")
-    return `${isNegative ? "-" : ""}PT${hours > 0 ? `${hours}H` : ""}${minutes > 0 ? `${minutes}M` : ""}${seconds > 0 && microseconds > 0 ? `${seconds}.${microsecondsString}S` : (seconds > 0) ? `${seconds}$` : (microseconds > 0) ? `0.${microsecondsString}S` : ""}`
-  }
-  else {
-    return `${isNegative ? "-" : ""}PT${hours > 0 ? `${hours}H` : ""}${minutes > 0 ? `${minutes}M` : ""}${seconds > 0 ? `${seconds}S` : ""}`
+    let microseconds = parseInt(split2[1]?.padEnd(6, '0') as string);
+    let microsecondsString = `${microseconds}`.padStart(6, '0');
+    return `${isNegative ? '-' : ''}PT${hours > 0 ? `${hours}H` : ''}${minutes > 0 ? `${minutes}M` : ''}${
+      seconds > 0 && microseconds > 0
+        ? `${seconds}.${microsecondsString}S`
+        : seconds > 0
+        ? `${seconds}$`
+        : microseconds > 0
+        ? `0.${microsecondsString}S`
+        : ''
+    }`;
+  } else {
+    return `${isNegative ? '-' : ''}PT${hours > 0 ? `${hours}H` : ''}${minutes > 0 ? `${minutes}M` : ''}${
+      seconds > 0 ? `${seconds}S` : ''
+    }`;
   }
 }
 
 // CONVERSION BACK TO STRINGS
 export function InstanttoSTOL(date: Temporal.Instant): string {
-  const stringFormat = date.toString()
+  const stringFormat = date.toString();
 
   // change to DOY
-  let split = stringFormat.split("T")
-  let day = new Date(split[0]!)
-  let doy = getDoy(day)
-  let time = split[1]!
+  let split = stringFormat.split('T');
+  let day = new Date(split[0]!);
+  let doy = getDoy(day);
+  let time = split[1]!;
 
   // extract decimal seconds, if any, and pad by length (ms -> 3 automatically, us -> 6 automatically)
-  if (!time.includes(".")) {
-    return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${time}`.replace("Z", "")
-  }
-  else {
-    const secondSplit = time.split(".")
-    const hms = secondSplit[0]
-    const decimal = (secondSplit[1]!).replace("Z", "")
+  if (!time.includes('.')) {
+    return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${time}`.replace('Z', '');
+  } else {
+    const secondSplit = time.split('.');
+    const hms = secondSplit[0];
+    const decimal = secondSplit[1]!.replace('Z', '');
 
     if (decimal.length <= 3) {
-      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${hms}.${decimal.padEnd(3, '0')}`
-    }
-    else {
-      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${hms}.${decimal.substring(0, 3)}`
+      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${hms}.${decimal.padEnd(3, '0')}`;
+    } else {
+      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}/${hms}.${decimal.substring(0, 3)}`;
     }
   }
-
 }
 
-export function InstanttoSeqN(date: Temporal.Instant): string { // presently, cannot extract fields from Temporal by saying obj.days or anything like that
-  const stringFormat = date.toString()
+export function InstanttoSeqN(date: Temporal.Instant): string {
+  // presently, cannot extract fields from Temporal by saying obj.days or anything like that
+  const stringFormat = date.toString();
 
   // change to DOY
-  let split = stringFormat.split("T")
-  let day = new Date(split[0]!)
-  let doy = getDoy(day)
-  let time = split[1]!
+  let split = stringFormat.split('T');
+  let day = new Date(split[0]!);
+  let doy = getDoy(day);
+  let time = split[1]!;
 
   // extract decimal seconds, if any, and pad by length (ms -> 3 automatically, us -> 6 automatically)
-  if (!time.includes(".")) {
-    return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${time.replace("Z", "")}`
-  }
-  else {
-    const secondSplit = time.split(".")
-    const hms = secondSplit[0]
-    const decimal = (secondSplit[1] ?? "000Z").replace("Z", "")
+  if (!time.includes('.')) {
+    return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${time.replace('Z', '')}`;
+  } else {
+    const secondSplit = time.split('.');
+    const hms = secondSplit[0];
+    const decimal = (secondSplit[1] ?? '000Z').replace('Z', '');
 
     // seqN doesn't include "Z" in its strings.
     if (decimal.length <= 3) {
-      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${hms}.${decimal.padEnd(3, '0')}`
-    }
-    else {
-      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${hms}.${decimal.padEnd(6, '0')}`
+      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${hms}.${decimal.padEnd(3, '0')}`;
+    } else {
+      return `${day.getUTCFullYear()}-${new String(doy).padStart(3, '0')}T${hms}.${decimal.padEnd(6, '0')}`;
     }
   }
 }
 
 export function InstantToText(date: Temporal.Instant): string {
   const result = date.toString();
-  if (result.includes(".") && result.split(".").length == 2) {
-    let split = result.split(".")
-    let rest = split[0]
-    let micros = split[1]?.replace("Z", "")
-    micros = micros?.padEnd(6, "0")
-    return rest + "." + micros + "Z"
-  }
-  else {
-    return result + (result.includes("Z") ? "" : "Z");
+  if (result.includes('.') && result.split('.').length == 2) {
+    let split = result.split('.');
+    let rest = split[0];
+    let micros = split[1]?.replace('Z', '');
+    micros = micros?.padEnd(6, '0');
+    return rest + '.' + micros + 'Z';
+  } else {
+    return result + (result.includes('Z') ? '' : 'Z');
   }
 }
 
@@ -213,18 +219,18 @@ export function convertDoyToYmd(doyString: string, includeMsecs = true): string 
         `${date.getUTCDate()}`.padStart(2, '0'),
       ].join('-')}T${parsedDoy.time}`;
       if (includeMsecs) {
-        return `${ymdString}${ymdString.charAt(ymdString.length - 1) !== "Z" ? "Z" : ""}`;
+        return `${ymdString}${ymdString.charAt(ymdString.length - 1) !== 'Z' ? 'Z' : ''}`;
       }
-      const replaced = ymdString.replace(/(\.\d+)/, '')
-      return `${replaced}${replaced.charAt(replaced.length - 1) !== "Z" ? "Z" : ""}`;
+      const replaced = ymdString.replace(/(\.\d+)/, '');
+      return `${replaced}${replaced.charAt(replaced.length - 1) !== 'Z' ? 'Z' : ''}`;
     } else {
       // doyString is already in ymd format
       //    just in case - correct and "/" in lieu of a T, i.e. 2025-001/time vs 2025-001Ttime
-      return `${doyString.replace("/", "T")}${doyString.charAt(doyString.length - 1) !== "Z" ? "Z" : ""}`;
+      return `${doyString.replace('/', 'T')}${doyString.charAt(doyString.length - 1) !== 'Z' ? 'Z' : ''}`;
     }
   }
 
-  throw Error(`Given date: ${doyString} is an invalid DOY (or YMD) string.`)
+  throw Error(`Given date: ${doyString} is an invalid DOY (or YMD) string.`);
 }
 
 /**

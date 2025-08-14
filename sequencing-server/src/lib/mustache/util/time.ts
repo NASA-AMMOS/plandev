@@ -177,6 +177,10 @@ export function InstantToText(date: Temporal.Instant): string {
   }
 }
 
+/**
+ * Time converters borrowed from Aerie-UI
+ * Consider replacing with implementations in aerie-time-utils: https://github.com/NASA-AMMOS/aerie-time-utils
+ */
 const ABSOLUTE_TIME = /^(\d{4})-(\d{3})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?$/;
 const RELATIVE_TIME =
   /^(?<doy>([0-9]{3}))?(T)?(?<hr>([0-9]{2})):(?<mins>([0-9]{2})):(?<secs>[0-9]{2})?(\.)?(?<ms>([0-9]+))?$/;

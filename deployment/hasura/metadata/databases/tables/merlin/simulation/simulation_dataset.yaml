@@ -35,35 +35,35 @@ array_relationships:
         name: constraint_request
         schema: merlin
 select_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: user
+  - role: 2-user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: viewer
+  - role: 3-user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
 update_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: [requested_by, canceled]
       filter: {}
-  - role: user
+  - role: 2-user
     permission:
       columns: [canceled]
       filter: {"simulation":{"plan":{"_or":[{"owner":{"_eq":"X-Hasura-User-Id"}},{"collaborators":{"collaborator":{"_eq":"X-Hasura-User-Id"}}}]}}}
 delete_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       filter: {}
-  - role: user
+  - role: 2-user
     permission:
       filter: {"simulation":{"plan":{"_or":[{"owner":{"_eq":"X-Hasura-User-Id"}},{"collaborators":{"collaborator":{"_eq":"X-Hasura-User-Id"}}}]}}}
 # Insert is handled via Aerie Merlin

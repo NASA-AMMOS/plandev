@@ -38,35 +38,35 @@ array_relationships:
         name: simulation_dataset
         schema: merlin
 select_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: user
+  - role: 2-user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: viewer
+  - role: 3-user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
 # Inserting/Updating is handled via the AerieScheduler
 update_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: [requested_by, canceled]
       filter: {}
-  - role: user
+  - role: 2-user
     permission:
       columns: [canceled]
       filter: {}
 delete_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       filter: {}
-  - role: user
+  - role: 2-user
     permission:
       filter: {}

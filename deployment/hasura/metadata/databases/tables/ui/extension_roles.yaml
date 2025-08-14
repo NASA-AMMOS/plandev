@@ -8,32 +8,32 @@ object_relationships:
     using:
       foreign_key_constraint_on: extension_id
 select_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: user
+  - role: 2-user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: viewer
+  - role: 3-user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: [extension_id, role]
       check: {}
 update_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: [role]
       filter: {}
 delete_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       filter: {}

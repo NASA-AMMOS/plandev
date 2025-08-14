@@ -4,23 +4,23 @@ table:
 configuration:
   custom_name: "sequence_adaptation"
 select_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: "*"
       filter: {}
       allow_aggregations: true
-  - role: user
+  - role: 2-user
     permission:
       columns: "*"
       filter: {}
       allow_aggregations: true
-  - role: viewer
+  - role: 3-user
     permission:
       columns: "*"
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: [adaptation, name]
       check: {}
@@ -28,13 +28,13 @@ insert_permissions:
         owner: "x-hasura-user-id"
         updated_by: "x-hasura-user-id"
 update_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: [adaptation, name, owner]
       filter: {}
       set:
         updated_by: "x-hasura-user-id"
 delete_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       filter: {}

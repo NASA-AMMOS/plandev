@@ -11,23 +11,23 @@ object_relationships:
     using:
       foreign_key_constraint_on: action_file_id
 select_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: "*"
       filter: {}
       allow_aggregations: true
-  - role: user
+  - role: 2-user
     permission:
       columns: "*"
       filter: {}
       allow_aggregations: true
-  - role: viewer
+  - role: 3-user
     permission:
       columns: "*"
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: [name, description, action_file_id, workspace_id]
       check: {}
@@ -35,13 +35,13 @@ insert_permissions:
         owner: "x-hasura-user-id"
         updated_by: "x-hasura-user-id"
 update_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: [name, description, action_file_id, parameter_schema, settings_schema, settings, owner, workspace_id]
       filter: {}
       set:
         updated_by: "x-hasura-user-id"
 delete_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       filter: {}

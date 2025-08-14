@@ -4,47 +4,47 @@ table:
 configuration:
   custom_name: "activity_presets"
 select_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: user
+  - role: 2-user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: viewer
+  - role: 3-user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: [model_id, name, associated_activity_type, arguments]
       check: {}
       set:
         owner: "x-hasura-user-id"
-  - role: user
+  - role: 2-user
     permission:
       columns: [model_id, name, associated_activity_type, arguments]
       check: {}
       set:
         owner: "x-hasura-user-id"
 update_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: [model_id, name, associated_activity_type, arguments, owner]
       filter: {}
-  - role: user
+  - role: 2-user
     permission:
       columns: [name, arguments, owner]
       filter: {"owner":{"_eq":"X-Hasura-User-Id"}}
 delete_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       filter: {}
-  - role: user
+  - role: 2-user
     permission:
       filter: {"owner":{"_eq":"X-Hasura-User-Id"}}

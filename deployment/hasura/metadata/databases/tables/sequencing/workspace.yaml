@@ -23,29 +23,29 @@ array_relationships:
           name: action_definition
           schema: actions
 select_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: user
+  - role: 2-user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: viewer
+  - role: 3-user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
 update_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: [name, owner, parcel_id]
       filter: {}
       set:
         updated_by: "x-hasura-user-id"
-  - role: user
+  - role: 2-user
     permission:
       columns: [name, owner, parcel_id]
       filter: { "owner": { "_eq": "x-hasura-user-id" } }

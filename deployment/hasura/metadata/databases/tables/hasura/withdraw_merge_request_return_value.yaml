@@ -2,11 +2,11 @@ table:
   name: withdraw_merge_request_return_value
   schema: hasura
 select_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: '*'
       filter: {}
-  - role: user
+  - role: 2-user
     permission:
       columns: '*'
       filter: {}

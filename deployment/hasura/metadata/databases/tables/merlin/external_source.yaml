@@ -21,39 +21,39 @@ object_relationships:
     using:
       foreign_key_constraint_on: derivation_group_name
 select_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: user
+  - role: 2-user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: viewer
+  - role: 3-user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: [key, source_type_name, valid_at, start_time, end_time, derivation_group_name, created_at, attributes]
       check: {}
       set:
         owner: "x-hasura-user-id"
-  - role: user
+  - role: 2-user
     permission:
       columns: [key, source_type_name, valid_at, start_time, end_time, derivation_group_name, created_at, attributes]
       check: {}
       set:
         owner: "x-hasura-user-id"
 delete_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       filter: {}
-  - role: user
+  - role: 2-user
     permission:
       filter: {
         "_or": [

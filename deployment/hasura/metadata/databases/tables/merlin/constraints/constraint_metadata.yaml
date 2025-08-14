@@ -33,12 +33,12 @@ array_relationships:
           name: constraint_specification
           schema: merlin
 select_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: user
+  - role: 2-user
     permission:
       columns: '*'
 # Select is allowed if:
@@ -58,7 +58,7 @@ select_permissions:
             {"owner":{"_eq":"X-Hasura-User-Id"}},
             {"collaborators":{"collaborator":{"_eq":"X-Hasura-User-Id"}}}]}}]}}}]}
       allow_aggregations: true
-  - role: viewer
+  - role: 3-user
     permission:
       columns: '*'
       filter: {"_or":[
@@ -70,14 +70,14 @@ select_permissions:
         {"models_using":{"model":{"owner":{"_eq":"X-Hasura-User-Id"}}}}]}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: [name, description, public]
       check: {}
       set:
         owner: "x-hasura-user-id"
         updated_by: "x-hasura-user-id"
-  - role: user
+  - role: 2-user
     permission:
       columns: [name, description, public]
       check: {}
@@ -85,13 +85,13 @@ insert_permissions:
         owner: "x-hasura-user-id"
         updated_by: "x-hasura-user-id"
 update_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: [name, description, public, owner]
       filter: {}
       set:
         updated_by: "x-hasura-user-id"
-  - role: user
+  - role: 2-user
     permission:
       columns: [name, description, public, owner]
       filter: { "owner": { "_eq": "X-Hasura-User-Id" } }
@@ -99,9 +99,9 @@ update_permissions:
       set:
         updated_by: "x-hasura-user-id"
 delete_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       filter: {}
-  - role: user
+  - role: 2-user
     permission:
       filter: { "owner": {"_eq": "X-Hasura-User-Id"} }

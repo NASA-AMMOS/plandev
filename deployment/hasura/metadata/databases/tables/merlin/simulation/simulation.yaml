@@ -26,32 +26,32 @@ array_relationships:
         name: simulation_dataset
         schema: merlin
 select_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: user
+  - role: 2-user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: viewer
+  - role: 3-user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
 update_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       columns: [simulation_template_id, arguments, simulation_start_time, simulation_end_time]
       filter: {}
-  - role: user
+  - role: 2-user
     permission:
       columns: [simulation_template_id, arguments, simulation_start_time, simulation_end_time]
       filter: {"plan":{"_or":[{"owner":{"_eq":"X-Hasura-User-Id"}},{"collaborators":{"collaborator":{"_eq":"X-Hasura-User-Id"}}}]}}
   # Insert/Delete are handled via Postgres Triggers
 delete_permissions:
-  - role: aerie_admin
+  - role: 1-aerie_admin
     permission:
       filter: {}

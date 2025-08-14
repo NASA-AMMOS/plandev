@@ -38,7 +38,7 @@ public final class PermissionsService {
   private PermissionType getActionPermission(final Action action, final String role)
   throws Unauthorized, IOException, PermissionsServiceException
   {
-    if (role.equals("aerie_admin")) {
+    if (role.equals("1-aerie_admin")) {
       return PermissionType.NO_CHECK;
     }
     return gqlService.getActionPermission(action, role);

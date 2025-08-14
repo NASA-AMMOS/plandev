@@ -28,7 +28,7 @@ services:
       - aerie_file_store:/usr/src/app/action_file_store
   aerie_gateway:
     container_name: aerie_gateway
-    depends_on: ["postgres"]
+    depends_on: ["postgres", "keycloak"]
     environment:
       AUTH_TYPE: none
       AUTH_URL: https://atb-ocio-12b.jpl.nasa.gov:8443/cam-api
@@ -43,7 +43,10 @@ services:
       AERIE_DB_PORT: 5432
       GATEWAY_DB_USER: "${GATEWAY_USERNAME}"
       GATEWAY_DB_PASSWORD: "${GATEWAY_PASSWORD}"
-    image: "ghcr.io/nasa-ammos/aerie-gateway:develop"
+#    image: "aerie-gateway:no-auth-1"
+    build:
+      context: ../../NASA-AMMOS/aerie-gateway
+      dockerfile: Dockerfile
     ports: ["9000:9000"]
     restart: always
     volumes:
@@ -154,22 +157,22 @@ services:
     restart: always
     volumes:
       - workspace_file_store:/usr/src/ws
-  aerie_ui:
-    container_name: aerie_ui
-    depends_on: ["postgres"]
-    environment:
-      NODE_TLS_REJECT_UNAUTHORIZED: "0"
-      PUBLIC_AERIE_FILE_STORE_PREFIX: "/usr/src/app/merlin_file_store/"
-      ORIGIN: http://localhost
-      PUBLIC_GATEWAY_CLIENT_URL: http://localhost:9000
-      PUBLIC_GATEWAY_SERVER_URL: http://aerie_gateway:9000
-      PUBLIC_HASURA_CLIENT_URL: http://localhost:8080/v1/graphql
-      PUBLIC_HASURA_SERVER_URL: http://hasura:8080/v1/graphql
-      PUBLIC_HASURA_WEB_SOCKET_URL: ws://localhost:8080/v1/graphql
-      PUBLIC_COMMAND_EXPANSION_MODE: "typescript"
-    image: "ghcr.io/nasa-ammos/aerie-ui:develop"
-    ports: ["80:80"]
-    restart: always
+#  aerie_ui:
+#    container_name: aerie_ui
+#    depends_on: ["postgres"]
+#    environment:
+#      NODE_TLS_REJECT_UNAUTHORIZED: "0"
+#      PUBLIC_AERIE_FILE_STORE_PREFIX: "/usr/src/app/merlin_file_store/"
+#      ORIGIN: http://localhost
+#      PUBLIC_GATEWAY_CLIENT_URL: http://localhost:9000
+#      PUBLIC_GATEWAY_SERVER_URL: http://aerie_gateway:9000
+#      PUBLIC_HASURA_CLIENT_URL: http://localhost:8080/v1/graphql
+#      PUBLIC_HASURA_SERVER_URL: http://hasura:8080/v1/graphql
+#      PUBLIC_HASURA_WEB_SOCKET_URL: ws://localhost:8080/v1/graphql
+#      PUBLIC_COMMAND_EXPANSION_MODE: "typescript"
+#    image: "ghcr.io/nasa-ammos/aerie-ui:develop"
+#    ports: ["80:80"]
+#    restart: always
   aerie_merlin_worker_1:
     build:
       context: ./merlin-worker
@@ -270,9 +273,22 @@ services:
     restart: always
     volumes:
       - aerie_file_store:/usr/src/app/merlin_file_store:ro
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: aerie_keycloak
+    ports:
+      - "8000:8000"
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: kcadmin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: kcadmin
+      KC_HTTP_PORT: 8000
+      KC_FEATURES: scripts # would be nice to make x-hasura-default-role work right but I'm having issues with this
+    command: [ "start-dev", "--import-realm" ]
+    volumes:
+      - ./e2e-tests/oauth/realm-export.json:/opt/keycloak/data/import/realm-export.json
   hasura:
     container_name: aerie_hasura
-    depends_on: ["postgres"]
+    depends_on: ["postgres", "keycloak"]
     environment:
       AERIE_DATABASE_URL: "postgres://${AERIE_USERNAME}:${AERIE_PASSWORD}@postgres:5432/aerie?options=-c%20search_path%3Dutil_functions%2Chasura%2Cpermissions%2Ctags%2Cmerlin%2Cscheduler%2Csequencing%2Cactions%2Cpublic"
       AERIE_MERLIN_URL: "http://aerie_merlin:27183"

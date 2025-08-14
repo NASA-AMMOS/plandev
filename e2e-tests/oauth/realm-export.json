@@ -1,0 +1,130 @@
+{
+  "id": "aerie-dev",
+  "realm": "aerie-dev",
+  "enabled": "true",
+  "defaultSignatureAlgorithm": "RS256",
+  "clients": [
+    {
+      "id": "aerie",
+      "clientId": "aerie",
+      "enabled": "true",
+      "redirectUris": ["*"],
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "attributes": {
+        "access.token.lifespan": "20",
+        "refresh.token.lifespan": "1800",
+        "client.session.idle.timeout": "1800",
+        "client.session.max.lifespan": "3600",
+        "pkce.code.challenge.method": "S256",
+        "token.endpoint.auth.signing.max.exp": "60"
+      },
+      "protocolMappers": [
+        {
+          "name": "x-hasura-allowed-roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "introspection.token.claim": "true",
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "lightweight.claim": "false",
+            "access.token.claim": "true",
+            "claim.name": "https://hasura\\.io/jwt/claims.x-hasura-allowed-roles",
+            "jsonType.label": "String",
+            "usermodel.clientRoleMapping.clientId": "aerie"
+          }
+        },
+        {
+          "name": "x-hasura-user-id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "introspection.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "user.attribute": "id",
+            "id.token.claim": "true",
+            "lightweight.claim": "false",
+            "access.token.claim": "true",
+            "claim.name": "https://hasura\\.io/jwt/claims.x-hasura-user-id",
+            "jsonType.label": "String"
+          }
+        },
+        {
+          "name": "x-hasura-default-role",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-client-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "introspection.token.claim": "true",
+            "multivalued": "false",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "lightweight.claim": "false",
+            "access.token.claim": "true",
+            "claim.name": "https://hasura\\.io/jwt/claims.x-hasura-default-role",
+            "jsonType.label": "String",
+            "usermodel.clientRoleMapping.clientId": "aerie"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "AerieAdmin",
+      "enabled": "true",
+      "email": "AerieAdmin@aerie-dev.gov",
+      "firstName": "Admin",
+      "lastName": "Aerie",
+      "emailVerified": "true",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password"
+        }
+      ],
+      "clientRoles": {
+        "aerie": ["3-viewer", "2-user", "1-aerie_admin"]
+      }
+    },
+    {
+      "username": "AerieUser",
+      "enabled": "true",
+      "email": "AerieUser@aerie-dev.gov",
+      "firstName": "User",
+      "lastName": "Aerie",
+      "emailVerified": "true",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password"
+        }
+      ],
+      "clientRoles": {
+        "aerie": ["3-viewer", "2-user"]
+      }
+    },
+    {
+      "username": "AerieViewer",
+      "enabled": "true",
+      "email": "AerieViewer@aerie-dev.gov",
+      "firstName": "Viewer",
+      "lastName": "Aerie",
+      "emailVerified": "true",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "password"
+        }
+      ],
+      "clientRoles": {
+        "aerie": ["3-viewer"]
+      }
+    }
+  ]
+}

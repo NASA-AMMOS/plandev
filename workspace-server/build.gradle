@@ -1,0 +1,51 @@
+plugins {
+  id 'java'
+  id 'application'
+  id 'jacoco'
+}
+
+java {
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(21)
+  }
+}
+
+application {
+  mainClass = 'gov.nasa.jpl.aerie.workspace.server.WorkspaceAppDriver'
+  applicationDefaultJvmArgs = ['-Xmx2g']
+}
+
+group = 'gov.nasa.jpl.aerie'
+version = 'unspecified'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+  implementation project(':parsing-utilities')
+
+  implementation 'io.javalin:javalin:5.6.3'
+  implementation 'org.slf4j:slf4j-simple:2.0.7'
+  implementation 'org.glassfish:javax.json:1.1.4'
+  implementation 'com.auth0:java-jwt:4.5.0'
+
+  implementation 'org.postgresql:postgresql:42.6.1'
+  implementation 'com.zaxxer:HikariCP:5.0.1'
+
+  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+  testImplementation 'net.jqwik:jqwik:1.6.5'
+
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+jacocoTestReport {
+  dependsOn test
+  reports {
+    xml.required = true
+  }
+}

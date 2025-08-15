@@ -6,10 +6,13 @@ import { ActionsAPI } from "@nasa-jpl/aerie-actions";
 import { configuration } from "../config";
 import type { ActionConfig, ActionResponse } from "../type/types";
 
-// todo put this inside a more limited closure scope or it will get reused...
-// const logBuffer: string[] = [];
+const { ACTION_LOCAL_STORE, SEQUENCING_LOCAL_STORE, WORKSPACE_BASE_URL, HASURA_GRAPHQL_ADMIN_SECRET } = configuration();
 
-function injectLogger(oldConsole: any, logBuffer: string[], secrets: Record<string, any> | undefined) {
+function injectLogger(oldConsole: any, logBuffer: string[], secrets?: Record<string, any> | undefined) {
+  // secrets may be passed as last argument, to be censored in the logs
+  secrets = secrets || {};
+  secrets['HASURA_GRAPHQL_ADMIN_SECRET'] = HASURA_GRAPHQL_ADMIN_SECRET;
+
   // inject a winston logger to be passed to the action VM, replacing its normal `console`,
   // so we can capture the console outputs and return them with the action results
   const logger = createLogger({
@@ -68,8 +71,6 @@ function getGlobals() {
   return aerieGlobal;
 }
 
-const { ACTION_LOCAL_STORE, SEQUENCING_LOCAL_STORE } = configuration();
-
 export const jsExecute = async (
   code: string,
   parameters: Record<string, any>,
@@ -96,6 +97,8 @@ export const jsExecute = async (
       ACTION_FILE_STORE: ACTION_LOCAL_STORE,
       SEQUENCING_FILE_STORE: SEQUENCING_LOCAL_STORE,
       SECRETS: secrets,
+      WORKSPACE_BASE_URL: WORKSPACE_BASE_URL,
+      HASURA_GRAPHQL_ADMIN_SECRET: HASURA_GRAPHQL_ADMIN_SECRET
     };
     const actionsAPI = new ActionsAPI(client, workspaceId, actionConfig);
     const results = await context.main(parameters, settings, actionsAPI);

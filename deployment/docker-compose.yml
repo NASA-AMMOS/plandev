@@ -159,6 +159,29 @@ services:
       - aerie_file_store:/usr/src/app/sequencing_file_store
     networks:
       - aerie_net
+  aerie_workspace:
+    container_name: aerie_workspace
+    depends_on: [ "postgres" ]
+    environment:
+      AERIE_DB_HOST: postgres
+      AERIE_DB_PORT: 5432
+      SEQUENCING_DB_USER: "${SEQUENCING_USERNAME}"
+      SEQUENCING_DB_PASSWORD: "${SEQUENCING_PASSWORD}"
+      WORKSPACE_STORE: /usr/src/ws
+      WORKSPACE_PORT: 28000
+      HASURA_GRAPHQL_JWT_SECRET: "${HASURA_GRAPHQL_JWT_SECRET}"
+      HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
+      JAVA_OPTS: >
+        -Dorg.slf4j.simpleLogger.defaultLogLevel=INFO
+        -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
+        -Dorg.slf4j.simpleLogger.logFile=System.err
+    image: "${REPOSITORY_DOCKER_URL}/aerie-workspace:${DOCKER_TAG}"
+    ports: [ "28000:28000" ]
+    restart: always
+    volumes:
+      - workspace_file_store:/usr/src/ws
+    networks:
+      - aerie_net
   aerie_ui:
     container_name: aerie_ui
     depends_on: ["postgres"]
@@ -227,6 +250,7 @@ volumes:
   aerie_file_store:
   mission_file_store:
   postgres_data:
+  workspace_file_store:
 
 networks:
   aerie_net:

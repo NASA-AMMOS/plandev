@@ -80,6 +80,11 @@ begin;
   alter default privileges in schema sequencing grant select, insert, update, delete on tables to :"sequencing_user";
   alter default privileges in schema sequencing grant execute on routines to :"sequencing_user";
 
+  -- The Sequencing User can read UI tables pertaining to Workspaces
+  grant usage on schema ui to :"sequencing_user";
+  grant select on table ui.file_extension_content_type to :"sequencing_user";
+  grant usage on type ui.supported_content_types to :"sequencing_user";
+
   -----------------------
   -- UI DB Permissions --
   -----------------------

@@ -10,8 +10,10 @@ const { ACTION_LOCAL_STORE, SEQUENCING_LOCAL_STORE, WORKSPACE_BASE_URL, HASURA_G
 
 function injectLogger(oldConsole: any, logBuffer: string[], secrets?: Record<string, any> | undefined) {
   // secrets may be passed as last argument, to be censored in the logs
-  secrets = secrets || {};
-  secrets['HASURA_GRAPHQL_ADMIN_SECRET'] = HASURA_GRAPHQL_ADMIN_SECRET;
+  const censoredSecrets = {
+    ...(secrets || {}),
+    HASURA_GRAPHQL_ADMIN_SECRET
+  };
 
   // inject a winston logger to be passed to the action VM, replacing its normal `console`,
   // so we can capture the console outputs and return them with the action results
@@ -24,8 +26,8 @@ function injectLogger(oldConsole: any, logBuffer: string[], secrets?: Record<str
         let output = message as string;
 
         // If the action has secrets filter them out of the log.
-        if (secrets !== undefined && Object.keys(secrets).length > 0) {
-          const secretValues = Object.values(secrets);
+        if (Object.keys(censoredSecrets).length > 0) {
+          const secretValues = Object.values(censoredSecrets);
 
           for (const secretValue of secretValues) {
             output = output.replaceAll(secretValue, "*****");

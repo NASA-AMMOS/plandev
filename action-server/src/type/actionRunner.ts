@@ -6,25 +6,25 @@ export class ActionRunner {
   private static SECRET_RUN_TIMEOUT = 60000;
 
   private static actionRuns: Record<string, ActionRunInsertedPayload> = {};
-  private static actionRunQueue: Record<string, (actionRunId: string) => Promise<void>> = {};
-  private static actionSecrets: Record<string, Record<string, string>> = {};
+  private static actionRunQueue: Map<string, (actionRunId: string) => Promise<void>> = new Map();
+  private static actionSecretsMap: Map<string, Record<string, string>> = new Map();
 
   static async addActionRun(actionRun: ActionRunInsertedPayload): Promise<void> {
     const actionRunId = actionRun.action_run_id;
 
     this.actionRuns[actionRunId] = actionRun;
-    this.actionRunQueue[actionRunId] = async (runId: string) => {
+    const actionRunFunc = async (runId: string) => {
       try {
         await ActionRunner.runAction(runId);
         this.deleteActionRun(runId);
       } catch (error) {
         this.deleteActionRun(runId);
       }
-    };
-
+    }
+    this.actionRunQueue.set(actionRunId, actionRunFunc);
     // If there aren't any secrets execute the action run immediately.
     if (!actionRun.has_secrets) {
-      await this.actionRunQueue[actionRunId](actionRunId);
+      await actionRunFunc(actionRunId);
     } else {
       logger.info(`Action Run: ${actionRunId} waiting for secrets...`);
     }
@@ -36,31 +36,36 @@ export class ActionRunner {
   }
 
   static async addActionSecret(actionRunId: string, actionSecrets: Record<string, string>): Promise<void> {
-    this.actionSecrets[actionRunId] = actionSecrets;
+    this.actionSecretsMap.set(actionRunId, actionSecrets);
 
     logger.info(`Secret found for Action Run: ${actionRunId}, running action...`);
 
-    await this.actionRunQueue[actionRunId](actionRunId);
+    const actionRunFunc = this.actionRunQueue.get(actionRunId);
+    if (actionRunFunc) {
+      await actionRunFunc(actionRunId);
 
-    setTimeout(() => {
-      logger.info(`Action Run: ${actionRunId} timed out waiting for the associated action run.`);
-      this.deleteActionSecret(actionRunId);
-    }, this.SECRET_RUN_TIMEOUT);
+      setTimeout(() => {
+        logger.info(`Action Run: ${actionRunId} timed out waiting for the associated action run.`);
+        this.deleteActionSecret(actionRunId);
+      }, this.SECRET_RUN_TIMEOUT);
+    } else {
+      throw new Error(`Action Run ${actionRunId} not found in queue`);
+    }
   }
 
   static deleteActionRun(actionRunId: string): void {
     delete this.actionRuns[actionRunId];
-    delete this.actionRunQueue[actionRunId];
+    this.actionRunQueue.delete(actionRunId);
   }
 
   static deleteActionSecret(actionRunId: string): void {
-    delete this.actionSecrets[actionRunId];
+    this.actionSecretsMap.delete(actionRunId);
   }
 
   private static async runAction(actionRunId: string): Promise<void> {
     const action = this.actionRuns[actionRunId];
 
-    await runAction(action, action.has_secrets ? this.actionSecrets[actionRunId] : undefined);
+    await runAction(action, action.has_secrets ? this.actionSecretsMap.get(actionRunId) : undefined);
 
     this.deleteActionRun(actionRunId);
     this.deleteActionSecret(actionRunId);

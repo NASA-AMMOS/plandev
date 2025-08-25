@@ -12,7 +12,9 @@ import gov.nasa.jpl.aerie.merlin.framework.annotations.Subsystem;
 @ActivityType("BakeBananaBread")
 @Subsystem("Prepare")
 @Description("Bakes banana bread at a certain temperature")
-public record BakeBananaBreadActivity(double temperature, int tbSugar, boolean glutenFree) {
+public record BakeBananaBreadActivity(@Description("The baking temperature in degrees Fahrenheit") double temperature,
+                                      @Description("Tablespoons of sugar to add") int tbSugar,
+                                      boolean glutenFree) {
 
   @Validation
   public ValidationResult validateTemperatures() {

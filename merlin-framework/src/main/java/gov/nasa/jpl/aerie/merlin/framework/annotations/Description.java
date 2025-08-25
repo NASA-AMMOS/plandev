@@ -6,7 +6,7 @@ import java.lang.annotation.Target;
 
 /** Adds a description to an activity type. It looks like @Description("The description goes here") */
 @Retention(RetentionPolicy.CLASS)
-@Target(ElementType.TYPE)
+@Target({ElementType.TYPE, ElementType.FIELD, ElementType.PARAMETER})
 public @interface Description {
   String value();
 }

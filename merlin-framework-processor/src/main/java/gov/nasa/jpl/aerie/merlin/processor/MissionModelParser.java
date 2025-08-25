@@ -526,7 +526,7 @@ import java.util.stream.Collectors;
     return Optional.of((String) nameAttribute.getValue());
   }
 
-  private Optional<String> getDescription(final TypeElement activityTypeElement)
+  private Optional<String> getDescription(final Element activityTypeElement)
   throws InvalidMissionModelException
   {
     final var annotationMirror = this.getAnnotationMirrorByType(activityTypeElement, Description.class);
@@ -602,6 +602,7 @@ import java.util.stream.Collectors;
 
   /** Parse a list of parameters from an export type element, depending on the export defaults style in use. */
   private List<ParameterRecord> getExportParameters(final TypeElement exportTypeElement)
+  throws InvalidMissionModelException
   {
     final var defaultsStyle = this.getExportDefaultsStyle(exportTypeElement);
     final Predicate<Element> excludeParamPred = switch (defaultsStyle) {
@@ -609,11 +610,19 @@ import java.util.stream.Collectors;
       default ->         e -> e.getModifiers().contains(Modifier.STATIC);      // Exclude static class members
     };
 
-    return exportTypeElement.getEnclosedElements().stream()
-        .filter(e -> e.getKind() == ElementKind.FIELD) // Element must be a field
-        .filter(e -> !excludeParamPred.test(e))        // Element must not be deemed excluded for the defaults style
-        .map(e -> new ParameterRecord(e.getSimpleName().toString(), e.asType(), e))
-        .toList();
+    final var parameters = new ArrayList<ParameterRecord>();
+    for (final var element : exportTypeElement.getEnclosedElements()) {
+      if (element.getKind() == ElementKind.FIELD && !excludeParamPred.test(element)) {
+        final var description = this.getDescription(element);
+        parameters.add(new ParameterRecord(
+            element.getSimpleName().toString(),
+            element.asType(),
+            element,
+            description
+        ));
+      }
+    }
+    return parameters;
   }
 
   private Optional<EffectModelRecord> getActivityEffectModel(final TypeElement activityTypeElement)

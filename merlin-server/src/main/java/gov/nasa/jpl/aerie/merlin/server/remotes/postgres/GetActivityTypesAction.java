@@ -55,10 +55,11 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
                 .stream()
                 .map(entry -> new ParameterRecord(
                     entry.getKey(),
-                    entry.getValue().getKey(),
-                    entry.getValue().getValue()))
+                    entry.getValue().order(),
+                    entry.getValue().schema(),
+                    entry.getValue().description()))
                 .sorted(Comparator.comparingInt(ParameterRecord::order))
-                .map(parameterRecord -> new Parameter(parameterRecord.name(), parameterRecord.schema()))
+                .map(parameterRecord -> new Parameter(parameterRecord.name(), parameterRecord.schema(), parameterRecord.description()))
                 .toList(),
             getJsonColumn(results, "required_parameters", listP(stringP))
                 .getSuccessOrThrow($ -> new Error("Corrupt activity type required parameters cannot be parsed: "
@@ -75,7 +76,7 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
     return activityTypes;
   }
 
-  private record ParameterRecord(String name, int order, ValueSchema schema) {}
+  private record ParameterRecord(String name, int order, ValueSchema schema, Optional<String> description) {}
 
   @Override
   public void close() throws SQLException {

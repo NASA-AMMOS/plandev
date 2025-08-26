@@ -129,11 +129,17 @@ public final class PostgresParsers {
             untuple(ActivityAttributesRecord::new),
             $ -> tuple($.directiveId(), $.arguments(), $.computedAttributes()));
 
-  public static final JsonParser<Map<String, Pair<Integer, ValueSchema>>> parameterRecordP =
+  public static final JsonParser<Map<String, ParameterRecord>> parameterRecordP =
       mapP(
           productP
               .field("order", intP)
-              .field("schema", valueSchemaP));
+              .field("schema", valueSchemaP)
+              .optionalField("description", stringP)
+              .map(
+                  untuple(ParameterRecord::new),
+                  $ -> tuple($.order(), $.schema(), $.description())));
+
+  public record ParameterRecord(int order, ValueSchema schema, java.util.Optional<String> description) {}
 
   public static <V> JsonParseResult<V>
   getJsonColumn(final ResultSet results, final String column, final JsonParser<V> parser) throws SQLException {

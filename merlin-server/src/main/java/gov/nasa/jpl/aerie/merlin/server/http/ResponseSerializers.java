@@ -66,11 +66,17 @@ public final class ResponseSerializers {
     final var parameterMap = IntStream.range(0, parameters.size()).boxed()
         .collect(Collectors.toMap(i -> parameters.get(i).name(), i -> Pair.of(i, parameters.get(i))));
 
-    return serializeMap(pair -> Json.createObjectBuilder()
+    return serializeMap(pair -> {
+      final var builder = Json.createObjectBuilder()
             .add("schema", new ValueSchemaJsonParser().unparse(pair.getRight().schema()))
-            .add("order", pair.getLeft())
-            .build(),
-        parameterMap);
+            .add("order", pair.getLeft());
+
+      if (pair.getRight().description().isPresent()) {
+        builder.add("description", pair.getRight().description().get());
+      }
+
+      return builder.build();
+    }, parameterMap);
   }
 
   public static JsonValue serializeValueSchemas(final Map<String, ValueSchema> schemas) {

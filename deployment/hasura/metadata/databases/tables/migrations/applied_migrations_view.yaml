@@ -4,7 +4,7 @@ table:
 configuration:
   custom_name: "applied_migrations"
 select_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: '*'
       filter: {}

@@ -4,17 +4,17 @@ table:
 configuration:
   custom_name: "users_and_roles"
 select_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: 2-user
+  - role: user
     permission:
       columns: '*'
       filter: {"username":{"_eq":"X-Hasura-User-Id"}}
       allow_aggregations: false
-  - role: 3-user
+  - role: viewer
     permission:
       columns: '*'
       filter: { "username": { "_eq": "X-Hasura-User-Id" } }

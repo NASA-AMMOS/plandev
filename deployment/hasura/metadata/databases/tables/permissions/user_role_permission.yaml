@@ -4,28 +4,28 @@ table:
 configuration:
   custom_name: "user_role_permission"
 select_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: 2-user
+  - role: user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: 3-user
+  - role: viewer
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: [role, action_permissions, function_permissions]
       check: {}
 update_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: [action_permissions, function_permissions]
       filter: {}

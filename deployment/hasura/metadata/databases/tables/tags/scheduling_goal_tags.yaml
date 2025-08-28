@@ -11,34 +11,34 @@ object_relationships:
     using:
       foreign_key_constraint_on: tag_id
 select_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: 2-user
+  - role: user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: 3-user
+  - role: viewer
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: [goal_id, tag_id]
       check: {}
-  - role: 2-user
+  - role: user
     permission:
       columns: [goal_id, tag_id]
       check: {"goal_metadata":{"owner":{"_eq":"X-Hasura-User-Id"}}}
 delete_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       filter: {}
-  - role: 2-user
+  - role: user
     permission:
       filter: {"goal_metadata":{"owner":{"_eq":"X-Hasura-User-Id"}}}

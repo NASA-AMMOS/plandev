@@ -19,27 +19,27 @@ object_relationships:
         - constraint_id
         - constraint_revision
 select_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: 2-user
+  - role: user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: 3-user
+  - role: viewer
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: [model_id, constraint_id, constraint_revision, priority, arguments]
       check: {}
-  - role: 2-user
+  - role: user
     permission:
       columns: [model_id, constraint_id, constraint_revision, priority, arguments]
       check: { "_and": [
@@ -47,18 +47,18 @@ insert_permissions:
         { "constraint_metadata": { "_or": [ { "public": { "_eq": true } },
                                             { "owner": { "_eq": "X-Hasura-User-Id" } } ] } } ] }
 update_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: [constraint_revision, priority, arguments]
       filter: {}
-  - role: 2-user
+  - role: user
     permission:
       columns: [constraint_revision, priority, arguments]
       filter: {"model": {"owner": {"_eq": "X-Hasura-User-Id"}}}
 delete_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       filter: {}
-  - role: 2-user
+  - role: user
     permission:
       filter: {"model": {"owner": {"_eq": "X-Hasura-User-Id"}}}

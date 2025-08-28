@@ -29,23 +29,23 @@ array_relationships:
           name: expansion_set
           schema: sequencing
 select_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: "*"
       filter: {}
       allow_aggregations: true
-  - role: 2-user
+  - role: user
     permission:
       columns: "*"
       filter: {}
       allow_aggregations: true
-  - role: 3-user
+  - role: viewer
     permission:
       columns: "*"
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: "*"
       check: {}
@@ -53,13 +53,13 @@ insert_permissions:
         owner: "x-hasura-user-id"
         updated_by: "x-hasura-user-id"
 update_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: [channel_dictionary_id, command_dictionary_id, name, sequence_adaptation_id, owner]
       filter: {}
       set:
         updated_by: "x-hasura-user-id"
 delete_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       filter: {}

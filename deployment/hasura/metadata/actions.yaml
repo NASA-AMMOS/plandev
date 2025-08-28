@@ -5,218 +5,218 @@ actions:
       handler: "{{AERIE_MERLIN_URL}}/addExternalDataset"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
+      - role: aerie_admin
+      - role: user
   - name: extendExternalDataset
     definition:
       kind: synchronous
       handler: "{{AERIE_MERLIN_URL}}/extendExternalDataset"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
+      - role: aerie_admin
+      - role: user
   - name: uploadDictionary
     definition:
       kind: synchronous
       handler: "{{AERIE_SEQUENCING_URL}}/put-dictionary"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
+      - role: aerie_admin
+      - role: user
   - name: addCommandExpansionTypeScript
     definition:
       kind: synchronous
       handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/put-expansion"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
+      - role: aerie_admin
+      - role: user
   - name: assignActivitiesByFilter
     definition:
       kind: synchronous
       handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/assign-activities-by-filter"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
+      - role: aerie_admin
+      - role: user
   - name: addTemplate
     definition:
       kind: synchronous
       handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/put-template"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
+      - role: aerie_admin
+      - role: user
   - name: createExpansionSet
     definition:
       kind: synchronous
       handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/put-expansion-set"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
+      - role: aerie_admin
+      - role: user
   - name: expandAllActivities
     definition:
       kind: synchronous
       handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/expand-all-activity-instances"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
+      - role: aerie_admin
+      - role: user
   - name: expandAllTemplates
     definition:
       kind: synchronous
       handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/expand-all-sequence-templates"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
+      - role: aerie_admin
+      - role: user
   - name: getModelEffectiveArguments
     definition:
       kind: ""
       handler: "{{AERIE_MERLIN_URL}}/getModelEffectiveArguments"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
-      - role: 3-user
+      - role: aerie_admin
+      - role: user
+      - role: viewer
   - name: getActivityEffectiveArguments
     definition:
       kind: ""
       handler: "{{AERIE_MERLIN_URL}}/getActivityEffectiveArguments"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
-      - role: 3-user
+      - role: aerie_admin
+      - role: user
+      - role: viewer
   - name: getActivityEffectiveArgumentsBulk
     definition:
       kind: ""
       handler: "{{AERIE_MERLIN_URL}}/getActivityEffectiveArgumentsBulk"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
-      - role: 3-user
+      - role: aerie_admin
+      - role: user
+      - role: viewer
   - name: getActivityTypeScript
     definition:
       kind: ""
       handler: "{{AERIE_SEQUENCING_URL}}/get-activity-typescript"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
+      - role: aerie_admin
+      - role: user
   - name: getCommandTypeScript
     definition:
       kind: ""
       handler: "{{AERIE_SEQUENCING_URL}}/get-command-typescript"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
+      - role: aerie_admin
+      - role: user
   - name: getSequenceSeqJson
     definition:
       kind: ""
       handler: "{{AERIE_SEQUENCING_URL}}/seqjson/get-seqjson-for-seqid-and-simulation-dataset"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
-      - role: 3-user
+      - role: aerie_admin
+      - role: user
+      - role: viewer
   - name: getSequenceSeqJsonBulk
     definition:
       kind: ""
       handler: "{{AERIE_SEQUENCING_URL}}/seqjson/bulk-get-seqjson-for-seqid-and-simulation-dataset"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
-      - role: 3-user
+      - role: aerie_admin
+      - role: user
+      - role: viewer
   - name: resourceTypes
     definition:
       kind: ""
       handler: "{{AERIE_MERLIN_URL}}/resourceTypes"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
-      - role: 3-user
+      - role: aerie_admin
+      - role: user
+      - role: viewer
   - name: schedule
     definition:
       kind: ""
       handler: "{{AERIE_SCHEDULER_URL}}/schedule"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
+      - role: aerie_admin
+      - role: user
   - name: schedulingDslTypescript
     definition:
       kind: ""
       handler: "{{AERIE_SCHEDULER_URL}}/schedulingDslTypescript"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
+      - role: aerie_admin
+      - role: user
   - name: constraintsDslTypescript
     definition:
       kind: ""
       handler: "{{AERIE_MERLIN_URL}}/constraintsDslTypescript"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
+      - role: aerie_admin
+      - role: user
   - name: simulate
     definition:
       kind: ""
       handler: "{{AERIE_MERLIN_URL}}/getSimulationResults"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
+      - role: aerie_admin
+      - role: user
   - name: resourceSamples
     definition:
       kind: ""
       handler: "{{AERIE_MERLIN_URL}}/resourceSamples"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
-      - role: 3-user
+      - role: aerie_admin
+      - role: user
+      - role: viewer
   - name: constraintViolations
     definition:
       kind: ""
       handler: "{{AERIE_MERLIN_URL}}/constraintViolations"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
+      - role: aerie_admin
+      - role: user
   - name: validateActivityArguments
     definition:
       kind: ""
       handler: "{{AERIE_MERLIN_URL}}/validateActivityArguments"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
-      - role: 3-user
+      - role: aerie_admin
+      - role: user
+      - role: viewer
   - name: validateModelArguments
     definition:
       kind: ""
       handler: "{{AERIE_MERLIN_URL}}/validateModelArguments"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
-      - role: 3-user
+      - role: aerie_admin
+      - role: user
+      - role: viewer
   - name: validatePlan
     definition:
       kind: ""
       handler: "{{AERIE_MERLIN_URL}}/validatePlan"
       timeout: 300
     permissions:
-      - role: 1-aerie_admin
-      - role: 2-user
-      - role: 3-user
+      - role: aerie_admin
+      - role: user
+      - role: viewer
 custom_types:
   enums:
     - name: MerlinSimulationStatus

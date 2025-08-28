@@ -36,12 +36,12 @@ array_relationships:
           name: constraint_definition_tags
           schema: tags
 select_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: 2-user
+  - role: user
     permission:
       columns: '*'
 # Select is allowed if:
@@ -61,7 +61,7 @@ select_permissions:
             {"owner":{"_eq":"X-Hasura-User-Id"}},
             {"collaborators":{"collaborator":{"_eq":"X-Hasura-User-Id"}}}]}}]}}}]}}
       allow_aggregations: true
-  - role: 3-user
+  - role: viewer
     permission:
       columns: '*'
       filter: {"metadata": {"_or":[
@@ -73,28 +73,28 @@ select_permissions:
         {"models_using":{"model":{"owner":{"_eq":"X-Hasura-User-Id"}}}}]}}
       allow_aggregations: true
 insert_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: [constraint_id, definition, type, uploaded_jar_id]
       check: {}
       set:
         author: "x-hasura-user-id"
-  - role: 2-user
+  - role: user
     permission:
       columns: [constraint_id, definition, type, uploaded_jar_id]
       check: {"_or":[{"metadata":{"public":{"_eq":true}}},{"metadata":{"owner":{"_eq":"X-Hasura-User-Id"}}}]}
       set:
         author: "x-hasura-user-id"
 update_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: [definition, author]
       filter: {}
 delete_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       filter: {}
-  - role: 2-user
+  - role: user
     permission:
       filter:
         {"_or":[

@@ -17,43 +17,43 @@ object_relationships:
         name: simulated_activity
         schema: merlin
 select_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: 2-user
+  - role: user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: 3-user
+  - role: viewer
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: [simulated_activity_id, simulation_dataset_id, seq_id]
       check: {}
-  - role: 2-user
+  - role: user
     permission:
       columns: [simulated_activity_id, simulation_dataset_id, seq_id]
       check: {}
 update_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: [simulated_activity_id, simulation_dataset_id, seq_id]
       filter: {}
-  - role: 2-user
+  - role: user
     permission:
       columns: [simulated_activity_id, simulation_dataset_id, seq_id]
       filter: {}
 delete_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       filter: {}
-  - role: 2-user
+  - role: user
     permission:
       filter: {}

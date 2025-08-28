@@ -33,31 +33,31 @@ array_relationships:
           name: scheduling_specification_conditions
           schema: scheduler
 select_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: 2-user
+  - role: user
     permission:
       columns: '*'
 # This should have filtering based on privacy, but cross-database permissions restrictions prevent that
       filter: {}
       allow_aggregations: true
-  - role: 3-user
+  - role: viewer
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: [name, description, public]
       check: {}
       set:
         owner: "x-hasura-user-id"
         updated_by: "x-hasura-user-id"
-  - role: 2-user
+  - role: user
     permission:
       columns: [name, description, public]
       check: {}
@@ -65,22 +65,22 @@ insert_permissions:
         owner: "x-hasura-user-id"
         updated_by: "x-hasura-user-id"
 update_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: [name, description, public, owner]
       filter: {}
       set:
         updated_by: "x-hasura-user-id"
-  - role: 2-user
+  - role: user
     permission:
       columns: [name, description, public, owner]
       filter: { "owner": { "_eq": "X-Hasura-User-Id" } }
       set:
         updated_by: "x-hasura-user-id"
 delete_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       filter: {}
-  - role: 2-user
+  - role: user
     permission:
       filter: { "owner": { "_eq": "X-Hasura-User-Id" } }

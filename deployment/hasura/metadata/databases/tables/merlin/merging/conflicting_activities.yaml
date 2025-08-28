@@ -8,27 +8,27 @@ object_relationships:
     using:
       foreign_key_constraint_on: merge_request_id
 select_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: 2-user
+  - role: user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: 3-user
+  - role: viewer
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
 update_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: [resolution]
       filter: {}
-  - role: 2-user
+  - role: user
     permission:
       columns: [resolution]
       filter: {"merge_request":{"plan_receiving_changes":{"owner":{"_eq":"X-Hasura-User-Id"}}}}

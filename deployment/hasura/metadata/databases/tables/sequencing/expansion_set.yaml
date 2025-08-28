@@ -28,38 +28,38 @@ array_relationships:
       column_mapping:
         id: set_id
 select_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: 2-user
+  - role: user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: 3-user
+  - role: viewer
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
 update_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: [name, description, parcel_id, mission_model_id, owner]
       filter: {}
       set:
         updated_by: "x-hasura-user-id"
-  - role: 2-user
+  - role: user
     permission:
       columns: [name, description, owner]
       filter: {} # Restrict to owner when sequencing fills that column
       set:
         updated_by: "x-hasura-user-id"
 delete_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       filter: {}
-  - role: 2-user
+  - role: user
     permission:
       filter: {} # Restrict to owner when sequencing fills that column

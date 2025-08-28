@@ -71,43 +71,43 @@ array_relationships:
         name: activity_directive_changelog
         schema: merlin
 select_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: 2-user
+  - role: user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: 3-user
+  - role: viewer
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
 update_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: [ name, start_offset, type, arguments, metadata, anchor_id, anchored_to_start, created_by ]
       filter: {}
       set:
         last_modified_by: "x-hasura-user-id"
-  - role: 2-user
+  - role: user
     permission:
       columns: [name, start_offset, arguments, metadata, anchor_id, anchored_to_start]
       filter: {"plan":{"_or":[{"owner":{"_eq":"X-Hasura-User-Id"}},{"collaborators":{"collaborator":{"_eq":"X-Hasura-User-Id"}}}]}}
       set:
         last_modified_by: "x-hasura-user-id"
 insert_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: [name, start_offset, arguments, metadata, anchor_id, anchored_to_start, plan_id, type]
       check: {}
       set:
         last_modified_by: "x-hasura-user-id"
         created_by: "x-hasura-user-id"
-  - role: 2-user
+  - role: user
     permission:
       columns: [name, start_offset, arguments, metadata, anchor_id, anchored_to_start, plan_id, type]
       check: {"plan":{"_or":[{"owner":{"_eq":"X-Hasura-User-Id"}},{"collaborators":{"collaborator":{"_eq":"X-Hasura-User-Id"}}}]}}
@@ -115,9 +115,9 @@ insert_permissions:
         last_modified_by: "x-hasura-user-id"
         created_by: "x-hasura-user-id"
 delete_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       filter: {}
-  - role: 2-user
+  - role: user
     permission:
       filter: {"plan":{"_or":[{"owner":{"_eq":"X-Hasura-User-Id"}},{"collaborators":{"collaborator":{"_eq":"X-Hasura-User-Id"}}}]}}

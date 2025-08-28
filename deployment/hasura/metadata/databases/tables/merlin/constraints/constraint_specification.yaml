@@ -27,27 +27,27 @@ array_relationships:
           name: constraint_run
           schema: merlin
 select_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: 2-user
+  - role: user
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: 3-user
+  - role: viewer
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: [plan_id, constraint_id, constraint_revision, enabled, arguments, priority]
       check: {}
-  - role: 2-user
+  - role: user
     permission:
       columns: [plan_id, constraint_id, constraint_revision, enabled, arguments, priority]
       check: { "_and": [
@@ -59,18 +59,18 @@ insert_permissions:
                                             { "owner": { "_eq": "X-Hasura-User-Id" } },
                                             { "models_using": { "model": { "plans": { "id": { "_ceq": ["$","plan_id"] } } } } } ] } } ] }
 update_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: [constraint_revision, enabled, arguments, priority]
       filter: {}
-  - role: 2-user
+  - role: user
     permission:
       columns: [constraint_revision, enabled, arguments, priority]
       filter: { "plan": { "_or": [ { "owner": { "_eq": "X-Hasura-User-Id" } },{ "collaborators": { "collaborator": { "_eq": "X-Hasura-User-Id" }}}]}}
 delete_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       filter: {}
-  - role: 2-user
+  - role: user
     permission:
       filter: { "plan": { "_or": [ { "owner": { "_eq": "X-Hasura-User-Id" } },{ "collaborators": { "collaborator": { "_eq": "X-Hasura-User-Id" }}}]}}

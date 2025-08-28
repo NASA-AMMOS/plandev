@@ -2,11 +2,11 @@ table:
   name: get_plan_history_return_value
   schema: hasura
 select_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: '*'
       filter: {}
-  - role: 2-user
+  - role: user
     permission:
       columns: '*'
       filter: {}

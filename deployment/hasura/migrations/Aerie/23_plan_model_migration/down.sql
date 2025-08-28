@@ -31,8 +31,8 @@ declare
   _function_permission permissions.permission;
 begin
   _role := permissions.get_role(hasura_session);
-  -- The 1-aerie_admin role is always treated as having NO_CHECK permissions on all functions.
-  if _role = '1-aerie_admin' then return 'NO_CHECK'; end if;
+  -- The aerie_admin role is always treated as having NO_CHECK permissions on all functions.
+  if _role = 'aerie_admin' then return 'NO_CHECK'; end if;
 
   select (function_permissions ->> _function::text)::permissions.permission
   from permissions.user_role_permission urp

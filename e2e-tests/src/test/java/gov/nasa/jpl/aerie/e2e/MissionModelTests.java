@@ -69,14 +69,18 @@ public class MissionModelTests {
     resourceTypes.add(new ResourceType("/data/line_count", VALUE_SCHEMA_INT));
     resourceTypes.add(new ResourceType(
         "/flag",
-        new ValueSchemaVariant(List.of(new Variant("A", "A"), new Variant("B", "B")))));
+        new ValueSchemaVariant(List.of(new Variant("A", "A"), new Variant("B", "B"))),
+        "The flag set"
+        ));
     resourceTypes.add(new ResourceType("/flag/conflicted", VALUE_SCHEMA_BOOLEAN));
     resourceTypes.add(new ResourceType(
         "/fruit",
-        new ValueSchemaMeta(Map.of("unit", Json.createObjectBuilder(Map.of("value", "bananas")).build()), new ValueSchemaStruct(Map.of("rate", VALUE_SCHEMA_REAL, "initial", VALUE_SCHEMA_REAL)))));
+        new ValueSchemaMeta(Map.of("unit", Json.createObjectBuilder(Map.of("value", "bananas")).build()), new ValueSchemaStruct(Map.of("rate", VALUE_SCHEMA_REAL, "initial", VALUE_SCHEMA_REAL))),
+        "The number of fruits collected"
+    ));
     resourceTypes.add(new ResourceType("/peel", new ValueSchemaMeta(Map.of("unit", Json.createObjectBuilder(Map.of("value", "kg")).build()), VALUE_SCHEMA_REAL)));
     resourceTypes.add(new ResourceType("/plant", new ValueSchemaMeta(Map.of("unit", Json.createObjectBuilder(Map.of("value", "count")).build()), VALUE_SCHEMA_INT)));
-    resourceTypes.add(new ResourceType("/producer", VALUE_SCHEMA_STRING));
+    resourceTypes.add(new ResourceType("/producer", VALUE_SCHEMA_STRING, "The producer of the fruit"));
     return resourceTypes;
   }
 
@@ -88,16 +92,16 @@ public class MissionModelTests {
     activityTypes.add(new ActivityType(
         "BakeBananaBread",
         Map.of(
-            "tbSugar", new Parameter(1, VALUE_SCHEMA_INT),
+            "tbSugar", new Parameter(1, VALUE_SCHEMA_INT, "Tablespoons of sugar to add"),
             "glutenFree", new Parameter(2, VALUE_SCHEMA_BOOLEAN),
-            "temperature", new Parameter(0, VALUE_SCHEMA_REAL)),
+            "temperature", new Parameter(0, VALUE_SCHEMA_REAL, "The baking temperature in degrees Fahrenheit")),
         VALUE_SCHEMA_INT,
         "Prepare",
         "Bakes banana bread at a certain temperature"));
     activityTypes.add(new ActivityType("BananaNap", Map.of()));
     activityTypes.add(new ActivityType(
         "BiteBanana",
-        Map.of("biteSize", new Parameter(0, new ValueSchemaMeta(Map.of("unit", Json.createObjectBuilder(Map.of("value", "m")).build(), "banannotation", Json.createObjectBuilder().add("value", Json.createValue("Specifies the size of bite to take")).build()), VALUE_SCHEMA_REAL))),
+        Map.of("biteSize", new Parameter(0, new ValueSchemaMeta(Map.of("unit", Json.createObjectBuilder(Map.of("value", "m")).build(), "banannotation", Json.createObjectBuilder().add("value", Json.createValue("Specifies the size of bite to take")).build()), VALUE_SCHEMA_REAL), "The size of the bite in meters")),
         new ValueSchemaStruct(Map.of("biteSizeWasBig", VALUE_SCHEMA_BOOLEAN, "newFlag", new ValueSchemaVariant(List.of(new Variant("A", "A"), new Variant("B", "B"))))),
         "Eat",
         "Takes a bite out of the banana"

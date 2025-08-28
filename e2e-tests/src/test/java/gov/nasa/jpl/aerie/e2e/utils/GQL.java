@@ -490,6 +490,7 @@ public enum GQL {
       resource_type(where: {model_id: {_eq: $missionModelId}}, order_by: {name: asc}) {
         name
         schema
+        description
       }
     }"""),
   GET_ROLE_ACTION_PERMISSIONS("""

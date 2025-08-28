@@ -1,11 +1,18 @@
 package gov.nasa.jpl.aerie.merlin.protocol.model;
 
 import gov.nasa.jpl.aerie.merlin.protocol.driver.Querier;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import java.util.Optional;
 
 public interface Resource<Dynamics> {
   String getType();
+
+  /**
+   * Get the description of this resource.
+   * @return The description of this resource.
+   */
+  default Optional<String> getDescription() {
+    return Optional.empty();
+  }
 
   OutputType<Dynamics> getOutputType();
 

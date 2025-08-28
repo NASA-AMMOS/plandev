@@ -111,16 +111,11 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
   @Override
   public void updateResourceTypes(final MissionModelId missionModelId, final Map<String, Resource<?>> resources)
   throws NoSuchMissionModelException {
-    final var resourceTypes = resources.entrySet()
-                                       .stream()
-                                       .collect(Collectors.toMap(
-                                           Map.Entry::getKey,
-                                           entry -> entry.getValue().getOutputType().getSchema()));
 
     try (final var connection = this.dataSource.getConnection()) {
       try (final var insertResourceTypesAction = new InsertResourceTypesAction(connection)) {
         final long id = missionModelId.id();
-        insertResourceTypesAction.apply((int) id, resourceTypes);
+        insertResourceTypesAction.apply((int) id, resources);
       }
     } catch (final SQLException ex) {
       throw new DatabaseException(

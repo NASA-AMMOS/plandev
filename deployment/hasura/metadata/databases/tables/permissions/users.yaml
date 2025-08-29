@@ -4,48 +4,48 @@ table:
 configuration:
   custom_name: "users"
 select_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: '*'
       filter: {}
       allow_aggregations: true
-  - role: 2-user
+  - role: user
     permission:
       columns: [username]
       filter: {}
       allow_aggregations: true
-  - role: 3-viewer
+  - role: viewer
     permission:
       columns: [username]
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: [username, default_role]
       check: {}
-  - role: 2-user
+  - role: user
     permission:
       columns: [username, default_role]
       check: {"username":{"_eq":"X-Hasura-User-Id"}}
-  - role: 3-viewer
+  - role: viewer
     permission:
       columns: [username, default_role]
       check: {"username":{"_eq":"X-Hasura-User-Id"}}
 update_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       columns: [username, default_role]
       filter: {}
-  - role: 2-user
+  - role: user
     permission:
       columns: [username, default_role]
       filter: {"username":{"_eq":"X-Hasura-User-Id"}}
-  - role: 3-viewer
+  - role: viewer
     permission:
       columns: [username, default_role]
       filter: {"username":{"_eq":"X-Hasura-User-Id"}}
 delete_permissions:
-  - role: 1-aerie_admin
+  - role: aerie_admin
     permission:
       filter: {}

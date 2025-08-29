@@ -89,7 +89,7 @@
         }
       ],
       "clientRoles": {
-        "aerie": ["3-viewer", "2-user", "1-aerie_admin"]
+        "aerie": ["viewer", "user", "aerie_admin"]
       }
     },
     {
@@ -106,7 +106,7 @@
         }
       ],
       "clientRoles": {
-        "aerie": ["3-viewer", "2-user"]
+        "aerie": ["viewer", "user"]
       }
     },
     {
@@ -123,7 +123,7 @@
         }
       ],
       "clientRoles": {
-        "aerie": ["3-viewer"]
+        "aerie": ["viewer"]
       }
     }
   ]

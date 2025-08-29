@@ -8,4 +8,4 @@ alter table merlin.resource_type
 comment on column merlin.resource_type.description is e''
   'The description of this resource type.';
 
-call migrations.mark_migration_applied('27');
+call migrations.mark_migration_applied('28');

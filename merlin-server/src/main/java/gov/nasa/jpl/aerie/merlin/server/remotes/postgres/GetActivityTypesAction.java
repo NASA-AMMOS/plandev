@@ -26,7 +26,7 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
         a.parameters,
         a.required_parameters,
         a.computed_attributes_value_schema,
-        t.name as subsystem
+        t.name as subsystem,
         a.description
       from merlin.activity_type a
       left join tags.tags t

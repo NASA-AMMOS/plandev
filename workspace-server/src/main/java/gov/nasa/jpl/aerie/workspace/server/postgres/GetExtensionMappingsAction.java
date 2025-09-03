@@ -6,9 +6,9 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
+import java.util.TreeMap;
 
 public class GetExtensionMappingsAction implements AutoCloseable {
   private static final @Language("SQL") String getMappingSql = """
@@ -35,7 +35,7 @@ public class GetExtensionMappingsAction implements AutoCloseable {
    */
   public Map<String, RenderType> get() throws SQLException {
     try(final var res = mappingStatement.executeQuery()) {
-      final var extensionsMapping = new HashMap<String, RenderType>();
+      final var extensionsMapping = new TreeMap<String, RenderType>(String.CASE_INSENSITIVE_ORDER);
       while(res.next()) {
         final String extension = res.getString("file_extension");
         final RenderType renderType = RenderType.valueOf(res.getString("content_type").toUpperCase());

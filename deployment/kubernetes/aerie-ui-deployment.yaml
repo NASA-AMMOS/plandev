@@ -29,6 +29,8 @@ spec:
               value: http://hasura:8080/v1/graphql
             - name: PUBLIC_HASURA_WEB_SOCKET_URL
               value: ws://localhost:8080/v1/graphql
+            - name: PUBLIC_WORKSPACE_CLIENT_URL
+              value: http://localhost:28000
           image: ghcr.io/nasa-ammos/aerie-ui:develop
           name: aerie-ui
           ports:

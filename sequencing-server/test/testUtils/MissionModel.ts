@@ -1,7 +1,8 @@
-import fetch, { FormData, fileFrom } from 'node-fetch';
-import { gql, GraphQLClient } from 'graphql-request';
-import { randomUUID } from 'crypto';
-import { waitMs } from './testUtils';
+import fetch, {fileFrom, FormData} from 'node-fetch';
+import {gql, GraphQLClient} from 'graphql-request';
+import {randomUUID} from 'crypto';
+import {waitMs} from './testUtils';
+import {loginTestUser} from './login.js';
 import fs from 'node:fs/promises';
 
 export async function uploadMissionModel(graphqlClient: GraphQLClient): Promise<number> {
@@ -31,7 +32,7 @@ export async function uploadMissionModel(graphqlClient: GraphQLClient): Promise<
   formData.set('file', file, 'banananation-latest.jar');
 
   // Get an authorization token
-  const authHeader = `Bearer ${await login()}`;
+  const authHeader = `Bearer ${await loginTestUser()}`;
 
   // Upload File
   const uploadRes = await fetch(`${process.env['MERLIN_GATEWAY_URL']}/file`, {
@@ -64,18 +65,6 @@ export async function uploadMissionModel(graphqlClient: GraphQLClient): Promise<
   );
   await waitMs(3000);
   return (res.insert_mission_model_one as { id: number } as { id: number }).id;
-}
-
-async function login() {
-  const response = await fetch(`${process.env['MERLIN_GATEWAY_URL']}/auth/login`, {
-    method: 'POST',
-    body: `{"username": "AerieE2ESequencingTests", "password": "password"}`,
-    headers: { 'Content-Type': 'application/json' },
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to login: ${response.statusText}`);
-  }
-  return (await response.json() as {token: string}).token;
 }
 
 export async function removeMissionModel(graphqlClient: GraphQLClient, missionModelId: number): Promise<void> {

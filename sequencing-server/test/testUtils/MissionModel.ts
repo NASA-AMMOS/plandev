@@ -1,7 +1,8 @@
 import fetch, {fileFrom, FormData} from 'node-fetch';
 import {gql, GraphQLClient} from 'graphql-request';
 import {randomUUID} from 'crypto';
-import {loginTestUser, waitMs} from './testUtils';
+import {waitMs} from './testUtils';
+import {loginTestUser} from './login.js';
 import fs from 'node:fs/promises';
 
 export async function uploadMissionModel(graphqlClient: GraphQLClient): Promise<number> {

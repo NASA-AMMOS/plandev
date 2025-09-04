@@ -28,7 +28,9 @@ function injectLogger(oldConsole: any, logBuffer: string[], secrets?: Record<str
           const secretValues = Object.values(secrets);
 
           for (const secretValue of secretValues) {
-            output = output.replaceAll(secretValue, "*****");
+            if (secretValue.length > 0) {
+              output = output.replaceAll(secretValue, "*****");
+            }
           }
         }
 

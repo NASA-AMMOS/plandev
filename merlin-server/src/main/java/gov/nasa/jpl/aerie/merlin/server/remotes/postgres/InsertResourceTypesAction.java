@@ -17,7 +17,8 @@ import gov.nasa.jpl.aerie.merlin.protocol.model.Resource;
     insert into merlin.resource_type (model_id, name, schema, description)
     values (?, ?, ?::json, ?)
     on conflict (model_id, name) do update
-    set schema = excluded.schema
+    set schema = excluded.schema,
+    description = excluded.description
     """;
 
   private final PreparedStatement statement;

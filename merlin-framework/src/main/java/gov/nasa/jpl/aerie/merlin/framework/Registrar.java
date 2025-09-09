@@ -40,6 +40,10 @@ public final class Registrar {
     real(name, resource, $ -> $, description);
   }
 
+  public <T> void realWithMetadata(final String name, final Resource<RealDynamics> resource, final String key, final T metadata, final ValueMapper<T> metadataValueMapper) {
+    realWithMetadata(name, resource, key, metadata, metadataValueMapper, null);
+  }
+
   public <T> void realWithMetadata(final String name, final Resource<RealDynamics> resource, final String key, final T metadata, final ValueMapper<T> metadataValueMapper, String description) {
     real(name, resource, $ -> ValueSchema.withMeta(key, metadataValueMapper.serializeValue(metadata), $), description);
   }

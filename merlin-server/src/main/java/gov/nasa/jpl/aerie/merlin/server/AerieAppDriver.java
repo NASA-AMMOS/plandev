@@ -90,7 +90,8 @@ public final class AerieAppDriver {
       constraintsDSLCompilationService,
       constraintService,
       planController,
-      simulationController
+      simulationController,
+      missionModelController
     );
     final var generateConstraintsLibAction = new GenerateConstraintsLibAction(typescriptCodeGenerationService);
     final var permissionsService = new PermissionsService(

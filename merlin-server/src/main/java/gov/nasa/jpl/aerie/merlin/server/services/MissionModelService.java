@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.services;
 
+import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.MissionModelId;
@@ -71,6 +72,9 @@ public interface MissionModelService {
       final SimulationResourceManager resourceManager
   ) throws NoSuchMissionModelException, MissionModelService.NoSuchActivityTypeException;
 
+  MissionModel<?> loadAndInstantiateMissionModel(final MissionModelId missionModelId)
+  throws NoSuchMissionModelException, MissionModelLoadException;
+
   void refreshModelParameters(MissionModelId missionModelId) throws NoSuchMissionModelException;
   void refreshActivityTypes(MissionModelId missionModelId) throws NoSuchMissionModelException;
   void refreshResourceTypes(MissionModelId missionModelId) throws NoSuchMissionModelException;
@@ -114,5 +118,9 @@ public interface MissionModelService {
     record NoSuchMissionModelError(NoSuchMissionModelException ex) implements BulkArgumentValidationResponse { }
     record NoSuchActivityError(NoSuchActivityTypeException ex) implements BulkArgumentValidationResponse { }
     record InstantiationError(InstantiationException ex) implements BulkArgumentValidationResponse { }
+  }
+
+  class MissionModelLoadException extends RuntimeException {
+    public MissionModelLoadException(final Throwable cause) { super(cause); }
   }
 }

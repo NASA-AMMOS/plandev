@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e.procedural.scheduling;
+package gov.nasa.jpl.aerie.e2e.procedural;
 
 import com.microsoft.playwright.Playwright;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
@@ -12,7 +12,7 @@ import org.junit.jupiter.api.TestInstance;
 import java.io.IOException;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class ProceduralSchedulingSetup {
+public abstract class ProceduralSetup {
 
   // Requests
   protected Playwright playwright;

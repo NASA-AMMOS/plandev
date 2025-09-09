@@ -1272,6 +1272,32 @@ public class HasuraRequests implements AutoCloseable {
     );
   }
 
+  public ConstraintInvocationId insertPlanConstraintJar(
+      String name,
+      int planId,
+      int jarId
+  ) throws IOException {
+    final var constraintInsertBuilder = Json.createObjectBuilder()
+                                            .add("plan_id", planId)
+                                            .add("constraint_metadata",
+                                                 Json.createObjectBuilder()
+                                                     .add("data",
+                                                          Json.createObjectBuilder()
+                                                              .add("name", name)
+                                                              .add("versions",
+                                                                   Json.createObjectBuilder()
+                                                                       .add("data",
+                                                                            Json.createObjectBuilder()
+                                                                                .add("type", "JAR")
+                                                                                .add("uploaded_jar_id", jarId)))));
+    final var variables = Json.createObjectBuilder().add("constraint", constraintInsertBuilder).build();
+    final var resp = makeRequest(GQL.INSERT_PLAN_SPEC_CONSTRAINT, variables).getJsonObject("constraint");
+    return new ConstraintInvocationId(
+        resp.getInt("constraint_id"),
+        resp.getInt("invocation_id")
+    );
+  }
+
   public void updatePlanConstraintSpecVersion(int invocationId, int constraintRevision) throws IOException {
     final var variables = Json.createObjectBuilder()
                               .add("invocation_id", invocationId)

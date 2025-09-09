@@ -384,7 +384,8 @@ public final class LocalMissionModelService implements MissionModelService {
    * it contains may not abide by the expected contract at load time.
    * @throws NoSuchMissionModelException If no mission model is known by the given ID.
    */
-  private MissionModel<?> loadAndInstantiateMissionModel(final MissionModelId missionModelId)
+  @Override
+  public MissionModel<?> loadAndInstantiateMissionModel(final MissionModelId missionModelId)
   throws NoSuchMissionModelException, MissionModelLoadException
   {
     return loadAndInstantiateMissionModel(missionModelId, untruePlanStart, SerializedValue.of(Map.of()));
@@ -421,7 +422,4 @@ public final class LocalMissionModelService implements MissionModelService {
     }
   }
 
-  public static class MissionModelLoadException extends RuntimeException {
-    public MissionModelLoadException(final Throwable cause) { super(cause); }
-  }
 }

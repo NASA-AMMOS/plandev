@@ -22,6 +22,7 @@ import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
+import gov.nasa.ammos.aerie.procedural.timeline.util.WithModel;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationEngineConfiguration;
@@ -129,6 +130,7 @@ public record SynchronousSchedulerAgent(
       ensureRequestIsCurrent(specification, request);
       //create scheduler problem seeded with initial plan
       final var schedulerMissionModel = loadMissionModel(planMetadata);
+      WithModel.setModelSingleton(schedulerMissionModel.missionModel.getModel());
       final var planningHorizon = new PlanningHorizon(
           specification.horizonStartTimestamp().toInstant(),
           specification.horizonEndTimestamp().toInstant()

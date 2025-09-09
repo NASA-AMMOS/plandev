@@ -7,7 +7,7 @@ import gov.nasa.jpl.aerie.merlin.framework.resources.discrete.DiscreteResource;
 
 import java.util.function.UnaryOperator;
 
-public final class Register<Value> implements DiscreteResource<Value> {
+public final class Register<Value> extends NamedResource<Value> implements DiscreteResource<Value> {
   public final CellRef<Value, RegisterCell<Value>> ref;
 
   private Register(final UnaryOperator<Value> duplicator, final Value initialValue) {

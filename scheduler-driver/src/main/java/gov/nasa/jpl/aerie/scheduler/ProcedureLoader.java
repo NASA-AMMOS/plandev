@@ -14,8 +14,14 @@ public final class ProcedureLoader {
   public static ProcedureMapper<?> loadProcedure(final Path path)
   throws ProcedureLoadException
   {
+    return loadProcedure(path, Thread.currentThread().getContextClassLoader());
+  }
+
+  public static ProcedureMapper<?> loadProcedure(final Path path, final ClassLoader parentClassLoader)
+  throws ProcedureLoadException
+  {
     final var className = getImplementingClassName(path);
-    final var classLoader = new URLClassLoader(new URL[] {pathToUrl(path)});
+    final var classLoader = new URLClassLoader(new URL[] {pathToUrl(path)}, parentClassLoader);
 
     try {
       final var pluginClass$ = classLoader.loadClass(className);

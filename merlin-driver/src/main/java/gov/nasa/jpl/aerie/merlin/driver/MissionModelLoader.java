@@ -66,7 +66,8 @@ public final class MissionModelLoader {
         final var className = getImplementingClassName(path, name, version);
 
         // Construct a ClassLoader with access to classes in the mission model location.
-        final var classLoader = new URLClassLoader(new URL[] {missionModelPathToUrl(path)});
+        final var parentClassLoader = Thread.currentThread().getContextClassLoader();
+        final var classLoader = new URLClassLoader(new URL[] {missionModelPathToUrl(path)}, parentClassLoader);
 
         try {
             final var pluginClass$ = classLoader.loadClass(className);

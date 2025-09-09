@@ -6,8 +6,11 @@ import gov.nasa.ammos.aerie.procedural.timeline.collections.Directives
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyInstance
 import gov.nasa.ammos.aerie.procedural.timeline.collections.Instances
+import gov.nasa.ammos.aerie.procedural.timeline.collections.profiles.*
 import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective
+import gov.nasa.jpl.aerie.merlin.framework.resources.NameableResource
+import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics
 
 /** An interface for querying plan information and simulation results. */
 interface SimulationResults {
@@ -24,6 +27,13 @@ interface SimulationResults {
    * @param name string name of the resource
    */
   fun <V: Any, TL: SerialSegmentOps<V, TL>> resource(name: String, deserializer: (List<Segment<SerializedValue>>) -> TL): TL
+
+  fun resource(instance: NameableResource<RealDynamics>) = resource(instance.name, Real.deserializer())
+  fun resource(instance: NameableResource<Boolean>) = resource(instance.name, Booleans.deserializer())
+  fun resource(instance: NameableResource<String>) = resource(instance.name, Strings.deserializer())
+  fun resource(instance: NameableResource<Number>) = resource(instance.name, Numbers.deserializer())
+  fun <V: Any> resource(instance: NameableResource<V>, mapper: (Segment<SerializedValue>) -> V)
+    = resource(instance.name, Constants.deserializer(mapper))
 
   /**
    * Query activity instances.

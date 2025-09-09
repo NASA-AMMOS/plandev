@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.e2e.procedural.scheduling;
 
+import gov.nasa.jpl.aerie.e2e.procedural.ProceduralSetup;
 import gov.nasa.jpl.aerie.e2e.types.GoalInvocationId;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import org.junit.jupiter.api.AfterEach;
@@ -14,7 +15,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class DeletionTests extends ProceduralSchedulingSetup {
+public class DeletionTests extends ProceduralSetup {
   private GoalInvocationId procedureId;
 
   @BeforeEach

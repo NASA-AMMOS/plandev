@@ -20,6 +20,7 @@ jar {
   dependsOn(':orchestration-utils:jar')
   dependsOn(':constraints:jar')
   dependsOn(':merlin-driver:jar')
+  dependsOn(':merlin-framework:jar')
   dependsOn(':merlin-sdk:jar')
   dependsOn(':procedural:timeline:jar')
   dependsOn(':procedural:constraints:jar')

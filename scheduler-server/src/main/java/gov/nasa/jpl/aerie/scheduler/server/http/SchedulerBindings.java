@@ -12,7 +12,7 @@ import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.hasuraSc
 import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.hasuraSpecificationActionP;
 import static io.javalin.apibuilder.ApiBuilder.*;
 import gov.nasa.jpl.aerie.json.JsonParser;
-import gov.nasa.jpl.aerie.permissions.Action;
+import gov.nasa.jpl.aerie.permissions.HasuraAction;
 import gov.nasa.jpl.aerie.permissions.PermissionsService;
 import gov.nasa.jpl.aerie.permissions.exceptions.ExceptionSerializers;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException;
@@ -86,7 +86,7 @@ public record SchedulerBindings(
       final var session = body.session();
       final var permissionsSpecId = new SchedulingSpecificationId(specificationId.id());
       try {
-        permissionsService.check(Action.schedule, session.hasuraRole(), session.hasuraUserId(), permissionsSpecId);
+        permissionsService.check(HasuraAction.schedule, session.hasuraRole(), session.hasuraUserId(), permissionsSpecId);
       } catch (final IOException ex) {
         // this IOException is caught here so that it isn't mistaken for an IOException during scheduling
         ctx.status(500).result(ExceptionSerializers.serializeIOException(ex).toString());

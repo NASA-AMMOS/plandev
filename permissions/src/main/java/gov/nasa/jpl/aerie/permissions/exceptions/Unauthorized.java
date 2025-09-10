@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.permissions.exceptions;
 
 import gov.nasa.jpl.aerie.permissions.Action;
+import gov.nasa.jpl.aerie.permissions.HasuraAction;
 import gov.nasa.jpl.aerie.permissions.PermissionType;
 import gov.nasa.jpl.aerie.permissions.gql.PlanId;
 
@@ -10,7 +11,7 @@ public class Unauthorized extends Exception {
   }
 
   public Unauthorized(
-      final Action action,
+      final HasuraAction action,
       final String role,
       final String username,
       final PermissionType permissionType,

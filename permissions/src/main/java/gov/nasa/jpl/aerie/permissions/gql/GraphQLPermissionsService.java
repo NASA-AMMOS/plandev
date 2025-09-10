@@ -1,6 +1,6 @@
 package gov.nasa.jpl.aerie.permissions.gql;
 
-import gov.nasa.jpl.aerie.permissions.Action;
+import gov.nasa.jpl.aerie.permissions.HasuraAction;
 import gov.nasa.jpl.aerie.permissions.PermissionType;
 import gov.nasa.jpl.aerie.permissions.PlanOwnerOrCollaborator;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException;
@@ -76,7 +76,7 @@ public record GraphQLPermissionsService(
     }
   }
 
-  public PermissionType getActionPermission(final Action action, final String role) throws IOException, Unauthorized, PermissionsServiceException {
+  public PermissionType getActionPermission(final HasuraAction action, final String role) throws IOException, Unauthorized, PermissionsServiceException {
     final var query = """
         query getActionPermission($role: user_roles_enum!, $action: String!) {
           check: user_role_permission_by_pk(role: $role) {

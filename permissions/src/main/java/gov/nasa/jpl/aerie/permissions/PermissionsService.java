@@ -16,15 +16,16 @@ public final class PermissionsService {
   public PermissionsService(final GraphQLPermissionsService gqlService) {
     this.gqlService = gqlService;
   }
-  public void check(final Action action, final String role, final String username, final PlanId planId)
+
+  public void check(final HasuraAction action, final String role, final String username, final PlanId planId)
   throws Unauthorized, IOException, PermissionsServiceException, NoSuchPlanException {
     final var permissionType = getActionPermission(action, role);
     final var authorized = canPerformAction(permissionType, username, planId);
     if (!authorized) throw new Unauthorized(action, role, username, permissionType, planId);
   }
 
-    public void check(
-      final Action action,
+  public void check(
+      final HasuraAction action,
       final String role,
       final String username,
       final SchedulingSpecificationId specificationId)
@@ -35,7 +36,19 @@ public final class PermissionsService {
     check(action, role, username, planId);
   }
 
-  private PermissionType getActionPermission(final Action action, final String role)
+  public void check(
+      final WorkspaceAction action,
+      final String role,
+      final String username,
+      final WorkspaceId workspaceId)
+  throws Unauthorized, IOException, PermissionsServiceException, NoSuchWorkspaceException
+  {
+    final var permissionType = getWorkspaceActionPermission(action, role);
+    final var authorized = canPerformWorkspaceAction(permissionType, username, workspaceId);
+    if (!authorized) throw new Unauthorized(action, role, username, permissionType, workspaceId);
+  }
+
+  private PermissionType getActionPermission(final HasuraAction action, final String role)
   throws Unauthorized, IOException, PermissionsServiceException
   {
     if (role.equals("aerie_admin")) {

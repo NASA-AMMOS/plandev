@@ -4,4 +4,4 @@ alter table merlin.activity_type
 alter table merlin.resource_type
   drop column description;
 
-call migrations.mark_migration_rolled_back('28');
+call migrations.mark_migration_rolled_back(28);

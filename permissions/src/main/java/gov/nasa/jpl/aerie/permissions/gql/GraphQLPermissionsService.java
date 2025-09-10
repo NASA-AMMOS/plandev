@@ -90,8 +90,9 @@ public record GraphQLPermissionsService(
                               .build();
 
     final var response = postRequest(query, variables).orElseThrow(() -> new Unauthorized(role, action));
-    final String permission = response.getJsonObject("data").getJsonObject("check").getString("permission");
-    return PermissionType.valueOf(permission);
+    final var check = response.getJsonObject("data").getJsonObject("check");
+    if (check.isNull("permission")) { throw new Unauthorized(role, action); }
+    return PermissionType.valueOf(check.getString("permission"));
   }
 
   public PlanOwnerOrCollaborator checkPlanOwnerCollaborator(final PlanId planId, final String username) throws IOException, NoSuchPlanException, PermissionsServiceException {

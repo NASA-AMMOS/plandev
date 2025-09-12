@@ -101,7 +101,11 @@ public class MissionModelTests {
     activityTypes.add(new ActivityType("BananaNap", Map.of()));
     activityTypes.add(new ActivityType(
         "BiteBanana",
-        Map.of("biteSize", new Parameter(0, new ValueSchemaMeta(Map.of("unit", Json.createObjectBuilder(Map.of("value", "m")).build(), "banannotation", Json.createObjectBuilder().add("value", Json.createValue("Specifies the size of bite to take")).build()), VALUE_SCHEMA_REAL), "The size of the bite in meters")),
+        Map.of("biteSize", new Parameter(0,
+                                         new ValueSchemaMeta(
+                                             Map.of(
+                                                 "unit", Json.createObjectBuilder(Map.of("value", "m")).build()),
+                                             VALUE_SCHEMA_REAL), "The size of the bite in meters")),
         new ValueSchemaStruct(Map.of("biteSizeWasBig", VALUE_SCHEMA_BOOLEAN, "newFlag", new ValueSchemaVariant(List.of(new Variant("A", "A"), new Variant("B", "B"))))),
         "Eat",
         "Takes a bite out of the banana"

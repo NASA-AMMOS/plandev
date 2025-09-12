@@ -25,7 +25,7 @@ import gov.nasa.jpl.aerie.merlin.framework.annotations.Subsystem;
 public final class BiteBananaActivity {
   @Parameter
   @Description("The size of the bite in meters")
-  @Banannotation("Specifies the size of bite to take")
+//  @Banannotation("Specifies the size of bite to take") Custom annotations are currently broken
   @Unit("m")
   public double biteSize = 1.0;
 

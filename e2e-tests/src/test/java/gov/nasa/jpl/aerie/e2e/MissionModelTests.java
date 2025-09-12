@@ -7,14 +7,17 @@ import gov.nasa.jpl.aerie.e2e.types.ResourceType;
 import gov.nasa.jpl.aerie.e2e.types.ValueSchema;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
+import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import javax.json.Json;
+import javax.json.JsonObject;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -97,7 +100,7 @@ public class MissionModelTests {
     activityTypes.add(new ActivityType(
         "BiteBanana",
         Map.of("biteSize", new Parameter(0, new ValueSchemaMeta(Map.of("unit", Json.createObjectBuilder(Map.of("value", "m")).build(), "banannotation", Json.createObjectBuilder().add("value", Json.createValue("Specifies the size of bite to take")).build()), VALUE_SCHEMA_REAL))),
-        new ValueSchemaStruct(Map.of("biteSizeWasBig", VALUE_SCHEMA_BOOLEAN, "newFlag", new ValueSchemaVariant(List.of(new Variant("A", "A"), new Variant("B", "B"))))),
+        new ValueSchemaMeta(Map.of("item_order", Json.createArrayBuilder().add("biteSizeWasBig").add("newFlag").build()), new ValueSchemaStruct(Map.of("biteSizeWasBig", VALUE_SCHEMA_BOOLEAN, "newFlag", new ValueSchemaVariant(List.of(new Variant("A", "A"), new Variant("B", "B")))))),
         "Eat"
     ));
     activityTypes.add(new ActivityType("ChangeProducer", Map.of("producer", new Parameter(0, VALUE_SCHEMA_STRING))));
@@ -115,17 +118,81 @@ public class MissionModelTests {
     activityTypes.add(new ActivityType(
         "DurationParameterActivity",
         Map.of("duration", new Parameter(0, VALUE_SCHEMA_DURATION)),
-        new ValueSchemaStruct(Map.of(
-            "duration", VALUE_SCHEMA_DURATION,
-            "durationInSeconds", new ValueSchemaMeta(Map.of("unit", Json.createObjectBuilder(Map.of("value", "s")).build()), VALUE_SCHEMA_REAL))),
-        null
-    ));
+        new ValueSchemaMeta(
+            Map.of("item_order", Json.createArrayBuilder().add("duration").add("durationInSeconds").build()),
+            new ValueSchemaStruct(Map.of("duration", VALUE_SCHEMA_DURATION,
+            "durationInSeconds", new ValueSchemaMeta(Map.of("unit", Json.createObjectBuilder(Map.of("value", "s")).build()), VALUE_SCHEMA_REAL)))),
+        null));
     activityTypes.add(new ActivityType("ExceptionActivity", Map.of("throwException", new Parameter(0, VALUE_SCHEMA_BOOLEAN))));
     activityTypes.add(new ActivityType("grandchild", Map.of("counter", new Parameter(0, VALUE_SCHEMA_INT))));
     activityTypes.add(new ActivityType("GrowBanana", Map.of(
         "quantity", new Parameter(0, VALUE_SCHEMA_INT),
         "growingDuration", new Parameter(1, VALUE_SCHEMA_DURATION))));
     activityTypes.add(new ActivityType("LineCount", Map.of("path", new Parameter(0, VALUE_SCHEMA_PATH))));
+    final var allSubs = new String[] {"primitiveDouble",
+                                      "primitiveFloat",
+                                      "primitiveByte",
+                                      "primitiveShort",
+                                      "primitiveInt",
+                                      "primitiveLong",
+                                      "primitiveChar",
+                                      "primitiveBoolean",
+                                      "boxedDouble",
+                                      "boxedFloat",
+                                      "boxedByte",
+                                      "boxedShort",
+                                      "boxedInt",
+                                      "boxedLong",
+                                      "boxedChar",
+                                      "boxedBoolean",
+                                      "string",
+                                      "doubleArray",
+                                      "floatArray",
+                                      "byteArray",
+                                      "shortArray",
+                                      "intArray",
+                                      "longArray",
+                                      "charArray",
+                                      "booleanArray",
+                                      "stringArray",
+                                      "primDoubleArray",
+                                      "primFloatArray",
+                                      "primByteArray",
+                                      "primShortArray",
+                                      "primIntArray",
+                                      "primLongArray",
+                                      "primCharArray",
+                                      "primBooleanArray",
+                                      "doubleList",
+                                      "floatList",
+                                      "byteList",
+                                      "shortList",
+                                      "intList",
+                                      "longList",
+                                      "charList",
+                                      "booleanList",
+                                      "stringList",
+                                      "doubleMap",
+                                      "floatMap",
+                                      "byteMap",
+                                      "shortMap",
+                                      "intMap",
+                                      "longMap",
+                                      "charMap",
+                                      "booleanMap",
+                                      "stringMap",
+                                      "testDuration",
+                                      "testEnum",
+                                      "mappyBoi",
+                                      "doublePrimIntArray",
+                                      "intListArrayArray",
+                                      "obnoxious",
+                                      "nested",
+                                      "genericParameter"};
+    final var parameterTestItemOrder = Json.createArrayBuilder();
+    for(final var param: allSubs){
+      parameterTestItemOrder.add(param);
+    }
     activityTypes.add(new ActivityType(
         "ParameterTest",
         //region ParameterTest Parameters
@@ -135,15 +202,17 @@ public class MissionModelTests {
             entry("record",
             new Parameter(
                 58,
-                new ValueSchemaStruct(Map.<String, ValueSchema>ofEntries(
+                new ValueSchemaMeta(Map.of("item_order", parameterTestItemOrder.build()), new ValueSchemaStruct(Map.<String, ValueSchema>ofEntries(
                     entry("intMap", new ValueSchemaSeries(new ValueSchemaStruct(Map.of(
                         "key", VALUE_SCHEMA_INT,
                         "value", VALUE_SCHEMA_INT)))),
-                    entry("nested", new ValueSchemaStruct(Map.of(
+                    entry("nested", new ValueSchemaMeta(
+                     Map.of( "item_order", Json.createArrayBuilder().add("a").add("b").build()),
+                     new ValueSchemaStruct(Map.of(
                         "a", VALUE_SCHEMA_STRING,
                         "b", new ValueSchemaSeries(new ValueSchemaStruct(Map.of(
                             "key", VALUE_SCHEMA_INT,
-                            "value", VALUE_SCHEMA_STRING)))))),
+                            "value", VALUE_SCHEMA_STRING))))))),
                     entry("string", VALUE_SCHEMA_STRING),
                     entry("byteMap", new ValueSchemaSeries(new ValueSchemaStruct(Map.of(
                         "key", VALUE_SCHEMA_INT,
@@ -226,7 +295,7 @@ public class MissionModelTests {
                     entry("primBooleanArray", new ValueSchemaSeries(VALUE_SCHEMA_BOOLEAN)),
                     entry("primitiveBoolean", VALUE_SCHEMA_BOOLEAN),
                     entry("intListArrayArray", new ValueSchemaSeries(new ValueSchemaSeries(new ValueSchemaSeries(VALUE_SCHEMA_INT)))),
-                    entry("doublePrimIntArray", new ValueSchemaSeries(new ValueSchemaSeries(VALUE_SCHEMA_INT))))))),
+                    entry("doublePrimIntArray", new ValueSchemaSeries(new ValueSchemaSeries(VALUE_SCHEMA_INT)))))))),
             //endregion record
             entry("string", new Parameter(16, VALUE_SCHEMA_STRING)),
             entry("byteMap", new Parameter(45,new ValueSchemaSeries(new ValueSchemaStruct(Map.of(

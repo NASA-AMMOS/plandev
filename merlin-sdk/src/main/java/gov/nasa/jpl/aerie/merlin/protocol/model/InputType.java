@@ -170,7 +170,7 @@ public interface InputType<T> {
   List<ValidationNotice> getValidationFailures(T value);
 
   /** A named parameter to an {@link InputType} */
-  record Parameter(String name, ValueSchema schema) { }
+  record Parameter(String name, ValueSchema schema) {}
 
   /** A human-readable advisory concerning a subset of the arguments for an instance of an {@link InputType}. */
   record ValidationNotice(List<String> subjects, String message) { }

@@ -26,7 +26,7 @@ import java.util.Map;
   private final PreparedStatement findStatement;
 
 
-  public  InsertSubsystemsAction(final Connection connection) throws SQLException {
+  public InsertSubsystemsAction(final Connection connection) throws SQLException {
     this.insertStatement = connection.prepareStatement(insertSQL);
     this.findStatement = connection.prepareStatement(findTagsSQL);
   }

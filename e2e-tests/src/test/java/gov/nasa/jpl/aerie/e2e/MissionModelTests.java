@@ -125,7 +125,10 @@ public class MissionModelTests {
                                                  "unit", Json.createObjectBuilder(Map.of("value", "m")).build(),
                                                     "description", Json.createObjectBuilder(Map.of("value", "The size of the bite in meters")).build()),
                                              VALUE_SCHEMA_REAL))),
-        new ValueSchemaStruct(Map.of("biteSizeWasBig", VALUE_SCHEMA_BOOLEAN, "newFlag", new ValueSchemaVariant(List.of(new Variant("A", "A"), new Variant("B", "B"))))),
+        new ValueSchemaStruct(Map.of("biteSizeWasBig", new ValueSchemaMeta(
+            Map.of(
+                "description", Json.createObjectBuilder(Map.of("value", "Big Bite")).build()),
+            VALUE_SCHEMA_BOOLEAN), "newFlag", new ValueSchemaVariant(List.of(new Variant("A", "A"), new Variant("B", "B"))))),
         "Eat",
         "Takes a bite out of the banana"
     ));

@@ -44,5 +44,5 @@ public final class BiteBananaActivity {
   }
 
   @AutoValueMapper.Record
-  public record ComputedAttributes(boolean biteSizeWasBig, Flag newFlag) {}
+  public record ComputedAttributes(@Description("Big Bite") boolean biteSizeWasBig, Flag newFlag) {}
 }

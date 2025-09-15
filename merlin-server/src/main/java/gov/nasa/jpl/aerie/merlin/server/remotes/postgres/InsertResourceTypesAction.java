@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 
+import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import org.intellij.lang.annotations.Language;
 
 import java.sql.BatchUpdateException;
@@ -10,15 +11,13 @@ import java.sql.Statement;
 import java.util.Map;
 
 import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
-import gov.nasa.jpl.aerie.merlin.protocol.model.Resource;
 
 /*package-private*/ final class InsertResourceTypesAction implements AutoCloseable{
     private static final @Language("SQL") String sql = """
-    insert into merlin.resource_type (model_id, name, schema, description)
-    values (?, ?, ?::json, ?)
+    insert into merlin.resource_type (model_id, name, schema)
+    values (?, ?, ?::json)
     on conflict (model_id, name) do update
-    set schema = excluded.schema,
-    description = excluded.description
+    set schema = excluded.schema
     """;
 
   private final PreparedStatement statement;
@@ -27,7 +26,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.model.Resource;
     this.statement = connection.prepareStatement(sql);
   }
 
-  public void apply(final int modelId, Map<String, Resource<?>> resources)
+  public void apply(final int modelId, Map<String, ValueSchema> resourceTypes)
   throws SQLException, FailedInsertException
   {
     final var connection = statement.getConnection();
@@ -37,10 +36,9 @@ import gov.nasa.jpl.aerie.merlin.protocol.model.Resource;
       connection.setAutoCommit(false);
 
       statement.setInt(1, modelId);
-      for(final var resource : resources.entrySet()){
+      for(final var resource : resourceTypes.entrySet()){
         statement.setString(2, resource.getKey());
-        statement.setString(3, valueSchemaP.unparse(resource.getValue().getOutputType().getSchema()).toString());
-        statement.setString(4, resource.getValue().getDescription().orElse(null));
+        statement.setString(3, valueSchemaP.unparse(resource.getValue()).toString());
         statement.addBatch();
       }
 

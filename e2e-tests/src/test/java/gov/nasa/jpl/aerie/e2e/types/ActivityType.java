@@ -43,18 +43,9 @@ public record ActivityType(String name, Map<String, Parameter> parameters, Value
                             description);
   }
 
-  public record Parameter(int order, ValueSchema schema, String description) {
+  public record Parameter(int order, ValueSchema schema) {
     public static Parameter fromJSON(JsonObject json) {
-      if (json.containsKey("description")) {
-        final var description = json.isNull("description") ? null : json.getString("description");
-        return new Parameter(json.getInt("order"), ValueSchema.fromJSON(json.getJsonObject("schema")), description);
-      } else {
-        return new Parameter(json.getInt("order"), ValueSchema.fromJSON(json.getJsonObject("schema")));
-      }
-    }
-
-    public Parameter(int order, ValueSchema schema) {
-      this(order, schema, null);
+      return new Parameter(json.getInt("order"), ValueSchema.fromJSON(json.getJsonObject("schema")));
     }
   }
 }

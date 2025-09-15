@@ -1,19 +1,9 @@
 package gov.nasa.jpl.aerie.merlin.protocol.model;
 
 import gov.nasa.jpl.aerie.merlin.protocol.driver.Querier;
-import java.util.Optional;
 
 public interface Resource<Dynamics> {
   String getType();
-
-  /**
-   * Get the description of this resource.
-   * @return The description of this resource.
-   */
-  default Optional<String> getDescription() {
-    return Optional.empty();
-  }
-
   OutputType<Dynamics> getOutputType();
 
   /**

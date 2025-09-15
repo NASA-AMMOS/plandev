@@ -70,11 +70,6 @@ public final class ResponseSerializers {
       final var builder = Json.createObjectBuilder()
             .add("schema", new ValueSchemaJsonParser().unparse(pair.getRight().schema()))
             .add("order", pair.getLeft());
-
-      if (pair.getRight().description().isPresent()) {
-        builder.add("description", pair.getRight().description().get());
-      }
-
       return builder.build();
     }, parameterMap);
   }

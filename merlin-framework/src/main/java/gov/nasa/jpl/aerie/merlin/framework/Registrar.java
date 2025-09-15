@@ -9,7 +9,6 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
@@ -98,6 +97,9 @@ public final class Registrar {
         return new OutputType<>() {
           @Override
           public ValueSchema getSchema() {
+            if (description != null) {
+              return ValueSchema.withMeta("description", SerializedValue.of(Map.of("value", SerializedValue.of(description))), valueSchema);
+            }
             return valueSchema;
           }
 
@@ -113,11 +115,6 @@ public final class Registrar {
         try (final var _token = ModelActions.context.set(new QueryContext(querier))) {
           return resource.getDynamics();
         }
-      }
-
-      @Override
-      public Optional<String> getDescription() {
-        return Optional.ofNullable(description);
       }
     };
   }

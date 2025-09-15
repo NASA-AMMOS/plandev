@@ -58,13 +58,11 @@ public abstract sealed class MapperMethodMaker permits
                 .map(parameter -> CodeBlock
                     .builder()
                     .addStatement(
-                        "$L.add(new $T($S, this.mapper_$L.getValueSchema(), $L))",
+                        "$L.add(new $T($S, this.mapper_$L.getValueSchema()))",
                         "parameters",
                         Parameter.class,
                         parameter.name,
-                        parameter.name,
-                        parameter.description.map(desc -> CodeBlock.of("$T.of($S)", java.util.Optional.class, desc))
-                            .orElse(CodeBlock.of("$T.empty()", java.util.Optional.class))))
+                        parameter.name))
                 .reduce(CodeBlock.builder(), (x, y) -> x.add(y.build()))
                 .build())
         .addStatement(

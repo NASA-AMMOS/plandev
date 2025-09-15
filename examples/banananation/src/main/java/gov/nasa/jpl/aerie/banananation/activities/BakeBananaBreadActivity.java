@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.banananation.activities;
 
 import gov.nasa.jpl.aerie.banananation.Mission;
+import gov.nasa.jpl.aerie.contrib.metadata.Unit;
 import gov.nasa.jpl.aerie.contrib.models.ValidationResult;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType.EffectModel;
@@ -13,7 +14,7 @@ import gov.nasa.jpl.aerie.merlin.framework.annotations.Subsystem;
 @Subsystem("Prepare")
 @Description("Bakes banana bread at a certain temperature")
 public record BakeBananaBreadActivity(@Description("The baking temperature in degrees Fahrenheit") double temperature,
-                                      @Description("Tablespoons of sugar to add") int tbSugar,
+                                      @Description("Tablespoons of sugar to add") @Unit("tbl") int tbSugar,
                                       boolean glutenFree) {
 
   @Validation

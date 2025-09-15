@@ -6,7 +6,6 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 /**
  * A type of data accepted as input by a Merlin model.
@@ -171,11 +170,7 @@ public interface InputType<T> {
   List<ValidationNotice> getValidationFailures(T value);
 
   /** A named parameter to an {@link InputType} */
-  record Parameter(String name, ValueSchema schema, Optional<String> description) {
-    public Parameter(String name, ValueSchema schema) {
-      this(name, schema, Optional.empty());
-    }
-  }
+  record Parameter(String name, ValueSchema schema) { }
 
   /** A human-readable advisory concerning a subset of the arguments for an instance of an {@link InputType}. */
   record ValidationNotice(List<String> subjects, String message) { }

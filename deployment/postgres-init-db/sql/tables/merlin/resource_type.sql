@@ -2,7 +2,6 @@ create table merlin.resource_type (
   model_id integer not null,
   name text not null,
   schema jsonb not null,
-  description text,
 
   constraint resource_type_pkey
     primary key (model_id, name),
@@ -21,5 +20,3 @@ comment on column merlin.resource_type.model_id is e''
   'The model defining this resource type.';
 comment on column merlin.resource_type.schema is e''
   'The structure of this resource type.';
-comment on column merlin.resource_type.description is e''
-  'The description of this resource type.';

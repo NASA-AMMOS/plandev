@@ -3,6 +3,7 @@
 @WithMappers(BasicValueMappers.class)
 //@WithMetadata(name="banannotation", annotation=Banannotation.class)
 @WithMetadata(name="unit", annotation=gov.nasa.jpl.aerie.contrib.metadata.Unit.class)
+@WithMetadata(name="description", annotation=gov.nasa.jpl.aerie.merlin.framework.annotations.Description.class)
 
 @WithConfiguration(Configuration.class)
 
@@ -29,6 +30,7 @@
 
 @WithSubsystem("Prepare")
 @WithSubsystem("Eat")
+@WithSubsystem("Pick")
 
 package gov.nasa.jpl.aerie.banananation;
 

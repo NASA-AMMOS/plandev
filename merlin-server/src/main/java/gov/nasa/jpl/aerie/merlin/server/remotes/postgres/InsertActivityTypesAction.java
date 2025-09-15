@@ -51,7 +51,10 @@ import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueS
 
 
         if (activityType.subsystem().isPresent()) {
-          int subsystemIndex = mapSubsystemsToIds.get(activityType.subsystem().get());
+          Integer subsystemIndex = mapSubsystemsToIds.get(activityType.subsystem().get());
+          if (subsystemIndex == null) {
+            throw new FailedInsertException("Unknown subsystem '" + activityType.subsystem().get() + "' for model_id=" + modelId + " in merlin.activity_type");
+          }
           this.statement.setInt(6, subsystemIndex);
         } else {
           this.statement.setObject(6, null);

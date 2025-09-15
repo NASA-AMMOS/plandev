@@ -7,7 +7,9 @@
  */
 begin;
   -- Tables
-  \ir tables/actions/action_definition.sql
-  \ir tables/actions/action_run.sql
-  \ir tables/actions/action_configuration.sql
+  \ir tables/deliveries/target.sql
+  \ir tables/deliveries/delivery.sql
+  \ir tables/deliveries/file_to_delivery.sql
+  \ir tables/deliveries/action_to_target.sql
+  \ir tables/deliveries/action_to_delivery.sql
 end;

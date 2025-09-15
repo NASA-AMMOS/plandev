@@ -1,0 +1,47 @@
+table:
+  name: action_configuration
+  schema: actions
+configuration:
+  custom_name: "action_configuration"
+select_permissions:
+  - role: aerie_admin
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: user
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: viewer
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+update_permissions:
+  - role: aerie_admin
+    permission:
+      columns: [name, description, action_parameters, action_settings]
+      filter: {}
+  - role: user
+    permission:
+      columns: [name, description, action_parameters, action_settings]
+      filter: {}
+delete_permissions:
+  - role: aerie_admin
+    permission:
+      filter: {}
+  - role: user
+    permission:
+      filter: {}
+insert_permissions:
+  - role: aerie_admin
+    permission:
+      columns: [name, description, action_parameters, action_settings, action_definition_id]
+      check: {}
+  - role: user
+    permission:
+      columns: [name, description, action_parameters, action_settings, action_definition_id]
+      check: {}
+

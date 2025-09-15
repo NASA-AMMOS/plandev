@@ -1,0 +1,56 @@
+table:
+  name: target
+  schema: deliveries
+configuration:
+  custom_name: "target"
+array_relationships:
+  - name: actions
+    using:
+      manual_configuration:
+        column_mapping:
+          name: target_name
+        remote_table:
+          schema: deliveries
+          name: action_to_target
+select_permissions:
+  - role: aerie_admin
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: user
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: viewer
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+update_permissions:
+  - role: aerie_admin
+    permission:
+      columns: [name]
+      filter: {}
+  - role: user
+    permission:
+      columns: [name]
+      filter: {}
+delete_permissions:
+  - role: aerie_admin
+    permission:
+      filter: {}
+  - role: user
+    permission:
+      filter: {}
+insert_permissions:
+  - role: aerie_admin
+    permission:
+      columns: [name]
+      check: {}
+  - role: user
+    permission:
+      columns: [name]
+      check: {}
+

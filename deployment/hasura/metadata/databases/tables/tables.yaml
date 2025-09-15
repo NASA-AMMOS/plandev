@@ -195,3 +195,13 @@
 #################
 - "!include actions/action_definition.yaml"
 - "!include actions/action_run.yaml"
+- "!include actions/action_configuration.yaml"
+
+#####################
+#### Deliveries #####
+#####################
+- "!include deliveries/delivery.yaml"
+- "!include deliveries/file_to_delivery.yaml"
+- "!include deliveries/target.yaml"
+- "!include deliveries/action_to_target.yaml"
+- "!include deliveries/action_to_delivery.yaml"

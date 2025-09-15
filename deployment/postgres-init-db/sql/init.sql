@@ -51,4 +51,7 @@ begin;
 
   -- Actions
   \ir init_actions.sql
+
+  -- Deliveries
+  \ir init_deliveries.sql
 end;

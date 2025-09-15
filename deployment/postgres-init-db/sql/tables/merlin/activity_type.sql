@@ -7,6 +7,7 @@ create table merlin.activity_type (
   subsystem integer references tags.tags
     on update cascade
     on delete restrict,
+  description text,
 
   constraint activity_type_pkey
     primary key (model_id, name),
@@ -31,3 +32,5 @@ comment on column merlin.activity_type.computed_attributes_value_schema is e''
   'The type of value returned by the effect model of this activity type';
 comment on column merlin.activity_type.subsystem is e''
   'The subsystem this activity type belongs to.';
+comment on column merlin.activity_type.description is e''
+  'The description of this activity type.';

@@ -9,6 +9,7 @@ import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.Export;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.MissionModel;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.Subsystem;
+import gov.nasa.jpl.aerie.merlin.framework.annotations.Description;
 import gov.nasa.jpl.aerie.merlin.processor.metamodel.ActivityTypeRecord;
 import gov.nasa.jpl.aerie.merlin.processor.metamodel.InputTypeRecord;
 import gov.nasa.jpl.aerie.merlin.processor.metamodel.EffectModelRecord;
@@ -401,6 +402,7 @@ import java.util.stream.Collectors;
     final var fullyQualifiedClassName = activityTypeElement.getQualifiedName();
     final var name = this.getActivityTypeName(activityTypeElement);
     final var subsystem = this.getSubsystem(activityTypeElement);
+    final var description = this.getDescription(activityTypeElement);
     final var mapper = this.getExportMapper(missionModelElement, activityTypeElement);
     final var parameters = this.getExportParameters(activityTypeElement);
     final var validations = this.getExportValidations(activityTypeElement, parameters);
@@ -430,6 +432,7 @@ import java.util.stream.Collectors;
         fullyQualifiedClassName.toString(),
         name,
         subsystem,
+        description,
         new InputTypeRecord(name, activityTypeElement, parameters, validations, mapper, defaultsStyle),
         effectModel);
   }
@@ -523,6 +526,22 @@ import java.util.stream.Collectors;
     return Optional.of((String) nameAttribute.getValue());
   }
 
+  private Optional<String> getDescription(final Element activityTypeElement)
+  throws InvalidMissionModelException
+  {
+    final var annotationMirror = this.getAnnotationMirrorByType(activityTypeElement, Description.class);
+
+    if (annotationMirror.isEmpty()) {
+      return Optional.empty();
+    }
+    final var nameAttribute = getAnnotationAttribute(annotationMirror.get(), "value")
+        .orElseThrow(() -> new InvalidMissionModelException(
+            "Unable to get value attribute of annotation",
+            activityTypeElement,
+            annotationMirror.get()));
+    return Optional.of((String) nameAttribute.getValue());
+  }
+
   private MapperRecord getExportMapper(final PackageElement missionModelElement, final TypeElement exportTypeElement)
   throws InvalidMissionModelException
   {
@@ -591,10 +610,10 @@ import java.util.stream.Collectors;
     };
 
     return exportTypeElement.getEnclosedElements().stream()
-        .filter(e -> e.getKind() == ElementKind.FIELD) // Element must be a field
-        .filter(e -> !excludeParamPred.test(e))        // Element must not be deemed excluded for the defaults style
-        .map(e -> new ParameterRecord(e.getSimpleName().toString(), e.asType(), e))
-        .toList();
+                            .filter(e -> e.getKind() == ElementKind.FIELD) // Element must be a field
+                            .filter(e -> !excludeParamPred.test(e))        // Element must not be deemed excluded for the defaults style
+                            .map(e -> new ParameterRecord(e.getSimpleName().toString(), e.asType(), e))
+                            .toList();
   }
 
   private Optional<EffectModelRecord> getActivityEffectModel(final TypeElement activityTypeElement)

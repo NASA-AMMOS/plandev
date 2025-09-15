@@ -29,3 +29,4 @@ call migrations.mark_migration_applied(24);
 call migrations.mark_migration_applied(25);
 call migrations.mark_migration_applied(26);
 call migrations.mark_migration_applied(27);
+call migrations.mark_migration_applied(28);

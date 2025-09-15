@@ -39,7 +39,9 @@ public final class StubMissionModelService implements MissionModelService {
       List.of(new Parameter("Param", ValueSchema.STRING), new Parameter("AnotherParam", ValueSchema.REAL), new Parameter("Duration", ValueSchema.DURATION)),
       List.of(),
       ValueSchema.ofStruct(Map.of()),
-      Optional.empty());
+      Optional.empty(),
+      Optional.empty()
+  );
   public static final String EXISTENT_ACTIVITY_TYPE_2 = "activity2";
   public static final ActivityType EXISTENT_ACTIVITY_2 = new ActivityType(
       EXISTENT_ACTIVITY_TYPE_2,
@@ -48,6 +50,7 @@ public final class StubMissionModelService implements MissionModelService {
       )))),
       List.of(),
       ValueSchema.ofStruct(Map.of()),
+      Optional.empty(),
       Optional.empty()
   );
 

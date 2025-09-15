@@ -48,6 +48,7 @@ public final class MissionModelTest {
                   new Parameter("vecs", ValueSchema.ofSeries(ValueSchema.ofSeries(ValueSchema.REAL)))),
               List.of(),
               ValueSchema.ofStruct(Map.of()),
+              Optional.empty(),
               Optional.empty()
           ));
 
@@ -59,7 +60,9 @@ public final class MissionModelTest {
                          specType.getInputType().getParameters(),
                          specType.getInputType().getRequiredParameters(),
                          specType.getOutputType().getSchema(),
-                         Optional.empty())));
+                         Optional.empty(),
+                         Optional.empty()
+        )));
 
     // THEN
     assertTrue(activityTypes.entrySet().containsAll(expectedTypes.entrySet()));
@@ -77,6 +80,7 @@ public final class MissionModelTest {
               new Parameter("vecs", ValueSchema.ofSeries(ValueSchema.ofSeries(ValueSchema.REAL)))),
           List.of(),
           ValueSchema.ofStruct(Map.of()),
+          Optional.empty(),
           Optional.empty()
       );
 
@@ -91,7 +95,9 @@ public final class MissionModelTest {
         specType.getInputType().getParameters(),
         specType.getInputType().getRequiredParameters(),
         specType.getOutputType().getSchema(),
-        Optional.empty());
+        Optional.empty(),
+        Optional.empty()
+    );
 
     // THEN
     assertEquals(expectedType, type);
@@ -114,7 +120,9 @@ public final class MissionModelTest {
             specType.getInputType().getParameters(),
             specType.getInputType().getRequiredParameters(),
             specType.getOutputType().getSchema(),
-            Optional.empty());
+            Optional.empty(),
+            Optional.empty()
+        );
     });
   }
 

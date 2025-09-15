@@ -341,7 +341,8 @@ public final class LocalMissionModelService implements MissionModelService {
             inputType.getParameters(),
             inputType.getRequiredParameters(),
             outputType.getSchema(),
-            directiveType.getSubsystem()
+            directiveType.getSubsystem(),
+            directiveType.getDescription()
         ));
       });
       final var subsystems = modelType.getSubsystems();

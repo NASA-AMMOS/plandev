@@ -296,6 +296,7 @@ public enum GQL {
         subsystem:subsystem_tag {
           name
         }
+        description
       }
     }"""),
   GET_CONSTRAINT_REQUEST("""

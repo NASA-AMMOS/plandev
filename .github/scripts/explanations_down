@@ -1,3 +1,5 @@
 trigger	scheduler	scheduler.scheduling_goal_definition."notify_hasura_refreshSchedulingProcedureParameterTypes_INSERT"/"INSERT"	missing in 1st DB	From_RefreshSchedProcParm_Action	2
 trigger	scheduler	scheduler.scheduling_goal_definition."notify_hasura_refreshSchedulingProcedureParameterTypes_UPDATE"/"UPDATE"	missing in 1st DB	From_RefreshSchedProcParm_Action	2
 trigger	merlin	merlin.constraint_definition."notify_hasura_refreshConstraintProcedureParameterTypes_INSERT"/"INSERT"	missing in 1st DB	From_ProceduralConstraints	2
+table permissions	tags	"tags.tags:aerie_test_username"	missing in 1st DB	AerieAdminHasImplicitPermissions	2
+schema permissions	tags	tags:aerie_test_username	missing in 1st DB	AerieAdminHasImplicitPermissions	2

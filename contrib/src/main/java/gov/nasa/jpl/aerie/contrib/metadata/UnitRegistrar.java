@@ -1,6 +1,5 @@
 package gov.nasa.jpl.aerie.contrib.metadata;
 
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.StringValueMapper;
 import gov.nasa.jpl.aerie.merlin.framework.MetadataValueMapper;
 import gov.nasa.jpl.aerie.merlin.framework.Registrar;
 import gov.nasa.jpl.aerie.merlin.framework.Resource;
@@ -16,11 +15,25 @@ public final class UnitRegistrar {
   public static <T> ValueMapper<T> withUnit(final String unit, final ValueMapper<T> target) {
     return new MetadataValueMapper<>("unit", SerializedValue.of(Map.of("value", SerializedValue.of(unit))), target);
   }
+
+  public static <T> ValueMapper<T> withDescription(final String description, final ValueMapper<T> target) {
+    return new MetadataValueMapper<>("description", SerializedValue.of(Map.of("value", SerializedValue.of(description))), target);
+  }
+
   public static <T> void discreteResource(final Registrar registrar, final String name, final Resource<T> resource, final ValueMapper<T> valueMapper, final String unit) {
     registrar.discrete(name, resource, withUnit(unit, valueMapper));
   }
+
+  public static <T> void discreteResource(final Registrar registrar, final String name, final Resource<T> resource, final ValueMapper<T> valueMapper, final String unit, final String description) {
+    registrar.discrete(name, resource, withDescription(description, withUnit(unit, valueMapper)));
+  }
+
   public static void realResource(final Registrar registrar, final String name, final Resource<RealDynamics> resource, final String unit) {
-    registrar.realWithMetadata(name, resource, "unit", unit, new ValueMapper<String>() {
+    realResource(registrar, name, resource, unit, null);
+  }
+
+  public static void realResource(final Registrar registrar, final String name, final Resource<RealDynamics> resource, final String unit, final String description) {
+    registrar.realWithMetadata(name, resource, "unit", unit, new ValueMapper<>() {
       @Override
       public ValueSchema getValueSchema() {
         return ValueSchema.ofStruct(Map.of("value", ValueSchema.STRING));
@@ -39,6 +52,6 @@ public final class UnitRegistrar {
       public SerializedValue serializeValue(final String value) {
         return SerializedValue.of(Map.of("value", SerializedValue.of(value)));
       }
-    });
+    }, description);
   }
 }

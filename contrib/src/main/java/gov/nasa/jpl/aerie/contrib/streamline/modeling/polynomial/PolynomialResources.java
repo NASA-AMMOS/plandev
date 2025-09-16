@@ -461,15 +461,18 @@ public final class PolynomialResources {
   }
 
   private static Condition fixedTimeCondition(Optional<Duration> time) {
-    return time.<Condition>map(time$ -> (positive, atEarliest, atLatest) -> {
-      if (positive) {
-        return time.filter(atLatest::noShorterThan).map(t -> Duration.max(atEarliest, t));
-      } else {
-        return Optional.of(atEarliest).filter(time$::longerThan);
-      }
+    return time.<Condition>map(time$ -> {
+      var targetTime = Resources.currentTime().plus(time$);
+      return (positive, atEarliest, atLatest) -> {
+        var timeRemaining = targetTime.minus(Resources.currentTime());
+        if (positive) {
+          return Optional.of(timeRemaining).filter(atLatest::noShorterThan).map(t -> Duration.max(atEarliest, t));
+        } else {
+          return Optional.of(atEarliest).filter(timeRemaining::longerThan);
+        }
+      };
     }).orElse(Condition.FALSE);
   }
-
   private record ClampedIntegrateInternalResult(
           Polynomial integral,
           Polynomial overflow,

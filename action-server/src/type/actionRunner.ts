@@ -35,7 +35,7 @@ export class ActionRunner {
     }
 
     setTimeout(() => {
-      if (this.actionRunQueue.get(actionRunId) !== null) {
+      if (this.actionRunQueue.get(actionRunId)) {
         logger.info(`Action Run: ${actionRunId} timed out waiting for the associated action secrets.`);
         this.deleteActionRun(actionRunId);
       }
@@ -51,7 +51,7 @@ export class ActionRunner {
 
     if (actionRunFunc) {
       setTimeout(() => {
-        if (this.actionSecretsMap.get(actionRunId) !== null) {
+        if (this.actionSecretsMap.get(actionRunId)) {
           logger.info(`Secret for Action Run: ${actionRunId} timed out waiting for the associated action run.`);
           this.deleteActionSecret(actionRunId);
         }

@@ -11,7 +11,6 @@ import gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Validation;
  *
  * This activity causes an entire banana to be chucked by a hyperactive monkey.
  *
- * @subsystem fruit
  * @contact John Doe
  */
 @ActivityType("ThrowBanana")

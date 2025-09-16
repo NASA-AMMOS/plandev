@@ -25,6 +25,12 @@ public @interface MissionModel {
 
   @Retention(RetentionPolicy.CLASS)
   @Target(ElementType.PACKAGE)
+  @interface AllSubsystems {
+    WithSubsystem[] value();
+  }
+
+  @Retention(RetentionPolicy.CLASS)
+  @Target(ElementType.PACKAGE)
   @interface AllMappers {
     WithMappers[] value();
   }
@@ -35,6 +41,13 @@ public @interface MissionModel {
   @Repeatable(AllActivityTypes.class)
   @interface WithActivityType {
     Class<?> value();
+  }
+
+  @Retention(RetentionPolicy.CLASS)
+  @Target(ElementType.PACKAGE)
+  @Repeatable(AllSubsystems.class)
+  @interface WithSubsystem {
+    String value();
   }
 
   @Retention(RetentionPolicy.CLASS)

@@ -67,10 +67,10 @@ public final class ResponseSerializers {
         .collect(Collectors.toMap(i -> parameters.get(i).name(), i -> Pair.of(i, parameters.get(i))));
 
     return serializeMap(pair -> Json.createObjectBuilder()
-            .add("schema", new ValueSchemaJsonParser().unparse(pair.getRight().schema()))
-            .add("order", pair.getLeft())
-            .build(),
-        parameterMap);
+              .add("schema", new ValueSchemaJsonParser().unparse(pair.getRight().schema()))
+              .add("order", pair.getLeft())
+              .build(),
+            parameterMap);
   }
 
   public static JsonValue serializeValueSchemas(final Map<String, ValueSchema> schemas) {

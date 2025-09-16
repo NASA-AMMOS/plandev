@@ -174,6 +174,23 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                     .build())
             .addMethod(
                 MethodSpec
+                    .methodBuilder("getSubsystems")
+                    .addModifiers(Modifier.PUBLIC)
+                    .addAnnotation(Override.class)
+                    .returns(
+                        ParameterizedTypeName.get(
+                            ClassName.get(List.class),
+                            ClassName.get(String.class)
+                        ))
+                    .addCode(CodeBlock.of("return List.of($L)",
+                                          missionModel
+                                              .subsystems()
+                                              .stream()
+                                              .map(s -> "\"" + s + "\"")
+                                              .collect(Collectors.joining(", "))) + ";")
+                    .build())
+            .addMethod(
+                MethodSpec
                     .methodBuilder("getConfigurationType")
                     .addModifiers(Modifier.PUBLIC)
                     .addAnnotation(Override.class)
@@ -796,6 +813,49 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                 computedAttributesCodeBlocks.typeName().box()))
             .addStatement("return new $T()", activityType.inputType().mapper().name.nestedClass("OutputMapper"))
             .build())
+        .addMethod(
+            MethodSpec
+                .methodBuilder("getSubsystem")
+                .addModifiers(Modifier.PUBLIC)
+                .addAnnotation(Override.class)
+                .returns(ParameterizedTypeName.get(
+                    ClassName.get(Optional.class),
+                    TypeName.get(String.class)
+                ))
+                .addCode(activityType.subsystem().map(
+                    subsystem -> CodeBlock
+                        .builder()
+                        .addStatement("return $T.of($S)", Optional.class, subsystem)
+                        .build()
+                ).orElseGet(
+                    () -> CodeBlock
+                        .builder()
+                        .addStatement("return $T.empty()", Optional.class)
+                        .build()
+                ))
+                .build())
+        .addMethod(
+            MethodSpec
+                .methodBuilder("getDescription")
+                .addModifiers(Modifier.PUBLIC)
+                .addAnnotation(Override.class)
+                .returns(ParameterizedTypeName.get(
+                    ClassName.get(Optional.class),
+                    TypeName.get(String.class)
+                ))
+                .addCode(activityType.description().map(
+                    description -> CodeBlock
+                        .builder()
+                        .addStatement("return $T.of($S)", Optional.class, description)
+                        .build()
+                ).orElseGet(
+                    () -> CodeBlock
+                        .builder()
+                        .addStatement("return $T.empty()", Optional.class)
+                        .build()
+                ))
+                .build()
+        )
         .addMethod(
             MethodSpec
                 .methodBuilder("getInputTopic")

@@ -161,6 +161,7 @@ services:
       PUBLIC_HASURA_CLIENT_URL: http://localhost:8080/v1/graphql
       PUBLIC_HASURA_SERVER_URL: http://hasura:8080/v1/graphql
       PUBLIC_HASURA_WEB_SOCKET_URL: ws://localhost:8080/v1/graphql
+      PUBLIC_WORKSPACE_CLIENT_URL: http://localhost:28000
     image: "ghcr.io/nasa-ammos/aerie-ui:develop"
     ports: ["80:80"]
     restart: always

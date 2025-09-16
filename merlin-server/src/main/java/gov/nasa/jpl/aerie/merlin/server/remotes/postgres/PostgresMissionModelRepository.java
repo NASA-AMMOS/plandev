@@ -87,12 +87,20 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
   }
 
   @Override
-  public void updateActivityTypes(final MissionModelId missionModelId, final Map<String, ActivityType> activityTypes)
+  public void updateActivityTypes(final MissionModelId missionModelId, final Map<String, ActivityType> activityTypes, final List<String> subsystems)
   throws NoSuchMissionModelException {
     try (final var connection = this.dataSource.getConnection()) {
+      final Map<String, Integer> mapSubsystemsToIds;
+      try (final var insertSubsystemsAction = new InsertSubsystemsAction(connection)) {
+        mapSubsystemsToIds = insertSubsystemsAction.apply(subsystems);
+      } catch (final SQLException ex) {
+        throw new DatabaseException(
+            "Failed to update derived data for mission model with id `%s`".formatted(missionModelId), ex);
+      }
+
       try (final var insertActivityTypesAction = new InsertActivityTypesAction(connection)) {
         final var id = missionModelId.id();
-        insertActivityTypesAction.apply((int) id, activityTypes.values());
+        insertActivityTypesAction.apply((int) id, activityTypes.values(), mapSubsystemsToIds);
       }
     } catch (final SQLException ex) {
       throw new DatabaseException(
@@ -108,7 +116,6 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
                                        .collect(Collectors.toMap(
                                            Map.Entry::getKey,
                                            entry -> entry.getValue().getOutputType().getSchema()));
-
     try (final var connection = this.dataSource.getConnection()) {
       try (final var insertResourceTypesAction = new InsertResourceTypesAction(connection)) {
         final long id = missionModelId.id();

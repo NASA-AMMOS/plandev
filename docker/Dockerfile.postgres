@@ -1,2 +1,2 @@
-FROM postgres:16.4
+FROM postgres:16.10
 COPY deployment/postgres-init-db /docker-entrypoint-initdb.d

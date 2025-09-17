@@ -334,7 +334,8 @@ public class BindingsTests {
         assertEquals(404, response.status());
         final var expectedResponse = Json.createObjectBuilder()
                                          .add("message", "input mismatch exception")
-                                         .add("cause", "simulation dataset with id `-1` does not exist")
+                                         .add("extensions", Json.createObjectBuilder()
+                                                               .add("cause", "simulation dataset with id `-1` does not exist"))
                                          .build();
         assertEquals(expectedResponse, getBody(response));
       }
@@ -364,9 +365,10 @@ public class BindingsTests {
                                 .toString();
         final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
+        final var expectedCause = "Simulation Dataset with id `"+simDatasetId+"` does not belong to Plan with id `"+planId+"`";
         final var expectedResponse = Json.createObjectBuilder()
                                          .add("message", "simulation dataset mismatch exception")
-                                         .add("cause", "Simulation Dataset with id `"+simDatasetId+"` does not belong to Plan with id `"+planId+"`")
+                                         .add("extensions", Json.createObjectBuilder().add("cause", expectedCause))
                                          .build();
         assertEquals(expectedResponse, getBody(response));
         } finally {
@@ -403,9 +405,10 @@ public class BindingsTests {
                                 .toString();
         final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
+        final var expectedCause = "plan with id " + planId + " has not yet been simulated at its current revision";
         final var expectedBody = Json.createObjectBuilder()
                                          .add("message", "input mismatch exception")
-                                         .add("cause", "plan with id " + planId + " has not yet been simulated at its current revision")
+                                         .add("extensions", Json.createObjectBuilder().add("cause", expectedCause))
                                          .build();
         assertEquals(expectedBody, getBody(response));
       }

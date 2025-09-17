@@ -10,8 +10,11 @@ const { ACTION_LOCAL_STORE, SEQUENCING_LOCAL_STORE, WORKSPACE_BASE_URL, HASURA_G
 
 function injectLogger(oldConsole: any, logBuffer: string[], secrets?: Record<string, any> | undefined) {
   // secrets may be passed as last argument, to be censored in the logs
-  secrets = secrets || {};
-  secrets['HASURA_GRAPHQL_ADMIN_SECRET'] = HASURA_GRAPHQL_ADMIN_SECRET;
+  const censoredSecrets = {
+    ...(secrets || {}),
+    HASURA_GRAPHQL_ADMIN_SECRET
+  };
+
   // inject a winston logger to be passed to the action VM, replacing its normal `console`,
   // so we can capture the console outputs and return them with the action results
   const logger = createLogger({
@@ -19,13 +22,12 @@ function injectLogger(oldConsole: any, logBuffer: string[], secrets?: Record<str
     format: format.combine(
       format.timestamp(),
       format.printf(({ level, message, timestamp }) => {
-
         const logLine = `${timestamp} [${level.toUpperCase()}] `;
         let output = message as string;
 
         // If the action has secrets filter them out of the log.
-        if (secrets !== undefined && Object.keys(secrets).length > 0) {
-          const secretValues = Object.values(secrets);
+        if (Object.keys(censoredSecrets).length > 0) {
+          const secretValues = Object.values(censoredSecrets);
 
           for (const secretValue of secretValues) {
             if(secretValue.length) {
@@ -80,6 +82,7 @@ export const jsExecute = async (
   authToken: string | undefined,
   client: PoolClient,
   workspaceId: number,
+  secrets: Record<string, string> | undefined,
 ): Promise<ActionResponse> => {
   // create a clone of the global object (including getters/setters/non-enumerable properties)
   // to be passed to the context so it has access to eg. node built-ins
@@ -87,7 +90,7 @@ export const jsExecute = async (
   // inject custom logger to capture logs from action run
   const logBuffer: string[] = [];
 
-  aerieGlobal.console = injectLogger(aerieGlobal.console, logBuffer);
+  aerieGlobal.console = injectLogger(aerieGlobal.console, logBuffer, secrets);
 
   const context = vm.createContext(aerieGlobal);
 
@@ -97,6 +100,7 @@ export const jsExecute = async (
     const actionConfig: ActionConfig = {
       ACTION_FILE_STORE: ACTION_LOCAL_STORE,
       SEQUENCING_FILE_STORE: SEQUENCING_LOCAL_STORE,
+      SECRETS: secrets,
       WORKSPACE_BASE_URL: WORKSPACE_BASE_URL,
       HASURA_GRAPHQL_ADMIN_SECRET: HASURA_GRAPHQL_ADMIN_SECRET
     };

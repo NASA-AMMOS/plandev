@@ -24,6 +24,7 @@ export type ConsoleOutput = {
 export type ActionConfig = {
   ACTION_FILE_STORE: string;
   SEQUENCING_FILE_STORE: string;
+  SECRETS?: Record<string, string> | undefined;
   WORKSPACE_BASE_URL: string;
   HASURA_GRAPHQL_ADMIN_SECRET: string;
 };
@@ -33,6 +34,7 @@ export type ActionTask = {
   action_run_id: string;
   parameters: Record<string, any>;
   settings: Record<string, any>;
+  secrets?: Record<string, string>;
   auth?: string;
   workspaceId: number;
   message_port: MessagePort | null;
@@ -50,6 +52,7 @@ export type ActionRunInsertedPayload = {
   action_definition_id: number;
   workspace_id: number;
   action_file_path: string;
+  has_secrets: boolean;
 };
 
 export type ActionRunCancellationRequestPayload = {

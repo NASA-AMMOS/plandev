@@ -109,14 +109,16 @@ export async function runAction(task: ActionTask): Promise<ActionResponse> {
   }
 
   let jsRun: ActionResponse;
+
   try {
-    jsRun = await jsExecute(task.actionJS, task.parameters, task.settings, task.auth, client, task.workspaceId);
+    jsRun = await jsExecute(task.actionJS, task.parameters, task.settings, task.auth, client, task.workspaceId, task.secrets);
     logger.info(`[Action Run ${task.action_run_id}, Thread ${threadId}] done executing`);
     await releaseDbPoolAndClient();
     logger.info(`[Action Run ${task.action_run_id}, Thread ${threadId}] released DB connection`);
     // Send "I'm finished" back to main thread:
     task.message_port?.postMessage({ type: "finished" });
     task.message_port?.close();
+
     return jsRun;
   } catch (e) {
     logger.info(`[Action Run ${task.action_run_id}, Thread ${threadId}] Error while executing`);

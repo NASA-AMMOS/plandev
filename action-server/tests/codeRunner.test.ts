@@ -15,7 +15,7 @@ test("Code Runner jsRunner Tests", async () => {
     }
   `;
 
-    const result: ActionResponse = await jsExecute(code, {}, {}, undefined, {} as PoolClient, 1);
+    const result: ActionResponse = await jsExecute(code, {}, {}, undefined, {} as PoolClient, 1, undefined);
     assert.strictEqual(result.console.length, 5);
     assert.ok(result.console[0].includes("[INFO] Hello World"));
     assert.ok(result.console[1].includes("[DEBUG] Debug message"));
@@ -31,12 +31,26 @@ test("Code Runner jsRunner Tests", async () => {
       return x;
     }`;
 
-    const result: ActionResponse = await jsExecute(code, {}, {}, undefined, {} as PoolClient, 1);
+    const result: ActionResponse = await jsExecute(code, {}, {}, undefined, {} as PoolClient, 1, undefined);
 
     assert.strictEqual(result.errors, null);
     assert.strictEqual(result.console.length, 0);
 
     assert.strictEqual(result.results, 15);
+  });
+
+  await test("run basic action with secrets", async () => {
+    const code = `function main(actionParameters, actionSettings, actionsAPI) {
+      console.log(JSON.stringify(actionsAPI.config.SECRETS));
+    }`;
+
+    const result: ActionResponse = await jsExecute(code, {}, {}, undefined, {} as PoolClient, 1, { username: "test" });
+
+    assert.strictEqual(result.errors, null);
+    // Test that the console output correctly matches the secret being replaced with *s.
+    assert.match(result.console.toString(), /.* \[INFO\] {"username":"\*\*\*\*\*"}/g);
+
+    assert.strictEqual(result.results, undefined);
   });
 
   await test("run basic parameter", async () => {
@@ -49,7 +63,7 @@ test("Code Runner jsRunner Tests", async () => {
       myBool: false,
     };
 
-    const result: ActionResponse = await jsExecute(code, parameters, {}, undefined, {} as PoolClient, 1);
+    const result: ActionResponse = await jsExecute(code, parameters, {}, undefined, {} as PoolClient, 1, undefined);
 
     // Check for successful execution (no errors)
     assert.strictEqual(result.errors, null);
@@ -68,7 +82,7 @@ test("Code Runner jsRunner Tests", async () => {
       retries: 5,
     };
 
-    const result: ActionResponse = await jsExecute(code, {}, setting, undefined, {} as PoolClient, 1);
+    const result: ActionResponse = await jsExecute(code, {}, setting, undefined, {} as PoolClient, 1, undefined);
 
     // Check for successful execution (no errors)
     assert.strictEqual(result.errors, null);
@@ -90,7 +104,7 @@ test("Code Runner jsRunner Tests", async () => {
     }
     `;
 
-    const result: ActionResponse = await jsExecute(code, {}, {}, undefined, {} as PoolClient, 1);
+    const result: ActionResponse = await jsExecute(code, {}, {}, undefined, {} as PoolClient, 1, undefined);
     assert.strictEqual(result.errors, null);
     assert.strictEqual(result.console.length, 0);
 
@@ -115,7 +129,7 @@ test("Code Runner jsRunner Tests", async () => {
       retries: 5,
     };
 
-    const result: ActionResponse = await jsExecute(code, {}, setting, undefined, {} as PoolClient, 1);
+    const result: ActionResponse = await jsExecute(code, {}, setting, undefined, {} as PoolClient, 1, undefined);
 
     // Check for successful execution (no errors)
     assert.strictEqual(result.errors, null);
@@ -129,7 +143,7 @@ test("Code Runner jsRunner Tests", async () => {
       let x = z;
     }`;
 
-    const result: ActionResponse = await jsExecute(code, {}, {}, undefined, {} as PoolClient, 1);
+    const result: ActionResponse = await jsExecute(code, {}, {}, undefined, {} as PoolClient, 1, undefined);
 
     // Check for successful execution (no errors)
     assert.notStrictEqual(result.errors, null);
@@ -152,7 +166,7 @@ test("Code Runner jsRunner Tests", async () => {
       throw new Error("this is a error");
     }`;
 
-    const result: ActionResponse = await jsExecute(code, {}, {}, undefined, {} as PoolClient, 1);
+    const result: ActionResponse = await jsExecute(code, {}, {}, undefined, {} as PoolClient, 1, undefined);
 
     assert.notStrictEqual(result.errors, null);
     if (result.errors) {
@@ -170,7 +184,7 @@ test("Code Runner jsRunner Tests", async () => {
       throw "this is an error string";
     }`;
 
-    const result: ActionResponse = await jsExecute(code, {}, {}, undefined, {} as PoolClient, 1);
+    const result: ActionResponse = await jsExecute(code, {}, {}, undefined, {} as PoolClient, 1, undefined);
     assert.notStrictEqual(result.errors, null);
     if (result.errors) {
       assert.strictEqual(result.errors.cause, undefined);

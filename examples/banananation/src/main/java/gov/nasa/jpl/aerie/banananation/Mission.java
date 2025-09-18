@@ -5,10 +5,12 @@ import gov.nasa.jpl.aerie.contrib.models.Register;
 import gov.nasa.jpl.aerie.contrib.models.counters.Counter;
 import gov.nasa.jpl.aerie.contrib.serialization.mappers.BooleanValueMapper;
 import gov.nasa.jpl.aerie.contrib.serialization.mappers.DoubleValueMapper;
+import gov.nasa.jpl.aerie.contrib.serialization.mappers.DurationValueMapper;
 import gov.nasa.jpl.aerie.contrib.serialization.mappers.EnumValueMapper;
 import gov.nasa.jpl.aerie.contrib.serialization.mappers.IntegerValueMapper;
 import gov.nasa.jpl.aerie.contrib.serialization.mappers.StringValueMapper;
 import gov.nasa.jpl.aerie.merlin.framework.Registrar;
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.spice.SpiceLoader;
 import spice.basic.CSPICE;
 import spice.basic.SpiceErrorException;
@@ -28,6 +30,7 @@ public final class Mission {
   public final Counter<Integer> plant;
   public final Register<String> producer;
   public final Register<Integer> dataLineCount;
+  public final Counter<Duration> cumulativeGrowingDuration;
 
   public Mission(final Registrar registrar, final Configuration config) {
     this.fruit = new Accumulator(config.initialConditions().fruit(), 0.0);
@@ -36,6 +39,7 @@ public final class Mission {
     this.plant = Counter.ofInteger(config.initialPlantCount());
     this.producer = Register.forImmutable(config.initialProducer());
     this.dataLineCount = Register.forImmutable(countLines(config.initialDataPath()));
+    this.cumulativeGrowingDuration = new Counter<>(Duration.ZERO, Duration.ZERO, Duration::add, $ -> $);
 
     registrar.discrete("/flag", this.flag, new EnumValueMapper<>(Flag.class), "The flag set");
     registrar.discrete("/flag/conflicted", this.flag::isConflicted, new BooleanValueMapper());
@@ -45,6 +49,7 @@ public final class Mission {
     registrar.discrete("/producer", this.producer, new StringValueMapper(), "The producer of the fruit");
     registrar.discrete("/data/line_count", this.dataLineCount, new IntegerValueMapper());
     registrar.topic("/producer", this.producer.ref, new StringValueMapper());
+    registrar.discrete("/growing-duration", this.cumulativeGrowingDuration, new DurationValueMapper());
 
     // Load SPICE in the Mission constructor
     try {

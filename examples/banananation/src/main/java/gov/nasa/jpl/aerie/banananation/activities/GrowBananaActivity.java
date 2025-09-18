@@ -42,6 +42,7 @@ public record GrowBananaActivity(int quantity, Duration growingDuration) {
     final var rate = this.quantity() / (double) this.growingDuration().ratioOver(Duration.SECOND);
     mission.fruit.rate.add(rate);
     delay(this.growingDuration());
+    mission.cumulativeGrowingDuration.add(this.growingDuration);
     mission.fruit.rate.add(-rate);
     mission.plant.add(this.quantity());
   }

@@ -24,6 +24,7 @@ repositories {
 
 dependencies {
   implementation project(':parsing-utilities')
+  implementation project(':permissions')
 
   implementation 'io.javalin:javalin:5.6.3'
   implementation 'org.slf4j:slf4j-simple:2.0.7'

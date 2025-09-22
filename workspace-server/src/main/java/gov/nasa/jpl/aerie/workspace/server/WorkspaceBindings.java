@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.workspace.server;
 
 import com.auth0.jwt.exceptions.JWTVerificationException;
+import gov.nasa.jpl.aerie.permissions.PermissionsService;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import io.javalin.Javalin;
 import io.javalin.apibuilder.ApiBuilder;
@@ -16,7 +17,6 @@ import javax.json.Json;
 import javax.json.JsonException;
 import javax.json.JsonObject;
 import javax.json.JsonReader;
-import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Path;
@@ -33,11 +33,17 @@ public class WorkspaceBindings implements Plugin {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceBindings.class);
   private final JWTService jwtService;
   private final WorkspaceService workspaceService;
+  private final PermissionsService permissionsService;
   private final String hasuraAdminSecret;
 
-  public WorkspaceBindings(final JWTService jwtService, final WorkspaceService workspaceService, final String hasuraAdminSecret) {
+  public WorkspaceBindings(
+      final JWTService jwtService,
+      final WorkspaceService workspaceService,
+      final PermissionsService permissionsService,
+      final String hasuraAdminSecret) {
     this.jwtService = jwtService;
     this.workspaceService = workspaceService;
+    this.permissionsService = permissionsService;
     this.hasuraAdminSecret = hasuraAdminSecret;
   }
 

@@ -123,7 +123,7 @@ public final class MissionModelLoader {
         private MissionModelLoadException(final String message, final Path path, final String name, final String version, final Throwable cause) {
             super(
                 String.format(
-                    message + " at path `%s` wih name \"%s\" and version \"%s\"",
+                    message + " at path `%s` with name \"%s\" and version \"%s\"",
                     MerlinPlugin.class.getSimpleName(),
                     path,
                     name,

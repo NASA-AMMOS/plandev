@@ -85,6 +85,10 @@ public final class MissionModelLoader {
         try (final var jarFile = new JarFile(jarPath.toFile())) {
             final String metaInfServicesFile = "META-INF/services/" + MerlinPlugin.class.getCanonicalName();
             final var jarEntry = jarFile.getEntry(metaInfServicesFile);
+            if (jarEntry == null) {
+              throw new MissionModelLoadException("jar is missing META-INF/services/" + MerlinPlugin.class.getCanonicalName(), jarPath, name, version);
+            }
+
             final var inputStream = jarFile.getInputStream(jarEntry);
 
             final var classPathList = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))

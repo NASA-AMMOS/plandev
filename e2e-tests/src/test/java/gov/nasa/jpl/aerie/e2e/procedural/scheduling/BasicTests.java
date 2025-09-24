@@ -55,7 +55,7 @@ public class BasicTests extends ProceduralSchedulingSetup {
   void executeSchedulingRunWithoutArguments() throws IOException {
     final var resp = hasura.awaitFailingScheduling(specId);
     final var message = resp.reason().getString("message");
-    assertTrue(message.contains("java.lang.RuntimeException: Record missing key Component[name=quantity"));
+    assertTrue(message.contains("java.lang.RuntimeException: Record missing key Component[name=biteSize"));
   }
 
   /**
@@ -63,7 +63,7 @@ public class BasicTests extends ProceduralSchedulingSetup {
    */
   @Test
   void executeSchedulingRunWithArguments() throws IOException {
-    final var args = Json.createObjectBuilder().add("quantity", 2).build();
+    final var args = Json.createObjectBuilder().add("biteSize", 2).build();
 
     hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
 

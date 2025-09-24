@@ -1,13 +1,19 @@
 package gov.nasa.ammos.aerie.procedural.processor;
 
+import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.CodeBlock;
+import com.squareup.javapoet.FieldSpec;
 import com.squareup.javapoet.JavaFile;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
+import gov.nasa.ammos.aerie.procedural.scheduling.annotations.Template;
+import gov.nasa.ammos.aerie.procedural.scheduling.annotations.WithDefaults;
 import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+
+import gov.nasa.jpl.aerie.merlin.protocol.model.InputType;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.ammos.aerie.procedural.scheduling.ProcedureMapper;
 import gov.nasa.ammos.aerie.procedural.scheduling.annotations.SchedulingProcedure;
@@ -39,8 +45,10 @@ import java.lang.annotation.Annotation;
 import java.lang.annotation.Repeatable;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -111,18 +119,22 @@ public final class ProcedureProcessor implements Processor {
     for (final var factory : mapperClassElements) {
       typeRules.addAll(parseValueMappers(factory));
     }
+    //we now have all value mappers
 
     final var schedulingProcedures = roundEnv.getElementsAnnotatedWith(SchedulingProcedure.class);
     final var constraintProcedures = roundEnv.getElementsAnnotatedWith(ConstraintProcedure.class);
 
     final var generatedClassName = ClassName.get(packageElement.getQualifiedName() + ".generated", "AutoValueMappers");
+    final var procedureToTypeRecord = new HashMap<Element, ProcedureTypeRecord>();
     for (final var procedure : schedulingProcedures) {
       final var procedureElement = (TypeElement) procedure;
+      procedureToTypeRecord.put(procedure, parseProcedureType(packageElement, procedureElement));
       typeRules.add(AutoValueMappers.recordTypeRule(procedureElement, generatedClassName));
     }
 
     for (final var procedure : constraintProcedures) {
       final var procedureElement = (TypeElement) procedure;
+      procedureToTypeRecord.put(procedure, parseProcedureType(packageElement, procedureElement));
       typeRules.add(AutoValueMappers.recordTypeRule(procedureElement, generatedClassName));
     }
 
@@ -140,10 +152,12 @@ public final class ProcedureProcessor implements Processor {
           .applyRules(new TypePattern.ClassPattern(ClassName.get(ValueMapper.class), List.of(new TypePattern.ClassPattern((ClassName) procedureType, List.of()))));
       if (valueMapperCode.isEmpty()) throw new Error("Could not generate a valuemapper for procedure " + procedure.getSimpleName());
 
+      final var typeSpec = generateInputType(packageElement, procedureToTypeRecord.get(procedure).inputType(), "InputMapper", typeRules);
 
       generatedFiles.add(JavaFile
-          .builder(generatedClassName.packageName() + ".procedures", TypeSpec
-              .classBuilder(procedure.getSimpleName().toString())
+          .builder(procedureToTypeRecord.get(procedure).inputType().mapper().name.packageName(), TypeSpec
+              .classBuilder(procedureToTypeRecord.get(procedure).inputType().mapper().name)
+              .addType(typeSpec.get())
               .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
               .addSuperinterface(ParameterizedTypeName.get(ClassName.get(ProcedureMapper.class), procedureType))
               .addMethod(MethodSpec
@@ -154,20 +168,13 @@ public final class ProcedureProcessor implements Processor {
                              .addStatement("return $L.getValueSchema()", valueMapperCode.get())
                              .build())
               .addMethod(MethodSpec
-                             .methodBuilder("serialize")
+                             .methodBuilder("getInputType")
                              .addModifiers(Modifier.PUBLIC)
                              .addAnnotation(Override.class)
-                             .addParameter(procedureType, "procedure")
-                             .returns(SerializedValue.class)
-                             .addStatement("return $L.serializeValue(procedure)", valueMapperCode.get())
-                             .build())
-              .addMethod(MethodSpec
-                             .methodBuilder("deserialize")
-                             .addModifiers(Modifier.PUBLIC)
-                             .addAnnotation(Override.class)
-                             .addParameter(SerializedValue.class, "value")
-                             .returns(procedureType)
-                             .addStatement("return $L.deserializeValue(value).getSuccessOrThrow(e -> new $T(e))", valueMapperCode.get(), RuntimeException.class)
+                             .returns(ParameterizedTypeName.get(
+                                 ClassName.get(InputType.class),
+                                 ClassName.get(procedureToTypeRecord.get(procedure).inputType().declaration())))
+                             .addStatement("return new $T()", procedureToTypeRecord.get(procedure).inputType().mapper().name.nestedClass(typeSpec.get().name))
                              .build())
               .build())
           .skipJavaLangImports(true)
@@ -186,12 +193,15 @@ public final class ProcedureProcessor implements Processor {
           .applyRules(new TypePattern.ClassPattern(ClassName.get(ValueMapper.class), List.of(new TypePattern.ClassPattern((ClassName) procedureType, List.of()))));
       if (valueMapperCode.isEmpty()) throw new Error("Could not generate a valuemapper for procedure " + procedure.getSimpleName());
 
+      final var typeSpec = generateInputType(packageElement, procedureToTypeRecord.get(procedure).inputType(), "InputMapper", typeRules);
+
 
       generatedFiles.add(JavaFile
-                             .builder(generatedClassName.packageName() + ".procedures", TypeSpec
-                                 .classBuilder(procedure.getSimpleName().toString())
+                             .builder(procedureToTypeRecord.get(procedure).inputType().mapper().name.packageName(), TypeSpec
+                                 .classBuilder(procedureToTypeRecord.get(procedure).inputType().mapper().name)
                                  .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
                                  .addSuperinterface(ParameterizedTypeName.get(ClassName.get(gov.nasa.ammos.aerie.procedural.constraints.ProcedureMapper.class), procedureType))
+                                 .addType(typeSpec.get())
                                  .addMethod(MethodSpec
                                                 .methodBuilder("valueSchema")
                                                 .addModifiers(Modifier.PUBLIC)
@@ -200,20 +210,13 @@ public final class ProcedureProcessor implements Processor {
                                                 .addStatement("return $L.getValueSchema()", valueMapperCode.get())
                                                 .build())
                                  .addMethod(MethodSpec
-                                                .methodBuilder("serialize")
+                                                .methodBuilder("getInputType")
                                                 .addModifiers(Modifier.PUBLIC)
                                                 .addAnnotation(Override.class)
-                                                .addParameter(procedureType, "procedure")
-                                                .returns(SerializedValue.class)
-                                                .addStatement("return $L.serializeValue(procedure)", valueMapperCode.get())
-                                                .build())
-                                 .addMethod(MethodSpec
-                                                .methodBuilder("deserialize")
-                                                .addModifiers(Modifier.PUBLIC)
-                                                .addAnnotation(Override.class)
-                                                .addParameter(SerializedValue.class, "value")
-                                                .returns(procedureType)
-                                                .addStatement("return $L.deserializeValue(value).getSuccessOrThrow(e -> new $T(e))", valueMapperCode.get(), RuntimeException.class)
+                                                .returns(ParameterizedTypeName.get(
+                                                    ClassName.get(InputType.class),
+                                                    ClassName.get(procedureToTypeRecord.get(procedure).inputType().declaration())))
+                                                .addStatement("return new $T()", procedureToTypeRecord.get(procedure).inputType().mapper().name.nestedClass(typeSpec.get().name))
                                                 .build())
                                  .build())
                              .skipJavaLangImports(true)
@@ -235,6 +238,115 @@ public final class ProcedureProcessor implements Processor {
     return false;
   }
 
+  private ProcedureTypeRecord parseProcedureType(final PackageElement jarElement, final TypeElement procedureElement)
+  {
+    final var fullyQualifiedClassName = procedureElement.getQualifiedName();
+    final var name = procedureElement.getSimpleName().toString();
+    final MapperRecord mapper = MapperRecord.generatedFor(ClassName.get(procedureElement), jarElement);
+    final List<ParameterRecord> parameters = this.getExportParameters(procedureElement);
+
+    /*
+    The following parameter was created as a result of AERIE-1295/1296/1297 on JIRA
+    In order to allow for optional/required parameters, the processor
+    must extract the factory method call that creates the default
+    template values for some activity. Additionally, a helper method
+    is used to determine whether some activity is written as a
+    class (old-style) or as a record (new-style) by determining
+    whether there are @Parameter tags (old-style) or not
+     */
+    final var defaultsStyle = this.getExportDefaultsStyle(procedureElement);
+
+    return new ProcedureTypeRecord(
+        fullyQualifiedClassName.toString(),
+        name,
+        new InputTypeRecord(name, procedureElement, parameters, mapper, defaultsStyle));
+  }
+
+  /** Parse a list of parameters from an export type element, depending on the export defaults style in use. */
+  private List<ParameterRecord> getExportParameters(final TypeElement exportTypeElement)
+  {
+    return exportTypeElement.getEnclosedElements().stream()
+                            .filter(e -> e.getKind() == ElementKind.FIELD) // Element must be a field
+                            .map(e -> new ParameterRecord(e.getSimpleName().toString(), e.asType(), e))
+                            .toList();
+  }
+
+  private ExportDefaultsStyle getExportDefaultsStyle(final TypeElement exportTypeElement)
+  {
+    for (final var element : exportTypeElement.getEnclosedElements()) {
+      if (element.getAnnotation(Template.class) != null)
+        return ExportDefaultsStyle.AllStaticallyDefined;
+      if (element.getAnnotation(WithDefaults.class) != null)
+        return ExportDefaultsStyle.SomeStaticallyDefined;
+    }
+    return ExportDefaultsStyle.NoneDefined; // No default arguments provided
+  }
+
+  /** Generate an `InputType` implementation. */
+  public Optional<TypeSpec> generateInputType(
+      PackageElement packageElement,
+      final InputTypeRecord inputType,
+      final String name,
+      final List<TypeRule> typeRules) {
+    final var mapperBlocks$ = generateParameterMapperBlocks(typeRules, inputType);
+    if (mapperBlocks$.isEmpty()) return Optional.empty();
+    final var mapperBlocks = mapperBlocks$.get();
+
+    final var mapperMethodMaker = MapperMethodMaker.make(inputType);
+    return Optional.of(TypeSpec
+                           .classBuilder(name)
+                           .addOriginatingElement(packageElement)
+                           // The fields and methods of the activity determines the overall behavior of this class.
+                           .addOriginatingElement(inputType.declaration())
+                           .addSuperinterface(ParameterizedTypeName.get(
+                               ClassName.get(gov.nasa.jpl.aerie.merlin.protocol.model.InputType.class),
+                               ClassName.get(inputType.declaration())))
+                           .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
+                           .addFields(
+                               inputType.parameters()
+                                        .stream()
+                                        .map(parameter -> FieldSpec
+                                            .builder(
+                                                ParameterizedTypeName.get(
+                                                    ClassName.get(gov.nasa.jpl.aerie.merlin.framework.ValueMapper.class),
+                                                    TypeName.get(parameter.type).box()),
+                                                "mapper_" + parameter.name)
+                                            .addModifiers(Modifier.PRIVATE, Modifier.FINAL)
+                                            .build())
+                                        .collect(Collectors.toList()))
+                           .addMethod(
+                               MethodSpec
+                                   .constructorBuilder()
+                                   .addModifiers(Modifier.PUBLIC)
+                                   /* Suppress unchecked warnings because the resolver has to
+                                       put some big casting in for Class parameters
+                                    */
+                                   .addAnnotation(
+                                       AnnotationSpec
+                                           .builder(SuppressWarnings.class)
+                                           .addMember("value", "$S", "unchecked")
+                                           .build())
+                                   .addCode(
+                                       inputType.parameters()
+                                                .stream()
+                                                .map(parameter -> CodeBlock
+                                                    .builder()
+                                                    .addStatement(
+                                                        "this.mapper_$L =\n$L",
+                                                        parameter.name,
+                                                        mapperBlocks.get(parameter.name)))
+                                                .reduce(CodeBlock.builder(), (x, y) -> x.add(y.build()))
+                                                .build())
+                                   .build())
+                           .addMethod(mapperMethodMaker.makeGetRequiredParametersMethod())
+                           .addMethod(mapperMethodMaker.makeGetParametersMethod())
+                           .addMethod(mapperMethodMaker.makeGetArgumentsMethod())
+                           .addMethod(mapperMethodMaker.makeInstantiateMethod())
+                           .addMethod(mapperMethodMaker.makeGetValidationFailuresMethod())
+                           .build());
+  }
+
+
   @Override
   public Iterable<? extends Completion> getCompletions(
       final Element element,
@@ -243,6 +355,28 @@ public final class ProcedureProcessor implements Processor {
       final String userText)
   {
     return Collections::emptyIterator;
+  }
+
+  private Optional<Map<String, CodeBlock>> generateParameterMapperBlocks(List<TypeRule> typeRules, final InputTypeRecord inputType)
+  {
+    final var resolver = new Resolver(this.typeUtils, this.elementUtils, typeRules);
+    var failed = false;
+    final var mapperBlocks = new HashMap<String, CodeBlock>();
+
+    for (final var parameter : inputType.parameters()) {
+      final var mapperBlock = resolver.instantiateNullableMapperFor(parameter.type);
+      if (mapperBlock.isPresent()) {
+        mapperBlocks.put(parameter.name, mapperBlock.get());
+      } else {
+        failed = true;
+        messager.printMessage(
+            Diagnostic.Kind.ERROR,
+            "Failed to generate value mapper for parameter",
+            parameter.element);
+      }
+    }
+
+    return failed ? Optional.empty() : Optional.of(mapperBlocks);
   }
 
   private static Optional<AnnotationValue> getAnnotationAttribute(final AnnotationMirror annotationMirror, final String attributeName)

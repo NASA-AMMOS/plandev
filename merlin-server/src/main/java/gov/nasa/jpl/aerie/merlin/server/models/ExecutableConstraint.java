@@ -5,7 +5,7 @@ import gov.nasa.jpl.aerie.constraints.model.EvaluationEnvironment;
 import gov.nasa.jpl.aerie.constraints.model.SimulationResults;
 import gov.nasa.jpl.aerie.constraints.model.Violation;
 import gov.nasa.jpl.aerie.constraints.tree.Expression;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import org.jetbrains.annotations.NotNull;
 
 import gov.nasa.ammos.aerie.procedural.constraints.ProcedureMapper;
@@ -84,9 +84,14 @@ public sealed interface ExecutableConstraint extends Comparable<ExecutableConstr
         throw new RuntimeException(e);
       }
 
-      final var violations = Violation.fromProceduralViolations(procedureMapper
-          .deserialize(SerializedValue.of(record.arguments()))
-          .run(plan, simResults), merlinResults);
+      final List<Violation> violations;
+      try {
+        violations = Violation.fromProceduralViolations(procedureMapper
+            .getInputType().instantiate(record.arguments())
+            .run(plan, simResults), merlinResults);
+      } catch (InstantiationException e) {
+        throw new RuntimeException(e);
+      }
 
       return new ProceduralConstraintResult(violations, record);
     }

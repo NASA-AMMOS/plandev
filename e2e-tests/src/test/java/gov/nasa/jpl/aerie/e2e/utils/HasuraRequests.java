@@ -287,6 +287,40 @@ public class HasuraRequests implements AutoCloseable {
     return effectiveArgs.get(0);
   }
 
+
+  public List<EffectiveProceduralArguments> getEffectiveProceduralGoalsArgumentsBulk(
+      List<Pair<Integer, JsonObject>> proceduralGoalIds
+  ) throws IOException {
+    final var proceduresBuilder = Json.createArrayBuilder();
+    proceduralGoalIds.forEach(goal -> proceduresBuilder.add(Json.createObjectBuilder()
+                                                         .add("id", goal.getLeft())
+                                                         .add("revision", 0)
+                                                         .add("arguments", goal.getRight())));
+    final var variables = Json.createObjectBuilder()
+                              .add("arguments", proceduresBuilder.build())
+                              .build();
+    return makeRequest(GQL.GET_EFFECTIVE_PROCEDURAL_GOALS_ARGUMENTS_BULK, variables)
+        .getJsonArray("getSchedulingProcedureEffectiveArgumentsBulk")
+        .getValuesAs(EffectiveProceduralArguments::fromJSON);
+  }
+
+
+  public List<EffectiveProceduralArguments> getEffectiveProceduralConstraintsArgumentsBulk(
+      List<Pair<Integer, JsonObject>> proceduralGoalIds
+  ) throws IOException {
+    final var proceduresBuilder = Json.createArrayBuilder();
+    proceduralGoalIds.forEach(goal -> proceduresBuilder.add(Json.createObjectBuilder()
+                                                                .add("id", goal.getLeft())
+                                                                .add("revision", 0)
+                                                                .add("arguments", goal.getRight())));
+    final var variables = Json.createObjectBuilder()
+                              .add("arguments", proceduresBuilder.build())
+                              .build();
+    return makeRequest(GQL.GET_EFFECTIVE_PROCEDURAL_CONSTRAINTS_ARGUMENTS_BULK, variables)
+        .getJsonArray("getConstraintProcedureEffectiveArgumentsBulk")
+        .getValuesAs(EffectiveProceduralArguments::fromJSON);
+  }
+
   public List<EffectiveActivityArguments> getEffectiveActivityArgumentsBulk(
       int modelId,
       List<Pair<String, JsonObject>> activities
@@ -722,6 +756,35 @@ public class HasuraRequests implements AutoCloseable {
     return createSchedulingSpecProcedure(name, jarId, specificationId, priority, true);
   }
 
+  public ConstraintInvocationId createConstraintSpecProcedure(
+      String name,
+      int jarId,
+      int planId
+  ) throws IOException {
+    final var specGoalBuilder = Json.createObjectBuilder()
+                                    .add("constraint_metadata",
+                                         Json.createObjectBuilder()
+                                             .add("data",
+                                                  Json.createObjectBuilder()
+                                                      .add("name", name)
+                                                      .add("description", "")
+                                                      .add("versions",
+                                                           Json.createObjectBuilder()
+                                                               .add("data",
+                                                                    Json.createArrayBuilder()
+                                                                        .add(Json.createObjectBuilder()
+                                                                                 .add("type", "JAR")
+                                                                                 .add("uploaded_jar_id", jarId)
+                                                                        )))))
+                                    .add("plan_id", planId);
+    final var variables = Json.createObjectBuilder().add("constraint", specGoalBuilder).build();
+    final var resp =  makeRequest(GQL.INSERT_PLAN_SPEC_CONSTRAINT, variables)
+        .getJsonObject("constraint");
+    return new ConstraintInvocationId(
+        resp.getInt("constraint_id"),
+        resp.getInt("invocation_id")
+    );
+  }
 
   public GoalInvocationId createSchedulingSpecProcedure(
       String name,
@@ -824,6 +887,14 @@ public class HasuraRequests implements AutoCloseable {
                               .add("definition", definition)
                               .build();
     return makeRequest(GQL.UPDATE_GOAL_DEFINITION, variables).getJsonObject("definition").getInt("revision");
+  }
+
+  public void updateConstraintArguments(int constraintId, JsonObject arguments) throws IOException {
+    final var variables = Json.createObjectBuilder()
+                              .add("constraint_id", constraintId)
+                              .add("arguments", arguments)
+                              .build();
+    makeRequest(GQL.UPDATE_CONSTRAINT_ARGUMENTS, variables);
   }
 
   public void updateSchedulingSpecGoalArguments(int invocationId, JsonObject arguments) throws IOException {

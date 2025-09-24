@@ -40,7 +40,7 @@ public record DumbRecurrenceGoalWithTemplateDefaults(int quantity, int biteSize)
   }
 
   public static @Template DumbRecurrenceGoalWithTemplateDefaults create() {
-    return new DumbRecurrenceGoalWithTemplateDefaults(10, 10);
+    return new DumbRecurrenceGoalWithTemplateDefaults(3, 5);
   }
 }
 

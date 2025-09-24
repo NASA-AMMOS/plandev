@@ -60,6 +60,7 @@ dependencies {
   annotationProcessor project(':procedural:processor')
 
   implementation project(":procedural:scheduling")
+  implementation project(":procedural:constraints")
   implementation project(":procedural:timeline")
   implementation project(':merlin-sdk')
   implementation project(':type-utils')
@@ -107,7 +108,7 @@ tasks.create("generateProcedureJarTasks") {
   }
 
   files.toList().each { file ->
-    final nameWithoutExtension = file.name.replace(".java", "")
+    final nameWithoutExtension = file.name.replace(".java", "").replace("Mapper", "")
     final taskName = "buildProcedureJar_${nameWithoutExtension}"
 
     println "Generating ${taskName} task, which will build ${nameWithoutExtension}.jar"

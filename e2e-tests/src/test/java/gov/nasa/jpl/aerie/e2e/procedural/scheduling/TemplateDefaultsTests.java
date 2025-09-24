@@ -57,23 +57,25 @@ public class TemplateDefaultsTests extends ProceduralSchedulingSetup {
     final var plan = hasura.getPlan(planId);
     final var activities = plan.activityDirectives();
 
-    assertEquals(2, activities.size());
+    assertEquals(3, activities.size());
 
     assertTrue(activities.stream().anyMatch(
         it ->
             Objects.equals(it.type(), "BiteBanana") &&
             Objects.equals(it.startOffset(), "24:00:00") &&
-            Objects.equals(it.arguments().getString("biteSize"), "10") &&
-            Objects.equals(it.arguments().getString("quantity"), "10")
-    ));
+            Objects.equals(it.arguments().getInt("biteSize"), 5)));
 
     assertTrue(activities.stream().anyMatch(
         it ->
             Objects.equals(it.type(), "BiteBanana") &&
             Objects.equals(it.startOffset(), "30:00:00") &&
-            Objects.equals(it.arguments().getString("biteSize"), "10") &&
-            Objects.equals(it.arguments().getString("quantity"), "10")
-    ));
+            Objects.equals(it.arguments().getInt("biteSize"), 5)));
+
+    assertTrue(activities.stream().anyMatch(
+        it ->
+            Objects.equals(it.type(), "BiteBanana") &&
+            Objects.equals(it.startOffset(), "36:00:00") &&
+            Objects.equals(it.arguments().getInt("biteSize"), 5)));
   }
 
   /**
@@ -90,23 +92,25 @@ public class TemplateDefaultsTests extends ProceduralSchedulingSetup {
     final var plan = hasura.getPlan(planId);
     final var activities = plan.activityDirectives();
 
-    assertEquals(2, activities.size());
+    assertEquals(3, activities.size());
 
     assertTrue(activities.stream().anyMatch(
         it ->
             Objects.equals(it.type(), "BiteBanana") &&
             Objects.equals(it.startOffset(), "24:00:00") &&
-            Objects.equals(it.arguments().getString("biteSize"), "2") &&
-            Objects.equals(it.arguments().getString("quantity"), "10")
-    ));
+            Objects.equals(it.arguments().getInt("biteSize"), 2)));
 
     assertTrue(activities.stream().anyMatch(
         it ->
             Objects.equals(it.type(), "BiteBanana") &&
             Objects.equals(it.startOffset(), "30:00:00") &&
-            Objects.equals(it.arguments().getString("biteSize"), "2") &&
-            Objects.equals(it.arguments().getString("quantity"), "10")
-    ));
+            Objects.equals(it.arguments().getInt("biteSize"), 2)));
+
+    assertTrue(activities.stream().anyMatch(
+        it ->
+            Objects.equals(it.type(), "BiteBanana") &&
+            Objects.equals(it.startOffset(), "36:00:00") &&
+            Objects.equals(it.arguments().getInt("biteSize"), 2)));
   }
 
 }

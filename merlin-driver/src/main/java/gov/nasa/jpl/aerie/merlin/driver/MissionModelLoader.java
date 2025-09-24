@@ -71,19 +71,20 @@ public final class MissionModelLoader {
         try {
             final var pluginClass$ = classLoader.loadClass(className);
             if (!MerlinPlugin.class.isAssignableFrom(pluginClass$)) {
-                throw new MissionModelLoadException(path, name, version);
+                throw new MissionModelLoadException(pluginClass$ + " was not assignable to " + MerlinPlugin.class.getCanonicalName(), path, name, version);
             }
 
             return (MerlinPlugin) pluginClass$.getConstructor().newInstance();
         } catch (final ReflectiveOperationException ex) {
-            throw new MissionModelLoadException(path, name, version, ex);
+            throw new MissionModelLoadException("Failed to load MerlinPlugin class", path, name, version, ex);
         }
     }
 
     private static String getImplementingClassName(final Path jarPath, final String name, final String version)
     throws MissionModelLoadException {
         try (final var jarFile = new JarFile(jarPath.toFile())) {
-            final var jarEntry = jarFile.getEntry("META-INF/services/" + MerlinPlugin.class.getCanonicalName());
+            final String metaInfServicesFile = "META-INF/services/" + MerlinPlugin.class.getCanonicalName();
+            final var jarEntry = jarFile.getEntry(metaInfServicesFile);
             final var inputStream = jarFile.getInputStream(jarEntry);
 
             final var classPathList = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))
@@ -91,12 +92,12 @@ public final class MissionModelLoader {
                 .toList();
 
             if (classPathList.size() != 1) {
-                throw new MissionModelLoadException(jarPath, name, version);
+                throw new MissionModelLoadException("Expected 1 line in " + metaInfServicesFile + " but found " + classPathList.size() + " lines", jarPath, name, version);
             }
 
             return classPathList.get(0);
         } catch (final IOException ex) {
-            throw new MissionModelLoadException(jarPath, name, version, ex);
+            throw new MissionModelLoadException("Encountered IOException while loading jar", jarPath, name, version, ex);
         }
     }
 
@@ -111,14 +112,14 @@ public final class MissionModelLoader {
     }
 
     public static class MissionModelLoadException extends Exception {
-        private MissionModelLoadException(final Path path, final String name, final String version) {
-            this(path, name, version, null);
+        private MissionModelLoadException(final String message, final Path path, final String name, final String version) {
+            this(message, path, name, version, null);
         }
 
-        private MissionModelLoadException(final Path path, final String name, final String version, final Throwable cause) {
+        private MissionModelLoadException(final String message, final Path path, final String name, final String version, final Throwable cause) {
             super(
                 String.format(
-                    "No implementation found for `%s` at path `%s` wih name \"%s\" and version \"%s\"",
+                    message + " at path `%s` wih name \"%s\" and version \"%s\"",
                     MerlinPlugin.class.getSimpleName(),
                     path,
                     name,

@@ -48,17 +48,17 @@ public final class PermissionsService {
     if (!authorized) throw new Unauthorized(action, role, username, permissionType, workspaceId);
   }
 
-  private PermissionType getActionPermission(final HasuraAction action, final String role)
+  private PlanPermissionType getActionPermission(final HasuraAction action, final String role)
   throws Unauthorized, IOException, PermissionsServiceException
   {
     if (role.equals("aerie_admin")) {
-      return PermissionType.NO_CHECK;
+      return PlanPermissionType.NO_CHECK;
     }
     return gqlService.getActionPermission(action, role);
   }
 
   private boolean canPerformAction(
-      final PermissionType permissionType,
+      final PlanPermissionType permissionType,
       final String username,
       final PlanId planId)
   throws IOException, PermissionsServiceException, NoSuchPlanException {

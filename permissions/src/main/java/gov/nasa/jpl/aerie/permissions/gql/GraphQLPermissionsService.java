@@ -1,7 +1,7 @@
 package gov.nasa.jpl.aerie.permissions.gql;
 
 import gov.nasa.jpl.aerie.permissions.HasuraAction;
-import gov.nasa.jpl.aerie.permissions.PermissionType;
+import gov.nasa.jpl.aerie.permissions.PlanPermissionType;
 import gov.nasa.jpl.aerie.permissions.PlanOwnerOrCollaborator;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchSchedulingSpecificationException;
@@ -76,7 +76,7 @@ public record GraphQLPermissionsService(
     }
   }
 
-  public PermissionType getActionPermission(final HasuraAction action, final String role) throws IOException, Unauthorized, PermissionsServiceException {
+  public PlanPermissionType getActionPermission(final HasuraAction action, final String role) throws IOException, Unauthorized, PermissionsServiceException {
     final var query = """
         query getActionPermission($role: user_roles_enum!, $action: String!) {
           check: user_role_permission_by_pk(role: $role) {
@@ -92,7 +92,7 @@ public record GraphQLPermissionsService(
     final var response = postRequest(query, variables).orElseThrow(() -> new Unauthorized(role, action));
     final var check = response.getJsonObject("data").getJsonObject("check");
     if (check.isNull("permission")) { throw new Unauthorized(role, action); }
-    return PermissionType.valueOf(check.getString("permission"));
+    return PlanPermissionType.valueOf(check.getString("permission"));
   }
 
   public PlanOwnerOrCollaborator checkPlanOwnerCollaborator(final PlanId planId, final String username) throws IOException, NoSuchPlanException, PermissionsServiceException {

@@ -2,6 +2,10 @@ package gov.nasa.jpl.aerie.workspace.server;
 
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import gov.nasa.jpl.aerie.permissions.PermissionsService;
+import gov.nasa.jpl.aerie.permissions.WorkspaceAction;
+import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
+import gov.nasa.jpl.aerie.permissions.exceptions.Unauthorized;
+import gov.nasa.jpl.aerie.permissions.gql.WorkspaceId;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import io.javalin.Javalin;
 import io.javalin.apibuilder.ApiBuilder;
@@ -84,7 +88,7 @@ public class WorkspaceBindings implements Plugin {
 
       // CRD operations for Workspaces
       path("/ws/{workspaceId}", () -> {
-        ApiBuilder.get(this::listContents);
+        ApiBuilder.get(this::listWorkspaceContents);
         ApiBuilder.delete(this::deleteWorkspace);
       });
       path("/ws/create", () -> ApiBuilder.post(this::createWorkspace));
@@ -129,6 +133,18 @@ public class WorkspaceBindings implements Plugin {
   }
 
   private void createWorkspace(Context context) {
+    // Permissions check
+    try {
+      final var user = authorize(context);
+      permissionsService.checkCoarseGrained(WorkspaceAction.createWorkspace, user.activeRole());
+    } catch (Unauthorized ioe) {
+      throw new UnauthorizedResponse(ioe.getMessage());
+    } catch (IOException | PermissionsServiceException ioe) {
+      context.status(500).result("Could not create workspace.");
+      return;
+    }
+
+    // Message format check
     final String helpText = """
         {
             "workspaceLocation": text     // Name of the folder the workspace will live in
@@ -183,7 +199,25 @@ public class WorkspaceBindings implements Plugin {
   }
 
   private void deleteWorkspace(Context context) {
+    // Permissions Check
     final int workspaceId  = Integer.parseInt(context.pathParam("workspaceId"));
+
+    try {
+      final var user = authorize(context);
+      permissionsService.check(
+          WorkspaceAction.deleteWorkspace,
+          user.activeRole(),
+          user.userId(),
+          new WorkspaceId(workspaceId));
+    } catch (Unauthorized ioe) {
+      throw new UnauthorizedResponse(ioe.getMessage());
+    } catch (IOException | PermissionsServiceException ioe) {
+      context.status(500).result("Could not delete workspace.");
+      return;
+    } catch (gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException nsw) {
+      context.status(404).result(nsw.getMessage());
+      return;
+    }
 
     try {
       if (workspaceService.deleteWorkspace(workspaceId)) {
@@ -196,6 +230,30 @@ public class WorkspaceBindings implements Plugin {
     } catch (SQLException e) {
       context.status(500).result("Unable to delete workspace. " +e.getMessage());
     }
+  }
+
+  private void listWorkspaceContents(Context context) {
+    // Permissions Check
+    final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
+
+    try {
+      final var user = authorize(context);
+      permissionsService.check(
+          WorkspaceAction.listWorkspaceContents,
+          user.activeRole(),
+          user.userId(),
+          new WorkspaceId(workspaceId));
+    } catch (Unauthorized ioe) {
+      throw new UnauthorizedResponse(ioe.getMessage());
+    } catch (IOException | PermissionsServiceException ioe) {
+      context.status(500).result("Could not list workspace contents.");
+      return;
+    } catch (gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException nsw) {
+      context.status(404).result(nsw.getMessage());
+      return;
+    }
+
+    listContents(context);
   }
 
   private void listContents(Context context) {
@@ -231,6 +289,23 @@ public class WorkspaceBindings implements Plugin {
   private void get(Context context) throws NoSuchWorkspaceException {
     final var pathInfo = PathInformation.of(context);
 
+    // Permissions Check
+    try {
+      final var user = authorize(context);
+      permissionsService.check(
+          WorkspaceAction.readFileDirectory,
+          user.activeRole(),
+          user.userId(),
+          new WorkspaceId(pathInfo.workspaceId));
+    } catch (Unauthorized ioe) {
+      throw new UnauthorizedResponse(ioe.getMessage());
+    } catch (IOException | PermissionsServiceException ioe) {
+      context.status(500).result("Could not read object at path " +pathInfo.fileName());
+      return;
+    } catch (gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException nsw) {
+      throw new NoSuchWorkspaceException(pathInfo.workspaceId);
+    }
+
     if (workspaceService.isDirectory(pathInfo.workspaceId, pathInfo.filePath)) {
       listContents(context);
     } else {
@@ -254,6 +329,24 @@ public class WorkspaceBindings implements Plugin {
 
   private void put(Context context) throws NoSuchWorkspaceException, IOException {
     final var pathInfo = PathInformation.of(context);
+
+    // Permissions Check
+    try {
+      final var user = authorize(context);
+      permissionsService.check(
+          WorkspaceAction.writeFileDirectory,
+          user.activeRole(),
+          user.userId(),
+          new WorkspaceId(pathInfo.workspaceId));
+    } catch (Unauthorized ioe) {
+      throw new UnauthorizedResponse(ioe.getMessage());
+    } catch (IOException | PermissionsServiceException ioe) {
+      context.status(500).result("Could not create object at path " +pathInfo.fileName());
+      return;
+    } catch (gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException nsw) {
+      throw new NoSuchWorkspaceException(pathInfo.workspaceId);
+    }
+
     final String type;
     final Optional<Boolean> overwrite;
 
@@ -408,6 +501,43 @@ public class WorkspaceBindings implements Plugin {
       targetWorkspace = bodyJson.getInt("toWorkspace");
     }
 
+    // Permissions Check
+    try {
+      final var user = authorize(context);
+      final var sourceWSId = new WorkspaceId(sourceWorkspace);
+      final var targetWSId = new WorkspaceId(targetWorkspace);
+
+      // Moving between workspaces requires "readFile", "deleteFile" on Workspace 1 and "writeFile" on Workspace 2
+      // (Permission derived from mv -v, which shows that moving a file is "copy, then delete")
+      permissionsService.check(
+          WorkspaceAction.readFileDirectory,
+          user.activeRole(),
+          user.userId(),
+          sourceWSId
+      );
+      permissionsService.check(
+          WorkspaceAction.deleteFileDirectory,
+          user.activeRole(),
+          user.userId(),
+          sourceWSId
+      );
+      permissionsService.check(
+          WorkspaceAction.writeFileDirectory,
+          user.activeRole(),
+          user.userId(),
+          targetWSId // defaults to "sourceWSId" when moving within the same workspace
+      );
+    } catch (Unauthorized ioe) {
+      throw new UnauthorizedResponse(ioe.getMessage());
+    } catch (IOException | PermissionsServiceException ioe) {
+      context.status(500).result("Could not move object.");
+      return false;
+    } catch (gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException nsw) {
+      context.status(404).result(nsw.getMessage());
+      return false;
+    }
+
+
     CopyMoveValid validMove = isCopyOrMoveValid(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination);
     if (validMove.status != 200) {
       context.status(validMove.status).result(validMove.message);
@@ -458,6 +588,35 @@ public class WorkspaceBindings implements Plugin {
       targetWorkspace = bodyJson.getInt("toWorkspace");
     }
 
+    // Permissions Check
+    try {
+      final var user = authorize(context);
+      final var sourceWSId = new WorkspaceId(sourceWorkspace);
+      final var targetWSId = new WorkspaceId(targetWorkspace);
+
+      // Copying between workspaces requires "readFile" on Workspace 1 and "writeFile" on Workspace 2
+      permissionsService.check(
+          WorkspaceAction.readFileDirectory,
+          user.activeRole(),
+          user.userId(),
+          sourceWSId
+      );
+      permissionsService.check(
+          WorkspaceAction.writeFileDirectory,
+          user.activeRole(),
+          user.userId(),
+          targetWSId // defaults to "sourceWSId" when copying within the same workspace
+      );
+    } catch (Unauthorized ioe) {
+      throw new UnauthorizedResponse(ioe.getMessage());
+    } catch (IOException | PermissionsServiceException ioe) {
+      context.status(500).result("Could not copy object.");
+      return false;
+    } catch (gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException nsw) {
+      context.status(404).result(nsw.getMessage());
+      return false;
+    }
+
     CopyMoveValid validCopy = isCopyOrMoveValid(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination);
     if (validCopy.status != 200) {
         context.status(validCopy.status).result(validCopy.message);
@@ -500,6 +659,23 @@ public class WorkspaceBindings implements Plugin {
 
   private void delete(Context context) throws NoSuchWorkspaceException, IOException {
     final var pathInfo = PathInformation.of(context);
+
+    // Permissions Check
+    try {
+      final var user = authorize(context);
+      permissionsService.check(
+          WorkspaceAction.deleteFileDirectory,
+          user.activeRole(),
+          user.userId(),
+          new WorkspaceId(pathInfo.workspaceId));
+    } catch (Unauthorized ioe) {
+      throw new UnauthorizedResponse(ioe.getMessage());
+    } catch (IOException | PermissionsServiceException ioe) {
+      context.status(500).result("Could not delete " +pathInfo.fileName());
+      return;
+    } catch (gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException nsw) {
+      throw new NoSuchWorkspaceException(pathInfo.workspaceId);
+    }
 
     if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
       context.status(404).result(pathInfo.fileName() + " does not exist.");

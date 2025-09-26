@@ -5,18 +5,21 @@ create table permissions.user_role_permission(
       on update cascade
       on delete cascade,
   action_permissions jsonb not null default '{}',
-  function_permissions jsonb not null default '{}'
+  function_permissions jsonb not null default '{}',
+  workspace_permissions jsonb not null default '{}'
 );
 
 comment on table permissions.user_role_permission is e''
   'Permissions for a role that cannot be expressed in Hasura. Permissions take the form {KEY:PERMISSION}.'
-  'A list of valid KEYs and PERMISSIONs can be found at https://github.com/NASA-AMMOS/aerie/discussions/983#discussioncomment-6257146';
+  'A list of valid KEYs and PERMISSIONs can be found at https://nasa-ammos.github.io/aerie-docs/deployment/advanced-permissions/#action-and-function-permissions';
 comment on column permissions.user_role_permission.role is e''
   'The role these permissions apply to.';
 comment on column permissions.user_role_permission.action_permissions is ''
   'The permissions the role has on Hasura Actions.';
 comment on column permissions.user_role_permission.function_permissions is ''
   'The permissions the role has on Hasura Functions.';
+comment on column permissions.user_role_permission.workspace_permissions is ''
+  'The permissions the role has on Workspace Functions.';
 
 create function permissions.validate_action_permissions_json(_action_permissions jsonb)
 returns table(key_error_msg text, value_error_msg text, plan_merge_error_msg text)
@@ -47,8 +50,7 @@ begin
     key_error_msg = 'The following action keys are not valid: '
                  || (select string_agg(action_key, ', ')
                      from _validate_actions_table
-                     where not valid_action_key)
-                 ||e'\n';
+                     where not valid_action_key);
   end if;
 
   -- Get any values that aren't Action Permissions
@@ -58,7 +60,7 @@ begin
                 || (select string_agg(action_key || ': ' || action_permission, ', ')
                     from _validate_actions_table
                     where not valid_action_permission)
-                ||e'}\n';
+                ||e'}';
   end if;
 
 	-- Check that no Actions have Plan Merge Permissions
@@ -68,7 +70,7 @@ begin
                 || (select string_agg(action_key || ': ' || action_permission, ', ')
                     from _validate_actions_table
                     where is_plan_merge_permission)
-                ||e'}\n';
+                ||e'}';
   end if;
 
   -- Drop Temp Table
@@ -138,8 +140,7 @@ begin
   -- Check that no non-Plan Merge Functions have Plan Merge Permissions
   if exists(select from _validate_functions_table where is_plan_merge_permission and not is_plan_merge_key)
   then
-    plan_merge_error_msg =
-                || 'The following function keys may not take plan merge permissions: {'
+    plan_merge_error_msg = 'The following function keys may not take plan merge permissions: {'
                 || (select string_agg(function_key || ': ' || function_permission, ', ')
                     from _validate_functions_table
                     where is_plan_merge_permission and not is_plan_merge_key)
@@ -153,12 +154,66 @@ begin
 end;
 $$;
 
+create function permissions.validate_workspace_permissions_json(_workspace_permissions jsonb)
+returns table(key_error_msg text, value_error_msg text)
+language plpgsql as $$
+declare
+  key_error_msg text;
+  value_error_msg text;
+begin
+  key_error_msg = '';
+  value_error_msg = '';
+
+  -- Do all the validation checks up front
+  -- Duplicate keys are not checked for, as as all but the last instance is removed
+  -- during conversion of JSON Text to JSONB (https://www.postgresql.org/docs/14/datatype-json.html)
+  create temp table _validate_workspaces_table as
+  select
+    jsonb_object_keys(_workspace_permissions) as workspace_key,
+    _workspace_permissions ->> jsonb_object_keys(_workspace_permissions) as workspace_permission,
+    jsonb_object_keys(_workspace_permissions) = any(enum_range(null::permissions.workspace_permission_key)::text[]) as valid_workspace_key,
+    _workspace_permissions ->> jsonb_object_keys(_workspace_permissions) = any(enum_range(null::permissions.workspace_permission)::text[]) as valid_workspace_permission;
+
+  -- Ensure that "create_workspace", if the permission is provided, is set to "NO_CHECK"
+  -- if not, flag the key as having an invalid permission
+  update _validate_workspaces_table
+  set valid_workspace_permission = false
+  where workspace_key = 'create_workspace' and workspace_permission != 'NO_CHECK';
+
+  -- Get any invalid Workspace Action Keys
+  if exists(select from _validate_workspaces_table where not valid_workspace_key)
+  then
+    key_error_msg = 'The following workspace keys are not valid: '
+                 || (select string_agg(workspace_key, ', ')
+                     from _validate_workspaces_table
+                     where not valid_workspace_key)
+                 ||e'';
+  end if;
+
+  -- Get any values that aren't Workspace Permissions
+  if exists(select from _validate_workspaces_table where not valid_workspace_permission)
+  then
+    value_error_msg = 'The following workspace keys have invalid permissions: {'
+                || (select string_agg(workspace_key || ': ' || workspace_permission, ', ')
+                    from _validate_workspaces_table
+                    where not valid_workspace_permission)
+                ||e'}';
+  end if;
+
+  -- Drop Temp Table
+  drop table _validate_workspaces_table;
+
+  return query select key_error_msg, value_error_msg;
+end;
+$$;
+
 create function permissions.validate_permissions_json()
 returns trigger
 language plpgsql as $$
   declare
     action_error_msgs record;
     function_error_msgs record;
+    workspace_error_msgs record;
     key_error_msg text;
     value_error_msg text;
     plan_merge_error_msg text;
@@ -171,15 +226,41 @@ begin
   from permissions.validate_function_permissions_json(new.function_permissions)
   into function_error_msgs;
 
-  key_error_msg = '' || action_error_msgs.key_error_msg || function_error_msgs.key_error_msg;
-  value_error_msg = '' || action_error_msgs.value_error_msg || function_error_msgs.value_error_msg;
-  plan_merge_error_msg = '' || action_error_msgs.plan_merge_error_msg || function_error_msgs.plan_merge_error_msg;
+  select *
+  from permissions.validate_workspace_permissions_json(new.workspace_permissions)
+  into workspace_error_msgs;
+
+  with key_errors(msg) as (
+    values (action_error_msgs.key_error_msg),
+           (function_error_msgs.key_error_msg),
+           (workspace_error_msgs.key_error_msg)
+  ) select string_agg(msg, e'\n')
+    from key_errors
+    where msg != ''
+    into key_error_msg;
+
+  with value_errors(msg) as (
+    values (action_error_msgs.value_error_msg),
+           (function_error_msgs.value_error_msg),
+           (workspace_error_msgs.value_error_msg)
+  ) select string_agg(msg, e'\n')
+    from value_errors
+    where msg != ''
+    into value_error_msg;
+
+  with plan_merge_errors(msg) as (
+    values (action_error_msgs.plan_merge_error_msg),
+           (function_error_msgs.plan_merge_error_msg)
+  ) select string_agg(msg, e'\n')
+    from plan_merge_errors
+    where msg != ''
+    into plan_merge_error_msg;
 
   -- Raise if there were invalid Action/Function Keys
   if key_error_msg != '' then
     raise exception using
       message = 'invalid keys in supplied row',
-      detail = trim(both e'\n' from key_error_msg),
+      detail = key_error_msg,
       errcode = 'invalid_json_text',
       hint = 'Visit https://nasa-ammos.github.io/aerie-docs/deployment/advanced-permissions/#action-and-function-permissions for a list of valid keys.';
   end if;
@@ -188,7 +269,7 @@ begin
   if value_error_msg != '' then
     raise exception using
       message = 'invalid permissions in supplied row',
-      detail = trim(both e'\n' from value_error_msg),
+      detail = value_error_msg,
       errcode = 'invalid_json_text',
       hint = 'Visit https://nasa-ammos.github.io/aerie-docs/deployment/advanced-permissions/#action-and-function-permissions for a list of valid Permissions.';
   end if;
@@ -197,7 +278,7 @@ begin
   if plan_merge_error_msg != '' then
     raise exception using
       message = 'invalid permissions in supplied row',
-      detail = trim(both e'\n' from plan_merge_error_msg),
+      detail = plan_merge_error_msg,
       errcode = 'invalid_json_text',
       hint = 'Visit https://nasa-ammos.github.io/aerie-docs/deployment/advanced-permissions/#action-and-function-permissions for more information.';
   end if;

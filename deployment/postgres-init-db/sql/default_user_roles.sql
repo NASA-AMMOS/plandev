@@ -5,7 +5,8 @@ insert into permissions.user_roles(role) values ('aerie_admin'), ('user'), ('vie
 -- 'aerie_admin' permissions aren't specified since 'aerie_admin' is always considered to have "NO_CHECK" permissions
 update permissions.user_role_permission
 set action_permissions = '{}',
-    function_permissions = '{}'
+    function_permissions = '{}',
+    workspace_permissions = '{}'
 where role = 'aerie_admin';
 
 update permissions.user_role_permission
@@ -46,6 +47,13 @@ set action_permissions = '{
       "set_resolution": "PLAN_OWNER_TARGET",
       "set_resolution_bulk": "PLAN_OWNER_TARGET",
       "withdraw_merge_rq": "PLAN_OWNER_SOURCE"
+    }',
+  workspace_permissions = '{
+      "delete_file_directory": "OWNER_COLLABORATOR",
+      "delete_workspace": "OWNER",
+      "list_workspace_contents": "NO_CHECK",
+      "read_file_directory": "NO_CHECK",
+      "write_file_directory": "OWNER_COLLABORATOR"
     }'
 where role = 'user';
 
@@ -58,6 +66,10 @@ set action_permissions = '{
       "get_conflicting_activities": "NO_CHECK",
       "get_non_conflicting_activities": "NO_CHECK",
       "get_plan_history": "NO_CHECK"
+    }',
+    workspace_permissions = '{
+      "list_workspace_contents": "NO_CHECK",
+      "read_file_directory": "NO_CHECK"
     }'
 where role = 'viewer';
 

@@ -2,11 +2,13 @@ package gov.nasa.jpl.aerie.permissions;
 
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchSchedulingSpecificationException;
+import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
 import gov.nasa.jpl.aerie.permissions.exceptions.Unauthorized;
 import gov.nasa.jpl.aerie.permissions.gql.GraphQLPermissionsService;
 import gov.nasa.jpl.aerie.permissions.gql.PlanId;
 import gov.nasa.jpl.aerie.permissions.gql.SchedulingSpecificationId;
+import gov.nasa.jpl.aerie.permissions.gql.WorkspaceId;
 
 import java.io.IOException;
 
@@ -65,16 +67,43 @@ public final class PermissionsService {
     return switch (permissionType) {
       case NO_CHECK -> true;
       case MISSION_MODEL_OWNER -> gqlService.checkMissionModelOwner(planId, username);
-      case OWNER, PLAN_OWNER -> getPlanPermissions(username, planId).isPlanOwner();
-      case PLAN_COLLABORATOR -> getPlanPermissions(username, planId).isPlanCollaborator();
-      case PLAN_OWNER_COLLABORATOR -> getPlanPermissions(username, planId).isPlanOwnerOrCollaborator();
+      case OWNER, PLAN_OWNER -> getPlanPermissions(username, planId).isOwner();
+      case PLAN_COLLABORATOR -> getPlanPermissions(username, planId).isCollaborator();
+      case PLAN_OWNER_COLLABORATOR -> getPlanPermissions(username, planId).isOwnerOrCollaborator();
     };
   }
 
-  private PlanOwnerOrCollaborator getPlanPermissions(final String username, final PlanId planId)
+  private OwnerOrCollaborator getPlanPermissions(final String username, final PlanId planId)
   throws IOException, PermissionsServiceException, NoSuchPlanException
   {
     return gqlService.checkPlanOwnerCollaborator(planId, username);
   }
 
+  private WorkspacePermissionType getWorkspaceActionPermission(final WorkspaceAction action, final String role)
+  throws Unauthorized, IOException, PermissionsServiceException
+  {
+    if (role.equals("aerie_admin")) {
+      return WorkspacePermissionType.NO_CHECK;
+    }
+    return gqlService.getWorkspaceActionPermission(action, role);
+  }
+
+  private boolean canPerformWorkspaceAction(
+      final WorkspacePermissionType permissionType,
+      final String username,
+      final WorkspaceId workspaceId)
+  throws IOException, PermissionsServiceException, NoSuchWorkspaceException {
+    return switch (permissionType) {
+      case NO_CHECK -> true;
+      case OWNER -> getWorkspacePermissions(username, workspaceId).isOwner();
+      case COLLABORATOR -> getWorkspacePermissions(username, workspaceId).isCollaborator();
+      case OWNER_COLLABORATOR -> getWorkspacePermissions(username, workspaceId).isOwnerOrCollaborator();
+    };
+  }
+
+  private OwnerOrCollaborator getWorkspacePermissions(final String username, final WorkspaceId workspaceId)
+  throws IOException, PermissionsServiceException, NoSuchWorkspaceException
+  {
+    return gqlService.checkWorkspaceOwnerCollaborator(workspaceId, username);
+  }
 }

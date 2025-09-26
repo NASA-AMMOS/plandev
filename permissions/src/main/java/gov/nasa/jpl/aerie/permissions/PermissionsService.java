@@ -50,6 +50,17 @@ public final class PermissionsService {
     if (!authorized) throw new Unauthorized(action, role, username, permissionType, workspaceId);
   }
 
+  public void checkCoarseGrained(final Action action, final String role)
+  throws PermissionsServiceException, Unauthorized, IOException
+  {
+    if(action instanceof WorkspaceAction workspaceAction) {
+      getWorkspaceActionPermission(workspaceAction, role);
+    }
+    else {
+      throw new IllegalArgumentException("Unsupported action subtype: "+action.getClass());
+    }
+  }
+
   private PlanPermissionType getActionPermission(final HasuraAction action, final String role)
   throws Unauthorized, IOException, PermissionsServiceException
   {

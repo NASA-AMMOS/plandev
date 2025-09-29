@@ -335,7 +335,7 @@ public class BindingsTests {
         final var expectedResponse = Json.createObjectBuilder()
                                          .add("message", "input mismatch exception")
                                          .add("extensions", Json.createObjectBuilder()
-                                                               .add("cause", "simulation dataset with id `-1` does not exist"))
+                                                               .add("cause", "simulation dataset with id `-1` does not exist. Simulation must be run before checking constraints and a valid simulation ID must be provided"))
                                          .build();
         assertEquals(expectedResponse, getBody(response));
       }
@@ -405,7 +405,7 @@ public class BindingsTests {
                                 .toString();
         final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
-        final var expectedCause = "plan with id " + planId + " has not yet been simulated at its current revision";
+        final var expectedCause = "Plan with id " + planId + " has not yet been simulated at its current revision. Simulation must be up-to-date before checking constraints";
         final var expectedBody = Json.createObjectBuilder()
                                          .add("message", "input mismatch exception")
                                          .add("extensions", Json.createObjectBuilder().add("cause", expectedCause))

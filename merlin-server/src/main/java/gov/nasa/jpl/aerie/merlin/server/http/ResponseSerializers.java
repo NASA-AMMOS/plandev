@@ -29,9 +29,11 @@ import javax.json.Json;
 import javax.json.JsonObjectBuilder;
 import javax.json.JsonValue;
 import javax.json.stream.JsonParsingException;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -485,7 +487,7 @@ public final class ResponseSerializers {
 
   public static JsonValue serializeNoSuchActivityTypeException(final MissionModelService.NoSuchActivityTypeException ex) {
     return Json.createObjectBuilder()
-        .add("message", "no such activity type")
+        .add("message", "No such activity type: Could not find activity type with ID: " + ex.activityTypeId)
         .add("activity_type", ex.activityTypeId)
         .build();
   }
@@ -493,17 +495,32 @@ public final class ResponseSerializers {
   public static JsonValue serializeInputMismatchException(final InputMismatchException ex) {
     return Json.createObjectBuilder()
                .add("message", "input mismatch exception")
-               .add("extensions", serializeCauseAsExtension(ex.getMessage()))
+               .add("extensions",
+                    serializeBaseErrorExtensions("INPUT_MISMATCH", Optional.of(ex.getMessage()))
+               )
                .build();
   }
 
   public static JsonValue serializeSimulationDatasetMismatchException(final SimulationDatasetMismatchException ex){
      return Json.createObjectBuilder()
                .add("message", "simulation dataset mismatch exception")
-               .add("extensions", serializeCauseAsExtension(ex.getMessage()))
+               .add("extensions",
+                    serializeBaseErrorExtensions("SIMULATION_DATASET_MISMATCH", Optional.of(ex.getMessage()))
+               )
                .build();
   }
 
+  public static JsonObjectBuilder serializeBaseErrorExtensions(String type, Optional<String> cause) {
+    var errorBuilder = Json.createObjectBuilder()
+        .add("service", "aerie_merlin")
+        .add("type", type)
+        .add("timestamp", Instant.now().toString());
+
+    if(cause.isPresent()) {
+      errorBuilder.add("cause", cause.get());
+    }
+    return errorBuilder;
+  }
   /**
    * Any exception that gets sent through a Hasura action needs to be wrapped in an "extensions" object to be
    * preserved in the response.

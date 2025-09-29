@@ -66,16 +66,16 @@ public class ConstraintAction {
     if (simulationDatasetId.isPresent()) {
       resultsHandle = this.simulationService.get(planId, simulationDatasetId.get())
                                             .orElseThrow(() -> new InputMismatchException(
-                                                "simulation dataset with id `"
+                                                "Simulation dataset with id `"
                                                 + simulationDatasetId.get().id()
-                                                + "` does not exist"));
+                                                + "` does not exist. Simulation must be run before checking constraints and a valid simulation ID must be provided"));
     } else {
       final var revisionData = this.planService.getPlanRevisionData(planId);
       resultsHandle = this.simulationService.get(planId, revisionData)
                                             .orElseThrow(() -> new InputMismatchException(
-                                                "plan with id "
+                                                "Plan with id "
                                                 + planId.id()
-                                                + " has not yet been simulated at its current revision"));
+                                                + " has not yet been simulated at its current revision. Simulation must be up-to-date before checking constraints"));
     }
 
     final SimulationDatasetId simDatasetId = resultsHandle.getSimulationDatasetId();

@@ -39,7 +39,7 @@ services:
     ports: !reset []
     environment:
       ORIGIN: https://${AERIE_HOST}
-      PUBLIC_ACTION_CLIENT_URL: http://localhost:27186
+      PUBLIC_ACTION_CLIENT_URL: http://${AERIE_HOST}:27186
       PUBLIC_GATEWAY_CLIENT_URL: https://${AERIE_HOST}:9000
       PUBLIC_HASURA_CLIENT_URL: https://${AERIE_HOST}:8080/v1/graphql
       PUBLIC_HASURA_WEB_SOCKET_URL: wss://${AERIE_HOST}:8080/v1/graphql

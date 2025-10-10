@@ -95,8 +95,19 @@ public class WorkspaceBindings implements Plugin {
     });
 
     // Default exception handlers for common endpoint exceptions
-    javalin.exception(NoSuchWorkspaceException.class, (ex, ctx) -> ctx.status(404).result(ex.getMessage()));
-    javalin.exception(IOException.class, (ex, ctx) -> ctx.status(500).result(ex.getMessage()));
+    javalin.exception(NoSuchWorkspaceException.class,
+                      (ex, ctx) -> ctx.status(404).json(new FormattedError(ex)));
+    javalin.exception(IOException.class,
+                      (ex, ctx) -> ctx.status(500).json(new FormattedError(ex)));
+    javalin.exception(SQLException.class,
+                      (ex, ctx) -> ctx.status(500).json(new FormattedError(ex)));
+    javalin.exception(UnauthorizedResponse.class, (ex, ctx) -> {
+      final var message = ex.getMessage() != null ? ex.getMessage() : "Unauthorized";
+      logger.warn("401 Unauthorized: {}", message);
+      ctx.status(401).json(new FormattedError(ex));
+    });
+    javalin.exception(NumberFormatException.class,
+                      (ex, ctx) -> ctx.status(400).json(new FormattedError(ex)));
   }
 
   /**
@@ -122,7 +133,8 @@ public class WorkspaceBindings implements Plugin {
         throw new UnauthorizedResponse("Invalid Hasura admin secret");
       }
 
-      return new JWTService.UserSession(userId, activeRole);
+      return activeRole == null ? new JWTService.UserSession(userId, "aerie_admin")
+                                : new JWTService.UserSession(userId, activeRole);
     } else {
       try {
         return jwtService.validateAuthorization(authHeader, activeRole);
@@ -137,10 +149,14 @@ public class WorkspaceBindings implements Plugin {
     try {
       final var user = authorize(context);
       permissionsService.checkCoarseGrained(WorkspaceAction.createWorkspace, user.activeRole());
-    } catch (Unauthorized ioe) {
-      throw new UnauthorizedResponse(ioe.getMessage());
-    } catch (IOException | PermissionsServiceException ioe) {
-      context.status(500).result("Could not create workspace.");
+    } catch (Unauthorized ue) {
+      context.status(403).json(new FormattedError(ue));
+      return;
+    } catch (IOException ioe) {
+      context.status(500).json(new FormattedError(ioe, "Could not create workspace."));
+      return;
+    } catch (PermissionsServiceException pse) {
+      context.status(500).json(new FormattedError(pse, "Could not create workspace."));
       return;
     }
 
@@ -159,30 +175,45 @@ public class WorkspaceBindings implements Plugin {
 
     try(final var reader = Json.createReader(new StringReader(context.body()))) {
       final var bodyJson = reader.readObject();
+      final String errorMsg = "Mandatory body parameter '%s' is missing or null. Request body format is:\n" + helpText;
 
       // Parcel Id
-      if (!bodyJson.containsKey("parcelId")) {
-        context.status(400).result("Mandatory body parameter 'parcelId' is missing or null. Request body format is:\n" + helpText);
+      if (!bodyJson.containsKey("parcelId") || bodyJson.isNull("parcelId")) {
+        context.status(400).json(new FormattedError(errorMsg.formatted("parcelId")));
         return;
       }
       parcelId = bodyJson.getInt("parcelId");
 
       // Workspace Location
-      if (!bodyJson.containsKey("workspaceLocation")) {
-        context.status(400).result("Mandatory body parameter 'workspaceLocation' is missing or null. Request body format is:\n" + helpText);
+      if (!bodyJson.containsKey("workspaceLocation") || bodyJson.isNull("workspaceLocation")) {
+        context.status(400).json(new FormattedError(errorMsg.formatted("workspaceLocation")));
         return;
       }
       final var workspaceString = bodyJson.getString("workspaceLocation");
       if(workspaceString.contains("/") || workspaceString.contains(".") || workspaceString.contains("~")){
-        context.status(400).result("Workspace location may not contain '/' or '.' or '~'");
+        context.status(400).json(new FormattedError("Workspace location may not contain '/' or '.' or '~'"));
+        return;
+      }
+      if(workspaceString.isBlank()) {
+        context.status(400).json(new FormattedError("Workspace location may not be blank."));
         return;
       }
       workspaceLocation = Path.of(workspaceString);
 
       // Workspace Name
-      workspaceName = bodyJson.containsKey("workspaceName") ? bodyJson.getString("workspaceName") : workspaceString;
+      if(bodyJson.containsKey("workspaceName")) {
+        if(bodyJson.isNull("workspaceName")) {
+          context.status(400).json(new FormattedError("Workspace name may not be null."));
+        }
+        workspaceName = bodyJson.getString("workspaceName");
+        if(workspaceName.isBlank()) {
+          context.status(400).json(new FormattedError("Workspace name may not be blank"));
+        }
+      } else {
+        workspaceName = workspaceString;
+      }
     } catch (JsonException je) {
-      context.status(400).result("Request body is malformed. Request body format is:\n" + helpText);
+      context.status(400).json(new FormattedError(je, "Request body is malformed. Request body format is:\n" + helpText));
       return;
     }
 
@@ -194,62 +225,35 @@ public class WorkspaceBindings implements Plugin {
     if(workspaceId.isPresent()) {
       context.status(200).result(workspaceId.get().toString());
     } else {
-      context.status(500).result("Unable to create workspace.");
+      context.status(500).json(new FormattedError("Unable to create workspace."));
     }
   }
 
   private void deleteWorkspace(Context context) {
     // Permissions Check
     final int workspaceId  = Integer.parseInt(context.pathParam("workspaceId"));
-
-    try {
-      final var user = authorize(context);
-      permissionsService.check(
-          WorkspaceAction.deleteWorkspace,
-          user.activeRole(),
-          user.userId(),
-          new WorkspaceId(workspaceId));
-    } catch (Unauthorized ioe) {
-      throw new UnauthorizedResponse(ioe.getMessage());
-    } catch (IOException | PermissionsServiceException ioe) {
-      context.status(500).result("Could not delete workspace.");
-      return;
-    } catch (gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException nsw) {
-      context.status(404).result(nsw.getMessage());
+    if(!checkPermissions(context, workspaceId, WorkspaceAction.deleteWorkspace)) {
       return;
     }
 
+    final var errorMsg = "Unable to delete Workspace %d.".formatted(workspaceId);
     try {
       if (workspaceService.deleteWorkspace(workspaceId)) {
         context.status(200).result("Workspace deleted.");
       } else {
-        context.status(500).result("Unable to delete workspace.");
+        context.status(500).json(new FormattedError(errorMsg));
       }
     } catch (NoSuchWorkspaceException ex) {
-      context.status(404).result(ex.getMessage());
+      context.status(404).json(new FormattedError(ex, errorMsg));
     } catch (SQLException e) {
-      context.status(500).result("Unable to delete workspace. " +e.getMessage());
+      context.status(500).json(new FormattedError(e, errorMsg));
     }
   }
 
   private void listWorkspaceContents(Context context) {
     // Permissions Check
     final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
-
-    try {
-      final var user = authorize(context);
-      permissionsService.check(
-          WorkspaceAction.listWorkspaceContents,
-          user.activeRole(),
-          user.userId(),
-          new WorkspaceId(workspaceId));
-    } catch (Unauthorized ioe) {
-      throw new UnauthorizedResponse(ioe.getMessage());
-    } catch (IOException | PermissionsServiceException ioe) {
-      context.status(500).result("Could not list workspace contents.");
-      return;
-    } catch (gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException nsw) {
-      context.status(404).result(nsw.getMessage());
+    if(!checkPermissions(context, workspaceId, WorkspaceAction.listWorkspaceContents)) {
       return;
     }
 
@@ -272,45 +276,32 @@ public class WorkspaceBindings implements Plugin {
 
     try {
       final var fileTree = workspaceService.listFiles(workspaceId, directoryPath, depth);
-
       if (fileTree == null) {
-        context.status(404).result("No such directory.");
+        context.status(404).json(new FormattedError("No such directory."));
         return;
       }
-
       context.status(200).json(fileTree.toJson().toString());
-    } catch (IOException | SQLException e) {
-      context.status(500).result(e.getMessage());
+    } catch (IOException ioe) {
+      context.status(500).json(new FormattedError(ioe));
+    } catch (SQLException se) {
+      context.status(500).json(new FormattedError(se));
     } catch (NoSuchWorkspaceException ex) {
-      context.status(404).result(ex.getMessage());
+      context.status(404).json(new FormattedError(ex));
     }
   }
 
   private void get(Context context) throws NoSuchWorkspaceException {
-    final var pathInfo = PathInformation.of(context);
-
     // Permissions Check
-    try {
-      final var user = authorize(context);
-      permissionsService.check(
-          WorkspaceAction.readFileDirectory,
-          user.activeRole(),
-          user.userId(),
-          new WorkspaceId(pathInfo.workspaceId));
-    } catch (Unauthorized ioe) {
-      throw new UnauthorizedResponse(ioe.getMessage());
-    } catch (IOException | PermissionsServiceException ioe) {
-      context.status(500).result("Could not read object at path " +pathInfo.fileName());
+    final var pathInfo = PathInformation.of(context);
+    if(!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.readFileDirectory)) {
       return;
-    } catch (gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException nsw) {
-      throw new NoSuchWorkspaceException(pathInfo.workspaceId);
     }
 
     if (workspaceService.isDirectory(pathInfo.workspaceId, pathInfo.filePath)) {
       listContents(context);
     } else {
       if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
-        context.status(404).result("No such file exists in the workspace: " + pathInfo.filePath);
+        context.status(404).json(new FormattedError("No such file exists in the workspace: " + pathInfo.filePath));
         return;
       }
 
@@ -321,30 +312,19 @@ public class WorkspaceBindings implements Plugin {
         context.contentType(ContentType.OCTET_STREAM);
         context.header("Content-Disposition", "attachment; filename=\"" + pathInfo.fileName() + "\"");
         context.status(200).result(inputStream);
-      } catch (IOException | SQLException e) {
-        context.status(500).result("Could not load file " + pathInfo.fileName());
+      } catch (IOException ioe) {
+        context.status(500).json(new FormattedError(ioe, "Could not load file " + pathInfo.fileName()));
+      } catch (SQLException se) {
+        context.status(500).json(new FormattedError(se, "Could not load file " + pathInfo.fileName()));
       }
     }
   }
 
   private void put(Context context) throws NoSuchWorkspaceException, IOException {
-    final var pathInfo = PathInformation.of(context);
-
     // Permissions Check
-    try {
-      final var user = authorize(context);
-      permissionsService.check(
-          WorkspaceAction.writeFileDirectory,
-          user.activeRole(),
-          user.userId(),
-          new WorkspaceId(pathInfo.workspaceId));
-    } catch (Unauthorized ioe) {
-      throw new UnauthorizedResponse(ioe.getMessage());
-    } catch (IOException | PermissionsServiceException ioe) {
-      context.status(500).result("Could not create object at path " +pathInfo.fileName());
+    final var pathInfo = PathInformation.of(context);
+    if(!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.writeFileDirectory)) {
       return;
-    } catch (gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException nsw) {
-      throw new NoSuchWorkspaceException(pathInfo.workspaceId);
     }
 
     final String type;
@@ -361,7 +341,7 @@ public class WorkspaceBindings implements Plugin {
       final var overwriteValidator =  context.queryParamAsClass("overwrite", Boolean.class);
       overwrite = overwriteValidator.hasValue() ? Optional.of(overwriteValidator.get()) : Optional.empty();
     } catch (ValidationException ve) {
-      context.status(400).result(ve.getMessage() != null ? ve.getMessage() : "Invalid request");
+      context.status(400).json(new FormattedError(ve));
       return;
     }
 
@@ -370,36 +350,36 @@ public class WorkspaceBindings implements Plugin {
       // "overwrite" defaults to "false" if unspecified
       if(workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)
          && !overwrite.orElse(false)) {
-        context.status(409).result(pathInfo.fileName() + " already exists.");
+        context.status(409).json(new FormattedError(pathInfo.fileName() + " already exists."));
         return;
       }
 
       // Reject the request if the file isn't provided.
       final var file = context.uploadedFile("file");
       if (file == null || !pathInfo.fileName().equals(file.filename())) {
-        context.status(400).result("No file provided with the name " + pathInfo.fileName());
+        context.status(400).json(new FormattedError("No file provided with the name " + pathInfo.fileName()));
         return;
       }
 
       if (workspaceService.saveFile(pathInfo.workspaceId, pathInfo.filePath, file)) {
         context.status(200).result("File " + pathInfo.fileName() + " uploaded to " + pathInfo.filePath);
       } else {
-        context.status(500).result("Could not save file.");
+        context.status(500).json(new FormattedError("Could not save file."));
       }
     } else if ("directory".equalsIgnoreCase(type)) {
       // Reject the request if the "overwrite" flag is supplied
       if(overwrite.isPresent()) {
-        context.status(400).result("Query parameter 'overwrite' is not permitted when creating a directory.");
+        context.status(400).json(new FormattedError("Query parameter 'overwrite' is not permitted when creating a directory."));
         return;
       }
 
       if (workspaceService.createDirectory(pathInfo.workspaceId, pathInfo.filePath)) {
         context.status(200).result("Directory created.");
       } else {
-        context.status(500).result("Could not create directory.");
+        context.status(500).json(new FormattedError("Could not create directory."));
       }
     } else {
-      context.status(400).result("Query param 'type' has invalid value "+type);
+      context.status(400).json(new FormattedError("Query param 'type' has invalid value "+type));
     }
   }
 
@@ -429,7 +409,7 @@ public class WorkspaceBindings implements Plugin {
       } else if (bodyJson.containsKey("copyTo")) {
         success = handleCopy(context, bodyJson);
       } else {
-        context.status(400).result("Invalid request. Must include either 'moveTo' or 'copyTo' key.\n\n" + helpText);
+        context.status(400).json(new FormattedError("Invalid request. Must include either 'moveTo' or 'copyTo' key.\n\n" + helpText));
         return;
       }
 
@@ -439,27 +419,31 @@ public class WorkspaceBindings implements Plugin {
       // If the copy or move did not return successfully, but did not set a status code, set the status code to 500
       // Works because `context.status` initializes to HttpStatus.OK
       else if (context.status().equals(HttpStatus.OK)) {
-        context.status(500).result("Internal Error");
+        context.status(500).json(new FormattedError("Internal Error"));
       }
 
 
-    } catch (JsonException e) {
+    } catch (JsonException je) {
       // Malformed JSON in request body
-      context.status(400).result("Malformed JSON: " + e.getMessage() + "\n\n" + helpText);
-    } catch (IllegalArgumentException e) {
+      context.status(400).json(new FormattedError(je, "Malformed JSON.\n\n" + helpText));
+    } catch (IllegalArgumentException iae) {
       // Logical errors or unsupported operations
-      context.status(400).result("Invalid request: " + e.getMessage() + "\n\n" + helpText);
-    } catch (NoSuchWorkspaceException e) {
+      context.status(400).json(new FormattedError(iae, "Invalid request.\n\n" + helpText));
+    } catch (NoSuchWorkspaceException nsw) {
       // Workspace not found
-      context.status(404).result("Workspace not found: " + e.getMessage());
-    } catch (IOException | SQLException e) {
+      context.status(404).json(new FormattedError(nsw));
+    } catch (IOException ioe) {
+      logger.error("Error processing workspace request", ioe);
+      context.status(500).json(new FormattedError(ioe));
+    } catch (SQLException se) {
       // Internal server error
-      logger.error("Error processing workspace request", e);
-      context.status(500).result("Internal server error while processing the request: " + e.getMessage());
+      logger.error("Error processing workspace request", se);
+      context.status(500).json(new FormattedError(se));
     } catch (Exception e) {
       // Catch-all for unexpected issues
       logger.error("Unexpected error processing workspace request", e);
-      context.status(500).result("Unexpected error: " + (e.getMessage() != null ? e.getMessage() : "Unknown error\n\n" + helpText));
+      final var message = e.getMessage() != null ? e.getMessage() : "Unknown error.\n\n" + helpText;
+      context.status(500).json(new FormattedError("UNKNOWN_ERROR", message, e));
     }
   }
 
@@ -491,7 +475,8 @@ public class WorkspaceBindings implements Plugin {
   }
 
   private boolean handleMove(Context context, JsonObject bodyJson)
-  throws IOException, NoSuchWorkspaceException, SQLException {
+  throws IOException, NoSuchWorkspaceException, SQLException
+  {
     final var pathInfo = PathInformation.of(context);
 
     final var destination = Path.of(bodyJson.getString("moveTo"));
@@ -502,83 +487,53 @@ public class WorkspaceBindings implements Plugin {
     }
 
     // Permissions Check
-    try {
-      final var user = authorize(context);
-      final var sourceWSId = new WorkspaceId(sourceWorkspace);
-      final var targetWSId = new WorkspaceId(targetWorkspace);
-
-      // Moving between workspaces requires "readFile", "deleteFile" on Workspace 1 and "writeFile" on Workspace 2
-      // (Permission derived from mv -v, which shows that moving a file is "copy, then delete")
-      permissionsService.check(
-          WorkspaceAction.readFileDirectory,
-          user.activeRole(),
-          user.userId(),
-          sourceWSId
-      );
-      permissionsService.check(
-          WorkspaceAction.deleteFileDirectory,
-          user.activeRole(),
-          user.userId(),
-          sourceWSId
-      );
-      permissionsService.check(
-          WorkspaceAction.writeFileDirectory,
-          user.activeRole(),
-          user.userId(),
-          targetWSId // defaults to "sourceWSId" when moving within the same workspace
-      );
-    } catch (Unauthorized ioe) {
-      throw new UnauthorizedResponse(ioe.getMessage());
-    } catch (IOException | PermissionsServiceException ioe) {
-      context.status(500).result("Could not move object.");
-      return false;
-    } catch (gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException nsw) {
-      context.status(404).result(nsw.getMessage());
+    // Moving between workspaces requires "readFile", "deleteFile" on Workspace 1 and "writeFile" on Workspace 2
+    // (Permission derived from mv -v, which shows that moving a file is "copy, then delete")
+    if (!(checkPermissions(context, sourceWorkspace, WorkspaceAction.readFileDirectory)
+          && checkPermissions(context, sourceWorkspace, WorkspaceAction.deleteFileDirectory)
+          && checkPermissions(context, targetWorkspace, WorkspaceAction.writeFileDirectory))) {
       return false;
     }
-
 
     CopyMoveValid validMove = isCopyOrMoveValid(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination);
     if (validMove.status != 200) {
-      context.status(validMove.status).result(validMove.message);
+      context.status(validMove.status).json(new FormattedError(validMove.message));
       return false;
     }
 
-    if (workspaceService.isDirectory(sourceWorkspace, pathInfo.filePath())) {
-      try {
+    final var errorMsg = "Unable to move '%s' in Workspace %d to '%s' in Workspace %d."
+        .formatted(pathInfo, sourceWorkspace, destination, targetWorkspace);
+    try {
+      if (workspaceService.isDirectory(sourceWorkspace, pathInfo.filePath())) {
         if (workspaceService.moveDirectory(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination)) {
           return true;
         } else {
-          context.status(500).result("Unable to move directory.");
+          context.status(500).json(new FormattedError(errorMsg));
           return false;
         }
-      } catch (NoSuchWorkspaceException ex) {
-        context.status(404).result(ex.getMessage());
-        return false;
-      } catch (SQLException | WorkspaceFileOpException e) {
-        context.status(500).result("Unable to move directory: " + e.getMessage());
-        return false;
-      }
-    } else {
-      try {
+      } else {
         if (workspaceService.moveFile(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination)) {
           return true;
         } else {
-          context.status(500).result("Unable to move file.");
+          context.status(500).json(new FormattedError(errorMsg));
           return false;
         }
-      } catch (NoSuchWorkspaceException ex) {
-        context.status(404).result(ex.getMessage());
-        return false;
-      } catch (SQLException | WorkspaceFileOpException e) {
-        context.status(500).result("Unable to move file. " + e.getMessage());
-        return false;
       }
+    } catch (NoSuchWorkspaceException ex) {
+      context.status(404).json(new FormattedError(ex, errorMsg));
+      return false;
+    } catch (SQLException se) {
+      context.status(500).json(new FormattedError(se, errorMsg));
+      return false;
+    } catch (WorkspaceFileOpException wfe) {
+      context.status(500).json(new FormattedError(wfe, errorMsg));
+      return false;
     }
   }
 
   private boolean handleCopy(Context context, JsonObject bodyJson)
-  throws NoSuchWorkspaceException, SQLException {
+  throws NoSuchWorkspaceException, SQLException
+  {
     final var pathInfo = PathInformation.of(context);
 
     final var destination = Path.of(bodyJson.getString("copyTo"));
@@ -589,96 +544,60 @@ public class WorkspaceBindings implements Plugin {
     }
 
     // Permissions Check
-    try {
-      final var user = authorize(context);
-      final var sourceWSId = new WorkspaceId(sourceWorkspace);
-      final var targetWSId = new WorkspaceId(targetWorkspace);
-
-      // Copying between workspaces requires "readFile" on Workspace 1 and "writeFile" on Workspace 2
-      permissionsService.check(
-          WorkspaceAction.readFileDirectory,
-          user.activeRole(),
-          user.userId(),
-          sourceWSId
-      );
-      permissionsService.check(
-          WorkspaceAction.writeFileDirectory,
-          user.activeRole(),
-          user.userId(),
-          targetWSId // defaults to "sourceWSId" when copying within the same workspace
-      );
-    } catch (Unauthorized ioe) {
-      throw new UnauthorizedResponse(ioe.getMessage());
-    } catch (IOException | PermissionsServiceException ioe) {
-      context.status(500).result("Could not copy object.");
-      return false;
-    } catch (gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException nsw) {
-      context.status(404).result(nsw.getMessage());
+    // Copying between workspaces requires "readFile" on Workspace 1 and "writeFile" on Workspace 2
+    if (!(checkPermissions(context, sourceWorkspace, WorkspaceAction.readFileDirectory)
+          && checkPermissions(context, targetWorkspace, WorkspaceAction.writeFileDirectory))) {
       return false;
     }
 
     CopyMoveValid validCopy = isCopyOrMoveValid(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination);
     if (validCopy.status != 200) {
-        context.status(validCopy.status).result(validCopy.message);
-        return false;
+      context.status(validCopy.status).json(new FormattedError(validCopy.message));
+      return false;
     }
 
-    if (workspaceService.isDirectory(sourceWorkspace, pathInfo.filePath())) {
-      try {
+    // Error message to use if the operation fails
+    final var errorMessage = "Unable to copy '%s' in Workspace %d to '%s' in Workspace %d"
+        .formatted(pathInfo.filePath, sourceWorkspace, destination, targetWorkspace);
+    try {
+      if (workspaceService.isDirectory(sourceWorkspace, pathInfo.filePath())) {
         if (workspaceService.copyDirectory(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination)) {
           return true;
         } else {
-          context.status(500).result("Unable to copy directory.");
+          context.status(500).json(new FormattedError(errorMessage));
           return false;
         }
-      } catch (NoSuchWorkspaceException ex) {
-        context.status(404).result(ex.getMessage());
-        return false;
-      } catch (SQLException | WorkspaceFileOpException e) {
-        context.status(500).result("Unable to copy directory: " + e.getMessage());
-        return false;
-      }
-    } else {
-      try {
+      } else {
         if (workspaceService.copyFile(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination)) {
           return true;
         } else {
-          context.status(500).result("Unable to copy file.");
+          context.status(500).json(new FormattedError(errorMessage));
           return false;
         }
-      } catch (NoSuchWorkspaceException ex) {
-        context.status(404).result(ex.getMessage());
-        return false;
-      } catch (SQLException | WorkspaceFileOpException e) {
-        context.status(500).result("Unable to copy file: " + e.getMessage());
-        return false;
       }
+    } catch (NoSuchWorkspaceException ex) {
+      context.status(404).json(new FormattedError(ex));
+      return false;
+    } catch (SQLException ex) {
+      context.status(500).json(new FormattedError(ex, errorMessage));
+      return false;
+    } catch (WorkspaceFileOpException ex) {
+      context.status(500).json(new FormattedError(ex, errorMessage));
+      return false;
     }
   }
 
-
   private void delete(Context context) throws NoSuchWorkspaceException, IOException {
     final var pathInfo = PathInformation.of(context);
+    final var errorMsg = "Could not delete %s.".formatted(pathInfo.filePath);
 
     // Permissions Check
-    try {
-      final var user = authorize(context);
-      permissionsService.check(
-          WorkspaceAction.deleteFileDirectory,
-          user.activeRole(),
-          user.userId(),
-          new WorkspaceId(pathInfo.workspaceId));
-    } catch (Unauthorized ioe) {
-      throw new UnauthorizedResponse(ioe.getMessage());
-    } catch (IOException | PermissionsServiceException ioe) {
-      context.status(500).result("Could not delete " +pathInfo.fileName());
+    if(!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.deleteFileDirectory)) {
       return;
-    } catch (gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException nsw) {
-      throw new NoSuchWorkspaceException(pathInfo.workspaceId);
     }
 
     if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
-      context.status(404).result(pathInfo.fileName() + " does not exist.");
+      context.status(404).json(new FormattedError(pathInfo.fileName() + " does not exist."));
       return;
     }
 
@@ -686,14 +605,43 @@ public class WorkspaceBindings implements Plugin {
       if (workspaceService.deleteDirectory(pathInfo.workspaceId, pathInfo.filePath)) {
         context.status(200).result("Directory deleted.");
       } else {
-        context.status(500).result("Could not delete directory.");
+        context.status(500).json(new FormattedError(errorMsg));
       }
     } else {
       if (workspaceService.deleteFile(pathInfo.workspaceId, pathInfo.filePath)) {
         context.status(200).result("File deleted.");
       } else {
-        context.status(500).result("Could not delete file.");
+        context.status(500).json(new FormattedError(errorMsg));
       }
+    }
+  }
+
+  /**
+   * Check that the request meets the permissions to perform the given action on the workspace.
+   * If it does not, format the context into an appropriate error state.
+   * @return true, if the user passes the permissions check. false otherwise
+   */
+  private boolean checkPermissions(Context context, int workspaceId, WorkspaceAction action) {
+    try {
+      final var user = authorize(context);
+      permissionsService.check(
+          action,
+          user.activeRole(),
+          user.userId(),
+          new WorkspaceId(workspaceId));
+      return true;
+    } catch (Unauthorized ue) {
+      context.status(403).json(new FormattedError(ue));
+      return false;
+    } catch (IOException ioe) {
+      context.status(500).json(new FormattedError(ioe, "Could not check permissions."));
+      return false;
+    } catch (PermissionsServiceException pse) {
+      context.status(500).json(new FormattedError(pse, "Could not check permissions."));
+      return false;
+    }catch (gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException nsw) {
+      context.status(404).json(new FormattedError(nsw, "Could not check permissions on Workspace %d.".formatted(nsw.id.id())));
+      return false;
     }
   }
 }

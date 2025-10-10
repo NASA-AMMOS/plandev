@@ -70,12 +70,6 @@ public final class WorkspaceAppDriver {
       config.jetty.server(() -> server);
     });
 
-    javalin.exception(UnauthorizedResponse.class, (e, ctx) -> {
-      var message = e.getMessage() != null ? e.getMessage() : "Unauthorized";
-      logger.warn("401 Unauthorized: {}", message);
-      ctx.status(401).result(message);
-    });
-
     // Start the HTTP server.
     javalin.start(configuration.httpPort());
 

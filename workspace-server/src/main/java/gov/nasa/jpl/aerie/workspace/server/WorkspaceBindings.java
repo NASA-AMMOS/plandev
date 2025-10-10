@@ -3,8 +3,8 @@ package gov.nasa.jpl.aerie.workspace.server;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import gov.nasa.jpl.aerie.permissions.PermissionsService;
 import gov.nasa.jpl.aerie.permissions.WorkspaceAction;
+import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
-import gov.nasa.jpl.aerie.permissions.exceptions.Unauthorized;
 import gov.nasa.jpl.aerie.permissions.gql.WorkspaceId;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import io.javalin.Javalin;
@@ -149,7 +149,7 @@ public class WorkspaceBindings implements Plugin {
     try {
       final var user = authorize(context);
       permissionsService.checkCoarseGrained(WorkspaceAction.createWorkspace, user.activeRole());
-    } catch (Unauthorized ue) {
+    } catch (Forbidden ue) {
       context.status(403).json(new FormattedError(ue));
       return;
     } catch (IOException ioe) {
@@ -630,7 +630,7 @@ public class WorkspaceBindings implements Plugin {
           user.userId(),
           new WorkspaceId(workspaceId));
       return true;
-    } catch (Unauthorized ue) {
+    } catch (Forbidden ue) {
       context.status(403).json(new FormattedError(ue));
       return false;
     } catch (IOException ioe) {

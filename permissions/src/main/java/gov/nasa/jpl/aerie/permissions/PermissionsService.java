@@ -1,10 +1,10 @@
 package gov.nasa.jpl.aerie.permissions;
 
+import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchSchedulingSpecificationException;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
-import gov.nasa.jpl.aerie.permissions.exceptions.Unauthorized;
 import gov.nasa.jpl.aerie.permissions.gql.GraphQLPermissionsService;
 import gov.nasa.jpl.aerie.permissions.gql.PlanId;
 import gov.nasa.jpl.aerie.permissions.gql.SchedulingSpecificationId;
@@ -20,10 +20,10 @@ public final class PermissionsService {
   }
 
   public void check(final HasuraAction action, final String role, final String username, final PlanId planId)
-  throws Unauthorized, IOException, PermissionsServiceException, NoSuchPlanException {
+  throws Forbidden, IOException, PermissionsServiceException, NoSuchPlanException {
     final var permissionType = getActionPermission(action, role);
     final var authorized = canPerformAction(permissionType, username, planId);
-    if (!authorized) throw new Unauthorized(action, role, username, permissionType, planId);
+    if (!authorized) throw new Forbidden(action, role, username, permissionType, planId);
   }
 
   public void check(
@@ -31,7 +31,7 @@ public final class PermissionsService {
       final String role,
       final String username,
       final SchedulingSpecificationId specificationId)
-  throws Unauthorized, IOException, PermissionsServiceException, NoSuchSchedulingSpecificationException,
+  throws Forbidden, IOException, PermissionsServiceException, NoSuchSchedulingSpecificationException,
          NoSuchPlanException
   {
     final var planId = gqlService.getPlanIdFromSchedulingSpecificationId(specificationId);
@@ -43,15 +43,15 @@ public final class PermissionsService {
       final String role,
       final String username,
       final WorkspaceId workspaceId)
-  throws Unauthorized, IOException, PermissionsServiceException, NoSuchWorkspaceException
+  throws Forbidden, IOException, PermissionsServiceException, NoSuchWorkspaceException
   {
     final var permissionType = getWorkspaceActionPermission(action, role);
     final var authorized = canPerformWorkspaceAction(permissionType, username, workspaceId);
-    if (!authorized) throw new Unauthorized(action, role, username, permissionType, workspaceId);
+    if (!authorized) throw new Forbidden(action, role, username, permissionType, workspaceId);
   }
 
   public void checkCoarseGrained(final Action action, final String role)
-  throws PermissionsServiceException, Unauthorized, IOException
+  throws PermissionsServiceException, Forbidden, IOException
   {
     if(action instanceof WorkspaceAction workspaceAction) {
       getWorkspaceActionPermission(workspaceAction, role);
@@ -62,7 +62,7 @@ public final class PermissionsService {
   }
 
   private PlanPermissionType getActionPermission(final HasuraAction action, final String role)
-  throws Unauthorized, IOException, PermissionsServiceException
+  throws Forbidden, IOException, PermissionsServiceException
   {
     if (role.equals("aerie_admin")) {
       return PlanPermissionType.NO_CHECK;
@@ -91,7 +91,7 @@ public final class PermissionsService {
   }
 
   private WorkspacePermissionType getWorkspaceActionPermission(final WorkspaceAction action, final String role)
-  throws Unauthorized, IOException, PermissionsServiceException
+  throws Forbidden, IOException, PermissionsServiceException
   {
     if (role.equals("aerie_admin")) {
       return WorkspacePermissionType.NO_CHECK;

@@ -27,7 +27,7 @@ public class ExceptionSerializers {
                .build();
   }
 
-  public static JsonValue serializeUnauthorizedException(final Unauthorized ex) {
+  public static JsonValue serializeForbiddenException(final Forbidden ex) {
     return Json.createObjectBuilder().add("message", ex.getMessage()).build();
   }
 

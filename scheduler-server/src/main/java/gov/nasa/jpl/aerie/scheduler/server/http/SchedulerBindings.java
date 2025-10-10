@@ -18,7 +18,7 @@ import gov.nasa.jpl.aerie.permissions.exceptions.ExceptionSerializers;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchSchedulingSpecificationException;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
-import gov.nasa.jpl.aerie.permissions.exceptions.Unauthorized;
+import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
 import gov.nasa.jpl.aerie.permissions.gql.SchedulingSpecificationId;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSpecificationException;
 import gov.nasa.jpl.aerie.scheduler.server.services.GenerateSchedulingLibAction;
@@ -109,8 +109,8 @@ public record SchedulerBindings(
       ctx.status(404).result(ExceptionSerializers.serializeNoSuchSchedulingSpecificationException(ex).toString());
     } catch (final PermissionsServiceException ex) {
       ctx.status(503).result(ExceptionSerializers.serializePermissionsServiceException(ex).toString());
-    } catch (final Unauthorized ex) {
-      ctx.status(403).result(ExceptionSerializers.serializeUnauthorizedException(ex).toString());
+    } catch (final Forbidden ex) {
+      ctx.status(403).result(ExceptionSerializers.serializeForbiddenException(ex).toString());
     }
   }
 

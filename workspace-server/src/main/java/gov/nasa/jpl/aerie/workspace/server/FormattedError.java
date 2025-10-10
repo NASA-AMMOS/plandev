@@ -4,8 +4,8 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
-import gov.nasa.jpl.aerie.permissions.exceptions.Unauthorized;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import io.javalin.http.UnauthorizedResponse;
 import io.javalin.validation.ValidationException;
@@ -107,11 +107,12 @@ final class FormattedError {
     this("FILE_OPERATION_EXCEPTION", message, wfe);
   }
 
-  // Unauthorized
-  public FormattedError(Unauthorized ue) {
+  // Forbidden
+  public FormattedError(Forbidden ue) {
     this("FORBIDDEN", ue);
   }
 
+  // Unauthorized
   public FormattedError(UnauthorizedResponse ue) {
     this.type = "UNAUTHORIZED";
     this.message = ue.getMessage() != null ? ue.getMessage() : "Unauthorized";

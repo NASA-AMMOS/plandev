@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.merlin.server.http;
 
 import gov.nasa.jpl.aerie.constraints.InputMismatchException;
+import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
@@ -17,7 +18,6 @@ import gov.nasa.jpl.aerie.permissions.HasuraAction;
 import gov.nasa.jpl.aerie.permissions.PermissionsService;
 import gov.nasa.jpl.aerie.permissions.exceptions.ExceptionSerializers;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
-import gov.nasa.jpl.aerie.permissions.exceptions.Unauthorized;
 import io.javalin.Javalin;
 import io.javalin.http.Context;
 import io.javalin.plugin.Plugin;
@@ -227,8 +227,8 @@ public final class MerlinBindings implements Plugin {
       ctx.status(404).result(ExceptionSerializers.serializeNoSuchPlanException(ex).toString());
     } catch (final PermissionsServiceException ex) {
       ctx.status(503).result(ExceptionSerializers.serializePermissionsServiceException(ex).toString());
-    } catch (final Unauthorized ex) {
-      ctx.status(403).result(ExceptionSerializers.serializeUnauthorizedException(ex).toString());
+    } catch (final Forbidden ex) {
+      ctx.status(403).result(ExceptionSerializers.serializeForbiddenException(ex).toString());
     } catch (final IOException ex) {
       ctx.status(500).result(ExceptionSerializers.serializeIOException(ex).toString());
     }
@@ -253,8 +253,8 @@ public final class MerlinBindings implements Plugin {
       ctx.status(404).result(ExceptionSerializers.serializeNoSuchPlanException(ex).toString());
     } catch (final PermissionsServiceException ex) {
       ctx.status(503).result(ExceptionSerializers.serializePermissionsServiceException(ex).toString());
-    } catch (final Unauthorized ex) {
-      ctx.status(403).result(ExceptionSerializers.serializeUnauthorizedException(ex).toString());
+    } catch (final Forbidden ex) {
+      ctx.status(403).result(ExceptionSerializers.serializeForbiddenException(ex).toString());
     } catch (final IOException ex) {
       ctx.status(500).result(ExceptionSerializers.serializeIOException(ex).toString());
     }
@@ -289,8 +289,8 @@ public final class MerlinBindings implements Plugin {
       ctx.status(404).result(ResponseSerializers.serializeSimulationDatasetMismatchException(ex).toString());
     } catch (final PermissionsServiceException ex) {
       ctx.status(503).result(ExceptionSerializers.serializePermissionsServiceException(ex).toString());
-    } catch (final Unauthorized ex) {
-      ctx.status(403).result(ExceptionSerializers.serializeUnauthorizedException(ex).toString());
+    } catch (final Forbidden ex) {
+      ctx.status(403).result(ExceptionSerializers.serializeForbiddenException(ex).toString());
     } catch (final IOException ex) {
       ctx.status(500).result(ExceptionSerializers.serializeIOException(ex).toString());
     }
@@ -463,8 +463,8 @@ public final class MerlinBindings implements Plugin {
       ctx.status(404).result(ExceptionSerializers.serializeNoSuchPlanException(ex).toString());
     } catch (final PermissionsServiceException ex) {
       ctx.status(503).result(ExceptionSerializers.serializePermissionsServiceException(ex).toString());
-    } catch (final Unauthorized ex) {
-      ctx.status(403).result(ExceptionSerializers.serializeUnauthorizedException(ex).toString());
+    } catch (final Forbidden ex) {
+      ctx.status(403).result(ExceptionSerializers.serializeForbiddenException(ex).toString());
     } catch (final IOException ex) {
       ctx.status(500).result(ExceptionSerializers.serializeIOException(ex).toString());
     }
@@ -540,7 +540,7 @@ public final class MerlinBindings implements Plugin {
       final HasuraAction action,
       final gov.nasa.jpl.aerie.merlin.server.models.HasuraAction.Session session,
       final PlanId planId
-  ) throws gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException, Unauthorized, IOException, PermissionsServiceException
+  ) throws gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException, Forbidden, IOException, PermissionsServiceException
   {
     final var permissionsPlanId = new gov.nasa.jpl.aerie.permissions.gql.PlanId(planId.id());
     permissionsService.check(action, session.hasuraRole(), session.hasuraUserId(), permissionsPlanId);

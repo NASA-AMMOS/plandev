@@ -5,11 +5,11 @@ import gov.nasa.jpl.aerie.permissions.PlanPermissionType;
 import gov.nasa.jpl.aerie.permissions.OwnerOrCollaborator;
 import gov.nasa.jpl.aerie.permissions.WorkspaceAction;
 import gov.nasa.jpl.aerie.permissions.WorkspacePermissionType;
+import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchSchedulingSpecificationException;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
-import gov.nasa.jpl.aerie.permissions.exceptions.Unauthorized;
 
 import javax.json.Json;
 import javax.json.JsonException;
@@ -79,7 +79,8 @@ public record GraphQLPermissionsService(
     }
   }
 
-  public PlanPermissionType getActionPermission(final HasuraAction action, final String role) throws IOException, Unauthorized, PermissionsServiceException {
+  public PlanPermissionType getActionPermission(final HasuraAction action, final String role)
+  throws IOException, Forbidden, PermissionsServiceException {
     final var query = """
         query getActionPermission($role: user_roles_enum!, $action: String!) {
           check: user_role_permission_by_pk(role: $role) {
@@ -92,13 +93,14 @@ public record GraphQLPermissionsService(
                               .add("role", role)
                               .build();
 
-    final var response = postRequest(query, variables).orElseThrow(() -> new Unauthorized(role, action));
+    final var response = postRequest(query, variables).orElseThrow(() -> new Forbidden(role, action));
     final var check = response.getJsonObject("data").getJsonObject("check");
-    if (check.isNull("permission")) { throw new Unauthorized(role, action); }
+    if (check.isNull("permission")) { throw new Forbidden(role, action); }
     return PlanPermissionType.valueOf(check.getString("permission"));
   }
 
-  public WorkspacePermissionType getWorkspaceActionPermission(final WorkspaceAction action, final String role) throws IOException, Unauthorized, PermissionsServiceException {
+  public WorkspacePermissionType getWorkspaceActionPermission(final WorkspaceAction action, final String role)
+  throws IOException, Forbidden, PermissionsServiceException {
     final var query = """
         query getWorkspaceActionPermission($role: user_roles_enum!, $action: String!) {
           check: user_role_permission_by_pk(role: $role) {
@@ -111,9 +113,9 @@ public record GraphQLPermissionsService(
                               .add("role", role)
                               .build();
 
-    final var response = postRequest(query, variables).orElseThrow(() -> new Unauthorized(role, action));
+    final var response = postRequest(query, variables).orElseThrow(() -> new Forbidden(role, action));
     final var check = response.getJsonObject("data").getJsonObject("check");
-    if (check.isNull("permission")) { throw new Unauthorized(role, action); }
+    if (check.isNull("permission")) { throw new Forbidden(role, action); }
     return WorkspacePermissionType.valueOf(check.getString("permission"));
   }
 

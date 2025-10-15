@@ -194,7 +194,7 @@ final class FormattedError {
         final JsonGenerator jsonGenerator,
         final SerializerProvider serializerProvider) throws IOException
     {
-      jsonGenerator.writeObject(formattedError.toJson());
+      jsonGenerator.writeRaw(formattedError.toJson().toString());
     }
   }
 }

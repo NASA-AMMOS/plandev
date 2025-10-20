@@ -148,7 +148,7 @@ public class WorkspaceBindings implements Plugin {
     // Permissions check
     try {
       final var user = authorize(context);
-      permissionsService.checkCoarseGrained(WorkspaceAction.createWorkspace, user.activeRole());
+      permissionsService.checkCoarseGrained(WorkspaceAction.create_workspace, user.activeRole());
     } catch (Forbidden ue) {
       context.status(403).json(new FormattedError(ue));
       return;
@@ -232,7 +232,7 @@ public class WorkspaceBindings implements Plugin {
   private void deleteWorkspace(Context context) {
     // Permissions Check
     final int workspaceId  = Integer.parseInt(context.pathParam("workspaceId"));
-    if(!checkPermissions(context, workspaceId, WorkspaceAction.deleteWorkspace)) {
+    if(!checkPermissions(context, workspaceId, WorkspaceAction.delete_workspace)) {
       return;
     }
 
@@ -253,7 +253,7 @@ public class WorkspaceBindings implements Plugin {
   private void listWorkspaceContents(Context context) {
     // Permissions Check
     final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
-    if(!checkPermissions(context, workspaceId, WorkspaceAction.listWorkspaceContents)) {
+    if(!checkPermissions(context, workspaceId, WorkspaceAction.list_workspace_contents)) {
       return;
     }
 
@@ -293,7 +293,7 @@ public class WorkspaceBindings implements Plugin {
   private void get(Context context) throws NoSuchWorkspaceException {
     // Permissions Check
     final var pathInfo = PathInformation.of(context);
-    if(!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.readFileDirectory)) {
+    if(!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.read_file_directory)) {
       return;
     }
 
@@ -323,7 +323,7 @@ public class WorkspaceBindings implements Plugin {
   private void put(Context context) throws NoSuchWorkspaceException, IOException {
     // Permissions Check
     final var pathInfo = PathInformation.of(context);
-    if(!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.writeFileDirectory)) {
+    if(!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.write_file_directory)) {
       return;
     }
 
@@ -489,9 +489,9 @@ public class WorkspaceBindings implements Plugin {
     // Permissions Check
     // Moving between workspaces requires "readFile", "deleteFile" on Workspace 1 and "writeFile" on Workspace 2
     // (Permission derived from mv -v, which shows that moving a file is "copy, then delete")
-    if (!(checkPermissions(context, sourceWorkspace, WorkspaceAction.readFileDirectory)
-          && checkPermissions(context, sourceWorkspace, WorkspaceAction.deleteFileDirectory)
-          && checkPermissions(context, targetWorkspace, WorkspaceAction.writeFileDirectory))) {
+    if (!(checkPermissions(context, sourceWorkspace, WorkspaceAction.read_file_directory)
+          && checkPermissions(context, sourceWorkspace, WorkspaceAction.delete_file_directory)
+          && checkPermissions(context, targetWorkspace, WorkspaceAction.write_file_directory))) {
       return false;
     }
 
@@ -545,8 +545,8 @@ public class WorkspaceBindings implements Plugin {
 
     // Permissions Check
     // Copying between workspaces requires "readFile" on Workspace 1 and "writeFile" on Workspace 2
-    if (!(checkPermissions(context, sourceWorkspace, WorkspaceAction.readFileDirectory)
-          && checkPermissions(context, targetWorkspace, WorkspaceAction.writeFileDirectory))) {
+    if (!(checkPermissions(context, sourceWorkspace, WorkspaceAction.read_file_directory)
+          && checkPermissions(context, targetWorkspace, WorkspaceAction.write_file_directory))) {
       return false;
     }
 
@@ -592,7 +592,7 @@ public class WorkspaceBindings implements Plugin {
     final var errorMsg = "Could not delete %s.".formatted(pathInfo.filePath);
 
     // Permissions Check
-    if(!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.deleteFileDirectory)) {
+    if(!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.delete_file_directory)) {
       return;
     }
 

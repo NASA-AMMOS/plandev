@@ -1,6 +1,6 @@
 import express, { Response } from "express";
 import { configuration } from "./config";
-import { corsMiddleware, jsonErrorMiddleware } from "./middleware";
+import {authMiddleware, corsMiddleware, jsonErrorMiddleware} from "./middleware";
 import { ActionWorkerPool } from "./threads/workerPool";
 import { cleanup, setupListeners } from "./listeners/dbListeners";
 import { ActionRunner } from "./type/actionRunner";
@@ -35,14 +35,18 @@ app.get("/health", async (req, res, next) => {
   res.status(200).send();
 });
 
-app.post("/secrets", async (req, res, next) => {
-  const { action_run_id, secrets } = req.body;
-  const actionRunId = action_run_id as string;
+app.post(
+  "/secrets",
+  authMiddleware,
+  async (req, res, next) => {
+    const { action_run_id, secrets } = req.body;
+    const actionRunId = action_run_id as string;
 
-  ActionRunner.addActionSecret(actionRunId, secrets as Record<string, string>);
+    ActionRunner.addActionSecret(actionRunId, secrets as Record<string, string>);
 
-  res.status(200).send({ success: true });
-});
+    res.status(200).send({ success: true });
+  }
+);
 
 // handle termination signals
 process.on("SIGINT", () => cleanup(server));

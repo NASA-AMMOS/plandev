@@ -1,3 +1,5 @@
+import {Algorithm} from "jsonwebtoken";
+
 export interface Config {
   AERIE_DB: string;
   AERIE_DB_HOST: string;
@@ -8,6 +10,8 @@ export interface Config {
   ACTION_WORKER_NUM: string;
   ACTION_MAX_WORKER_NUM: string;
   HASURA_GRAPHQL_ADMIN_SECRET: string;
+  HASURA_GRAPHQL_JWT_SECRET: string;
+  JWT_ALGORITHMS: Algorithm[];
   LOG_FILE: string;
   LOG_LEVEL: string;
   MERLIN_GRAPHQL_URL: string;
@@ -30,6 +34,8 @@ export const configuration = (): Config => {
     ACTION_WORKER_NUM: env.ACTION_WORKER_NUM ?? "1",
     ACTION_MAX_WORKER_NUM: env.ACTION_MAX_WORKER_NUM ?? "1",
     HASURA_GRAPHQL_ADMIN_SECRET: env.HASURA_GRAPHQL_ADMIN_SECRET ?? "",
+    HASURA_GRAPHQL_JWT_SECRET: env.HASURA_GRAPHQL_JWT_SECRET ?? "",
+    JWT_ALGORITHMS: parseArray(env.JWT_ALGORITHMS, ['HS256']),
     LOG_FILE: env.LOG_FILE ?? "console",
     LOG_LEVEL: env.LOG_LEVEL ?? "debug",
     MERLIN_GRAPHQL_URL: env.MERLIN_GRAPHQL_URL ?? "http://localhost:8080/graphql",
@@ -39,3 +45,19 @@ export const configuration = (): Config => {
     WORKSPACE_BASE_URL: env.WORKSPACE_BASE_URL ?? "http://aerie_workspace:28000",
   };
 };
+
+/**
+ * Parse generically typed environment variable into an array.
+ * Returns the default value if parse fails.
+ */
+function parseArray<T = string>(value: string | undefined, defaultValue: T[]): T[] {
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch (e) {
+      console.error(e);
+      return defaultValue;
+    }
+  }
+  return defaultValue;
+}

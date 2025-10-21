@@ -19,6 +19,7 @@
   "devDependencies": {
     "@tsconfig/node22": "^22.0.0",
     "@types/express": "^5.0.0",
+    "@types/jsonwebtoken": "9.0.2",
     "@types/pg": "^8.11.11",
     "eslint-config-sheriff": "^25.8.0",
     "nodemon": "^3.1.9",
@@ -28,6 +29,7 @@
   "dependencies": {
     "@nasa-jpl/aerie-actions": "1.0.3",
     "express": "^5.0.1",
+    "jsonwebtoken": "9.0.2",
     "pg": "^8.13.3",
     "piscina": "4.9.2",
     "winston": "^3.17.0"

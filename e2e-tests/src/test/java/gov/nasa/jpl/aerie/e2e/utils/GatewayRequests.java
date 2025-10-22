@@ -6,6 +6,7 @@ import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.options.FilePayload;
 import com.microsoft.playwright.options.FormData;
 import com.microsoft.playwright.options.RequestOptions;
+import gov.nasa.jpl.aerie.e2e.types.User;
 
 import javax.json.Json;
 import javax.json.JsonObject;
@@ -24,6 +25,9 @@ public class GatewayRequests implements AutoCloseable {
     login();
   }
 
+  /**
+   * Auto-login the AerieE2eTests user, whose token is used to upload mission model JARs
+   */
   private void login() throws IOException {
     if(token != null) return;
     final var response = request.post("/auth/login", RequestOptions.create()
@@ -44,6 +48,33 @@ public class GatewayRequests implements AutoCloseable {
         throw new RuntimeException(bodyJson.toString());
       }
       token = bodyJson.getString("token");
+    }
+  }
+
+  /**
+   * Login a particular user to get a JWT Auth Token
+   * @param user the User to be logged in
+   * @return the JWT token from login
+   */
+  public String login(User user) throws IOException {
+    final var response = request.post("/auth/login", RequestOptions.create()
+                                                                   .setHeader("Content-Type", "application/json")
+                                                                   .setData(Json.createObjectBuilder()
+                                                                                .add("username", user.name())
+                                                                                .add("password", "password")
+                                                                                .build()
+                                                                                .toString()));
+    // Process Response
+    if (!response.ok()) {
+      throw new IOException(response.statusText());
+    }
+    try (final var reader = Json.createReader(new StringReader(response.text()))) {
+      final JsonObject bodyJson = reader.readObject();
+      if (!bodyJson.getBoolean("success")) {
+        System.err.println("Login failed");
+        throw new RuntimeException(bodyJson.toString());
+      }
+      return bodyJson.getString("token");
     }
   }
 

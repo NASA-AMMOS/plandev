@@ -1,14 +1,14 @@
 {
   "name": "action-server",
   "version": "1.0.0",
-  "main": "app.js",
+  "main": "server.js",
   "scripts": {
     "build": "npm run lint; npm run build-quiet",
     "build-quiet": "tsc -p tsconfig.json",
     "clean": "rm -rf build",
     "start": "npm run clean; npm run build-quiet; node build/app.js",
     "dev": "npm run clean; npm run build; nodemon --watch  src/**/*  -e ts --exec 'node --inspect=0.0.0.0:9229 --require ts-node/register build/app.js'",
-    "test": "bash -c 'node -r ts-node/register tests/*.test.ts | tee action-server-test-report.log; exit ${PIPESTATUS[0]}'",
+    "test": "bash -c 'TSX_PROJECT=tsconfig.test.json node --experimental-test-module-mocks --import tsx --test tests/*.test.mts | tee action-server-test-report.log; exit ${PIPESTATUS[0]}'",
     "lint": "eslint src/**/*.ts",
     "reformat": "npx prettier --config ./.prettierrc.json -w ./src"
   },
@@ -21,10 +21,13 @@
     "@types/express": "^5.0.0",
     "@types/jsonwebtoken": "9.0.2",
     "@types/pg": "^8.11.11",
+    "@types/supertest": "^6.0.3",
     "eslint-config-sheriff": "^25.8.0",
     "nodemon": "^3.1.9",
     "prettier": "^3.4.2",
-    "ts-node": "^10.9.2"
+    "supertest": "^7.1.4",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.20.6"
   },
   "dependencies": {
     "@nasa-jpl/aerie-actions": "1.0.3",

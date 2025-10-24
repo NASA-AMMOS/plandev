@@ -34,7 +34,7 @@ export const configuration = (): Config => {
     ACTION_WORKER_NUM: env.ACTION_WORKER_NUM ?? "1",
     ACTION_MAX_WORKER_NUM: env.ACTION_MAX_WORKER_NUM ?? "1",
     HASURA_GRAPHQL_ADMIN_SECRET: env.HASURA_GRAPHQL_ADMIN_SECRET ?? "",
-    HASURA_GRAPHQL_JWT_SECRET: env.HASURA_GRAPHQL_JWT_SECRET ?? "",
+    HASURA_GRAPHQL_JWT_SECRET: env.HASURA_GRAPHQL_JWT_SECRET ?? "{ \"type\": \"HS256\", \"key\": \"examplekey\" }",
     JWT_ALGORITHMS: parseArray(env.JWT_ALGORITHMS, ['HS256']),
     LOG_FILE: env.LOG_FILE ?? "console",
     LOG_LEVEL: env.LOG_LEVEL ?? "debug",

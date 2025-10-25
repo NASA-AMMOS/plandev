@@ -2,6 +2,7 @@ import { ActionWorkerPool } from "./threads/workerPool";
 import { cleanup, setupListeners } from "./listeners/dbListeners";
 import {app}  from "./app";
 import {configuration} from "./config";
+import logger from "./utils/logger";
 
 const port = configuration().PORT;
 
@@ -13,13 +14,13 @@ async function start() {
     await setupListeners();
     // start the express app
     const server = app.listen(port, () => {
-      console.debug(`Server running on port ${port}`);
+      logger.info(`Server running on port ${port}`);
     });
     // handle termination signals, cleanup server/listeners when app is terminated
     process.on("SIGINT", () => cleanup(server));
     process.on("SIGTERM", () => cleanup(server));
   } catch (err) {
-    console.error("Failed to initialize application:", err);
+    logger.error("Failed to initialize application:" + err);
     process.exit(1);
   }
 }

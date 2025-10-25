@@ -6,8 +6,8 @@
     "build": "npm run lint; npm run build-quiet",
     "build-quiet": "tsc -p tsconfig.json",
     "clean": "rm -rf build",
-    "start": "npm run clean; npm run build-quiet; node build/app.js",
-    "dev": "npm run clean; npm run build; nodemon --watch  src/**/*  -e ts --exec 'node --inspect=0.0.0.0:9229 --require ts-node/register build/app.js'",
+    "start": "npm run clean; npm run build-quiet; node build/server.js",
+    "dev": "npm run clean; npm run build; nodemon --watch  src/**/*  -e ts --exec 'node --inspect=0.0.0.0:9229 --require ts-node/register build/server.js'",
     "test": "bash -c 'TSX_PROJECT=tsconfig.test.json node --experimental-test-module-mocks --import tsx --test tests/*.test.mts | tee action-server-test-report.log; exit ${PIPESTATUS[0]}'",
     "lint": "eslint src/**/*.ts",
     "reformat": "npx prettier --config ./.prettierrc.json -w ./src"

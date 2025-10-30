@@ -110,6 +110,7 @@ public class WorkspaceBindings implements Plugin {
                       (ex, ctx) -> ctx.status(400).json(new FormattedError(ex)));
   }
 
+  // region Authorization
   /**
    * Validate that the request has a valid authorization
    */
@@ -144,6 +145,37 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
+  /**
+   * Check that the request meets the permissions to perform the given action on the workspace.
+   * If it does not, format the context into an appropriate error state.
+   * @return true, if the user passes the permissions check. false otherwise
+   */
+  private boolean checkPermissions(Context context, int workspaceId, WorkspaceAction action) {
+    try {
+      final var user = authorize(context);
+      permissionsService.check(
+          action,
+          user.activeRole(),
+          user.userId(),
+          new WorkspaceId(workspaceId));
+      return true;
+    } catch (Forbidden ue) {
+      context.status(403).json(new FormattedError(ue));
+      return false;
+    } catch (IOException ioe) {
+      context.status(500).json(new FormattedError(ioe, "Could not check permissions."));
+      return false;
+    } catch (PermissionsServiceException pse) {
+      context.status(500).json(new FormattedError(pse, "Could not check permissions."));
+      return false;
+    }catch (gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException nsw) {
+      context.status(404).json(new FormattedError(nsw, "Could not check permissions on Workspace %d.".formatted(nsw.id.id())));
+      return false;
+    }
+  }
+  // endregion
+
+  // region Workspace Level Methods
   private void createWorkspace(Context context) {
     // Permissions check
     try {
@@ -259,7 +291,9 @@ public class WorkspaceBindings implements Plugin {
 
     listContents(context);
   }
+  // endregion
 
+  // region Single Item Endpoints
   private void listContents(Context context) {
     final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
 
@@ -615,33 +649,5 @@ public class WorkspaceBindings implements Plugin {
       }
     }
   }
-
-  /**
-   * Check that the request meets the permissions to perform the given action on the workspace.
-   * If it does not, format the context into an appropriate error state.
-   * @return true, if the user passes the permissions check. false otherwise
-   */
-  private boolean checkPermissions(Context context, int workspaceId, WorkspaceAction action) {
-    try {
-      final var user = authorize(context);
-      permissionsService.check(
-          action,
-          user.activeRole(),
-          user.userId(),
-          new WorkspaceId(workspaceId));
-      return true;
-    } catch (Forbidden ue) {
-      context.status(403).json(new FormattedError(ue));
-      return false;
-    } catch (IOException ioe) {
-      context.status(500).json(new FormattedError(ioe, "Could not check permissions."));
-      return false;
-    } catch (PermissionsServiceException pse) {
-      context.status(500).json(new FormattedError(pse, "Could not check permissions."));
-      return false;
-    }catch (gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException nsw) {
-      context.status(404).json(new FormattedError(nsw, "Could not check permissions on Workspace %d.".formatted(nsw.id.id())));
-      return false;
-    }
-  }
+  // endregion
 }

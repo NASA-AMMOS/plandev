@@ -379,25 +379,27 @@ public class WorkspaceBindings implements Plugin {
       return;
     }
 
-    final String type;
+    final ItemType type;
     final Optional<Boolean> overwrite;
 
     // Validate the permitted query parameters on Put requests
     try {
-      type = context.queryParamAsClass("type", String.class)
-                    .allowNullable()
-                    .check(Objects::nonNull, "'type' must be provided.")
-                    .check(ts -> "file".equalsIgnoreCase(ts) || "directory".equalsIgnoreCase(ts),
-                           "'type' must be one of 'file' or 'directory'")
-                    .get();
+      final var typeParam = context.queryParamAsClass("type", String.class)
+                                   .allowNullable()
+                                   .check(Objects::nonNull, "'type' must be provided.")
+                                   .get();
+      type = ItemType.of(typeParam);
       final var overwriteValidator =  context.queryParamAsClass("overwrite", Boolean.class);
       overwrite = overwriteValidator.hasValue() ? Optional.of(overwriteValidator.get()) : Optional.empty();
     } catch (ValidationException ve) {
       context.status(400).json(new FormattedError(ve));
       return;
+    } catch (IllegalArgumentException iae) {
+      context.status(400).json(new FormattedError(iae));
+      return;
     }
 
-    if ("file".equalsIgnoreCase(type)) {
+    if (type == ItemType.file) {
       // Report a "Conflict" status if the file already exists and "overwrite" is false
       // "overwrite" defaults to "false" if unspecified
       if(workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)
@@ -418,7 +420,7 @@ public class WorkspaceBindings implements Plugin {
       } else {
         context.status(500).json(new FormattedError("Could not save file."));
       }
-    } else if ("directory".equalsIgnoreCase(type)) {
+    } else if (type == ItemType.directory) {
       // Reject the request if the "overwrite" flag is supplied
       if(overwrite.isPresent()) {
         context.status(400).json(new FormattedError("Query parameter 'overwrite' is not permitted when creating a directory."));

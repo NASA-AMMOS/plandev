@@ -441,24 +441,29 @@ public class WorkspaceBindings implements Plugin {
     final String helpText = """
     Expected JSON body with one of the following formats:
 
-    To move a file:
+    To move an item:
     {
-      "moveTo": "<destination-path>",
-      "toWorkspace": <new-workspace-id>, (optional)
+        "toWorkspace": 2,                             // optional. if provided, the item will be moved to the specified workspace.
+                                                      //   defaults to the current workspace.
+        "moveTo": "path/to/destination",              // required. path within the destination workspace to move the item to, ending with the item.
+                                                      //  to rename an item, end the 'moveTo' path with a name that differs from the item's current name.
     }
 
-    To copy a file:
+    To copy an item:
     {
-      "copyTo": "<destination-path>",
-      "toWorkspace": <new-workspace-id>, (optional)
-    }
-    """;
+        "toWorkspace": 2,                             // optional. if provided, the item will be copied to the specified workspace.
+                                                      //   defaults to the current workspace.
+        "copyTo": "path/to/destination/folder",       // required. path within the destination workspace to copy the item to, ending with the item.
+    }""";
 
     try (JsonReader bodyReader = Json.createReader(new StringReader(context.body()))) {
       JsonObject bodyJson = bodyReader.readObject();
       final boolean success;
 
-      if (bodyJson.containsKey("moveTo")) {
+      if(bodyJson.containsKey("moveTo") && bodyJson.containsKey("copyTo")){
+        context.status(400).json(new FormattedError("Invalid request. Too many actions specified.\n\n" + helpText));
+        return;
+      } else if (bodyJson.containsKey("moveTo")) {
         success = handleMove(context, bodyJson);
       } else if (bodyJson.containsKey("copyTo")) {
         success = handleCopy(context, bodyJson);
@@ -556,7 +561,7 @@ public class WorkspaceBindings implements Plugin {
     }
 
     final var errorMsg = "Unable to move '%s' in Workspace %d to '%s' in Workspace %d."
-        .formatted(pathInfo, sourceWorkspace, destination, targetWorkspace);
+        .formatted(pathInfo.filePath(), sourceWorkspace, destination, targetWorkspace);
     try {
       if (workspaceService.isDirectory(sourceWorkspace, pathInfo.filePath())) {
         if (workspaceService.moveDirectory(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination)) {

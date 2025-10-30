@@ -10,12 +10,12 @@ import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.jpl.aerie.workspace.server.types.BulkPutItem;
 import gov.nasa.jpl.aerie.workspace.server.types.PostActions;
 import gov.nasa.jpl.aerie.workspace.server.types.ItemType;
+import gov.nasa.jpl.aerie.workspace.server.types.PostBody;
 import io.javalin.Javalin;
 import io.javalin.apibuilder.ApiBuilder;
 import io.javalin.http.ContentType;
 import io.javalin.http.Context;
 import io.javalin.http.HandlerType;
-import io.javalin.http.HttpStatus;
 import io.javalin.http.UnauthorizedResponse;
 import io.javalin.http.UploadedFile;
 import io.javalin.plugin.Plugin;
@@ -24,9 +24,8 @@ import io.javalin.validation.ValidationException;
 import javax.json.Json;
 import javax.json.JsonArray;
 import javax.json.JsonException;
-import javax.json.JsonObject;
-import javax.json.JsonReader;
 import javax.json.JsonString;
+import javax.json.JsonValue;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Path;
@@ -126,6 +125,12 @@ public class WorkspaceBindings implements Plugin {
     });
     javalin.exception(NumberFormatException.class,
                       (ex, ctx) -> ctx.status(400).json(new FormattedError(ex)));
+    javalin.exception(Exception.class, (ex, ctx) -> {
+      // Catch-all for unexpected issues
+      logger.error("Unexpected error processing workspace request", ex);
+      final var message = ex.getMessage() != null ? ex.getMessage() : "Unknown error.";
+      ctx.status(500).json(new FormattedError("UNKNOWN_ERROR", message, ex));
+    });
   }
 
   // region Authorization
@@ -437,7 +442,7 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
-  private void post(Context context) {
+  private void post(Context context) throws NoSuchWorkspaceException {
     final String helpText = """
     Expected JSON body with one of the following formats:
 
@@ -447,6 +452,9 @@ public class WorkspaceBindings implements Plugin {
                                                       //   defaults to the current workspace.
         "moveTo": "path/to/destination",              // required. path within the destination workspace to move the item to, ending with the item.
                                                       //  to rename an item, end the 'moveTo' path with a name that differs from the item's current name.
+        "overwrite": false                            // optional. only permitted when moving a file.
+                                                      //  if provided, determines whether the moved file will overwrite an existing file at "moveTo".
+                                                      //  defaults to "false".
     }
 
     To copy an item:
@@ -454,195 +462,162 @@ public class WorkspaceBindings implements Plugin {
         "toWorkspace": 2,                             // optional. if provided, the item will be copied to the specified workspace.
                                                       //   defaults to the current workspace.
         "copyTo": "path/to/destination/folder",       // required. path within the destination workspace to copy the item to, ending with the item.
+        "overwrite": false                            // optional. only permitted when moving a file.
+                                                      //  if provided, determines whether the moved file will overwrite an existing file at "moveTo".
+                                                      //  defaults to "false".
     }""";
 
-    try (JsonReader bodyReader = Json.createReader(new StringReader(context.body()))) {
-      JsonObject bodyJson = bodyReader.readObject();
-      final boolean success;
+    final var pathInfo = PathInformation.of(context);
+    final var sourceWorkspace = pathInfo.workspaceId;
+    final PostBody body;
 
-      if(bodyJson.containsKey("moveTo") && bodyJson.containsKey("copyTo")){
-        context.status(400).json(new FormattedError("Invalid request. Too many actions specified.\n\n" + helpText));
-        return;
-      } else if (bodyJson.containsKey("moveTo")) {
-        success = handleMove(context, bodyJson);
-      } else if (bodyJson.containsKey("copyTo")) {
-        success = handleCopy(context, bodyJson);
-      } else {
-        context.status(400).json(new FormattedError("Invalid request. Must include either 'moveTo' or 'copyTo' key.\n\n" + helpText));
-        return;
-      }
-
-      if (success) {
-        context.status(200).result("Success");
-      }
-      // If the copy or move did not return successfully, but did not set a status code, set the status code to 500
-      // Works because `context.status` initializes to HttpStatus.OK
-      else if (context.status().equals(HttpStatus.OK)) {
-        context.status(500).json(new FormattedError("Internal Error"));
-      }
-
-
+    // Get body
+    if(!ContentType.JSON.equals(context.contentType())) {
+      context.status(400).json(new FormattedError("Body must be type "+ContentType.JSON));
+    }
+    try(final var bodyReader = Json.createReader(new StringReader(context.body()))){
+      body = PostBody.fromJson(bodyReader.readObject(), sourceWorkspace);
     } catch (JsonException je) {
-      // Malformed JSON in request body
-      context.status(400).json(new FormattedError(je, "Malformed JSON.\n\n" + helpText));
-    } catch (IllegalArgumentException iae) {
-      // Logical errors or unsupported operations
-      context.status(400).json(new FormattedError(iae, "Invalid request.\n\n" + helpText));
-    } catch (NoSuchWorkspaceException nsw) {
-      // Workspace not found
-      context.status(404).json(new FormattedError(nsw));
-    } catch (IOException ioe) {
-      logger.error("Error processing workspace request", ioe);
-      context.status(500).json(new FormattedError(ioe));
-    } catch (SQLException se) {
-      // Internal server error
-      logger.error("Error processing workspace request", se);
-      context.status(500).json(new FormattedError(se));
-    } catch (Exception e) {
-      // Catch-all for unexpected issues
-      logger.error("Unexpected error processing workspace request", e);
-      final var message = e.getMessage() != null ? e.getMessage() : "Unknown error.\n\n" + helpText;
-      context.status(500).json(new FormattedError("UNKNOWN_ERROR", message, e));
+      context.status(400).json(new FormattedError(
+          je,
+          "Invalid body format. Expected body format is an array of JSON objects with the form:\n\n"+helpText));
+      return;
+    }
+
+    // Permissions Check and Action Handling
+    switch (body.action()) {
+      case PostActions.MOVE -> {
+        // Moving between workspaces requires "readFile", "deleteFile" on Workspace 1 and "writeFile" on Workspace 2
+        // (Permission derived from mv -v, which shows that moving a file is "copy, then delete")
+        if (!(checkPermissions(context, sourceWorkspace, WorkspaceAction.read_file_directory)
+              && checkPermissions(context, sourceWorkspace, WorkspaceAction.delete_file_directory)
+              && checkPermissions(context, body.destinationWorkspaceId(), WorkspaceAction.write_file_directory))) {
+          return;
+        }
+        final var moveResults = handleMove(
+            pathInfo.filePath(),
+            body.destinationPath(),
+            sourceWorkspace,
+            body.destinationWorkspaceId(),
+            body.overwrite());
+        if(moveResults.response.getValueType() == JsonValue.ValueType.STRING) {
+          context.status(moveResults.status).result(moveResults.response.toString());
+        } else {
+          context.status(moveResults.status).json(moveResults.response);
+        }
+      }
+      case PostActions.COPY -> {
+        // Copying between workspaces requires "readFile" on Workspace 1 and "writeFile" on Workspace 2
+        if (!(checkPermissions(context, sourceWorkspace, WorkspaceAction.read_file_directory)
+              && checkPermissions(context, body.destinationWorkspaceId(), WorkspaceAction.write_file_directory))) {
+          final var copyResults = handleCopy(
+              pathInfo.filePath,
+              body.destinationPath(),
+              sourceWorkspace,
+              body.destinationWorkspaceId(),
+              body.overwrite());
+          if (copyResults.response.getValueType() == JsonValue.ValueType.STRING) {
+            context.status(copyResults.status).result(copyResults.response.toString());
+          } else {
+            context.status(copyResults.status).json(copyResults.response);
+          }
+        }
+      }
+      default -> context.status(501).json(new FormattedError("Unsupported post action: " + body.action().name()).toJson());
     }
   }
 
-  private record CopyMoveValid(int status, String message){}
+  private record CopyMoveResult(int status, JsonValue response){}
 
-  private CopyMoveValid isCopyOrMoveValid(int sourceWorkspace, Path sourceFile, int targetWorkspace, Path targetFile) {
-    try {
-      // Return "Resource Not Found" if sourceFile does not exist
-      if (!workspaceService.checkFileExists(sourceWorkspace, sourceFile)) {
-        return new CopyMoveValid(404, sourceFile + " does not exist in the source workspace.");
-      }
-    } catch (NoSuchWorkspaceException se) {
-      // Return "Resource Not Found" if source workspace does not exist
-      return new CopyMoveValid(404, "Source workspace with ID "+sourceWorkspace+" does not exist.");
-    }
-
-    try {
-      // Return "Conflicted" if destination exists
-      if (workspaceService.checkFileExists(targetWorkspace, targetFile)) {
-        return new CopyMoveValid(409, targetFile + " already exists");
-      }
-    }
-    catch (NoSuchWorkspaceException se) {
-      // Return "Resource not found" if target workspace does not exist
-      return new CopyMoveValid(404, "Target workspace with ID "+targetWorkspace+" does not exist.");
-    }
-
-    return new CopyMoveValid(200, "Success");
-  }
-
-  private boolean handleMove(Context context, JsonObject bodyJson)
-  throws IOException, NoSuchWorkspaceException, SQLException
+  private CopyMoveResult handleMove(
+      Path toMove,
+      Path destinationPath,
+      int sourceWorkspaceId,
+      int destinationWorkspaceId,
+      boolean overwrite
+  ) throws NoSuchWorkspaceException
   {
-    final var pathInfo = PathInformation.of(context);
-
-    final var destination = Path.of(bodyJson.getString("moveTo"));
-    int sourceWorkspace = pathInfo.workspaceId;
-    int targetWorkspace = pathInfo.workspaceId;  // default to same workspace unless toWorkspace is included
-    if (bodyJson.containsKey("toWorkspace")) {
-      targetWorkspace = bodyJson.getInt("toWorkspace");
-    }
-
-    // Permissions Check
-    // Moving between workspaces requires "readFile", "deleteFile" on Workspace 1 and "writeFile" on Workspace 2
-    // (Permission derived from mv -v, which shows that moving a file is "copy, then delete")
-    if (!(checkPermissions(context, sourceWorkspace, WorkspaceAction.read_file_directory)
-          && checkPermissions(context, sourceWorkspace, WorkspaceAction.delete_file_directory)
-          && checkPermissions(context, targetWorkspace, WorkspaceAction.write_file_directory))) {
-      return false;
-    }
-
-    CopyMoveValid validMove = isCopyOrMoveValid(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination);
-    if (validMove.status != 200) {
-      context.status(validMove.status).json(new FormattedError(validMove.message));
-      return false;
-    }
-
     final var errorMsg = "Unable to move '%s' in Workspace %d to '%s' in Workspace %d."
-        .formatted(pathInfo.filePath(), sourceWorkspace, destination, targetWorkspace);
+            .formatted(toMove, sourceWorkspaceId, destinationPath, destinationWorkspaceId);
+    final var successMsg = Json.createValue(
+        "'%s' in Workspace %d moved to '%s' in Workspace %d"
+            .formatted(toMove, sourceWorkspaceId, destinationPath, destinationWorkspaceId));
+
+    if (!workspaceService.checkFileExists(sourceWorkspaceId, toMove)) {
+      return new CopyMoveResult(
+          404,
+          new FormattedError(errorMsg, toMove + " does not exist in the source workspace.").toJson());
+    }
+
+    if (workspaceService.checkFileExists(destinationWorkspaceId, destinationPath) && !overwrite) {
+      return new CopyMoveResult(409, new FormattedError(errorMsg, destinationPath + " already exists.").toJson());
+    }
+
     try {
-      if (workspaceService.isDirectory(sourceWorkspace, pathInfo.filePath())) {
-        if (workspaceService.moveDirectory(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination)) {
-          return true;
+      if (workspaceService.isDirectory(sourceWorkspaceId, toMove)) {
+        if (workspaceService.moveDirectory(sourceWorkspaceId, toMove, destinationWorkspaceId, destinationPath)) {
+          return new CopyMoveResult(200,  successMsg);
         } else {
-          context.status(500).json(new FormattedError(errorMsg));
-          return false;
+          return new CopyMoveResult(500, new FormattedError(errorMsg).toJson());
         }
       } else {
-        if (workspaceService.moveFile(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination)) {
-          return true;
+        if (workspaceService.moveFile(sourceWorkspaceId, toMove, destinationWorkspaceId, destinationPath)) {
+          return new CopyMoveResult(200, successMsg);
         } else {
-          context.status(500).json(new FormattedError(errorMsg));
-          return false;
+          return new CopyMoveResult(500, new FormattedError(errorMsg).toJson());
         }
       }
-    } catch (NoSuchWorkspaceException ex) {
-      context.status(404).json(new FormattedError(ex, errorMsg));
-      return false;
     } catch (SQLException se) {
-      context.status(500).json(new FormattedError(se, errorMsg));
-      return false;
+      return new CopyMoveResult(500, new FormattedError(se, errorMsg).toJson());
+    } catch (IOException ioe) {
+      return new CopyMoveResult(500, new FormattedError(ioe, errorMsg).toJson());
     } catch (WorkspaceFileOpException wfe) {
-      context.status(500).json(new FormattedError(wfe, errorMsg));
-      return false;
+      return new CopyMoveResult(500, new FormattedError(wfe, errorMsg).toJson());
     }
   }
 
-  private boolean handleCopy(Context context, JsonObject bodyJson)
-  throws NoSuchWorkspaceException, SQLException
+  private CopyMoveResult handleCopy(
+      Path toCopy,
+      Path destinationPath,
+      int sourceWorkspaceId,
+      int destinationWorkspaceId,
+      boolean overwrite
+  ) throws NoSuchWorkspaceException
   {
-    final var pathInfo = PathInformation.of(context);
+    final var errorMsg = "Unable to copy '%s' in Workspace %d to '%s' in Workspace %d."
+        .formatted(toCopy, sourceWorkspaceId, destinationPath, destinationWorkspaceId);
+    final var successMsg = Json.createValue(
+        "'%s' in Workspace %d copied to '%s' in Workspace %d"
+            .formatted(toCopy, sourceWorkspaceId, destinationPath, destinationWorkspaceId));
 
-    final var destination = Path.of(bodyJson.getString("copyTo"));
-    int sourceWorkspace = pathInfo.workspaceId;
-    int targetWorkspace = pathInfo.workspaceId; // default to same workspace unless toWorkspace is included
-    if (bodyJson.containsKey("toWorkspace")) {
-      targetWorkspace = bodyJson.getInt("toWorkspace");
+    if (!workspaceService.checkFileExists(sourceWorkspaceId, toCopy)) {
+      return new CopyMoveResult(
+          404,
+          new FormattedError(errorMsg, toCopy + " does not exist in the source workspace.").toJson());
     }
 
-    // Permissions Check
-    // Copying between workspaces requires "readFile" on Workspace 1 and "writeFile" on Workspace 2
-    if (!(checkPermissions(context, sourceWorkspace, WorkspaceAction.read_file_directory)
-          && checkPermissions(context, targetWorkspace, WorkspaceAction.write_file_directory))) {
-      return false;
+    if (workspaceService.checkFileExists(destinationWorkspaceId, destinationPath) && !overwrite) {
+      return new CopyMoveResult(409, new FormattedError(errorMsg, destinationPath + " already exists.").toJson());
     }
 
-    CopyMoveValid validCopy = isCopyOrMoveValid(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination);
-    if (validCopy.status != 200) {
-      context.status(validCopy.status).json(new FormattedError(validCopy.message));
-      return false;
-    }
-
-    // Error message to use if the operation fails
-    final var errorMessage = "Unable to copy '%s' in Workspace %d to '%s' in Workspace %d"
-        .formatted(pathInfo.filePath, sourceWorkspace, destination, targetWorkspace);
     try {
-      if (workspaceService.isDirectory(sourceWorkspace, pathInfo.filePath())) {
-        if (workspaceService.copyDirectory(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination)) {
-          return true;
+      if (workspaceService.isDirectory(sourceWorkspaceId, toCopy)) {
+        if (workspaceService.copyDirectory(sourceWorkspaceId, toCopy, destinationWorkspaceId, destinationPath)) {
+          return new CopyMoveResult(200, successMsg);
         } else {
-          context.status(500).json(new FormattedError(errorMessage));
-          return false;
+          return new CopyMoveResult(500, new FormattedError(errorMsg).toJson());
         }
       } else {
-        if (workspaceService.copyFile(sourceWorkspace, pathInfo.filePath, targetWorkspace, destination)) {
-          return true;
+        if (workspaceService.copyFile(sourceWorkspaceId, toCopy, destinationWorkspaceId, destinationPath)) {
+          return new CopyMoveResult(200, successMsg);
         } else {
-          context.status(500).json(new FormattedError(errorMessage));
-          return false;
+          return new CopyMoveResult(500, new FormattedError(errorMsg).toJson());
         }
       }
-    } catch (NoSuchWorkspaceException ex) {
-      context.status(404).json(new FormattedError(ex));
-      return false;
-    } catch (SQLException ex) {
-      context.status(500).json(new FormattedError(ex, errorMessage));
-      return false;
-    } catch (WorkspaceFileOpException ex) {
-      context.status(500).json(new FormattedError(ex, errorMessage));
-      return false;
+    } catch (SQLException se) {
+      return new CopyMoveResult(500, new FormattedError(se, errorMsg).toJson());
+    } catch (WorkspaceFileOpException wfe) {
+      return new CopyMoveResult(500, new FormattedError(wfe, errorMsg).toJson());
     }
   }
 
@@ -862,10 +837,7 @@ public class WorkspaceBindings implements Plugin {
 
     final var sourceWorkspace = Integer.parseInt(context.pathParam("workspaceId"));
     final List<String> items;
-    final int destinationWorkspace;
-    final Path destinationPath;
-    final PostActions action;
-    final boolean overwrite;
+    final PostBody body;
 
     // Get body
     if(!ContentType.JSON.equals(context.contentType())) {
@@ -873,23 +845,9 @@ public class WorkspaceBindings implements Plugin {
     }
 
     try(final var bodyReader = Json.createReader(new StringReader(context.body()))){
-      final var body = bodyReader.readObject();
-      items = body.getJsonArray("paths").getValuesAs(JsonString::getString);
-
-      if(body.containsKey("moveTo") && body.containsKey("copyTo")) {
-        throw new JsonException("Too many actions specified for a single request.");
-      } else if(body.containsKey("moveTo")) {
-        action = PostActions.MOVE;
-        destinationPath = Path.of(body.getString("moveTo"));
-      } else if(body.containsKey("copyTo")) {
-        action = PostActions.COPY;
-        destinationPath = Path.of(body.getString("copyTo"));
-      } else {
-        throw new JsonException("No action supplied for request.");
-      }
-
-      destinationWorkspace = body.getInt("toWorkspace", sourceWorkspace);
-      overwrite = body.getBoolean("toWorkspace", false);
+      final var jsonBody = bodyReader.readObject();
+      items = jsonBody.getJsonArray("paths").getValuesAs(JsonString::getString);
+      body = PostBody.fromJson(jsonBody, sourceWorkspace);
     } catch (JsonException je) {
       context.status(400).json(new FormattedError(
           je,
@@ -898,27 +856,37 @@ public class WorkspaceBindings implements Plugin {
     }
 
     // Permissions Check and Action Handling
-    switch (action) {
+    switch (body.action()) {
       case PostActions.MOVE -> {
         // Moving between workspaces requires "readFile", "deleteFile" on Workspace 1 and "writeFile" on Workspace 2
         // (Permission derived from mv -v, which shows that moving a file is "copy, then delete")
         if (!(checkPermissions(context, sourceWorkspace, WorkspaceAction.read_file_directory)
               && checkPermissions(context, sourceWorkspace, WorkspaceAction.delete_file_directory)
-              && checkPermissions(context, destinationWorkspace, WorkspaceAction.write_file_directory))) {
+              && checkPermissions(context, body.destinationWorkspaceId(), WorkspaceAction.write_file_directory))) {
           return;
         }
-        final var moveResults = handleBulkMove(items, destinationPath, sourceWorkspace, destinationWorkspace, overwrite);
+        final var moveResults = handleBulkMove(
+            items,
+            body.destinationPath(),
+            sourceWorkspace,
+            body.destinationWorkspaceId(),
+            body.overwrite());
         context.status(207).json(moveResults.toString());
       }
       case PostActions.COPY -> {
         // Copying between workspaces requires "readFile" on Workspace 1 and "writeFile" on Workspace 2
         if (!(checkPermissions(context, sourceWorkspace, WorkspaceAction.read_file_directory)
-              && checkPermissions(context, destinationWorkspace, WorkspaceAction.write_file_directory))) {
-          final var copyResults = handleBulkCopy(items, destinationPath, sourceWorkspace, destinationWorkspace, overwrite);
+              && checkPermissions(context, body.destinationWorkspaceId(), WorkspaceAction.write_file_directory))) {
+          final var copyResults = handleBulkCopy(
+              items,
+              body.destinationPath(),
+              sourceWorkspace,
+              body.destinationWorkspaceId(),
+              body.overwrite());
           context.status(207).json(copyResults.toString());
         }
       }
-      default -> context.status(501).json(new FormattedError("Unsupported post action: " + action.name()).toJson());
+      default -> context.status(501).json(new FormattedError("Unsupported post action: " + body.action().name()).toJson());
     }
   }
 
@@ -931,58 +899,17 @@ public class WorkspaceBindings implements Plugin {
   ) throws NoSuchWorkspaceException {
     final var responseArray = Json.createArrayBuilder();
     for(final var item : toMove){
-      final var path = Path.of(item);
       final var destinationPath = Path.of(destinationFolder.toString(), item);
-      final var response = Json.createObjectBuilder().add("item", item);
-
-      final var errorMsg = "Unable to move '%s' in Workspace %d to '%s' in Workspace %d."
-        .formatted(path, sourceWorkspaceId, destinationPath, destinationWorkspaceId);
-      final var successMsg = "'%s' in Workspace %d moved to '%s' in Workspace %d"
-          .formatted(item, sourceWorkspaceId, destinationPath, destinationWorkspaceId);
-
-      if (!workspaceService.checkFileExists(sourceWorkspaceId, path)) {
-        response.add("status", 404)
-                .add("response", new FormattedError(errorMsg, item + " does not exist in the source workspace.").toJson());
-        responseArray.add(response);
-        continue;
-      }
-
-      if(workspaceService.checkFileExists(destinationWorkspaceId, destinationPath) && !overwrite) {
-        response.add("status", 409)
-                .add("response", new FormattedError(errorMsg, destinationPath + " already exists.").toJson());
-        responseArray.add(response);
-        continue;
-      }
-
-      try {
-        if (workspaceService.isDirectory(sourceWorkspaceId, path)) {
-          if (workspaceService.moveDirectory(sourceWorkspaceId, path, destinationWorkspaceId, destinationPath)) {
-            response.add("status", 200)
-                    .add("response", successMsg);
-          } else {
-            response.add("status", 500)
-                    .add("response", new FormattedError(errorMsg).toJson());
-          }
-        } else {
-          if (workspaceService.moveFile(sourceWorkspaceId, path, destinationWorkspaceId, destinationPath)) {
-            response.add("status", 200)
-                    .add("response", successMsg);
-          } else {
-            response.add("status", 500)
-                    .add("response", new FormattedError(errorMsg).toJson());
-          }
-        }
-      } catch (SQLException se) {
-        response.add("status", 500)
-                .add("response", new FormattedError(se, errorMsg).toJson());
-      } catch (IOException ioe) {
-        response.add("status", 500)
-                .add("response", new FormattedError(ioe, errorMsg).toJson());
-      } catch (WorkspaceFileOpException wfe) {
-        response.add("status", 500)
-                .add("response", new FormattedError(wfe, errorMsg).toJson());
-      }
-
+      final var results = handleMove(
+          Path.of(item),
+          destinationPath,
+          sourceWorkspaceId,
+          destinationWorkspaceId,
+          overwrite);
+      final var response = Json.createObjectBuilder()
+                               .add("item", item)
+                               .add("status", results.status)
+                               .add("response", results.response);
       responseArray.add(response);
     }
     return responseArray.build();
@@ -997,55 +924,17 @@ public class WorkspaceBindings implements Plugin {
   ) throws NoSuchWorkspaceException {
     final var responseArray = Json.createArrayBuilder();
     for(final var item : toCopy) {
-      final var path = Path.of(item);
       final var destinationPath = Path.of(destinationFolder.toString(), item);
-      final var response = Json.createObjectBuilder().add("item", item);
-
-      final var errorMsg = "Unable to copy '%s' in Workspace %d to '%s' in Workspace %d."
-        .formatted(path, sourceWorkspaceId, destinationPath, destinationWorkspaceId);
-      final var successMsg = "'%s' in Workspace %d copied to '%s' in Workspace %d"
-          .formatted(item, sourceWorkspaceId, destinationPath, destinationWorkspaceId);
-
-      if (!workspaceService.checkFileExists(sourceWorkspaceId, path)) {
-        response.add("status", 404)
-                .add("response", new FormattedError(errorMsg, item + " does not exist in the source workspace.").toJson());
-        responseArray.add(response);
-        continue;
-      }
-
-      if(workspaceService.checkFileExists(destinationWorkspaceId, destinationPath) && !overwrite) {
-        response.add("status", 409)
-                .add("response", new FormattedError(errorMsg, destinationPath + " already exists.").toJson());
-        responseArray.add(response);
-        continue;
-      }
-
-      try {
-        if (workspaceService.isDirectory(sourceWorkspaceId, path)) {
-          if (workspaceService.copyDirectory(sourceWorkspaceId, path, destinationWorkspaceId, destinationPath)) {
-            response.add("status", 200)
-                    .add("response", successMsg);
-          } else {
-            response.add("status", 500)
-                    .add("response", new FormattedError(errorMsg).toJson());
-          }
-        } else {
-          if (workspaceService.copyFile(sourceWorkspaceId, path, destinationWorkspaceId, destinationPath)) {
-            response.add("status", 200)
-                    .add("response", successMsg);
-          } else {
-            response.add("status", 500)
-                    .add("response", new FormattedError(errorMsg).toJson());
-          }
-        }
-      } catch (SQLException se) {
-        response.add("status", 500)
-                .add("response", new FormattedError(se, errorMsg).toJson());
-      } catch (WorkspaceFileOpException wfe) {
-        response.add("status", 500)
-                .add("response", new FormattedError(wfe, errorMsg).toJson());
-      }
-
+      final var results = handleCopy(
+          Path.of(item),
+          destinationPath,
+          sourceWorkspaceId,
+          destinationWorkspaceId,
+          overwrite);
+      final var response = Json.createObjectBuilder()
+                               .add("item", item)
+                               .add("status", results.status)
+                               .add("response", results.response);
       responseArray.add(response);
     }
     return responseArray.build();

@@ -196,6 +196,11 @@ final class FormattedError {
     return builder.build();
   }
 
+  @Override
+  public String toString() {
+    return this.toJson().toString();
+  }
+
   /**
    * Internal class so that Javalin serializes the FormattedError class using its `toJson` method.
    * This avoids needing to call `toJson` every time the FormattedError class is used as an endpoint return.
@@ -208,7 +213,7 @@ final class FormattedError {
         final JsonGenerator jsonGenerator,
         final SerializerProvider serializerProvider) throws IOException
     {
-      jsonGenerator.writeRaw(formattedError.toJson().toString());
+      jsonGenerator.writeRaw(formattedError.toString());
     }
   }
 }

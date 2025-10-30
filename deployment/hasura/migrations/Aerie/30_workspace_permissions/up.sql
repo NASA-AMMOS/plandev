@@ -311,6 +311,7 @@ where role = 'aerie_admin';
 -- Set user permissions
 update permissions.user_role_permission
 set workspace_permissions = '{
+      "create_workspace": "NO_CHECK",
       "delete_file_directory": "OWNER_COLLABORATOR",
       "delete_workspace": "OWNER",
       "list_workspace_contents": "NO_CHECK",

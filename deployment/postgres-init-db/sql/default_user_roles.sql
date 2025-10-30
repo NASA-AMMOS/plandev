@@ -49,6 +49,7 @@ set action_permissions = '{
       "withdraw_merge_rq": "PLAN_OWNER_SOURCE"
     }',
   workspace_permissions = '{
+      "create_workspace": "NO_CHECK",
       "delete_file_directory": "OWNER_COLLABORATOR",
       "delete_workspace": "OWNER",
       "list_workspace_contents": "NO_CHECK",

@@ -64,7 +64,7 @@ public class WorkspaceBindings implements Plugin {
   private record PathInformation(int workspaceId, Path filePath) {
     static PathInformation of(Context context) {
       final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
-      final var filePath = Path.of(context.pathParam("filePath"));
+      final var filePath = Path.of(context.pathParam("path"));
 
       return new PathInformation(workspaceId, filePath);
     }
@@ -96,7 +96,7 @@ public class WorkspaceBindings implements Plugin {
       });
 
       // CRUD operations for Files and Directories:
-      path("/ws/{workspaceId}/<filePath>",
+      path("/ws/{workspaceId}/<path>",
            () -> {
              ApiBuilder.get(this::get);
              ApiBuilder.put(this::put);
@@ -316,8 +316,8 @@ public class WorkspaceBindings implements Plugin {
     final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
 
     final Optional<Path> directoryPath;
-    if(context.pathParamMap().containsKey("filePath")) {
-      directoryPath = Optional.of(Path.of(context.pathParam("filePath")));
+    if(context.pathParamMap().containsKey("path")) {
+      directoryPath = Optional.of(Path.of(context.pathParam("path")));
     } else {
       directoryPath = Optional.empty();
     }

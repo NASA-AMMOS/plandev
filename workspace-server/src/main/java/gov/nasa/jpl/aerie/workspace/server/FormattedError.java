@@ -47,6 +47,15 @@ final class FormattedError {
   }
 
   /**
+   * For use in the event of an endpoint failing without throwing an exception, but where there's a more detailed cause.
+   */
+  public FormattedError(String message, String cause) {
+    this.type = "INTERNAL_ERROR";
+    this.message = message;
+    this.cause = Optional.ofNullable(cause);
+  }
+
+  /**
    * Create a FormattedException from a generic Exception object.
    * @param type the category of exception. Should be in SCREAMING_SNAKE_CASE
    * @param ex the exception to be formatted.
@@ -135,8 +144,8 @@ final class FormattedError {
   }
 
   // IllegalArgumentException
-  public FormattedError(IllegalArgumentException iae, String message) {
-    this("ILLEGAL_ARGUMENT", message, iae);
+  public FormattedError(IllegalArgumentException iae) {
+    this("ILLEGAL_ARGUMENT", iae);
   }
 
   // JSONException
@@ -149,6 +158,11 @@ final class FormattedError {
     this.type = "ENDPOINT_VALIDATION_EXCEPTION";
     this.message = ve.getMessage() != null ? ve.getMessage() : "Invalid request";
     trace = Optional.of(generateTrace(ve));
+  }
+
+  // Null Pointer Exception
+  public FormattedError(NullPointerException ne, String message) {
+    this("NULL_POINTER_EXCEPTION", message, ne);
   }
   //endregion
 

@@ -33,7 +33,7 @@ insert_permissions:
   - role: user
     permission:
       columns: [settings, parameters, action_definition_id, has_secrets]
-      check: {}
+      check: { "action_definition": { "workspace": { "_or": [ { "owner": { "_eq": "X-Hasura-User-Id" } },{ "collaborators": { "collaborator": { "_eq": "X-Hasura-User-Id" } } } ] } } }
       set:
         requested_by: "x-hasura-user-id"
 update_permissions:
@@ -44,7 +44,7 @@ update_permissions:
   - role: user
     permission:
       columns: [canceled]
-      filter: {}
+      filter: { "action_definition": { "workspace": { "_or": [ { "owner": { "_eq": "X-Hasura-User-Id" } },{ "collaborators": { "collaborator": { "_eq": "X-Hasura-User-Id" } } } ] } } }
 delete_permissions:
   - role: aerie_admin
     permission:

@@ -31,7 +31,7 @@ import java.util.Optional;
 final class FormattedError {
   private final String type;
   private final String message;
-  private final String timestamp = ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.BASIC_ISO_DATE);
+  private final String timestamp = ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT);
   private final static String service = "aerie_workspace";
   private Optional<String> cause = Optional.empty();
   private Optional<String> trace = Optional.empty();

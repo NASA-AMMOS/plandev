@@ -1,26 +1,33 @@
-create table permissions.user_role_permission(
-  role text not null
-    primary key
-    references permissions.user_roles
-      on update cascade
-      on delete cascade,
-  action_permissions jsonb not null default '{}',
-  function_permissions jsonb not null default '{}',
-  workspace_permissions jsonb not null default '{}'
-);
+-- Add new Permissions Types
+create type permissions.workspace_permission
+ as enum (
+   'NO_CHECK',
+   'OWNER',
+   'COLLABORATOR',
+   'OWNER_COLLABORATOR'
+  );
+create type permissions.workspace_permission_key
+ as enum (
+   'create_workspace',
+   'delete_file_directory',
+   'delete_workspace',
+   'list_workspace_contents',
+   'read_file_directory',
+   'write_file_directory'
+  );
+
+-- Add new permissions to permissions table
+alter table permissions.user_role_permission
+  add column workspace_permissions jsonb not null default '{}';
 
 comment on table permissions.user_role_permission is e''
   'Permissions for a role that cannot be expressed in Hasura. Permissions take the form {KEY:PERMISSION}.'
   'A list of valid KEYs and PERMISSIONs can be found at https://nasa-ammos.github.io/aerie-docs/deployment/advanced-permissions/#action-and-function-permissions';
-comment on column permissions.user_role_permission.role is e''
-  'The role these permissions apply to.';
-comment on column permissions.user_role_permission.action_permissions is ''
-  'The permissions the role has on Hasura Actions.';
-comment on column permissions.user_role_permission.function_permissions is ''
-  'The permissions the role has on Hasura Functions.';
+
 comment on column permissions.user_role_permission.workspace_permissions is ''
   'The permissions the role has on Workspace Functions.';
 
+-- Update trigger functions
 create function permissions.validate_action_permissions_json(_action_permissions jsonb)
 returns table(key_error_msg text, value_error_msg text, plan_merge_error_msg text)
 language plpgsql as $$
@@ -207,7 +214,7 @@ begin
 end;
 $$;
 
-create function permissions.validate_permissions_json()
+create or replace function permissions.validate_permissions_json()
 returns trigger
 language plpgsql as $$
   declare
@@ -287,7 +294,30 @@ begin
 end
 $$;
 
-create trigger validate_permissions_trigger
-  before insert or update on permissions.user_role_permission
-  for each row
-  execute function permissions.validate_permissions_json();
+
+-- Initialize default permissions for user roles
+-- No filter so that all custom roles end up with basic read permissions
+update permissions.user_role_permission
+set workspace_permissions = '{
+      "list_workspace_contents": "NO_CHECK",
+      "read_file_directory": "NO_CHECK"
+    }';
+
+-- Reset admin to {}
+update permissions.user_role_permission
+set workspace_permissions = '{}'
+where role = 'aerie_admin';
+
+-- Set user permissions
+update permissions.user_role_permission
+set workspace_permissions = '{
+      "create_workspace": "NO_CHECK",
+      "delete_file_directory": "OWNER_COLLABORATOR",
+      "delete_workspace": "OWNER",
+      "list_workspace_contents": "NO_CHECK",
+      "read_file_directory": "NO_CHECK",
+      "write_file_directory": "OWNER_COLLABORATOR"
+    }'
+where role = 'user';
+
+call migrations.mark_migration_applied(30);

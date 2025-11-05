@@ -2,6 +2,8 @@ package gov.nasa.jpl.aerie.workspace.server;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import gov.nasa.jpl.aerie.permissions.PermissionsService;
+import gov.nasa.jpl.aerie.permissions.gql.GraphQLPermissionsService;
 import gov.nasa.jpl.aerie.workspace.server.config.AppConfiguration;
 import gov.nasa.jpl.aerie.workspace.server.config.PostgresStore;
 import gov.nasa.jpl.aerie.workspace.server.config.Store;
@@ -23,6 +25,7 @@ import org.slf4j.LoggerFactory;
 import javax.json.Json;
 import javax.json.JsonObject;
 import java.io.StringReader;
+import java.net.URI;
 import java.nio.file.Path;
 
 public final class WorkspaceAppDriver {
@@ -35,7 +38,13 @@ public final class WorkspaceAppDriver {
     final var stores = loadStores(configuration);
 
     // Assemble the core non-web object graph.
-    final var workspaceBindings = new WorkspaceBindings(stores.jwt, stores.workspace, configuration.hasuraAdminSecret());
+    final var permissionsService = new PermissionsService(
+        new GraphQLPermissionsService(configuration.hasuraGraphqlURI(), configuration.hasuraAdminSecret()));
+    final var workspaceBindings = new WorkspaceBindings(
+        stores.jwt,
+        stores.workspace,
+        permissionsService,
+        configuration.hasuraAdminSecret());
     // Configure an HTTP server.
     //default javalin jetty server has a QueuedThreadPool with maxThreads to 250
     final var server = new Server(new QueuedThreadPool(250));
@@ -59,12 +68,6 @@ public final class WorkspaceAppDriver {
       config.plugins.enableCors(cors -> cors.add(CorsPluginConfig::anyHost));
       config.plugins.register(workspaceBindings);
       config.jetty.server(() -> server);
-    });
-
-    javalin.exception(UnauthorizedResponse.class, (e, ctx) -> {
-      var message = e.getMessage() != null ? e.getMessage() : "Unauthorized";
-      logger.warn("401 Unauthorized: {}", message);
-      ctx.status(401).result(message);
     });
 
     // Start the HTTP server.
@@ -125,6 +128,7 @@ public final class WorkspaceAppDriver {
         logger.isDebugEnabled(),
         Path.of(getEnv("WORKSPACE_STORE", "/usr/src/ws")),
         jwtSecret,
+        URI.create(getEnv("HASURA_GRAPHQL_URL", "http://hasura:8080/v1/graphql")),
         getEnv("HASURA_GRAPHQL_ADMIN_SECRET", ""),
         new PostgresStore(getEnv("AERIE_DB_HOST", "postgres"),
                           getEnv("SEQUENCING_DB_USER", ""),

@@ -23,10 +23,12 @@ export type ConsoleOutput = {
 
 export type ActionConfig = {
   ACTION_FILE_STORE: string;
+  ACTION_RUN_ID: string;
   SEQUENCING_FILE_STORE: string;
   SECRETS?: Record<string, string> | undefined;
   WORKSPACE_BASE_URL: string;
   HASURA_GRAPHQL_ADMIN_SECRET: string;
+  USERNAME?: string;
 };
 
 export type ActionTask = {

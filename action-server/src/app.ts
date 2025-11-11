@@ -24,10 +24,14 @@ app.post(
     const { action_run_id, secrets } = req.body;
     const actionRunId = action_run_id as string;
 
-    ActionRunner.addActionSecret(actionRunId, secrets as Record<string, string>);
+    const fullSecrets = {
+      ...secrets,
+      authorization: res.locals.authorization,
+      user: JSON.stringify(res.locals.user)
+    }
+    ActionRunner.addActionSecret(actionRunId, fullSecrets);
 
     res.status(200).send({ success: true });
   }
 );
 
-// export default app;

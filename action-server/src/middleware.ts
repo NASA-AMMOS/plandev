@@ -27,6 +27,9 @@ export const authMiddleware: RequestHandler = async (req, res, next) => {
   const { jwtErrorMessage, jwtPayload } = decodeJwt(authorizationHeader);
   if (jwtPayload) {
     // token is valid
+    // set jwt payload on `user` local, so other things can access it
+    res.locals.authorization = authorizationHeader;
+    res.locals.user = jwtPayload;
     next();
   } else {
     res.status(401).send({ message: `Unauthorized: ${jwtErrorMessage}`, success: false });

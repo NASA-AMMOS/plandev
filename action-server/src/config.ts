@@ -9,7 +9,6 @@ export interface Config {
   ACTION_LOCAL_STORE: string;
   ACTION_WORKER_NUM: string;
   ACTION_MAX_WORKER_NUM: string;
-  HASURA_GRAPHQL_ADMIN_SECRET: string;
   HASURA_GRAPHQL_JWT_SECRET: string;
   JWT_ALGORITHMS: Algorithm[];
   LOG_FILE: string;
@@ -33,7 +32,6 @@ export const configuration = (): Config => {
     ACTION_LOCAL_STORE: env.ACTION_LOCAL_STORE ?? "/usr/src/app/action_file_store",
     ACTION_WORKER_NUM: env.ACTION_WORKER_NUM ?? "1",
     ACTION_MAX_WORKER_NUM: env.ACTION_MAX_WORKER_NUM ?? "1",
-    HASURA_GRAPHQL_ADMIN_SECRET: env.HASURA_GRAPHQL_ADMIN_SECRET ?? "",
     HASURA_GRAPHQL_JWT_SECRET: env.HASURA_GRAPHQL_JWT_SECRET ?? "{ \"type\": \"HS256\", \"key\": \"examplekey\" }",
     JWT_ALGORITHMS: parseArray(env.JWT_ALGORITHMS, ['HS256']),
     LOG_FILE: env.LOG_FILE ?? "console",

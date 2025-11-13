@@ -6,14 +6,11 @@ import { ActionsAPI } from "@nasa-jpl/aerie-actions";
 import { configuration } from "../config";
 import type { ActionConfig, ActionResponse } from "../type/types";
 
-const { ACTION_LOCAL_STORE, SEQUENCING_LOCAL_STORE, WORKSPACE_BASE_URL, HASURA_GRAPHQL_ADMIN_SECRET } = configuration();
+const { ACTION_LOCAL_STORE, SEQUENCING_LOCAL_STORE, WORKSPACE_BASE_URL } = configuration();
 
 function injectLogger(oldConsole: any, logBuffer: string[], secrets?: Record<string, any> | undefined) {
   // secrets may be passed as last argument, to be censored in the logs
-  const censoredSecrets = {
-    ...(secrets || {}),
-    HASURA_GRAPHQL_ADMIN_SECRET
-  };
+  const censoredSecrets = { ...(secrets || {}) };
 
   // inject a winston logger to be passed to the action VM, replacing its normal `console`,
   // so we can capture the console outputs and return them with the action results
@@ -120,7 +117,6 @@ export const jsExecute = async (
     const actionConfig: ActionConfig = {
       ACTION_FILE_STORE: ACTION_LOCAL_STORE,
       ACTION_RUN_ID: actionRunId,
-      HASURA_GRAPHQL_ADMIN_SECRET: HASURA_GRAPHQL_ADMIN_SECRET,
       SECRETS: secrets,
       SEQUENCING_FILE_STORE: SEQUENCING_LOCAL_STORE,
       USERNAME: username,

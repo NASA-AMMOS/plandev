@@ -10,7 +10,6 @@ services:
     container_name: aerie_action
     depends_on: [ "postgres" ]
     environment:
-      HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
       HASURA_GRAPHQL_JWT_SECRET: "${HASURA_GRAPHQL_JWT_SECRET}"
       LOG_FILE: console
       LOG_LEVEL: debug

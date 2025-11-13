@@ -208,10 +208,10 @@ public class CLIArgumentsTest {
       try(final var reader = new BufferedReader(new FileReader("src/test/resources/simpleFooPlanResults.json"))) {
         final var fileLines = reader.lines().toList();
         final var output = out.toString();
-        assertEquals(fileLines.size() + 4, output.split("\n").length);
+        assertEquals(fileLines.size() + 5, output.split("\n").length);
 
         int truncateIndex = 0;
-        for(int i = 0; i < 4; ++i) {
+        for(int i = 0; i < 5; ++i) {
           truncateIndex = output.indexOf("\n", truncateIndex + 1);
         }
 
@@ -219,7 +219,8 @@ public class CLIArgumentsTest {
             Parsing plan src/test/resources/simpleFooPlan.json...
             Loading mission model ../examples/foo-missionmodel/build/libs/foo-missionmodel.jar...
             Simulating Plan...
-            Writing Results...""";
+            Writing Results...
+            """;
 
         assertEquals(introLines, output.substring(0, truncateIndex));
 

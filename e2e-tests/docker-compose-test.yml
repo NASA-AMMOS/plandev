@@ -11,6 +11,7 @@ services:
     depends_on: [ "postgres" ]
     environment:
       HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
+      HASURA_GRAPHQL_JWT_SECRET: "${HASURA_GRAPHQL_JWT_SECRET}"
       LOG_FILE: console
       LOG_LEVEL: debug
       MERLIN_GRAPHQL_URL: http://hasura:8080/v1/graphql

@@ -1,6 +1,6 @@
 import { Request } from 'express';
 import { configuration } from "../config";
-import jwt from "jsonwebtoken";
+import jwt, {Algorithm} from "jsonwebtoken";
 
 export type JsonWebToken = string;
 
@@ -79,9 +79,12 @@ export function authorizationHeaderToToken(authorizationHeader: string | undefin
 export function decodeJwt(authorizationHeader: string | undefined): JwtDecode {
   try {
     const token = authorizationHeaderToToken(authorizationHeader);
-    const { HASURA_GRAPHQL_JWT_SECRET, JWT_ALGORITHMS } = configuration();
-    const { key }: JwtSecret = JSON.parse(HASURA_GRAPHQL_JWT_SECRET);
-    const options: jwt.VerifyOptions = { algorithms: JWT_ALGORITHMS };
+    const { HASURA_GRAPHQL_JWT_SECRET } = configuration();
+    const { key, type }: JwtSecret = JSON.parse(HASURA_GRAPHQL_JWT_SECRET);
+    if(!type) {
+      throw new Error(`HASURA_GRAPHQL_JWT_SECRET must specify a 'type' field that is a valid JWT algorithm`)
+    }
+    const options: jwt.VerifyOptions = { algorithms: [type as Algorithm] };
     const jwtPayload = jwt.verify(token, key, options) as JwtPayload;
     return { jwtErrorMessage: '', jwtPayload };
   } catch (e) {

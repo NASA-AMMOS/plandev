@@ -414,16 +414,21 @@ spans: {
   ]
 }
 
-events: {
-  causalTime : string,
-  realTime : Timestamp,
-  transactionIndex : int,
-  value : {},
-  topic: {
-    name : string
-    valueSchema : {}
+topics: [
+  "ActivityType.Output.DaemonCheckerSpawner": { //topic name
+      schema: ValueSchema
+  },
+]
+
+events: [
+  {
+    causalTime : string,
+    realTime : Timestamp,
+    transactionIndex : int,
+    value : {},
+    topic: string
+    spanId: int,
   }
-  spanId: int,
-}
+]
 }
  */

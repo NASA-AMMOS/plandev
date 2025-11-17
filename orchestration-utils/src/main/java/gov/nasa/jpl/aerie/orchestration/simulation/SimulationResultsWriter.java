@@ -220,19 +220,7 @@ public class SimulationResultsWriter {
       final var startOffset = Duration.of(plan.simulationStartTimestamp.microsUntil(new Timestamp(act.start())), Duration.MICROSECOND).toString();
       final var endTime = act.start().plus(act.duration().in(Duration.MICROSECOND), ChronoUnit.MICROS).toString();
 
-      resultsGenerator
-          .write("id", id.id())
-          .write("type", act.type())
-          .write("startOffset", startOffset)
-          .write("duration", act.duration().toString())
-          .write("attributes", serializedValueP.unparse(act.computedAttributes()))
-          .write("arguments", activityArgumentsP.unparse(act.arguments()))
-          .write("startTime", act.start().toString())
-          .write("endTime", endTime);
-
-      resultsGenerator.writeStartArray("childIds");
-      for (var ci : act.childIds()) resultsGenerator.write(ci.id());
-      resultsGenerator.writeEnd();
+      resultsGenerator.write("id", id.id());
 
       resultsGenerator.writeKey("directiveId");
       act.directiveId().ifPresentOrElse(
@@ -245,6 +233,19 @@ public class SimulationResultsWriter {
       } else {
         resultsGenerator.writeNull();
       }
+
+      resultsGenerator.writeStartArray("childIds");
+      for (var ci : act.childIds()) resultsGenerator.write(ci.id());
+      resultsGenerator.writeEnd();
+
+      resultsGenerator
+          .write("type", act.type())
+          .write("startOffset", startOffset)
+          .write("duration", act.duration().toString())
+          .write("attributes", serializedValueP.unparse(act.computedAttributes()))
+          .write("arguments", activityArgumentsP.unparse(act.arguments()))
+          .write("startTime", act.start().toString())
+          .write("endTime", endTime);
 
       resultsGenerator.writeEnd();
     }
@@ -260,16 +261,7 @@ public class SimulationResultsWriter {
 
       final var startOffset = Duration.of(plan.simulationStartTimestamp.microsUntil(new Timestamp(act.start())), Duration.MICROSECOND).toString();
 
-      resultsGenerator
-          .write("id", id.id())
-          .write("type", act.type())
-          .write("startOffset", startOffset)
-          .write("arguments", activityArgumentsP.unparse(act.arguments()))
-          .write("startTime", act.start().toString());
-
-      resultsGenerator.writeStartArray("childIds");
-      for (var ci : act.childIds()) resultsGenerator.write(ci.id());
-      resultsGenerator.writeEnd();
+      resultsGenerator.write("id", id.id());
 
       resultsGenerator.writeKey("directiveId");
       act.directiveId().ifPresentOrElse(
@@ -282,6 +274,16 @@ public class SimulationResultsWriter {
       } else {
         resultsGenerator.writeNull();
       }
+
+      resultsGenerator.writeStartArray("childIds");
+      for (var ci : act.childIds()) resultsGenerator.write(ci.id());
+      resultsGenerator.writeEnd();
+
+      resultsGenerator
+          .write("type", act.type())
+          .write("startOffset", startOffset)
+          .write("arguments", activityArgumentsP.unparse(act.arguments()))
+          .write("startTime", act.start().toString());
 
       resultsGenerator.writeEnd();
     }

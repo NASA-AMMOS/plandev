@@ -14,11 +14,14 @@ import gov.nasa.jpl.aerie.types.ActivityDirective;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
+
 import java.util.ArrayList;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +59,13 @@ public final class SimulationDriver {
               case Message.UpdateSpan m -> {
               }
               case Message.DeclareProfile m -> {
+              }
+              case Message.DeclareTopic m -> {
+              }
+              case Message.Events m -> {
+              }
+              case Message.Finish m -> {
+
               }
             }
           }
@@ -103,6 +113,13 @@ public final class SimulationDriver {
           reporter.report(new Reporter.Message.DeclareProfile(entry.getKey(), entry.getValue().getOutputType().getSchema()));
         }
 
+        final var serializableTopicToId = new HashMap<MissionModel.SerializableTopic<?>, Integer>();
+        for (final var entry : missionModel.getTopics()) {
+          final int topicId = serializableTopicToId.size();
+          serializableTopicToId.put(entry, topicId);
+          reporter.report(new Reporter.Message.DeclareTopic(topicId, entry.name(), entry.outputType().getSchema()));
+        }
+
         // Get all activities as close as possible to absolute time
         // Schedule all activities.
         // Using HashMap explicitly because it allows `null` as a key.
@@ -131,6 +148,7 @@ public final class SimulationDriver {
         Map<SpanId, SpanState> openSpans = new LinkedHashMap<>();
         SimulationEngine.SpanInfo spanInfo = new SimulationEngine.SpanInfo();
         final var spanInfoTrait = new SimulationEngine.SpanInfo.Trait(missionModel.getTopics(), activityTopic);
+        final var usedActivityInstanceIds = new HashSet<>();
 
         // Drive the engine until we're out of time or until simulation is canceled.
         // TERMINATION: Actually, we might never break if real time never progresses forward.
@@ -142,10 +160,18 @@ public final class SimulationDriver {
             case SimulationEngine.Status.NoJobs noJobs: break engineLoop;
             case SimulationEngine.Status.AtDuration atDuration: break engineLoop;
             case SimulationEngine.Status.Nominal nominal:
+              for (var commit : nominal.commits()) {
+                commit.evaluate(spanInfoTrait, spanInfoTrait::atom).accept(spanInfo);
+              }
+              for (var commit : nominal.commits()) {
+                reporter.report(new Reporter.Message.Events(engine.getElapsedTime(), engine.serializeEventGraph(
+                    missionModel.getTopics(),
+                    engine.spanToSimulatedActivities(spanInfo, usedActivityInstanceIds),
+                    serializableTopicToId,
+                    commit
+                )));
+              }
               for (final var spanUpdate : nominal.spanUpdates()) {
-                for (var commit : nominal.commits()) {
-                  commit.evaluate(spanInfoTrait, spanInfoTrait::atom).accept(spanInfo);
-                }
                 switch (spanUpdate) {
                   case SimulationEngine.SpanUpdate.StartSpan s -> {
 
@@ -187,6 +213,7 @@ public final class SimulationDriver {
           reporter.report(new Reporter.Message.AdvanceTime(engine.getElapsedTime()));
         }
         reporter.report(new Reporter.Message.AdvanceTime(engine.getElapsedTime())); // Report the final simulation time
+        reporter.report(new Reporter.Message.Finish());
       } catch (SpanException ex) {
         // Swallowing the spanException as the internal `spanId` is not user meaningful info.
         final var topics = missionModel.getTopics();

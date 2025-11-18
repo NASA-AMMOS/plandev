@@ -100,13 +100,19 @@ public record SimulationAgent (
                         .trace(ex.cause));
                     return;
                   }
-                  case Message.UpdateProfile m -> {
-                    reporter.report(m);
-                  }
-                  case Message.UpdateSpan m -> {
-                    reporter.report(m);
-                  }
-                  case Message.DeclareProfile m -> {
+
+                  case Message.UpdateSpan m -> reporter.report(m);
+
+                  case Message.DeclareProfile m -> reporter.report(m);
+                  case Message.UpdateProfile m -> reporter.report(m);
+
+                  case Message.DeclareTopic m -> reporter.report(m);
+                  case Message.Events m -> reporter.report(m);
+
+                  case Message.Finish m -> {
+                    if(!canceledListener.get()) {
+                      writer.markSuccess();
+                    }
                     reporter.report(m);
                   }
                 }
@@ -132,12 +138,6 @@ public record SimulationAgent (
           .data(ResponseSerializers.serializeNoSuchActivityTypeException(ex))
           .trace(ex));
       return;
-    }
-
-    if(canceledListener.get()) {
-//      writer.reportIncompleteResults(results);
-    } else if (!hadError.booleanValue()) {
-      writer.markSuccess();
     }
   }
 }

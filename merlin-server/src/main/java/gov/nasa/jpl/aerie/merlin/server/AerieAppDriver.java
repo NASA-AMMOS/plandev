@@ -121,6 +121,10 @@ public final class AerieAppDriver {
       config.plugins.register(new LocalAppExceptionBindings());
       config.plugins.register(new MissionModelRepositoryExceptionBindings());
       config.jetty.server(() -> server);
+
+      config.jetty.wsFactoryConfig(factory ->
+          factory.setIdleTimeout(java.time.Duration.ofDays(1L))
+      );
     });
 
     // Start the HTTP server.

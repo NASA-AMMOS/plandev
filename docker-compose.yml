@@ -195,7 +195,7 @@ services:
     ports: ["5007:5005", "27187:8080"]
     restart: always
     volumes:
-      - aerie_file_store:/usr/src/app/merlin_file_store:ro
+      - aerie_file_store:/usr/src/app/merlin_file_store
   aerie_merlin_worker_2:
     build:
       context: ./merlin-worker
@@ -219,7 +219,7 @@ services:
     ports: ["5008:5005", "27188:8080"]
     restart: always
     volumes:
-      - aerie_file_store:/usr/src/app/merlin_file_store:ro
+      - aerie_file_store:/usr/src/app/merlin_file_store
   aerie_scheduler_worker_1:
     build:
       context: ./scheduler-worker

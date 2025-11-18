@@ -22,12 +22,20 @@ import gov.nasa.jpl.aerie.permissions.exceptions.Unauthorized;
 import io.javalin.Javalin;
 import io.javalin.http.Context;
 import io.javalin.plugin.Plugin;
+import io.javalin.websocket.WsConfig;
+import io.javalin.websocket.WsContext;
+import org.apache.commons.io.input.Tailer;
+import org.apache.commons.io.input.TailerListener;
+import org.apache.commons.io.input.TailerListenerAdapter;
 
 import javax.json.Json;
 import javax.json.stream.JsonParsingException;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
 
 import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.parseJson;
@@ -48,6 +56,7 @@ import static io.javalin.apibuilder.ApiBuilder.before;
 import static io.javalin.apibuilder.ApiBuilder.path;
 import static io.javalin.apibuilder.ApiBuilder.post;
 import static io.javalin.apibuilder.ApiBuilder.get;
+import static io.javalin.apibuilder.ApiBuilder.ws;
 
 /**
  * Lift native Java agents into an HTTP-oriented service.
@@ -109,6 +118,8 @@ public final class MerlinBindings implements Plugin {
       path("constraintsDslTypescript", () -> post(this::getConstraintsDslTypescript));
       path("refreshConstraintProcedureParameterTypes", () -> post(this::refreshConstrainProcedureParameterTypes));
       path("health", () -> get(ctx -> ctx.status(200)));
+
+      path("simulation-results/{datasetId}", () -> ws(this::simulationResultsWebSocket));
     });
 
     // This exception is expected when the request body entity is not a legal JsonValue.
@@ -116,6 +127,52 @@ public final class MerlinBindings implements Plugin {
         .status(400)
         .result(ResponseSerializers.serializeJsonParsingException(ex).toString())
         .contentType("application/json"));
+  }
+
+  private static final Map<WsContext, Long> sessionDatasetIds = new ConcurrentHashMap<>();
+  private static final Map<WsContext, Tailer> sessionDatasetTailers = new ConcurrentHashMap<>();
+  private static final Map<Long, Set<WsContext>> sessionsByDatasetId = new ConcurrentHashMap<>();
+  private void simulationResultsWebSocket(WsConfig wsConfig) {
+    wsConfig.onConnect(ctx -> {
+      var datasetId = Long.parseLong(ctx.pathParam("datasetId"));
+//      sessionDatasetIds.put(ctx, datasetId);
+//      sessionsByDatasetId.computeIfAbsent(datasetId,$ -> ConcurrentHashMap.newKeySet()).add(ctx);
+
+      // Catch the session up to present?
+
+      var tailer = Tailer.builder().setTailFromEnd(false).setFile("/usr/src/app/merlin_file_store/simulation-results/1.log").setTailerListener(new TailerListener() {
+        @Override
+        public void fileNotFound() {
+          System.out.println();
+        }
+
+        @Override
+        public void fileRotated() {
+          System.out.println();
+        }
+
+        @Override
+        public void handle(final Exception e) {
+          System.out.println();
+        }
+
+        @Override
+        public void handle(final String line) {
+          ctx.send(line);
+        }
+
+        @Override
+        public void init(final Tailer tailer) {
+          System.out.println();
+        }
+      }).get();
+      sessionDatasetTailers.put(ctx, tailer);
+    });
+    wsConfig.onClose(ctx -> {
+//      var datasetId = sessionDatasetIds.remove(ctx);
+//      sessionsByDatasetId.get(datasetId).remove(ctx);
+      sessionDatasetTailers.get(ctx).close();
+    });
   }
 
   private void postRefreshModelParameters(final Context ctx) {

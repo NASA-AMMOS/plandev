@@ -1,5 +1,7 @@
 package gov.nasa.jpl.aerie.merlin.driver;
 
+import gov.nasa.jpl.aerie.merlin.driver.engine.EventRecord;
+import gov.nasa.jpl.aerie.merlin.driver.timeline.EventGraph;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
@@ -24,10 +26,17 @@ public interface Reporter extends AutoCloseable {
   }
 
   sealed interface Message {
-    record DeclareProfile(String profileName, ValueSchema schema) implements Message {}
     record AdvanceTime(Duration startOffset) implements Message {}
-    record UpdateProfile(String profileName, Duration startOffset, SerializedValue value) implements Message {}
+
     record UpdateSpan(String spanId, Optional<Long> directiveId, Optional<String> parentSpanId, Duration startOffset, Optional<Duration> duration, String type, SerializedValue payload) implements Message {}
+
+    record DeclareProfile(String profileName, ValueSchema schema) implements Message {}
+    record UpdateProfile(String profileName, Duration startOffset, SerializedValue value) implements Message {}
+
+    record DeclareTopic(long topicId, String topicName, ValueSchema schema) implements Message {}
+    record Events(Duration startOffset, EventGraph<EventRecord> events) implements Message {}
+
     record Error(SimulationException exception) implements Message {}
+    record Finish() implements Message {}
   }
 }

@@ -770,12 +770,11 @@ public final class SimulationEngine implements AutoCloseable {
     return activityDirectiveIds;
   }
 
-  private HashMap<SpanId, ActivityInstanceId> spanToSimulatedActivities(
-      final SpanInfo spanInfo
+  public Map<SpanId, ActivityInstanceId> spanToSimulatedActivities(
+      final SpanInfo spanInfo, final Set<Object> usedActivityInstanceIds
   ) {
     final var activityDirectiveIds = spanToActivityDirectiveId(spanInfo);
     final var spanToActivityInstanceId = new HashMap<SpanId, ActivityInstanceId>(activityDirectiveIds.size());
-    final var usedActivityInstanceIds = new HashSet<>();
     for (final var entry : activityDirectiveIds.entrySet()) {
       spanToActivityInstanceId.put(entry.getKey(), new ActivityInstanceId(entry.getValue().id()));
       usedActivityInstanceIds.add(entry.getValue().id());
@@ -817,7 +816,7 @@ public final class SimulationEngine implements AutoCloseable {
     });
 
     // Give every task corresponding to a child activity an ID that doesn't conflict with any root activity.
-    final var spanToActivityInstanceId = spanToSimulatedActivities(spanInfo);
+    final var spanToActivityInstanceId = spanToSimulatedActivities(spanInfo, new HashSet<>());
 
     final var simulatedActivities = new HashMap<ActivityInstanceId, ActivityInstance>();
     final var unfinishedActivities = new HashMap<ActivityInstanceId, UnfinishedActivity>();
@@ -867,49 +866,19 @@ public final class SimulationEngine implements AutoCloseable {
   private TreeMap<Duration, List<EventGraph<EventRecord>>> createSerializedTimeline(
       final TemporalEventSource combinedTimeline,
       final Iterable<SerializableTopic<?>> serializableTopics,
-      final HashMap<SpanId, ActivityInstanceId> spanToActivities,
-      final HashMap<SerializableTopic<?>, Integer> serializableTopicToId) {
+      final Map<SpanId, ActivityInstanceId> spanToActivities,
+      final Map<SerializableTopic<?>, Integer> serializableTopicToId) {
     final var serializedTimeline = new TreeMap<Duration, List<EventGraph<EventRecord>>>();
     var time = Duration.ZERO;
     for (var point : combinedTimeline.points()) {
       if (point instanceof TemporalEventSource.TimePoint.Delta delta) {
         time = time.plus(delta.delta());
       } else if (point instanceof TemporalEventSource.TimePoint.Commit commit) {
-        final var serializedEventGraph = commit.events().substitute(
-            event -> {
-              // TODO can we do this more efficiently?
-              EventGraph<EventRecord> output = EventGraph.empty();
-              for (final var serializableTopic : serializableTopics) {
-                Optional<SerializedValue> serializedEvent = trySerializeEvent(event, serializableTopic);
-                if (serializedEvent.isPresent()) {
-                  // If the event's `provenance` has no simulated activity id, search its ancestors to find the nearest
-                  // simulated activity id, if one exists
-                  if (!spanToActivities.containsKey(event.provenance())) {
-                    var spanId = Optional.of(event.provenance());
-
-                    while (true) {
-                      if (spanToActivities.containsKey(spanId.get())) {
-                        spanToActivities.put(event.provenance(), spanToActivities.get(spanId.get()));
-                        break;
-                      }
-                      spanId = this.getSpan(spanId.get()).parent();
-                      if (spanId.isEmpty()) {
-                        break;
-                      }
-                    }
-                  }
-                  var activitySpanID = Optional.ofNullable(spanToActivities.get(event.provenance())).map(ActivityInstanceId::id);
-                  output = EventGraph.concurrently(
-                      output,
-                      EventGraph.atom(
-                          new EventRecord(serializableTopicToId.get(serializableTopic),
-                                          activitySpanID,
-                                          serializedEvent.get())));
-                }
-              }
-              return output;
-            }
-        ).evaluate(new EventGraph.IdentityTrait<>(), EventGraph::atom);
+        final var serializedEventGraph = serializeEventGraph(
+            serializableTopics,
+            spanToActivities,
+            serializableTopicToId,
+            commit.events());
         if (!(serializedEventGraph instanceof EventGraph.Empty)) {
           serializedTimeline
               .computeIfAbsent(time, x -> new ArrayList<>())
@@ -918,6 +887,53 @@ public final class SimulationEngine implements AutoCloseable {
       }
     }
     return serializedTimeline;
+  }
+
+  public EventGraph<EventRecord> serializeEventGraph(
+      Iterable<SerializableTopic<?>> serializableTopics,
+      Map<SpanId, ActivityInstanceId> spanToActivities,
+      Map<SerializableTopic<?>, Integer> serializableTopicToId,
+      EventGraph<Event> events)
+  {
+    // TODO can we do this more efficiently?
+    // If the event's `provenance` has no simulated activity id, search its ancestors to find the nearest
+    // simulated activity id, if one exists
+    return events.substitute(
+        event -> {
+          // TODO can we do this more efficiently?
+          EventGraph<EventRecord> output = EventGraph.empty();
+          for (final var serializableTopic : serializableTopics) {
+            Optional<SerializedValue> serializedEvent = trySerializeEvent(event, serializableTopic);
+            if (serializedEvent.isPresent()) {
+              // If the event's `provenance` has no simulated activity id, search its ancestors to find the nearest
+              // simulated activity id, if one exists
+              if (!spanToActivities.containsKey(event.provenance())) {
+                var spanId = Optional.of(event.provenance());
+
+                while (true) {
+                  if (spanToActivities.containsKey(spanId.get())) {
+                    spanToActivities.put(event.provenance(), spanToActivities.get(spanId.get()));
+                    break;
+                  }
+                  spanId = this.getSpan(spanId.get()).parent();
+                  if (spanId.isEmpty()) {
+                    break;
+                  }
+                }
+              }
+              var activitySpanID = Optional.ofNullable(spanToActivities.get(event.provenance())).map(ActivityInstanceId::id);
+              output = EventGraph.concurrently(
+                  output,
+                  EventGraph.atom(
+                      new EventRecord(
+                          serializableTopicToId.get(serializableTopic),
+                          activitySpanID,
+                          serializedEvent.get())));
+            }
+          }
+          return output;
+        }
+    ).evaluate(new EventGraph.IdentityTrait<>(), EventGraph::atom);
   }
 
 
@@ -955,7 +971,7 @@ public final class SimulationEngine implements AutoCloseable {
     final var serializedTimeline = createSerializedTimeline(
         combinedTimeline,
         serializableTopics,
-        spanToSimulatedActivities(spanInfo),
+        spanToSimulatedActivities(spanInfo, new HashSet<>()),
         serializableTopicToId
     );
 
@@ -998,7 +1014,7 @@ public final class SimulationEngine implements AutoCloseable {
     final var serializedTimeline = createSerializedTimeline(
         combinedTimeline,
         serializableTopics,
-        spanToSimulatedActivities(spanInfo),
+        spanToSimulatedActivities(spanInfo, new HashSet<>()),
         serializableTopicToId
     );
 

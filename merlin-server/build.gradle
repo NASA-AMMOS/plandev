@@ -95,6 +95,8 @@ dependencies {
   implementation 'org.postgresql:postgresql:42.6.1'
   implementation 'com.zaxxer:HikariCP:5.0.1'
 
+  implementation("commons-io:commons-io:2.21.0")
+
   testImplementation project(':examples:foo-missionmodel')
   testImplementation project(':merlin-framework')
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'

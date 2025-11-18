@@ -1,14 +1,15 @@
 package gov.nasa.jpl.aerie.merlin.server.services;
 
+import gov.nasa.jpl.aerie.merlin.driver.Reporter;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationException;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
-import gov.nasa.jpl.aerie.merlin.driver.resources.SimulationResourceManager;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.server.ResultsProtocol;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.http.ResponseSerializers;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
 import gov.nasa.jpl.aerie.types.Plan;
+import org.apache.commons.lang3.mutable.MutableBoolean;
 
 import javax.json.Json;
 import java.util.Map;
@@ -25,7 +26,7 @@ public record SimulationAgent (
       final RevisionData revisionData,
       final ResultsProtocol.WriterRole writer,
       final Supplier<Boolean> canceledListener,
-      final SimulationResourceManager resourceManager
+      final Reporter reporter
   ) {
     final Plan plan;
     try {
@@ -49,7 +50,7 @@ public record SimulationAgent (
       return;
     }
 
-    final SimulationResults results;
+    MutableBoolean hadError = new MutableBoolean(false);
     try {
       // Validate plan activity construction
       final var failures = this.missionModelService.validateActivityInstantiations(
@@ -71,25 +72,52 @@ public record SimulationAgent (
           Duration.ZERO,
           simulationProgressPollPeriod)
       ) {
-        results = this.missionModelService.runSimulation(
-           plan,
+        this.missionModelService.runSimulation(
+            plan,
             extentListener::updateValue,
             canceledListener,
-            resourceManager);
+            new Reporter() {
+              @Override
+              public void report(final Message message) {
+                switch (message) {
+                  case Message.AdvanceTime m -> {
+                    extentListener.updateValue(m.startOffset());
+                    reporter.report(m);
+                  }
+                  case Message.Error m -> {
+                    hadError.setTrue();
+                    var ex = m.exception();
+                    final var errorMsgBuilder = Json.createObjectBuilder()
+                      .add("elapsedTime", SimulationException.formatDuration(ex.elapsedTime))
+                      .add("utcTimeDoy", SimulationException.formatInstant(ex.instant));
+                    ex.directiveId.ifPresent(directiveId -> errorMsgBuilder.add("executingDirectiveId", directiveId.id()));
+                    ex.activityType.ifPresent(activityType -> errorMsgBuilder.add("executingActivityType", activityType));
+                    ex.activityStackTrace.ifPresent(activityStackTrace -> errorMsgBuilder.add("activityStackTrace", activityStackTrace));
+                    writer.failWith(b -> b
+                        .type("SIMULATION_EXCEPTION")
+                        .message(ex.cause.getMessage())
+                        .data(errorMsgBuilder.build())
+                        .trace(ex.cause));
+                    return;
+                  }
+                  case Message.UpdateProfile m -> {
+                    reporter.report(m);
+                  }
+                  case Message.UpdateSpan m -> {
+                    reporter.report(m);
+                  }
+                  case Message.DeclareProfile m -> {
+                    reporter.report(m);
+                  }
+                }
+              }
+
+              @Override
+              public void close() throws Exception {
+                reporter.close();
+              }
+            });
       }
-    } catch (SimulationException ex) {
-      final var errorMsgBuilder = Json.createObjectBuilder()
-                                      .add("elapsedTime", SimulationException.formatDuration(ex.elapsedTime))
-                                      .add("utcTimeDoy", SimulationException.formatInstant(ex.instant));
-      ex.directiveId.ifPresent(directiveId -> errorMsgBuilder.add("executingDirectiveId", directiveId.id()));
-      ex.activityType.ifPresent(activityType -> errorMsgBuilder.add("executingActivityType", activityType));
-      ex.activityStackTrace.ifPresent(activityStackTrace -> errorMsgBuilder.add("activityStackTrace", activityStackTrace));
-      writer.failWith(b -> b
-          .type("SIMULATION_EXCEPTION")
-          .message(ex.cause.getMessage())
-          .data(errorMsgBuilder.build())
-          .trace(ex.cause));
-      return;
     } catch (final MissionModelService.NoSuchMissionModelException ex) {
       writer.failWith(b -> b
           .type("NO_SUCH_MISSION_MODEL")
@@ -107,9 +135,9 @@ public record SimulationAgent (
     }
 
     if(canceledListener.get()) {
-      writer.reportIncompleteResults(results);
-    } else {
-      writer.succeedWith(results);
+//      writer.reportIncompleteResults(results);
+    } else if (!hadError.booleanValue()) {
+      writer.markSuccess();
     }
   }
 }

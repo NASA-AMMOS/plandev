@@ -4,6 +4,7 @@ import gov.nasa.jpl.aerie.merlin.driver.DirectiveTypeRegistry;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModelBuilder;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
+import gov.nasa.jpl.aerie.merlin.driver.Reporter;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationDriver;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationException;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
@@ -14,6 +15,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.model.ModelType;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.types.Plan;
+import org.apache.commons.lang3.NotImplementedException;
 
 import javax.json.Json;
 import javax.json.JsonObject;
@@ -137,7 +139,7 @@ public class SimulationUtility implements AutoCloseable {
     final var resultsThread = new Callable<SimulationResults>() {
       @Override
       public SimulationResults call() {
-        return SimulationDriver.simulate(
+        SimulationDriver.simulate(
             model,
             plan.activityDirectives(),
             plan.simulationStartTimestamp.toInstant(),
@@ -145,8 +147,18 @@ public class SimulationUtility implements AutoCloseable {
             plan.planStartInstant(),
             plan.duration(),
             canceledListener,
-            extentConsumer,
-            resourceManager);
+            new Reporter() {
+              @Override
+              public void report(final Message message) {
+
+              }
+
+              @Override
+              public void close() throws Exception {
+
+              }
+            });
+        throw new NotImplementedException();
       }
     };
 

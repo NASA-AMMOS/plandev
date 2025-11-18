@@ -51,6 +51,8 @@ public final class ResultsProtocol {
     void reportIncompleteResults(SimulationResults results);
 
     void reportSimulationExtent(Duration extent);
+
+    void markSuccess();
   }
 
   public interface OwnerRole extends ReaderRole, WriterRole {}

@@ -17,7 +17,9 @@ import gov.nasa.jpl.aerie.merlin.server.services.LocalPlanService;
 import gov.nasa.jpl.aerie.merlin.server.services.SimulationAgent;
 import gov.nasa.jpl.aerie.merlin.server.services.UnexpectedSubtypeError;
 import gov.nasa.jpl.aerie.merlin.worker.postgres.PostgresProfileStreamer;
+import gov.nasa.jpl.aerie.merlin.worker.postgres.PostgresReporter;
 import gov.nasa.jpl.aerie.merlin.worker.postgres.PostgresSimulationNotificationPayload;
+import gov.nasa.jpl.aerie.merlin.worker.postgres.ThreadedReporter;
 import io.javalin.Javalin;
 
 import java.nio.file.Path;
@@ -93,13 +95,13 @@ public final class MerlinWorkerAppDriver {
             notification.simulationRevision(),
             notification.simulationTemplateRevision());
         final ResultsProtocol.WriterRole writer = owner.get();
-        try(final var streamer = new PostgresProfileStreamer(hikariDataSource, datasetId)) {
+        try(final var reporter = ThreadedReporter.spawn("Reporter", new PostgresReporter(hikariDataSource, datasetId))) {
           simulationAgent.simulate(
               planId,
               revisionData,
               writer,
               canceledListener,
-              new StreamingSimulationResourceManager(streamer));
+              reporter);
         } catch (final Throwable ex) {
           ex.printStackTrace(System.err);
           writer.failWith(b -> b

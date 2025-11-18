@@ -128,6 +128,11 @@ public final class InMemoryResultsCellRepository implements ResultsCellRepositor
     }
 
     @Override
+    public void markSuccess() {
+
+    }
+
+    @Override
     public void failWith(final SimulationFailure reason) {
       if (!(this.state instanceof ResultsProtocol.State.Incomplete)) {
         throw new IllegalStateException("Cannot transition to failed state from state %s".formatted(

@@ -2,13 +2,13 @@ package gov.nasa.jpl.aerie.merlin.driver;
 
 import gov.nasa.jpl.aerie.merlin.driver.engine.SimulationEngine;
 import gov.nasa.jpl.aerie.merlin.driver.engine.SpanException;
-import gov.nasa.jpl.aerie.merlin.driver.resources.InMemorySimulationResourceManager;
-import gov.nasa.jpl.aerie.merlin.driver.resources.SimulationResourceManager;
+import gov.nasa.jpl.aerie.merlin.driver.engine.SpanId;
 import gov.nasa.jpl.aerie.merlin.protocol.driver.Topic;
 import gov.nasa.jpl.aerie.merlin.protocol.model.Task;
 import gov.nasa.jpl.aerie.merlin.protocol.model.TaskFactory;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
+import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
 import gov.nasa.jpl.aerie.types.ActivityDirective;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
@@ -19,9 +19,10 @@ import java.util.ArrayList;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
+import java.util.Optional;
 import java.util.function.Supplier;
 
 public final class SimulationDriver {
@@ -34,7 +35,7 @@ public final class SimulationDriver {
       final Duration planDuration,
       final Supplier<Boolean> simulationCanceled
   ) {
-    return simulate(
+    simulate(
         missionModel,
         schedule,
         simulationStartTime,
@@ -42,11 +43,42 @@ public final class SimulationDriver {
         planStartTime,
         planDuration,
         simulationCanceled,
-        $ -> {},
-        new InMemorySimulationResourceManager());
+        new Reporter() {
+          @Override
+          public void report(final Message message) {
+            switch (message) {
+              case Message.AdvanceTime m -> {
+              }
+              case Message.Error m -> {
+              }
+              case Message.UpdateProfile m -> {
+              }
+              case Message.UpdateSpan m -> {
+              }
+              case Message.DeclareProfile m -> {
+              }
+            }
+          }
+
+          @Override
+          public void close() throws Exception {
+
+          }
+        });
+    return null;
   }
 
-  public static <Model> SimulationResults simulate(
+  public static class SpanState {
+    public final SpanId id;
+    public final Duration startOffset;
+
+    public SpanState(final SpanId id, final Duration startOffset) {
+      this.id = id;
+      this.startOffset = startOffset;
+    }
+  }
+
+  public static <Model> void simulate(
       final MissionModel<Model> missionModel,
       final Map<ActivityDirectiveId, ActivityDirective> schedule,
       final Instant simulationStartTime,
@@ -54,19 +86,22 @@ public final class SimulationDriver {
       final Instant planStartTime,
       final Duration planDuration,
       final Supplier<Boolean> simulationCanceled,
-      final Consumer<Duration> simulationExtentConsumer,
-      final SimulationResourceManager resourceManager
+      final Reporter reporter
   ) {
     try (final var engine = new SimulationEngine(missionModel.getInitialCells())) {
 
       /* The current real time. */
-      simulationExtentConsumer.accept(Duration.ZERO);
+      reporter.report(new Reporter.Message.AdvanceTime(Duration.ZERO));
 
       // Specify a topic on which tasks can log the activity they're associated with.
       final var activityTopic = new Topic<ActivityDirectiveId>();
 
       try {
         engine.init(missionModel.getResources(), missionModel.getDaemon());
+
+        for (final var entry : missionModel.getResources().entrySet()) {
+          reporter.report(new Reporter.Message.DeclareProfile(entry.getKey(), entry.getValue().getOutputType().getSchema()));
+        }
 
         // Get all activities as close as possible to absolute time
         // Schedule all activities.
@@ -93,6 +128,10 @@ public final class SimulationDriver {
             activityTopic
         );
 
+        Map<SpanId, SpanState> openSpans = new LinkedHashMap<>();
+        SimulationEngine.SpanInfo spanInfo = new SimulationEngine.SpanInfo();
+        final var spanInfoTrait = new SimulationEngine.SpanInfo.Trait(missionModel.getTopics(), activityTopic);
+
         // Drive the engine until we're out of time or until simulation is canceled.
         // TERMINATION: Actually, we might never break if real time never progresses forward.
         engineLoop:
@@ -103,33 +142,73 @@ public final class SimulationDriver {
             case SimulationEngine.Status.NoJobs noJobs: break engineLoop;
             case SimulationEngine.Status.AtDuration atDuration: break engineLoop;
             case SimulationEngine.Status.Nominal nominal:
-              resourceManager.acceptUpdates(nominal.elapsedTime(), nominal.realResourceUpdates(), nominal.dynamicResourceUpdates());
+              for (final var spanUpdate : nominal.spanUpdates()) {
+                for (var commit : nominal.commits()) {
+                  commit.evaluate(spanInfoTrait, spanInfoTrait::atom).accept(spanInfo);
+                }
+                switch (spanUpdate) {
+                  case SimulationEngine.SpanUpdate.StartSpan s -> {
+
+                    SerializedActivity input = spanInfo.input().get(s.id());
+                    final SerializedValue payload = SerializedValue.of(input.getArguments());
+
+                    final SpanState spanState = new SpanState(s.id(), engine.getElapsedTime());
+                    openSpans.put(s.id(), spanState);
+
+                    reporter.report(new Reporter.Message.UpdateSpan(
+                        s.id().id(),
+                        Optional.ofNullable(spanInfo.getDirective(s.id())).map(ActivityDirectiveId::id),
+                        Optional.empty(),
+                        engine.getElapsedTime(),
+                        Optional.empty(),
+                        input.getTypeName(),
+                        payload));
+                  }
+                  case SimulationEngine.SpanUpdate.FinishSpan s -> {
+                    final SpanState spanState = openSpans.get(s.id());
+                    if (spanState != null) {
+                      SerializedActivity input = spanInfo.input().get(s.id());
+                      final SerializedValue payload = SerializedValue.of(input.getArguments());
+                      reporter.report(new Reporter.Message.UpdateSpan(
+                          s.id().id(),
+                          Optional.ofNullable(spanInfo.getDirective(s.id())).map(ActivityDirectiveId::id),
+                          Optional.empty(),
+                          spanState.startOffset,
+                          Optional.of(engine.getElapsedTime().minus(spanState.startOffset)),
+                          input.getTypeName(),
+                          payload));
+                    }
+                  }
+                }
+              }
+              reporter.acceptUpdates(nominal.elapsedTime(), nominal.realResourceUpdates(), nominal.dynamicResourceUpdates());
               break;
           }
-          simulationExtentConsumer.accept(engine.getElapsedTime());
+          reporter.report(new Reporter.Message.AdvanceTime(engine.getElapsedTime()));
         }
-
-        simulationExtentConsumer.accept(engine.getElapsedTime()); // Report the final simulation time
-
+        reporter.report(new Reporter.Message.AdvanceTime(engine.getElapsedTime())); // Report the final simulation time
       } catch (SpanException ex) {
         // Swallowing the spanException as the internal `spanId` is not user meaningful info.
         final var topics = missionModel.getTopics();
         final var directiveDetail = engine.getDirectiveDetailsFromSpan(activityTopic, topics, ex.spanId);
-        if(directiveDetail.directiveId().isPresent()) {
-          throw new SimulationException(
+        if (directiveDetail.directiveId().isPresent()) {
+          reporter.report(new Reporter.Message.Error(new SimulationException(
               engine.getElapsedTime(),
               simulationStartTime,
               directiveDetail.directiveId().get(),
               directiveDetail.activityStackTrace(),
-              ex.cause);
+              ex.cause)));
+          return;
         }
-        throw new SimulationException(engine.getElapsedTime(), simulationStartTime, ex.cause);
+        reporter.report(new Reporter.Message.Error(new SimulationException(engine.getElapsedTime(), simulationStartTime, ex.cause)));
+        return;
       } catch (Throwable ex) {
-        throw new SimulationException(engine.getElapsedTime(), simulationStartTime, ex);
+        reporter.report(new Reporter.Message.Error(new SimulationException(engine.getElapsedTime(), simulationStartTime, ex)));
+        return;
       }
 
-      final var topics = missionModel.getTopics();
-      return engine.computeResults(simulationStartTime, activityTopic, topics, resourceManager);
+//      final var topics = missionModel.getTopics();
+//      return engine.computeResults(simulationStartTime, activityTopic, topics, reporter);
     }
   }
 

@@ -175,13 +175,20 @@ public final class SimulationEngine implements AutoCloseable {
     }
   }
 
+  public sealed interface SpanUpdate {
+    record StartSpan(SpanId id, Map<String, SerializedValue> payload) implements SpanUpdate {}
+    record FinishSpan(SpanId id) implements SpanUpdate {}
+  }
+
   public sealed interface Status {
     record NoJobs() implements Status {}
     record AtDuration() implements Status{}
     record Nominal(
         Duration elapsedTime,
         Map<String, Pair<ValueSchema, RealDynamics>> realResourceUpdates,
-        Map<String, Pair<ValueSchema, SerializedValue>> dynamicResourceUpdates
+        Map<String, Pair<ValueSchema, SerializedValue>> dynamicResourceUpdates,
+        List<SpanUpdate> spanUpdates,
+        List<EventGraph<Event>> commits
     ) implements Status {}
   }
 
@@ -210,7 +217,7 @@ public final class SimulationEngine implements AutoCloseable {
 
     // Run the jobs in this batch.
     final var results = this.performJobs(batch.jobs(), cells, elapsedTime, simulationDuration);
-    for (final var commit : results.commits()) {
+    for (final EventGraph<Event> commit : results.commits()) {
       timeline.add(commit);
     }
     if (results.error.isPresent()) {
@@ -235,7 +242,7 @@ public final class SimulationEngine implements AutoCloseable {
       }
     }
 
-    return new Status.Nominal(elapsedTime, realResourceUpdates, dynamicResourceUpdates);
+    return new Status.Nominal(elapsedTime, realResourceUpdates, dynamicResourceUpdates, results.spanUpdates, results.commits);
   }
 
   private static <Dynamics> RealDynamics extractRealDynamics(final ResourceUpdates.ResourceUpdate<Dynamics> update) {
@@ -356,7 +363,8 @@ public final class SimulationEngine implements AutoCloseable {
   public record StepResult(
       List<EventGraph<Event>> commits,
       ResourceUpdates resourceUpdates,
-      Optional<Throwable> error
+      Optional<Throwable> error,
+      List<SpanUpdate> spanUpdates
   ) {}
 
   /** Performs a collection of tasks concurrently, extending the given timeline by their stateful effects. */
@@ -370,20 +378,21 @@ public final class SimulationEngine implements AutoCloseable {
     var tip = EventGraph.<Event>empty();
     Mutable<Optional<Throwable>> exception = new MutableObject<>(Optional.empty());
     final var resourceUpdates = new ResourceUpdates();
+    final var spanUpdates = new ArrayList<SpanUpdate>();
     for (final var job$ : jobs) {
       tip = EventGraph.concurrently(tip, TaskFrame.run(job$, context, (job, frame) -> {
         try {
-          this.performJob(job, frame, currentTime, maximumTime, resourceUpdates);
+          this.performJob(job, frame, currentTime, maximumTime, resourceUpdates, spanUpdates::add);
         } catch (Throwable ex) {
           exception.setValue(Optional.of(ex));
         }
       }));
 
       if (exception.getValue().isPresent()) {
-        return new StepResult(List.of(tip), resourceUpdates, exception.getValue());
+        return new StepResult(List.of(tip), resourceUpdates, exception.getValue(), spanUpdates);
       }
     }
-    return new StepResult(List.of(tip), resourceUpdates, Optional.empty());
+    return new StepResult(List.of(tip), resourceUpdates, Optional.empty(), spanUpdates);
   }
 
   /** Performs a single job. */
@@ -392,11 +401,12 @@ public final class SimulationEngine implements AutoCloseable {
       final TaskFrame<JobId> frame,
       final Duration currentTime,
       final Duration maximumTime,
-      final ResourceUpdates resourceUpdates
+      final ResourceUpdates resourceUpdates,
+      final Consumer<SpanUpdate> spanUpdateConsumer
   ) throws SpanException {
     switch (job) {
-      case JobId.TaskJobId j -> this.stepTask(j.id(), frame, currentTime);
-      case JobId.SignalJobId j -> this.stepTask(this.waitingTasks.remove(j.id()), frame, currentTime);
+      case JobId.TaskJobId j -> this.stepTask(j.id(), frame, currentTime, spanUpdateConsumer);
+      case JobId.SignalJobId j -> this.stepTask(this.waitingTasks.remove(j.id()), frame, currentTime, spanUpdateConsumer);
       case JobId.ConditionJobId j -> this.updateCondition(j.id(), frame, currentTime, maximumTime);
       case JobId.ResourceJobId j -> this.updateResource(j.id(), frame, currentTime, resourceUpdates);
       case null -> throw new IllegalArgumentException("Unexpected null value for JobId");
@@ -407,7 +417,7 @@ public final class SimulationEngine implements AutoCloseable {
   }
 
   /** Perform the next step of a modeled task. */
-  public void stepTask(final TaskId task, final TaskFrame<JobId> frame, final Duration currentTime)
+  public void stepTask(final TaskId task, final TaskFrame<JobId> frame, final Duration currentTime, final Consumer<SpanUpdate> spanUpdateConsumer)
   throws SpanException {
     if (this.closed) throw new IllegalStateException("Cannot step task on closed simulation engine");
     this.unstartedTasks.remove(task);
@@ -415,7 +425,7 @@ public final class SimulationEngine implements AutoCloseable {
     //   for putting an updated state back into the task set.
     var state = this.tasks.remove(task);
 
-    stepEffectModel(task, state, frame, currentTime);
+    stepEffectModel(task, state, frame, currentTime, spanUpdateConsumer);
   }
 
   /** Make progress in a task by stepping its associated effect model forward. */
@@ -423,10 +433,12 @@ public final class SimulationEngine implements AutoCloseable {
       final TaskId task,
       final ExecutionState<Output> progress,
       final TaskFrame<JobId> frame,
-      final Duration currentTime
+      final Duration currentTime,
+      final Consumer<SpanUpdate> spanUpdateConsumer
   ) throws SpanException {
     // Step the modeling state forward.
-    final var scheduler = new EngineScheduler(currentTime, progress.span(), progress.caller(), frame);
+    final var scheduler = new EngineScheduler(currentTime, progress.span(), progress.caller(), frame,
+                                              spanUpdateConsumer);
     final TaskStatus<Output> status;
     try {
       status = progress.state().step(scheduler);
@@ -445,6 +457,7 @@ public final class SimulationEngine implements AutoCloseable {
         while (true) {
           if (this.spanContributorCount.get(span).decrementAndGet() > 0) break;
           this.spanContributorCount.remove(span);
+          spanUpdateConsumer.accept(new SpanUpdate.FinishSpan(span));
 
           this.spans.compute(span, (_id, $) -> $.close(currentTime));
 
@@ -481,6 +494,7 @@ public final class SimulationEngine implements AutoCloseable {
                 freshSpan,
                 new Span(Optional.of(scheduler.span), currentTime, Optional.empty()));
             SimulationEngine.this.spanContributorCount.put(freshSpan, new MutableInt(1));
+            spanUpdateConsumer.accept(new SpanUpdate.StartSpan(freshSpan, Map.of()));
             yield freshSpan;
           }
         };
@@ -584,7 +598,7 @@ public final class SimulationEngine implements AutoCloseable {
     }
   }
 
-  private record SpanInfo(
+  public record SpanInfo(
       Map<SpanId, ActivityDirectiveId> spanToPlannedDirective,
       Map<SpanId, SerializedActivity> input,
       Map<SpanId, SerializedValue> output
@@ -1050,17 +1064,20 @@ public final class SimulationEngine implements AutoCloseable {
     private final SpanId span;
     private final Optional<TaskId> caller;
     private final TaskFrame<JobId> frame;
+    private final Consumer<SpanUpdate> spanUpdateConsumer;
 
     public EngineScheduler(
         final Duration currentTime,
         final SpanId span,
         final Optional<TaskId> caller,
-        final TaskFrame<JobId> frame)
+        final TaskFrame<JobId> frame,
+        final Consumer<SpanUpdate> spanUpdateConsumer)
     {
       this.currentTime = Objects.requireNonNull(currentTime);
       this.span = Objects.requireNonNull(span);
       this.caller = Objects.requireNonNull(caller);
       this.frame = Objects.requireNonNull(frame);
+      this.spanUpdateConsumer = spanUpdateConsumer;
     }
 
     @Override
@@ -1093,6 +1110,7 @@ public final class SimulationEngine implements AutoCloseable {
           final var freshSpan = SpanId.generate();
           SimulationEngine.this.spans.put(freshSpan, new Span(Optional.of(this.span), currentTime, Optional.empty()));
           SimulationEngine.this.spanContributorCount.put(freshSpan, new MutableInt(1));
+          this.spanUpdateConsumer.accept(new SpanUpdate.StartSpan(freshSpan, Map.of()));
           yield freshSpan;
         }
       };

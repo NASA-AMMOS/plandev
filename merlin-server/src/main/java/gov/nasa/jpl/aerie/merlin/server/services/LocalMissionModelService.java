@@ -3,6 +3,7 @@ package gov.nasa.jpl.aerie.merlin.server.services;
 import gov.nasa.jpl.aerie.merlin.driver.DirectiveTypeRegistry;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
+import gov.nasa.jpl.aerie.merlin.driver.Reporter;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import gov.nasa.jpl.aerie.types.Plan;
@@ -285,11 +286,11 @@ public final class LocalMissionModelService implements MissionModelService {
    * @throws NoSuchMissionModelException If no mission model is known by the given ID.
    */
   @Override
-  public SimulationResults runSimulation(
+  public void runSimulation(
       final Plan plan,
       final Consumer<Duration> simulationExtentConsumer,
       final Supplier<Boolean> canceledListener,
-      final SimulationResourceManager resourceManager)
+      final Reporter reporter)
   throws NoSuchMissionModelException
   {
     final var config = plan.simulationConfiguration();
@@ -299,7 +300,7 @@ public final class LocalMissionModelService implements MissionModelService {
     }
 
     // TODO: [AERIE-1516] Teardown the mission model after use to release any system resources (e.g. threads).
-    return SimulationDriver.simulate(
+    SimulationDriver.simulate(
         loadAndInstantiateMissionModel(
             plan.missionModelId(),
             plan.planStartInstant(),
@@ -310,8 +311,7 @@ public final class LocalMissionModelService implements MissionModelService {
         plan.planStartInstant(),
         plan.duration(),
         canceledListener,
-        simulationExtentConsumer,
-        resourceManager);
+        reporter);
   }
 
   @Override

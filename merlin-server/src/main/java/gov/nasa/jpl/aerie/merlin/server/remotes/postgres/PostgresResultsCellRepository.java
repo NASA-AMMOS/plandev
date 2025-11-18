@@ -575,6 +575,24 @@ public final class PostgresResultsCellRepository implements ResultsCellRepositor
     }
 
     @Override
+    public void markSuccess() {
+      try (final var connection = dataSource.getConnection();
+           final var transactionContext = new TransactionContext(connection)) {
+        try (final var setSimulationStateAction = new SetSimulationStateAction(connection)) {
+          setSimulationStateAction.apply(datasetId, SimulationStateRecord.success());
+        }
+        transactionContext.commit();
+        logger.info("%s set simulation status to success".formatted(Duration.microseconds(System.nanoTime() / 1000)));
+      } catch (final SQLException ex) {
+        throw new DatabaseException("Failed to set simulation status to success", ex);
+      } catch (final NoSuchSimulationDatasetException ex) {
+        // A cell should only be created for a valid, existing dataset
+        // A dataset should only be deleted by its cell
+        throw new Error("Cell references nonexistent simulation dataset");
+      }
+    }
+
+    @Override
     public void failWith(final SimulationFailure reason) {
       try (final var connection = dataSource.getConnection();
            final var transactionContext = new TransactionContext(connection)) {

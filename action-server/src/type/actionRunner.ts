@@ -45,23 +45,24 @@ export class ActionRunner {
   static async addActionSecret(actionRunId: string, actionSecrets: Record<string, string>): Promise<void> {
     this.actionSecretsMap.set(actionRunId, actionSecrets);
 
-    logger.info(`Secret found for Action Run: ${actionRunId}, running action...`);
+    logger.info(`Secrets received for Action Run: ${actionRunId}, running action...`);
 
     const actionRunFunc = this.actionRunQueue.get(actionRunId);
-
-    if (actionRunFunc) {
-      setTimeout(() => {
-        if (this.actionSecretsMap.get(actionRunId)) {
-          logger.info(`Secret for Action Run: ${actionRunId} timed out waiting for the associated action run.`);
-          this.deleteActionSecret(actionRunId);
-        }
-      }, this.WAIT_FOR_ACTION_RUN_TIMEOUT);
-
-      await actionRunFunc(actionRunId);
+    if(!actionRunFunc || typeof actionRunFunc !== "function") {
       this.deleteActionSecret(actionRunId);
-    } else {
-      throw new Error(`Action Run ${actionRunId} not found in queue`);
+      throw new Error(`Action Run ${actionRunId} not found in queue: ${actionRunFunc}`);
     }
+
+    setTimeout(() => {
+      // delete secrets if we timeout waiting for the action run to complete, so we don't keep them forever
+      if (this.actionSecretsMap.get(actionRunId)) {
+        logger.info(`Secret for Action Run: ${actionRunId} timed out waiting for the associated action run.`);
+        this.deleteActionSecret(actionRunId);
+      }
+    }, this.WAIT_FOR_ACTION_RUN_TIMEOUT);
+
+    await actionRunFunc(actionRunId);
+    this.deleteActionSecret(actionRunId);
   }
 
   static deleteActionRun(actionRunId: string): void {

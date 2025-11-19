@@ -4,8 +4,6 @@ import { ActionResponse, ActionTask } from "../type/types";
 import logger from "../utils/logger";
 import { configuration } from "../config";
 import pg from "pg";
-import { ActionWorkerPool } from "./workerPool";
-import { MessageChannel, MessagePort } from "worker_threads";
 
 const { AERIE_DB, AERIE_DB_HOST, AERIE_DB_PORT, ACTION_DB_USER, ACTION_DB_PASSWORD } = configuration();
 
@@ -111,7 +109,7 @@ export async function runAction(task: ActionTask): Promise<ActionResponse> {
   let jsRun: ActionResponse;
 
   try {
-    jsRun = await jsExecute(task.actionJS, task.parameters, task.settings, task.auth, client, task.workspaceId, task.secrets);
+    jsRun = await jsExecute(task.actionJS, task.parameters, task.settings, task.action_run_id, client, task.workspaceId, task.secrets);
     logger.info(`[Action Run ${task.action_run_id}, Thread ${threadId}] done executing`);
     await releaseDbPoolAndClient();
     logger.info(`[Action Run ${task.action_run_id}, Thread ${threadId}] released DB connection`);

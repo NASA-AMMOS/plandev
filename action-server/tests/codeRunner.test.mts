@@ -1,8 +1,9 @@
 import test from "node:test";
 import assert from "assert";
-import { jsExecute } from "../src/utils/codeRunner";
+import codeRunner from "../src/utils/codeRunner";
+const { jsExecute } = codeRunner;
 import { PoolClient } from "pg";
-import { ActionResponse } from "../src/type/types";
+import type { ActionResponse } from '../src/type/types.ts';
 
 test("Code Runner jsRunner Tests", async () => {
   await test("capture console output", async () => {

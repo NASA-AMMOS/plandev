@@ -125,8 +125,8 @@ export async function runAction(payload: ActionRunInsertedPayload, actionSecrets
         payload.action_run_id,
       ],
     );
-
-    logger.info("Updated action_run:", res.rows[0]);
+    logger.info(`Updated action_run ${payload.action_run_id}, status: ${status}`);
+    logger.debug("Updated action_run: " + JSON.stringify(res.rows[0], null, 2));
   } catch (error) {
     logger.error("Error updating row:", error);
   }

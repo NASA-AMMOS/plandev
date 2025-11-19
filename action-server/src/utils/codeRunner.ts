@@ -6,14 +6,11 @@ import { ActionsAPI } from "@nasa-jpl/aerie-actions";
 import { configuration } from "../config";
 import type { ActionConfig, ActionResponse } from "../type/types";
 
-const { ACTION_LOCAL_STORE, SEQUENCING_LOCAL_STORE, WORKSPACE_BASE_URL, HASURA_GRAPHQL_ADMIN_SECRET } = configuration();
+const { ACTION_LOCAL_STORE, SEQUENCING_LOCAL_STORE, WORKSPACE_BASE_URL } = configuration();
 
 function injectLogger(oldConsole: any, logBuffer: string[], secrets?: Record<string, any> | undefined) {
   // secrets may be passed as last argument, to be censored in the logs
-  const censoredSecrets = {
-    ...(secrets || {}),
-    HASURA_GRAPHQL_ADMIN_SECRET
-  };
+  const censoredSecrets = { ...(secrets || {}) };
 
   // inject a winston logger to be passed to the action VM, replacing its normal `console`,
   // so we can capture the console outputs and return them with the action results
@@ -55,23 +52,34 @@ function injectLogger(oldConsole: any, logBuffer: string[], secrets?: Record<str
   };
 }
 
-function getGlobals() {
-  const aerieGlobal = Object.defineProperties({ ...global }, Object.getOwnPropertyDescriptors(global));
-  const permittedEnvironmentVariables: Record<string, string> = {};
+type ActionGlobalContext = Partial<typeof globalThis> & {
+  console: Console;
+  [key: string]: unknown;
+};
 
+function getGlobals() {
   // Look at the global environment variables and only pass the ones with our permitted prefix to the action.
-  Object.keys(global.process.env).forEach((env) => {
-    if (env.startsWith(ActionsAPI.ENVIRONMENT_VARIABLE_PREFIX) && global.process.env[env]) {
-      permittedEnvironmentVariables[env] = global.process.env[env];
+  const permittedEnvironmentVariables: Record<string, string> = {};
+  Object.keys(globalThis.process.env).forEach((env) => {
+    if (env.startsWith(ActionsAPI.ENVIRONMENT_VARIABLE_PREFIX) && globalThis.process.env[env]) {
+      permittedEnvironmentVariables[env] = globalThis.process.env[env];
     }
   });
 
-  aerieGlobal.exports = {};
-  aerieGlobal.require = require;
-  aerieGlobal.__dirname = __dirname;
-  aerieGlobal.process.env = permittedEnvironmentVariables;
+  // create a new context (globals) object to give the action when running
+  // including copies of most global context, except only the permitted subset of env vars
+  const aerieGlobal: ActionGlobalContext  = {
+    console,
+    exports: {},
+    require,
+    __dirname,
+    process: {
+      ...process,
+      env: { ...permittedEnvironmentVariables },
+    },
+  };
+  Object.setPrototypeOf(aerieGlobal, globalThis);
 
-  // todo: pass env variables from the parent process?
   return aerieGlobal;
 }
 
@@ -79,30 +87,40 @@ export const jsExecute = async (
   code: string,
   parameters: Record<string, any>,
   settings: Record<string, any>,
-  authToken: string | undefined,
+  actionRunId: string,
   client: PoolClient,
   workspaceId: number,
   secrets: Record<string, string> | undefined,
 ): Promise<ActionResponse> => {
-  // create a clone of the global object (including getters/setters/non-enumerable properties)
+  // create a clone of the global object
   // to be passed to the context so it has access to eg. node built-ins
   const aerieGlobal = getGlobals();
   // inject custom logger to capture logs from action run
   const logBuffer: string[] = [];
-
   aerieGlobal.console = injectLogger(aerieGlobal.console, logBuffer, secrets);
 
   const context = vm.createContext(aerieGlobal);
+
+  let username = "";
+  if(secrets && secrets.user) {
+    try {
+      const user = JSON.parse(secrets.user) || {};
+      username = user?.username || "";
+    } catch(e) {
+      aerieGlobal.console.warn("Could not retrieve username from user token");
+    }
+  }
 
   try {
     vm.runInContext(code, context);
     // todo: main runs outside of VM - is that OK?
     const actionConfig: ActionConfig = {
       ACTION_FILE_STORE: ACTION_LOCAL_STORE,
-      SEQUENCING_FILE_STORE: SEQUENCING_LOCAL_STORE,
+      ACTION_RUN_ID: actionRunId,
       SECRETS: secrets,
+      SEQUENCING_FILE_STORE: SEQUENCING_LOCAL_STORE,
+      USERNAME: username,
       WORKSPACE_BASE_URL: WORKSPACE_BASE_URL,
-      HASURA_GRAPHQL_ADMIN_SECRET: HASURA_GRAPHQL_ADMIN_SECRET
     };
     const actionsAPI = new ActionsAPI(client, workspaceId, actionConfig);
     const results = await context.main(parameters, settings, actionsAPI);

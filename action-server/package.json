@@ -30,7 +30,7 @@
     "tsx": "^4.20.6"
   },
   "dependencies": {
-    "@nasa-jpl/aerie-actions": "1.1.0",
+    "@nasa-jpl/aerie-actions": "1.1.1",
     "express": "^5.0.1",
     "jsonwebtoken": "9.0.2",
     "pg": "^8.13.3",

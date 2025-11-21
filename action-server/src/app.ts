@@ -27,7 +27,8 @@ app.post(
     const fullSecrets = {
       ...secrets,
       authorization: res.locals.authorization,
-      user: JSON.stringify(res.locals.user)
+      user: JSON.stringify(res.locals.user),
+      userRole: res.locals.userRole
     }
     ActionRunner.addActionSecret(actionRunId, fullSecrets);
 

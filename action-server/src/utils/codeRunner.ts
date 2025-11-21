@@ -95,6 +95,14 @@ export const jsExecute = async (
   // create a clone of the global object
   // to be passed to the context so it has access to eg. node built-ins
   const aerieGlobal = getGlobals();
+
+  // don't treat role as a secret so we don't censor it
+  let userRole = "";
+  if(secrets && secrets.userRole) {
+    userRole = secrets.userRole;
+    delete secrets.userRole;
+  }
+
   // inject custom logger to capture logs from action run
   const logBuffer: string[] = [];
   aerieGlobal.console = injectLogger(aerieGlobal.console, logBuffer, secrets);
@@ -120,7 +128,8 @@ export const jsExecute = async (
       SECRETS: secrets,
       SEQUENCING_FILE_STORE: SEQUENCING_LOCAL_STORE,
       USERNAME: username,
-      WORKSPACE_BASE_URL: WORKSPACE_BASE_URL,
+      USER_ROLE: userRole,
+      WORKSPACE_BASE_URL: WORKSPACE_BASE_URL
     };
     const actionsAPI = new ActionsAPI(client, workspaceId, actionConfig);
     const results = await context.main(parameters, settings, actionsAPI);

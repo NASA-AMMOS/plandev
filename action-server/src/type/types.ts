@@ -28,6 +28,7 @@ export type ActionConfig = {
   SECRETS?: Record<string, string> | undefined;
   WORKSPACE_BASE_URL: string;
   USERNAME?: string;
+  USER_ROLE?: string;
 };
 
 export type ActionTask = {

@@ -334,7 +334,11 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
-  public boolean deleteDirectory(final int workspaceId, final Path directoryPath) throws NoSuchWorkspaceException {
-    return deleteFile(workspaceId, directoryPath);
+  public boolean deleteDirectory(final int workspaceId, final Path directoryPath)
+  throws NoSuchWorkspaceException
+  {
+    final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
+    final var path = resolveSubPath(repoPath, directoryPath);
+    return rmDirectory(path.toFile());
   }
 }

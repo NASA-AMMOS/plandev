@@ -197,7 +197,7 @@
 //   - schedule IDAMoveArm
 //   - once
 //   ref: merlin act model
-//   https://github.jpl.nasa.gov/Aerie/aerie/blob/develop/insight/src/main/java/gov/nasa/jpl/aerie/insight/activities/ids/IDAMoveArm.java
+//   https://github.jpl.nasa.gov/PlanDev/plandev/blob/develop/insight/src/main/java/gov/nasa/jpl/plandev/insight/activities/ids/IDAMoveArm.java
 //   ref: apgen activities
 //   https://github.jpl.nasa.gov/insight-mst/apgen_surface/blob/b909cf5eb570ab5d4020795f181cf81190d3bfb4/model/IDS_tactical_activities.aaf
 //*/
@@ -219,7 +219,7 @@
 //   * Rule 2b: pick up the device from its stowed location
 //   - schedule IDAGrapple
 //   - starts at end of first IDSMoveArm
-//   ref: merlin act model https://github.jpl.nasa.gov/Aerie/aerie/blob/7598e014788595bf323e93185ffbd1dfa12fce68/insight/src/main/java/gov/nasa/jpl/aerie/insight/activities/ids/IDAGrapple.java
+//   ref: merlin act model https://github.jpl.nasa.gov/PlanDev/plandev/blob/7598e014788595bf323e93185ffbd1dfa12fce68/insight/src/main/java/gov/nasa/jpl/plandev/insight/activities/ids/IDAGrapple.java
 //*/
 //  var atGrapple = getActivityType("IDAGrapple");
 //
@@ -282,7 +282,7 @@
 //   - schedule IDAHeatersOn
 //   - ends before start of earliest IDAGrapple or IDAMoveArm
 //   ref: merlin act model
-//   https://github.jpl.nasa.gov/Aerie/aerie/blob/7598e014788595bf323e93185ffbd1dfa12fce68/insight/src/main/java/gov/nasa/jpl/aerie/insight/activities/ids/IDAHeatersOn.java
+//   https://github.jpl.nasa.gov/PlanDev/plandev/blob/7598e014788595bf323e93185ffbd1dfa12fce68/insight/src/main/java/gov/nasa/jpl/plandev/insight/activities/ids/IDAHeatersOn.java
 //*/
 //  var enveloppeAllGrappleMove = new TimeRangeExpression.Builder()
 //      .from(new Windows(Interval.FOREVER, true))
@@ -314,7 +314,7 @@
 //   - schedule IDAHeatersOff
 //   - starts after end of latest IDAGrapple or IDAMoveArm
 //   ref: merlin act model
-//   https://github.jpl.nasa.gov/Aerie/aerie/blob/7598e014788595bf323e93185ffbd1dfa12fce68/insight/src/main/java/gov/nasa/jpl/aerie/insight/activities/ids/IDAHeatersOff.java
+//   https://github.jpl.nasa.gov/PlanDev/plandev/blob/7598e014788595bf323e93185ffbd1dfa12fce68/insight/src/main/java/gov/nasa/jpl/plandev/insight/activities/ids/IDAHeatersOff.java
 //*/
 //
 //  var actTypeIDAHeatersOff = getActivityType("IDAHeatersOff");
@@ -337,7 +337,7 @@
 //   - schedule IDCImage
 //   - ends immediately before start each IDAGrapple (both pickup and dropoff)
 //   ref: merlin act model
-//   https://github.jpl.nasa.gov/Aerie/aerie/blob/develop/insight/src/main/java/gov/nasa/jpl/aerie/insight/activities/ids/IDCImages.java#L28
+//   https://github.jpl.nasa.gov/PlanDev/plandev/blob/develop/insight/src/main/java/gov/nasa/jpl/plandev/insight/activities/ids/IDCImages.java#L28
 //*/
 //  var actTypeIDCImage= getActivityType("IDCImages");
 //
@@ -385,7 +385,7 @@
 //   - schedule IDCHeatersOn
 //   - so that ends before earliest start of any IDCImage acts above
 //   ref: merlin act model
-//   https://github.jpl.nasa.gov/Aerie/aerie/blob/develop/insight/src/main/java/gov/nasa/jpl/aerie/insight/activities/ids/IDCHeatersOn.java
+//   https://github.jpl.nasa.gov/PlanDev/plandev/blob/develop/insight/src/main/java/gov/nasa/jpl/plandev/insight/activities/ids/IDCHeatersOn.java
 //*/
 //
 //  var enveloppeAllIDCImage = new TimeRangeExpression.Builder()
@@ -419,7 +419,7 @@
 //   - so that ends after end of any IDCImage act above
 //   * CORRECTION ADRIEN : Starts after end of any IDC image
 //   ref: merlin act model
-//   https://github.jpl.nasa.gov/Aerie/aerie/blob/develop/insight/src/main/java/gov/nasa/jpl/aerie/insight/activities/ids/IDCHeatersOff.java
+//   https://github.jpl.nasa.gov/PlanDev/plandev/blob/develop/insight/src/main/java/gov/nasa/jpl/plandev/insight/activities/ids/IDCHeatersOff.java
 //*/
 //
 //  var actTypeIDCHeatersOff= getActivityType("IDCHeatersOff");
@@ -442,7 +442,7 @@
 //   - schedule ICCImages
 //   - ends immediately before start of first IDAMoveArm
 //   ref: merlin act model
-//   https://github.jpl.nasa.gov/Aerie/aerie/blob/develop/insight/src/main/java/gov/nasa/jpl/aerie/insight/activities/ids/IDCImages.java
+//   https://github.jpl.nasa.gov/PlanDev/plandev/blob/develop/insight/src/main/java/gov/nasa/jpl/plandev/insight/activities/ids/IDCImages.java
 //*/
 //  var firstIdaMoveArm = new TimeRangeExpression.Builder()
 //      .from(ActivityExpression.ofType(actTypeIDAMoveArm))
@@ -495,7 +495,7 @@
 //   - schedule ICCHeatersOn
 //   - so that ends before earliest start of any ICCImage acts above
 //   ref: merlin act model
-//   https://github.jpl.nasa.gov/Aerie/aerie/blob/develop/insight/src/main/java/gov/nasa/jpl/aerie/insight/activities/ids/ICCHeatersOn.java
+//   https://github.jpl.nasa.gov/PlanDev/plandev/blob/develop/insight/src/main/java/gov/nasa/jpl/plandev/insight/activities/ids/ICCHeatersOn.java
 //*/
 //
 //  var firstICCImages = new TimeRangeExpression.Builder()
@@ -523,7 +523,7 @@
 //   - schedule ICCHeatersOff
 //   - so that ends after end of any ICCImage act above
 //   ref: merlin act model
-//   https://github.jpl.nasa.gov/Aerie/aerie/blob/develop/insight/src/main/java/gov/nasa/jpl/aerie/insight/activities/ids/ICCHeatersOff.java#L15
+//   https://github.jpl.nasa.gov/PlanDev/plandev/blob/develop/insight/src/main/java/gov/nasa/jpl/plandev/insight/activities/ids/ICCHeatersOff.java#L15
 //
 //*/
 //  var lastICCImages = new TimeRangeExpression.Builder()
@@ -585,12 +585,12 @@
 //   (will need initial plan to include changing visibility/allocation states)
 //   - and the contact interval is at least 20min
 //   ref: merlin activity model
-//   https://github.jpl.nasa.gov/Aerie/aerie/blob/develop/insight/src/main/java/gov/nasa/jpl/aerie/insight/activities/comm/xband/XBandActive.java#L17
+//   https://github.jpl.nasa.gov/PlanDev/plandev/blob/develop/insight/src/main/java/gov/nasa/jpl/plandev/insight/activities/comm/xband/XBandActive.java#L17
 //   ref: merlin comm model
-//   https://github.jpl.nasa.gov/Aerie/aerie/blob/develop/insight/src/main/java/gov/nasa/jpl/aerie/insight/models/comm/CommModel.java#L12
+//   https://github.jpl.nasa.gov/PlanDev/plandev/blob/develop/insight/src/main/java/gov/nasa/jpl/plandev/insight/models/comm/CommModel.java#L12
 //   (does not have states for visibility, so will have to create them, per dsn complex)
 //   ref: merlin accumulated data model
-//   https://github.jpl.nasa.gov/Aerie/aerie/blob/develop/insight/src/main/java/gov/nasa/jpl/aerie/insight/models/data/DataModel.java#L64
+//   https://github.jpl.nasa.gov/PlanDev/plandev/blob/develop/insight/src/main/java/gov/nasa/jpl/plandev/insight/models/data/DataModel.java#L64
 //*/
 //
 //  var actTypeXbandActive = getActivityType("XBandActive");
@@ -617,9 +617,9 @@
 //   - duration: not sure! see ref below
 //   - so that ends at beginning of XBandActive
 //   ref: merlin act model
-//   https://github.jpl.nasa.gov/Aerie/aerie/blob/develop/insight/src/main/java/gov/nasa/jpl/aerie/insight/activities/comm/xband/XBandPregoals.java
+//   https://github.jpl.nasa.gov/PlanDev/plandev/blob/develop/insight/src/main/java/gov/nasa/jpl/plandev/insight/activities/comm/xband/XBandPregoals.java
 //   ref: duration calculation from old decompositional parent act
-//   https://github.jpl.nasa.gov/Aerie/aerie/blob/develop/insight/src/main/java/gov/nasa/jpl/aerie/insight/activities/comm/xband/XBandComm.java#L39
+//   https://github.jpl.nasa.gov/PlanDev/plandev/blob/develop/insight/src/main/java/gov/nasa/jpl/plandev/insight/activities/comm/xband/XBandComm.java#L39
 //*/
 //
 //    var actTypeXbandPrep = getActivityType("XBandPrep");
@@ -644,9 +644,9 @@
 //   - duration: not sure! see ref below
 //   - so that starts at end of XBandActive
 //   ref: merlin act model
-//   https://github.jpl.nasa.gov/Aerie/aerie/blob/develop/insight/src/main/java/gov/nasa/jpl/aerie/insight/activities/comm/xband/XBandCleanugoals.java#L16
+//   https://github.jpl.nasa.gov/PlanDev/plandev/blob/develop/insight/src/main/java/gov/nasa/jpl/plandev/insight/activities/comm/xband/XBandCleanugoals.java#L16
 //   ref: duration calculation from old decompositional parent act
-//   https://github.jpl.nasa.gov/Aerie/aerie/blob/develop/insight/src/main/java/gov/nasa/jpl/aerie/insight/activities/comm/xband/XBandComm.java#L39
+//   https://github.jpl.nasa.gov/PlanDev/plandev/blob/develop/insight/src/main/java/gov/nasa/jpl/plandev/insight/activities/comm/xband/XBandComm.java#L39
 //*/
 //    var actTypeXbandCleanup= getActivityType("XBandCleanup");
 //
@@ -671,7 +671,7 @@
 //   - but don't want all the inner timing params...
 //   - that tightly envelopes each entire prep-comm-cleanup triple
 //   ref: existing higher level merlin decompositional act model
-//   https://github.jpl.nasa.gov/Aerie/aerie/blob/develop/insight/src/main/java/gov/nasa/jpl/aerie/insight/activities/comm/xband/XBandComm.java#L48
+//   https://github.jpl.nasa.gov/PlanDev/plandev/blob/develop/insight/src/main/java/gov/nasa/jpl/plandev/insight/activities/comm/xband/XBandComm.java#L48
 //   (will need a place to store the summary info like dsnTrack station and dlRate, as well as do the one setXBandAntenna() call)
 //   (can create a new non-decomposition mirror of this act, still with setXBandAnt and only params unrelated to decomp timing)
 //   ref: apgen decompositional parent

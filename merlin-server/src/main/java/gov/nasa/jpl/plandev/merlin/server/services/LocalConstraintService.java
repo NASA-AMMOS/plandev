@@ -1,6 +1,6 @@
 package gov.nasa.jpl.plandev.merlin.server.services;
 
-import gov.nasa.ammos.aerie.procedural.constraints.ProcedureMapper;
+import gov.nasa.jpl.plandev.procedural.constraints.ProcedureMapper;
 import gov.nasa.jpl.plandev.constraints.model.ConstraintResult;
 import gov.nasa.jpl.plandev.merlin.server.exceptions.NoSuchConstraintException;
 import gov.nasa.jpl.plandev.merlin.server.http.Fallible;

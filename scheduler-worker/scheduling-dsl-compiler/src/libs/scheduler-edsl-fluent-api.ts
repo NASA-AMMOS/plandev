@@ -194,7 +194,7 @@ export class Goal {
    * Restricts the windows on which a goal is applied
    *
    *
-   * By default, a goal applies on the whole planning horizon. The Aerie scheduler provides support for restricting _when_ a goal applies with the `.applyWhen()` method in the `Goal` class. This node allows users to provide a set of windows (`Windows`, see [documentation](../../constraints-edsl-api/classes/Windows)) which could be a time or a resource-based window.
+   * By default, a goal applies on the whole planning horizon. The PlanDev scheduler provides support for restricting _when_ a goal applies with the `.applyWhen()` method in the `Goal` class. This node allows users to provide a set of windows (`Windows`, see [documentation](../../constraints-edsl-api/classes/Windows)) which could be a time or a resource-based window.
    *
    * The `.applyWhen()` method, takes one argument: the windows (in the form of an expression) that the goal should apply over. What follows is an example that applies a daily recurrence goal only when a given resource is greater than 2. If the resource is less than two, then the goal is no longer applied.
    *

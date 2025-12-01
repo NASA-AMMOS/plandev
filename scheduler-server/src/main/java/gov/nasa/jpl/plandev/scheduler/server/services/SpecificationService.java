@@ -1,6 +1,6 @@
 package gov.nasa.jpl.plandev.scheduler.server.services;
 
-import gov.nasa.ammos.aerie.procedural.scheduling.ProcedureMapper;
+import gov.nasa.jpl.plandev.procedural.scheduling.ProcedureMapper;
 import gov.nasa.jpl.plandev.scheduler.ProcedureLoader;
 import gov.nasa.jpl.plandev.scheduler.server.exceptions.NoSuchSchedulingGoalException;
 import gov.nasa.jpl.plandev.scheduler.server.exceptions.NoSuchSpecificationException;

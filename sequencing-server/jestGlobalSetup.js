@@ -14,8 +14,8 @@ config();
 process.env.MERLIN_GATEWAY_URL = process.env.MERLIN_GATEWAY_URL ?? 'http://localhost:9000';
 process.env.MERLIN_GRAPHQL_URL = process.env.MERLIN_GRAPHQL_URL ?? 'http://localhost:8080/v1/graphql';
 process.env.HASURA_GRAPHQL_ADMIN_SECRET = process.env.HASURA_GRAPHQL_ADMIN_SECRET ?? '';
-process.env.AERIE_PASSWORD = process.env.AERIE_PASSWORD ?? '';
-process.env.AERIE_USERNAME = process.env.AERIE_USERNAME ?? '';
+process.env.PLANDEV_PASSWORD = process.env.PLANDEV_PASSWORD ?? '';
+process.env.PLANDEV_USERNAME = process.env.PLANDEV_USERNAME ?? '';
 
 export default async () => {
   try {

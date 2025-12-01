@@ -1,4 +1,4 @@
-import * as ampcs from '@nasa-jpl/aerie-ampcs';
+import * as ampcs from '@nasa-jpl/plandev-ampcs';
 import type { GraphQLClient } from 'graphql-request';
 import {
   channelDictionaryString,

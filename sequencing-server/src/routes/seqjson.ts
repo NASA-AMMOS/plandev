@@ -1,4 +1,4 @@
-import type { UserCodeError } from '@nasa-jpl/aerie-ts-user-code-runner';
+import type { UserCodeError } from '@nasa-jpl/plandev-ts-user-code-runner';
 import { Context, db } from './../app.js';
 import express from 'express';
 import pgFormat from 'pg-format';

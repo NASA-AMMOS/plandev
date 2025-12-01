@@ -15,7 +15,7 @@
     "typescript": "^5.5.4"
   },
   "dependencies": {
-    "@nasa-jpl/aerie-ampcs": "^1.0.6",
+    "@nasa-jpl/plandev-ampcs": "^1.0.6",
     "@rollup/plugin-commonjs": "^26.0.1",
     "@rollup/plugin-node-resolve": "^15.2.3"
   }

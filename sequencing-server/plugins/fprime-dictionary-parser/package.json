@@ -12,7 +12,7 @@
   "author": "Ryan Goetz",
   "license": "ISC",
   "dependencies": {
-    "@nasa-jpl/aerie-ampcs": "^1.0.6"
+    "@nasa-jpl/plandev-ampcs": "^1.0.6"
   },
   "devDependencies": {
     "@rollup/plugin-node-resolve": "^15.2.3",

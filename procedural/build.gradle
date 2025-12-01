@@ -4,7 +4,7 @@ plugins {
 }
 
 subprojects {
-  group = "gov.nasa.ammos.aerie.procedural"
+  group = "gov.nasa.jpl.plandev.procedural"
 }
 
 repositories {

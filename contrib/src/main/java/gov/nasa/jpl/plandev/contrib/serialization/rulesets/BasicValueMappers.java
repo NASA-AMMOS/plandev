@@ -137,7 +137,7 @@ public final class BasicValueMappers {
     return new PathValueMapper();
   }
 
-  public static ValueMapper<gov.nasa.jpl.plandev.contrib.metadata.Unit> gov_nasa_jpl_aerie_contrib_metadata_Unit() {
+  public static ValueMapper<gov.nasa.jpl.plandev.contrib.metadata.Unit> gov_nasa_jpl_plandev_contrib_metadata_Unit() {
     return new ValueMapper<>() {
       @Override
       public ValueSchema getValueSchema() {

@@ -7,7 +7,7 @@ import { activitySchemaBatchLoader } from './lib/batchLoaders/activitySchemaBatc
 import { commandDictionaryTypescriptBatchLoader } from './lib/batchLoaders/commandDictionaryTypescriptBatchLoader.js';
 import { parcelBatchLoader } from './lib/batchLoaders/parcelBatchLoader.js';
 import type { typecheckExpansion } from './worker';
-import { Result } from '@nasa-jpl/aerie-ts-user-code-runner/build/utils/monads.js';
+import { Result } from '@nasa-jpl/plandev-ts-user-code-runner/build/utils/monads.js';
 import { getLatestParcel, getLatestMissionModel, getExpansionRule } from './utils/hasura.js';
 import type { Parcel } from './lib/batchLoaders/parcelBatchLoader.js';
 import getLogger from './utils/logger.js';

@@ -1,13 +1,13 @@
 package gov.nasa.jpl.plandev.scheduler.goals;
 
-import gov.nasa.ammos.aerie.procedural.scheduling.ActivityAutoDelete;
-import gov.nasa.ammos.aerie.procedural.scheduling.plan.DeletedAnchorStrategy;
-import gov.nasa.ammos.aerie.procedural.scheduling.utils.DefaultEditablePlanDriver;
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
+import gov.nasa.jpl.plandev.procedural.scheduling.ActivityAutoDelete;
+import gov.nasa.jpl.plandev.procedural.scheduling.plan.DeletedAnchorStrategy;
+import gov.nasa.jpl.plandev.procedural.scheduling.utils.DefaultEditablePlanDriver;
+import gov.nasa.jpl.plandev.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.jpl.plandev.merlin.driver.MissionModel;
 import gov.nasa.jpl.plandev.merlin.protocol.types.SerializedValue;
-import gov.nasa.ammos.aerie.procedural.scheduling.ProcedureMapper;
-import gov.nasa.ammos.aerie.procedural.scheduling.plan.Edit;
+import gov.nasa.jpl.plandev.procedural.scheduling.ProcedureMapper;
+import gov.nasa.jpl.plandev.procedural.scheduling.plan.Edit;
 import gov.nasa.jpl.plandev.scheduler.DirectiveIdGenerator;
 import gov.nasa.jpl.plandev.scheduler.ProcedureLoader;
 import gov.nasa.jpl.plandev.scheduler.model.ActivityType;
@@ -35,7 +35,7 @@ public class Procedure extends Goal {
   private final Path jarPath;
   private final Map<String, SerializedValue> args;
 
-  private gov.nasa.ammos.aerie.procedural.scheduling.Goal goal;
+  private gov.nasa.jpl.plandev.procedural.scheduling.Goal goal;
 
   private ActivityAutoDelete shouldDelete;
   private final GoalId goalId;

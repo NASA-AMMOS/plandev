@@ -1,6 +1,6 @@
 package gov.nasa.jpl.plandev.scheduler.model;
 
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
+import gov.nasa.jpl.plandev.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.jpl.plandev.constraints.model.DiscreteProfile;
 import gov.nasa.jpl.plandev.constraints.model.LinearProfile;
 import gov.nasa.jpl.plandev.merlin.driver.MissionModel;

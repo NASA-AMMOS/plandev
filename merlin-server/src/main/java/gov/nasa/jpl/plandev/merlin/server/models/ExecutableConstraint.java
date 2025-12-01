@@ -8,7 +8,7 @@ import gov.nasa.jpl.plandev.constraints.tree.Expression;
 import gov.nasa.jpl.plandev.merlin.protocol.types.SerializedValue;
 import org.jetbrains.annotations.NotNull;
 
-import gov.nasa.ammos.aerie.procedural.constraints.ProcedureMapper;
+import gov.nasa.jpl.plandev.procedural.constraints.ProcedureMapper;
 
 import java.util.List;
 import java.util.HashSet;

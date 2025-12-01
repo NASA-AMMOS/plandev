@@ -1,8 +1,8 @@
-import type { UserCodeError } from '@nasa-jpl/aerie-ts-user-code-runner';
+import type { UserCodeError } from '@nasa-jpl/plandev-ts-user-code-runner';
 import pgFormat from 'pg-format';
 import type { Context } from '../app.js';
 import { db, piscina, promiseThrottler, typeCheckingCache } from './../app.js';
-import { Result } from '@nasa-jpl/aerie-ts-user-code-runner/build/utils/monads.js';
+import { Result } from '@nasa-jpl/plandev-ts-user-code-runner/build/utils/monads.js';
 import express from 'express';
 import { serializeWithTemporal } from './../utils/temporalSerializers.js';
 import { generateTypescriptForGraphQLActivitySchema } from './../lib/codegen/ActivityTypescriptCodegen.js';

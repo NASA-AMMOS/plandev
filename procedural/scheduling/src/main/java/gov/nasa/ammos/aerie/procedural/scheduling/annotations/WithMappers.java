@@ -1,4 +1,4 @@
-package gov.nasa.ammos.aerie.procedural.scheduling.annotations;
+package gov.nasa.jpl.plandev.procedural.scheduling.annotations;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Repeatable;

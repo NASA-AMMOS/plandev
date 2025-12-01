@@ -97,7 +97,7 @@ public class SimulationUtility implements AutoCloseable {
     final var modelBuilder = new MissionModelBuilder();
     final var registry = DirectiveTypeRegistry.extract(modelType);
 
-    // TODO: [AERIE-1516] Teardown the model to release any system resources (e.g. threads).
+    // TODO: [PLANDEV-1516] Teardown the model to release any system resources (e.g. threads).
     final var model = modelType.instantiate(simulationStartTime, modelConfiguration, modelBuilder);
     return modelBuilder.build(model, registry);
   }

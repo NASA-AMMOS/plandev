@@ -1,6 +1,6 @@
 package gov.nasa.jpl.plandev.constraints.model;
 
-import gov.nasa.ammos.aerie.procedural.constraints.Violations;
+import gov.nasa.jpl.plandev.procedural.constraints.Violations;
 import gov.nasa.jpl.plandev.constraints.time.Interval;
 import gov.nasa.jpl.plandev.types.ActivityDirectiveId;
 import gov.nasa.jpl.plandev.types.ActivityInstanceId;

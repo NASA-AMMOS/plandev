@@ -2,19 +2,19 @@ package gov.nasa.jpl.plandev.scheduler.plan
 
 import gov.nasa.jpl.plandev.merlin.driver.MissionModel
 import gov.nasa.jpl.plandev.merlin.protocol.types.Duration
-import gov.nasa.ammos.aerie.procedural.scheduling.simulation.SimulateOptions
-import gov.nasa.ammos.aerie.procedural.scheduling.utils.DefaultEditablePlanDriver
-import gov.nasa.ammos.aerie.procedural.scheduling.utils.PerishableSimulationResults
+import gov.nasa.jpl.plandev.procedural.scheduling.simulation.SimulateOptions
+import gov.nasa.jpl.plandev.procedural.scheduling.utils.DefaultEditablePlanDriver
+import gov.nasa.jpl.plandev.procedural.scheduling.utils.PerishableSimulationResults
 import gov.nasa.jpl.plandev.scheduler.simulation.SimulationFacade
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart
+import gov.nasa.jpl.plandev.procedural.timeline.payloads.activities.AnyDirective
+import gov.nasa.jpl.plandev.procedural.timeline.payloads.activities.Directive
+import gov.nasa.jpl.plandev.procedural.timeline.payloads.activities.DirectiveStart
 import gov.nasa.jpl.plandev.merlin.protocol.types.DurationType
 import gov.nasa.jpl.plandev.scheduler.DirectiveIdGenerator
 import gov.nasa.jpl.plandev.scheduler.model.*
 import gov.nasa.jpl.plandev.types.ActivityDirectiveId
 import kotlin.jvm.optionals.getOrNull
-import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan;
+import gov.nasa.jpl.plandev.procedural.timeline.plan.Plan;
 
 /*
  * An implementation of [EditablePlan] that stores the plan in memory for use in the internal scheduler.

@@ -43,7 +43,7 @@ services:
       PLANDEV_DB_PORT: 5432
       GATEWAY_DB_USER: "${GATEWAY_USERNAME}"
       GATEWAY_DB_PASSWORD: "${GATEWAY_PASSWORD}"
-    image: "ghcr.io/nasa-ammos/aerie-gateway:develop"
+    image: "ghcr.io/nasa-ammos/plandev-gateway:develop"
     ports: ["9000:9000"]
     restart: always
     volumes:
@@ -170,7 +170,7 @@ services:
       PUBLIC_HASURA_WEB_SOCKET_URL: ws://localhost:8080/v1/graphql
       PUBLIC_WORKSPACE_CLIENT_URL: http://localhost:28000
       PUBLIC_COMMAND_EXPANSION_MODE: "typescript"
-    image: "ghcr.io/nasa-ammos/aerie-ui:develop"
+    image: "ghcr.io/nasa-ammos/plandev-ui:develop"
     ports: ["80:80"]
     restart: always
   plandev_merlin_worker_1:

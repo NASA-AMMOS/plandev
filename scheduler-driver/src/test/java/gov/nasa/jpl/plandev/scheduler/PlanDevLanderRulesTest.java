@@ -22,11 +22,11 @@
 //  @BeforeEach
 //  void setUp(){
 //    planningHorizon = new PlanningHorizon(TestUtility.timeFromEpochSeconds(0), TestUtility.timeFromEpochSeconds(48 * 3600));
-//    MissionModel<?> aerieLanderMissionModel = AerieLanderTestUtility.getMerlinSightMissionModel();
-//    final var aerieLanderSchedulerModel = AerieLanderTestUtility.getMerlinSightSchedulerModel();
-//    rules = new PlanDevLanderRules(aerieLanderMissionModel, planningHorizon, aerieLanderSchedulerModel);
+//    MissionModel<?> plandevLanderMissionModel = PlanDevLanderTestUtility.getMerlinSightMissionModel();
+//    final var plandevLanderSchedulerModel = PlanDevLanderTestUtility.getMerlinSightSchedulerModel();
+//    rules = new PlanDevLanderRules(plandevLanderMissionModel, planningHorizon, plandevLanderSchedulerModel);
 //    plan = makeEmptyPlan();
-//    smallProblem = new Problem(aerieLanderMissionModel, planningHorizon, rules.getSimulationFacade(), aerieLanderSchedulerModel);
+//    smallProblem = new Problem(plandevLanderMissionModel, planningHorizon, rules.getSimulationFacade(), plandevLanderSchedulerModel);
 //  }
 //
 //  private PlanningHorizon planningHorizon;
@@ -44,7 +44,7 @@
 //    var solver = new PrioritySolver(smallProblem, analysisOnly);
 //    plan = solver.getNextSolution().get();
 //    solver.printEvaluation();
-//    AerieLanderTestUtility.printPlan(plan);
+//    PlanDevLanderTestUtility.printPlan(plan);
 //  }
 //
 //  @Test

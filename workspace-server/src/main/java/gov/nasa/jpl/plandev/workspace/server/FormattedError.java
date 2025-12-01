@@ -25,7 +25,7 @@ import java.util.Optional;
 /**
  * Class for formatting exceptions thrown during in Workspaces into JSON objects
  * that meet the PlanDev HTTP endpoint error message format
- * Relevant ticket going over said format: https://github.com/NASA-AMMOS/aerie/issues/1732
+ * Relevant ticket going over said format: https://github.com/NASA-AMMOS/plandev/issues/1732
  */
 @JsonSerialize(using = FormattedError.FormattedErrorSerializer.class)
 final class FormattedError {

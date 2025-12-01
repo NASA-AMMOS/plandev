@@ -1,6 +1,6 @@
 
-import * as ampcs from '@nasa-jpl/aerie-ampcs';
-import type { CommandDictionary, ChannelDictionary, ParameterDictionary } from '@nasa-jpl/aerie-ampcs';
+import * as ampcs from '@nasa-jpl/plandev-ampcs';
+import type { CommandDictionary, ChannelDictionary, ParameterDictionary } from '@nasa-jpl/plandev-ampcs';
 
 export enum DictionaryHeaders {
   'command_dictionary' = 'command_dictionary',

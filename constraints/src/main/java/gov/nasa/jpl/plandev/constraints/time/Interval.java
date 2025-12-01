@@ -129,17 +129,17 @@ public final class Interval implements Comparable<Interval>{
     return at(Duration.of(quantity, unit));
   }
 
-  public gov.nasa.ammos.aerie.procedural.timeline.Interval toProceduralInterval() {
-    return new gov.nasa.ammos.aerie.procedural.timeline.Interval(
+  public gov.nasa.jpl.plandev.procedural.timeline.Interval toProceduralInterval() {
+    return new gov.nasa.jpl.plandev.procedural.timeline.Interval(
         start,
         end,
-        this.includesStart() ? gov.nasa.ammos.aerie.procedural.timeline.Interval.Inclusivity.Inclusive
-                             : gov.nasa.ammos.aerie.procedural.timeline.Interval.Inclusivity.Exclusive,
-        this.includesEnd()   ? gov.nasa.ammos.aerie.procedural.timeline.Interval.Inclusivity.Inclusive
-                             : gov.nasa.ammos.aerie.procedural.timeline.Interval.Inclusivity.Exclusive);
+        this.includesStart() ? gov.nasa.jpl.plandev.procedural.timeline.Interval.Inclusivity.Inclusive
+                             : gov.nasa.jpl.plandev.procedural.timeline.Interval.Inclusivity.Exclusive,
+        this.includesEnd()   ? gov.nasa.jpl.plandev.procedural.timeline.Interval.Inclusivity.Inclusive
+                             : gov.nasa.jpl.plandev.procedural.timeline.Interval.Inclusivity.Exclusive);
   }
 
-  public static Interval fromProceduralInterval(gov.nasa.ammos.aerie.procedural.timeline.Interval interval) {
+  public static Interval fromProceduralInterval(gov.nasa.jpl.plandev.procedural.timeline.Interval interval) {
     return new Interval(
         interval.start,
         interval.includesStart() ? Inclusive : Exclusive,

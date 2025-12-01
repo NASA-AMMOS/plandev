@@ -1,17 +1,17 @@
 package gov.nasa.jpl.plandev.scheduler.plan
 
-import gov.nasa.ammos.aerie.procedural.timeline.Interval
-import gov.nasa.ammos.aerie.procedural.timeline.collections.Directives
-import gov.nasa.ammos.aerie.procedural.timeline.collections.ExternalEvents
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent
-import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart.Anchor.AnchorPoint.Companion.anchorToStart
-import gov.nasa.ammos.aerie.procedural.timeline.plan.EventQuery
-import gov.nasa.ammos.aerie.procedural.timeline.util.duration.minus
-import gov.nasa.ammos.aerie.procedural.timeline.util.duration.plus
+import gov.nasa.jpl.plandev.procedural.timeline.Interval
+import gov.nasa.jpl.plandev.procedural.timeline.collections.Directives
+import gov.nasa.jpl.plandev.procedural.timeline.collections.ExternalEvents
+import gov.nasa.jpl.plandev.procedural.timeline.payloads.ExternalEvent
+import gov.nasa.jpl.plandev.procedural.timeline.ops.SerialSegmentOps
+import gov.nasa.jpl.plandev.procedural.timeline.payloads.Segment
+import gov.nasa.jpl.plandev.procedural.timeline.payloads.activities.Directive
+import gov.nasa.jpl.plandev.procedural.timeline.payloads.activities.DirectiveStart
+import gov.nasa.jpl.plandev.procedural.timeline.payloads.activities.DirectiveStart.Anchor.AnchorPoint.Companion.anchorToStart
+import gov.nasa.jpl.plandev.procedural.timeline.plan.EventQuery
+import gov.nasa.jpl.plandev.procedural.timeline.util.duration.minus
+import gov.nasa.jpl.plandev.procedural.timeline.util.duration.plus
 import gov.nasa.jpl.plandev.constraints.model.DiscreteProfile
 import gov.nasa.jpl.plandev.constraints.model.LinearProfile
 import gov.nasa.jpl.plandev.constraints.time.Interval as ConstraintsInterval
@@ -20,7 +20,7 @@ import gov.nasa.jpl.plandev.merlin.protocol.types.Duration
 import gov.nasa.jpl.plandev.merlin.protocol.types.SerializedValue
 import gov.nasa.jpl.plandev.scheduler.model.PlanningHorizon
 import java.time.Instant
-import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan as TimelinePlan
+import gov.nasa.jpl.plandev.procedural.timeline.plan.Plan as TimelinePlan
 import gov.nasa.jpl.plandev.scheduler.model.Plan as SchedulerPlan
 
 data class SchedulerToProcedurePlanAdapter(

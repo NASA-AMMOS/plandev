@@ -1,6 +1,6 @@
-import * as ampcs from '@nasa-jpl/aerie-ampcs';
+import * as ampcs from '@nasa-jpl/plandev-ampcs';
 import { FormalParameter, FPPJSONDictionarySchema as FPPDictionary } from '../schema/fprime-types.js';
-import { ChannelDictionary, CommandDictionary, ParameterDictionary } from '@nasa-jpl/aerie-ampcs';
+import { ChannelDictionary, CommandDictionary, ParameterDictionary } from '@nasa-jpl/plandev-ampcs';
 
 export default {
   name: 'fprime-parser',

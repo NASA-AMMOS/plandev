@@ -10,7 +10,7 @@ import java.util.Map;
  * plan details read from merlin services that are used by the scheduler
  *
  * @param planId unique identifier of the plan container
- * @param planRev the revision number of the plan currently stored in aerie
+ * @param planRev the revision number of the plan currently stored in plandev
  * @param horizon declared time span of the plan, in both scheduler/merlin notations
  * @param modelId identifier of the mission model the plan relies on
  * @param modelPath relative file path within merlin filesystem to the mission model jar

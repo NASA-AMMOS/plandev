@@ -1,6 +1,6 @@
 package gov.nasa.jpl.plandev.scheduler.server.services;
 
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
+import gov.nasa.jpl.plandev.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.jpl.plandev.merlin.driver.SimulationResults;
 import gov.nasa.jpl.plandev.merlin.protocol.model.SchedulerModel;
 import gov.nasa.jpl.plandev.merlin.protocol.types.Duration;

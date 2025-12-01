@@ -1,13 +1,13 @@
 package gov.nasa.jpl.plandev.e2e.procedural.scheduling.procedures;
 
-import gov.nasa.ammos.aerie.procedural.scheduling.ActivityAutoDelete;
-import gov.nasa.ammos.aerie.procedural.scheduling.Goal;
-import gov.nasa.ammos.aerie.procedural.scheduling.annotations.SchedulingProcedure;
-import gov.nasa.ammos.aerie.procedural.scheduling.plan.DeletedAnchorStrategy;
-import gov.nasa.ammos.aerie.procedural.scheduling.plan.EditablePlan;
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart;
-import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan;
-import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults;
+import gov.nasa.jpl.plandev.procedural.scheduling.ActivityAutoDelete;
+import gov.nasa.jpl.plandev.procedural.scheduling.Goal;
+import gov.nasa.jpl.plandev.procedural.scheduling.annotations.SchedulingProcedure;
+import gov.nasa.jpl.plandev.procedural.scheduling.plan.DeletedAnchorStrategy;
+import gov.nasa.jpl.plandev.procedural.scheduling.plan.EditablePlan;
+import gov.nasa.jpl.plandev.procedural.timeline.payloads.activities.DirectiveStart;
+import gov.nasa.jpl.plandev.procedural.timeline.plan.Plan;
+import gov.nasa.jpl.plandev.procedural.timeline.plan.SimulationResults;
 import gov.nasa.jpl.plandev.merlin.protocol.types.Duration;
 import gov.nasa.jpl.plandev.merlin.protocol.types.SerializedValue;
 import org.jetbrains.annotations.NotNull;

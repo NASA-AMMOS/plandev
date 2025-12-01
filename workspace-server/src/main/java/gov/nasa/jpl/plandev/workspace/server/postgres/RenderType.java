@@ -32,9 +32,9 @@ public enum RenderType {
    * Resolves by continually removing the leftmost part of the extension until it either finds a match
    * or has no part of the extension left to search.
    *
-   * For example, let's say that the function is given the filename: myfile.json.aerie
-   * It would first try to match on ".json.aerie"
-   * Assuming that failed, it would then try to match on ".aerie"
+   * For example, let's say that the function is given the filename: myfile.json.plandev
+   * It would first try to match on ".json.plandev"
+   * Assuming that failed, it would then try to match on ".plandev"
    * If that failed, it would return "Unknown"
    *
    * @param fileName the name of the file

@@ -265,7 +265,7 @@ public class ConstraintsTests {
   /**
    * Test that an activity with a duration longer than one month is written to and read back from the database
    * successfully
-   * by PlanDev's simulation and constraints checking components respectively. The driving concern here is that Aerie
+   * by PlanDev's simulation and constraints checking components respectively. The driving concern here is that PlanDev
    * needs
    * to interpret span durations as microseconds; if the simulation results were to be written using the postgres
    * interval's "months" field, constraints checking would fail to load these values back from the database.

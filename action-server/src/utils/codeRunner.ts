@@ -2,7 +2,7 @@
 import * as vm from "node:vm";
 import type { PoolClient } from "pg";
 import { createLogger, format, transports } from "winston";
-import { ActionsAPI } from "@nasa-jpl/aerie-actions";
+import { ActionsAPI } from "@nasa-jpl/plandev-actions";
 import { configuration } from "../config";
 import type { ActionConfig, ActionResponse } from "../type/types";
 

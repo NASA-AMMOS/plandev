@@ -418,7 +418,7 @@ import java.util.stream.Collectors;
     }
 
     /*
-    The following parameter was created as a result of AERIE-1295/1296/1297 on JIRA
+    The following parameter was created as a result of PLANDEV-1295/1296/1297 on JIRA
     In order to allow for optional/required parameters, the processor
     must extract the factory method call that creates the default
     template values for some activity. Additionally, a helper method

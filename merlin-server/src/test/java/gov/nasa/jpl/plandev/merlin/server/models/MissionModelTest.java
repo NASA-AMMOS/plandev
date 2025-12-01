@@ -32,7 +32,7 @@ public final class MissionModelTest {
 
   @AfterEach
   public void teardown() {
-    // TODO: [AERIE-1516] Teardown the model to release any system resources (e.g. threads).
+    // TODO: [PLANDEV-1516] Teardown the model to release any system resources (e.g. threads).
   }
 
   @Test

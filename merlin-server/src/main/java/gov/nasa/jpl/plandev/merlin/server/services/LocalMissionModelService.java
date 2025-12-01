@@ -78,7 +78,7 @@ public final class LocalMissionModelService implements MissionModelService {
   public Map<String, ValueSchema> getResourceSchemas(final MissionModelId missionModelId)
   throws NoSuchMissionModelException, MissionModelLoadException
   {
-    // TODO: [AERIE-1516] Teardown the missionModel after use to release any system resources (e.g. threads).
+    // TODO: [PLANDEV-1516] Teardown the missionModel after use to release any system resources (e.g. threads).
     final var schemas = new HashMap<String, ValueSchema>();
 
     for (final var entry : loadAndInstantiateMissionModel(missionModelId).getResources().entrySet()) {
@@ -122,7 +122,7 @@ public final class LocalMissionModelService implements MissionModelService {
   public List<ValidationNotice> validateActivityArguments(final MissionModelId missionModelId, final SerializedActivity activity)
   throws NoSuchMissionModelException, MissionModelLoadException, InstantiationException
   {
-    // TODO: [AERIE-1516] Teardown the missionModel after use to release any system resources (e.g. threads).
+    // TODO: [PLANDEV-1516] Teardown the missionModel after use to release any system resources (e.g. threads).
     final var modelType = this.loadMissionModelType(missionModelId);
     final var registry = DirectiveTypeRegistry.extract(modelType);
     final var directiveType = registry.directiveTypes().get(activity.getTypeName());
@@ -298,7 +298,7 @@ public final class LocalMissionModelService implements MissionModelService {
           "No mission model configuration defined for mission model. Simulations will receive an empty set of configuration arguments.");
     }
 
-    // TODO: [AERIE-1516] Teardown the mission model after use to release any system resources (e.g. threads).
+    // TODO: [PLANDEV-1516] Teardown the mission model after use to release any system resources (e.g. threads).
     return SimulationDriver.simulate(
         loadAndInstantiateMissionModel(
             plan.missionModelId(),

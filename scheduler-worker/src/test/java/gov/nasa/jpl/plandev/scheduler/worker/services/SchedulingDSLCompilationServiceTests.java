@@ -1,6 +1,6 @@
 package gov.nasa.jpl.plandev.scheduler.worker.services;
 
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
+import gov.nasa.jpl.plandev.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.jpl.plandev.constraints.tree.ActivitySpan;
 import gov.nasa.jpl.plandev.constraints.tree.DiscreteProfileFromDuration;
 import gov.nasa.jpl.plandev.constraints.tree.DiscreteResource;

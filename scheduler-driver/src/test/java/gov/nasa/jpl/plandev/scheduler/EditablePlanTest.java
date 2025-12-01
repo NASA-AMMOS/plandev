@@ -1,8 +1,8 @@
 package gov.nasa.jpl.plandev.scheduler;
 
-import gov.nasa.ammos.aerie.procedural.scheduling.plan.EditablePlan;
-import gov.nasa.ammos.aerie.procedural.scheduling.utils.DefaultEditablePlanDriver;
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart;
+import gov.nasa.jpl.plandev.procedural.scheduling.plan.EditablePlan;
+import gov.nasa.jpl.plandev.procedural.scheduling.utils.DefaultEditablePlanDriver;
+import gov.nasa.jpl.plandev.procedural.timeline.payloads.activities.DirectiveStart;
 import gov.nasa.jpl.plandev.merlin.driver.MissionModel;
 import gov.nasa.jpl.plandev.merlin.protocol.types.Duration;
 import gov.nasa.jpl.plandev.merlin.protocol.types.SerializedValue;

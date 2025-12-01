@@ -4,7 +4,7 @@ import sys
 import os
 
 
-UTILS_PACKAGE = 'gov.nasa.jpl.aerie.contrib.streamline.utils'
+UTILS_PACKAGE = 'gov.nasa.jpl.plandev.contrib.streamline.utils'
 UTILS_CLASS = 'FunctionalUtils'
 
 

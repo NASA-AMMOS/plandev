@@ -1,4 +1,4 @@
-rootProject.name = 'aerie'
+rootProject.name = 'plandev'
 
 // Mission Model support
 include 'merlin-sdk'
@@ -22,7 +22,7 @@ include 'procedural:utils'
 // Procedural examples
 include 'procedural:examples:banana-procedures'
 
-// Services for deployment within the Aerie infrastructure
+// Services for deployment within the PlanDev infrastructure
 include 'merlin-server'
 include 'merlin-worker'
 include 'scheduler-server'
@@ -35,7 +35,7 @@ include 'constraints'
 include 'scheduler-driver'
 
 // Stateless Mode
-include 'stateless-aerie'
+include 'stateless-plandev'
 
 // Testing
 include 'db-tests'
@@ -50,7 +50,7 @@ include 'examples:minimal-mission-model'
 include 'examples:model-migration-1'
 include 'examples:model-migration-2'
 include 'examples:streamline-demo'
-include 'stateless-aerie'
+include 'stateless-plandev'
 include 'orchestration-utils'
 include 'type-utils'
 include 'workspace-server'

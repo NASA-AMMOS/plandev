@@ -30,7 +30,7 @@ subprojects {
     mavenCentral()
   }
 
-  group = 'gov.nasa.jpl.aerie'
+  group = 'gov.nasa.jpl.plandev'
 
   tasks.withType(JavaCompile) {
     options.compilerArgs << '-Xlint:deprecation' << '-Xlint:unchecked'

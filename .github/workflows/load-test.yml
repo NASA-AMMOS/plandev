@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
 
 env:
-  AERIE_USERNAME: "aerie"
-  AERIE_PASSWORD: "aerie"
-  HASURA_GRAPHQL_ADMIN_SECRET: "aerie"
+  PLANDEV_USERNAME: "plandev"
+  PLANDEV_PASSWORD: "plandev"
+  HASURA_GRAPHQL_ADMIN_SECRET: "plandev"
   HASURA_GRAPHQL_JWT_SECRET: '{ "type": "HS256", "key": "oursupersecretsupersecurekey1234567890" }'
   POSTGRES_USER: "postgres"
   POSTGRES_PASSWORD: "postgres"

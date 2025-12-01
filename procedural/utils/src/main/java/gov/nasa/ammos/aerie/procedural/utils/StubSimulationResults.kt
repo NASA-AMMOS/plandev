@@ -6,7 +6,7 @@ import gov.nasa.ammos.aerie.procedural.timeline.collections.Instances
 import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment
 import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
+import gov.nasa.jpl.plandev.merlin.protocol.types.SerializedValue
 
 /**
  * A stub of the [SimulationResults] interface that throws an exception

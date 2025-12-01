@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: plandev-dev
+  name: plandev-scheduler-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: plandev-scheduler-worker
+  template:
+    metadata:
+      labels:
+        app: plandev-scheduler-worker
+    spec:
+      containers:
+        - name: plandev-scheduler-worker
+          image: ghcr.io/nasa-ammos/plandev-scheduler-worker:develop
+          ports:
+            - containerPort: 8080
+          resources: {}
+          volumeMounts:
+            - mountPath: /usr/src/app/merlin_file_store
+              name: plandev-file-store
+              readOnly: true
+          env:
+            - name: HASURA_GRAPHQL_ADMIN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: dev-env
+                  key: HASURA_GRAPHQL_ADMIN_SECRET
+            - name: JAVA_OPTS
+              value: |
+                -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO -Dorg.slf4j.simpleLogger.logFile=System.err
+            - name: MERLIN_GRAPHQL_URL
+              value: http://hasura:8080/v1/graphql
+            - name: MERLIN_LOCAL_STORE
+              value: /usr/src/app/merlin_file_store
+            - name: SCHEDULER_OUTPUT_MODE
+              value: UpdateInputPlanWithNewActivities
+            - name: PLANDEV_DB_PORT
+              value: "5432"
+            - name: PLANDEV_DB_HOST
+              value: postgres
+            - name: SCHEDULER_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: dev-env
+                  key: SCHEDULER_USERNAME
+            - name: SCHEDULER_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dev-env
+                  key: SCHEDULER_PASSWORD
+      restartPolicy: Always
+      volumes:
+        - name: plandev-file-store
+          persistentVolumeClaim:
+            claimName: plandev-file-store
+            readOnly: true

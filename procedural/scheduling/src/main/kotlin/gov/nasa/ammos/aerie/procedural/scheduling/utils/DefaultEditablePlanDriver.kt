@@ -9,7 +9,7 @@ import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveSta
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart.Anchor
 import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan
 import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId
+import gov.nasa.jpl.plandev.types.ActivityDirectiveId
 import java.lang.ref.WeakReference
 
 /**

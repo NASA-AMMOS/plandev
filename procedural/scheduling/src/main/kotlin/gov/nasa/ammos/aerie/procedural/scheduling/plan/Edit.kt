@@ -2,7 +2,7 @@ package gov.nasa.ammos.aerie.procedural.scheduling.plan
 
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId
+import gov.nasa.jpl.plandev.types.ActivityDirectiveId
 
 /**
  * Edits that can be made to the plan.

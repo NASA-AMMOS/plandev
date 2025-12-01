@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: plandev-dev
+  name: plandev-sequencing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: plandev-sequencing
+  template:
+    metadata:
+      labels:
+        app: plandev-sequencing
+    spec:
+      containers:
+        - name: plandev-sequencing
+          image: ghcr.io/nasa-ammos/plandev-sequencing:develop
+          ports:
+            - containerPort: 27184
+          resources: {}
+          volumeMounts:
+            - mountPath: /usr/src/app/sequencing_file_store
+              name: plandev-file-store
+          env:
+            - name: HASURA_GRAPHQL_ADMIN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: dev-env
+                  key: HASURA_GRAPHQL_ADMIN_SECRET
+            - name: LOG_FILE
+              value: console
+            - name: LOG_LEVEL
+              value: warn
+            - name: MERLIN_GRAPHQL_URL
+              value: http://hasura:8080/v1/graphql
+            - name: PLANDEV_DB_PORT
+              value: "5432"
+            - name: PLANDEV_DB_HOST
+              value: postgres
+            - name: SEQUENCING_LOCAL_STORE
+              value: /usr/src/app/sequencing_file_store
+            - name: SEQUENCING_SERVER_PORT
+              value: "27184"
+            - name: SEQUENCING_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: dev-env
+                  key: SEQUENCING_USERNAME
+            - name: SEQUENCING_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dev-env
+                  key: SEQUENCING_PASSWORD
+      restartPolicy: Always
+      volumes:
+        - name: plandev-file-store
+          persistentVolumeClaim:
+            claimName: plandev-file-store

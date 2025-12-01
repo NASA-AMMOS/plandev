@@ -9,19 +9,19 @@ import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment;
 import gov.nasa.ammos.aerie.procedural.timeline.plan.EventQuery;
 import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults;
-import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.jpl.plandev.merlin.driver.MissionModel;
+import gov.nasa.jpl.plandev.merlin.protocol.types.Duration;
 import gov.nasa.ammos.aerie.procedural.scheduling.plan.EditablePlan;
 import gov.nasa.ammos.aerie.procedural.scheduling.simulation.SimulateOptions;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.orchestration.simulation.SimulationUtility;
-import gov.nasa.jpl.aerie.scheduler.plan.MerlinToProcedureSimulationResultsAdapter;
+import gov.nasa.jpl.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.jpl.plandev.orchestration.simulation.SimulationUtility;
+import gov.nasa.jpl.plandev.scheduler.plan.MerlinToProcedureSimulationResultsAdapter;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart;
-import gov.nasa.jpl.aerie.types.ActivityDirective;
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
-import gov.nasa.jpl.aerie.types.Plan;
+import gov.nasa.jpl.plandev.types.ActivityDirective;
+import gov.nasa.jpl.plandev.types.ActivityDirectiveId;
+import gov.nasa.jpl.plandev.types.Plan;
 import kotlin.jvm.functions.Function1;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -37,7 +37,7 @@ import java.util.concurrent.ExecutionException;
  *
  * To use, create a {@link SimulationUtility} and use that to load the mission model.
  * Then create a {@link Plan} object; you can create one with the constructor or by using
- * {@link gov.nasa.jpl.aerie.orchestration.PlanJsonParser} to load a plan from file.
+ * {@link gov.nasa.jpl.plandev.orchestration.PlanJsonParser} to load a plan from file.
  * Then you can create an editable plan object like this:
  *
  * ```

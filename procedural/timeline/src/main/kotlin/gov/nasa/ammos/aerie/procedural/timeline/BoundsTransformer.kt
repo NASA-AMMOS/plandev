@@ -1,6 +1,6 @@
 package gov.nasa.ammos.aerie.procedural.timeline
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
+import gov.nasa.jpl.plandev.merlin.protocol.types.Duration
 
 /** A functional interface for transforming bounds for operations that transform intervals. */
 fun interface BoundsTransformer {

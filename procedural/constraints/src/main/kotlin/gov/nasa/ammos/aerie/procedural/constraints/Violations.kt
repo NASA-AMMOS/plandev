@@ -12,7 +12,7 @@ import gov.nasa.ammos.aerie.procedural.timeline.payloads.IntervalLike
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Instance
 import gov.nasa.ammos.aerie.procedural.timeline.util.preprocessList
-import gov.nasa.jpl.aerie.types.ActivityId
+import gov.nasa.jpl.plandev.types.ActivityId
 
 /** A timeline of [Violations][Violation]. */
 data class Violations(private val timeline: Timeline<Violation, Violations>):

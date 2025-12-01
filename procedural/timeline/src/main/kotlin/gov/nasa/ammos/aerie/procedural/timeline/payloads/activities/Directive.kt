@@ -1,8 +1,8 @@
 package gov.nasa.ammos.aerie.procedural.timeline.payloads.activities
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
+import gov.nasa.jpl.plandev.merlin.protocol.types.Duration
 import gov.nasa.ammos.aerie.procedural.timeline.Interval
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId
+import gov.nasa.jpl.plandev.types.ActivityDirectiveId
 
 /** A wrapper of any type of activity directive containing common data. */
 data class Directive<A: Any>(

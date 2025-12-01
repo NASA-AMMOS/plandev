@@ -1,6 +1,6 @@
 package gov.nasa.ammos.aerie.procedural.timeline.ops.numeric
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
+import gov.nasa.jpl.plandev.merlin.protocol.types.Duration
 import gov.nasa.ammos.aerie.procedural.timeline.BoundsTransformer
 import gov.nasa.ammos.aerie.procedural.timeline.collections.profiles.Numbers
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment

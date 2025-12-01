@@ -1,6 +1,6 @@
 package gov.nasa.ammos.aerie.procedural.timeline.ops
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
+import gov.nasa.jpl.plandev.merlin.protocol.types.Duration
 import gov.nasa.ammos.aerie.procedural.timeline.*
 import gov.nasa.ammos.aerie.procedural.timeline.collections.Universal
 import gov.nasa.ammos.aerie.procedural.timeline.collections.Windows

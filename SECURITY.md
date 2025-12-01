@@ -1,1 +1,1 @@
-To report vulnerabilities in Aerie, please email us at aerie_support@jpl.nasa.gov.
+To report vulnerabilities in PlanDev, please email us at plandev_support@jpl.nasa.gov.

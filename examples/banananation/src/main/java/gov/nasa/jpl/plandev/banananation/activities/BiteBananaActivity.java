@@ -1,0 +1,48 @@
+package gov.nasa.jpl.plandev.banananation.activities;
+
+import gov.nasa.jpl.plandev.banananation.Flag;
+import gov.nasa.jpl.plandev.banananation.Mission;
+import gov.nasa.jpl.plandev.contrib.metadata.Unit;
+import gov.nasa.jpl.plandev.contrib.models.ValidationResult;
+import gov.nasa.jpl.plandev.merlin.framework.annotations.ActivityType;
+import gov.nasa.jpl.plandev.merlin.framework.annotations.ActivityType.EffectModel;
+import gov.nasa.jpl.plandev.merlin.framework.annotations.AutoValueMapper;
+import gov.nasa.jpl.plandev.merlin.framework.annotations.Description;
+import gov.nasa.jpl.plandev.merlin.framework.annotations.Export.Parameter;
+import gov.nasa.jpl.plandev.merlin.framework.annotations.Export.Validation;
+import gov.nasa.jpl.plandev.merlin.framework.annotations.Subsystem;
+
+/**
+ * Bite a banana.
+ *
+ * This activity causes a piece of banana to be bitten off and consumed.
+ *
+ * @contact John Doe
+ */
+@ActivityType("BiteBanana")
+@Subsystem("Eat")
+@Description("Takes a bite out of the banana")
+public final class BiteBananaActivity {
+  @Parameter
+  @Description("The size of the bite in meters")
+//  @Banannotation("Specifies the size of bite to take") Custom annotations are currently broken
+  @Unit("m")
+  public double biteSize = 1.0;
+
+  @Validation
+  public ValidationResult validateBiteSize() {
+    return new ValidationResult(this.biteSize > 0, "biteSize", "bite size must be positive");
+  }
+
+  @EffectModel
+  public ComputedAttributes run(final Mission mission) {
+    final var bigBiteSize = biteSize > 1.0;
+    final var newFlag = bigBiteSize ? Flag.B : Flag.A;
+    mission.flag.set(newFlag);
+    mission.fruit.subtract(biteSize);
+    return new ComputedAttributes(bigBiteSize, newFlag);
+  }
+
+  @AutoValueMapper.Record
+  public record ComputedAttributes(@Description("Big Bite") boolean biteSizeWasBig, Flag newFlag) {}
+}

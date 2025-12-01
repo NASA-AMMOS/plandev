@@ -9,7 +9,7 @@ import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialOps
 import gov.nasa.ammos.aerie.procedural.timeline.ops.coalesce.CoalesceIntervalsOp
 import gov.nasa.ammos.aerie.procedural.timeline.util.preprocessList
 import gov.nasa.ammos.aerie.procedural.timeline.util.sorted
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
+import gov.nasa.jpl.plandev.merlin.protocol.types.Duration
 
 /** A coalescing timeline of [Intervals][Interval] with no extra data. */
 data class Windows(private val timeline: Timeline<Interval, Windows>):

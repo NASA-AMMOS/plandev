@@ -75,7 +75,7 @@ jacocoTestReport {
 }
 
 application {
-  mainClass = 'gov.nasa.jpl.aerie.merlin.server.AerieAppDriver'
+  mainClass = 'gov.nasa.jpl.plandev.merlin.server.PlanDevAppDriver'
   applicationDefaultJvmArgs = ['-Xmx2g']
 }
 

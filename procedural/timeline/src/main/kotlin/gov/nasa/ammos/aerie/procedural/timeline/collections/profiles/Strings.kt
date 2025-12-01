@@ -4,7 +4,7 @@ import gov.nasa.ammos.aerie.procedural.timeline.*
 import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialConstantOps
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment
 import gov.nasa.ammos.aerie.procedural.timeline.util.preprocessList
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
+import gov.nasa.jpl.plandev.merlin.protocol.types.SerializedValue
 
 /**
  * A profile of Strings.

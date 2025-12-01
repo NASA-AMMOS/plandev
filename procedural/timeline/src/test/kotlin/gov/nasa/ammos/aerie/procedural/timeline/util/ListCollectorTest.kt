@@ -1,6 +1,6 @@
 package gov.nasa.ammos.aerie.procedural.timeline.util
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration.seconds
+import gov.nasa.jpl.plandev.merlin.protocol.types.Duration.seconds
 import gov.nasa.ammos.aerie.procedural.timeline.CollectOptions
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test

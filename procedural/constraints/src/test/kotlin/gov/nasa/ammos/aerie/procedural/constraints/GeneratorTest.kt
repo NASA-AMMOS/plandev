@@ -8,8 +8,8 @@ import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan
 import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults
 import gov.nasa.ammos.aerie.procedural.timeline.util.duration.rangeTo
 import gov.nasa.ammos.aerie.procedural.utils.StubSimulationResults
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration.seconds
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
+import gov.nasa.jpl.plandev.merlin.protocol.types.Duration.seconds
+import gov.nasa.jpl.plandev.merlin.protocol.types.SerializedValue
 import org.junit.jupiter.api.Assertions.assertIterableEquals
 import kotlin.test.Test
 

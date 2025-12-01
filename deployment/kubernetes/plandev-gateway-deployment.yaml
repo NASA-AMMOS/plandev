@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: plandev-dev
+  name: plandev-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: plandev-gateway
+  template:
+    metadata:
+      labels:
+        app: plandev-gateway
+    spec:
+      containers:
+        - name: plandev-gateway
+          image: ghcr.io/nasa-ammos/plandev-gateway:develop
+          ports:
+            - containerPort: 9000
+          volumeMounts:
+            - mountPath: /app/files
+              name: plandev-file-store
+          env:
+            - name: AUTH_TYPE
+              value: none
+            - name: GQL_API_URL
+              value: http://localhost:8080/v1/graphql
+            - name: HASURA_GRAPHQL_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: dev-env
+                  key: HASURA_GRAPHQL_JWT_SECRET
+            - name: LOG_FILE
+              value: console
+            - name: LOG_LEVEL
+              value: warn
+            - name: PORT
+              value: "9000"
+            - name: PLANDEV_DB_HOST
+              value: postgres
+            - name: PLANDEV_DB_PORT
+              value: "5432"
+            - name: GATEWAY_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: dev-env
+                  key: GATEWAY_USERNAME
+            - name: GATEWAY_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dev-env
+                  key: GATEWAY_PASSWORD
+      volumes:
+        - name: plandev-file-store
+          persistentVolumeClaim:
+            claimName: plandev-file-store

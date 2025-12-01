@@ -13,7 +13,7 @@ java {
 }
 
 application {
-  mainClass = 'gov.nasa.jpl.aerie.merlin.worker.MerlinWorkerAppDriver'
+  mainClass = 'gov.nasa.jpl.plandev.merlin.worker.MerlinWorkerAppDriver'
   applicationDefaultJvmArgs = ['-Xmx2g']
 }
 

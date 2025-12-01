@@ -2,7 +2,7 @@ package gov.nasa.ammos.aerie.procedural.constraints
 
 import gov.nasa.ammos.aerie.procedural.timeline.Interval
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.IntervalLike
-import gov.nasa.jpl.aerie.types.ActivityId
+import gov.nasa.jpl.plandev.types.ActivityId
 
 /** A single violation of a constraint. */
 data class Violation @JvmOverloads constructor(

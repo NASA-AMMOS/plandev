@@ -10,11 +10,11 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.RecordValueMapper;
-import gov.nasa.jpl.aerie.merlin.framework.Result;
-import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.jpl.plandev.contrib.serialization.mappers.RecordValueMapper;
+import gov.nasa.jpl.plandev.merlin.framework.Result;
+import gov.nasa.jpl.plandev.merlin.framework.ValueMapper;
+import gov.nasa.jpl.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.jpl.plandev.merlin.protocol.types.ValueSchema;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;

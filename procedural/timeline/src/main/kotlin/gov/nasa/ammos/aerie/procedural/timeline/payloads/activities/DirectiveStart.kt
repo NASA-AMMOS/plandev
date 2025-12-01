@@ -1,7 +1,7 @@
 package gov.nasa.ammos.aerie.procedural.timeline.payloads.activities
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId
+import gov.nasa.jpl.plandev.merlin.protocol.types.Duration
+import gov.nasa.jpl.plandev.types.ActivityDirectiveId
 
 /** Start behavior for an activity directive. */
 sealed interface DirectiveStart {

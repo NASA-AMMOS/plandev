@@ -51,31 +51,31 @@ jobs:
     strategy:
       matrix:
         components:
-          - image: aerie-merlin
+          - image: plandev-merlin
             context: merlin-server
             file: merlin-server/Dockerfile
-          - image: aerie-merlin-worker
+          - image: plandev-merlin-worker
             context: merlin-worker
             file: merlin-worker/Dockerfile
-          - image: aerie-scheduler
+          - image: plandev-scheduler
             context: scheduler-server
             file: scheduler-server/Dockerfile
-          - image: aerie-scheduler-worker
+          - image: plandev-scheduler-worker
             context: scheduler-worker
             file: scheduler-worker/Dockerfile
-          - image: aerie-sequencing
+          - image: plandev-sequencing
             context: sequencing-server
             file: sequencing-server/Dockerfile
-          - image: aerie-action
+          - image: plandev-action
             context: action-server
             file: action-server/Dockerfile
-          - image: aerie-workspace
+          - image: plandev-workspace
             context: workspace-server
             file: workspace-server/Dockerfile
-          - image: aerie-hasura
+          - image: plandev-hasura
             context: .
             file: docker/Dockerfile.hasura
-          - image: aerie-postgres
+          - image: plandev-postgres
             context: .
             file: docker/Dockerfile.postgres
     name: ${{ matrix.components.image }}
@@ -121,7 +121,7 @@ jobs:
           component: ${{ matrix.components.context }}
         run: |
           set -x
-          # aerie-hasura and aerie-postgres don't need compiled java
+          # plandev-hasura and plandev-postgres don't need compiled java
           if [[ "$component" != "." ]]; then
             ./gradlew ":$component:assemble" --no-daemon --parallel
           fi
@@ -143,15 +143,15 @@ jobs:
     strategy:
       matrix:
         image:
-          - aerie-merlin
-          - aerie-merlin-worker
-          - aerie-scheduler
-          - aerie-scheduler-worker
-          - aerie-sequencing
-          - aerie-action
-          - aerie-workspace
-          - aerie-hasura
-          - aerie-postgres
+          - plandev-merlin
+          - plandev-merlin-worker
+          - plandev-scheduler
+          - plandev-scheduler-worker
+          - plandev-sequencing
+          - plandev-action
+          - plandev-workspace
+          - plandev-hasura
+          - plandev-postgres
       fail-fast: false
     name: scan ${{ matrix.image }}
     steps:

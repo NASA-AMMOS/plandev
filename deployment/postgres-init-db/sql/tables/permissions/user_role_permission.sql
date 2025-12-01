@@ -11,7 +11,7 @@ create table permissions.user_role_permission(
 
 comment on table permissions.user_role_permission is e''
   'Permissions for a role that cannot be expressed in Hasura. Permissions take the form {KEY:PERMISSION}.'
-  'A list of valid KEYs and PERMISSIONs can be found at https://nasa-ammos.github.io/aerie-docs/deployment/advanced-permissions/#action-and-function-permissions';
+  'A list of valid KEYs and PERMISSIONs can be found at https://nasa-ammos.github.io/plandev-docs/deployment/advanced-permissions/#action-and-function-permissions';
 comment on column permissions.user_role_permission.role is e''
   'The role these permissions apply to.';
 comment on column permissions.user_role_permission.action_permissions is ''
@@ -262,7 +262,7 @@ begin
       message = 'invalid keys in supplied row',
       detail = key_error_msg,
       errcode = 'invalid_json_text',
-      hint = 'Visit https://nasa-ammos.github.io/aerie-docs/deployment/advanced-permissions/#action-and-function-permissions for a list of valid keys.';
+      hint = 'Visit https://nasa-ammos.github.io/plandev-docs/deployment/advanced-permissions/#action-and-function-permissions for a list of valid keys.';
   end if;
 
   -- Raise if there were invalid Action/Function Permissions
@@ -271,7 +271,7 @@ begin
       message = 'invalid permissions in supplied row',
       detail = value_error_msg,
       errcode = 'invalid_json_text',
-      hint = 'Visit https://nasa-ammos.github.io/aerie-docs/deployment/advanced-permissions/#action-and-function-permissions for a list of valid Permissions.';
+      hint = 'Visit https://nasa-ammos.github.io/plandev-docs/deployment/advanced-permissions/#action-and-function-permissions for a list of valid Permissions.';
   end if;
 
   -- Raise if Plan Merge Permissions were improperly applied
@@ -280,7 +280,7 @@ begin
       message = 'invalid permissions in supplied row',
       detail = plan_merge_error_msg,
       errcode = 'invalid_json_text',
-      hint = 'Visit https://nasa-ammos.github.io/aerie-docs/deployment/advanced-permissions/#action-and-function-permissions for more information.';
+      hint = 'Visit https://nasa-ammos.github.io/plandev-docs/deployment/advanced-permissions/#action-and-function-permissions for more information.';
   end if;
 
   return new;

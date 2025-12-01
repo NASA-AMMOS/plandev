@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: aerie-dev
+  namespace: plandev-dev
   name: postgres
 spec:
   replicas: 1

@@ -1,6 +1,6 @@
 package gov.nasa.ammos.aerie.procedural.timeline.payloads.activities
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
+import gov.nasa.jpl.plandev.merlin.protocol.types.SerializedValue
 import kotlin.jvm.optionals.getOrNull
 
 /** A general-purpose container for representing the arguments any type of activity directive. */

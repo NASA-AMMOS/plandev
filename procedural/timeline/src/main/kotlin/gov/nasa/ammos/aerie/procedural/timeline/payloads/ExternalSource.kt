@@ -1,6 +1,6 @@
 package gov.nasa.ammos.aerie.procedural.timeline.payloads
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
+import gov.nasa.jpl.plandev.merlin.protocol.types.SerializedValue
 
 /**
  * An external source instance.

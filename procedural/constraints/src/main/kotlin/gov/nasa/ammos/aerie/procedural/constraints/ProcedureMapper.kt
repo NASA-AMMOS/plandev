@@ -1,7 +1,7 @@
 package gov.nasa.ammos.aerie.procedural.constraints
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema
+import gov.nasa.jpl.plandev.merlin.protocol.types.SerializedValue
+import gov.nasa.jpl.plandev.merlin.protocol.types.ValueSchema
 
 interface ProcedureMapper<T: Constraint> {
   fun valueSchema(): ValueSchema

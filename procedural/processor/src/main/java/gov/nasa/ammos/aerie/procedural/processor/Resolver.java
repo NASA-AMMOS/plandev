@@ -7,7 +7,7 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.WildcardTypeName;
-import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
+import gov.nasa.jpl.plandev.merlin.framework.ValueMapper;
 import gov.nasa.ammos.aerie.procedural.processor.TypePattern.ClassPattern;
 
 import javax.lang.model.element.AnnotationMirror;
@@ -57,7 +57,7 @@ public final class Resolver {
     if (mirror.getKind() == TypeKind.DECLARED || mirror.getKind() == TypeKind.ARRAY) {
       return mapperCode.map($ -> CodeBlock.of(
           "new $T<>(\n$>$>$L$<$<)",
-          gov.nasa.jpl.aerie.contrib.serialization.mappers.NullableValueMapper.class,
+          gov.nasa.jpl.plandev.contrib.serialization.mappers.NullableValueMapper.class,
           $));
     } else {
       return mapperCode;

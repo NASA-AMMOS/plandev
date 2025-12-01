@@ -1,6 +1,6 @@
 package gov.nasa.ammos.aerie.procedural.scheduling.simulation
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
+import gov.nasa.jpl.plandev.merlin.protocol.types.Duration
 
 /**
  * Behavior for retaining generated checkpoints in memory.

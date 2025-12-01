@@ -9,8 +9,8 @@ import gov.nasa.ammos.aerie.procedural.timeline.collections.profiles.Strings;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.LinearEquation;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.jpl.plandev.merlin.protocol.types.Duration;
+import gov.nasa.jpl.plandev.merlin.protocol.types.SerializedValue;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;

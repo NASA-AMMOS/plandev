@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: plandev-dev
+  name: plandev-scheduler-worker
+spec:
+  ports:
+    - name: "27189"
+      port: 27189
+      targetPort: 8080
+  selector:
+    app: plandev-scheduler-worker

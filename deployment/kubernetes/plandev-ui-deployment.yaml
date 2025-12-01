@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: plandev-dev
+  name: plandev-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: plandev-ui
+  template:
+    metadata:
+      labels:
+        app: plandev-ui
+    spec:
+      containers:
+        - env:
+            - name: ORIGIN
+              value: http://127.0.0.1
+            - name: PUBLIC_AERIE_FILE_STORE_PREFIX
+              value: /usr/src/app/merlin_file_store/
+            - name: PUBLIC_GATEWAY_CLIENT_URL
+              value: http://localhost:9000
+            - name: PUBLIC_GATEWAY_SERVER_URL
+              value: http://plandev-gateway:9000
+            - name: PUBLIC_HASURA_CLIENT_URL
+              value: http://localhost:8080/v1/graphql
+            - name: PUBLIC_HASURA_SERVER_URL
+              value: http://hasura:8080/v1/graphql
+            - name: PUBLIC_HASURA_WEB_SOCKET_URL
+              value: ws://localhost:8080/v1/graphql
+            - name: PUBLIC_WORKSPACE_CLIENT_URL
+              value: http://localhost:28000
+          image: ghcr.io/nasa-ammos/plandev-ui:develop
+          name: plandev-ui
+          ports:
+            - containerPort: 80

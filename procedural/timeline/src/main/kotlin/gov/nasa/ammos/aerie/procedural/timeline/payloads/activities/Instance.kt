@@ -1,9 +1,9 @@
 package gov.nasa.ammos.aerie.procedural.timeline.payloads.activities
 
 import gov.nasa.ammos.aerie.procedural.timeline.Interval
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId
-import gov.nasa.jpl.aerie.types.ActivityInstanceId
+import gov.nasa.jpl.plandev.merlin.protocol.types.Duration
+import gov.nasa.jpl.plandev.types.ActivityDirectiveId
+import gov.nasa.jpl.plandev.types.ActivityInstanceId
 
 /** A wrapper of any type of activity instance containing common data. */
 data class Instance<A: Any>(

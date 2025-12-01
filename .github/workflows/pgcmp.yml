@@ -21,8 +21,8 @@ on:
   workflow_dispatch:
 
 env:
-  AERIE_USERNAME: "${{secrets.AERIE_USERNAME}}"
-  AERIE_PASSWORD: "${{secrets.AERIE_PASSWORD}}"
+  PLANDEV_USERNAME: "${{secrets.PLANDEV_USERNAME}}"
+  PLANDEV_PASSWORD: "${{secrets.PLANDEV_PASSWORD}}"
   HASURA_GRAPHQL_ADMIN_SECRET: "${{secrets.HASURA_GRAPHQL_ADMIN_SECRET}}"
   HASURA_GRAPHQL_JWT_SECRET: "${{secrets.HASURA_GRAPHQL_JWT_SECRET}}"
   POSTGRES_USER: "${{secrets.POSTGRES_USER}}"
@@ -80,9 +80,9 @@ jobs:
       - name: Dump v2.8.0 Database
         run: |
           mkdir pgdumpV2_8_0
-          PGURI=postgres://"${AERIE_USERNAME}":"${AERIE_PASSWORD}"@localhost:5432/aerie \
-          PGCMPOUTPUT=./pgdumpV2_8_0/AerieV2_8_0 \
-          PGCLABEL=AerieV2_8_0 \
+          PGURI=postgres://"${PLANDEV_USERNAME}":"${PLANDEV_PASSWORD}"@localhost:5432/plandev \
+          PGCMPOUTPUT=./pgdumpV2_8_0/PlanDevV2_8_0 \
+          PGCLABEL=PlanDevV2_8_0 \
           PGBINDIR=/usr/bin \
           ./pgcmp/pgcmp-dump
         shell: bash
@@ -108,7 +108,7 @@ jobs:
       - name: Restart Hasura and Start Additional Containers
         run: |
           docker compose down
-          docker compose up -d postgres hasura aerie_workspace
+          docker compose up -d postgres hasura plandev_workspace
           docker images
           docker ps -a
       - name: Sleep for 30 seconds
@@ -118,11 +118,11 @@ jobs:
         run: |
           cd deployment
           cat << EOF > .env
-          AERIE_USERNAME=${AERIE_USERNAME}
-          AERIE_PASSWORD=${AERIE_PASSWORD}
+          PLANDEV_USERNAME=${PLANDEV_USERNAME}
+          PLANDEV_PASSWORD=${PLANDEV_PASSWORD}
           EOF
           python -m pip install -r requirements.txt
-          python aerie_db_migration.py migrate --apply --all
+          python plandev_db_migration.py migrate --apply --all
           cd ..
       - name: Clone PGCMP
         uses: actions/checkout@v4
@@ -132,9 +132,9 @@ jobs:
       - name: Dump Migrated Database
         run: |
           mkdir pgdumpmigrated
-          PGURI=postgres://"${AERIE_USERNAME}":"${AERIE_PASSWORD}"@localhost:5432/aerie \
-          PGCMPOUTPUT=./pgdumpmigrated/AerieMigratedUp \
-          PGCLABEL=AerieMigratedUp \
+          PGURI=postgres://"${PLANDEV_USERNAME}":"${PLANDEV_PASSWORD}"@localhost:5432/plandev \
+          PGCMPOUTPUT=./pgdumpmigrated/PlanDevMigratedUp \
+          PGCLABEL=PlanDevMigratedUp \
           PGBINDIR=/usr/bin \
           ./pgcmp/pgcmp-dump
         shell: bash
@@ -195,9 +195,9 @@ jobs:
       - name: Dump Current Database
         run: |
           mkdir pgdumpcurrent
-          PGURI=postgres://"${AERIE_USERNAME}":"${AERIE_PASSWORD}"@localhost:5432/aerie \
-          PGCMPOUTPUT=./pgdumpcurrent/AerieCurrent \
-          PGCLABEL=AerieCurrent \
+          PGURI=postgres://"${PLANDEV_USERNAME}":"${PLANDEV_PASSWORD}"@localhost:5432/plandev \
+          PGCMPOUTPUT=./pgdumpcurrent/PlanDevCurrent \
+          PGCLABEL=PlanDevCurrent \
           PGBINDIR=/usr/bin \
           ./pgcmp/pgcmp-dump
         shell: bash
@@ -211,18 +211,18 @@ jobs:
         run: |
           cd deployment
           cat << EOF > .env
-          AERIE_USERNAME=${AERIE_USERNAME}
-          AERIE_PASSWORD=${AERIE_PASSWORD}
+          PLANDEV_USERNAME=${PLANDEV_USERNAME}
+          PLANDEV_PASSWORD=${PLANDEV_PASSWORD}
           EOF
           python -m pip install -r requirements.txt
-          python aerie_db_migration.py migrate --revert --all
+          python plandev_db_migration.py migrate --revert --all
           cd ..
       - name: Dump Migrated Database
         run: |
           mkdir pgdumpmigrateddown
-          PGURI=postgres://"${AERIE_USERNAME}":"${AERIE_PASSWORD}"@localhost:5432/aerie \
-          PGCMPOUTPUT=./pgdumpmigrateddown/AerieMigratedDown \
-          PGCLABEL=AerieMigratedDown \
+          PGURI=postgres://"${PLANDEV_USERNAME}":"${PLANDEV_PASSWORD}"@localhost:5432/plandev \
+          PGCMPOUTPUT=./pgdumpmigrateddown/PlanDevMigratedDown \
+          PGCLABEL=PlanDevMigratedDown \
           PGBINDIR=/usr/bin \
           ./pgcmp/pgcmp-dump
         shell: bash

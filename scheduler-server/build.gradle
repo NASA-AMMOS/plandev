@@ -14,7 +14,7 @@ java {
 }
 
 application {
-  mainClass = 'gov.nasa.jpl.aerie.scheduler.server.SchedulerAppDriver'
+  mainClass = 'gov.nasa.jpl.plandev.scheduler.server.SchedulerAppDriver'
   applicationDefaultJvmArgs = ['-Xmx2g']
 }
 

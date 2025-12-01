@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: plandev-dev
+  name: plandev-merlin
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: plandev-merlin
+  template:
+    metadata:
+      labels:
+        app: plandev-merlin
+    spec:
+      containers:
+        - name: plandev-merlin
+          image: ghcr.io/nasa-ammos/plandev-merlin:develop
+          ports:
+            - containerPort: 27183
+          volumeMounts:
+            - mountPath: /usr/src/app/merlin_file_store
+              name: plandev-file-store
+          env:
+            - name: JAVA_OPTS
+              value: |
+                -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN -Dorg.slf4j.simpleLogger.logFile=System.err
+            - name: PLANDEV_DB_PORT
+              value: "5432"
+            - name: PLANDEV_DB_HOST
+              value: postgres
+            - name: MERLIN_LOCAL_STORE
+              value: /usr/src/app/merlin_file_store
+            - name: MERLIN_PORT
+              value: "27183"
+            - name: UNTRUE_PLAN_START
+              value: "2000-01-01T11:58:55.816Z"
+            - name: MERLIN_DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: dev-env
+                  key: MERLIN_USERNAME
+            - name: MERLIN_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: dev-env
+                  key: MERLIN_PASSWORD
+      restartPolicy: Always
+      volumes:
+        - name: plandev-file-store
+          persistentVolumeClaim:
+            claimName: plandev-file-store

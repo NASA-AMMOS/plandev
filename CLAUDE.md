@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with the Aerie codebase.
+This file provides guidance to Claude Code (claude.ai/code) when working with the PlanDev codebase.
 
 ## Project Overview
 
-Aerie is a NASA-developed software framework for modeling spacecraft missions. It provides:
+PlanDev is a NASA-developed software framework for modeling spacecraft missions. It provides:
 - A Java-based mission modeling library (Merlin)
 - A discrete-event simulator
 - TypeScript DSLs for scheduling, constraints, command expansion, and sequences
@@ -28,7 +28,7 @@ Aerie is a NASA-developed software framework for modeling spacecraft missions. I
 ./gradlew dependencyUpdates
 ```
 
-## Running Aerie Locally
+## Running PlanDev Locally
 
 ```bash
 # Copy environment template and fill in values
@@ -71,8 +71,8 @@ docker-compose down && docker volume prune
 ### Supporting Components
 - **hasura** - GraphQL API layer over PostgreSQL
 - **postgres** - Database (uses deployment/postgres-init-db for schema)
-- **aerie-gateway** - Authentication gateway (separate repo: NASA-AMMOS/aerie-gateway)
-- **aerie-ui** - Web client (separate repo: NASA-AMMOS/aerie-ui)
+- **plandev-gateway** - Authentication gateway (separate repo: NASA-AMMOS/plandev-gateway)
+- **plandev-ui** - Web client (separate repo: NASA-AMMOS/plandev-ui)
 
 ## Key Directories
 
@@ -96,11 +96,11 @@ db-tests/               # Database unit tests
 # Run specific test class
 ./gradlew :merlin-server:test --tests "*.ConstraintsTest"
 
-# E2E tests (requires running Aerie instance)
+# E2E tests (requires running PlanDev instance)
 ./gradlew :e2e-tests:test
 ```
 
-E2E tests are in `e2e-tests/src/test/java/gov/nasa/jpl/aerie/e2e/` and interact with the full stack via GraphQL.
+E2E tests are in `e2e-tests/src/test/java/gov/nasa/jpl/plandev/e2e/` and interact with the full stack via GraphQL.
 
 ## Mission Model Development
 

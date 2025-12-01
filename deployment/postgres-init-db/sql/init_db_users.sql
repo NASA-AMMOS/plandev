@@ -1,6 +1,6 @@
 /*
  This file grants permissions to each of the DB users to the schemas.
- It is executed by the AERIE user after the DB schema has been created.
+ It is executed by the PLANDEV user after the DB schema has been created.
 
  If granting a certain privilege to 'all X in schema' to a user, include an 'alter default privilege' statement
  'grant all' affects current DB objects, 'alter default' affects future DB objects
@@ -17,7 +17,7 @@ begin;
   grant select on table permissions.user_role_permission to public;
 
   -- All services can create temp tables
-  grant temp on database aerie to public;
+  grant temp on database plandev to public;
 
   -- All services can read merlin data
   grant usage on schema merlin to public;
@@ -91,13 +91,13 @@ begin;
   -----------------------
   -- UI DB Permissions --
   -----------------------
-  -- The Aerie User currently has control of all tables in the UI schema
-  grant create, usage on schema ui to :"aerie_user";
-  grant select, insert, update, delete on all tables in schema ui to :"aerie_user";
-  grant execute on all routines in schema ui to :"aerie_user";
+  -- The PlanDev User currently has control of all tables in the UI schema
+  grant create, usage on schema ui to :"plandev_user";
+  grant select, insert, update, delete on all tables in schema ui to :"plandev_user";
+  grant execute on all routines in schema ui to :"plandev_user";
 
-  alter default privileges in schema ui grant select, insert, update, delete on tables to :"aerie_user";
-  alter default privileges in schema ui grant execute on routines to :"aerie_user";
+  alter default privileges in schema ui grant select, insert, update, delete on tables to :"plandev_user";
+  alter default privileges in schema ui grant execute on routines to :"plandev_user";
 
   ---------------------------
   -- Action DB Permissions --

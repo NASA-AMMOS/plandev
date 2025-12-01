@@ -1,7 +1,7 @@
 {
   "name": "sequencing-server",
   "version": "3.8.1",
-  "description": "Aerie sequencing server",
+  "description": "PlanDev sequencing server",
   "type": "module",
   "license": "MIT",
   "private": true,

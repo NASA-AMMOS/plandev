@@ -1,7 +1,7 @@
 package gov.nasa.ammos.aerie.procedural.timeline.payloads
 
 import gov.nasa.ammos.aerie.procedural.timeline.Interval
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
+import gov.nasa.jpl.plandev.merlin.protocol.types.SerializedValue
 
 /** An external event instance. */
 data class ExternalEvent(

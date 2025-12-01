@@ -1,13 +1,13 @@
 package gov.nasa.ammos.aerie.procedural.scheduling.plan
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
+import gov.nasa.jpl.plandev.merlin.protocol.types.SerializedValue
 import gov.nasa.ammos.aerie.procedural.scheduling.simulation.SimulateOptions
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart
 import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan
 import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId
+import gov.nasa.jpl.plandev.types.ActivityDirectiveId
 
 /** A plan representation that can be edited and simulated. */
 interface EditablePlan: Plan {

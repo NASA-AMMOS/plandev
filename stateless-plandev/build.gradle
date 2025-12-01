@@ -1,0 +1,93 @@
+plugins {
+  id 'java-library'
+  id 'maven-publish'
+  id 'jacoco'
+  id 'application'
+}
+
+java {
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(21)
+  }
+
+  withJavadocJar()
+  withSourcesJar()
+}
+
+jar {
+  dependsOn(':parsing-utilities:jar')
+  dependsOn(':type-utils:jar')
+  dependsOn(':orchestration-utils:jar')
+  dependsOn(':constraints:jar')
+  dependsOn(':merlin-driver:jar')
+  dependsOn(':merlin-sdk:jar')
+  dependsOn(':procedural:timeline:jar')
+  dependsOn(':procedural:constraints:jar')
+
+  duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+  manifest {
+    attributes('Main-Class': 'gov.nasa.jpl.plandev.stateless.Main')
+  }
+  from {
+    configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+  }
+}
+
+test {
+  useJUnitPlatform {
+    includeEngines 'junit-jupiter'
+  }
+  testLogging {
+    exceptionFormat = 'full'
+  }
+  // Allow security manager so it can be overridden with mock for unit tests
+  systemProperty("java.security.manager", "allow")
+}
+
+jacocoTestReport {
+  dependsOn test
+  reports {
+    xml.required = true
+  }
+}
+
+// Link references to standard Java classes to the official Java 11 documentation.
+javadoc.options.links 'https://docs.oracle.com/en/java/javase/11/docs/api/'
+javadoc.options.links 'https://commons.apache.org/proper/commons-lang/javadocs/api-3.9/'
+javadoc.options.addStringOption('Xdoclint:none', '-quiet')
+
+dependencies {
+  implementation project(':type-utils')
+  implementation project(':orchestration-utils')
+  implementation project(':merlin-driver')
+  implementation 'commons-cli:commons-cli:1.8.0'
+
+  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+  testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.0'
+  testRuntimeOnly(project(':examples:foo-missionmodel'))
+
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+publishing {
+  publications {
+    library(MavenPublication) {
+      version = findProperty('publishing.version')
+      from components.java
+    }
+  }
+
+  publishing {
+    repositories {
+      maven {
+        name = findProperty("publishing.name")
+        url = findProperty("publishing.url")
+        credentials {
+          username = System.getenv(findProperty("publishing.usernameEnvironmentVariable"))
+          password = System.getenv(findProperty("publishing.passwordEnvironmentVariable"))
+        }
+      }
+    }
+  }
+}

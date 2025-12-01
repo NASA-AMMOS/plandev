@@ -7,11 +7,13 @@ import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.options.FilePayload;
 import com.microsoft.playwright.options.FormData;
 import com.microsoft.playwright.options.RequestOptions;
+import gov.nasa.jpl.aerie.e2e.types.workspaces.BulkPutItem;
 
 import javax.json.Json;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -185,11 +187,153 @@ public class WorkspaceRequests implements AutoCloseable {
    * @return the APIResponse from the Workspace Server
   */
   public APIResponse deleteWorkspace(String authToken, int workspaceId) {
-    final var options = RequestOptions.create()
-                                      .setHeader("Authorization", "Bearer "+authToken);
+    final var options = RequestOptions.create().setHeader("Authorization", "Bearer "+authToken);
     return request.delete("/ws/%d".formatted(workspaceId), options);
   }
 
+
+  /**
+   * Call the GET endpoint in the Workspace Server
+   * @param token The JWT token for the user making the request
+   * @param workspaceId The workspace the item is in
+   * @param itemPath The Path within the workspace where the item is
+   * @return The APIResponse from the server
+   */
+  public APIResponse get(String token, int workspaceId, Path itemPath) {
+    final var options = RequestOptions.create().setHeader("Authorization", "Bearer " + token);
+    return request.get("/ws/%d/%s".formatted(workspaceId, itemPath.toString()), options);
+  }
+
+  /**
+   * Call the 'Bulk PUT' endpoint in the Workspace server.
+   * @param token The JWT token for the user making the request
+   * @param workspaceId The workspace to insert the file into
+   * @param toPut List of things to be placed on the server. If there are file contents, it will be uploaded as file.
+   *              If the Optional is empty, it will be uploaded as a directory.
+   * @return The APIResponse from the server
+   */
+  public APIResponse bulkPut(String token, int workspaceId, List<BulkPutItem> toPut) {
+    final var formData = FormData.create();
+    final var bodyArray = Json.createArrayBuilder();
+
+    // Generate the request body
+    for(final var putItem : toPut) {
+      bodyArray.add(putItem.toJson());
+      if(putItem instanceof BulkPutItem.FileBulkPutItem fileInput) {
+        formData.append("files", fileInput.generateFilePayload());
+      }
+    }
+
+    // Generate the request
+    final var options = RequestOptions
+        .create()
+        .setHeader("Authorization", "Bearer "+token)
+        .setMultipart(formData.set("body", bodyArray.build().toString()));
+
+    return request.put("/ws/bulk/%d".formatted(workspaceId), options);
+  }
+
+  /**
+   * Call the 'Bulk POST' endpoint in the Workspace server to move items.
+   *
+   * @param token The JWT token for the user making the request
+   * @param workspaceId The source workspace
+   * @param paths The list of items to be affected by the request
+   * @param destination The destination folder to place the items in
+   * @param destinationWorkspaceId If present, the destination workspace.
+   * @param overwrite If present, the value of the 'overwrite' flag
+   * @return The APIResponse from the server
+   */
+  public APIResponse bulkMove(
+      String token,
+      int workspaceId,
+      List<Path> paths,
+      Path destination,
+      Optional<Integer> destinationWorkspaceId,
+      Optional<Boolean> overwrite
+  ) {
+    // Generate the request body
+    final var body = Json.createObjectBuilder().add("moveTo", destination.toString());
+
+    final var pathsArray = Json.createArrayBuilder();
+    paths.forEach(p -> pathsArray.add(p.toString()));
+    body.add("paths", pathsArray);
+
+    destinationWorkspaceId.ifPresent(wid -> body.add("toWorkspace", wid));
+
+    overwrite.ifPresent(o -> body.add("overwrite", o));
+
+    // Generate request
+    final var options = RequestOptions
+        .create()
+        .setHeader("Authorization", "Bearer "+token)
+        .setHeader("Content-type", "application/json")
+        .setData(body.build().toString());
+
+    return request.post("/ws/bulk/%d".formatted(workspaceId), options);
+  }
+
+  /**
+   * Call the 'Bulk POST' endpoint in the Workspace server to copy items.
+   * @param token The JWT token for the user making the request
+   * @param workspaceId The source workspace
+   * @param paths The list of items to be affected by the request
+   * @param destination The destination folder to place the items in
+   * @param destinationWorkspaceId If present, the destination workspace.
+   * @param overwrite If present, the value of the 'overwrite' flag
+   * @return The APIResponse from the server
+   */
+  public APIResponse bulkCopy(
+      String token,
+      int workspaceId,
+      List<Path> paths,
+      Path destination,
+      Optional<Integer> destinationWorkspaceId,
+      Optional<Boolean> overwrite
+  ) {
+    // Generate the request body
+    final var body = Json.createObjectBuilder().add("copyTo", destination.toString());
+
+    final var pathsArray = Json.createArrayBuilder();
+    paths.forEach(p -> pathsArray.add(p.toString()));
+    body.add("paths", pathsArray);
+
+    destinationWorkspaceId.ifPresent(wid -> body.add("toWorkspace", wid));
+
+    overwrite.ifPresent(o -> body.add("overwrite", o));
+
+    // Generate request
+    final var options = RequestOptions
+        .create()
+        .setHeader("Authorization", "Bearer "+token)
+        .setHeader("Content-type", "application/json")
+        .setData(body.build().toString());
+
+    return request.post("/ws/bulk/%d".formatted(workspaceId), options);
+  }
+
+
+  /**
+   * Call the 'Bulk DELETE' endpoint in the Workspace server.
+   * @param token The JWT token for the user making the request
+   * @param workspaceId The source workspace
+   * @param paths The list of items to be deleted
+   * @return The APIResponse from the server
+   */
+  public APIResponse bulkDelete(String token, int workspaceId, List<Path> paths) {
+    // Generate the request body
+    final var body = Json.createArrayBuilder();
+    paths.forEach(p -> body.add(p.toString()));
+
+    // Generate request
+    final var options = RequestOptions
+        .create()
+        .setHeader("Authorization", "Bearer "+token)
+        .setHeader("Content-type", "application/json")
+        .setData(body.build().toString());
+
+    return request.delete("/ws/bulk/%d".formatted(workspaceId), options);
+  }
 
   @Override
   public void close() {

@@ -12,6 +12,7 @@ import gov.nasa.jpl.aerie.e2e.types.ActionPermissionsSet.*;
 import gov.nasa.jpl.aerie.e2e.types.ExternalDataset;
 import gov.nasa.jpl.aerie.e2e.types.User;
 import gov.nasa.jpl.aerie.e2e.types.ValueSchema;
+import gov.nasa.jpl.aerie.e2e.types.workspaces.BulkPutItem;
 import gov.nasa.jpl.aerie.e2e.utils.BaseURL;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
@@ -37,6 +38,7 @@ import javax.json.JsonValue;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -1237,7 +1239,7 @@ public class BindingsTests {
     private int cdictId;
     private int parcelId;
 
-    private User owner = new User(
+    private final User owner = new User(
         "ws_bindings_owner",
         "user",
         new String[] {"user"},
@@ -1484,7 +1486,7 @@ public class BindingsTests {
     }
 
     /**
-     * Tests for the /ws/{workspaceId}/<filePath> routes.
+     * Tests for the /ws/{workspaceId}/<path> routes.
      *
      * Disabled because the suite is skeletoned but not implemented.
      */
@@ -1894,6 +1896,445 @@ public class BindingsTests {
           void conflictedIfDestinationExists() {
             // TODO: When the destination file exists, the endpoint returns a 409 Conflicted and will not copy the file
           }
+        }
+      }
+    }
+
+    /**
+     * Tests for the /ws/bulk/{workspaceId}/ routes.
+     */
+    @Nested
+    class BulkWSRoutes {
+      @Nested
+      class BulkPut {
+        private int workspaceId;
+
+        @BeforeEach
+        void beforeEach() throws IOException {
+          workspaceId = wsServer.createWorkspace("bulkPutWS", parcelId);
+        }
+
+        @AfterEach
+        void afterEach() throws IOException {
+          wsServer.deleteWorkspace(workspaceId);
+        }
+
+        /**
+         * Basic successful cases.
+         * All of these should return a top level status of 207,
+         *    and an array of JSON objects with the same length as the input list.
+         * Each object in the array should have a status of 200, an 'item' field with the uploaded item's name,
+         *    and a 'result' field that either says "directory created" or "file uploaded",
+         *    as appropriate based on the created item's type.
+         * Additionally, a GET request for the item should succeed after the PUT.
+         */
+        @ParameterizedTest
+        @MethodSource("bulkPutBasicCasesArgs")
+        void bulkPutBasicCases(List<BulkPutItem> inputs) {
+          final var resp = wsServer.bulkPut(ownerToken, workspaceId, inputs);
+
+          // Check status code
+          assertEquals(207, resp.status());
+
+          // Check details of response
+          final var respBody = getArrayBody(resp);
+          assertEquals(inputs.size(), respBody.size());
+
+          for (int i = 0; i < respBody.size(); ++i) {
+            final var expected = inputs.get(i);
+            final var actual = respBody.get(i).asJsonObject();
+
+            // Check the PUT response
+            assertEquals(200, actual.getInt("status"));
+            assertEquals(expected.getPath().toString(), actual.getString("item"));
+            if (expected instanceof BulkPutItem.FileBulkPutItem) {
+              assertEquals(
+                  "File " + expected.getPath().getFileName() + " uploaded to " + expected.getPath(),
+                  actual.getString("result"));
+            } else {
+              assertEquals("Directory created.", actual.getString("result"));
+            }
+
+            // Simple check that the item was actually uploaded -- does not check item contents
+            final var getResp = wsServer.get(ownerToken, workspaceId, expected.getPath());
+            assertEquals(200, getResp.status());
+          }
+        }
+
+        /**
+         * Generate arguments to test basic upload cases.
+         */
+        private static Stream<Arguments> bulkPutBasicCasesArgs() {
+          final var myFileInput = new BulkPutItem.FileBulkPutItem(
+              Path.of("myFile.txt"),
+              "this is my file contents");
+          final var myDirInput = new BulkPutItem.DirectoryBulkPutItem(Path.of("myDir"));
+          final var folderDirInput = new BulkPutItem.DirectoryBulkPutItem(Path.of("myDir/subDir"), true);
+          final var secondFileInput = new BulkPutItem.FileBulkPutItem(
+              Path.of("myDir/otherFile.txt"),
+              "this is another file",
+              "anotherFile.txt");
+
+          return Stream.of(
+              Arguments.arguments(named("Single File Bulk PUT", List.of(myFileInput))),
+              Arguments.arguments(named("Single Directory Bulk PUT", List.of(myDirInput))),
+              Arguments.arguments(named("Multiple Files Bulk PUT", List.of(myFileInput, secondFileInput))),
+              Arguments.arguments(named("Multiple Directories Bulk PUT", List.of(myDirInput, folderDirInput))),
+              Arguments.arguments(named(
+                  "Mixed Files and Directories Bulk PUT",
+                  List.of(myDirInput, folderDirInput, myFileInput, secondFileInput)))
+          );
+        }
+      }
+
+      @Nested
+      class BulkPost {
+        private int workspaceId;
+        private int otherWorkspaceId;
+
+        @BeforeEach
+        void beforeEach() throws IOException {
+          workspaceId = wsServer.createWorkspace("bulkPostWS", parcelId);
+          otherWorkspaceId = wsServer.createWorkspace("otherBulkPostWs", parcelId);
+
+          // Prepopulate ws with contents
+          final List<BulkPutItem> wsContents = List.of(
+              new BulkPutItem.DirectoryBulkPutItem("top_dir"),
+              new BulkPutItem.DirectoryBulkPutItem("top_dir/nested_dir"),
+              new BulkPutItem.DirectoryBulkPutItem("top_dir/other_nested_dir"),
+              new BulkPutItem.DirectoryBulkPutItem("other_dir"),
+              new BulkPutItem.DirectoryBulkPutItem("other_dir/nested_dir"),
+              new BulkPutItem.FileBulkPutItem("top_file.txt", "top level file"),
+              new BulkPutItem.FileBulkPutItem("top_dir/file.txt", "file within a directory"),
+              new BulkPutItem.FileBulkPutItem("other_dir/file.txt", "another file within a directory"),
+              new BulkPutItem.FileBulkPutItem("top_dir/nested_dir/file.txt", "file within a nested directory"),
+              new BulkPutItem.DirectoryBulkPutItem("destination_dir")
+          );
+          wsServer.bulkPut(ownerToken, workspaceId, wsContents);
+        }
+
+        @AfterEach
+        void afterEach() throws IOException {
+          wsServer.deleteWorkspace(workspaceId);
+          wsServer.deleteWorkspace(otherWorkspaceId);
+        }
+
+        /**
+         * Basic successful cases of moving files within a workspace.
+         * All of these should return a top level status of 207,
+         *    and an array of JSON objects with the same length as the input list.
+         * Each object in the array should have a status of 200, an 'item' field with the uploaded item's name,
+         *    and a 'response' field that says the item was moved.
+         * Additionally, the item should only be findable at its new location
+         */
+        @ParameterizedTest
+        @MethodSource("bulkPostBasicCasesArgs")
+        void bulkMoveSameWorkspaceBasicCases(List<Path> inputs) {
+          final var destinationPath = Path.of("./destination_dir");
+          final var resp = wsServer.bulkMove(
+              ownerToken,
+              workspaceId,
+              inputs,
+              destinationPath,
+              Optional.empty(),
+              Optional.empty());
+
+
+          // Check status code
+          assertEquals(207, resp.status());
+
+          // Check details of response
+          final var respBody = getArrayBody(resp);
+          assertEquals(inputs.size(), respBody.size());
+
+          for (int i = 0; i < respBody.size(); ++i) {
+            final var expected = inputs.get(i);
+            final var expectedDestination = destinationPath.resolve(expected.getFileName());
+            final var actual = respBody.get(i).asJsonObject();
+
+            // Check the POST response
+            assertEquals(200, actual.getInt("status"));
+            assertEquals(expected.toString(), actual.getString("item"));
+            assertEquals("'%s' in Workspace %d moved to '%s' in Workspace %d"
+                             .formatted(expected, workspaceId, expectedDestination, workspaceId),
+                         actual.getString("response"));
+
+            // Simple check that the item was actually moved:
+            //  trying to get it at its old location should return a 404 Resource Not Found
+            //  while trying to get it at its new location should return a 200
+            final var getOldResp = wsServer.get(ownerToken, workspaceId, expected);
+            assertEquals(404, getOldResp.status());
+
+            final var getNewResp = wsServer.get(ownerToken, workspaceId, expectedDestination);
+            assertEquals(200, getNewResp.status());
+          }
+        }
+
+        /**
+         * Basic successful cases of moving files from one workspace to another.
+         * All of these should return a top level status of 207,
+         *    and an array of JSON objects with the same length as the input list.
+         * Each object in the array should have a status of 200, an 'item' field with the uploaded item's name,
+         *    and a 'response' field that says the item was moved.
+         * Additionally, the item should only be findable at its new location
+         */
+        @ParameterizedTest
+        @MethodSource("bulkPostBasicCasesArgs")
+        void bulkMoveBtwnWorkspaceBasicCases(List<Path> inputs) {
+          final var destinationPath = Path.of(".");
+          final var resp = wsServer.bulkMove(
+              ownerToken,
+              workspaceId,
+              inputs,
+              destinationPath,
+              Optional.of(otherWorkspaceId),
+              Optional.empty());
+
+
+          // Check status code
+          assertEquals(207, resp.status());
+
+          // Check details of response
+          final var respBody = getArrayBody(resp);
+          assertEquals(inputs.size(), respBody.size());
+
+          for (int i = 0; i < respBody.size(); ++i) {
+            final var expected = inputs.get(i);
+            final var expectedDestination = destinationPath.resolve(expected.getFileName());
+            final var actual = respBody.get(i).asJsonObject();
+
+            // Check the POST response
+            assertEquals(200, actual.getInt("status"));
+            assertEquals(expected.toString(), actual.getString("item"));
+            assertEquals("'%s' in Workspace %d moved to '%s' in Workspace %d"
+                             .formatted(expected, workspaceId, expectedDestination, otherWorkspaceId),
+                         actual.getString("response"));
+
+            // Simple check that the item was actually moved:
+            //  trying to get it at both its old and new location should return a 200
+            //  while trying to get it at its new location should return a 200
+            final var getOldResp = wsServer.get(ownerToken, workspaceId, expected);
+            assertEquals(404, getOldResp.status());
+
+            final var getNewResp = wsServer.get(ownerToken, otherWorkspaceId, expectedDestination);
+            assertEquals(200, getNewResp.status());
+          }
+        }
+
+        /**
+         * Basic successful cases of copying files within a workspace.
+         * All of these should return a top level status of 207,
+         *    and an array of JSON objects with the same length as the input list.
+         * Each object in the array should have a status of 200, an 'item' field with the uploaded item's name,
+         *    and a 'response' field that says the item was moved.
+         * Additionally, the item should be findable at both its old and new location
+         */
+        @ParameterizedTest
+        @MethodSource("bulkPostBasicCasesArgs")
+        void bulkCopySameWorkspaceBasicCases(List<Path> inputs) {
+          final var destinationPath = Path.of("./destination_dir");
+          final var resp = wsServer.bulkCopy(
+              ownerToken,
+              workspaceId,
+              inputs,
+              destinationPath,
+              Optional.empty(),
+              Optional.empty());
+
+
+          // Check status code
+          assertEquals(207, resp.status());
+
+          // Check details of response
+          final var respBody = getArrayBody(resp);
+          assertEquals(inputs.size(), respBody.size());
+
+          for (int i = 0; i < respBody.size(); ++i) {
+            final var expected = inputs.get(i);
+            final var expectedDestination = destinationPath.resolve(expected.getFileName());
+            final var actual = respBody.get(i).asJsonObject();
+
+            // Check the POST response
+            assertEquals(200, actual.getInt("status"));
+            assertEquals(expected.toString(), actual.getString("item"));
+            assertEquals("'%s' in Workspace %d copied to '%s' in Workspace %d"
+                             .formatted(expected, workspaceId, expectedDestination, workspaceId),
+                         actual.getString("response"));
+
+            // Simple check that the item was actually copied:
+            //  trying to get it at both its old and new location should return a 200
+            final var getOldResp = wsServer.get(ownerToken, workspaceId, expected);
+            assertEquals(200, getOldResp.status());
+
+            final var getNewResp = wsServer.get(ownerToken, workspaceId, expectedDestination);
+            assertEquals(200, getNewResp.status());
+
+            // The copied file has the same contents
+            assertEquals(getOldResp.text(), getNewResp.text());
+          }
+        }
+
+        /**
+         * Basic successful cases of copying files from one workspace to another.
+         * All of these should return a top level status of 207,
+         *    and an array of JSON objects with the same length as the input list.
+         * Each object in the array should have a status of 200, an 'item' field with the uploaded item's name,
+         *    and a 'response' field that says the item was moved.
+         * Additionally, the item should be findable at both its old and new location
+         */
+        @ParameterizedTest
+        @MethodSource("bulkPostBasicCasesArgs")
+        void bulkCopyBtwnWorkspaceBasicCases(List<Path> inputs) {
+          final var destinationPath = Path.of(".");
+          final var resp = wsServer.bulkCopy(
+              ownerToken,
+              workspaceId,
+              inputs,
+              destinationPath,
+              Optional.of(otherWorkspaceId),
+              Optional.empty());
+
+
+          // Check status code
+          assertEquals(207, resp.status());
+
+          // Check details of response
+          final var respBody = getArrayBody(resp);
+          assertEquals(inputs.size(), respBody.size());
+
+          for (int i = 0; i < respBody.size(); ++i) {
+            final var expected = inputs.get(i);
+            final var expectedDestination = destinationPath.resolve(expected.getFileName());
+            final var actual = respBody.get(i).asJsonObject();
+
+            // Check the POST response
+            assertEquals(200, actual.getInt("status"));
+            assertEquals(expected.toString(), actual.getString("item"));
+            assertEquals("'%s' in Workspace %d copied to '%s' in Workspace %d"
+                             .formatted(expected, workspaceId, expectedDestination, otherWorkspaceId),
+                         actual.getString("response"));
+
+            // Simple check that the item was actually copied:
+            //  trying to get it at both its old and new location should return a 200
+            final var getOldResp = wsServer.get(ownerToken, workspaceId, expected);
+            assertEquals(200, getOldResp.status());
+
+            final var getNewResp = wsServer.get(ownerToken, otherWorkspaceId, expectedDestination);
+            assertEquals(200, getNewResp.status());
+
+            // The copied file has the same contents
+            assertEquals(getOldResp.text(), getNewResp.text());
+          }
+        }
+
+        /**
+         * Generate arguments to test basic upload cases.
+         */
+        private static Stream<Arguments> bulkPostBasicCasesArgs() {
+          final var topFileInput = Path.of("top_file.txt");
+          final var nestedFileInput = Path.of("other_dir/file.txt");
+          final var topDirInput = Path.of("top_dir");
+          final var nestedDirInput = Path.of("other_dir/nested_dir");
+
+          return Stream.of(
+              Arguments.arguments(named("Top Level File Single Bulk POST", List.of(topFileInput))),
+              Arguments.arguments(named("Top Level Directory Single Bulk POST", List.of(topDirInput))),
+              Arguments.arguments(named("Nested File Single Bulk POST", List.of(nestedFileInput))),
+              Arguments.arguments(named("Nested Directory Single Bulk POST", List.of(nestedDirInput))),
+              Arguments.arguments(named("Multiple Files Bulk POST", List.of(topFileInput, nestedFileInput))),
+              Arguments.arguments(named("Multiple Directories Bulk POST", List.of(topDirInput, nestedDirInput))),
+              Arguments.arguments(named(
+                  "Mixed Files and Directories Bulk POST",
+                  List.of(topFileInput, nestedFileInput, nestedDirInput, topDirInput)))
+          );
+        }
+      }
+
+      @Nested
+      class BulkDelete {
+        private int workspaceId;
+
+        @BeforeEach
+        void beforeEach() throws IOException {
+          workspaceId = wsServer.createWorkspace("bulkDeleteWS", parcelId);
+
+          // Prepopulate ws with contents
+          final List<BulkPutItem> wsContents = List.of(
+              new BulkPutItem.DirectoryBulkPutItem("top_dir"),
+              new BulkPutItem.DirectoryBulkPutItem("top_dir/nested_dir"),
+              new BulkPutItem.DirectoryBulkPutItem("top_dir/other_nested_dir"),
+              new BulkPutItem.DirectoryBulkPutItem("other_dir"),
+              new BulkPutItem.DirectoryBulkPutItem("other_dir/nested_dir"),
+              new BulkPutItem.FileBulkPutItem("top_file.txt", "top level file"),
+              new BulkPutItem.FileBulkPutItem("top_dir/file.txt", "file within a directory"),
+              new BulkPutItem.FileBulkPutItem("other_dir/file.txt", "another file within a directory"),
+              new BulkPutItem.FileBulkPutItem("top_dir/nested_dir/file.txt", "file within a nested directory")
+          );
+
+          wsServer.bulkPut(ownerToken, workspaceId, wsContents);
+        }
+
+        @AfterEach
+        void afterEach() throws IOException {
+          wsServer.deleteWorkspace(workspaceId);
+        }
+
+        /**
+         * Basic successful cases.
+         * All of these should return a top level status of 207,
+         *    and an array of JSON objects with the same length as the input list.
+         * Each object in the array should have a status of 200, an 'item' field with the deleted item's name,
+         *    and a 'result' field that either says "directory created" or "file uploaded",
+         *    as appropriate based on the created item's type.
+         * Additionally, a GET request for the item should succeed after the PUT.
+         */
+        @ParameterizedTest
+        @MethodSource("bulkDeleteBasicCasesArgs")
+        void bulkDeleteBasicCases(List<Path> inputs) {
+          final var resp = wsServer.bulkDelete(ownerToken, workspaceId, inputs);
+
+          // Check status code
+          assertEquals(207, resp.status());
+
+          // Check details of response
+          final var respBody = getArrayBody(resp);
+          assertEquals(inputs.size(), respBody.size());
+
+          for (int i = 0; i < respBody.size(); ++i) {
+            final var expected = inputs.get(i);
+            final var actual = respBody.get(i).asJsonObject();
+
+            // Check the DELETE response
+            assertEquals(200, actual.getInt("status"));
+            assertEquals(expected.toString(), actual.getString("item"));
+
+
+            // Simple check that the item was actually deleted -- trying to get it should return a 404 Resource Not Found
+            final var getResp = wsServer.get(ownerToken, workspaceId, expected);
+            assertEquals(404, getResp.status());
+          }
+        }
+
+        /**
+         * Generate arguments to test basic upload cases.
+         */
+        private static Stream<Arguments> bulkDeleteBasicCasesArgs() {
+          final var topFileInput = Path.of("top_file.txt");
+          final var nestedFileInput = Path.of("other_dir/file.txt");
+          final var topDirInput = Path.of("top_dir");
+          final var nestedDirInput = Path.of("other_dir/nested_dir");
+
+          return Stream.of(
+              Arguments.arguments(named("Top Level File Single Bulk DELETE", List.of(topFileInput))),
+              Arguments.arguments(named("Top Level Directory Single Bulk DELETE", List.of(topDirInput))),
+              Arguments.arguments(named("Nested File Single Bulk DELETE", List.of(nestedFileInput))),
+              Arguments.arguments(named("Nested Directory Single Bulk DELETE", List.of(nestedDirInput))),
+              Arguments.arguments(named("Multiple Files Bulk DELETE", List.of(topFileInput, nestedFileInput))),
+              Arguments.arguments(named("Multiple Directories Bulk DELETE", List.of(topDirInput, nestedDirInput))),
+              Arguments.arguments(named(
+                  "Mixed Files and Directories Bulk DELETE",
+                  List.of(topFileInput, nestedFileInput, nestedDirInput, topDirInput)))
+          );
         }
       }
     }

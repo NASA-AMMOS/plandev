@@ -64,7 +64,7 @@ public final class PermissionsService {
   private PlanPermissionType getActionPermission(final HasuraAction action, final String role)
   throws Forbidden, IOException, PermissionsServiceException
   {
-    if (role.equals("aerie_admin")) {
+    if (role.equals("plandev_admin")) {
       return PlanPermissionType.NO_CHECK;
     }
     return gqlService.getActionPermission(action, role);
@@ -93,7 +93,7 @@ public final class PermissionsService {
   private WorkspacePermissionType getWorkspaceActionPermission(final WorkspaceAction action, final String role)
   throws Forbidden, IOException, PermissionsServiceException
   {
-    if (role.equals("aerie_admin")) {
+    if (role.equals("plandev_admin")) {
       return WorkspacePermissionType.NO_CHECK;
     }
     return gqlService.getWorkspaceActionPermission(action, role);

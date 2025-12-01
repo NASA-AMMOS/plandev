@@ -24,7 +24,7 @@ import java.util.Optional;
 
 /**
  * Class for formatting exceptions thrown during in Workspaces into JSON objects
- * that meet the Aerie HTTP endpoint error message format
+ * that meet the PlanDev HTTP endpoint error message format
  * Relevant ticket going over said format: https://github.com/NASA-AMMOS/aerie/issues/1732
  */
 @JsonSerialize(using = FormattedError.FormattedErrorSerializer.class)
@@ -32,7 +32,7 @@ final class FormattedError {
   private final String type;
   private final String message;
   private final String timestamp = ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT);
-  private final static String service = "aerie_workspace";
+  private final static String service = "plandev_workspace";
   private Optional<String> cause = Optional.empty();
   private Optional<String> trace = Optional.empty();
   private Optional<JsonObject> data = Optional.empty();

@@ -31,7 +31,7 @@ public class PlanJsonParser {
   private PlanJsonParser() {}
 
   /**
-   * Parses a plan.json file that has been exported by the Aerie Gateway.
+   * Parses a plan.json file that has been exported by the PlanDev Gateway.
    */
   public static Plan parsePlan(final Path filePath) {
     try (final var fileReader = new FileReader(filePath.toString())) {

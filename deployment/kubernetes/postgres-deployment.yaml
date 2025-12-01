@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: ghcr.io/nasa-ammos/aerie-postgres:develop
+          image: ghcr.io/nasa-ammos/plandev-postgres:develop
           ports:
             - containerPort: 5432
           volumeMounts:

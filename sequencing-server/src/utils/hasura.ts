@@ -110,8 +110,8 @@ export async function canUserPerformAction(
   const role = hasuraSession['x-hasura-role'];
   const username = hasuraSession['x-hasura-user-id'];
 
-  // The aerie_admin role always has NO_CHECK permissions on all actions.
-  if (role === 'aerie_admin') {
+  // The plandev_admin role always has NO_CHECK permissions on all actions.
+  if (role === 'plandev_admin') {
     return true;
   }
 

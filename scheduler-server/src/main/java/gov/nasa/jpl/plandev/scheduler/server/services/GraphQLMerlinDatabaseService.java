@@ -1,8 +1,8 @@
 package gov.nasa.jpl.plandev.scheduler.server.services;
 
-import gov.nasa.ammos.aerie.procedural.timeline.Interval;
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalSource;
+import gov.nasa.ammos.plandev.procedural.timeline.Interval;
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.ExternalEvent;
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.ExternalSource;
 import gov.nasa.jpl.plandev.constraints.model.DiscreteProfile;
 import gov.nasa.jpl.plandev.constraints.model.LinearProfile;
 import gov.nasa.jpl.plandev.json.BasicParsers;
@@ -100,7 +100,7 @@ import static java.util.Map.entry;
 public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGraphQlAdminSecret) implements MerlinDatabaseService.OwnerRole {
 
   /**
-   * timeout for http graphql requests issued to aerie
+   * timeout for http graphql requests issued to plandev
    */
   private static final java.time.Duration httpTimeout = java.time.Duration.ofSeconds(60);
 
@@ -130,13 +130,13 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
   public record DatasetIds(DatasetId datasetId, SimulationDatasetId simulationDatasetId){}
 
   /**
-   * dispatch the given graphql request to aerie and collect the results
+   * dispatch the given graphql request to plandev and collect the results
    *
    * absorbs any io errors and returns an empty response object in order to keep exception
    * signature of callers cleanly matching the MerlinService interface
    *
-   * @param gqlStr the graphQL query or mutation to send to aerie
-   * @return the json response returned by aerie, or an empty optional in case of io errors
+   * @param gqlStr the graphQL query or mutation to send to plandev
+   * @return the json response returned by plandev, or an empty optional in case of io errors
    */
   private Optional<JsonObject> postRequest(final String gqlStr) throws IOException, MerlinServiceException {
     try {
@@ -154,7 +154,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
       final var httpResp = HttpClient
           .newHttpClient().send(httpReq, HttpResponse.BodyHandlers.ofInputStream());
       if (httpResp.statusCode() != 200) {
-        //TODO: how severely to error out if aerie cannot be reached or has a 500 error or json is garbled etc etc?
+        //TODO: how severely to error out if plandev cannot be reached or has a 500 error or json is garbled etc etc?
         return Optional.empty();
       }
       final var respBody = Json.createReader(httpResp.body()).readObject();
@@ -191,7 +191,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
       final var httpResp = HttpClient
           .newHttpClient().send(httpReq, HttpResponse.BodyHandlers.ofInputStream());
       if (httpResp.statusCode() != 200) {
-        //TODO: how severely to error out if aerie cannot be reached or has a 500 error or json is garbled etc etc?
+        //TODO: how severely to error out if plandev cannot be reached or has a 500 error or json is garbled etc etc?
         return Optional.empty();
       }
       final var respBody = Json.createReader(httpResp.body()).readObject();
@@ -207,7 +207,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
     }
   }
 
-  //TODO: maybe use fancy aerie typed json parsers/serializers, ala BasicParsers.productP use in MerlinParsers
+  //TODO: maybe use fancy plandev typed json parsers/serializers, ala BasicParsers.productP use in MerlinParsers
   //TODO: or upgrade to gson or similar modern library with registered object mappings
 
   /**
@@ -345,7 +345,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
   /**
    * generate a name for the next created plan container using current timestamp
    *
-   * currently, does not actually verify that the name is unique within aerie database
+   * currently, does not actually verify that the name is unique within plandev database
    *
    * @return a name for the next created plan container
    */
@@ -371,7 +371,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
     final var planName = getNextPlanName();
     final var planId = createEmptyPlan(
         planName, planMetadata.modelId(),
-        planMetadata.horizon().getStartInstant(), planMetadata.horizon().getEndAerie());
+        planMetadata.horizon().getStartInstant(), planMetadata.horizon().getEndPlanDev());
     final Map<ActivityDirectiveId, ActivityDirectiveId> activityToId = createAllPlanActivityDirectives(planId, plan, activityToGoalId, schedulerModel);
 
     return Pair.of(planId, activityToId);
@@ -1923,7 +1923,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
    * @return a serialization of the object suitable for use as a graphql value
    */
   public String serializeForGql(final String s) {
-    //TODO: can probably leverage some serializers from aerie
+    //TODO: can probably leverage some serializers from plandev
     //TODO: (defensive) should escape contents of bare strings, eg internal quotes
     //NB: Time::toString will format correctly as HH:MM:SS.sss, just need to quote it here
     return "\"" + s + "\"";

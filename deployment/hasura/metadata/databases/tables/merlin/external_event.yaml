@@ -13,7 +13,7 @@ object_relationships:
   using:
     foreign_key_constraint_on: event_type_name
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -29,7 +29,7 @@ select_permissions:
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [key, event_type_name, source_key, derivation_group_name, start_time, duration, attributes]
       check: {}
@@ -38,6 +38,6 @@ insert_permissions:
       columns: [key, event_type_name, source_key, derivation_group_name, start_time, duration, attributes]
       check: {}
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}

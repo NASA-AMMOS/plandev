@@ -11,7 +11,7 @@ import java.sql.SQLException;
 import java.util.Optional;
 
 /**
- * An interface that defines how the Aerie system can interact with the Workspaces backend.
+ * An interface that defines how the PlanDev system can interact with the Workspaces backend.
  */
 public interface WorkspaceService {
   record FileStream(InputStream readingStream, String fileName, long fileSize){}

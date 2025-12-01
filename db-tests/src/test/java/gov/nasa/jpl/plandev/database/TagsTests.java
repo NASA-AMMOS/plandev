@@ -51,7 +51,7 @@ public class TagsTests {
 
   @BeforeAll
   void beforeAll() throws SQLException, IOException, InterruptedException {
-    helper = new DatabaseTestHelper("aerie_tags_test", "Tags Tests");
+    helper = new DatabaseTestHelper("plandev_tags_test", "Tags Tests");
     setConnection(helper);
     merlinHelper = new MerlinDatabaseTestHelper(connection);
     tagsUser = merlinHelper.insertUser("TagsTest");

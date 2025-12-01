@@ -44,7 +44,7 @@ public class AnchorTests {
 
   @BeforeAll
   void beforeAll() throws SQLException, IOException, InterruptedException {
-    helper = new DatabaseTestHelper("aerie_anchor_test", "Anchor Tests");
+    helper = new DatabaseTestHelper("plandev_anchor_test", "Anchor Tests");
     connection = helper.connection();
     merlinHelper = new MerlinDatabaseTestHelper(connection);
   }

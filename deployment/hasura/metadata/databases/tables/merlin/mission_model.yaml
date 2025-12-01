@@ -85,7 +85,7 @@ array_relationships:
         column_mapping:
           id: model_id
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: "*"
       filter: {}
@@ -101,19 +101,19 @@ select_permissions:
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [mission, name, version, description, jar_id, default_view_id]
       check: {}
       set:
         owner: "x-hasura-user-id"
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [mission, name, version, description, owner, default_view_id]
       filter: {}
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}
 
@@ -130,7 +130,7 @@ event_triggers:
       interval_sec: 10
       num_retries: 0
       timeout_sec: 300
-    webhook: "{{AERIE_MERLIN_URL}}/refreshActivityTypes"
+    webhook: "{{PLANDEV_MERLIN_URL}}/refreshActivityTypes"
   - definition:
       enable_manual: true
       insert:
@@ -143,7 +143,7 @@ event_triggers:
       interval_sec: 10
       num_retries: 0
       timeout_sec: 300
-    webhook: "{{AERIE_MERLIN_URL}}/refreshModelParameters"
+    webhook: "{{PLANDEV_MERLIN_URL}}/refreshModelParameters"
   - definition:
       enable_manual: true
       insert:
@@ -156,4 +156,4 @@ event_triggers:
       interval_sec: 10
       num_retries: 0
       timeout_sec: 300
-    webhook: "{{AERIE_MERLIN_URL}}/refreshResourceTypes"
+    webhook: "{{PLANDEV_MERLIN_URL}}/refreshResourceTypes"

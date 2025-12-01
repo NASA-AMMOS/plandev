@@ -4,7 +4,7 @@ table:
 configuration:
   custom_name: "mission_model_parameters"
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -19,11 +19,11 @@ select_permissions:
       filter: {}
       allow_aggregations: true
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [parameters]
       filter: {}
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}

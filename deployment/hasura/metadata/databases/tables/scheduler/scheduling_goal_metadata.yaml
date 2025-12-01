@@ -41,7 +41,7 @@ array_relationships:
           name: scheduling_specification_goals
           schema: scheduler
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -58,7 +58,7 @@ select_permissions:
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [name, description, public]
       check: {}
@@ -73,7 +73,7 @@ insert_permissions:
         owner: "x-hasura-user-id"
         updated_by: "x-hasura-user-id"
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [name, description, public, owner]
       filter: {}
@@ -86,7 +86,7 @@ update_permissions:
       set:
         updated_by: "x-hasura-user-id"
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}
   - role: user

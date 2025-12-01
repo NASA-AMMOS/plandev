@@ -2,7 +2,7 @@ table:
   name: get_conflicting_activities_return_value
   schema: hasura
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}

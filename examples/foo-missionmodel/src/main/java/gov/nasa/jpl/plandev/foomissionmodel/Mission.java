@@ -55,7 +55,7 @@ public final class Mission {
     if (registrar.isInitializationComplete())
       throw new AssertionError("Registrar should not report initialization as complete");
 
-    // TODO: Move resource registration out into an Aerie-specific binding layer.
+    // TODO: Move resource registration out into an PlanDev-specific binding layer.
     //   (This binding layer should also be the one responsible for feeding in constructor parameters.)
     registrar.discrete("/foo", this.foo, new DoubleValueMapper());
     registrar.discrete("/foo/conflicted", this.foo::isConflicted, new BooleanValueMapper());

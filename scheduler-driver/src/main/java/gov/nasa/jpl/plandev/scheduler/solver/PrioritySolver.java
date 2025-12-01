@@ -213,7 +213,7 @@ public class PrioritySolver implements Solver {
     for(var act: acts){
       //if some parameters are left uninstantiated, this is the last moment to do it
       var duration = act.duration();
-      if(duration != null && act.startOffset().plus(duration).longerThan(this.problem.getPlanningHorizon().getEndAerie())) {
+      if(duration != null && act.startOffset().plus(duration).longerThan(this.problem.getPlanningHorizon().getEndPlanDev())) {
         logger.warn("Not simulating activity " + act
                     + " because it is planned to finish after the end of the planning horizon.");
         return new InsertActivityResult(allGood, List.of());
@@ -288,7 +288,7 @@ public class PrioritySolver implements Solver {
 
     if (simulateAfter) {
       try {
-        simulationFacade.simulateNoResults(plan, problem.getPlanningHorizon().getAerieHorizonDuration());
+        simulationFacade.simulateNoResults(plan, problem.getPlanningHorizon().getPlanDevHorizonDuration());
       } catch (SimulationFacade.SimulationException e) {
         logger.error("Simulation error after auto deleting activities: ", e);
       }
@@ -618,7 +618,7 @@ public class PrioritySolver implements Solver {
       final List<SchedulingActivity> successfullyInserted)
   {
     var iterator = successfullyInserted.iterator();
-    final var taskNetwork = new TaskNetworkAdapter(this.problem.getPlanningHorizon().getEndAerie());
+    final var taskNetwork = new TaskNetworkAdapter(this.problem.getPlanningHorizon().getEndPlanDev());
     final var activitiesToSchedule = new ArrayList<String>();
     final var allActivitiesInNetwork = new ArrayList<String>();
     final var durationRange = missingRecurrenceConflict.desiredActivityTemplate.instantiateDurationInterval(
@@ -909,10 +909,10 @@ public class PrioritySolver implements Solver {
     assert goal != null;
     assert plan != null;
     //REVIEW: maybe should have way to request only certain kinds of conflicts
-    logger.debug("Computing simulation results until "+ this.problem.getPlanningHorizon().getEndAerie() + " (planning horizon end) in order to compute conflicts");
+    logger.debug("Computing simulation results until "+ this.problem.getPlanningHorizon().getEndPlanDev() + " (planning horizon end) in order to compute conflicts");
     final var resources = new HashSet<String>();
     goal.extractResources(resources);
-    final var simulationResults = this.getLatestSimResultsUpTo(this.problem.getPlanningHorizon().getEndAerie(), resources);
+    final var simulationResults = this.getLatestSimResultsUpTo(this.problem.getPlanningHorizon().getEndPlanDev(), resources);
     final var evaluationEnvironment = new EvaluationEnvironment(this.problem.getRealExternalProfiles(), this.problem.getDiscreteExternalProfiles());
     final var rawConflicts = goal.getConflicts(
         plan,
@@ -1114,7 +1114,7 @@ public class PrioritySolver implements Solver {
     if(resourceNames.isEmpty()) {
       final var groundedPlan = SchedulePlanGrounder.groundSchedule(
           this.plan.getActivities().stream().toList(),
-          this.problem.getPlanningHorizon().getEndAerie());
+          this.problem.getPlanningHorizon().getEndPlanDev());
       if (groundedPlan.isPresent()) {
         return new SimulationData(
             plan,

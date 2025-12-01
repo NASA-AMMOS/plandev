@@ -17,7 +17,7 @@ array_relationships:
         name: expansion_rule
         schema: sequencing
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}

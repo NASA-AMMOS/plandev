@@ -5,7 +5,7 @@ configuration:
   custom_name: "user_roles"
 is_enum: true
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -21,17 +21,17 @@ select_permissions:
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [role, description]
       check: {"role":{"_neq":"admin"}}
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [role, description]
       filter: {}
       check: {"role":{"_neq":"admin"}}
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}

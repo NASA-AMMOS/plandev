@@ -8,7 +8,7 @@ object_relationships:
   using:
     foreign_key_constraint_on: model_id
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -24,7 +24,7 @@ select_permissions:
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [model_id, description, arguments]
       check: {}
@@ -37,7 +37,7 @@ insert_permissions:
       set:
         owner: 'x-hasura-user-id'
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [model_id, description, arguments, owner]
       filter: {}
@@ -46,7 +46,7 @@ update_permissions:
       columns: [description, arguments, owner]
       filter: {"owner":{"_eq":"X-Hasura-User-Id"}}
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}
   - role: user

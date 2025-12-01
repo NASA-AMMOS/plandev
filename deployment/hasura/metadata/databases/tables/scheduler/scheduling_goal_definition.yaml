@@ -48,7 +48,7 @@ array_relationships:
           name: scheduling_specification_goals
           schema: scheduler
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -65,7 +65,7 @@ select_permissions:
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [goal_id, definition, type, uploaded_jar_id, parameter_schema]
       check: {}
@@ -78,12 +78,12 @@ insert_permissions:
       set:
         author: "x-hasura-user-id"
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [definition, author]
       filter: {}
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}
   - role: user
@@ -103,4 +103,4 @@ event_triggers:
       interval_sec: 10
       num_retries: 0
       timeout_sec: 300
-    webhook: "{{AERIE_SCHEDULER_URL}}/refreshSchedulingProcedureParameterTypes"
+    webhook: "{{PLANDEV_SCHEDULER_URL}}/refreshSchedulingProcedureParameterTypes"

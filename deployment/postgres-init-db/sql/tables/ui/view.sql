@@ -12,7 +12,7 @@ create table ui.view (
 );
 
 comment on table ui.view is e''
-  'View configuration for Aerie UI.';
+  'View configuration for PlanDev UI.';
 comment on column ui.view.created_at is e''
   'Time the view was created.';
 comment on column ui.view.definition is e''

@@ -53,9 +53,9 @@ public class BindingsTests {
   // Users are shared between the subclasses
   private static final User admin = new User(
       "bindings_admin_user",
-      "aerie_admin",
-      new String[]{"aerie_admin", "viewer"},
-      Map.of("x-hasura-role", "aerie_admin", "x-hasura-user-id", "bindings_admin_user"));
+      "plandev_admin",
+      new String[]{"plandev_admin", "viewer"},
+      Map.of("x-hasura-role", "plandev_admin", "x-hasura-user-id", "bindings_admin_user"));
   private static final User nonOwner = new User(
       "bindings_not_owner",
       "user",
@@ -149,7 +149,7 @@ public class BindingsTests {
         modelId = hasura.createMissionModel(
             gateway.uploadJarFile(),
             "Banananation (e2e tests)",
-            "aerie_e2e_tests",
+            "plandev_e2e_tests",
             "Merlin Bindings");
       }
 
@@ -1053,7 +1053,7 @@ public class BindingsTests {
         modelId = hasura.createMissionModel(
             gateway.uploadJarFile(),
             "Banananation (e2e tests)",
-            "aerie_e2e_tests",
+            "plandev_e2e_tests",
             "Scheduler Bindings");
       }
 
@@ -1301,7 +1301,7 @@ public class BindingsTests {
           final var body = getBody(response);
           assertEquals("FORBIDDEN", body.getString("type"));
           assertEquals("Role 'viewer' is not allowed to perform action 'create_workspace'", body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+          assertEquals("plandev_workspace", body.getString("service"));
         }
 
         @ParameterizedTest
@@ -1410,7 +1410,7 @@ public class BindingsTests {
           assertEquals(("User 'bindings_not_owner' with role 'user' cannot perform 'delete_workspace' "
                         + "because they are not a 'OWNER' for workspace with id '%d'").formatted(workspaceId),
                        body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+          assertEquals("plandev_workspace", body.getString("service"));
         }
 
         /**
@@ -1426,7 +1426,7 @@ public class BindingsTests {
           assertEquals(("User 'bindings_not_owner' with role 'user' cannot perform 'delete_workspace' "
                         + "because they are not a 'OWNER' for workspace with id '%d'").formatted(workspaceId),
                        body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+          assertEquals("plandev_workspace", body.getString("service"));
         }
 
         /**
@@ -1930,7 +1930,7 @@ public class BindingsTests {
         final var body = getBody(response);
         assertEquals("UNAUTHORIZED", body.getString("type"));
         assertEquals("Invalid Authorization header provided.", body.getString("message"));
-        assertEquals("aerie_workspace", body.getString("service"));
+        assertEquals("plandev_workspace", body.getString("service"));
       }
 
       @Nested
@@ -1951,7 +1951,7 @@ public class BindingsTests {
           final var body = getBody(response);
           assertEquals("UNAUTHORIZED", body.getString("type"));
           assertEquals("Invalid Hasura admin secret", body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+          assertEquals("plandev_workspace", body.getString("service"));
         }
 
         /**
@@ -1967,15 +1967,15 @@ public class BindingsTests {
           final var body = getBody(response);
           assertEquals("UNAUTHORIZED", body.getString("type"));
           assertEquals("x-hasura-user-id header is required when x-hasura-admin-secret is set", body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+          assertEquals("plandev_workspace", body.getString("service"));
         }
 
         /**
          * If the workspace server is provided a valid admin secret and user id, but no active role,
-         * the server will default to the "aerie_admin" role.
+         * the server will default to the "plandev_admin" role.
          *
          * This test proves this using the "put file" endpoint with a user who is neither the owner nor collaborator.
-         * Only the 'aerie_admin' role is allowed to put files on a workspace they don't own.
+         * Only the 'plandev_admin' role is allowed to put files on a workspace they don't own.
          * (see WSRoutes.Put#forbidden for more information)
          */
         @Test
@@ -2000,7 +2000,7 @@ public class BindingsTests {
          * The workspace server accepts an admin secret, userid, and active role
          *
          * This test proves this using the "put file" endpoint with a user trying to use the "viewer" role.
-         * This role is not allowed to use this endpoint, while "aerie_admin" is
+         * This role is not allowed to use this endpoint, while "plandev_admin" is
          */
         @Test
         void validSecretUserIdActiveRole() {
@@ -2021,7 +2021,7 @@ public class BindingsTests {
           final var body = getBody(response);
           assertEquals("FORBIDDEN", body.getString("type"));
           assertEquals("Role 'viewer' is not allowed to perform action 'write_file_directory'", body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+          assertEquals("plandev_workspace", body.getString("service"));
         }
       }
 
@@ -2040,7 +2040,7 @@ public class BindingsTests {
           final var body = getBody(response);
           assertEquals("UNAUTHORIZED", body.getString("type"));
           assertEquals("Invalid Authorization header provided.", body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+          assertEquals("plandev_workspace", body.getString("service"));
         }
 
         private Stream<Arguments> misformattedJWTHeaderArgs() {
@@ -2063,7 +2063,7 @@ public class BindingsTests {
           final var body = getBody(response);
           assertEquals("UNAUTHORIZED", body.getString("type"));
           assertEquals("The token was expected to have 3 parts, but got 0.", body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+          assertEquals("plandev_workspace", body.getString("service"));
         }
 
         /**
@@ -2083,20 +2083,20 @@ public class BindingsTests {
         @Test
         void validJWTInvalidRole() {
           final var headers = Map.of("Authorization", "Bearer "+viewerToken,
-                                     "x-hasura-role", "aerie_admin");
+                                     "x-hasura-role", "plandev_admin");
           final var response = wsServer.listWorkspaceContents(headers, workspaceId);
           assertEquals(401, response.status());
           final var body = getBody(response);
           assertEquals("UNAUTHORIZED", body.getString("type"));
           assertEquals("Provided active role is not in the set of permitted roles.", body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+          assertEquals("plandev_workspace", body.getString("service"));
         }
 
         /**
          * The workspace server allows the user to use the x-hasura-role header to swap to one of their permitted roles.
          *
          * This test proves this using the admin token to the "put file" endpoint while setting the current role to "viewer".
-         * While "aerie_admin" (the token's default role) is allowed to access this endpoint,
+         * While "plandev_admin" (the token's default role) is allowed to access this endpoint,
          * the "viewer" role will receive a 403 Forbidden error.
          */
         @Test
@@ -2117,7 +2117,7 @@ public class BindingsTests {
           final var body = getBody(response);
           assertEquals("FORBIDDEN", body.getString("type"));
           assertEquals("Role 'viewer' is not allowed to perform action 'write_file_directory'", body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+          assertEquals("plandev_workspace", body.getString("service"));
         }
 
         /**
@@ -2137,7 +2137,7 @@ public class BindingsTests {
           final var body = getBody(response);
           assertEquals("UNAUTHORIZED", body.getString("type"));
           assertEquals("Invalid Hasura admin secret", body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+          assertEquals("plandev_workspace", body.getString("service"));
         }
       }
     }

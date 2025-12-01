@@ -30,7 +30,7 @@ array_relationships:
         name: scheduling_request
         schema: scheduler
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -47,7 +47,7 @@ select_permissions:
       allow_aggregations: true
 # TODO: Modify these once we have a solution for cross-db auth (These permissions should be based on plan ownership/collaboratorship)
 insert_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [plan_id, plan_revision, horizon_start, horizon_end, simulation_arguments, analysis_only]
       check: {}
@@ -56,7 +56,7 @@ insert_permissions:
       columns: [plan_id, plan_revision, horizon_start, horizon_end, simulation_arguments, analysis_only]
       check: {}
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [plan_id, plan_revision, horizon_start, horizon_end, simulation_arguments, analysis_only]
       filter: {}
@@ -65,7 +65,7 @@ update_permissions:
       columns: [plan_revision, horizon_start, horizon_end, simulation_arguments, analysis_only]
       filter: {}
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}
   - role: user

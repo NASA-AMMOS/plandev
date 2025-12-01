@@ -9,8 +9,8 @@ export type Env = {
   LOG_LEVEL: string;
   MERLIN_GRAPHQL_URL: string;
   PORT: string;
-  AERIE_DB_HOST: string;
-  AERIE_DB_PORT: string;
+  PLANDEV_DB_HOST: string;
+  PLANDEV_DB_PORT: string;
   SEQUENCING_DB_USER: string;
   SEQUENCING_DB_PASSWORD: string;
   SEQUENCING_LANGUAGE: SequencingLanguage;
@@ -30,9 +30,9 @@ export const defaultEnv: Env = {
   LOG_LEVEL: 'info',
   MERLIN_GRAPHQL_URL: 'http://hasura:8080/v1/graphql',
   PORT: '27184',
-  AERIE_DB_HOST: 'localhost',
+  PLANDEV_DB_HOST: 'localhost',
   SEQUENCING_DB_PASSWORD: '',
-  AERIE_DB_PORT: '5432',
+  PLANDEV_DB_PORT: '5432',
   SEQUENCING_DB_USER: '',
   SEQUENCING_LANGUAGE: "SeqN" as SequencingLanguage,
   STORAGE: 'sequencing_file_store',
@@ -52,8 +52,8 @@ export function getEnv(): Env {
   const LOG_LEVEL = env['LOG_LEVEL'] ?? defaultEnv.LOG_LEVEL;
   const MERLIN_GRAPHQL_URL = env['MERLIN_GRAPHQL_URL'] ?? defaultEnv.MERLIN_GRAPHQL_URL;
   const PORT = env['SEQUENCING_SERVER_PORT'] ?? defaultEnv.PORT;
-  const AERIE_DB_HOST = env['AERIE_DB_HOST'] ?? defaultEnv.AERIE_DB_HOST;
-  const AERIE_DB_PORT = env['AERIE_DB_PORT'] ?? defaultEnv.AERIE_DB_PORT;
+  const PLANDEV_DB_HOST = env['PLANDEV_DB_HOST'] ?? defaultEnv.PLANDEV_DB_HOST;
+  const PLANDEV_DB_PORT = env['PLANDEV_DB_PORT'] ?? defaultEnv.PLANDEV_DB_PORT;
   const SEQUENCING_DB_USER = env['SEQUENCING_DB_USER'] ?? defaultEnv.SEQUENCING_DB_USER;
   const SEQUENCING_DB_PASSWORD = env['SEQUENCING_DB_PASSWORD'] ?? defaultEnv.SEQUENCING_DB_PASSWORD;
   const SEQUENCING_LANGUAGE = env['SEQUENCING_LANGUAGE'] as SequencingLanguage ?? defaultEnv.SEQUENCING_LANGUAGE;
@@ -72,8 +72,8 @@ export function getEnv(): Env {
     LOG_LEVEL,
     MERLIN_GRAPHQL_URL,
     PORT,
-    AERIE_DB_HOST,
-    AERIE_DB_PORT,
+    PLANDEV_DB_HOST,
+    PLANDEV_DB_PORT,
     SEQUENCING_DB_USER,
     SEQUENCING_DB_PASSWORD,
     SEQUENCING_LANGUAGE,

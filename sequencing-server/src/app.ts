@@ -175,7 +175,7 @@ app.use('/command-expansion', commandExpansionRouter);
 app.use('/seqjson', seqjsonRouter);
 
 app.get('/', (_: Request, res: Response) => {
-  res.send('Aerie Sequencing Service');
+  res.send('PlanDev Sequencing Service');
 });
 
 app.get('/health', (_: Request, res: Response) => {

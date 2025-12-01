@@ -12,7 +12,7 @@ import static gov.nasa.jpl.plandev.merlin.protocol.types.Duration.ZERO;
 /**
  * Dynamics with no observable structure.
  * While very general, these need to be approximated by more structured
- * dynamics to report out to Aerie.
+ * dynamics to report out to PlanDev.
  */
 public interface Unstructured<T> extends Dynamics<T, Unstructured<T>> {
   static <T> Unstructured<T> constant(T value) {

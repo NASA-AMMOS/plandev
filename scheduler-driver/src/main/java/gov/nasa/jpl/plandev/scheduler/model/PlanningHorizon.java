@@ -12,16 +12,16 @@ public final class PlanningHorizon{
   private final Instant start;
   private final Instant end;
 
-  private final Interval aerieHorizon;
+  private final Interval plandevHorizon;
 
   public PlanningHorizon(@NotNull Instant start, @NotNull Instant end){
     this.start = start;
     this.end = end;
-    aerieHorizon = Interval.betweenClosedOpen(Duration.ZERO , Duration.of(ChronoUnit.MICROS.between(start, end), Duration.MICROSECONDS));
+    plandevHorizon = Interval.betweenClosedOpen(Duration.ZERO , Duration.of(ChronoUnit.MICROS.between(start, end), Duration.MICROSECONDS));
   }
 
   public Interval getHor(){
-    return aerieHorizon;
+    return plandevHorizon;
   }
 
   public Instant getStartInstant(){
@@ -33,19 +33,19 @@ public final class PlanningHorizon{
   }
 
   public boolean contains(Duration time){
-    return aerieHorizon.contains(time);
+    return plandevHorizon.contains(time);
   }
 
-  public Duration getStartAerie(){
-    return aerieHorizon.start;
+  public Duration getStartPlanDev(){
+    return plandevHorizon.start;
   }
 
-  public Duration getEndAerie(){
-    return aerieHorizon.end;
+  public Duration getEndPlanDev(){
+    return plandevHorizon.end;
   }
 
-  public Duration getAerieHorizonDuration(){
-    return getEndAerie();
+  public Duration getPlanDevHorizonDuration(){
+    return getEndPlanDev();
   }
 
   public Duration toDur(Instant t){

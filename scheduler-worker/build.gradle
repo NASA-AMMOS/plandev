@@ -86,7 +86,7 @@ test {
 
   dependsOn ":examples:banananation:assemble"
   dependsOn ":examples:minimal-mission-model:assemble"
-  environment 'AERIE_ROOT', rootDir.toString()
+  environment 'PLANDEV_ROOT', rootDir.toString()
 }
 
 jacocoTestReport {

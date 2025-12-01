@@ -44,11 +44,11 @@ public interface MerlinDatabaseService {
            NoSuchMissionModelException;
 
     /**
-     * fetch current revision number of the target plan stored in aerie
+     * fetch current revision number of the target plan stored in plandev
      *
      * @param planId identifier of the plan container whose details should be fetched
-     * @return the current revision number of the plan as stored in aerie
-     * @throws NoSuchPlanException when the plan container does not exist in aerie
+     * @return the current revision number of the plan as stored in plandev
+     * @throws NoSuchPlanException when the plan container does not exist in plandev
      */
     long getPlanRevision(final PlanId planId)
     throws IOException, NoSuchPlanException, MerlinServiceException;
@@ -58,27 +58,27 @@ public interface MerlinDatabaseService {
      *
      * @param planId identifier of the plan container whose details should be fetched
      * @return metadata about the plan that is useful to the scheduler, including current plan revision
-     * @throws NoSuchPlanException when the plan container does not exist in aerie
+     * @throws NoSuchPlanException when the plan container does not exist in plandev
      */
     PlanMetadata getPlanMetadata(final PlanId planId)
     throws IOException, NoSuchPlanException, MerlinServiceException;
 
     /**
-     * create an in-memory snapshot of the target plan's activity contents from aerie
+     * create an in-memory snapshot of the target plan's activity contents from plandev
      *
      * @param planMetadata identifying details of the plan to fetch content for
      * @param mission the mission model that the plan adheres to
      * @return a newly allocated snapshot of the plan contents
-     * @throws NoSuchPlanException when the plan container does not exist in aerie
+     * @throws NoSuchPlanException when the plan container does not exist in plandev
      */
     MerlinPlan getPlanActivityDirectives(final PlanMetadata planMetadata, final Problem mission)
     throws IOException, NoSuchPlanException, MerlinServiceException, InvalidJsonException, InstantiationException;
 
     /**
-     * confirms that the specified plan exists in the aerie database, throwing exception if not
+     * confirms that the specified plan exists in the plandev database, throwing exception if not
      *
      * @param planId the target plan database identifier
-     * @throws NoSuchPlanException when the plan container does not exist in aerie
+     * @throws NoSuchPlanException when the plan container does not exist in plandev
      */
     //TODO: (defensive) should combine such checks into the mutations they are guarding, but not possible in graphql?
     void ensurePlanExists(final PlanId planId)
@@ -122,14 +122,14 @@ public interface MerlinDatabaseService {
 
   interface WriterRole {
     /**
-     * create an entirely new plan container in aerie and synchronize the in-memory plan to it
+     * create an entirely new plan container in plandev and synchronize the in-memory plan to it
      *
      * does not mutate the original plan, so metadata remains valid for the original plan
      *
      * @param planMetadata identifying details of a plan to emulate in creating new container. id is ignored.
      * @param plan plan with all activity instances that should be stored to target merlin plan container
-     * @return the database id of the newly created aerie plan container
-     * @throws NoSuchPlanException when the plan container could not be found in aerie after creation
+     * @return the database id of the newly created plandev plan container
+     * @throws NoSuchPlanException when the plan container could not be found in plandev after creation
      */
     Pair<PlanId, Map<ActivityDirectiveId, ActivityDirectiveId>> createNewPlanWithActivityDirectives(
         final PlanMetadata planMetadata,
@@ -148,21 +148,21 @@ public interface MerlinDatabaseService {
      * @param modelId the database identifier of the mission model to associate with the plan
      * @param startTime the absolute start time of the new plan container
      * @param duration the duration of the new plan container
-     * @return the database id of the newly created aerie plan container
-     * @throws NoSuchPlanException when the plan container could not be found in aerie after creation
+     * @return the database id of the newly created plandev plan container
+     * @throws NoSuchPlanException when the plan container could not be found in plandev after creation
      */
     PlanId createEmptyPlan(final String name, final long modelId, final Instant startTime, final Duration duration)
     throws IOException, NoSuchPlanException, MerlinServiceException;
 
     /**
-     * synchronize the in-memory plan back over to aerie data stores via update operations
+     * synchronize the in-memory plan back over to plandev data stores via update operations
      *
      * the plan revision will change!
      *
-     * @param planId aerie database identifier of the target plan to synchronize into
+     * @param planId plandev database identifier of the target plan to synchronize into
      * @param plan plan with all activity instances that should be stored to target merlin plan container
      * @return
-     * @throws NoSuchPlanException when the plan container does not exist in aerie
+     * @throws NoSuchPlanException when the plan container does not exist in plandev
      */
     Map<ActivityDirectiveId, ActivityDirectiveId> updatePlanActivityDirectives(
         PlanId planId,
@@ -179,7 +179,7 @@ public interface MerlinDatabaseService {
      * the plan revision will change!
      *
      * @param planId the database id of the plan container to clear
-     * @throws NoSuchPlanException when the plan container does not exist in aerie
+     * @throws NoSuchPlanException when the plan container does not exist in plandev
      */
     void clearPlanActivityDirectives(final PlanId planId)
     throws IOException, NoSuchPlanException, MerlinServiceException;
@@ -192,9 +192,9 @@ public interface MerlinDatabaseService {
      * the plan revision will change!
      *
      * @param planId the database id of the plan container to populate with new activity instances
-     * @param plan the plan from which to copy all activity instances into aerie
+     * @param plan the plan from which to copy all activity instances into plandev
      * @return
-     * @throws NoSuchPlanException when the plan container does not exist in aerie
+     * @throws NoSuchPlanException when the plan container does not exist in plandev
      */
     Map<ActivityDirectiveId, ActivityDirectiveId> createAllPlanActivityDirectives(
         final PlanId planId,

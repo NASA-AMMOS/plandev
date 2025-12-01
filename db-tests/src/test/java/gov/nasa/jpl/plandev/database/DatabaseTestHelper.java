@@ -36,8 +36,8 @@ public class DatabaseTestHelper {
    */
   private HikariDataSource startDatabase() throws IOException, InterruptedException {
     // Load database admin credentials from the environment
-    final var aerieUsername = getEnv("AERIE_USERNAME");
-    final var aeriePassword = getEnv("AERIE_PASSWORD");
+    final var plandevUsername = getEnv("PLANDEV_USERNAME");
+    final var plandevPassword = getEnv("PLANDEV_PASSWORD");
 
     final var postgresUsername = getEnv("POSTGRES_USER");
     final var postgresPassword = getEnv("POSTGRES_PASSWORD");
@@ -48,7 +48,7 @@ public class DatabaseTestHelper {
                                         "postgresql://"+postgresUsername+":"+postgresPassword+"@localhost:5432/postgres",
                                         "-v", "ON_ERROR_STOP=1",
                                         "-c", "CREATE DATABASE " + dbName + ";",
-                                        "-c", "GRANT ALL PRIVILEGES ON DATABASE " + dbName + " TO "+aerieUsername+";"
+                                        "-c", "GRANT ALL PRIVILEGES ON DATABASE " + dbName + " TO "+plandevUsername+";"
       );
       final var proc = pb.start();
 
@@ -61,13 +61,13 @@ public class DatabaseTestHelper {
       proc.destroy();
     }
 
-    // Grant table privileges to aerie user for the tests
+    // Grant table privileges to plandev user for the tests
     // Apparently, the previous privileges are insufficient on their own
     {
       final var pb = new ProcessBuilder("psql",
-                                        "postgresql://"+aerieUsername+":"+aeriePassword+"@localhost:5432/" + dbName,
+                                        "postgresql://"+plandevUsername+":"+plandevPassword+"@localhost:5432/" + dbName,
                                         "-v", "ON_ERROR_STOP=1",
-                                        "-c", "ALTER DEFAULT PRIVILEGES GRANT ALL ON TABLES TO "+aerieUsername+";",
+                                        "-c", "ALTER DEFAULT PRIVILEGES GRANT ALL ON TABLES TO "+plandevUsername+";",
                                         "-c", "\\ir %s".formatted(initSqlScriptFile.getAbsolutePath())
       );
 
@@ -85,8 +85,8 @@ public class DatabaseTestHelper {
     hikariConfig.addDataSourceProperty("databaseName", dbName);
     hikariConfig.addDataSourceProperty("applicationName", appName);
 
-    hikariConfig.setUsername(aerieUsername);
-    hikariConfig.setPassword(aeriePassword);
+    hikariConfig.setUsername(plandevUsername);
+    hikariConfig.setPassword(plandevPassword);
 
     hikariConfig.setConnectionInitSql("set time zone 'UTC'");
 

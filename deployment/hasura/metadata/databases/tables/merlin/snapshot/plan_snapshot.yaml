@@ -23,7 +23,7 @@ array_relationships:
           name: plan_snapshot_tags
           schema: tags
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -39,7 +39,7 @@ select_permissions:
       filter: {}
       allow_aggregations: true
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [description, taken_by]
       filter: {}
@@ -50,6 +50,6 @@ update_permissions:
         {"owner":{"_eq":"X-Hasura-User-Id"}},
         {"collaborators":{"collaborator":{"_eq":"X-Hasura-User-Id"}}}]}}
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}

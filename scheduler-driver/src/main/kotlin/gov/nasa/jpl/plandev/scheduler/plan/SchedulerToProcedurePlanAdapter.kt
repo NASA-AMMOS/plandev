@@ -30,7 +30,7 @@ data class SchedulerToProcedurePlanAdapter(
     private val discreteExternalResources: Map<String, DiscreteProfile>,
     private val realExternalResources: Map<String, LinearProfile>
 ): TimelinePlan, SchedulerPlan by schedulerPlan {
-  override fun totalBounds() = Interval.between(Duration.ZERO, planningHorizon.aerieHorizonDuration)
+  override fun totalBounds() = Interval.between(Duration.ZERO, planningHorizon.planDevHorizonDuration)
 
   override fun toRelative(abs: Instant) = abs - planningHorizon.startInstant
 

@@ -33,7 +33,7 @@ import java.util.concurrent.ExecutionException;
 /**
  * An {@link EditablePlan} implementation for the type-utils {@link Plan} class.
  * Allows for local simulation and plan editing, such as for custom scheduler drivers,
- * constraint checkers, or other workflows that don't use the Aerie database.
+ * constraint checkers, or other workflows that don't use the PlanDev database.
  *
  * To use, create a {@link SimulationUtility} and use that to load the mission model.
  * Then create a {@link Plan} object; you can create one with the constructor or by using

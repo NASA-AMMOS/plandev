@@ -37,7 +37,7 @@ public class ActivityDirectiveChangelogTests {
 
   @BeforeAll
   void beforeAll() throws SQLException, IOException, InterruptedException {
-    helper = new DatabaseTestHelper("aerie_activity_changelog_test", "Activity Directive Changelog Tests");
+    helper = new DatabaseTestHelper("plandev_activity_changelog_test", "Activity Directive Changelog Tests");
     connection = helper.connection();
     merlinHelper = new MerlinDatabaseTestHelper(connection);
   }

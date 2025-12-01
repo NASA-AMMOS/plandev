@@ -30,7 +30,7 @@ object_relationships:
       column_mapping:
         directive_id: id
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}

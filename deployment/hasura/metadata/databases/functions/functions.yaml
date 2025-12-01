@@ -6,7 +6,7 @@
       function: apply_preset_to_activity
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: begin_merge
@@ -16,7 +16,7 @@
       function: begin_merge
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: cancel_merge
@@ -26,7 +26,7 @@
       function: cancel_merge
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: create_merge_request
@@ -36,7 +36,7 @@
       function: create_merge_request
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: create_snapshot
@@ -46,7 +46,7 @@
       function: create_snapshot
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: commit_merge
@@ -56,7 +56,7 @@
       function: commit_merge
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: migrate_plan_to_model
@@ -66,7 +66,7 @@
       function: migrate_plan_to_model
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: check_model_compatibility
@@ -75,7 +75,7 @@
     custom_root_fields:
       function: check_model_compatibility
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: check_model_compatibility_for_plan
@@ -84,7 +84,7 @@
     custom_root_fields:
       function: check_model_compatibility_for_plan
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: delete_activity_by_pk_reanchor_plan_start
@@ -94,7 +94,7 @@
       function: delete_activity_by_pk_reanchor_plan_start
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: delete_activity_by_pk_reanchor_plan_start_bulk
@@ -104,7 +104,7 @@
       function: delete_activity_by_pk_reanchor_plan_start_bulk
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: delete_activity_by_pk_reanchor_to_anchor
@@ -114,7 +114,7 @@
       function: delete_activity_by_pk_reanchor_to_anchor
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: delete_activity_by_pk_reanchor_to_anchor_bulk
@@ -124,7 +124,7 @@
       function: delete_activity_by_pk_reanchor_to_anchor_bulk
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: delete_activity_by_pk_delete_subtree
@@ -134,7 +134,7 @@
       function: delete_activity_by_pk_delete_subtree
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: delete_activity_by_pk_delete_subtree_bulk
@@ -144,7 +144,7 @@
       function: delete_activity_by_pk_delete_subtree_bulk
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: deny_merge
@@ -154,7 +154,7 @@
       function: deny_merge
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: duplicate_plan
@@ -164,7 +164,7 @@
       function: duplicate_plan
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: get_conflicting_activities
@@ -175,7 +175,7 @@
     session_argument: hasura_session
     exposed_as: query
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
     - role: viewer
 - function:
@@ -187,7 +187,7 @@
     session_argument: hasura_session
     exposed_as: query
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
     - role: viewer
 - function:
@@ -198,7 +198,7 @@
       function: get_plan_history
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: get_resources_at_start_offset
@@ -206,7 +206,7 @@
   configuration:
     custom_name: getResourcesAtStartOffset
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
     - role: viewer
 - function:
@@ -216,7 +216,7 @@
     custom_name: restoreActivityFromChangelog
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: restore_from_snapshot
@@ -226,7 +226,7 @@
       function: restore_from_snapshot
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: set_resolution
@@ -236,7 +236,7 @@
       function: set_resolution
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: set_resolution_bulk
@@ -246,7 +246,7 @@
       function: set_resolution_bulk
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user
 - function:
     name: withdraw_merge_request
@@ -256,5 +256,5 @@
       function: withdraw_merge_request
     session_argument: hasura_session
   permissions:
-    - role: aerie_admin
+    - role: plandev_admin
     - role: user

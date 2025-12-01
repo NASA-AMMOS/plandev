@@ -36,7 +36,7 @@ array_relationships:
           name: scheduling_specification_conditions
           schema: scheduler
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -53,7 +53,7 @@ select_permissions:
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [condition_id, definition]
       check: {}
@@ -66,12 +66,12 @@ insert_permissions:
       set:
         author: "x-hasura-user-id"
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [definition, author]
       filter: {}
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}
   - role: user

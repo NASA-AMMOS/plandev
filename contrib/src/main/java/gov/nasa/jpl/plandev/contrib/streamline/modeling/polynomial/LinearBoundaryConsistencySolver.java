@@ -42,7 +42,7 @@ import static java.util.stream.Collectors.toMap;
  *   Constraints are linear in a set of variables,
  *   and each variable is a polynomial resource.
  *   When a driving variable changes, or the current solution expires,
- *   the solver runs as part of the next Aerie simulation step.
+ *   the solver runs as part of the next PlanDev simulation step.
  * </p>
  */
 public final class LinearBoundaryConsistencySolver {

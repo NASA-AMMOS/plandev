@@ -58,7 +58,7 @@ comment on procedure migrations.mark_migration_rolled_back is e''
 create type ui.supported_content_types as enum('Text', 'Binary', 'JSON', 'Sequence', 'Metadata');
 
 comment on type ui.supported_content_types is e''
-  'The set of content types that the Aerie UI supports.';
+  'The set of content types that the PlanDev UI supports.';
 
 -- Add file extension information
 create table ui.file_extension_content_type(
@@ -77,7 +77,7 @@ insert into ui.file_extension_content_type(file_extension, content_type)
 values ('.txt', 'Text'),
        ('.bin', 'Binary'),
        ('.json', 'JSON'),
-       ('.aerie', 'Metadata'),
+       ('.plandev', 'Metadata'),
        ('.seq', 'Sequence'),
        ('.seqN.txt', 'Sequence'),
        ('.seq.json', 'Sequence'),

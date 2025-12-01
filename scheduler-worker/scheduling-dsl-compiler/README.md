@@ -1,8 +1,8 @@
 # Scheduling eDSL API 
 
-This is the documentation of the API of the Aerie scheduling eDSL. 
+This is the documentation of the API of the PlanDev scheduling eDSL. 
 
-You can find another documentation on automated scheduling in Aerie [here](https://github.com/NASA-AMMOS/aerie/wiki/Scheduling-Guide).
+You can find another documentation on automated scheduling in PlanDev [here](https://github.com/NASA-AMMOS/plandev/wiki/Scheduling-Guide).
 
 ## Known general issues
 

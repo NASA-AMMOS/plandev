@@ -16,7 +16,7 @@ object_relationships:
     using:
       foreign_key_constraint_on: model_id
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -33,7 +33,7 @@ select_permissions:
       allow_aggregations: true
 # TODO: Modify these once we have a solution for cross-db auth (These permissions should be based on model ownership)
 insert_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [model_id, condition_id, condition_revision]
       check: {}
@@ -42,7 +42,7 @@ insert_permissions:
       columns: [model_id, condition_id, condition_revision]
       check: {}
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [condition_revision]
       filter: {}
@@ -51,7 +51,7 @@ update_permissions:
       columns: [condition_revision]
       filter: {}
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}
   - role: user

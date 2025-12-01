@@ -17,7 +17,7 @@ spec:
         - env:
             - name: ORIGIN
               value: http://127.0.0.1
-            - name: PUBLIC_AERIE_FILE_STORE_PREFIX
+            - name: PUBLIC_PLANDEV_FILE_STORE_PREFIX
               value: /usr/src/app/merlin_file_store/
             - name: PUBLIC_GATEWAY_CLIENT_URL
               value: http://localhost:9000

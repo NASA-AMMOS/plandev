@@ -12,7 +12,7 @@ array_relationships:
           name: extension_roles
           schema: ui
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -28,18 +28,18 @@ select_permissions:
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [description, label, url]
       check: {}
       set:
         owner: "x-hasura-user-id"
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [description, label, owner, url]
       filter: {}
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}

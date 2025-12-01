@@ -21,7 +21,7 @@ final class MerlinDatabaseTestHelper {
   record User(String name, String defaultRole, String session) {}
 
   User insertUser(final String username) throws SQLException {
-    return insertUser(username, "aerie_admin");
+    return insertUser(username, "plandev_admin");
   }
 
   User insertUser(final String username, final String defaultRole) throws SQLException {

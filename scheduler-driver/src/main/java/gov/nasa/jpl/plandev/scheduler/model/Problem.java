@@ -89,7 +89,7 @@ public class Problem {
     this.schedulerModel = schedulerModel;
     this.initialPlan = new PlanInMemory();
     this.planningHorizon = planningHorizon;
-    //add all activity types known to aerie to scheduler index
+    //add all activity types known to plandev to scheduler index
     if( missionModel != null ) {
       for(var taskType : missionModel.getDirectiveTypes().directiveTypes().entrySet()){
         this.add(new ActivityType(taskType.getKey(), taskType.getValue(), schedulerModel.getDurationTypes().get(taskType.getKey())));

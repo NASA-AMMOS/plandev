@@ -13,7 +13,7 @@ object_relationships:
     using:
       foreign_key_constraint_on: preset_id
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -29,6 +29,6 @@ select_permissions:
       filter: {}
       allow_aggregations: true
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}

@@ -20,7 +20,7 @@ class SchedulerDatabaseTests {
 
   @BeforeAll
   void beforeAll() throws SQLException, IOException, InterruptedException {
-    helper = new DatabaseTestHelper("aerie_scheduler_test", "Scheduler Database Tests");
+    helper = new DatabaseTestHelper("plandev_scheduler_test", "Scheduler Database Tests");
     connection = helper.connection();
     merlinHelper = new MerlinDatabaseTestHelper(connection);
     merlinHelper.insertUser("scheduler db tests");

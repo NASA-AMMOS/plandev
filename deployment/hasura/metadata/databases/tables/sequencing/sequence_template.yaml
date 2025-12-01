@@ -4,7 +4,7 @@ table:
 configuration:
   custom_name: "sequence_template"
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -20,7 +20,7 @@ select_permissions:
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [name, model_id, parcel_id, template_definition, activity_type, language, owner]
       check: {}
@@ -33,7 +33,7 @@ insert_permissions:
       set:
         owner: "x-hasura-user-id"
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [name, model_id, parcel_id, template_definition, activity_type, language, owner]
       filter: {}
@@ -42,7 +42,7 @@ update_permissions:
       columns: [name, model_id, parcel_id, template_definition, activity_type, language, owner]
       filter: {"owner":{"_eq":"x-hasura-user-id"}}
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}
   - role: user

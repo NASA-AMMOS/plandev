@@ -14,7 +14,7 @@ import { ActionRunner } from "../type/actionRunner";
 let listenClient: PoolClient | undefined;
 
 async function readFileFromStore(fileName: string): Promise<string> {
-  // read file from aerie file store and return [resolve] it as a string
+  // read file from plandev file store and return [resolve] it as a string
   const fileStoreBasePath = configuration().ACTION_LOCAL_STORE;
   const filePath = path.join(fileStoreBasePath, fileName);
 

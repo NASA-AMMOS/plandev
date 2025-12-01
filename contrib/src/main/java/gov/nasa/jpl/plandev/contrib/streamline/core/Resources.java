@@ -42,7 +42,7 @@ public final class Resources {
     currentTime();
   }
 
-  // TODO if Aerie provides either a `getElapsedTime` method or dynamic allocation of Cells, we can avoid this mutable static variable
+  // TODO if PlanDev provides either a `getElapsedTime` method or dynamic allocation of Cells, we can avoid this mutable static variable
   private static Resource<Clock> CLOCK = resource(clock(ZERO));
   public static Duration currentTime() {
     try {
@@ -202,7 +202,7 @@ public final class Resources {
    * <p>
    *   Updates the resource when resource changes dynamics.
    *   This can be used to isolate a resource from effects
-   *   which don't change the dynamics, so Aerie samples that
+   *   which don't change the dynamics, so PlanDev samples that
    *   resource only when strictly necessary.
    * </p>
    * <p>
@@ -225,7 +225,7 @@ public final class Resources {
    * Signal discrete changes in this resource's dynamics.
    *
    * <p>
-   *   For Aerie's resource sampling to work correctly,
+   *   For PlanDev's resource sampling to work correctly,
    *   there must be an effect every time a resource changes dynamics.
    *   For most derived resources, this happens automatically.
    *   For some derivations, though, continuous changes in the source state
@@ -234,7 +234,7 @@ public final class Resources {
    *   and a derived resource S := "R > 0".
    *   If R changes continuously from positive to negative,
    *   then S changes discretely from true to false, *without* an effect.
-   *   If used directly, Aerie would not re-sample S at this time.
+   *   If used directly, PlanDev would not re-sample S at this time.
    *   This method emits a trivial effect when this happens so that S
    *   *would* be resampled correctly.
    * </p>

@@ -1,6 +1,6 @@
-# aerie-e2e-tests
+# plandev-e2e-tests
 
-This directory contains automated end-to-end tests for Aerie.
+This directory contains automated end-to-end tests for PlanDev.
 
 ## Running
 

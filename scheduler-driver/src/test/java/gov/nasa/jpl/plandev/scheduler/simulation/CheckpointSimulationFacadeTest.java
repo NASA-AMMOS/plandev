@@ -28,7 +28,7 @@ public class CheckpointSimulationFacadeTest {
   private SimulationFacade newSimulationFacade;
   private final static PlanningHorizon H = new PlanningHorizon(TimeUtility.fromDOY("2025-001T00:00:00.000"), TimeUtility.fromDOY("2025-005T00:00:00.000"));
   private Map<String, ActivityType> activityTypes;
-  private final static Duration t0 = H.getStartAerie();
+  private final static Duration t0 = H.getStartPlanDev();
   private final static Duration d1hr = Duration.of(1, HOUR);
   private final static Duration t1hr = t0.plus(d1hr);
   private final static Duration t2hr = t0.plus(d1hr.times(2));
@@ -105,7 +105,7 @@ public class CheckpointSimulationFacadeTest {
     final var actTypeA = activityTypes.get("ControllableDurationActivity");
     plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t0, HOUR.times(200), null, true));
     final var results = newSimulationFacade.simulateNoResultsAllActivities(plan).computeResults();
-    assertEquals(H.getEndAerie(), results.duration);
+    assertEquals(H.getEndPlanDev(), results.duration);
     assert(results.unfinishedActivities.size() == 1);
   }
 

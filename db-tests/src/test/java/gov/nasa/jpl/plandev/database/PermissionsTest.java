@@ -80,7 +80,7 @@ public class PermissionsTest {
 
   @BeforeAll
   void beforeAll() throws SQLException, IOException, InterruptedException {
-    helper = new DatabaseTestHelper("aerie_permissions_test", "Database Permissions Tests");
+    helper = new DatabaseTestHelper("plandev_permissions_test", "Database Permissions Tests");
     connection = helper.connection();
     merlinHelper = new MerlinDatabaseTestHelper(connection);
     insertUserRole(testRole);
@@ -195,7 +195,7 @@ public class PermissionsTest {
         if(!ex.getMessage().contains("Invalid username: invalid_user"))
       throw ex;
     // Test when there is no 'role' header
-    assertEquals("aerie_admin", getRole(merlinHelper.admin.session()));
+    assertEquals("plandev_admin", getRole(merlinHelper.admin.session()));
     assertEquals("user", getRole(merlinHelper.user.session()));
     assertEquals("viewer", getRole(merlinHelper.viewer.session()));
 
@@ -207,7 +207,7 @@ public class PermissionsTest {
   class GetFunctionPermissions {
     @ParameterizedTest
     @EnumSource(FunctionPermissionKey.class)
-    void aerieAdminAlwaysReturnsNoCheck(FunctionPermissionKey function) throws SQLException{
+    void plandevAdminAlwaysReturnsNoCheck(FunctionPermissionKey function) throws SQLException{
       assertEquals("NO_CHECK", getFunctionPermission(function.name(), merlinHelper.admin.session()));
     }
 

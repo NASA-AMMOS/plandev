@@ -1,4 +1,4 @@
-/////////////// BORROWED FROM AERIE-UI ///////////////
+/////////////// BORROWED FROM PLANDEV-UI ///////////////
 export type ParsedDoyString = {
     doy: number;
     hour: number;

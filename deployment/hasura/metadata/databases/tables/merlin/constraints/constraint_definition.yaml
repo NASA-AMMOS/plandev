@@ -36,7 +36,7 @@ array_relationships:
           name: constraint_definition_tags
           schema: tags
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -73,7 +73,7 @@ select_permissions:
         {"models_using":{"model":{"owner":{"_eq":"X-Hasura-User-Id"}}}}]}}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [constraint_id, definition, type, uploaded_jar_id]
       check: {}
@@ -86,12 +86,12 @@ insert_permissions:
       set:
         author: "x-hasura-user-id"
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [definition, author]
       filter: {}
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}
   - role: user
@@ -111,4 +111,4 @@ event_triggers:
       interval_sec: 10
       num_retries: 0
       timeout_sec: 300
-    webhook: "{{AERIE_MERLIN_URL}}/refreshConstraintProcedureParameterTypes"
+    webhook: "{{PLANDEV_MERLIN_URL}}/refreshConstraintProcedureParameterTypes"

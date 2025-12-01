@@ -39,7 +39,7 @@ public class TestUnsatisfiableCompositeGoals {
       TimeUtility.fromDOY("2025-002T00:00:00.000")
   );
 
-  private final static Duration t0 = h.getStartAerie();
+  private final static Duration t0 = h.getStartPlanDev();
   private final static Duration d1min = Duration.of(1, Duration.MINUTE);
   private final static Duration d1hr = Duration.of(1, Duration.HOUR);
   private final static Duration t1hr = t0.plus(d1hr);

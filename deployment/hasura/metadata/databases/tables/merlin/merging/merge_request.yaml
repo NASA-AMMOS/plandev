@@ -45,7 +45,7 @@ array_relationships:
         name: merge_staging_area
         schema: merlin
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -62,6 +62,6 @@ select_permissions:
       allow_aggregations: true
 # Insert/Update Permissions are not included because these actions are controlled via SQL functions
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {"status":{"_neq":"in-progress"}}

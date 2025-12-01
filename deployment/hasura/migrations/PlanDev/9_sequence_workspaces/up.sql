@@ -56,7 +56,7 @@ comment on column sequencing.user_sequence.workspace_id is e''
 ---- Populate the workspace table with a default workspace to contain existing sequences
 
 insert into sequencing.workspace (name, owner)
-values ('Workspace 1', 'Aerie Legacy');
+values ('Workspace 1', 'PlanDev Legacy');
 
 update sequencing.user_sequence
   set workspace_id = 1;

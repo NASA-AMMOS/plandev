@@ -21,7 +21,7 @@ array_relationships:
         name: expansion_rule_tags
         schema: tags
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -37,7 +37,7 @@ select_permissions:
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [name, activity_type, expansion_logic, parcel_id, authoring_mission_model_id, description]
       check: {}
@@ -52,7 +52,7 @@ insert_permissions:
         owner: "x-hasura-user-id"
         updated_by: "x-hasura-user-id"
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [name, activity_type, expansion_logic, parcel_id,
                 authoring_mission_model_id, description, owner]
@@ -66,7 +66,7 @@ update_permissions:
       set:
         updated_by: "x-hasura-user-id"
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}
   - role: user

@@ -4,7 +4,7 @@ table:
 configuration:
   custom_name: "users_and_roles"
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}

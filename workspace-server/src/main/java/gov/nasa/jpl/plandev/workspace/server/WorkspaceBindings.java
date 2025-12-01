@@ -133,7 +133,7 @@ public class WorkspaceBindings implements Plugin {
         throw new UnauthorizedResponse("Invalid Hasura admin secret");
       }
 
-      return activeRole == null ? new JWTService.UserSession(userId, "aerie_admin")
+      return activeRole == null ? new JWTService.UserSession(userId, "plandev_admin")
                                 : new JWTService.UserSession(userId, activeRole);
     } else {
       try {

@@ -136,11 +136,11 @@ public final class SchedulerWorkerAppDriver {
       maxNbCachedSimulationEngine = 1;
     }
     return new WorkerAppConfiguration(
-        new PostgresStore(getEnv("AERIE_DB_HOST", "postgres"),
+        new PostgresStore(getEnv("PLANDEV_DB_HOST", "postgres"),
                           getEnv("SCHEDULER_DB_USER", ""),
-                          Integer.parseInt(getEnv("AERIE_DB_PORT", "5432")),
+                          Integer.parseInt(getEnv("PLANDEV_DB_PORT", "5432")),
                           getEnv("SCHEDULER_DB_PASSWORD", ""),
-                          "aerie"),
+                          "plandev"),
         URI.create(getEnv("MERLIN_GRAPHQL_URL", "http://localhost:8080/v1/graphql")),
         Path.of(getEnv("MERLIN_LOCAL_STORE", "/usr/src/app/merlin_file_store")),
         PlanOutputMode.valueOf((getEnv("SCHEDULER_OUTPUT_MODE", "CreateNewOutputPlan"))),

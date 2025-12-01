@@ -32,7 +32,7 @@ public record GraphQLPermissionsService(
 {
 
   /**
-   * timeout for http graphql requests issued to aerie
+   * timeout for http graphql requests issued to plandev
    */
   private static final java.time.Duration httpTimeout = java.time.Duration.ofSeconds(60);
 
@@ -42,8 +42,8 @@ public record GraphQLPermissionsService(
    * absorbs any io errors and returns an empty response object in order to keep exception
    * signature of callers cleanly matching the MerlinService interface
    *
-   * @param query the graphQL query or mutation to send to aerie
-   * @return the json response returned by aerie, or an empty optional in case of io errors
+   * @param query the graphQL query or mutation to send to plandev
+   * @return the json response returned by plandev, or an empty optional in case of io errors
    */
   private Optional<JsonObject> postRequest(final String query, final JsonObject variables) throws IOException, PermissionsServiceException
   {

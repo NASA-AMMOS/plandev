@@ -26,14 +26,14 @@ public class GatewayRequests implements AutoCloseable {
   }
 
   /**
-   * Auto-login the AerieE2eTests user, whose token is used to upload mission model JARs
+   * Auto-login the PlanDevE2eTests user, whose token is used to upload mission model JARs
    */
   private void login() throws IOException {
     if(token != null) return;
     final var response = request.post("/auth/login", RequestOptions.create()
                                                                    .setHeader("Content-Type", "application/json")
                                                                    .setData(Json.createObjectBuilder()
-                                                                                .add("username", "AerieE2eTests")
+                                                                                .add("username", "PlanDevE2eTests")
                                                                                 .add("password", "password")
                                                                                 .build()
                                                                                 .toString()));

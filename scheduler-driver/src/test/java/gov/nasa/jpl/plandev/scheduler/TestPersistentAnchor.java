@@ -455,21 +455,21 @@ public class TestPersistentAnchor {
     //  create a PlanInMemory, add ActivityInstances
     PlanInMemory partialPlan = new PlanInMemory();
     final var actTypeA = problem.getActivityType("GrowBanana");
-    SchedulingActivity act1 = SchedulingActivity.of(idGenerator.next(), actTypeA, planningHorizon.getStartAerie(), Duration.of(activityDurationHours, Duration.HOURS), Map.of(
+    SchedulingActivity act1 = SchedulingActivity.of(idGenerator.next(), actTypeA, planningHorizon.getStartPlanDev(), Duration.of(activityDurationHours, Duration.HOURS), Map.of(
         "quantity", SerializedValue.of(1),
         "growingDuration", SerializedValue.of(Duration.HOUR.times(activityDurationHours).in(Duration.HOURS))
     ), null, null, true);
     partialPlan.add(act1);
     actsToBeAnchored.add(act1);
 
-    SchedulingActivity act2 = SchedulingActivity.of(idGenerator.next(), actTypeA, planningHorizon.getStartAerie().plus(Duration.of(5, Duration.HOURS)), Duration.of(activityDurationHours, Duration.HOURS), Map.of(
+    SchedulingActivity act2 = SchedulingActivity.of(idGenerator.next(), actTypeA, planningHorizon.getStartPlanDev().plus(Duration.of(5, Duration.HOURS)), Duration.of(activityDurationHours, Duration.HOURS), Map.of(
         "quantity", SerializedValue.of(1),
         "growingDuration", SerializedValue.of(Duration.HOUR.times(activityDurationHours).in(Duration.HOURS))
     ), null, null, true);
     partialPlan.add(act2);
     actsToBeAnchored.add(act2);
 
-    SchedulingActivity act3 = SchedulingActivity.of(idGenerator.next(), actTypeA, planningHorizon.getStartAerie().plus(Duration.of(10, Duration.HOURS)), Duration.of(activityDurationHours, Duration.HOURS), Map.of(
+    SchedulingActivity act3 = SchedulingActivity.of(idGenerator.next(), actTypeA, planningHorizon.getStartPlanDev().plus(Duration.of(10, Duration.HOURS)), Duration.of(activityDurationHours, Duration.HOURS), Map.of(
         "quantity", SerializedValue.of(1),
         "growingDuration", SerializedValue.of(Duration.HOUR.times(activityDurationHours).in(Duration.HOURS))
     ), null, null, true);
@@ -516,15 +516,15 @@ public class TestPersistentAnchor {
 
     if(missingActAssociationsWithoutAnchor){
       // Activities without anchors
-      SchedulingActivity act7 = SchedulingActivity.of(idGenerator.next(), actTypeB, planningHorizon.getStartAerie().plus(offsetWithDuration), Duration.of(activityDurationHours, Duration.HOURS), Map.of(
+      SchedulingActivity act7 = SchedulingActivity.of(idGenerator.next(), actTypeB, planningHorizon.getStartPlanDev().plus(offsetWithDuration), Duration.of(activityDurationHours, Duration.HOURS), Map.of(
           "quantity", SerializedValue.of(1)), null, null, anchoredToStart);
       partialPlan.add(act7);
 
-      SchedulingActivity act8 = SchedulingActivity.of(idGenerator.next(), actTypeB, planningHorizon.getStartAerie().plus(Duration.of(5, Duration.HOURS)).plus(offsetWithDuration), Duration.of(activityDurationHours, Duration.HOURS), Map.of(
+      SchedulingActivity act8 = SchedulingActivity.of(idGenerator.next(), actTypeB, planningHorizon.getStartPlanDev().plus(Duration.of(5, Duration.HOURS)).plus(offsetWithDuration), Duration.of(activityDurationHours, Duration.HOURS), Map.of(
           "quantity", SerializedValue.of(1)), null, null, anchoredToStart);
       partialPlan.add(act8);
 
-      SchedulingActivity act9 = SchedulingActivity.of(idGenerator.next(), actTypeB, planningHorizon.getStartAerie().plus(Duration.of(10, Duration.HOURS)).plus(offsetWithDuration), Duration.of(activityDurationHours, Duration.HOURS), Map.of(
+      SchedulingActivity act9 = SchedulingActivity.of(idGenerator.next(), actTypeB, planningHorizon.getStartPlanDev().plus(Duration.of(10, Duration.HOURS)).plus(offsetWithDuration), Duration.of(activityDurationHours, Duration.HOURS), Map.of(
           "quantity", SerializedValue.of(1)), null, null, anchoredToStart);
       partialPlan.add(act9);
 

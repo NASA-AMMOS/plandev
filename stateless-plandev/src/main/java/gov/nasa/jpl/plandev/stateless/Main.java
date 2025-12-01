@@ -23,7 +23,7 @@ import javax.json.stream.JsonGenerator;
 
 public class Main {
   private static final String VERSION = "v3.8.1";
-  private static final String FOOTER = "\nStateless Aerie "+VERSION;
+  private static final String FOOTER = "\nStateless PlanDev "+VERSION;
 
   private static final Option HELP_OPTION = new Option("h", "help", false, "display this message and exit");
 
@@ -84,7 +84,7 @@ public class Main {
     } catch (ParseException e) {
       simulationOptions.addOption(HELP_OPTION);
       new HelpFormatter().printHelp(
-          "stateless-aerie simulate",
+          "stateless-plandev simulate",
           "Simulate a plan using the specified model and configuration",
           simulationOptions,
           FOOTER,
@@ -198,7 +198,7 @@ public class Main {
   private static void displayTopLevelHelp() {
     System.out.printf(
     """
-    usage: stateless-aerie COMMAND [ARGS]...
+    usage: stateless-plandev COMMAND [ARGS]...
 
     Available commands:
      - simulate: Simulate a plan using the specified model and configuration
@@ -264,7 +264,7 @@ public class Main {
       if (opt.equals("-h") || opt.equals("--help")) {
         subCommandOptions.addOption(HELP_OPTION);
         new HelpFormatter().printHelp(
-            "stateless-aerie " + subcommand,
+            "stateless-plandev " + subcommand,
             subcommandDescription,
             subCommandOptions,
             FOOTER,

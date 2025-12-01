@@ -18,7 +18,7 @@ array_relationships:
         name: sequence_to_simulated_activity
         schema: sequencing
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -34,7 +34,7 @@ select_permissions:
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [seq_id, simulation_dataset_id, created_at, metadata]
       check: {}
@@ -43,12 +43,12 @@ insert_permissions:
       columns: [seq_id, simulation_dataset_id, created_at, metadata]
       check: {}
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [metadata]
       filter: {}
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}
   - role: user

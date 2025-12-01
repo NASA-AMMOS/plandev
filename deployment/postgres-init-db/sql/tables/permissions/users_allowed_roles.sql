@@ -9,7 +9,7 @@ create table permissions.users_allowed_roles(
   primary key (username, allowed_role),
 
   constraint system_roles_have_no_allowed_roles
-    check (username != 'Mission Model' and username != 'Aerie Legacy' )
+    check (username != 'Mission Model' and username != 'PlanDev Legacy' )
 );
 
 comment on table permissions.users_allowed_roles is e''

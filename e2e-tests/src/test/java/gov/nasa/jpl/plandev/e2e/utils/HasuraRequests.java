@@ -30,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.fail;
  */
 public class HasuraRequests implements AutoCloseable {
   private static final String hasuraAdminSecret = System.getenv("HASURA_GRAPHQL_ADMIN_SECRET");
-  private static final Map<String, String> defaultHeaders = Map.of("x-hasura-role", "aerie_admin", "x-hasura-user-id", "Aerie Legacy");
+  private static final Map<String, String> defaultHeaders = Map.of("x-hasura-role", "plandev_admin", "x-hasura-user-id", "PlanDev Legacy");
 
   private final APIRequestContext request;
 
@@ -46,7 +46,7 @@ public class HasuraRequests implements AutoCloseable {
   }
 
   /**
-   * Make a request to Hasura as the `Aerie Legacy` user using the role `aerie_admin`
+   * Make a request to Hasura as the `PlanDev Legacy` user using the role `plandev_admin`
    * @param query the GQL query or mutation to be executed
    * @param variables a JsonObject containing the query variables for the query
    * @return a JsonObject containing the response from Hasura

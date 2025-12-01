@@ -47,7 +47,7 @@ function serializeInstant(instant: Temporal.Instant, language: SequencingLanguag
 
 function parseDuration(duration: string): Temporal.Duration {
   if (duration.includes(':')) {
-    return Temporal.Duration.from(AERIEDurationToISO8601(duration));
+    return Temporal.Duration.from(PlanDevDurationToISO8601(duration));
   } else {
     return Temporal.Duration.from(duration);
   }
@@ -78,7 +78,7 @@ function checkNumDurationComponents(split: string[]): split is [string, string, 
   return split.length === 3;
 }
 
-export function AERIEDurationToISO8601(duration: string): string {
+export function PlanDevDurationToISO8601(duration: string): string {
   // HHHHHH...:MM:SS.mmmuuu -> PHHMMSS.mmmuuuS
   duration = duration.replace('Z', '');
   let split = duration.split(':');
@@ -178,8 +178,8 @@ export function InstantToText(date: Temporal.Instant): string {
 }
 
 /**
- * Time converters borrowed from Aerie-UI
- * Consider replacing with implementations in aerie-time-utils: https://github.com/NASA-AMMOS/aerie-time-utils
+ * Time converters borrowed from PlanDev-UI
+ * Consider replacing with implementations in plandev-time-utils: https://github.com/NASA-AMMOS/plandev-time-utils
  */
 const ABSOLUTE_TIME = /^(\d{4})-(\d{3})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{3}))?$/;
 const RELATIVE_TIME =

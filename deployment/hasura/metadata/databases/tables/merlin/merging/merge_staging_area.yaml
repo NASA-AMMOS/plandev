@@ -8,7 +8,7 @@ object_relationships:
     using:
       foreign_key_constraint_on: merge_request_id
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}

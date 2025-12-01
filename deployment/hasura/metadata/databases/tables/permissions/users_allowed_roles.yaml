@@ -4,7 +4,7 @@ table:
 configuration:
   custom_name: "users_allowed_roles"
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -20,16 +20,16 @@ select_permissions:
       filter: {"username":{"_eq":"X-Hasura-User-Id"}}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [username, allowed_role]
       check: {}
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [username, allowed_role]
       filter: {}
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}

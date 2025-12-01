@@ -67,7 +67,7 @@ begin
       message = 'invalid keys in supplied row',
       detail = trim(both e'\n' from error_msg),
       errcode = 'invalid_json_text',
-      hint = 'Visit https://nasa-ammos.github.io/aerie-docs/deployment/advanced-permissions/#action-and-function-permissions for a list of valid keys.';
+      hint = 'Visit https://nasa-ammos.github.io/plandev-docs/deployment/advanced-permissions/#action-and-function-permissions for a list of valid keys.';
   end if;
 
   -- Get any values that aren't Action Permissions
@@ -97,7 +97,7 @@ begin
       message = 'invalid permissions in supplied row',
       detail = trim(both e'\n' from error_msg),
       errcode = 'invalid_json_text',
-      hint = 'Visit https://nasa-ammos.github.io/aerie-docs/deployment/advanced-permissions/#action-and-function-permissions for a list of valid Permissions.';
+      hint = 'Visit https://nasa-ammos.github.io/plandev-docs/deployment/advanced-permissions/#action-and-function-permissions for a list of valid Permissions.';
   end if;
 
 	-- Check that no Actions have Plan Merge Permissions
@@ -127,7 +127,7 @@ begin
       message = 'invalid permissions in supplied row',
       detail = trim(both e'\n' from error_msg),
       errcode = 'invalid_json_text',
-      hint = 'Visit https://nasa-ammos.github.io/aerie-docs/deployment/advanced-permissions/#action-and-function-permissions for more information.';
+      hint = 'Visit https://nasa-ammos.github.io/plandev-docs/deployment/advanced-permissions/#action-and-function-permissions for more information.';
   end if;
 
   -- Drop Temp Tables
@@ -145,7 +145,7 @@ drop function permissions.validate_action_permissions_json(_action_permissions j
 -- Drop new column and reset table comment
 comment on table permissions.user_role_permission is e''
   'Permissions for a role that cannot be expressed in Hasura. Permissions take the form {KEY:PERMISSION}.'
-  'A list of valid KEYs and PERMISSIONs can be found at https://github.com/NASA-AMMOS/aerie/discussions/983#discussioncomment-6257146';
+  'A list of valid KEYs and PERMISSIONs can be found at https://github.com/NASA-AMMOS/plandev/discussions/983#discussioncomment-6257146';
 
 alter table permissions.user_role_permission
   drop column workspace_permissions;

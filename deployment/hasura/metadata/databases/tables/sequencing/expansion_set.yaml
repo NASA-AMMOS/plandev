@@ -28,7 +28,7 @@ array_relationships:
       column_mapping:
         id: set_id
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -44,7 +44,7 @@ select_permissions:
       filter: {}
       allow_aggregations: true
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [name, description, parcel_id, mission_model_id, owner]
       filter: {}
@@ -57,7 +57,7 @@ update_permissions:
       set:
         updated_by: "x-hasura-user-id"
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}
   - role: user

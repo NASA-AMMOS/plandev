@@ -16,7 +16,7 @@ comment on schema migrations is 'DB Migrations Schema';
 create schema hasura;
 comment on schema hasura is 'Hasura Helper Function Schema';
 create schema permissions;
-comment on schema permissions is 'Aerie User and User Roles Schema';
+comment on schema permissions is 'PlanDev User and User Roles Schema';
 create schema tags;
 comment on schema tags is 'Tags Metadata Schema';
 create schema util_functions;

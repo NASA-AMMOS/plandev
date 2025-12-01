@@ -46,7 +46,7 @@ public class MissionModelTests {
       modelId = hasura.createMissionModel(
           gateway.uploadJarFile(),
           "Banananation (e2e tests)",
-          "aerie_e2e_tests",
+          "plandev_e2e_tests",
           "Mission Model Tests");
     }
   }
@@ -418,7 +418,7 @@ public class MissionModelTests {
     assertEquals(1, activityTypeRefreshLogs.size());
     final var activityTypeLog = activityTypeRefreshLogs.getFirst();
 
-    assertEquals("Aerie Legacy", activityTypeLog.triggeringUser());
+    assertEquals("PlanDev Legacy", activityTypeLog.triggeringUser());
 
     assertFalse(activityTypeLog.pending());
     assertTrue(activityTypeLog.delivered());
@@ -437,7 +437,7 @@ public class MissionModelTests {
     assertEquals(1, modelParamRefreshLogs.size());
     final var modelParamLog = modelParamRefreshLogs.getFirst();
 
-    assertEquals("Aerie Legacy", modelParamLog.triggeringUser());
+    assertEquals("PlanDev Legacy", modelParamLog.triggeringUser());
 
     assertFalse(modelParamLog.pending());
     assertTrue(modelParamLog.delivered());
@@ -456,7 +456,7 @@ public class MissionModelTests {
     assertEquals(1, resourceTypeRefreshLogs.size());
     final var resourceTypeLog = resourceTypeRefreshLogs.getFirst();
 
-    assertEquals("Aerie Legacy", resourceTypeLog.triggeringUser());
+    assertEquals("PlanDev Legacy", resourceTypeLog.triggeringUser());
 
     assertFalse(resourceTypeLog.pending());
     assertTrue(resourceTypeLog.delivered());

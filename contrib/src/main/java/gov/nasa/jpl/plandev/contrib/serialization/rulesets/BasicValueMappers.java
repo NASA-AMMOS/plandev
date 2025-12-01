@@ -166,7 +166,7 @@ public final class BasicValueMappers {
     };
   }
 
-  public static ValueMapper<gov.nasa.jpl.plandev.merlin.framework.annotations.Description> gov_nasa_jpl_aerie_merlin_framework_annotations_Description() {
+  public static ValueMapper<gov.nasa.jpl.plandev.merlin.framework.annotations.Description> gov_nasa_jpl_plandev_merlin_framework_annotations_Description() {
     return new ValueMapper<>() {
       @Override
       public ValueSchema getValueSchema() {

@@ -18,7 +18,7 @@ import java.util.Optional;
 public class WorkspaceRequests implements AutoCloseable {
   private final APIRequestContext request;
   private static final String hasuraAdminSecret = System.getenv("HASURA_GRAPHQL_ADMIN_SECRET");
-  private static final Map<String, String> defaultHeaders = Map.of("x-hasura-role", "aerie_admin", "x-hasura-user-id", "Aerie Legacy");
+  private static final Map<String, String> defaultHeaders = Map.of("x-hasura-role", "plandev_admin", "x-hasura-user-id", "PlanDev Legacy");
   public enum RequestType {GET, PUT, POST, DELETE}
 
   public WorkspaceRequests(Playwright playwright){

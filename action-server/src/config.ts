@@ -1,9 +1,9 @@
 import {Algorithm} from "jsonwebtoken";
 
 export interface Config {
-  AERIE_DB: string;
-  AERIE_DB_HOST: string;
-  AERIE_DB_PORT: string;
+  PLANDEV_DB: string;
+  PLANDEV_DB_HOST: string;
+  PLANDEV_DB_PORT: string;
   ACTION_DB_USER: string;
   ACTION_DB_PASSWORD: string;
   ACTION_LOCAL_STORE: string;
@@ -23,9 +23,9 @@ export const configuration = (): Config => {
   const { env } = process;
 
   return {
-    AERIE_DB: env.AERIE_DB ?? "aerie",
-    AERIE_DB_HOST: env.AERIE_DB_HOST ?? "postgres",
-    AERIE_DB_PORT: env.AERIE_DB_PORT ?? "5432",
+    PLANDEV_DB: env.PLANDEV_DB ?? "plandev",
+    PLANDEV_DB_HOST: env.PLANDEV_DB_HOST ?? "postgres",
+    PLANDEV_DB_PORT: env.PLANDEV_DB_PORT ?? "5432",
     ACTION_DB_USER: env.ACTION_DB_USER ?? "",
     ACTION_DB_PASSWORD: env.ACTION_DB_PASSWORD ?? "",
     ACTION_LOCAL_STORE: env.ACTION_LOCAL_STORE ?? "/usr/src/app/action_file_store",
@@ -38,6 +38,6 @@ export const configuration = (): Config => {
     PORT: "27186",
     STORAGE: env.STORAGE ?? "local",
     SEQUENCING_LOCAL_STORE: env.SEQUENCING_LOCAL_STORE ?? "/usr/src/app/sequencing_file_store",
-    WORKSPACE_BASE_URL: env.WORKSPACE_BASE_URL ?? "http://aerie_workspace:28000",
+    WORKSPACE_BASE_URL: env.WORKSPACE_BASE_URL ?? "http://plandev_workspace:28000",
   };
 };

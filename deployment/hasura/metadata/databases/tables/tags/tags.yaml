@@ -4,7 +4,7 @@ table:
 configuration:
   custom_name: "tags"
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -20,7 +20,7 @@ select_permissions:
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [name, color]
       check: {}
@@ -33,7 +33,7 @@ insert_permissions:
       set:
         owner: "x-hasura-user-id"
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [name, color, owner]
       filter: {}
@@ -42,7 +42,7 @@ update_permissions:
       columns: [name, color, owner]
       filter: {"owner":{"_eq":"X-Hasura-User-Id"}}
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}
   - role: user

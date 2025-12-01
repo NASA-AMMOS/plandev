@@ -13,7 +13,7 @@ import java.util.Map;
  * <p> A Merlin model describes an <a href="https://en.wikipedia.org/wiki/Open_system_%28systems_theory%29">open
  * system</a>: a stateful system that evolves over time, with defined modes of interaction with its environment.
  * The inputs to the system are known as "directives"; outputs are "resources"; and the state of the system is captured
- * in "cells". The system's environment -- typically a simulation host like Aerie -- may construct and issue directives
+ * in "cells". The system's environment -- typically a simulation host like PlanDev -- may construct and issue directives
  * by using the {@link DirectiveType}s exposed by a model; resources can be queried with the {@link Resource}s exposed
  * by a model; and cells can be managed and advanced through time using the exposed {@link CellType}s. </p>
  *

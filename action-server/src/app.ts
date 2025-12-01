@@ -10,7 +10,7 @@ app.use(corsMiddleware); // TODO: set more strict CORS rules
 app.use(jsonErrorMiddleware);
 
 app.get("/", async (req, res, next) => {
-  res.send("Aerie Action Service");
+  res.send("PlanDev Action Service");
 });
 
 app.get("/health", async (req, res, next) => {

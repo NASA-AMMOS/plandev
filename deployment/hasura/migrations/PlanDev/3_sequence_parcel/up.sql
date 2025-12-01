@@ -135,8 +135,8 @@ insert into sequencing.parcel (name, command_dictionary_id, owner, updated_by)
 select
     'Parcel ' || cd.id as name,
     cd.id,
-    'Aerie Legacy',
-    'Aerie Legacy'
+    'PlanDev Legacy',
+    'PlanDev Legacy'
 from sequencing.command_dictionary cd;
 
 ----------------------------------------

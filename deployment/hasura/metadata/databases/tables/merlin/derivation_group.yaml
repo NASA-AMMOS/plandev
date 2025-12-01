@@ -25,7 +25,7 @@ array_relationships:
         column_mapping:
           name: derivation_group_name
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -41,7 +41,7 @@ select_permissions:
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [name, source_type_name]
       check: {}
@@ -54,7 +54,7 @@ insert_permissions:
       set:
         owner: "x-hasura-user-id"
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}
   - role: user

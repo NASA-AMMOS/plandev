@@ -12,7 +12,7 @@ create table ui.extensions (
 );
 
 comment on table ui.extensions is e''
-  'External extension APIs the user can call from within Aerie UI.';
+  'External extension APIs the user can call from within PlanDev UI.';
 comment on column ui.extensions.description is e''
   'An optional description of the external extension.';
 comment on column ui.extensions.label is e''

@@ -15,7 +15,7 @@ create table tags.tags(
 );
 
 comment on table tags.tags is e''
-  'All tags usable within an Aerie deployment.';
+  'All tags usable within an PlanDev deployment.';
 comment on column tags.tags.id is e''
   'The index of the tag.';
 comment on column tags.tags.name is e''
@@ -25,6 +25,6 @@ comment on column tags.tags.color is e''
 comment on column tags.tags.owner is e''
   'The user responsible for this tag. '
   '''Mission Model'' is used to represent tags originating from an uploaded mission model'
-  '''Aerie Legacy'' is used to represent tags originating from a version of Aerie prior to this table''s creation.';
+  '''PlanDev Legacy'' is used to represent tags originating from a version of PlanDev prior to this table''s creation.';
 comment on column tags.tags.created_at is e''
   'The date this tag was created.';

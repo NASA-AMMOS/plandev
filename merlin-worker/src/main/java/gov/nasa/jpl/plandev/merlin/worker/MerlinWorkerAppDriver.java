@@ -125,11 +125,11 @@ public final class MerlinWorkerAppDriver {
   private static WorkerAppConfiguration loadConfiguration() {
     return new WorkerAppConfiguration(
         Path.of(getEnv("MERLIN_WORKER_LOCAL_STORE", "/usr/src/app/merlin_file_store")),
-        new PostgresStore(getEnv("AERIE_DB_HOST", "postgres"),
+        new PostgresStore(getEnv("PLANDEV_DB_HOST", "postgres"),
                           getEnv("MERLIN_DB_USER", ""),
-                          Integer.parseInt(getEnv("AERIE_DB_PORT", "5432")),
+                          Integer.parseInt(getEnv("PLANDEV_DB_PORT", "5432")),
                           getEnv("MERLIN_DB_PASSWORD", ""),
-                          "aerie"),
+                          "plandev"),
         Integer.parseInt(getEnv("SIMULATION_PROGRESS_POLL_PERIOD_MILLIS", "5000")),
         Instant.parse(getEnv("UNTRUE_PLAN_START", ""))
     );

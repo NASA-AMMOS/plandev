@@ -206,7 +206,7 @@ public class CoexistenceGoal extends ActivityTemplateGoal {
       activityFinder.basedOn(this.matchActTemplate);
       activityCreationTemplate.basedOn(this.desiredActTemplate);
 
-      final var afterEndWindow = Interval.between(window.interval().end, Interval.Inclusivity.Inclusive, planHorizon.getEndAerie(), Interval.Inclusivity.Inclusive);
+      final var afterEndWindow = Interval.between(window.interval().end, Interval.Inclusivity.Inclusive, planHorizon.getEndPlanDev(), Interval.Inclusivity.Inclusive);
       if (this.startExpr != null) {
         Interval startTimeRange = this.startExpr.computeTime(simulationResults, plan, window.interval());
         // This condition further constraints the window in which we are looking for satisfying directives so that we don't create/look activities in the past of the directive's end

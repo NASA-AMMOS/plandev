@@ -28,7 +28,7 @@ public class LongDurationPlanTest {
   }
 
   private final static PlanningHorizon h = new PlanningHorizon(TimeUtility.fromDOY("2025-001T01:01:01.001"), TimeUtility.fromDOY("2030-005T01:01:01.001"));
-  private final static Duration t0 = h.getStartAerie();
+  private final static Duration t0 = h.getStartPlanDev();
   private final static Duration d1year = Duration.of(1, Duration.SECONDS).times(3600).times(24).times(365);
   private final static Duration d1min = Duration.of(1, Duration.MINUTES);
 

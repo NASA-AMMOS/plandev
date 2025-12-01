@@ -22,7 +22,7 @@ export const req = {
     const headers = {
       'Authorization': `Bearer ${user.token}`,
       'Content-Type': 'application/json',
-      'x-hasura-role': 'aerie_admin',
+      'x-hasura-role': 'plandev_admin',
       'x-hasura-user-id': `${user.username}`
     };
 
@@ -104,11 +104,11 @@ export const req = {
       "valid id": (id) => Number.isInteger(id)
     });
 
-    // add jar to aerie
+    // add jar to plandev
     // create mission model
     const modelInput: MissionModelInsertInput = {
       jar_id,
-      mission: "aerie-load-test" + rd,
+      mission: "plandev-load-test" + rd,
       name: "Banananation (load-test)" + rd,
       version: "0.0.0" + rd,
     };

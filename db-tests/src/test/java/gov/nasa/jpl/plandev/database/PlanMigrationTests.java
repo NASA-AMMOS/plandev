@@ -46,7 +46,7 @@ public class PlanMigrationTests {
 
   @BeforeAll
   void beforeAll() throws SQLException, IOException, InterruptedException {
-    helper = new DatabaseTestHelper("aerie_merlin_test", "Plan Migration Tests");
+    helper = new DatabaseTestHelper("plandev_merlin_test", "Plan Migration Tests");
     connection = helper.connection();
     merlinHelper = new MerlinDatabaseTestHelper(connection);
     merlinHelper.insertUser("PlanMigrationTests");

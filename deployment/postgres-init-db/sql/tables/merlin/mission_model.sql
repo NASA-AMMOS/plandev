@@ -49,7 +49,7 @@ comment on column merlin.mission_model.owner is e''
 comment on column merlin.mission_model.jar_id is e''
   'An uploaded JAR file defining the mission model.';
 comment on column merlin.mission_model.created_at is e''
-  'The time this mission model was uploaded into Aerie.';
+  'The time this mission model was uploaded into PlanDev.';
 comment on column merlin.mission_model.description is e''
   'A human-meaningful description of the mission model.';
 comment on column merlin.mission_model.default_view_id is e''

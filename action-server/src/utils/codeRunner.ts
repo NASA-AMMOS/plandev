@@ -68,7 +68,7 @@ function getGlobals() {
 
   // create a new context (globals) object to give the action when running
   // including copies of most global context, except only the permitted subset of env vars
-  const aerieGlobal: ActionGlobalContext  = {
+  const plandevGlobal: ActionGlobalContext  = {
     console,
     exports: {},
     require,
@@ -78,9 +78,9 @@ function getGlobals() {
       env: { ...permittedEnvironmentVariables },
     },
   };
-  Object.setPrototypeOf(aerieGlobal, globalThis);
+  Object.setPrototypeOf(plandevGlobal, globalThis);
 
-  return aerieGlobal;
+  return plandevGlobal;
 }
 
 export const jsExecute = async (
@@ -94,7 +94,7 @@ export const jsExecute = async (
 ): Promise<ActionResponse> => {
   // create a clone of the global object
   // to be passed to the context so it has access to eg. node built-ins
-  const aerieGlobal = getGlobals();
+  const plandevGlobal = getGlobals();
 
   // don't treat role as a secret so we don't censor it
   let userRole = "";
@@ -105,9 +105,9 @@ export const jsExecute = async (
 
   // inject custom logger to capture logs from action run
   const logBuffer: string[] = [];
-  aerieGlobal.console = injectLogger(aerieGlobal.console, logBuffer, secrets);
+  plandevGlobal.console = injectLogger(plandevGlobal.console, logBuffer, secrets);
 
-  const context = vm.createContext(aerieGlobal);
+  const context = vm.createContext(plandevGlobal);
 
   let username = "";
   if(secrets && secrets.user) {
@@ -115,7 +115,7 @@ export const jsExecute = async (
       const user = JSON.parse(secrets.user) || {};
       username = user?.username || "";
     } catch(e) {
-      aerieGlobal.console.warn("Could not retrieve username from user token");
+      plandevGlobal.console.warn("Could not retrieve username from user token");
     }
   }
 
@@ -146,13 +146,13 @@ export const jsExecute = async (
     }
     // also push errors into run logs - useful to have them there
     if (errorResponse.message) {
-      aerieGlobal.console.error(errorResponse.message);
+      plandevGlobal.console.error(errorResponse.message);
     }
     if (errorResponse.stack) {
-      aerieGlobal.console.error(errorResponse.stack);
+      plandevGlobal.console.error(errorResponse.stack);
     }
     if (errorResponse.cause) {
-      aerieGlobal.console.error(errorResponse.cause);
+      plandevGlobal.console.error(errorResponse.cause);
     }
 
     return Promise.resolve({
@@ -174,8 +174,8 @@ export const extractSchemas = async (code: string): Promise<any> => {
   // todo: do we need to pass globals/console for this part?
 
   // need to initialize exports for the cjs module to work correctly
-  const aerieGlobal = getGlobals();
-  const context = vm.createContext(aerieGlobal);
+  const plandevGlobal = getGlobals();
+  const context = vm.createContext(plandevGlobal);
 
   try {
     vm.runInContext(code, context);

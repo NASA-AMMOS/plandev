@@ -19,7 +19,7 @@ function flatten(array: any[]): string {
     }
 }
 
-/////////////// AERIE HELPER REGISTRATION ///////////////
+/////////////// PLANDEV HELPER REGISTRATION ///////////////
 Handlebars.registerHelper("add-time", (t, d) => addTime(t, d, environment.language))
 Handlebars.registerHelper("subtract-time", (t, d) => subtractTime(t, d, environment.language))
 Handlebars.registerHelper("flatten", flatten)

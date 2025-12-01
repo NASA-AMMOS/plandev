@@ -14,10 +14,10 @@ public class PostgresRepositoryActionTest {
     hikariConfig.setDataSourceClassName("org.postgresql.ds.PGSimpleDataSource");
     hikariConfig.addDataSourceProperty("serverName", "localhost");
     hikariConfig.addDataSourceProperty("portNumber", 5432);
-    hikariConfig.addDataSourceProperty("databaseName", "aerie_merlin");
+    hikariConfig.addDataSourceProperty("databaseName", "plandev_merlin");
     hikariConfig.addDataSourceProperty("applicationName", "Merlin Server");
-    hikariConfig.setUsername("aerie");
-    hikariConfig.setPassword("aerie");
+    hikariConfig.setUsername("plandev");
+    hikariConfig.setPassword("plandev");
 
     final var hikariDataSource = new HikariDataSource(hikariConfig);
 

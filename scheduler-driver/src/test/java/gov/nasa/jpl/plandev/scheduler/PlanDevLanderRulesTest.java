@@ -64,10 +64,10 @@
 //  public void firstRule() {
 //    smallProblem.setGoals(new ArrayList<>(rules.getFirstRuleGoals().values()));
 //    schedule(false);
-//    var time = planningHorizon.getStartAerie().plus(Duration.MINUTE);
+//    var time = planningHorizon.getStartPlanDev().plus(Duration.MINUTE);
 //    assertTrue(TestUtility.activityStartingAtTime(plan, time, rules.getActivityType("SSAMonitoring")));
 //    assertTrue(TestUtility.activityStartingAtTime(plan, time, rules.getActivityType("HeatProbeTemP")));
-//    for(var t = Duration.HOUR; t.shorterThan(planningHorizon.getEndAerie()); t = t.plus(Duration.HOUR)){
+//    for(var t = Duration.HOUR; t.shorterThan(planningHorizon.getEndPlanDev()); t = t.plus(Duration.HOUR)){
 //      assertTrue(TestUtility.activityStartingAtTime(plan, time, rules.getActivityType("HeatProbeTemP")));
 //    }
 //  }

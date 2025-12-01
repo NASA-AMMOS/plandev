@@ -27,7 +27,7 @@ array_relationships:
           name: constraint_run
           schema: merlin
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -43,7 +43,7 @@ select_permissions:
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [plan_id, constraint_id, constraint_revision, enabled, arguments, priority]
       check: {}
@@ -59,7 +59,7 @@ insert_permissions:
                                             { "owner": { "_eq": "X-Hasura-User-Id" } },
                                             { "models_using": { "model": { "plans": { "id": { "_ceq": ["$","plan_id"] } } } } } ] } } ] }
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [constraint_revision, enabled, arguments, priority]
       filter: {}
@@ -68,7 +68,7 @@ update_permissions:
       columns: [constraint_revision, enabled, arguments, priority]
       filter: { "plan": { "_or": [ { "owner": { "_eq": "X-Hasura-User-Id" } },{ "collaborators": { "collaborator": { "_eq": "X-Hasura-User-Id" }}}]}}
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}
   - role: user

@@ -4,7 +4,7 @@ table:
 configuration:
   custom_name: "user_role_permission"
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -20,12 +20,12 @@ select_permissions:
       filter: {}
       allow_aggregations: true
 insert_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [role, action_permissions, function_permissions, workspace_permissions]
       check: {}
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [action_permissions, function_permissions, workspace_permissions]
       filter: {}

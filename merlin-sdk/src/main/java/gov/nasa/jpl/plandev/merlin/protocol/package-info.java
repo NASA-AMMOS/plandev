@@ -10,7 +10,7 @@
  * <p> In addition, the {@link gov.nasa.jpl.plandev.merlin.protocol.model.MerlinPlugin} interface provides a
  * {@link java.util.ServiceLoader}-friendly service interface, as it hides the generic type parameters of an underlying
  * {@link gov.nasa.jpl.plandev.merlin.protocol.model.ModelType}. Implementors of the latter should typically also
- * provide the former, for interoperability with plugin-based multi-mission systems such as an Aerie deployment. </p>
+ * provide the former, for interoperability with plugin-based multi-mission systems such as an PlanDev deployment. </p>
  *
  * <p> A typical exchange for simulation will look something like the following. </p>
  *

@@ -183,7 +183,7 @@ public class CheckpointSimulationFacade implements SimulationFacade {
     final var best = CheckpointSimulationDriver.bestCachedEngine(
         planSimCorrespondence.directiveIdActivityDirectiveMap(),
         cachedEngines.getCachedEngines(configuration),
-        planningHorizon.getEndAerie());
+        planningHorizon.getEndPlanDev());
     CachedSimulationEngine engine = null;
     Duration from = Duration.ZERO;
     if (best.isPresent()) {
@@ -205,14 +205,14 @@ public class CheckpointSimulationFacade implements SimulationFacade {
     }
     //(2)
     else if (activity != null && until == null) {
-      simulationDuration = planningHorizon.getEndAerie();
+      simulationDuration = planningHorizon.getEndPlanDev();
       stoppingCondition = CheckpointSimulationDriver.stopOnceActivityHasFinished(
           activity.id());
       LOGGER.info("Simulation mode: until activity ends " + activity);
     }
     //(3)
     else if (activity == null && until == null) {
-      simulationDuration = planningHorizon.getEndAerie();
+      simulationDuration = planningHorizon.getEndPlanDev();
       stoppingCondition = CheckpointSimulationDriver.onceAllActivitiesAreFinished();
       LOGGER.info("Simulation mode: until all activities end ");
     } else {
@@ -225,7 +225,7 @@ public class CheckpointSimulationFacade implements SimulationFacade {
         new ResourceAwareSpreadCheckpointPolicy(
             cachedEngines.capacity(),
             Duration.ZERO,
-            planningHorizon.getEndAerie(),
+            planningHorizon.getEndPlanDev(),
             Duration.max(engine.endsAt(), Duration.ZERO),
             simulationDuration,
             1,
@@ -243,7 +243,7 @@ public class CheckpointSimulationFacade implements SimulationFacade {
           planningHorizon.getStartInstant(),
           simulationDuration,
           planningHorizon.getStartInstant(),
-          planningHorizon.getEndAerie(),
+          planningHorizon.getEndPlanDev(),
           $ -> {},
           canceledListener,
           engine,

@@ -25,7 +25,7 @@ object_relationships:
           source_key: source_key
           derivation_group_name: derivation_group_name
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}

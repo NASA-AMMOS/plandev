@@ -130,11 +130,11 @@ public final class WorkspaceAppDriver {
         jwtSecret,
         URI.create(getEnv("HASURA_GRAPHQL_URL", "http://hasura:8080/v1/graphql")),
         getEnv("HASURA_GRAPHQL_ADMIN_SECRET", ""),
-        new PostgresStore(getEnv("AERIE_DB_HOST", "postgres"),
+        new PostgresStore(getEnv("PLANDEV_DB_HOST", "postgres"),
                           getEnv("SEQUENCING_DB_USER", ""),
-                          Integer.parseInt(getEnv("AERIE_DB_PORT", "5432")),
+                          Integer.parseInt(getEnv("PLANDEV_DB_PORT", "5432")),
                           getEnv("SEQUENCING_DB_PASSWORD", ""),
-                          "aerie")
+                          "plandev")
     );
   }
 }

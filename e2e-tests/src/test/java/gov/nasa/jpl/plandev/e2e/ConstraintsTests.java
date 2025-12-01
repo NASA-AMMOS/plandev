@@ -59,7 +59,7 @@ public class ConstraintsTests {
       modelId = hasura.createMissionModel(
           gateway.uploadJarFile(),
           "Banananation (e2e tests)",
-          "aerie_e2e_tests",
+          "plandev_e2e_tests",
           "Constraints Tests");
     }
     // Insert the Plan
@@ -265,7 +265,7 @@ public class ConstraintsTests {
   /**
    * Test that an activity with a duration longer than one month is written to and read back from the database
    * successfully
-   * by Aerie's simulation and constraints checking components respectively. The driving concern here is that Aerie
+   * by PlanDev's simulation and constraints checking components respectively. The driving concern here is that Aerie
    * needs
    * to interpret span durations as microseconds; if the simulation results were to be written using the postgres
    * interval's "months" field, constraints checking would fail to load these values back from the database.

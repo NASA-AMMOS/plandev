@@ -35,7 +35,7 @@ class MerlinDatabaseTests {
 
   @BeforeAll
   void beforeAll() throws SQLException, IOException, InterruptedException {
-    helper = new DatabaseTestHelper("aerie_merlin_test", "Merlin Database Tests");
+    helper = new DatabaseTestHelper("plandev_merlin_test", "Merlin Database Tests");
     connection = helper.connection();
     merlinHelper = new MerlinDatabaseTestHelper(connection);
   }

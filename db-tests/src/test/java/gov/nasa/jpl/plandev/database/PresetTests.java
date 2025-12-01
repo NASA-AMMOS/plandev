@@ -45,7 +45,7 @@ public class PresetTests {
 
   @BeforeAll
   void beforeAll() throws SQLException, IOException, InterruptedException {
-    helper = new DatabaseTestHelper("aerie_preset_test", "Aerie Preset Tests");
+    helper = new DatabaseTestHelper("plandev_preset_test", "PlanDev Preset Tests");
     setConnection(helper);
     merlinHelper = new MerlinDatabaseTestHelper(connection);
   }

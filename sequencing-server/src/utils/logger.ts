@@ -6,7 +6,7 @@ import { getEnv } from '../env.js';
  *
  * The format is meant to match the default format of SLF4J's simple logger
  * as closely as possible to keep it consistent with the logs of other
- * Aerie packages. For this reason it is ideal to create one logger per file,
+ * PlanDev packages. For this reason it is ideal to create one logger per file,
  * so the logs can specify which file they came from (similar to SLF4J's format
  * which includes the class's full path in the message).
  *

@@ -127,7 +127,7 @@
 //    var actT1 = getActivityType("SSAMonitoring");
 //
 //    List<ActivityInstance> turnONFFMonitoring = List.of(
-//        ActivityInstance.of(actT1, DEFAULT_PLANNING_HORIZON.getStartAerie()
+//        ActivityInstance.of(actT1, DEFAULT_PLANNING_HORIZON.getStartPlanDev()
 //                                                            .plus(Duration.of(1,Duration.MINUTE)),
 //                             Duration.of(1,Duration.MINUTE), null, true));
 //    ProceduralCreationGoal pro = new ProceduralCreationGoal.Builder()
@@ -204,7 +204,7 @@
 //
 //  var actTypeIDAMoveArm = getActivityType("IDAMoveArm");
 //  //starts at middle of horizon
-//  var stMoveArm = DEFAULT_PLANNING_HORIZON.getAerieHorizonDuration().dividedBy(2);
+//  var stMoveArm = DEFAULT_PLANNING_HORIZON.getPlanDevHorizonDuration().dividedBy(2);
 //  var duroveArm = Duration.of(20,Duration.MINUTE);
 //
 //  ProceduralCreationGoal goal2a = new ProceduralCreationGoal.Builder()

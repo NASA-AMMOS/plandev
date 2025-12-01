@@ -71,7 +71,7 @@ array_relationships:
         name: activity_directive_changelog
         schema: merlin
 select_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: '*'
       filter: {}
@@ -87,7 +87,7 @@ select_permissions:
       filter: {}
       allow_aggregations: true
 update_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [ name, start_offset, type, arguments, metadata, anchor_id, anchored_to_start, created_by ]
       filter: {}
@@ -100,7 +100,7 @@ update_permissions:
       set:
         last_modified_by: "x-hasura-user-id"
 insert_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       columns: [name, start_offset, arguments, metadata, anchor_id, anchored_to_start, plan_id, type]
       check: {}
@@ -115,7 +115,7 @@ insert_permissions:
         last_modified_by: "x-hasura-user-id"
         created_by: "x-hasura-user-id"
 delete_permissions:
-  - role: aerie_admin
+  - role: plandev_admin
     permission:
       filter: {}
   - role: user

@@ -94,7 +94,7 @@ public class PrioritySolverTest {
   }
 
   private final static PlanningHorizon h = new PlanningHorizon(TimeUtility.fromDOY("2025-001T01:01:01.001"), TimeUtility.fromDOY("2025-005T01:01:01.001"));
-  private final static Duration t0 = h.getStartAerie();
+  private final static Duration t0 = h.getStartPlanDev();
   private final static Duration d1min = Duration.of(1, Duration.MINUTE);
   private final static Duration d1hr = Duration.of(1, Duration.HOUR);
   private final static Duration t1hr = t0.plus(d1hr);
@@ -257,7 +257,7 @@ public class PrioritySolverTest {
         problem.getPlanningHorizon(),
         new SimulationEngineConfiguration(Map.of(),Instant.EPOCH, new MissionModelId(1)),
         () -> false);
-    final var simResults = adHocFacade.simulateWithResults(makePlanA012(problem), h.getEndAerie());
+    final var simResults = adHocFacade.simulateWithResults(makePlanA012(problem), h.getEndPlanDev());
     problem.setInitialPlan(makePlanA012(problem), Optional.of(simResults.driverResults()));
     final var actTypeA = problem.getActivityType("ControllableDurationActivity");
     final var actTypeB = problem.getActivityType("OtherControllableDurationActivity");

@@ -5,15 +5,15 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Content types that the Aerie UI supports
+ * Content types that the PlanDev UI supports
  */
 public enum RenderType {
   TEXT ("Text"),
   BINARY ("Binary"),
   JSON ("JSON"),
   SEQUENCE ("Sequence"),
-  METADATA ("Metadata"), // Aerie metadata file
-  UNKNOWN (null), // If the filetype is unknown to the Aerie system
+  METADATA ("Metadata"), // PlanDev metadata file
+  UNKNOWN (null), // If the filetype is unknown to the PlanDev system
   DIRECTORY (null);
 
   private final String dbName;

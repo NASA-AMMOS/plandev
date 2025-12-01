@@ -1,7 +1,7 @@
 import { SequencingLanguage } from '../../src/lib/mustache/enums/language.js';
 import {
     addTime,
-    AERIEDurationToISO8601,
+    PlanDevDurationToISO8601,
     convertDoyToYmd,
     getDoy,
     InstanttoSeqN,
@@ -76,29 +76,29 @@ describe('Parsing times', () => {
         expect(instant.toString()).toEqual('2025-01-01T12:00:01.0002Z')
     });
 
-    describe('parsing AERIE Durations', () => {
+    describe('parsing PlanDev Durations', () => {
         it('should parse standard durations', () => {
-            let aerieDuration = '12345:67:89.101112Z'
-            let ISO8601duration = AERIEDurationToISO8601(aerieDuration)
+            let plandevDuration = '12345:67:89.101112Z'
+            let ISO8601duration = PlanDevDurationToISO8601(plandevDuration)
 
             expect(ISO8601duration).toEqual('PT12345H67M89.101112S')
         });
 
         it('should handle microseconds and milliseconds distinctly', () => {
-            let aerieDurationMillis = '00:00:00.100'
-            let ISO8601durationMillis = AERIEDurationToISO8601(aerieDurationMillis)
+            let plandevDurationMillis = '00:00:00.100'
+            let ISO8601durationMillis = PlanDevDurationToISO8601(plandevDurationMillis)
 
             expect(ISO8601durationMillis).toEqual('PT0.100000S')
 
-            let aerieDurationMicros = '00:00:00.01000'
-            let ISO8601durationMicros = AERIEDurationToISO8601(aerieDurationMicros)
+            let plandevDurationMicros = '00:00:00.01000'
+            let ISO8601durationMicros = PlanDevDurationToISO8601(plandevDurationMicros)
 
             expect(ISO8601durationMicros).toEqual('PT0.010000S')
         });
 
         it('should parse negative durations', () => {
             let negativeDuration = '-00:05:00'
-            let negativeISO8601Duration = AERIEDurationToISO8601(negativeDuration)
+            let negativeISO8601Duration = PlanDevDurationToISO8601(negativeDuration)
 
             expect(negativeISO8601Duration).toEqual('-PT5M')
         });
@@ -160,7 +160,7 @@ describe('String conversion', () => {
     });
 });
 
-describe('AERIE-ui helpers', () => {
+describe('PlanDev-ui helpers', () => {
     describe('converting DOY to YMD, from multiple formats', () => {
         it('should handle conversion from SeqN DOY', () => {
             let seqnDOY = "2025-001T00:00:00.000123Z"

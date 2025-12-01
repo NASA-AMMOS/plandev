@@ -877,14 +877,15 @@ public class WorkspaceBindings implements Plugin {
         // Copying between workspaces requires "readFile" on Workspace 1 and "writeFile" on Workspace 2
         if (!(checkPermissions(context, sourceWorkspace, WorkspaceAction.read_file_directory)
               && checkPermissions(context, body.destinationWorkspaceId(), WorkspaceAction.write_file_directory))) {
-          final var copyResults = handleBulkCopy(
-              items,
-              body.destinationPath(),
-              sourceWorkspace,
-              body.destinationWorkspaceId(),
-              body.overwrite());
-          context.status(207).json(copyResults.toString());
+          return;
         }
+        final var copyResults = handleBulkCopy(
+            items,
+            body.destinationPath(),
+            sourceWorkspace,
+            body.destinationWorkspaceId(),
+            body.overwrite());
+        context.status(207).json(copyResults.toString());
       }
       default -> context.status(501).json(new FormattedError("Unsupported post action: " + body.action().name()).toJson());
     }
@@ -899,9 +900,10 @@ public class WorkspaceBindings implements Plugin {
   ) throws NoSuchWorkspaceException {
     final var responseArray = Json.createArrayBuilder();
     for(final var item : toMove){
-      final var destinationPath = Path.of(destinationFolder.toString(), item);
+      final var itemPath = Path.of(item);
+      final var destinationPath = destinationFolder.resolve(itemPath.getFileName());
       final var results = handleMove(
-          Path.of(item),
+          itemPath,
           destinationPath,
           sourceWorkspaceId,
           destinationWorkspaceId,
@@ -924,9 +926,10 @@ public class WorkspaceBindings implements Plugin {
   ) throws NoSuchWorkspaceException {
     final var responseArray = Json.createArrayBuilder();
     for(final var item : toCopy) {
-      final var destinationPath = Path.of(destinationFolder.toString(), item);
+      final var itemPath = Path.of(item);
+      final var destinationPath = destinationFolder.resolve(itemPath.getFileName());
       final var results = handleCopy(
-          Path.of(item),
+          itemPath,
           destinationPath,
           sourceWorkspaceId,
           destinationWorkspaceId,

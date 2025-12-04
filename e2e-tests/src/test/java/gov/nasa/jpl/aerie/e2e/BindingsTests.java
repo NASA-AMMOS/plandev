@@ -2005,9 +2005,9 @@ public class BindingsTests {
               new BulkPutItem.DirectoryBulkPutItem("other_dir"),
               new BulkPutItem.DirectoryBulkPutItem("other_dir/nested_dir"),
               new BulkPutItem.FileBulkPutItem("top_file.txt", "top level file"),
-              new BulkPutItem.FileBulkPutItem("top_dir/file.txt", "file within a directory"),
-              new BulkPutItem.FileBulkPutItem("other_dir/file.txt", "another file within a directory"),
-              new BulkPutItem.FileBulkPutItem("top_dir/nested_dir/file.txt", "file within a nested directory"),
+              new BulkPutItem.FileBulkPutItem("top_dir/sub_file.txt", "file within a directory"),
+              new BulkPutItem.FileBulkPutItem("other_dir/other_file.txt", "another file within a directory"),
+              new BulkPutItem.FileBulkPutItem("top_dir/nested_dir/nested_file.txt", "file within a nested directory"),
               new BulkPutItem.DirectoryBulkPutItem("destination_dir")
           );
           wsServer.bulkPut(ownerToken, workspaceId, wsContents);
@@ -2232,7 +2232,7 @@ public class BindingsTests {
          */
         private static Stream<Arguments> bulkPostBasicCasesArgs() {
           final var topFileInput = Path.of("top_file.txt");
-          final var nestedFileInput = Path.of("other_dir/file.txt");
+          final var nestedFileInput = Path.of("other_dir/other_file.txt");
           final var topDirInput = Path.of("top_dir");
           final var nestedDirInput = Path.of("other_dir/nested_dir");
 
@@ -2247,6 +2247,436 @@ public class BindingsTests {
                   "Mixed Files and Directories Bulk POST",
                   List.of(topFileInput, nestedFileInput, nestedDirInput, topDirInput)))
           );
+        }
+
+        @Nested
+        class Overwrite {
+          /**
+           * Prep for the Overwrite Tests by putting conflict files in the destination directory
+           */
+          @BeforeEach
+          void prepOverwriteTests() {
+            final List<BulkPutItem> conflictContents = List.of(
+                new BulkPutItem.FileBulkPutItem("destination_dir/top_file.txt", "conflicting top level file"),
+                new BulkPutItem.DirectoryBulkPutItem("destination_dir/top_dir"),
+                new BulkPutItem.DirectoryBulkPutItem("destination_dir/nested_dir"),
+                new BulkPutItem.FileBulkPutItem("destination_dir/other_file.txt", "conflicting file within a directory")
+            );
+
+            wsServer.bulkPut(ownerToken, workspaceId, conflictContents);
+            wsServer.bulkPut(ownerToken, otherWorkspaceId, conflictContents);
+          }
+
+          /**
+           * An item that exists in both the original and destination locations
+           *
+           * @param originalPath the path of the item to be moved or copied
+           * @param originalContents the contents of the item at its original location
+           * @param conflictContents the contents of the conflicting
+           */
+          private record ConflictItem(Path originalPath, String originalContents, String conflictContents) {}
+
+          /**
+           * Generate arguments to test basic upload cases.
+           */
+          private static Stream<Arguments> bulkPostBasicCasesArgs() {
+            final var topFile = new ConflictItem(
+                Path.of("top_file.txt"),
+                "top level file",
+                "conflicting top level file");
+            final var nestedFile = new ConflictItem(
+                Path.of("other_dir/other_file.txt"),
+                "another file within a directory",
+                "conflicting file within a directory");
+            final var topDir = new ConflictItem(
+                Path.of("top_dir"),
+                "["
+                + "{\"name\":\"nested_dir\",\"type\":\"DIRECTORY\",\"contents\":["
+                + "{\"name\":\"nested_file.txt\",\"type\":\"TEXT\"}]},"
+                + "{\"name\":\"other_nested_dir\",\"type\":\"DIRECTORY\",\"contents\":[]},"
+                + "{\"name\":\"sub_file.txt\",\"type\":\"TEXT\"}]",
+                JsonArray.EMPTY_JSON_ARRAY.toString());
+            final var nestedDir = new ConflictItem(
+                Path.of("other_dir/nested_dir"),
+                JsonArray.EMPTY_JSON_ARRAY.toString(),
+                JsonArray.EMPTY_JSON_ARRAY.toString());
+
+            return Stream.of(
+                Arguments.arguments(named("Top Level File", List.of(topFile))),
+                Arguments.arguments(named("Top Level Directory", List.of(topDir))),
+                Arguments.arguments(named("Nested File", List.of(nestedFile))),
+                Arguments.arguments(named("Nested Directory", List.of(nestedDir))),
+                Arguments.arguments(named("Multiple Files", List.of(topFile, nestedFile))),
+                Arguments.arguments(named("Multiple Directories", List.of(topDir, nestedDir))),
+                Arguments.arguments(named("Mixed Files and Directories", List.of(topFile, nestedFile, nestedDir, topDir)))
+            );
+          }
+
+          /**
+           * With overwrite unset, a conflict is returned. This tests for both within and between workspaces
+           */
+          @ParameterizedTest
+          @MethodSource("bulkPostBasicCasesArgs")
+          void bulkMoveOverwriteUnset(List<ConflictItem> inputs) {
+            final var paths = inputs.stream().map(i -> i.originalPath).toList();
+            final var destination = Path.of("./destination_dir");
+
+            final var withinResp = wsServer.bulkMove(
+                ownerToken,
+                workspaceId,
+                paths,
+                destination,
+                Optional.empty(),
+                Optional.empty());
+
+            final var betweenResp = wsServer.bulkMove(
+                ownerToken,
+                workspaceId,
+                paths,
+                destination,
+                Optional.of(otherWorkspaceId),
+                Optional.empty());
+
+            // Check Status Code
+            assertEquals(207, withinResp.status());
+            assertEquals(207, betweenResp.status());
+
+            // Check Details of Responses
+            final var withinRespBody = getArrayBody(withinResp);
+            final var betweenRespBody = getArrayBody(betweenResp);
+
+            assertEquals(withinRespBody.size(), betweenRespBody.size());
+
+            for (int i = 0; i < withinRespBody.size(); ++i) {
+              final var expected = inputs.get(i);
+              final var actualWithin = withinRespBody.get(i).asJsonObject();
+              final var actualBetween = betweenRespBody.get(i).asJsonObject();
+
+              assertEquals(409, actualWithin.getInt("status"));
+              assertEquals(409, actualBetween.getInt("status"));
+
+              // Check file contents
+              final var conflictLocation = destination.resolve(expected.originalPath.getFileName());
+              assertEquals(expected.conflictContents, wsServer.get(ownerToken, workspaceId, conflictLocation).text());
+              assertEquals(expected.conflictContents, wsServer.get(ownerToken, otherWorkspaceId, conflictLocation).text());
+
+              // Check that the original file was not moved due to the conflict,
+              assertEquals(expected.originalContents, wsServer.get(ownerToken, workspaceId, expected.originalPath).text());
+            }
+          }
+
+          /**
+           * With overwrite set to false, a conflict is returned. This tests for both within and between workspaces
+           */
+          @ParameterizedTest
+          @MethodSource("bulkPostBasicCasesArgs")
+          void bulkMoveOverwriteFalse(List<ConflictItem> inputs) {
+            final var paths = inputs.stream().map(i -> i.originalPath).toList();
+            final var destination = Path.of("./destination_dir");
+
+            final var withinResp = wsServer.bulkMove(
+                ownerToken,
+                workspaceId,
+                paths,
+                destination,
+                Optional.empty(),
+                Optional.of(false));
+
+            final var betweenResp = wsServer.bulkMove(
+                ownerToken,
+                workspaceId,
+                paths,
+                destination,
+                Optional.of(otherWorkspaceId),
+                Optional.of(false));
+
+            // Check Status Code
+            assertEquals(207, withinResp.status());
+            assertEquals(207, betweenResp.status());
+
+            // Check Details of Responses
+            final var withinRespBody = getArrayBody(withinResp);
+            final var betweenRespBody = getArrayBody(betweenResp);
+
+            assertEquals(withinRespBody.size(), betweenRespBody.size());
+
+            for (int i = 0; i < withinRespBody.size(); ++i) {
+              final var expected = inputs.get(i);
+              final var actualWithin = withinRespBody.get(i).asJsonObject();
+              final var actualBetween = betweenRespBody.get(i).asJsonObject();
+
+              assertEquals(409, actualWithin.getInt("status"));
+              assertEquals(409, actualBetween.getInt("status"));
+
+              // Check file contents
+              final var conflictLocation = destination.resolve(expected.originalPath.getFileName());
+              assertEquals(expected.conflictContents, wsServer.get(ownerToken, workspaceId, conflictLocation).text());
+              assertEquals(expected.conflictContents, wsServer.get(ownerToken, otherWorkspaceId, conflictLocation).text());
+
+              // Check that the original file was not moved due to the conflict,
+              assertEquals(expected.originalContents, wsServer.get(ownerToken, workspaceId, expected.originalPath).text());
+            }
+          }
+
+          /**
+           * With overwrite set to true, no conflict occurs. This tests for moving within a workspace
+           */
+          @ParameterizedTest
+          @MethodSource("bulkPostBasicCasesArgs")
+          void bulkMoveOverwriteTrueWithinWS(List<ConflictItem> inputs) {
+            final var paths = inputs.stream().map(i -> i.originalPath).toList();
+            final var destination = Path.of("./destination_dir");
+
+            final var withinResp = wsServer.bulkMove(
+                ownerToken,
+                workspaceId,
+                paths,
+                destination,
+                Optional.empty(),
+                Optional.of(true));
+
+            // Check Status Code
+            assertEquals(207, withinResp.status());
+
+            // Check Details of Responses
+            final var withinRespBody = getArrayBody(withinResp);
+
+
+            for (int i = 0; i < withinRespBody.size(); ++i) {
+              final var expected = inputs.get(i);
+              final var actualWithin = withinRespBody.get(i).asJsonObject();
+
+              assertEquals(200, actualWithin.getInt("status"));
+
+              // Check file contents
+              final var conflictLocation = destination.resolve(expected.originalPath.getFileName());
+              assertEquals(expected.originalContents, wsServer.get(ownerToken, workspaceId, conflictLocation).text());
+
+              // Check that the original file was moved
+              assertEquals(404, wsServer.get(ownerToken, workspaceId, expected.originalPath).status());
+            }
+          }
+
+          /**
+           * With overwrite set to true, no conflict occurs. This tests for moving between workspaces
+           */
+          @ParameterizedTest
+          @MethodSource("bulkPostBasicCasesArgs")
+          void bulkMoveOverwriteTrueBetweenWS(List<ConflictItem> inputs) {
+            final var paths = inputs.stream().map(i -> i.originalPath).toList();
+            final var destination = Path.of("./destination_dir");
+
+            final var betweenResp = wsServer.bulkMove(
+                ownerToken,
+                workspaceId,
+                paths,
+                destination,
+                Optional.of(otherWorkspaceId),
+                Optional.of(true));
+
+            // Check Status Code
+            assertEquals(207, betweenResp.status());
+
+            // Check Details of Responses
+            final var betweenRespBody = getArrayBody(betweenResp);
+
+            for (int i = 0; i < betweenRespBody.size(); ++i) {
+              final var expected = inputs.get(i);
+              final var actualBetween = betweenRespBody.get(i).asJsonObject();
+
+              assertEquals(200, actualBetween.getInt("status"));
+
+              // Check file contents
+              final var conflictLocation = destination.resolve(expected.originalPath.getFileName());
+              assertEquals(expected.originalContents, wsServer.get(ownerToken, otherWorkspaceId, conflictLocation).text());
+
+              // Check that the original file was moved
+              assertEquals(404, wsServer.get(ownerToken, workspaceId, expected.originalPath).status());
+            }
+          }
+
+          /**
+           * With overwrite unset, a conflict is returned. This tests for both within and between workspaces
+           */
+          @ParameterizedTest
+          @MethodSource("bulkPostBasicCasesArgs")
+          void bulkCopyOverwriteUnset(List<ConflictItem> inputs) {
+            final var paths = inputs.stream().map(i -> i.originalPath).toList();
+            final var destination = Path.of("./destination_dir");
+
+            final var withinResp = wsServer.bulkMove(
+                ownerToken,
+                workspaceId,
+                paths,
+                destination,
+                Optional.empty(),
+                Optional.empty());
+
+            final var betweenResp = wsServer.bulkMove(
+                ownerToken,
+                workspaceId,
+                paths,
+                destination,
+                Optional.of(otherWorkspaceId),
+                Optional.empty());
+
+            // Check Status Code
+            assertEquals(207, withinResp.status());
+            assertEquals(207, betweenResp.status());
+
+            // Check Details of Responses
+            final var withinRespBody = getArrayBody(withinResp);
+            final var betweenRespBody = getArrayBody(betweenResp);
+
+            assertEquals(withinRespBody.size(), betweenRespBody.size());
+
+            for (int i = 0; i < withinRespBody.size(); ++i) {
+              final var expected = inputs.get(i);
+              final var actualWithin = withinRespBody.get(i).asJsonObject();
+              final var actualBetween = betweenRespBody.get(i).asJsonObject();
+
+              assertEquals(409, actualWithin.getInt("status"));
+              assertEquals(409, actualBetween.getInt("status"));
+
+              // Check file contents
+              final var conflictLocation = destination.resolve(expected.originalPath.getFileName());
+              assertEquals(expected.conflictContents, wsServer.get(ownerToken, workspaceId, conflictLocation).text());
+              assertEquals(expected.conflictContents, wsServer.get(ownerToken, otherWorkspaceId, conflictLocation).text());
+
+              // Check that the original file was untouched.
+              assertEquals(expected.originalContents, wsServer.get(ownerToken, workspaceId, expected.originalPath).text());
+            }
+          }
+
+          /**
+           * With overwrite set to false, a conflict is returned. This tests for both within and between workspaces
+           */
+          @ParameterizedTest
+          @MethodSource("bulkPostBasicCasesArgs")
+          void bulkCopyOverwriteFalse(List<ConflictItem> inputs) {
+            final var paths = inputs.stream().map(i -> i.originalPath).toList();
+            final var destination = Path.of("./destination_dir");
+
+            final var withinResp = wsServer.bulkCopy(
+                ownerToken,
+                workspaceId,
+                paths,
+                destination,
+                Optional.empty(),
+                Optional.of(false));
+
+            final var betweenResp = wsServer.bulkCopy(
+                ownerToken,
+                workspaceId,
+                paths,
+                destination,
+                Optional.of(otherWorkspaceId),
+                Optional.of(false));
+
+            // Check Status Code
+            assertEquals(207, withinResp.status());
+            assertEquals(207, betweenResp.status());
+
+            // Check Details of Responses
+            final var withinRespBody = getArrayBody(withinResp);
+            final var betweenRespBody = getArrayBody(betweenResp);
+
+            assertEquals(withinRespBody.size(), betweenRespBody.size());
+
+            for (int i = 0; i < withinRespBody.size(); ++i) {
+              final var expected = inputs.get(i);
+              final var actualWithin = withinRespBody.get(i).asJsonObject();
+              final var actualBetween = betweenRespBody.get(i).asJsonObject();
+
+              assertEquals(409, actualWithin.getInt("status"));
+              assertEquals(409, actualBetween.getInt("status"));
+
+              // Check file contents
+              final var conflictLocation = destination.resolve(expected.originalPath.getFileName());
+              assertEquals(expected.conflictContents, wsServer.get(ownerToken, workspaceId, conflictLocation).text());
+              assertEquals(expected.conflictContents, wsServer.get(ownerToken, otherWorkspaceId, conflictLocation).text());
+
+              // Check that the original file was not touched
+              assertEquals(expected.originalContents, wsServer.get(ownerToken, workspaceId, expected.originalPath).text());
+            }
+          }
+
+          /**
+           * With overwrite set to true, no conflict occurs. This tests for moving within a workspace
+           */
+          @ParameterizedTest
+          @MethodSource("bulkPostBasicCasesArgs")
+          void bulkCopyOverwriteTrueWithinWS(List<ConflictItem> inputs) {
+            final var paths = inputs.stream().map(i -> i.originalPath).toList();
+            final var destination = Path.of("./destination_dir");
+
+            final var withinResp = wsServer.bulkCopy(
+                ownerToken,
+                workspaceId,
+                paths,
+                destination,
+                Optional.empty(),
+                Optional.of(true));
+
+            // Check Status Code
+            assertEquals(207, withinResp.status());
+
+            // Check Details of Responses
+            final var withinRespBody = getArrayBody(withinResp);
+
+
+            for (int i = 0; i < withinRespBody.size(); ++i) {
+              final var expected = inputs.get(i);
+              final var actualWithin = withinRespBody.get(i).asJsonObject();
+
+              assertEquals(200, actualWithin.getInt("status"));
+
+              // Check file contents
+              final var conflictLocation = destination.resolve(expected.originalPath.getFileName());
+              assertEquals(expected.originalContents, wsServer.get(ownerToken, workspaceId, conflictLocation).text());
+
+              // Check that the original file is untouched
+              assertEquals(expected.originalContents, wsServer.get(ownerToken, workspaceId, expected.originalPath).text());
+            }
+          }
+
+          /**
+           * With overwrite set to true, no conflict occurs. This tests for moving between workspaces
+           */
+          @ParameterizedTest
+          @MethodSource("bulkPostBasicCasesArgs")
+          void bulkCopyOverwriteTrueBetweenWS(List<ConflictItem> inputs) {
+            final var paths = inputs.stream().map(i -> i.originalPath).toList();
+            final var destination = Path.of("./destination_dir");
+
+            final var betweenResp = wsServer.bulkCopy(
+                ownerToken,
+                workspaceId,
+                paths,
+                destination,
+                Optional.of(otherWorkspaceId),
+                Optional.of(true));
+
+            // Check Status Code
+            assertEquals(207, betweenResp.status());
+
+            // Check Details of Responses
+            final var betweenRespBody = getArrayBody(betweenResp);
+
+            for (int i = 0; i < betweenRespBody.size(); ++i) {
+              final var expected = inputs.get(i);
+              final var actualBetween = betweenRespBody.get(i).asJsonObject();
+
+              assertEquals(200, actualBetween.getInt("status"));
+
+              // Check file contents
+              final var conflictLocation = destination.resolve(expected.originalPath.getFileName());
+              assertEquals(expected.originalContents, wsServer.get(ownerToken, otherWorkspaceId, conflictLocation).text());
+
+              // Check that the original file is untouched
+              assertEquals(expected.originalContents, wsServer.get(ownerToken, workspaceId, expected.originalPath).text());
+            }
+          }
         }
       }
 
@@ -2266,9 +2696,9 @@ public class BindingsTests {
               new BulkPutItem.DirectoryBulkPutItem("other_dir"),
               new BulkPutItem.DirectoryBulkPutItem("other_dir/nested_dir"),
               new BulkPutItem.FileBulkPutItem("top_file.txt", "top level file"),
-              new BulkPutItem.FileBulkPutItem("top_dir/file.txt", "file within a directory"),
-              new BulkPutItem.FileBulkPutItem("other_dir/file.txt", "another file within a directory"),
-              new BulkPutItem.FileBulkPutItem("top_dir/nested_dir/file.txt", "file within a nested directory")
+              new BulkPutItem.FileBulkPutItem("top_dir/sub_file.txt", "file within a directory"),
+              new BulkPutItem.FileBulkPutItem("other_dir/other_file.txt", "another file within a directory"),
+              new BulkPutItem.FileBulkPutItem("top_dir/nested_dir/nested_file.txt", "file within a nested directory")
           );
 
           wsServer.bulkPut(ownerToken, workspaceId, wsContents);
@@ -2320,7 +2750,7 @@ public class BindingsTests {
          */
         private static Stream<Arguments> bulkDeleteBasicCasesArgs() {
           final var topFileInput = Path.of("top_file.txt");
-          final var nestedFileInput = Path.of("other_dir/file.txt");
+          final var nestedFileInput = Path.of("other_dir/other_file.txt");
           final var topDirInput = Path.of("top_dir");
           final var nestedDirInput = Path.of("other_dir/nested_dir");
 

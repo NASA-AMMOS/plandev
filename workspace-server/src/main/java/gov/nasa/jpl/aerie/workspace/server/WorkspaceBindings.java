@@ -734,6 +734,14 @@ public class WorkspaceBindings implements Plugin {
     final Map<String, UploadedFile> fileMap = new HashMap<>(fileList.size());
     fileList.forEach(file -> fileMap.put(file.filename(), file));
 
+    // Check that files all had unique upload names:
+    if(fileList.size() != fileMap.size()) {
+      context.status(400).json(new FormattedError("Cannot process request: multiple files are attached under the same name.",
+                                                  "Attach file contents under unique names.\n\n" +helpText));
+      return;
+    }
+
+
     // Create all specified object:
     final var responseArray = Json.createArrayBuilder();
 

@@ -697,23 +697,19 @@ public class WorkspaceBindings implements Plugin {
         }""";
 
     // Get body
-    if(!context.isMultipartFormData()) {
+    if(!context.isMultipartFormData() || context.formParam("body") == null) {
       context.status(400).json(new FormattedError("Invalid body format.",
                                                   """
                                                   Expected body format is a multipart/form with two fields:
                                                     "body", which contains the list of JSON objects describing where to put each file and directory
                                                     "files", which contains all uploaded file contents"""));
+      return;
     }
     try(final var bodyReader = Json.createReader(new StringReader(context.formParam("body")))){
       toUpload = bodyReader.readArray().getValuesAs(obj -> BulkPutItem.fromJson(obj.asJsonObject()));
     } catch (JsonException je) {
       context.status(400).json(new FormattedError(
           je,
-          "Invalid body format. Expected body format is an array of JSON objects with the form:\n\n"+helpText));
-      return;
-    } catch (NullPointerException ne) {
-      context.status(400).json(new FormattedError(
-          ne,
           "Invalid body format. Expected body format is an array of JSON objects with the form:\n\n"+helpText));
       return;
     }

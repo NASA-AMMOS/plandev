@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Optional;
@@ -160,16 +161,13 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   @Override
   public boolean moveFile(final int oldWorkspaceId, final Path oldFilePath, final int newWorkspaceId, final Path newFilePath)
-  throws NoSuchWorkspaceException, SQLException, WorkspaceFileOpException
+  throws NoSuchWorkspaceException, SQLException
   {
     final var oldRepoPath = postgresRepository.workspaceRootPath(oldWorkspaceId);
     final var oldPath = resolveSubPath(oldRepoPath, oldFilePath);
     final var newRepoPath = (oldWorkspaceId == newWorkspaceId) ? oldRepoPath : postgresRepository.workspaceRootPath(newWorkspaceId);
     final var newPath = resolveSubPath(newRepoPath, newFilePath);
     boolean success = true;
-
-    // Do not move the file if the destination already exists
-    if(newPath.toFile().exists()) throw new WorkspaceFileOpException("Destination file \"%s\" in workspace %d already exists.".formatted(newFilePath, newWorkspaceId));
 
     // Find hidden metadata files, if they exist, and move them
     final var metadataExtensions = postgresRepository.getMetadataExtensions();
@@ -197,14 +195,11 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       // Do not copy the file if the source file does not exist
       if(!sourcePath.toFile().exists()) throw new WorkspaceFileOpException("Source file \"%s\" in workspace %d does not exist.".formatted(sourceFilePath, sourceWorkspaceId));
 
-      // Do not copy the file if the destination already exists
-      if(destPath.toFile().exists()) throw new WorkspaceFileOpException("Destination file \"%s\" in workspace %d already exists.".formatted(destFilePath, destWorkspaceId));
-
       // Create any parent directories that don't already exist
       Files.createDirectories(destPath.getParent());
 
       // Copy the main file
-      Files.copy(sourcePath, destPath);
+      Files.copy(sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING);
 
       // Find and copy hidden metadata files
       final var metadataExtensions = postgresRepository.getMetadataExtensions();
@@ -238,9 +233,6 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       if (!Files.exists(sourcePath)) throw new WorkspaceFileOpException("Source directory \"%s\" in workspace %d does not exist.".formatted(sourceFilePath, sourceWorkspaceId));
       if (!Files.isDirectory(sourcePath)) throw new WorkspaceFileOpException("Source directory \"%s\" in workspace %d is not actually a directory.".formatted(sourceFilePath, sourceWorkspaceId));
 
-      // Do not copy if destination already exists
-      if (Files.exists(destPath)) throw new WorkspaceFileOpException("Destination directory \"%s\" in workspace %d already exists.".formatted(destFilePath, destWorkspaceId));
-
       // Do not try to copy a directory into itself
       if(sourceWorkspaceId == destWorkspaceId && destPath.startsWith(sourcePath)){
         throw new WorkspaceFileOpException("Cannot copy a directory into itself.");
@@ -256,7 +248,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
             if (Files.isDirectory(source)) {
               Files.createDirectories(target);
             } else {
-              Files.copy(source, target);
+              Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
             }
           } catch (IOException e) {
             throw new UncheckedIOException(e);

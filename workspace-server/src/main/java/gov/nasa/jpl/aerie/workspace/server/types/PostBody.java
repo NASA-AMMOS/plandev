@@ -30,7 +30,7 @@ public record PostBody(
       }
 
       destinationWorkspaceId = body.getInt("toWorkspace", sourceWorkspaceId);
-      overwrite = body.getBoolean("toWorkspace", false);
+      overwrite = body.getBoolean("overwrite", false);
 
       return new PostBody(sourceWorkspaceId, destinationWorkspaceId, destinationPath, action, overwrite);
   }

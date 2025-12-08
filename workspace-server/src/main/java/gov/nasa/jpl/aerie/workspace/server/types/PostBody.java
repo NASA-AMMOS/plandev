@@ -17,21 +17,21 @@ public record PostBody(
     final PostActions action;
     final boolean overwrite;
 
-    if(body.containsKey("moveTo") && body.containsKey("copyTo")) {
-        throw new JsonException("Too many actions specified for a single request.");
-      } else if(body.containsKey("moveTo")) {
-        action = PostActions.MOVE;
-        destinationPath = Path.of(body.getString("moveTo"));
-      } else if(body.containsKey("copyTo")) {
-        action = PostActions.COPY;
-        destinationPath = Path.of(body.getString("copyTo"));
-      } else {
-        throw new JsonException("No action supplied for request.");
-      }
+    if (body.containsKey("moveTo") && body.containsKey("copyTo")) {
+      throw new JsonException("Too many actions specified for a single request.");
+    } else if (body.containsKey("moveTo")) {
+      action = PostActions.MOVE;
+      destinationPath = Path.of(body.getString("moveTo"));
+    } else if (body.containsKey("copyTo")) {
+      action = PostActions.COPY;
+      destinationPath = Path.of(body.getString("copyTo"));
+    } else {
+      throw new JsonException("No action supplied for request.");
+    }
 
-      destinationWorkspaceId = body.getInt("toWorkspace", sourceWorkspaceId);
-      overwrite = body.getBoolean("overwrite", false);
+    destinationWorkspaceId = body.getInt("toWorkspace", sourceWorkspaceId);
+    overwrite = body.getBoolean("overwrite", false);
 
-      return new PostBody(sourceWorkspaceId, destinationWorkspaceId, destinationPath, action, overwrite);
+    return new PostBody(sourceWorkspaceId, destinationWorkspaceId, destinationPath, action, overwrite);
   }
 }

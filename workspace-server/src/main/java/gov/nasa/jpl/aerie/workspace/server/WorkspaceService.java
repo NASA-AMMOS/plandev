@@ -78,7 +78,8 @@ public interface WorkspaceService {
    * @param filePath the path, relative to the workspace's root, to the file to be deleted
    * @return true if the file was deleted, false otherwise
    */
-  boolean deleteFile(final int workspaceId, final Path filePath) throws IOException, NoSuchWorkspaceException;
+  boolean deleteFile(final int workspaceId, final Path filePath)
+  throws IOException, NoSuchWorkspaceException, SQLException;
 
   DirectoryTree listFiles(final int workspaceId, final Optional<Path> directoryPath, final int depth)
   throws SQLException, NoSuchWorkspaceException, IOException;

@@ -265,11 +265,23 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
 
   @Override
-  public boolean deleteFile(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException {
+  public boolean deleteFile(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException, SQLException {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
     final var path = resolveSubPath(repoPath, filePath);
     final var file = path.toFile();
-    return file.delete();
+
+    boolean success = true;
+
+    // Find hidden metadata files, if they exist, and delete them
+    final var metadataExtensions = postgresRepository.getMetadataExtensions();
+    for(final var extension : metadataExtensions) {
+      final File oldFile = path.resolveSibling(path.getFileName() + extension).toFile();
+      if(oldFile.exists()) {
+        success = rm(file) && success; // Do not fast-fail
+      }
+    }
+
+    return rm(file) && success;
   }
 
   @Override

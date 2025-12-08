@@ -645,10 +645,14 @@ public class WorkspaceBindings implements Plugin {
         context.status(500).json(new FormattedError(errorMsg));
       }
     } else {
-      if (workspaceService.deleteFile(pathInfo.workspaceId, pathInfo.filePath)) {
-        context.status(200).result("File deleted.");
-      } else {
-        context.status(500).json(new FormattedError(errorMsg));
+      try {
+        if (workspaceService.deleteFile(pathInfo.workspaceId, pathInfo.filePath)) {
+          context.status(200).result("File deleted.");
+        } else {
+          context.status(500).json(new FormattedError(errorMsg));
+        }
+      } catch (SQLException se) {
+        context.status(500).json(new FormattedError(se));
       }
     }
   }
@@ -1034,6 +1038,9 @@ public class WorkspaceBindings implements Plugin {
       } catch (IOException ioe) {
         response.add("status", 500)
                 .add("response", new FormattedError(ioe, errorMsg).toJson());
+      } catch (SQLException se) {
+        response.add("status", 500)
+                .add("response", new FormattedError(se, errorMsg).toJson());
       }
 
       // Add response to array

@@ -125,6 +125,8 @@ public class WorkspaceBindings implements Plugin {
     });
     javalin.exception(NumberFormatException.class,
                       (ex, ctx) -> ctx.status(400).json(new FormattedError(ex)));
+    javalin.exception(SecurityException.class,
+                      (ex, ctx) -> ctx.status(500).json(new FormattedError(ex)));
     javalin.exception(Exception.class, (ex, ctx) -> {
       // Catch-all for unexpected issues
       logger.error("Unexpected error processing workspace request", ex);

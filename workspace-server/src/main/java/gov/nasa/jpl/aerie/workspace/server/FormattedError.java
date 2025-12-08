@@ -164,6 +164,11 @@ final class FormattedError {
   public FormattedError(NullPointerException ne, String message) {
     this("NULL_POINTER_EXCEPTION", message, ne);
   }
+
+  //Security Exception
+  public FormattedError(SecurityException se) {
+    this("SECURITY_EXCEPTION", se.getMessage(), se);
+  }
   //endregion
 
   /**

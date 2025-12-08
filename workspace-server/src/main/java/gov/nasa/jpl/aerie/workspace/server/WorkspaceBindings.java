@@ -87,9 +87,9 @@ public class WorkspaceBindings implements Plugin {
       path("/health", () -> ApiBuilder.get(ctx -> ctx.status(200)));
 
       // Bulk CRUD operations for Files and Directories:
-      // Placed first to avoid accidentally matching on the individual File/Directory pattern
+      // Placed 'bulk' before 'workspaceId' to avoid accidentally matching on the individual File/Directory pattern
       path("/ws/bulk/{workspaceId}", () -> {
-        ApiBuilder.put(this::bulkPut);
+        ApiBuilder.put(this::bulkUpload);
         ApiBuilder.post(this::bulkPost);
         ApiBuilder.delete(this::bulkDelete);
       });
@@ -677,7 +677,7 @@ public class WorkspaceBindings implements Plugin {
    * If there is an issue with the request or permissions, returns an appropriate 4XX status.
    * Else, returns a 207 Multi-Status with an individual response per-object
    */
-  public void bulkPut(Context context) throws NoSuchWorkspaceException {
+  public void bulkUpload(Context context) throws NoSuchWorkspaceException {
     final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
     final List<BulkPutItem> toUpload;
 

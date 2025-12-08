@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -748,6 +749,14 @@ public class WorkspaceBindings implements Plugin {
     // Create all specified object:
     final var responseArray = Json.createArrayBuilder();
 
+    final var destinationSet = toUpload.stream().map(BulkPutItem::path).collect(Collectors.toSet());
+    if(destinationSet.size() != toUpload.size()) {
+      context.status(409).json(new FormattedError(
+          "Multiple items are attempting to be uploaded to the same location. Please give all items unique names."));
+      return;
+    }
+
+
     for(final var item : toUpload) {
       final var response = Json.createObjectBuilder()
                                .add("item", item.path().toString());
@@ -881,6 +890,14 @@ public class WorkspaceBindings implements Plugin {
       context.status(400).json(new FormattedError(
           je,
           "Invalid body format. Expected body format is a JSON object with the form:\n\n"+helpText));
+      return;
+    }
+
+    // Ensure that no two inputs will try to write to the same location
+    final var destinationSet = items.stream().map(BulkPostItem::newPath).collect(Collectors.toSet());
+    if(destinationSet.size() != items.size()) {
+      context.status(409).json(new FormattedError(
+          "Multiple entries in 'item' have the same destination location. Use \"renameTo\" to resolve conflicts."));
       return;
     }
 

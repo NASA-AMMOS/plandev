@@ -11,6 +11,7 @@ import gov.nasa.jpl.aerie.workspace.server.types.BulkPutItem;
 import gov.nasa.jpl.aerie.workspace.server.types.PostActions;
 import gov.nasa.jpl.aerie.workspace.server.types.ItemType;
 import gov.nasa.jpl.aerie.workspace.server.types.PostBody;
+import gov.nasa.jpl.aerie.workspace.server.types.BulkPostItem;
 import io.javalin.Javalin;
 import io.javalin.apibuilder.ApiBuilder;
 import io.javalin.http.ContentType;
@@ -806,12 +807,7 @@ public class WorkspaceBindings implements Plugin {
   /**
    * Move or Copy multiple files and/or directories in a workspace.
    *
-   * Input Syntax:
-   * {
-   *   "paths": [ "path/to/file", "path/to/folder", ... ],
-   *   "moveTo": "destination/path" OR "copyTo": "destination/path",
-   *   "toWorkspace": 2
-   * }
+   * See help text for Input Syntax
    *
    * If toWorkspace is provided, move or copy the files to that workspace.
    * Otherwise, move or copy the files within the current workspace.
@@ -823,26 +819,48 @@ public class WorkspaceBindings implements Plugin {
     final var helpText = """
         To Move Items:
         {
-          "paths": [ "path/to/file1.txt", "path/to/file2.txt", "path/to/folder", ... ] // required. list of paths of where each item to be moved is within the workspace
-          "toWorkspace": 2                                                             // optional. if provided, items will be moved to the specified workspace.
-                                                                                       //   defaults to the current workspace.
-          "moveTo": "path/to/destination/folder",                                      // required. path to the folder within the destination workspace where the items will be moved to
-          "overwrite": false                                                           // optional. if provided, determines whether the moved items will overwrite existing items in the destination folder
-                                                                                       //  defaults to "false".
+          "items": [                                    // required. list of items to be moved
+              {
+                "path": "path/to/file1.txt",            // required. path to the item within the workspace
+                "renameTo": "newFileName.txt"           // optional. if provided, the new name of the item at the destination
+                                                        //   defaults to the item's current name (in this example "file1.txt")
+              },
+              { "path": "path/to/file2.txt" },
+              {
+                "path": "path/to/folder",
+                "renameTo": "newFolderName"
+              }, ...
+          ],
+          "toWorkspace": 2,                             // optional. if provided, items will be moved to the specified workspace.
+                                                        //   defaults to the current workspace.
+          "moveTo": "path/to/destination/folder",       // required. path to the folder within the destination workspace where the items will be moved to
+          "overwrite": false                            // optional. if provided, determines whether the moved items will overwrite existing items in the destination folder
+                                                        //   defaults to "false".
         }
 
         To Copy Items:
         {
-          "paths": [ "path/to/file1.txt", "path/to/file2.txt", "path/to/folder", ... ] // required. list of paths of where each item to be copied is within the workspace
-          "toWorkspace": 2                                                             // optional. if provided, items will be copied to the specified workspace.
-                                                                                       //   defaults to the current workspace.
-          "copyTo": "path/to/destination/folder",                                      // required. path to the folder within the destination workspace where the items will be copied to
-          "overwrite": false                                                           // optional. if provided, determines whether the moved items will overwrite existing items in the destination folder
-                                                                                       //  defaults to "false".
+          "items": [                                    // required. list of items to be copied
+              {
+                "path": "path/to/file1.txt",            // required. path to the item within the workspace
+                "renameTo": "newFileName.txt"           // optional. if provided, the new name of the item at the destination
+                                                        //   defaults to the item's current name (in this example "file1.txt")
+              },
+              { "path": "path/to/file2.txt" },
+              {
+                "path": "path/to/folder",
+                "renameTo": "newFolderName"
+              }, ...
+          ],
+          "toWorkspace": 2,                             // optional. if provided, items will be copied to the specified workspace.
+                                                        //   defaults to the current workspace.
+          "copyTo": "path/to/destination/folder",       // required. path to the folder within the destination workspace where the items will be copied to
+          "overwrite": false                            // optional. if provided, determines whether the moved items will overwrite existing items in the destination folder
+                                                        //  defaults to "false".
         }""";
 
     final var sourceWorkspace = Integer.parseInt(context.pathParam("workspaceId"));
-    final List<String> items;
+    final List<BulkPostItem> items;
     final PostBody body;
 
     // Get body
@@ -852,12 +870,13 @@ public class WorkspaceBindings implements Plugin {
 
     try(final var bodyReader = Json.createReader(new StringReader(context.body()))){
       final var jsonBody = bodyReader.readObject();
-      items = jsonBody.getJsonArray("paths").getValuesAs(JsonString::getString);
       body = PostBody.fromJson(jsonBody, sourceWorkspace);
+      items = jsonBody.getJsonArray("items")
+                      .getValuesAs(o -> BulkPostItem.fromJson(o.asJsonObject(), body.destinationPath()));
     } catch (JsonException je) {
       context.status(400).json(new FormattedError(
           je,
-          "Invalid body format. Expected body format is an array of JSON objects with the form:\n\n"+helpText));
+          "Invalid body format. Expected body format is a JSON object with the form:\n\n"+helpText));
       return;
     }
 
@@ -873,7 +892,6 @@ public class WorkspaceBindings implements Plugin {
         }
         final var moveResults = handleBulkMove(
             items,
-            body.destinationPath(),
             sourceWorkspace,
             body.destinationWorkspaceId(),
             body.overwrite());
@@ -887,7 +905,6 @@ public class WorkspaceBindings implements Plugin {
         }
         final var copyResults = handleBulkCopy(
             items,
-            body.destinationPath(),
             sourceWorkspace,
             body.destinationWorkspaceId(),
             body.overwrite());
@@ -898,24 +915,21 @@ public class WorkspaceBindings implements Plugin {
   }
 
   private JsonArray handleBulkMove(
-      List<String> toMove,
-      Path destinationFolder,
+      List<BulkPostItem> toMove,
       int sourceWorkspaceId,
       int destinationWorkspaceId,
       boolean overwrite
   ) throws NoSuchWorkspaceException {
     final var responseArray = Json.createArrayBuilder();
     for(final var item : toMove){
-      final var itemPath = Path.of(item);
-      final var destinationPath = destinationFolder.resolve(itemPath.getFileName());
       final var results = handleMove(
-          itemPath,
-          destinationPath,
+          item.currentLocation(),
+          item.newPath(),
           sourceWorkspaceId,
           destinationWorkspaceId,
           overwrite);
       final var response = Json.createObjectBuilder()
-                               .add("item", item)
+                               .add("item", item.currentLocation().toString())
                                .add("status", results.status)
                                .add("response", results.response);
       responseArray.add(response);
@@ -924,24 +938,21 @@ public class WorkspaceBindings implements Plugin {
   }
 
   private JsonArray handleBulkCopy(
-      List<String> toCopy,
-      Path destinationFolder,
+      List<BulkPostItem> toCopy,
       int sourceWorkspaceId,
       int destinationWorkspaceId,
       boolean overwrite
   ) throws NoSuchWorkspaceException {
     final var responseArray = Json.createArrayBuilder();
     for(final var item : toCopy) {
-      final var itemPath = Path.of(item);
-      final var destinationPath = destinationFolder.resolve(itemPath.getFileName());
       final var results = handleCopy(
-          itemPath,
-          destinationPath,
+          item.currentLocation(),
+          item.newPath(),
           sourceWorkspaceId,
           destinationWorkspaceId,
           overwrite);
       final var response = Json.createObjectBuilder()
-                               .add("item", item)
+                               .add("item", item.currentLocation().toString())
                                .add("status", results.status)
                                .add("response", results.response);
       responseArray.add(response);

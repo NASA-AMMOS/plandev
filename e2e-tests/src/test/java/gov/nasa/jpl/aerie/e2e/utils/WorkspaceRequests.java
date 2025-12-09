@@ -255,9 +255,9 @@ public class WorkspaceRequests implements AutoCloseable {
     // Generate the request body
     final var body = Json.createObjectBuilder().add("moveTo", destination.toString());
 
-    final var pathsArray = Json.createArrayBuilder();
-    paths.forEach(p -> pathsArray.add(p.toString()));
-    body.add("paths", pathsArray);
+    final var itemsArray = Json.createArrayBuilder();
+    paths.forEach(p -> itemsArray.add(Json.createObjectBuilder().add("path", p.toString())));
+    body.add("items", itemsArray);
 
     destinationWorkspaceId.ifPresent(wid -> body.add("toWorkspace", wid));
 
@@ -294,9 +294,9 @@ public class WorkspaceRequests implements AutoCloseable {
     // Generate the request body
     final var body = Json.createObjectBuilder().add("copyTo", destination.toString());
 
-    final var pathsArray = Json.createArrayBuilder();
-    paths.forEach(p -> pathsArray.add(p.toString()));
-    body.add("paths", pathsArray);
+    final var itemsArray = Json.createArrayBuilder();
+    paths.forEach(p -> itemsArray.add(Json.createObjectBuilder().add("path", p.toString())));
+    body.add("items", itemsArray);
 
     destinationWorkspaceId.ifPresent(wid -> body.add("toWorkspace", wid));
 

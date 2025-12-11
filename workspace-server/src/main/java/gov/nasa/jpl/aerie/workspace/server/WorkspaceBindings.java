@@ -908,6 +908,15 @@ public class WorkspaceBindings implements Plugin {
       return;
     }
 
+    // Ensure that the user has specified at least one item to alter
+    if(items.isEmpty()) {
+      context.status(400).json(new FormattedError(
+          "MALFORMED_REQUEST",
+          "Cannot process request: at least one item must be specified.",
+          Optional.empty()));
+      return;
+    }
+
     // Ensure that no two inputs will try to write to the same location
     final var destinationSet = items.stream().map(BulkPostItem::newPath).collect(Collectors.toSet());
     if(destinationSet.size() != items.size()) {

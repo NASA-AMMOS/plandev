@@ -1947,17 +1947,20 @@ public class BindingsTests {
             // Check the PUT response
             assertEquals(200, actual.getInt("status"));
             assertEquals(expected.getPath().toString(), actual.getString("item"));
-            if (expected instanceof BulkPutItem.FileBulkPutItem) {
+            if (expected instanceof BulkPutItem.FileBulkPutItem file) {
               assertEquals(
                   "File " + expected.getPath().getFileName() + " uploaded to " + expected.getPath(),
-                  actual.getString("result"));
+                  actual.getString("response"));
+              // Check that file was uploaded with the correct contents
+              final var getResp = wsServer.get(ownerToken, workspaceId, expected.getPath());
+              assertEquals(200, getResp.status());
+              assertEquals(file.fileContents(), getResp.text());
             } else {
-              assertEquals("Directory created.", actual.getString("result"));
+              assertEquals("Directory created.", actual.getString("response"));
+              // Simple check that the item was actually uploaded -- does not check directory contents
+              final var getResp = wsServer.get(ownerToken, workspaceId, expected.getPath());
+              assertEquals(200, getResp.status());
             }
-
-            // Simple check that the item was actually uploaded -- does not check item contents
-            final var getResp = wsServer.get(ownerToken, workspaceId, expected.getPath());
-            assertEquals(200, getResp.status());
           }
         }
 
@@ -1984,6 +1987,497 @@ public class BindingsTests {
                   "Mixed Files and Directories Bulk PUT",
                   List.of(myDirInput, folderDirInput, myFileInput, secondFileInput)))
           );
+        }
+
+        /**
+         * When only one item upload fails, the overall status is 207, the successful items have a status of 200,
+         * and the unsuccessful items have an appropriate error status.
+         */
+        @Test
+        void mixedResults() {
+          // Setup: upload a conflicting file using the non-bulk endpoint
+          final var putResp = wsServer.putFile(ownerToken, workspaceId, Path.of("file.txt"), "original file contents");
+          assertEquals(200, putResp.status());
+
+          // Upload a list of items, including one conflict
+          final List<BulkPutItem> toUpload = List.of(
+              new BulkPutItem.FileBulkPutItem(Path.of("file.txt"), "conflicting file"),
+              new BulkPutItem.DirectoryBulkPutItem(Path.of("myDir")),
+              new BulkPutItem.FileBulkPutItem(
+                  Path.of("myDir/file.txt"),
+                  "file with same name in another folder",
+                  "otherFile.txt"));
+
+          final var resp = wsServer.bulkPut(ownerToken, workspaceId, toUpload);
+
+          // Check Response
+          assertEquals(207, resp.status());
+          final var respBody = getArrayBody(resp);
+          assertEquals(3, respBody.size());
+
+          // First item should be the conflicted file with a 409 Conflicted
+          final var conflictFile = respBody.getFirst().asJsonObject();
+          assertEquals("file.txt", conflictFile.getString("item"));
+          assertEquals(409, conflictFile.getInt("status"));
+          assertEquals("original file contents", wsServer.get(ownerToken, workspaceId, Path.of("file.txt")).text());
+
+          // Second item should be the unconflicted directory
+          final var dir = respBody.get(1).asJsonObject();
+          assertEquals("myDir", dir.getString("item"));
+          assertEquals(200, dir.getInt("status"));
+          assertEquals(
+              "[{\"name\":\"file.txt\",\"type\":\"TEXT\"}]",
+              wsServer.get(ownerToken, workspaceId, Path.of("myDir")).text());
+
+          // Third item should be the unconflicted file
+          final var otherFile = respBody.getLast().asJsonObject();
+          assertEquals("myDir/file.txt", otherFile.getString("item"));
+          assertEquals(200, otherFile.getInt("status"));
+          assertEquals(
+              "file with same name in another folder",
+              wsServer.get(ownerToken, workspaceId, Path.of("myDir/file.txt")).text());
+        }
+
+        /**
+         * File contents can be attached under a name other than the file's uploaded name using the input_file_name field
+         */
+        @Test
+        void customInputName() {
+          // Upload two items with the same name to different folders.
+          final List<BulkPutItem> toUpload = List.of(
+              new BulkPutItem.FileBulkPutItem(Path.of("file.txt"), "file in one folder"),
+              new BulkPutItem.FileBulkPutItem(
+                  Path.of("myDir/file.txt"),
+                  "file with same name in another folder",
+                  "otherFile.txt"));
+
+          final var resp = wsServer.bulkPut(ownerToken, workspaceId, toUpload);
+
+          // Check Response
+          assertEquals(207, resp.status());
+          final var respBody = getArrayBody(resp);
+          assertEquals(toUpload.size(), respBody.size());
+
+          for (int i = 0; i < respBody.size(); ++i) {
+            final var expected = toUpload.get(i);
+            final var actual = respBody.get(i).asJsonObject();
+
+            // Check the PUT response
+            assertEquals(200, actual.getInt("status"));
+            assertEquals(expected.getPath().toString(), actual.getString("item"));
+            if (expected instanceof BulkPutItem.FileBulkPutItem file) {
+              assertEquals(
+                  "File " + expected.getPath().getFileName() + " uploaded to " + expected.getPath(),
+                  actual.getString("response"));
+              // Check that file was uploaded with the correct contents
+              final var getResp = wsServer.get(ownerToken, workspaceId, expected.getPath());
+              assertEquals(200, getResp.status());
+              assertEquals(file.fileContents(), getResp.text());
+            } else {
+              fail();
+            }
+          }
+        }
+
+        /**
+         * File contents can be attached under a name other than the file's uploaded name using the input_file_name field
+         */
+        @Test
+        void bulkUploadCreate() {
+          // Upload a list of items, including one conflict
+          final List<BulkPutItem> toUpload = List.of(
+              new BulkPutItem.FileBulkPutItem(Path.of("file.txt"), "file in one folder"),
+              new BulkPutItem.FileBulkPutItem(
+                  Path.of("myDir/file.txt"),
+                  "file with same name in another folder",
+                  "otherFile.txt"));
+
+          final var resp = wsServer.bulkPut(ownerToken, workspaceId, toUpload);
+
+          // Check Response
+          assertEquals(207, resp.status());
+          final var respBody = getArrayBody(resp);
+          assertEquals(toUpload.size(), respBody.size());
+
+          for (int i = 0; i < respBody.size(); ++i) {
+            final var expected = toUpload.get(i);
+            final var actual = respBody.get(i).asJsonObject();
+
+            // Check the PUT response
+            assertEquals(200, actual.getInt("status"));
+            assertEquals(expected.getPath().toString(), actual.getString("item"));
+            if (expected instanceof BulkPutItem.FileBulkPutItem file) {
+              assertEquals(
+                  "File " + expected.getPath().getFileName() + " uploaded to " + expected.getPath(),
+                  actual.getString("response"));
+              // Check that file was uploaded with the correct contents
+              final var getResp = wsServer.get(ownerToken, workspaceId, expected.getPath());
+              assertEquals(200, getResp.status());
+              assertEquals(file.fileContents(), getResp.text());
+            } else {
+              fail();
+            }
+          }
+        }
+
+        @Nested
+        class MalformedRequest {
+          private final static String endpoint = "/ws/bulk/%d";
+
+          /**
+           * A PUT request with no "body" component fails with a 400
+           */
+          @Test
+          void noBodyRejected() {
+            final var formData = FormData.create();
+            final var fileContents = new FilePayload(
+                "myFile.txt",
+                "text/plain",
+                "example file contents".getBytes(StandardCharsets.UTF_8));
+
+            // Generate the request
+            final var options = RequestOptions
+                .create()
+                .setHeader("Authorization", "Bearer "+ownerToken)
+                .setMultipart(formData.set("files", fileContents));
+
+            final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.PUT);
+            assertEquals(400, resp.status());
+            final var respBody = getBody(resp);
+            assertEquals("MALFORMED_REQUEST", respBody.getString("type"));
+            assertEquals("Invalid body format.", respBody.getString("message"));
+          }
+
+          /**
+           * A PUT request attempting to upload files must include a "files" component
+           */
+          @Test
+          void noFilesFileUploadRejected() {
+            final BulkPutItem fileUpload = new BulkPutItem.FileBulkPutItem(Path.of("file.txt"), "file contents");
+            final var formData = FormData.create();
+
+            // Generate the request
+            final var options = RequestOptions
+                .create()
+                .setHeader("Authorization", "Bearer "+ownerToken)
+                .setMultipart(formData.set("body", Json.createArrayBuilder().add(fileUpload.toJson()).build().toString()));
+
+            final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.PUT);
+            assertEquals(207, resp.status());
+            final var fileResp = getArrayBody(resp).getFirst().asJsonObject();
+            assertEquals("file.txt", fileResp.getString("item"));
+            assertEquals(400, fileResp.getInt("status"));
+
+            final var fileError = fileResp.getJsonObject("response");
+            assertEquals("MALFORMED_REQUEST", fileError.getString("type"));
+            assertEquals("No file provided with the name file.txt", fileError.getString("message"));
+            assertEquals("Attach file contents under the 'files' part of the request.", fileError.getString("cause"));
+
+            assertEquals(404, wsServer.get(ownerToken, workspaceId, fileUpload.getPath()).status());
+          }
+
+          /**
+           * If multiple files are attached under the same name, the request is rejected.
+           */
+          @Test
+          void attachedFileNameConflictRejected() {
+            final List<BulkPutItem> toUpload = List.of(
+                new BulkPutItem.FileBulkPutItem(Path.of("file.txt"), "file in one folder"),
+                new BulkPutItem.FileBulkPutItem(Path.of("myDir/file.txt"), "file with same name in another folder"));
+
+            final var resp = wsServer.bulkPut(ownerToken, workspaceId, toUpload);
+
+            // Check Response
+            assertEquals(400, resp.status());
+            final var body = getBody(resp);
+            assertEquals("MALFORMED_REQUEST", body.getString("type"));
+            assertEquals("Cannot process request: multiple files are attached under the same name.", body.getString("message"));
+
+            // Check that no files were actually uploaded
+            for(final var item : toUpload) {
+              assertEquals(404, wsServer.get(ownerToken, workspaceId, item.getPath()).status());
+            }
+          }
+
+          /**
+           * Reject the request if multiple files are trying to be uploaded to the same location.
+           */
+          @ParameterizedTest
+          @MethodSource("multipleItemsSameLocationArgs")
+          void twoItemsToSameLocationRejected(List<BulkPutItem> toUpload) {
+            final var resp = wsServer.bulkPut(ownerToken, workspaceId, toUpload);
+
+            // Check Response
+            assertEquals(409, resp.status());
+            final var body = getBody(resp);
+            assertEquals("MALFORMED_REQUEST", body.getString("type"));
+            assertEquals("Multiple items are attempting to be uploaded to the same location. Please give all items unique names.", body.getString("message"));
+
+            // Check that no items were actually created
+            for(final var item : toUpload) {
+              assertEquals(404, wsServer.get(ownerToken, workspaceId, item.getPath()).status());
+            }
+          }
+
+          private static Stream<Arguments> multipleItemsSameLocationArgs() {
+            final var fileName = Path.of("file.txt");
+            final var dirName = Path.of("myDir");
+            final List<BulkPutItem> fileExample = List.of(
+                new BulkPutItem.FileBulkPutItem(fileName, "file in one folder"),
+                new BulkPutItem.FileBulkPutItem(fileName, "file with same name", "otherFile.txt"));
+
+            final List<BulkPutItem> dirExample = List.of(
+                new BulkPutItem.DirectoryBulkPutItem(dirName, true),
+                new BulkPutItem.DirectoryBulkPutItem(dirName));
+
+            final List<BulkPutItem> mixedExample = List.of(
+                new BulkPutItem.DirectoryBulkPutItem(dirName),
+                new BulkPutItem.FileBulkPutItem(dirName, "file with directory name"));
+
+            final List<BulkPutItem> nestedExample = List.of(
+                new BulkPutItem.FileBulkPutItem(dirName.resolve(fileName), "file in one folder"),
+                new BulkPutItem.FileBulkPutItem(dirName.resolve(fileName), "file with same name", "otherFile.txt"));
+
+            return Stream.of(
+                Arguments.arguments(named("Two Files", fileExample)),
+                Arguments.arguments(named("Two Directories", dirExample)),
+                Arguments.arguments(named("File and Directory", mixedExample)),
+                Arguments.arguments(named("Two Files in a Directory", nestedExample)));
+          }
+
+          /**
+           * The input must be a multipart/form-data, even when just creating multiple directories
+           */
+          @Test
+          void nonMultipartFails() {
+            final BulkPutItem directoryUpload = new BulkPutItem.DirectoryBulkPutItem(Path.of("myDir"));
+            final var options = RequestOptions
+                .create()
+                .setHeader("Authorization", "Bearer "+ownerToken)
+                .setHeader("content-type", "application/json")
+                .setData(Json.createArrayBuilder().add(directoryUpload.toJson()).build().toString());
+
+            final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.PUT);
+            assertEquals(400, resp.status());
+            final var respBody = getBody(resp);
+            assertEquals("MALFORMED_REQUEST", respBody.getString("type"));
+            assertEquals("Invalid body format.", respBody.getString("message"));
+
+            assertEquals(404, wsServer.get(ownerToken, workspaceId, directoryUpload.getPath()).status());
+          }
+
+          /**
+           * The "body" part of the request must be a JSON
+           */
+          @Test
+          void nonJSONBodyRejected() {
+            final var options = RequestOptions
+                .create()
+                .setHeader("Authorization", "Bearer "+ownerToken)
+                .setMultipart(FormData.create().set("body", "make a new folder please"));
+
+            final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.PUT);
+            assertEquals(400, resp.status());
+            final var respBody = getBody(resp);
+            assertEquals("JSON_PARSING_EXCEPTION", respBody.getString("type"));
+            assertTrue(respBody.getString("message").startsWith("Invalid body format. Expected body format is an array of JSON objects with the form:"));
+          }
+
+          /**
+           * Directories can't have custom input names.
+           */
+          @Test
+          void customInputNameDisallowedDirectory() {
+            final var dirInput = Json.createObjectBuilder()
+                                     .add("path", "myDir")
+                                     .add("type", "directory")
+                                     .add("input_file_name", "otherDir")
+                                     .build();
+
+            final var options = RequestOptions
+                .create()
+                .setHeader("Authorization", "Bearer " + ownerToken)
+                .setMultipart(FormData.create().set("body", dirInput.toString()));
+
+            final var resp = wsServer.makeRequest(
+                endpoint.formatted(workspaceId),
+                options,
+                WorkspaceRequests.RequestType.PUT);
+            assertEquals(400, resp.status());
+            final var respBody = getBody(resp);
+            assertEquals("JSON_PARSING_EXCEPTION", respBody.getString("type"));
+            assertTrue(respBody
+                           .getString("message")
+                           .startsWith(
+                               "Invalid body format. Expected body format is an array of JSON objects with the form:"));
+          }
+
+          /**
+           * The "files" part of the request, if provided, must contain files.
+           */
+          @Test
+          void bodyInFilesRejected() {
+            final BulkPutItem fileUpload = new BulkPutItem.FileBulkPutItem(Path.of("file.txt"), "file contents");
+            final var body = Json.createArrayBuilder().add(fileUpload.toJson()).build().toString();
+            final var formData = FormData.create();
+
+            // Generate the request
+            final var options = RequestOptions
+                .create()
+                .setHeader("Authorization", "Bearer "+ownerToken)
+                .setMultipart(formData.set("body", body).set("files", body));
+
+            final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.PUT);
+            assertEquals(207, resp.status());
+            final var fileResp = getArrayBody(resp).getFirst().asJsonObject();
+            assertEquals("file.txt", fileResp.getString("item"));
+            assertEquals(400, fileResp.getInt("status"));
+
+            final var fileError = fileResp.getJsonObject("response");
+            assertEquals("MALFORMED_REQUEST", fileError.getString("type"));
+            assertEquals("No file provided with the name file.txt", fileError.getString("message"));
+            assertEquals("Attach file contents under the 'files' part of the request.", fileError.getString("cause"));
+
+            assertEquals(404, wsServer.get(ownerToken, workspaceId, fileUpload.getPath()).status());
+          }
+
+          /**
+           * The PUT request must specify items to upload
+           */
+          @Test
+          void emptyBodyRejected() {
+            final var options = RequestOptions
+                .create()
+                .setHeader("Authorization", "Bearer "+ownerToken)
+                .setMultipart(FormData.create().set("body", "[]"));
+
+            final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.PUT);
+            assertEquals(400, resp.status());
+            final var respBody = getBody(resp);
+            assertEquals("MALFORMED_REQUEST", respBody.getString("type"));
+            assertEquals("Cannot process request: at least one item must be specified.", respBody.getString("message"));
+          }
+        }
+
+        @Nested
+        class Overwrite {
+          @BeforeEach
+          void beforeEach() {
+            wsServer.putFile(ownerToken, workspaceId, Path.of("myFile.txt"), "original file contents");
+          }
+
+          /**
+           * Directories can't use the overwrite flag.
+           */
+          @Test
+          void overwriteDisallowedDirectory() {
+            final var dirInput = Json.createObjectBuilder()
+                                     .add("path", "myDir")
+                                     .add("type", "directory")
+                                     .add("overwrite", true)
+                                     .build();
+
+            final var options = RequestOptions
+                .create()
+                .setHeader("Authorization", "Bearer " + ownerToken)
+                .setMultipart(FormData.create().set("body", dirInput.toString()));
+
+            final var resp = wsServer.makeRequest(
+                "/ws/bulk/%d".formatted(workspaceId),
+                options,
+                WorkspaceRequests.RequestType.PUT);
+            assertEquals(400, resp.status());
+            final var respBody = getBody(resp);
+            assertEquals("JSON_PARSING_EXCEPTION", respBody.getString("type"));
+            assertTrue(respBody
+                           .getString("message")
+                           .startsWith(
+                               "Invalid body format. Expected body format is an array of JSON objects with the form:"));
+          }
+
+          /**
+           * When the "overwrite" flag is not set, it defaults to false
+           */
+          @Test
+          void overwriteUnset() {
+            final BulkPutItem fileUpload = new BulkPutItem.FileBulkPutItem(
+                Path.of("myFile.txt"),
+                "new file contents"
+            );
+
+            // The overall response was a 207 Multipart
+            final var resp = wsServer.bulkPut(ownerToken, workspaceId, List.of(fileUpload));
+            assertEquals(207, resp.status());
+            final var body = getArrayBody(resp);
+            assertEquals(1, body.size());
+
+            // The item's specific response was a 409
+            final var item = body.getFirst().asJsonObject();
+            final var itemResp = item.getJsonObject("response");
+            assertEquals("myFile.txt", item.getString("item"));
+            assertEquals(409, item.getInt("status"));
+            assertEquals("INTERNAL_ERROR", itemResp.getString("type"));
+            assertEquals("myFile.txt already exists.", itemResp.getString("message"));
+
+            // The file's contents were NOT overwritten
+            assertEquals("original file contents", wsServer.get(ownerToken, workspaceId, Path.of("myFile.txt")).text());
+          }
+
+          /**
+           * When the "overwrite" flag is set to false, the server will not upload a file if it already exists
+           */
+          @Test
+          void overwriteFalse() {
+            final BulkPutItem fileUpload = new BulkPutItem.FileBulkPutItem(
+                Path.of("myFile.txt"),
+                "new file contents",
+                false
+            );
+
+            // The overall response was a 207 Multipart
+            final var resp = wsServer.bulkPut(ownerToken, workspaceId, List.of(fileUpload));
+            assertEquals(207, resp.status());
+            final var body = getArrayBody(resp);
+            assertEquals(1, body.size());
+
+            // The item's specific response was a 409
+            final var item = body.getFirst().asJsonObject();
+            final var itemResp = item.getJsonObject("response");
+            assertEquals("myFile.txt", item.getString("item"));
+            assertEquals(409, item.getInt("status"));
+            assertEquals("INTERNAL_ERROR", itemResp.getString("type"));
+            assertEquals("myFile.txt already exists.", itemResp.getString("message"));
+
+            // The file's contents were NOT overwritten
+            assertEquals("original file contents", wsServer.get(ownerToken, workspaceId, Path.of("myFile.txt")).text());
+          }
+
+          /**
+           * When the "overwrite" flag is set to true, the server will overwrite a file if it is present
+           */
+          @Test
+          void overwriteTrue() {
+            final BulkPutItem fileUpload = new BulkPutItem.FileBulkPutItem(
+                Path.of("myFile.txt"),
+                "new file contents",
+                true
+            );
+
+            // The overall response was a 207 Multipart
+            final var resp = wsServer.bulkPut(ownerToken, workspaceId, List.of(fileUpload));
+            assertEquals(207, resp.status());
+            final var body = getArrayBody(resp);
+            assertEquals(1, body.size());
+
+            // The item's specific response was a 200
+            final var item = body.getFirst().asJsonObject();
+            assertEquals("myFile.txt", item.getString("item"));
+            assertEquals(200, item.getInt("status"));
+            assertEquals("File myFile.txt uploaded to myFile.txt", item.getString("response"));
+
+            // The file's contents were overwritten
+            assertEquals("new file contents", wsServer.get(ownerToken, workspaceId, Path.of("myFile.txt")).text());
+          }
         }
       }
 
@@ -2247,6 +2741,88 @@ public class BindingsTests {
                   "Mixed Files and Directories Bulk POST",
                   List.of(topFileInput, nestedFileInput, nestedDirInput, topDirInput)))
           );
+        }
+
+        /**
+         * When only one item move fails, the overall status is 207, the successful items have a status of 200,
+         * and the unsuccessful items have an appropriate error status.
+         */
+        @Test
+        void mixedResultsMove() {
+          final var resp = wsServer.bulkMove(
+              ownerToken,
+              workspaceId,
+              List.of(Path.of("fake_file.seq"), Path.of("top_file.txt"), Path.of("other_dir")),
+              Path.of("top_dir/other_nested_dir"),
+              Optional.empty(),
+              Optional.empty());
+
+          // Check Response
+          assertEquals(207, resp.status());
+          final var respBody = getArrayBody(resp);
+          assertEquals(3, respBody.size());
+
+          // First item should be the nonexistant file with a 404 File Not Found
+          final var fakeFile = respBody.getFirst().asJsonObject();
+          assertEquals("fake_file.seq", fakeFile.getString("item"));
+          assertEquals(404, fakeFile.getInt("status"));
+
+          // Second item should be the file that exists
+          final var realFile = respBody.get(1).asJsonObject();
+          assertEquals("top_file.txt", realFile.getString("item"));
+          assertEquals(200, realFile.getInt("status"));
+          // Check the item was moved
+          assertEquals(404, wsServer.get(ownerToken, workspaceId, Path.of("top_file.txt")).status());
+          assertEquals(200, wsServer.get(ownerToken, workspaceId, Path.of("top_dir/other_nested_dir/top_file.txt")).status());
+
+          // Third item should be the directory that exists
+          final var otherFile = respBody.getLast().asJsonObject();
+          assertEquals("other_dir", otherFile.getString("item"));
+          assertEquals(200, otherFile.getInt("status"));
+          // Check the item was moved
+          assertEquals(404, wsServer.get(ownerToken, workspaceId, Path.of("other_dir")).status());
+          assertEquals(200, wsServer.get(ownerToken, workspaceId, Path.of("top_dir/other_nested_dir/other_dir")).status());
+        }
+
+        /**
+         * When only one item copy fails, the overall status is 207, the successful items have a status of 200,
+         * and the unsuccessful items have an appropriate error status.
+         */
+        @Test
+        void mixedResultsCopy() {
+          final var resp = wsServer.bulkCopy(
+              ownerToken,
+              workspaceId,
+              List.of(Path.of("fake_file.seq"), Path.of("top_file.txt"), Path.of("other_dir")),
+              Path.of("top_dir/other_nested_dir"),
+              Optional.empty(),
+              Optional.empty());
+
+          // Check Response
+          assertEquals(207, resp.status());
+          final var respBody = getArrayBody(resp);
+          assertEquals(3, respBody.size());
+
+          // First item should be the nonexistant file with a 404 File Not Found
+          final var fakeFile = respBody.getFirst().asJsonObject();
+          assertEquals("fake_file.seq", fakeFile.getString("item"));
+          assertEquals(404, fakeFile.getInt("status"));
+
+          // Second item should be the file that exists
+          final var realFile = respBody.get(1).asJsonObject();
+          assertEquals("top_file.txt", realFile.getString("item"));
+          assertEquals(200, realFile.getInt("status"));
+          // Check the item was copied
+          assertEquals(200, wsServer.get(ownerToken, workspaceId, Path.of("top_file.txt")).status());
+          assertEquals(200, wsServer.get(ownerToken, workspaceId, Path.of("top_dir/other_nested_dir/top_file.txt")).status());
+
+          // Third item should be the directory that exists
+          final var otherFile = respBody.getLast().asJsonObject();
+          assertEquals("other_dir", otherFile.getString("item"));
+          assertEquals(200, otherFile.getInt("status"));
+          // Check the item was copied
+          assertEquals(200, wsServer.get(ownerToken, workspaceId, Path.of("other_dir")).status());
+          assertEquals(200, wsServer.get(ownerToken, workspaceId, Path.of("top_dir/other_nested_dir/other_dir")).status());
         }
 
         @Nested
@@ -2678,6 +3254,133 @@ public class BindingsTests {
             }
           }
         }
+
+        @Nested
+        class MalformedRequest {
+          private static final String endpoint = "/ws/bulk/%d";
+
+          @Test
+          void noBody() {
+            final var options = RequestOptions
+                .create()
+                .setHeader("Authorization", "Bearer "+ownerToken)
+                .setHeader("Content-type", "application/json");
+
+            final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.POST);
+            assertEquals(400, resp.status());
+            final var body = getBody(resp);
+            assertEquals("JSON_PARSING_EXCEPTION", body.getString("type"));
+            assertTrue(body.getString("message").startsWith("Invalid body format. Expected body format is a JSON object with the form:"));
+          }
+
+          @Test
+          void nonJsonBody() {
+            final var options = RequestOptions
+                .create()
+                .setHeader("Authorization", "Bearer "+ownerToken)
+                .setHeader("Content-type", "text/plain")
+                .setData("Delete some file please");
+
+            final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.POST);
+            assertEquals(400, resp.status());
+            final var body = getBody(resp);
+            assertEquals("MALFORMED_REQUEST", body.getString("type"));
+            assertEquals("Body must be type application/json", body.getString("message"));
+          }
+
+          @Test
+          void incorrectContentTypeHeader() {
+            final var options = RequestOptions
+                .create()
+                .setHeader("Authorization", "Bearer "+ownerToken)
+                .setHeader("Content-type", "application/octet-stream")
+                .setData("{}");
+
+            final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.POST);
+            assertEquals(400, resp.status());
+            final var body = getBody(resp);
+            assertEquals("MALFORMED_REQUEST", body.getString("type"));
+            assertEquals("Body must be type application/json", body.getString("message"));
+          }
+
+          @Test
+          void emptyBody() {
+            final var options = RequestOptions
+                .create()
+                .setHeader("Authorization", "Bearer "+ownerToken)
+                .setHeader("Content-type", "application/json")
+                .setData("{}");
+
+            final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.POST);
+            assertEquals(400, resp.status());
+            final var body = getBody(resp);
+            assertEquals("JSON_PARSING_EXCEPTION", body.getString("type"));
+            assertTrue(body.getString("message").startsWith("Invalid body format. Expected body format is a JSON object with the form:"));
+          }
+
+          @Test
+          void emptyItemsArray() {
+            final var options = RequestOptions
+                .create()
+                .setHeader("Authorization", "Bearer "+ownerToken)
+                .setHeader("Content-type", "application/json")
+                .setData("{\"items\": [], \"moveTo\": \".\"}");
+
+            final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.POST);
+            assertEquals(400, resp.status());
+            final var body = getBody(resp);
+            assertEquals("MALFORMED_REQUEST", body.getString("type"));
+            assertEquals("Cannot process request: at least one item must be specified.", body.getString("message"));
+          }
+
+          @Test
+          void bothMoveAndCopy() {
+            final var options = RequestOptions
+                .create()
+                .setHeader("Authorization", "Bearer "+ownerToken)
+                .setHeader("Content-type", "application/json")
+                .setData("{\"items\": [{\"path\": \"top_file.txt\"}], \"moveTo\": \".\", \"copyTo\": \".\"}");
+
+            final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.POST);
+            assertEquals(400, resp.status());
+            final var body = getBody(resp);
+            assertEquals("JSON_PARSING_EXCEPTION", body.getString("type"));
+            assertTrue(body.getString("message").startsWith("Invalid body format. Expected body format is a JSON object with the form:"));
+          }
+
+          /**
+           * One of "copyTo" or "moveTo" must be specified
+           */
+          @Test
+          void noPostTypeSpecified() {
+            final var options = RequestOptions
+                .create()
+                .setHeader("Authorization", "Bearer "+ownerToken)
+                .setHeader("Content-type", "application/json")
+                .setData("{\"items\": [{\"path\": \"top_file.txt\"}]");
+
+            final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.POST);
+            assertEquals(400, resp.status());
+            final var body = getBody(resp);
+            assertEquals("JSON_PARSING_EXCEPTION", body.getString("type"));
+            assertTrue(body.getString("message").startsWith("Invalid body format. Expected body format is a JSON object with the form:"));
+          }
+
+          @Test
+          void invalidPostType() {
+            final var options = RequestOptions
+                .create()
+                .setHeader("Authorization", "Bearer "+ownerToken)
+                .setHeader("Content-type", "application/json")
+                .setData("{\"items\": [{\"path\": \"top_file.txt\"}], \"move\": \".\"}");
+
+            final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.POST);
+            assertEquals(400, resp.status());
+            final var body = getBody(resp);
+            assertEquals("JSON_PARSING_EXCEPTION", body.getString("type"));
+            assertTrue(body.getString("message").startsWith("Invalid body format. Expected body format is a JSON object with the form:"));
+          }
+        }
       }
 
       @Nested
@@ -2765,6 +3468,104 @@ public class BindingsTests {
                   "Mixed Files and Directories Bulk DELETE",
                   List.of(topFileInput, nestedFileInput, nestedDirInput, topDirInput)))
           );
+        }
+
+        /**
+         * When only one item delete fails, the overall status is 207, the successful items have a status of 200,
+         * and the unsuccessful items have an appropriate error status.
+         */
+        @Test
+        void mixedResults() {
+          final var resp = wsServer.bulkDelete(
+              ownerToken,
+              workspaceId,
+              List.of(Path.of("fake_file.seq"), Path.of("top_file.txt"), Path.of("other_dir")));
+
+          // Check Response
+          assertEquals(207, resp.status());
+          final var respBody = getArrayBody(resp);
+          assertEquals(3, respBody.size());
+
+          // First item should be the nonexistant file with a 404 File Not Found
+          final var fakeFile = respBody.getFirst().asJsonObject();
+          assertEquals("fake_file.seq", fakeFile.getString("item"));
+          assertEquals(404, fakeFile.getInt("status"));
+
+          // Second item should be the file that exists
+          final var realFile = respBody.get(1).asJsonObject();
+          assertEquals("top_file.txt", realFile.getString("item"));
+          assertEquals(200, realFile.getInt("status"));
+          assertEquals(404, wsServer.get(ownerToken, workspaceId, Path.of("top_file.txt")).status());
+
+          // Third item should be the directory that exists
+          final var otherFile = respBody.getLast().asJsonObject();
+          assertEquals("other_dir", otherFile.getString("item"));
+          assertEquals(200, otherFile.getInt("status"));
+          assertEquals(404, wsServer.get(ownerToken, workspaceId, Path.of("other_dir")).status());
+        }
+
+        @Nested
+        class MalformedRequest {
+          private static final String endpoint = "/ws/bulk/%d";
+
+          @Test
+          void noBody() {
+            final var options = RequestOptions
+                .create()
+                .setHeader("Authorization", "Bearer "+ownerToken)
+                .setHeader("Content-type", "application/json");
+
+            final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.DELETE);
+            assertEquals(400, resp.status());
+            final var body = getBody(resp);
+            assertEquals("JSON_PARSING_EXCEPTION", body.getString("type"));
+            assertEquals("Invalid body format. Expected body format is an array of paths.", body.getString("message"));
+          }
+
+          @Test
+          void nonJsonBody() {
+            final var options = RequestOptions
+                .create()
+                .setHeader("Authorization", "Bearer "+ownerToken)
+                .setHeader("Content-type", "text/plain")
+                .setData("Delete some file please");
+
+            final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.DELETE);
+            assertEquals(400, resp.status());
+            final var body = getBody(resp);
+            assertEquals("MALFORMED_REQUEST", body.getString("type"));
+            assertEquals("Body must be type application/json", body.getString("message"));
+          }
+
+          @Test
+          void incorrectContentTypeHeader() {
+            final var options = RequestOptions
+                .create()
+                .setHeader("Authorization", "Bearer "+ownerToken)
+                .setHeader("Content-type", "application/octet-stream")
+                .setData("[\"top-file.txt\"]");
+
+            final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.DELETE);
+            assertEquals(400, resp.status());
+            final var body = getBody(resp);
+            assertEquals("MALFORMED_REQUEST", body.getString("type"));
+            assertEquals("Body must be type application/json", body.getString("message"));
+          }
+
+          @Test
+          void emptyBodyArray() {
+            final var options = RequestOptions
+                .create()
+                .setHeader("Authorization", "Bearer "+ownerToken)
+                .setHeader("Content-type", "application/json")
+                .setData("[]");
+
+            final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.DELETE);
+            assertEquals(400, resp.status());
+            final var body = getBody(resp);
+            assertEquals("MALFORMED_REQUEST", body.getString("type"));
+            assertEquals("Cannot process request: at least one item must be specified.", body.getString("message"));
+          }
         }
       }
     }

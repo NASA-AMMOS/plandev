@@ -706,11 +706,13 @@ public class WorkspaceBindings implements Plugin {
 
     // Get body
     if(!context.isMultipartFormData() || context.formParam("body") == null) {
-      context.status(400).json(new FormattedError("Invalid body format.",
-                                                  """
-                                                  Expected body format is a multipart/form with two fields:
-                                                    "body", which contains the list of JSON objects describing where to put each file and directory
-                                                    "files", which contains all uploaded file contents"""));
+      context.status(400).json(new FormattedError(
+          "MALFORMED_REQUEST",
+          "Invalid body format.",
+          Optional.of("""
+                      Expected body format is a multipart/form with two fields:
+                      "body", which contains the list of JSON objects describing where to put each file and directory
+                      "files", which contains all uploaded file contents""")));
       return;
     }
     try(final var bodyReader = Json.createReader(new StringReader(context.formParam("body")))){
@@ -724,7 +726,10 @@ public class WorkspaceBindings implements Plugin {
 
     // Ensure that the user has specified at least one file or directory to upload
     if(toUpload.isEmpty()) {
-      context.status(400).json(new FormattedError("Cannot process request: at least one item must be specified."));
+      context.status(400).json(new FormattedError(
+          "MALFORMED_REQUEST",
+          "Cannot process request: at least one item must be specified.",
+          Optional.empty()));
       return;
     }
 
@@ -740,22 +745,25 @@ public class WorkspaceBindings implements Plugin {
 
     // Check that files all had unique upload names:
     if(fileList.size() != fileMap.size()) {
-      context.status(400).json(new FormattedError("Cannot process request: multiple files are attached under the same name.",
-                                                  "Attach file contents under unique names.\n\n" +helpText));
+      context.status(400).json(new FormattedError(
+          "MALFORMED_REQUEST",
+          "Cannot process request: multiple files are attached under the same name.",
+          Optional.of("Attach file contents under unique names.\n\n" +helpText)));
       return;
     }
 
-
-    // Create all specified object:
-    final var responseArray = Json.createArrayBuilder();
-
+    // Check that no two items are trying to be uploaded to the same location
     final var destinationSet = toUpload.stream().map(BulkPutItem::path).collect(Collectors.toSet());
     if(destinationSet.size() != toUpload.size()) {
       context.status(409).json(new FormattedError(
-          "Multiple items are attempting to be uploaded to the same location. Please give all items unique names."));
+          "MALFORMED_REQUEST",
+          "Multiple items are attempting to be uploaded to the same location. Please give all items unique names.",
+          Optional.empty()));
       return;
     }
 
+    // Create all specified objects
+    final var responseArray = Json.createArrayBuilder();
 
     for(final var item : toUpload) {
       final var response = Json.createObjectBuilder()
@@ -775,7 +783,10 @@ public class WorkspaceBindings implements Plugin {
         final var file = fileMap.getOrDefault(uploadedFileName, null);
         if(file == null) {
           response.add("status", 400)
-                  .add("response", new FormattedError("No file provided with the name "+uploadedFileName).toJson());
+                  .add("response", new FormattedError(
+                      "MALFORMED_REQUEST",
+                      "No file provided with the name "+uploadedFileName,
+                      Optional.of("Attach file contents under the 'files' part of the request.")).toJson());
           responseArray.add(response);
           continue;
         }
@@ -878,7 +889,11 @@ public class WorkspaceBindings implements Plugin {
 
     // Get body
     if(!ContentType.JSON.equals(context.contentType())) {
-      context.status(400).json(new FormattedError("Body must be type "+ContentType.JSON));
+      context.status(400).json(new FormattedError(
+          "MALFORMED_REQUEST",
+          "Body must be type "+ContentType.JSON,
+          Optional.empty()));
+      return;
     }
 
     try(final var bodyReader = Json.createReader(new StringReader(context.body()))){
@@ -897,7 +912,9 @@ public class WorkspaceBindings implements Plugin {
     final var destinationSet = items.stream().map(BulkPostItem::newPath).collect(Collectors.toSet());
     if(destinationSet.size() != items.size()) {
       context.status(409).json(new FormattedError(
-          "Multiple entries in 'item' have the same destination location. Use \"renameTo\" to resolve conflicts."));
+          "MALFORMED_REQUEST",
+          "Multiple entries in 'item' have the same destination location. Use \"renameTo\" to resolve conflicts.",
+          Optional.empty()));
       return;
     }
 
@@ -1000,7 +1017,11 @@ public class WorkspaceBindings implements Plugin {
 
     // Get body
     if(!ContentType.JSON.equals(context.contentType())) {
-      context.status(400).json(new FormattedError("Body must be type "+ContentType.JSON));
+      context.status(400).json(new FormattedError(
+          "MALFORMED_REQUEST",
+          "Body must be type "+ContentType.JSON,
+          Optional.empty()));
+      return;
     }
     try(final var bodyReader = Json.createReader(new StringReader(context.body()))){
       toDelete = bodyReader.readArray().getValuesAs(JsonString::getString);
@@ -1010,7 +1031,10 @@ public class WorkspaceBindings implements Plugin {
     }
     // Ensure that the user has specified at least one file or directory to get the contents of
     if(toDelete.isEmpty()) {
-      context.status(400).json(new FormattedError("Cannot process request: at least one item must be specified."));
+      context.status(400).json(new FormattedError(
+          "MALFORMED_REQUEST",
+          "Cannot process request: at least one item must be specified.",
+          Optional.empty()));
       return;
     }
 

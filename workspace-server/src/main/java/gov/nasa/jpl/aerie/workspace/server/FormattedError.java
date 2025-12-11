@@ -56,6 +56,16 @@ final class FormattedError {
   }
 
   /**
+   * For use in the event of an endpoint failing without throwing an exception,
+   *  but "INTERNAL_ERROR" does not make sense as the error type (i.e. the request is malformed)
+   */
+  public FormattedError(String type, String message, Optional<String> cause) {
+    this.type = type;
+    this.message = message;
+    this.cause = cause;
+  }
+
+  /**
    * Create a FormattedException from a generic Exception object.
    * @param type the category of exception. Should be in SCREAMING_SNAKE_CASE
    * @param ex the exception to be formatted.

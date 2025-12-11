@@ -795,28 +795,28 @@ public class WorkspaceBindings implements Plugin {
         try {
           if (workspaceService.saveFile(workspaceId, item.path(), file)) {
             response.add("status", 200)
-                    .add("result", "File " + item.path().getFileName() + " uploaded to " + item.path());
+                    .add("response", "File " + item.path().getFileName() + " uploaded to " + item.path());
           } else {
             response.add("status", 500)
-                    .add("result", new FormattedError("Could not save file.").toJson());
+                    .add("response", new FormattedError("Could not save file.").toJson());
           }
         } catch (IOException ioe) {
           response.add("status", 500)
-                  .add("result", new FormattedError(ioe, "Could not save file.").toJson());
+                  .add("response", new FormattedError(ioe, "Could not save file.").toJson());
         }
       } else if (item.uploadType() == ItemType.directory) {
         // Create directory
         try {
           if (workspaceService.createDirectory(workspaceId, item.path())) {
              response.add("status", 200)
-                    .add("result", "Directory created.");
+                    .add("response", "Directory created.");
           } else {
             response.add("status", 500)
-                    .add("result", new FormattedError("Could not create directory.").toJson());
+                    .add("response", new FormattedError("Could not create directory.").toJson());
           }
         } catch (IOException ioe) {
           response.add("status", 500)
-                  .add("result", new FormattedError(ioe, "Could not create directory.").toJson());
+                  .add("response", new FormattedError(ioe, "Could not create directory.").toJson());
         }
       } else {
         response.add("status", 501)

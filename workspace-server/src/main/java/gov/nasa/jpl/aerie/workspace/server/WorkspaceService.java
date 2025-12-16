@@ -46,7 +46,7 @@ public interface WorkspaceService {
    * @return true if the file was saved, false otherwise
    */
   boolean saveFile(final int workspaceId, final Path filePath, final UploadedFile file)
-  throws IOException, NoSuchWorkspaceException;
+  throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException;
 
   /**
   * Copy a file within a workspace or between workspaces.
@@ -84,7 +84,8 @@ public interface WorkspaceService {
   DirectoryTree listFiles(final int workspaceId, final Optional<Path> directoryPath, final int depth)
   throws SQLException, NoSuchWorkspaceException, IOException;
 
-  boolean createDirectory(final int workspaceId, final Path directoryPath) throws IOException, NoSuchWorkspaceException;
+  boolean createDirectory(final int workspaceId, final Path directoryPath)
+  throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException;
   /**
    * Move a directory within a workspace or between workspaces.
    * @param oldWorkspaceId the id of the source workspace

@@ -424,10 +424,14 @@ public class WorkspaceBindings implements Plugin {
         return;
       }
 
-      if (workspaceService.saveFile(pathInfo.workspaceId, pathInfo.filePath, file)) {
-        context.status(200).result("File " + pathInfo.fileName() + " uploaded to " + pathInfo.filePath);
-      } else {
-        context.status(500).json(new FormattedError("Could not save file."));
+      try {
+        if (workspaceService.saveFile(pathInfo.workspaceId, pathInfo.filePath, file)) {
+          context.status(200).result("File " + pathInfo.fileName() + " uploaded to " + pathInfo.filePath);
+        } else {
+          context.status(500).json(new FormattedError("Could not save file."));
+        }
+      } catch (WorkspaceFileOpException wfe) {
+        context.status(500).json(new FormattedError(wfe, "Could not save file."));
       }
     } else if (type == ItemType.directory) {
       // Reject the request if the "overwrite" flag is supplied
@@ -436,10 +440,14 @@ public class WorkspaceBindings implements Plugin {
         return;
       }
 
-      if (workspaceService.createDirectory(pathInfo.workspaceId, pathInfo.filePath)) {
-        context.status(200).result("Directory created.");
-      } else {
-        context.status(500).json(new FormattedError("Could not create directory."));
+      try {
+        if (workspaceService.createDirectory(pathInfo.workspaceId, pathInfo.filePath)) {
+          context.status(200).result("Directory created.");
+        } else {
+          context.status(500).json(new FormattedError("Could not create directory."));
+        }
+      } catch (WorkspaceFileOpException wfe) {
+        context.status(500).json(new FormattedError(wfe, "Could not create directory."));
       }
     } else {
       context.status(400).json(new FormattedError("Query param 'type' has invalid value "+type));
@@ -803,6 +811,9 @@ public class WorkspaceBindings implements Plugin {
         } catch (IOException ioe) {
           response.add("status", 500)
                   .add("response", new FormattedError(ioe, "Could not save file.").toJson());
+        } catch (WorkspaceFileOpException wfe) {
+          response.add("status", 500)
+                  .add("response", new FormattedError(wfe, "Could not create directory.").toJson());
         }
       } else if (item.uploadType() == ItemType.directory) {
         // Create directory
@@ -817,6 +828,9 @@ public class WorkspaceBindings implements Plugin {
         } catch (IOException ioe) {
           response.add("status", 500)
                   .add("response", new FormattedError(ioe, "Could not create directory.").toJson());
+        } catch (WorkspaceFileOpException wfe) {
+          response.add("status", 500)
+                  .add("response", new FormattedError(wfe, "Could not create directory.").toJson());
         }
       } else {
         response.add("status", 501)

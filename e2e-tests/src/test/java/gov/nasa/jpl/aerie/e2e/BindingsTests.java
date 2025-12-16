@@ -2485,6 +2485,7 @@ public class BindingsTests {
       class BulkPost {
         private int workspaceId;
         private int otherWorkspaceId;
+        private final Path destinationPath = Path.of("./destination_dir");
 
         @BeforeEach
         void beforeEach() throws IOException {
@@ -2502,9 +2503,11 @@ public class BindingsTests {
               new BulkPutItem.FileBulkPutItem("top_dir/sub_file.txt", "file within a directory"),
               new BulkPutItem.FileBulkPutItem("other_dir/other_file.txt", "another file within a directory"),
               new BulkPutItem.FileBulkPutItem("top_dir/nested_dir/nested_file.txt", "file within a nested directory"),
-              new BulkPutItem.DirectoryBulkPutItem("destination_dir")
+              new BulkPutItem.DirectoryBulkPutItem("destination_dir"),
+              new BulkPutItem.DirectoryBulkPutItem("destination")
           );
           wsServer.bulkPut(ownerToken, workspaceId, wsContents);
+          wsServer.bulkPut(ownerToken, otherWorkspaceId, List.of(new BulkPutItem.DirectoryBulkPutItem("destination_dir")));
         }
 
         @AfterEach
@@ -2524,7 +2527,6 @@ public class BindingsTests {
         @ParameterizedTest
         @MethodSource("bulkPostBasicCasesArgs")
         void bulkMoveSameWorkspaceBasicCases(List<Path> inputs) {
-          final var destinationPath = Path.of("./destination_dir");
           final var resp = wsServer.bulkMove(
               ownerToken,
               workspaceId,
@@ -2575,7 +2577,6 @@ public class BindingsTests {
         @ParameterizedTest
         @MethodSource("bulkPostBasicCasesArgs")
         void bulkMoveBtwnWorkspaceBasicCases(List<Path> inputs) {
-          final var destinationPath = Path.of(".");
           final var resp = wsServer.bulkMove(
               ownerToken,
               workspaceId,
@@ -2626,7 +2627,6 @@ public class BindingsTests {
         @ParameterizedTest
         @MethodSource("bulkPostBasicCasesArgs")
         void bulkCopySameWorkspaceBasicCases(List<Path> inputs) {
-          final var destinationPath = Path.of("./destination_dir");
           final var resp = wsServer.bulkCopy(
               ownerToken,
               workspaceId,
@@ -2679,7 +2679,6 @@ public class BindingsTests {
         @ParameterizedTest
         @MethodSource("bulkPostBasicCasesArgs")
         void bulkCopyBtwnWorkspaceBasicCases(List<Path> inputs) {
-          final var destinationPath = Path.of(".");
           final var resp = wsServer.bulkCopy(
               ownerToken,
               workspaceId,
@@ -2729,6 +2728,7 @@ public class BindingsTests {
           final var nestedFileInput = Path.of("other_dir/other_file.txt");
           final var topDirInput = Path.of("top_dir");
           final var nestedDirInput = Path.of("other_dir/nested_dir");
+          final var siblingNameInput = Path.of("destination");
 
           return Stream.of(
               Arguments.arguments(named("Top Level File Single Bulk POST", List.of(topFileInput))),
@@ -2739,7 +2739,8 @@ public class BindingsTests {
               Arguments.arguments(named("Multiple Directories Bulk POST", List.of(topDirInput, nestedDirInput))),
               Arguments.arguments(named(
                   "Mixed Files and Directories Bulk POST",
-                  List.of(topFileInput, nestedFileInput, nestedDirInput, topDirInput)))
+                  List.of(topFileInput, nestedFileInput, nestedDirInput, topDirInput))),
+              Arguments.arguments(named("Sibling Directory with Subset Name", List.of(siblingNameInput)))
           );
         }
 
@@ -2855,7 +2856,7 @@ public class BindingsTests {
           /**
            * Generate arguments to test basic upload cases.
            */
-          private static Stream<Arguments> bulkPostBasicCasesArgs() {
+          private static Stream<Arguments> overwriteCasesArgs() {
             final var topFile = new ConflictItem(
                 Path.of("top_file.txt"),
                 "top level file",
@@ -2892,7 +2893,7 @@ public class BindingsTests {
            * With overwrite unset, a conflict is returned. This tests for both within and between workspaces
            */
           @ParameterizedTest
-          @MethodSource("bulkPostBasicCasesArgs")
+          @MethodSource("overwriteCasesArgs")
           void bulkMoveOverwriteUnset(List<ConflictItem> inputs) {
             final var paths = inputs.stream().map(i -> i.originalPath).toList();
             final var destination = Path.of("./destination_dir");
@@ -2945,7 +2946,7 @@ public class BindingsTests {
            * With overwrite set to false, a conflict is returned. This tests for both within and between workspaces
            */
           @ParameterizedTest
-          @MethodSource("bulkPostBasicCasesArgs")
+          @MethodSource("overwriteCasesArgs")
           void bulkMoveOverwriteFalse(List<ConflictItem> inputs) {
             final var paths = inputs.stream().map(i -> i.originalPath).toList();
             final var destination = Path.of("./destination_dir");
@@ -2998,7 +2999,7 @@ public class BindingsTests {
            * With overwrite set to true, no conflict occurs. This tests for moving within a workspace
            */
           @ParameterizedTest
-          @MethodSource("bulkPostBasicCasesArgs")
+          @MethodSource("overwriteCasesArgs")
           void bulkMoveOverwriteTrueWithinWS(List<ConflictItem> inputs) {
             final var paths = inputs.stream().map(i -> i.originalPath).toList();
             final var destination = Path.of("./destination_dir");
@@ -3037,7 +3038,7 @@ public class BindingsTests {
            * With overwrite set to true, no conflict occurs. This tests for moving between workspaces
            */
           @ParameterizedTest
-          @MethodSource("bulkPostBasicCasesArgs")
+          @MethodSource("overwriteCasesArgs")
           void bulkMoveOverwriteTrueBetweenWS(List<ConflictItem> inputs) {
             final var paths = inputs.stream().map(i -> i.originalPath).toList();
             final var destination = Path.of("./destination_dir");
@@ -3075,7 +3076,7 @@ public class BindingsTests {
            * With overwrite unset, a conflict is returned. This tests for both within and between workspaces
            */
           @ParameterizedTest
-          @MethodSource("bulkPostBasicCasesArgs")
+          @MethodSource("overwriteCasesArgs")
           void bulkCopyOverwriteUnset(List<ConflictItem> inputs) {
             final var paths = inputs.stream().map(i -> i.originalPath).toList();
             final var destination = Path.of("./destination_dir");
@@ -3128,7 +3129,7 @@ public class BindingsTests {
            * With overwrite set to false, a conflict is returned. This tests for both within and between workspaces
            */
           @ParameterizedTest
-          @MethodSource("bulkPostBasicCasesArgs")
+          @MethodSource("overwriteCasesArgs")
           void bulkCopyOverwriteFalse(List<ConflictItem> inputs) {
             final var paths = inputs.stream().map(i -> i.originalPath).toList();
             final var destination = Path.of("./destination_dir");
@@ -3181,7 +3182,7 @@ public class BindingsTests {
            * With overwrite set to true, no conflict occurs. This tests for moving within a workspace
            */
           @ParameterizedTest
-          @MethodSource("bulkPostBasicCasesArgs")
+          @MethodSource("overwriteCasesArgs")
           void bulkCopyOverwriteTrueWithinWS(List<ConflictItem> inputs) {
             final var paths = inputs.stream().map(i -> i.originalPath).toList();
             final var destination = Path.of("./destination_dir");
@@ -3220,7 +3221,7 @@ public class BindingsTests {
            * With overwrite set to true, no conflict occurs. This tests for moving between workspaces
            */
           @ParameterizedTest
-          @MethodSource("bulkPostBasicCasesArgs")
+          @MethodSource("overwriteCasesArgs")
           void bulkCopyOverwriteTrueBetweenWS(List<ConflictItem> inputs) {
             final var paths = inputs.stream().map(i -> i.originalPath).toList();
             final var destination = Path.of("./destination_dir");

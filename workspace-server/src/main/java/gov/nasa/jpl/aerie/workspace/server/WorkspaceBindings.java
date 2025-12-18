@@ -447,53 +447,37 @@ public class WorkspaceBindings implements Plugin {
       return;
     }
 
+    final HandlerResult uploadResults;
     if (type == ItemType.file) {
-      // Report a "Conflict" status if the file already exists and "overwrite" is false
-      // "overwrite" defaults to "false" if unspecified
-      if(workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)
-         && !overwrite.orElse(false)) {
-        context.status(409).json(new FormattedError(pathInfo.fileName() + " already exists."));
-        return;
-      }
-
-      // Reject the request if the file isn't provided.
       final var file = context.uploadedFile("file");
+      // Reject the request if the file isn't provided.
       if (file == null || !pathInfo.fileName().equals(file.filename())) {
         context.status(400).json(new FormattedError("No file provided with the name " + pathInfo.fileName()));
         return;
       }
 
-      try {
-        if (workspaceService.saveFile(pathInfo.workspaceId, pathInfo.filePath, file)) {
-          context.status(200).result("File " + pathInfo.fileName() + " uploaded to " + pathInfo.filePath);
-        } else {
-          logger.warn("Save File failed for path {}", pathInfo.filePath);
-          context.status(500).json(new FormattedError("Could not save file."));
-        }
-      } catch (WorkspaceFileOpException wfe) {
-        logger.warn("Save File failed for path {}", pathInfo.filePath);
-        context.status(500).json(new FormattedError(wfe, "Could not save file."));
-      }
+      uploadResults = handleFileUpload(
+          pathInfo.workspaceId,
+          pathInfo.filePath,
+          file,
+          overwrite.orElse(false));
+
     } else if (type == ItemType.directory) {
       // Reject the request if the "overwrite" flag is supplied
       if(overwrite.isPresent()) {
         context.status(400).json(new FormattedError("Query parameter 'overwrite' is not permitted when creating a directory."));
         return;
       }
-
-      try {
-        if (workspaceService.createDirectory(pathInfo.workspaceId, pathInfo.filePath)) {
-          context.status(200).result("Directory created.");
-        } else {
-          logger.warn("Create Directory failed for path {}", pathInfo.filePath);
-          context.status(500).json(new FormattedError("Could not create directory."));
-        }
-      } catch (WorkspaceFileOpException wfe) {
-        logger.warn("Create Directory failed for path {}", pathInfo.filePath);
-        context.status(500).json(new FormattedError(wfe, "Could not create directory."));
-      }
+      uploadResults = handleCreateDirectory(pathInfo.workspaceId(), pathInfo.filePath());
     } else {
       context.status(400).json(new FormattedError("Query param 'type' has invalid value "+type));
+      return;
+    }
+
+    if(uploadResults.response.getValueType() == JsonValue.ValueType.STRING) {
+      context.status(uploadResults.status).result(uploadResults.response.toString());
+    } else {
+      context.status(uploadResults.status).json(uploadResults.response);
     }
   }
 
@@ -582,9 +566,84 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
-  private record CopyMoveResult(int status, JsonValue response){}
+  private void delete(Context context) throws NoSuchWorkspaceException, IOException {
+    final var pathInfo = PathInformation.of(context);
+    // Permissions Check
+    if(!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.delete_file_directory)) {
+      return;
+    }
 
-  private CopyMoveResult handleMove(
+    final var deleteResults = handleDelete(pathInfo.workspaceId, pathInfo.filePath);
+
+    if(deleteResults.response.getValueType() == JsonValue.ValueType.STRING) {
+      context.status(deleteResults.status).result(deleteResults.response.toString());
+    } else {
+      context.status(deleteResults.status).json(deleteResults.response);
+    }
+  }
+  // endregion
+
+  // region Single Item Action Handlers
+  private record HandlerResult(int status, JsonValue response){
+    HandlerResult(int status, FormattedError fe) {
+      this(status, fe.toJson());
+    }
+  }
+
+  private HandlerResult handleFileUpload(
+      int workspaceId,
+      Path uploadPath,
+      UploadedFile file,
+      boolean overwrite
+  ) {
+    try {
+      // Report a "Conflict" status if the file already exists and "overwrite" is false
+      // "overwrite" defaults to "false" if unspecified
+      if (workspaceService.checkFileExists(workspaceId, uploadPath) && !overwrite) {
+        return new HandlerResult(409, new FormattedError(uploadPath + " already exists."));
+      }
+
+      if (workspaceService.saveFile(workspaceId, uploadPath, file)) {
+        return new HandlerResult(
+            200,
+            Json.createValue("File " + uploadPath.getFileName() + " uploaded to " + uploadPath));
+      } else {
+        logger.warn("UPLOAD: Save File failed for path {}", uploadPath);
+        return new HandlerResult(500, new FormattedError("Could not save file."));
+      }
+    } catch (IOException ioe) {
+      final var fe = new FormattedError(ioe, "Could not save file.");
+      logger.warn("UPLOAD: IOException: {}", fe);
+      return new HandlerResult(500, fe);
+    } catch (WorkspaceFileOpException wfe) {
+      final var fe = new FormattedError(wfe, "Could not save file.");
+      logger.warn("UPLOAD: WorkspaceFileOpException: {}", fe);
+      return new HandlerResult(500, fe);
+    } catch (NoSuchWorkspaceException nsw) {
+      return new HandlerResult(404, new FormattedError(nsw, "Could not create directory."));
+    }
+  }
+
+  private HandlerResult handleCreateDirectory(int workspaceId, Path destinationPath) {
+    try {
+      if (workspaceService.createDirectory(workspaceId, destinationPath)) {
+        return new HandlerResult(200, Json.createValue("Directory created."));
+      } else {
+        logger.warn("UPLOAD: Create Directory failed for path {}", destinationPath);
+        return new HandlerResult(500, new FormattedError("Could not create directory."));
+      }
+    } catch (IOException ioe) {
+      logger.warn("UPLOAD: IOException: {}", destinationPath);
+      return new HandlerResult(500, new FormattedError(ioe, "Could not create directory."));
+    } catch (WorkspaceFileOpException wfe) {
+      logger.warn("UPLOAD: WorkspaceFileOpException: {}", destinationPath);
+      return new HandlerResult(500, new FormattedError(wfe, "Could not create directory."));
+    } catch (NoSuchWorkspaceException nsw) {
+      return new HandlerResult(404, new FormattedError(nsw, "Could not create directory."));
+    }
+  }
+
+  private HandlerResult handleMove(
       Path toMove,
       Path destinationPath,
       int sourceWorkspaceId,
@@ -599,39 +658,39 @@ public class WorkspaceBindings implements Plugin {
             .formatted(toMove, sourceWorkspaceId, destinationPath, destinationWorkspaceId));
 
     if (!workspaceService.checkFileExists(sourceWorkspaceId, toMove)) {
-      return new CopyMoveResult(
+      return new HandlerResult(
           404,
           new FormattedError(errorMsg, toMove + " does not exist in the source workspace.").toJson());
     }
 
     if (workspaceService.checkFileExists(destinationWorkspaceId, destinationPath) && !overwrite) {
-      return new CopyMoveResult(409, new FormattedError(errorMsg, destinationPath + " already exists.").toJson());
+      return new HandlerResult(409, new FormattedError(errorMsg, destinationPath + " already exists.").toJson());
     }
 
     try {
       if (workspaceService.isDirectory(sourceWorkspaceId, toMove)) {
         if (workspaceService.moveDirectory(sourceWorkspaceId, toMove, destinationWorkspaceId, destinationPath)) {
-          return new CopyMoveResult(200,  successMsg);
+          return new HandlerResult(200, successMsg);
         } else {
-          return new CopyMoveResult(500, new FormattedError(errorMsg).toJson());
+          return new HandlerResult(500, new FormattedError(errorMsg).toJson());
         }
       } else {
         if (workspaceService.moveFile(sourceWorkspaceId, toMove, destinationWorkspaceId, destinationPath)) {
-          return new CopyMoveResult(200, successMsg);
+          return new HandlerResult(200, successMsg);
         } else {
-          return new CopyMoveResult(500, new FormattedError(errorMsg).toJson());
+          return new HandlerResult(500, new FormattedError(errorMsg).toJson());
         }
       }
     } catch (SQLException se) {
-      return new CopyMoveResult(500, new FormattedError(se, errorMsg).toJson());
+      return new HandlerResult(500, new FormattedError(se, errorMsg).toJson());
     } catch (IOException ioe) {
-      return new CopyMoveResult(500, new FormattedError(ioe, errorMsg).toJson());
+      return new HandlerResult(500, new FormattedError(ioe, errorMsg).toJson());
     } catch (WorkspaceFileOpException wfe) {
-      return new CopyMoveResult(500, new FormattedError(wfe, errorMsg).toJson());
+      return new HandlerResult(500, new FormattedError(wfe, errorMsg).toJson());
     }
   }
 
-  private CopyMoveResult handleCopy(
+  private HandlerResult handleCopy(
       Path toCopy,
       Path destinationPath,
       int sourceWorkspaceId,
@@ -646,70 +705,69 @@ public class WorkspaceBindings implements Plugin {
             .formatted(toCopy, sourceWorkspaceId, destinationPath, destinationWorkspaceId));
 
     if (!workspaceService.checkFileExists(sourceWorkspaceId, toCopy)) {
-      return new CopyMoveResult(
+      return new HandlerResult(
           404,
           new FormattedError(errorMsg, toCopy + " does not exist in the source workspace.").toJson());
     }
 
     if (workspaceService.checkFileExists(destinationWorkspaceId, destinationPath) && !overwrite) {
-      return new CopyMoveResult(409, new FormattedError(errorMsg, destinationPath + " already exists.").toJson());
+      return new HandlerResult(409, new FormattedError(errorMsg, destinationPath + " already exists.").toJson());
     }
 
     try {
       if (workspaceService.isDirectory(sourceWorkspaceId, toCopy)) {
         if (workspaceService.copyDirectory(sourceWorkspaceId, toCopy, destinationWorkspaceId, destinationPath)) {
-          return new CopyMoveResult(200, successMsg);
+          return new HandlerResult(200, successMsg);
         } else {
-          return new CopyMoveResult(500, new FormattedError(errorMsg).toJson());
+          return new HandlerResult(500, new FormattedError(errorMsg).toJson());
         }
       } else {
         if (workspaceService.copyFile(sourceWorkspaceId, toCopy, destinationWorkspaceId, destinationPath)) {
-          return new CopyMoveResult(200, successMsg);
+          return new HandlerResult(200, successMsg);
         } else {
-          return new CopyMoveResult(500, new FormattedError(errorMsg).toJson());
+          return new HandlerResult(500, new FormattedError(errorMsg).toJson());
         }
       }
     } catch (SQLException se) {
-      return new CopyMoveResult(500, new FormattedError(se, errorMsg).toJson());
+      return new HandlerResult(500, new FormattedError(se, errorMsg).toJson());
     } catch (WorkspaceFileOpException wfe) {
-      return new CopyMoveResult(500, new FormattedError(wfe, errorMsg).toJson());
+      return new HandlerResult(500, new FormattedError(wfe, errorMsg).toJson());
     }
   }
 
-  private void delete(Context context) throws NoSuchWorkspaceException, IOException {
-    final var pathInfo = PathInformation.of(context);
-    final var errorMsg = "Could not delete %s.".formatted(pathInfo.filePath);
-
-    // Permissions Check
-    if(!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.delete_file_directory)) {
-      return;
-    }
-
-    if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
-      context.status(404).json(new FormattedError(pathInfo.fileName() + " does not exist."));
-      return;
-    }
-
-    if (workspaceService.isDirectory(pathInfo.workspaceId, pathInfo.filePath)) {
-      if (workspaceService.deleteDirectory(pathInfo.workspaceId, pathInfo.filePath)) {
-        context.status(200).result("Directory deleted.");
-      } else {
-        logger.warn("Delete Directory failed for path {}", pathInfo.filePath);
-        context.status(500).json(new FormattedError(errorMsg));
+  private HandlerResult handleDelete(int workspaceId, Path filePath) {
+    try {
+      final var errorMsg = "Could not delete %s.".formatted(filePath);
+      if (!workspaceService.checkFileExists(workspaceId, filePath)) {
+        return new HandlerResult(404, new FormattedError(filePath.getFileName() + " does not exist."));
       }
-    } else {
-      try {
-        if (workspaceService.deleteFile(pathInfo.workspaceId, pathInfo.filePath)) {
-          context.status(200).result("File deleted.");
+
+      if (workspaceService.isDirectory(workspaceId, filePath)) {
+        if (workspaceService.deleteDirectory(workspaceId, filePath)) {
+          return new HandlerResult(200, Json.createValue("Directory deleted."));
         } else {
-          logger.warn("Delete File failed for path {}", pathInfo.filePath);
-          context.status(500).json(new FormattedError(errorMsg));
+          logger.warn("DELETE: Delete Directory failed for path {}", filePath);
+          return new HandlerResult(500, new FormattedError(errorMsg));
         }
-      } catch (SQLException se) {
-        final var fe = new FormattedError(se);
-        logger.warn("SQL Exception: {}", fe);
-        context.status(500).json(fe);
+      } else {
+
+        if (workspaceService.deleteFile(workspaceId, filePath)) {
+          return new HandlerResult(200, Json.createValue("File deleted."));
+        } else {
+          logger.warn("DELETE: Delete File failed for path {}", filePath);
+          return new HandlerResult(500, new FormattedError(errorMsg));
+        }
       }
+    } catch (IOException io) {
+      final var fe = new FormattedError(io);
+      logger.warn("DELETE: IOException: {}", fe);
+      return new HandlerResult(500, fe);
+    } catch (SQLException se) {
+      final var fe = new FormattedError(se);
+      logger.warn("DELETE: SQL Exception: {}", fe);
+      return new HandlerResult(500, fe);
+    } catch (NoSuchWorkspaceException nsw) {
+      return new HandlerResult(404, new FormattedError(nsw));
     }
   }
   // endregion
@@ -818,21 +876,22 @@ public class WorkspaceBindings implements Plugin {
     }
 
     // Create all specified objects
+    context.status(207).json(handleBulkUpload(toUpload, fileMap, workspaceId).toString());
+  }
+
+  private JsonArray handleBulkUpload(
+      List<BulkPutItem> toUpload,
+      Map<String, UploadedFile> fileMap,
+      int workspaceId
+  ) {
     final var responseArray = Json.createArrayBuilder();
 
-    for(final var item : toUpload) {
+    for(final var item : toUpload){
+      final HandlerResult uploadResults;
       final var response = Json.createObjectBuilder()
                                .add("item", item.path().toString());
 
-      if (item.uploadType() == ItemType.file) {
-        // Report a "Conflict" status if the file already exists and "overwrite" is false
-        if(workspaceService.checkFileExists(workspaceId, item.path()) && !item.overwrite()) {
-          response.add("status", 409)
-                  .add("response", new FormattedError(item.path() + " already exists.").toJson());
-          responseArray.add(response);
-          continue;
-        }
-
+      if(item.uploadType() == ItemType.file) {
         // Do not create the file if the file contents are not provided
         final var uploadedFileName = item.inputFileName().orElse(item.path().getFileName().toString());
         final var file = fileMap.getOrDefault(uploadedFileName, null);
@@ -846,49 +905,19 @@ public class WorkspaceBindings implements Plugin {
           continue;
         }
 
-        // Create file
-        try {
-          if (workspaceService.saveFile(workspaceId, item.path(), file)) {
-            response.add("status", 200)
-                    .add("response", "File " + item.path().getFileName() + " uploaded to " + item.path());
-          } else {
-            logger.warn("BULK UPLOAD: Could not save file");
-            response.add("status", 500)
-                    .add("response", new FormattedError("Could not save file.").toJson());
-          }
-        } catch (IOException ioe) {
-          final var fe = new FormattedError(ioe, "Could not save file.");
-          logger.warn("BULK UPLOAD: IOException: {}", fe);
-          response.add("status", 500)
-                  .add("response", fe.toJson());
-        } catch (WorkspaceFileOpException wfe) {
-          final var fe = new FormattedError(wfe, "Could not save file.");
-          logger.warn("BULK UPLOAD: WorkspaceFileOpException: {}", fe);
-          response.add("status", 500)
-                  .add("response", fe.toJson());
-        }
-      } else if (item.uploadType() == ItemType.directory) {
-        // Create directory
-        try {
-          if (workspaceService.createDirectory(workspaceId, item.path())) {
-             response.add("status", 200)
-                    .add("response", "Directory created.");
-          } else {
-            logger.warn("BULK UPLOAD: Could not create directory");
-            response.add("status", 500)
-                    .add("response", new FormattedError("Could not create directory.").toJson());
-          }
-        } catch (IOException ioe) {
-          final var fe = new FormattedError(ioe, "Could not create directory.");
-          logger.warn("BULK UPLOAD: IOException: {}", fe);
-          response.add("status", 500)
-                  .add("response", fe.toJson());
-        } catch (WorkspaceFileOpException wfe) {
-          final var fe = new FormattedError(wfe, "Could not create directory.");
-          logger.warn("BULK UPLOAD: WorkspaceFileOpException: {}", fe);
-          response.add("status", 500)
-                  .add("response", fe.toJson());
-        }
+        uploadResults = handleFileUpload(
+            workspaceId,
+            item.path(),
+            file,
+            item.overwrite()
+        );
+        response.add("status", uploadResults.status)
+                .add("response", uploadResults.response);
+      }
+      else if (item.uploadType() == ItemType.directory) {
+        uploadResults = handleCreateDirectory(workspaceId, item.path());
+        response.add("status", uploadResults.status)
+                .add("response", uploadResults.response);
       } else {
         logger.debug("BULK UPLOAD: Unsupported item upload type: {}", item.uploadType());
         response.add("status", 501)
@@ -897,7 +926,8 @@ public class WorkspaceBindings implements Plugin {
       // Add response to array
       responseArray.add(response);
     }
-    context.status(207).json(responseArray.build().toString());
+
+    return responseArray.build();
   }
 
   /**
@@ -1124,58 +1154,23 @@ public class WorkspaceBindings implements Plugin {
       return;
     }
 
-    // Delete all specified objects
+    // Return multipart response
+    context.status(207).json(handleBulkDelete(workspaceId, toDelete).toString());
+  }
+
+  private JsonArray handleBulkDelete(int workspaceId, List<String> toDelete) {
     final var responseArray = Json.createArrayBuilder();
 
     for(final var item : toDelete) {
-      final var response = Json.createObjectBuilder().add("item", item);
-      final var itemPath = Path.of(item);
-      final var errorMsg = "Could not delete %s.".formatted(itemPath.getFileName());
-
-      if (!workspaceService.checkFileExists(workspaceId, itemPath)) {
-        response.add("status", 404)
-                .add("response", new FormattedError(item + " does not exist.").toJson());
-        responseArray.add(response);
-        continue;
-      }
-
-      try {
-        if (workspaceService.isDirectory(workspaceId, itemPath)) {
-          if (workspaceService.deleteDirectory(workspaceId, itemPath)) {
-            response.add("status", 200)
-                    .add("response", "Directory deleted.");
-          } else {
-            logger.warn("BULK DELETE: {}", errorMsg);
-            response.add("status", 500)
-                    .add("response", new FormattedError(errorMsg).toJson());
-          }
-        } else {
-          if (workspaceService.deleteFile(workspaceId, itemPath)) {
-            response.add("status", 200)
-                    .add("response", "File deleted.");
-          } else {
-            logger.warn("BULK DELETE: {}", errorMsg);
-            response.add("status", 500)
-                    .add("response", new FormattedError(errorMsg).toJson());
-          }
-        }
-      } catch (IOException ioe) {
-        final var fe = new FormattedError(ioe, errorMsg);
-        logger.warn("BULK DELETE: IOException: {}", fe);
-        response.add("status", 500)
-                .add("response", fe.toJson());
-      } catch (SQLException se) {
-        final var fe = new FormattedError(se, errorMsg);
-        logger.warn("BULK DELETE: SQLException: {}", fe);
-        response.add("status", 500)
-                .add("response", fe.toJson());
-      }
-
-      // Add response to array
+      final var results = handleDelete(workspaceId, Path.of(item));
+      final var response = Json.createObjectBuilder()
+                               .add("item", item)
+                               .add("status", results.status)
+                               .add("response", results.response);
       responseArray.add(response);
     }
-    // Return multipart response
-    context.status(207).json(responseArray.build().toString());
+
+    return responseArray.build();
   }
   //endregion
 }

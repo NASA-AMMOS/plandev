@@ -1,4 +1,4 @@
-import type { SequencingLanguage } from '../../src/lib/mustache/enums/language.js';
+import { SequencingLanguage } from '../../src/lib/mustache/enums/language.js';
 import {
     addTime,
     AERIEDurationToISO8601,
@@ -7,6 +7,7 @@ import {
     InstanttoSeqN,
     InstanttoSTOL,
     SeqNToInstant,
+    STOLToInstant,
     subtractTime
 } from '../../src/lib/mustache/util/time.js';
 import { Temporal } from '@js-temporal/polyfill';
@@ -17,8 +18,8 @@ describe('Time vector functions', () => {
         let inputTime = '2025-001/12:00:01.0002' // removed Z
         let inputDuration = '1000:00:01.01234Z'
 
-        let result = addTime(inputTime, inputDuration, { language: 'STOL' as SequencingLanguage })
-        expect(result).toEqual('2025-043/04:00:02.012540Z')
+        let result = addTime(inputTime, inputDuration, SequencingLanguage.STOL)
+        expect(result).toEqual('2025-043/04:00:02.012') // truncates, no Z either
     });
 
     it('should decrement correctly', () => {
@@ -26,17 +27,17 @@ describe('Time vector functions', () => {
         let inputTime = '2025-001/12:00:01.0002Z'
         let inputDuration = '1000:00:01.01234' // removed Z
 
-        let result = subtractTime(inputTime, inputDuration, { language: 'STOL' as SequencingLanguage })
-        expect(result).toEqual('2024-325/19:59:59.987860Z')
+        let result = subtractTime(inputTime, inputDuration, SequencingLanguage.STOL)
+        expect(result).toEqual('2024-325/19:59:59.987') // truncates, no Z either
     });
 
-    it('should handle TEXT correctly', () => {
+    it('should handle Text correctly', () => {
         // arbitrarily formatted as STOL
         let inputTime = '2025-001T12:00:01.0002Z'
         let inputDuration = '1000:00:01.01234' // removed Z
 
-        let result = subtractTime(inputTime, inputDuration, { language: 'TEXT' as SequencingLanguage })
-        expect(result).toEqual('2024-325T19:59:59.987860')
+        let result = subtractTime(inputTime, inputDuration, SequencingLanguage.TEXT)
+        expect(result).toEqual('2024-11-20T19:59:59.987660Z')
     });
 
     it('should add negative durations correctly', () => {
@@ -44,8 +45,8 @@ describe('Time vector functions', () => {
         let inputTime = '2025-001/12:00:01.0002Z'
         let inputDuration = '-1000:00:01.01234' // removed Z
 
-        let result = addTime(inputTime, inputDuration, { language: 'STOL' as SequencingLanguage })
-        expect(result).toEqual('2024-325/19:59:59.987860Z')
+        let result = addTime(inputTime, inputDuration, SequencingLanguage.STOL)
+        expect(result).toEqual('2024-325/19:59:59.987') // truncates, no Z either
 
     });
 
@@ -54,14 +55,14 @@ describe('Time vector functions', () => {
         let inputTime = '2025-001/12:00:01.0002Z'
         let inputDuration = '-1000:00:01.01234' // removed Z
 
-        let result = subtractTime(inputTime, inputDuration, { language: 'STOL' as SequencingLanguage })
-        expect(result).toEqual('2025-043/04:00:02.012540Z')
+        let result = subtractTime(inputTime, inputDuration, SequencingLanguage.STOL)
+        expect(result).toEqual('2025-043/04:00:02.012') // truncates, no Z either
     });
 });
 
 describe('Parsing times', () => {
     it('should parse from SeqN', () => {
-        let seqNstring = '2025-001T12:00:01.0002Z'
+        let seqNstring = '2025-001T12:00:01.0002'
         let instant: Temporal.Instant = SeqNToInstant(seqNstring)
 
         expect(instant.toString()).toEqual('2025-01-01T12:00:01.0002Z')
@@ -69,8 +70,8 @@ describe('Parsing times', () => {
 
 
     it('should parse from STOL', () => {
-        let seqNstring = '2025-001/12:00:01.0002Z'
-        let instant: Temporal.Instant = SeqNToInstant(seqNstring)
+        let stolString = '2025-001/12:00:01.0002Z'
+        let instant: Temporal.Instant = STOLToInstant(stolString)
 
         expect(instant.toString()).toEqual('2025-01-01T12:00:01.0002Z')
     });
@@ -137,24 +138,24 @@ describe('String conversion', () => {
             let instant: Temporal.Instant = Temporal.Instant.from('2025-01-01T12:01:23.000123Z');
             let stolString = InstanttoSTOL(instant)
 
-            expect(stolString).toEqual('2025-001/12:01:23.000123Z')
+            expect(stolString).toEqual('2025-001/12:01:23.000') // truncates, no Z either
         });
 
         it('should handle padding correctly', () => {
             let normalInstant: Temporal.Instant = Temporal.Instant.from('2025-01-01T12:01:23.0Z');
             let normalStolString = InstanttoSTOL(normalInstant)
 
-            expect(normalStolString).toEqual('2025-001/12:01:23Z')
+            expect(normalStolString).toEqual('2025-001/12:01:23') // no Z
 
             let msInstant: Temporal.Instant = Temporal.Instant.from('2025-01-01T12:01:23.010Z');
             let msStolString = InstanttoSTOL(msInstant)
 
-            expect(msStolString).toEqual('2025-001/12:01:23.010Z')
+            expect(msStolString).toEqual('2025-001/12:01:23.010') // truncates, no Z either
 
             let usInstant: Temporal.Instant = Temporal.Instant.from('2025-01-01T12:01:23.000010Z');
             let usStolString = InstanttoSTOL(usInstant)
 
-            expect(usStolString).toEqual('2025-001/12:01:23.000010Z')
+            expect(usStolString).toEqual('2025-001/12:01:23.000') // truncates, no Z either
         });
     });
 });

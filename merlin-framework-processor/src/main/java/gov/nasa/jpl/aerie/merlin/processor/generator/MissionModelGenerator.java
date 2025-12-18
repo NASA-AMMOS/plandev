@@ -836,6 +836,28 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                 .build())
         .addMethod(
             MethodSpec
+                .methodBuilder("getDescription")
+                .addModifiers(Modifier.PUBLIC)
+                .addAnnotation(Override.class)
+                .returns(ParameterizedTypeName.get(
+                    ClassName.get(Optional.class),
+                    TypeName.get(String.class)
+                ))
+                .addCode(activityType.description().map(
+                    description -> CodeBlock
+                        .builder()
+                        .addStatement("return $T.of($S)", Optional.class, description)
+                        .build()
+                ).orElseGet(
+                    () -> CodeBlock
+                        .builder()
+                        .addStatement("return $T.empty()", Optional.class)
+                        .build()
+                ))
+                .build()
+        )
+        .addMethod(
+            MethodSpec
                 .methodBuilder("getInputTopic")
                 .addModifiers(Modifier.PUBLIC)
                 .addAnnotation(Override.class)

@@ -7,6 +7,7 @@ import gov.nasa.jpl.aerie.contrib.models.ValidationResult;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType.EffectModel;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.AutoValueMapper;
+import gov.nasa.jpl.aerie.merlin.framework.annotations.Description;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Parameter;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Validation;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.Subsystem;
@@ -20,10 +21,11 @@ import gov.nasa.jpl.aerie.merlin.framework.annotations.Subsystem;
  */
 @ActivityType("BiteBanana")
 @Subsystem("Eat")
+@Description("Takes a bite out of the banana")
 public final class BiteBananaActivity {
   @Parameter
-
-  @Banannotation("Specifies the size of bite to take")
+  @Description("The size of the bite in meters")
+//  @Banannotation("Specifies the size of bite to take") Custom annotations are currently broken
   @Unit("m")
   public double biteSize = 1.0;
 
@@ -42,5 +44,5 @@ public final class BiteBananaActivity {
   }
 
   @AutoValueMapper.Record
-  public record ComputedAttributes(boolean biteSizeWasBig, Flag newFlag) {}
+  public record ComputedAttributes(@Description("Big Bite") boolean biteSizeWasBig, Flag newFlag) {}
 }

@@ -116,7 +116,6 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
                                        .collect(Collectors.toMap(
                                            Map.Entry::getKey,
                                            entry -> entry.getValue().getOutputType().getSchema()));
-
     try (final var connection = this.dataSource.getConnection()) {
       try (final var insertResourceTypesAction = new InsertResourceTypesAction(connection)) {
         final long id = missionModelId.id();

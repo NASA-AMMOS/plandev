@@ -1,12 +1,14 @@
 package gov.nasa.jpl.aerie.permissions;
 
+import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchSchedulingSpecificationException;
+import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
-import gov.nasa.jpl.aerie.permissions.exceptions.Unauthorized;
 import gov.nasa.jpl.aerie.permissions.gql.GraphQLPermissionsService;
 import gov.nasa.jpl.aerie.permissions.gql.PlanId;
 import gov.nasa.jpl.aerie.permissions.gql.SchedulingSpecificationId;
+import gov.nasa.jpl.aerie.permissions.gql.WorkspaceId;
 
 import java.io.IOException;
 
@@ -16,52 +18,103 @@ public final class PermissionsService {
   public PermissionsService(final GraphQLPermissionsService gqlService) {
     this.gqlService = gqlService;
   }
-  public void check(final Action action, final String role, final String username, final PlanId planId)
-  throws Unauthorized, IOException, PermissionsServiceException, NoSuchPlanException {
+
+  public void check(final HasuraAction action, final String role, final String username, final PlanId planId)
+  throws Forbidden, IOException, PermissionsServiceException, NoSuchPlanException {
     final var permissionType = getActionPermission(action, role);
     final var authorized = canPerformAction(permissionType, username, planId);
-    if (!authorized) throw new Unauthorized(action, role, username, permissionType, planId);
+    if (!authorized) throw new Forbidden(action, role, username, permissionType, planId);
   }
 
-    public void check(
-      final Action action,
+  public void check(
+      final HasuraAction action,
       final String role,
       final String username,
       final SchedulingSpecificationId specificationId)
-  throws Unauthorized, IOException, PermissionsServiceException, NoSuchSchedulingSpecificationException,
+  throws Forbidden, IOException, PermissionsServiceException, NoSuchSchedulingSpecificationException,
          NoSuchPlanException
   {
     final var planId = gqlService.getPlanIdFromSchedulingSpecificationId(specificationId);
     check(action, role, username, planId);
   }
 
-  private PermissionType getActionPermission(final Action action, final String role)
-  throws Unauthorized, IOException, PermissionsServiceException
+  public void check(
+      final WorkspaceAction action,
+      final String role,
+      final String username,
+      final WorkspaceId workspaceId)
+  throws Forbidden, IOException, PermissionsServiceException, NoSuchWorkspaceException
+  {
+    final var permissionType = getWorkspaceActionPermission(action, role);
+    final var authorized = canPerformWorkspaceAction(permissionType, username, workspaceId);
+    if (!authorized) throw new Forbidden(action, role, username, permissionType, workspaceId);
+  }
+
+  public void checkCoarseGrained(final Action action, final String role)
+  throws PermissionsServiceException, Forbidden, IOException
+  {
+    if(action instanceof WorkspaceAction workspaceAction) {
+      getWorkspaceActionPermission(workspaceAction, role);
+    }
+    else {
+      throw new IllegalArgumentException("Unsupported action subtype: "+action.getClass());
+    }
+  }
+
+  private PlanPermissionType getActionPermission(final HasuraAction action, final String role)
+  throws Forbidden, IOException, PermissionsServiceException
   {
     if (role.equals("aerie_admin")) {
-      return PermissionType.NO_CHECK;
+      return PlanPermissionType.NO_CHECK;
     }
     return gqlService.getActionPermission(action, role);
   }
 
   private boolean canPerformAction(
-      final PermissionType permissionType,
+      final PlanPermissionType permissionType,
       final String username,
       final PlanId planId)
   throws IOException, PermissionsServiceException, NoSuchPlanException {
     return switch (permissionType) {
       case NO_CHECK -> true;
       case MISSION_MODEL_OWNER -> gqlService.checkMissionModelOwner(planId, username);
-      case OWNER, PLAN_OWNER -> getPlanPermissions(username, planId).isPlanOwner();
-      case PLAN_COLLABORATOR -> getPlanPermissions(username, planId).isPlanCollaborator();
-      case PLAN_OWNER_COLLABORATOR -> getPlanPermissions(username, planId).isPlanOwnerOrCollaborator();
+      case OWNER, PLAN_OWNER -> getPlanPermissions(username, planId).isOwner();
+      case PLAN_COLLABORATOR -> getPlanPermissions(username, planId).isCollaborator();
+      case PLAN_OWNER_COLLABORATOR -> getPlanPermissions(username, planId).isOwnerOrCollaborator();
     };
   }
 
-  private PlanOwnerOrCollaborator getPlanPermissions(final String username, final PlanId planId)
+  private OwnerOrCollaborator getPlanPermissions(final String username, final PlanId planId)
   throws IOException, PermissionsServiceException, NoSuchPlanException
   {
     return gqlService.checkPlanOwnerCollaborator(planId, username);
   }
 
+  private WorkspacePermissionType getWorkspaceActionPermission(final WorkspaceAction action, final String role)
+  throws Forbidden, IOException, PermissionsServiceException
+  {
+    if (role.equals("aerie_admin")) {
+      return WorkspacePermissionType.NO_CHECK;
+    }
+    return gqlService.getWorkspaceActionPermission(action, role);
+  }
+
+  private boolean canPerformWorkspaceAction(
+      final WorkspacePermissionType permissionType,
+      final String username,
+      final WorkspaceId workspaceId)
+  throws IOException, PermissionsServiceException, NoSuchWorkspaceException {
+    return switch (permissionType) {
+      case NO_CHECK -> true;
+      case OWNER -> getWorkspacePermissions(username, workspaceId).isOwner();
+      case COLLABORATOR -> getWorkspacePermissions(username, workspaceId).isCollaborator();
+      case OWNER_COLLABORATOR -> getWorkspacePermissions(username, workspaceId).isOwnerOrCollaborator();
+    };
+  }
+
+  private OwnerOrCollaborator getWorkspacePermissions(final String username, final WorkspaceId workspaceId)
+  throws IOException, PermissionsServiceException, NoSuchWorkspaceException
+  {
+    return gqlService.checkWorkspaceOwnerCollaborator(workspaceId, username);
+  }
 }

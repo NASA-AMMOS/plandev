@@ -188,6 +188,7 @@
 ############
 - "!include ui/extension_roles.yaml"
 - "!include ui/extensions.yaml"
+- "!include ui/file_extension_content_type.yaml"
 - "!include ui/view.yaml"
 
 #################

@@ -24,10 +24,10 @@ Before you can run Aerie you must install and configure the following products o
 
 - [Docker](https://www.docker.com/) which is used to run the Aerie services.
 
-- [OpenJDK Temurin LTS](https://adoptium.net/temurin/) which is used to build the Java-based Aerie services. If you're on OSX you can use [brew](https://brew.sh/):
+- [OpenJDK Temurin LTS](https://adoptium.net/temurin/) which is used to build the Java-based Aerie services. If you're on OSX you can use [brew](https://brew.sh/). Note Aerie is currently compatible with Java temurin V21, which can be installed with brew using:
 
   ```sh
-  brew install --cask temurin
+  brew install --cask temurin@21
   ```
 
   Make sure you update your `JAVA_HOME` environment variable. For example with [Zsh](https://www.zsh.org/) you can set your `.zshrc` to:

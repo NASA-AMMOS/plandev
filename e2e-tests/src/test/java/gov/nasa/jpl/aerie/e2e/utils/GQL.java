@@ -45,6 +45,12 @@ public enum GQL {
         status
       }
     }"""),
+  CHANGE_WS_OWNER("""
+    mutation changeWsOwner($id:Int!, $newOwner: String! ) {
+      update_workspace_by_pk(pk_columns: {id:$id}, _set: {owner: $newOwner}) {
+        owner
+      }
+    }"""),
   CHECK_CONSTRAINTS("""
     query checkConstraints($planId: Int!, $simulationDatasetId: Int) {
       constraintViolations(planId: $planId, simulationDatasetId: $simulationDatasetId) {
@@ -121,6 +127,18 @@ public enum GQL {
   CREATE_MISSION_MODEL("""
     mutation CreateMissionModel($model: mission_model_insert_input!) {
       insert_mission_model_one(object: $model) {
+        id
+      }
+    }"""),
+  CREATE_MOCK_COMMAND_DICTIONARY("""
+    mutation CreateMockCommandDictionary($cdict: command_dictionary_insert_input!) {
+      dictionary: insert_command_dictionary_one(object: $cdict) {
+        id
+      }
+    }"""),
+  CREATE_PARCEL("""
+    mutation CreateParcel($parcel: parcel_insert_input!) {
+      parcel: insert_parcel_one(object: $parcel) {
         id
       }
     }"""),
@@ -228,6 +246,18 @@ public enum GQL {
         id
       }
     }"""),
+  DELETE_MOCK_COMMAND_DICTIONARY("""
+    mutation DeleteMockCommandDictionary($id: Int!) {
+      delete_command_dictionary_by_pk(id: $id) {
+        id
+      }
+    }"""),
+  DELETE_PARCEL("""
+    mutation DeleteParcel($id: Int!) {
+      delete_parcel_by_pk(id: $id) {
+        id
+      }
+    }"""),
   DELETE_PLAN("""
     mutation DeletePlan($id: Int!) {
       deletePlan: delete_plan_by_pk(id: $id) {
@@ -296,6 +326,7 @@ public enum GQL {
         subsystem:subsystem_tag {
           name
         }
+        description
       }
     }"""),
   GET_CONSTRAINT_REQUEST("""

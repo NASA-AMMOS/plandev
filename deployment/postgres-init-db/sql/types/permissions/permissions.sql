@@ -16,6 +16,15 @@ create type permissions.permission
     'PLAN_OWNER_COLLABORATOR_TARGET'
   );
 
+-- Workspaces have a separate permission set, as workspaces are detached from the concept of plans and mission models
+create type permissions.workspace_permission
+ as enum (
+   'NO_CHECK',
+   'OWNER',
+   'COLLABORATOR',
+   'OWNER_COLLABORATOR'
+  );
+
 create type permissions.action_permission_key
   as enum (
     'assign_activities_by_filter',
@@ -56,4 +65,14 @@ create type permissions.function_permission_key
     'set_resolution',
     'set_resolution_bulk',
     'withdraw_merge_rq'
+  );
+
+create type permissions.workspace_permission_key
+ as enum (
+   'create_workspace',
+   'delete_file_directory',
+   'delete_workspace',
+   'list_workspace_contents',
+   'read_file_directory',
+   'write_file_directory'
   );

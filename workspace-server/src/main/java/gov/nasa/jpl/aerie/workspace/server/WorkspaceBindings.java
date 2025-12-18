@@ -17,6 +17,7 @@ import io.javalin.apibuilder.ApiBuilder;
 import io.javalin.http.ContentType;
 import io.javalin.http.Context;
 import io.javalin.http.HandlerType;
+import io.javalin.http.HttpResponseException;
 import io.javalin.http.UnauthorizedResponse;
 import io.javalin.http.UploadedFile;
 import io.javalin.plugin.Plugin;
@@ -129,6 +130,9 @@ public class WorkspaceBindings implements Plugin {
                       (ex, ctx) -> ctx.status(400).json(new FormattedError(ex)));
     javalin.exception(SecurityException.class,
                       (ex, ctx) -> ctx.status(500).json(new FormattedError(ex)));
+    javalin.exception(HttpResponseException.class,
+                      (ex, ctx) ->
+                          ctx.status(ex.getStatus()).json(new FormattedError("HTTP_RESPONSE_EXCEPTION", ex)));
     javalin.exception(Exception.class, (ex, ctx) -> {
       // Catch-all for unexpected issues
       logger.error("Unexpected error processing workspace request", ex);

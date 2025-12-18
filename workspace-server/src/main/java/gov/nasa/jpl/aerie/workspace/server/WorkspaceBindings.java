@@ -100,9 +100,9 @@ public class WorkspaceBindings implements Plugin {
       // CRUD operations for Files and Directories:
       path("/ws/{workspaceId}/<path>",
            () -> {
-             ApiBuilder.get(this::get);
-             ApiBuilder.put(this::put);
-             ApiBuilder.delete(this::delete);
+             ApiBuilder.get(this::getFileDirectory);
+             ApiBuilder.put(this::createFileDirectory);
+             ApiBuilder.delete(this::deleteFileDirectory);
              ApiBuilder.post(this::post);
            });
 
@@ -386,7 +386,7 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
-  private void get(Context context) throws NoSuchWorkspaceException {
+  private void getFileDirectory(Context context) throws NoSuchWorkspaceException {
     // Permissions Check
     final var pathInfo = PathInformation.of(context);
     if(!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.read_file_directory)) {
@@ -420,7 +420,7 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
-  private void put(Context context) throws NoSuchWorkspaceException, IOException {
+  private void createFileDirectory(Context context) {
     // Permissions Check
     final var pathInfo = PathInformation.of(context);
     if(!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.write_file_directory)) {
@@ -566,7 +566,7 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
-  private void delete(Context context) throws NoSuchWorkspaceException, IOException {
+  private void deleteFileDirectory(Context context) {
     final var pathInfo = PathInformation.of(context);
     // Permissions Check
     if(!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.delete_file_directory)) {
@@ -796,7 +796,7 @@ public class WorkspaceBindings implements Plugin {
    * If there is an issue with the request or permissions, returns an appropriate 4XX status.
    * Else, returns a 207 Multi-Status with an individual response per-object
    */
-  public void bulkUpload(Context context) throws NoSuchWorkspaceException {
+  public void bulkUpload(Context context) {
     final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
     final List<BulkPutItem> toUpload;
 
@@ -1122,7 +1122,7 @@ public class WorkspaceBindings implements Plugin {
    * [ { "item": "path/to/file1", "status": 200, "response": "File deleted." },
    *   { "item": "path/to/folder", "status": 404, "response": "path/to/folder does not exist."}, ... ]
    */
-  public void bulkDelete(Context context) throws NoSuchWorkspaceException {
+  public void bulkDelete(Context context) {
     final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
     final List<String> toDelete;
 

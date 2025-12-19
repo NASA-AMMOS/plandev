@@ -475,7 +475,7 @@ public class WorkspaceBindings implements Plugin {
     }
 
     if(uploadResults.response.getValueType() == JsonValue.ValueType.STRING) {
-      context.status(uploadResults.status).result(uploadResults.response.toString());
+      context.status(uploadResults.status).result(((JsonString) uploadResults.response()).getString());
     } else {
       context.status(uploadResults.status).json(uploadResults.response);
     }
@@ -540,7 +540,7 @@ public class WorkspaceBindings implements Plugin {
             body.destinationWorkspaceId(),
             body.overwrite());
         if(moveResults.response.getValueType() == JsonValue.ValueType.STRING) {
-          context.status(moveResults.status).result(moveResults.response.toString());
+          context.status(moveResults.status).result(((JsonString) moveResults.response()).getString());
         } else {
           context.status(moveResults.status).json(moveResults.response);
         }
@@ -556,7 +556,7 @@ public class WorkspaceBindings implements Plugin {
               body.destinationWorkspaceId(),
               body.overwrite());
           if (copyResults.response.getValueType() == JsonValue.ValueType.STRING) {
-            context.status(copyResults.status).result(copyResults.response.toString());
+            context.status(copyResults.status).result(((JsonString) copyResults.response()).getString());
           } else {
             context.status(copyResults.status).json(copyResults.response);
           }
@@ -576,7 +576,7 @@ public class WorkspaceBindings implements Plugin {
     final var deleteResults = handleDelete(pathInfo.workspaceId, pathInfo.filePath);
 
     if(deleteResults.response.getValueType() == JsonValue.ValueType.STRING) {
-      context.status(deleteResults.status).result(deleteResults.response.toString());
+      context.status(deleteResults.status).result(((JsonString) deleteResults.response()).getString());
     } else {
       context.status(deleteResults.status).json(deleteResults.response);
     }

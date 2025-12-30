@@ -69,3 +69,4 @@ docs/source/scheduling-edsl-api/
 docker-compose.override.yml
 output*.json
 report-tests.sh
+.claude/settings.local.json

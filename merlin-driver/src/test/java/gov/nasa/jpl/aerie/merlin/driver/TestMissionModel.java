@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 public class TestMissionModel {
   private final static Duration oneMinute = Duration.of(60, Duration.SECONDS);
@@ -49,6 +50,11 @@ public class TestMissionModel {
     }
 
     @Override
+    public Optional<String> getSubsystem() {
+      return Optional.empty();
+    }
+
+    @Override
     public TaskFactory<Object> getTaskFactory(final Object o, final Object o2) {
       return executor -> new OneStepTask<>($ -> {
         $.startActivity(this, delayedActivityDirectiveInputTopic);
@@ -71,6 +77,11 @@ public class TestMissionModel {
     @Override
     public OutputType<Object> getOutputType() {
       return testModelOutputType;
+    }
+
+    @Override
+    public Optional<String> getSubsystem() {
+      return Optional.empty();
     }
 
     @Override
@@ -187,6 +198,11 @@ public class TestMissionModel {
               @Override
               public InputType<Object> getConfigurationType() {
                 return testModelInputType;
+              }
+
+              @Override
+              public List<String> getSubsystems() {
+                return List.of();
               }
 
               @Override

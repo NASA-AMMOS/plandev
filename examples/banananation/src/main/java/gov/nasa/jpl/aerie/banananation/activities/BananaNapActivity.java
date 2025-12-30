@@ -11,7 +11,6 @@ import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.*;
  * Nap time [banana style]!!!!
  * This activity has no effect :)
  *
- * @subsystem fruit
  * @contact Jane Doe
  */
 @ActivityType("BananaNap")

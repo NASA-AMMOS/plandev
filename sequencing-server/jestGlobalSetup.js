@@ -3,6 +3,7 @@ import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { loginTestUser } from "./test/testUtils/login.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,6 +28,12 @@ export default async () => {
     await fetchWithTimeout(`${process.env.MERLIN_GRAPHQL_URL.replace('/v1/graphql', '')}/healthz`);
   } catch (e) {
     throw new Error(`Merlin GraphQL API is not running at ${process.env.MERLIN_GRAPHQL_URL}`, { cause: e });
+  }
+
+  try {
+    await loginTestUser();
+  } catch (e) {
+    throw new Error(`Failed to login as test user`, { cause: e });
   }
 };
 

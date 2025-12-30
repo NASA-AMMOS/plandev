@@ -208,10 +208,10 @@ public class CLIArgumentsTest {
       try(final var reader = new BufferedReader(new FileReader("src/test/resources/simpleFooPlanResults.json"))) {
         final var fileLines = reader.lines().toList();
         final var output = out.toString();
-        //assertEquals(fileLines.size() + 4, output.split("\n").length);  // This is off by one and fails
+        assertEquals(fileLines.size() + 5, output.split("\n").length);
 
         int truncateIndex = 0;
-        for(int i = 0; i < 4; ++i) {
+        for(int i = 0; i < 5; ++i) {
           truncateIndex = output.indexOf("\n", truncateIndex + 1);
         }
 
@@ -219,7 +219,8 @@ public class CLIArgumentsTest {
             Parsing plan src/test/resources/simpleFooPlan.json...
             Loading mission model ../examples/foo-missionmodel/build/libs/foo-missionmodel.jar...
             Simulating Plan...
-            Writing Results...""";
+            Writing Results...
+            """;
 
         assertEquals(introLines, output.substring(0, truncateIndex));
 
@@ -227,8 +228,7 @@ public class CLIArgumentsTest {
             final var outputReader = Json.createReader(new StringReader(output.substring(truncateIndex)))) {
           final var fileJson = fileReader.readObject();
           final var outputJson = outputReader.readObject();
-          var diff = Json.createDiff(fileJson, outputJson);
-          assertEquals(fileJson, outputJson, "Output differs: " + diff.toJsonArray());
+          assertEquals(fileJson, outputJson);
         }
       }
     }
@@ -245,8 +245,7 @@ public class CLIArgumentsTest {
           final var outputReader = Json.createReader(new StringReader(out.toString()))) {
         final var fileJson = fileReader.readObject();
         final var outputJson = outputReader.readObject();
-        var diff = Json.createDiff(fileJson, outputJson);
-        assertEquals(fileJson, outputJson, "Output differs: " + diff.toJsonArray());
+        assertEquals(fileJson, outputJson);
       }
     }
 

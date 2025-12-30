@@ -109,6 +109,7 @@ jobs:
             **/e2e-tests/build/reports/tests/e2eTest
             **/db-tests/build/reports/tests/e2eTest
             **/sequencing-server/test-report.*
+            **/action-server/action-server-test-report.log
       - name: Print Logs for Services
         if: always()
         run: docker compose -f ./e2e-tests/docker-compose-test.yml logs -t

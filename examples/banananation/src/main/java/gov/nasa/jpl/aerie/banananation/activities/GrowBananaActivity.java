@@ -15,7 +15,6 @@ import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.*;
  *
  * This activity causes a monkey to create new bananas in the banana plant.
  *
- * @subsystem fruit
  * @contact John Doe
  */
 @ActivityType("GrowBanana")

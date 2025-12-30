@@ -23,11 +23,11 @@ spec:
             - mountPath: /usr/src/app/action_file_store
               name: aerie-file-store
           env:
-            - name: HASURA_GRAPHQL_ADMIN_SECRET
+            - name: HASURA_GRAPHQL_JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: dev-env
-                  key: HASURA_GRAPHQL_ADMIN_SECRET
+                  key: HASURA_GRAPHQL_JWT_SECRET
             - name: LOG_FILE
               value: console
             - name: LOG_LEVEL

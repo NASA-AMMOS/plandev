@@ -22,10 +22,10 @@ select_permissions:
 insert_permissions:
   - role: aerie_admin
     permission:
-      columns: [role, action_permissions, function_permissions]
+      columns: [role, action_permissions, function_permissions, workspace_permissions]
       check: {}
 update_permissions:
   - role: aerie_admin
     permission:
-      columns: [action_permissions, function_permissions]
+      columns: [action_permissions, function_permissions, workspace_permissions]
       filter: {}

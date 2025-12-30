@@ -97,7 +97,7 @@ dependencies {
 
   testImplementation project(':examples:foo-missionmodel')
   testImplementation project(':merlin-framework')
-  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+  testImplementation 'org.junit.jupiter:junit-jupiter-engine:6.0.1'
   testImplementation 'net.jqwik:jqwik:1.6.5'
 
   testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

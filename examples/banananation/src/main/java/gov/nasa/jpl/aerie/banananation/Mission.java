@@ -44,12 +44,12 @@ public final class Mission {
     this.producer = Register.forImmutable(config.initialProducer());
     this.dataLineCount = Register.forImmutable(countLines(config.initialDataPath()));
 
-    registrar.discrete("/flag", this.flag, new EnumValueMapper<>(Flag.class));
+    registrar.discrete("/flag", this.flag, new EnumValueMapper<>(Flag.class), "The flag set");
     registrar.discrete("/flag/conflicted", this.flag::isConflicted, new BooleanValueMapper());
     discreteResource(registrar, "/peel", this.peel, new DoubleValueMapper(), "kg");
-    realResource(registrar, "/fruit", this.fruit, "bananas");
+    realResource(registrar, "/fruit", this.fruit, "bananas", "The number of fruits collected");
     discreteResource(registrar, "/plant", this.plant, new IntegerValueMapper(), "count");
-    registrar.discrete("/producer", this.producer, new StringValueMapper());
+    registrar.discrete("/producer", this.producer, new StringValueMapper(), "The producer of the fruit");
     registrar.discrete("/data/line_count", this.dataLineCount, new IntegerValueMapper());
     registrar.topic("/producer", this.producer.ref, new StringValueMapper());
 

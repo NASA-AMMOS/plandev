@@ -318,7 +318,6 @@ public class HasuraRequests implements AutoCloseable {
     }
     return res;
   }
-
   //endregion
 
   //region Simulation
@@ -1208,7 +1207,6 @@ public class HasuraRequests implements AutoCloseable {
         .getJsonObject("planDerivationGroupLink")
         .getString("derivation_group_name");
   }
-
   // endregion
 
   //region Constraints
@@ -1343,6 +1341,67 @@ public class HasuraRequests implements AutoCloseable {
                               .add("action_permissions", permissions.toJSON())
                               .build();
     makeRequest(GQL.UPDATE_ROLE_ACTION_PERMISSIONS, variables);
+  }
+  //endregion
+
+  //region Workspaces
+  /**
+   * Creates a mocked command dictionary for the sake of creating Workspaces
+   * Create a different method if a non-mocked command dictionary is required for tests.
+   * @return the dictionary's database id
+   */
+  public int createMockCommandDictionary(String mission, String version) throws IOException {
+    final var insertCommandDictionaryBuilder = Json.createObjectBuilder()
+                                          .add("dictionary_path", "mock_path")
+                                          .add("mission", mission)
+                                          .add("version", version);
+
+    final var variables = Json.createObjectBuilder().add("cdict", insertCommandDictionaryBuilder).build();
+    // Only the Hasura Admin role may insert into this table
+    return makeRequest(GQL.CREATE_MOCK_COMMAND_DICTIONARY, variables, Map.of("x-hasura-role", "admin"))
+        .getJsonObject("dictionary")
+        .getInt("id");
+  }
+
+  /**
+   * Creates a mocked parcel for the sake of creating Workspaces
+   * Create a different method if a non-mocked parcel is required for tests.
+   * @return the parcel's database id
+   */
+  public int createMockParcel(String parcelName, int cdictId) throws IOException {
+    final var insertMockParcelBuilder = Json.createObjectBuilder()
+                                            .add("name", parcelName)
+                                            .add("command_dictionary_id", cdictId);
+
+    final var variables = Json.createObjectBuilder().add("parcel", insertMockParcelBuilder).build();
+
+    return makeRequest(GQL.CREATE_PARCEL, variables)
+        .getJsonObject("parcel")
+        .getInt("id");
+  }
+
+  /**
+   * Delete a mocked command dictionary.
+   */
+  public void deleteMockCommandDictionary(int cdictId) throws IOException {
+    makeRequest(GQL.DELETE_MOCK_COMMAND_DICTIONARY, Json.createObjectBuilder().add("id", cdictId).build());
+  }
+
+  /**
+   * Delete a mocked parcel.
+   */
+  public void deleteMockParcel(int parcelId) throws IOException {
+    makeRequest(GQL.DELETE_PARCEL, Json.createObjectBuilder().add("id", parcelId).build());
+  }
+
+  /**
+   * Change the workspace's owner to another user
+   */
+  public void changeOwner(int workspaceId, User newOwner) throws IOException {
+    makeRequest(GQL.CHANGE_WS_OWNER, Json.createObjectBuilder()
+                                         .add("id", workspaceId)
+                                         .add("newOwner", newOwner.name())
+                                         .build());
   }
   //endregion
 }

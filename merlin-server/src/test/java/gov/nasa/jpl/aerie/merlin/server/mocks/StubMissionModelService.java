@@ -24,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -39,7 +40,10 @@ public final class StubMissionModelService implements MissionModelService {
       EXISTENT_ACTIVITY_TYPE,
       List.of(new Parameter("Param", ValueSchema.STRING), new Parameter("AnotherParam", ValueSchema.REAL), new Parameter("Duration", ValueSchema.DURATION)),
       List.of(),
-      ValueSchema.ofStruct(Map.of()));
+      ValueSchema.ofStruct(Map.of()),
+      Optional.empty(),
+      Optional.empty()
+  );
   public static final String EXISTENT_ACTIVITY_TYPE_2 = "activity2";
   public static final ActivityType EXISTENT_ACTIVITY_2 = new ActivityType(
       EXISTENT_ACTIVITY_TYPE_2,
@@ -47,7 +51,9 @@ public final class StubMissionModelService implements MissionModelService {
           new ValueSchema.Variant("hello", "hello"), new ValueSchema.Variant("there", "there")
       )))),
       List.of(),
-      ValueSchema.ofStruct(Map.of())
+      ValueSchema.ofStruct(Map.of()),
+      Optional.empty(),
+      Optional.empty()
   );
 
   public static final SerializedActivity VALID_ACTIVITY_INSTANCE = new SerializedActivity(

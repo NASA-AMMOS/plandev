@@ -3,7 +3,7 @@ services:
     container_name: aerie_action
     depends_on: [ "postgres" ]
     environment:
-      HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
+      HASURA_GRAPHQL_JWT_SECRET: "${HASURA_GRAPHQL_JWT_SECRET}"
       LOG_FILE: console
       LOG_LEVEL: debug
       MERLIN_GRAPHQL_URL: http://hasura:8080/v1/graphql
@@ -171,6 +171,7 @@ services:
       WORKSPACE_PORT: 28000
       HASURA_GRAPHQL_JWT_SECRET: "${HASURA_GRAPHQL_JWT_SECRET}"
       HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
+      HASURA_GRAPHQL_URL: http://hasura:8080/v1/graphql
       JAVA_OPTS: >
         -Dorg.slf4j.simpleLogger.defaultLogLevel=INFO
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
@@ -188,11 +189,13 @@ services:
     environment:
       ORIGIN: http://localhost
       PUBLIC_AERIE_FILE_STORE_PREFIX: "/usr/src/app/merlin_file_store/"
+      PUBLIC_ACTION_CLIENT_URL: http://localhost:27186
       PUBLIC_GATEWAY_CLIENT_URL: http://localhost:9000
       PUBLIC_GATEWAY_SERVER_URL: http://aerie_gateway:9000
       PUBLIC_HASURA_CLIENT_URL: http://localhost:8080/v1/graphql
       PUBLIC_HASURA_SERVER_URL: http://hasura:8080/v1/graphql
       PUBLIC_HASURA_WEB_SOCKET_URL: ws://localhost:8080/v1/graphql
+      PUBLIC_WORKSPACE_CLIENT_URL: http://localhost:28000
     image: "${REPOSITORY_DOCKER_URL}/aerie-ui:${DOCKER_TAG}"
     ports: ["80:80"]
     restart: always
@@ -202,7 +205,7 @@ services:
     container_name: hasura
     depends_on: ["postgres"]
     environment:
-      AERIE_DATABASE_URL: "postgres://${AERIE_USERNAME}:${AERIE_PASSWORD}@postgres:5432/aerie?options=-c%20search_path%3Dutil_functions%2Chasura%2Cpermissions%2Ctags%2Cmerlin%2Cscheduler%2Csequencing%2Cactions%2Cpublic"
+      AERIE_DATABASE_URL: "postgres://${AERIE_USERNAME}:${AERIE_PASSWORD}@postgres:5432/aerie?options=-c%20search_path%3Dutil_functions%2Chasura%2Cpermissions%2Ctags%2Cmerlin%2Cscheduler%2Csequencing%2Cactions%2Cui%2Cpublic"
       AERIE_MERLIN_URL: "http://aerie_merlin:27183"
       AERIE_SCHEDULER_URL: "http://aerie_scheduler:27185"
       AERIE_SEQUENCING_URL: "http://aerie_sequencing:27184"

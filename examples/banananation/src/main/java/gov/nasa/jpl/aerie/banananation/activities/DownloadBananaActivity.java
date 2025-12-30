@@ -12,7 +12,6 @@ import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.delay;
 /**
  * Internet technology has come a long way.
  *
- * @subsystem fruit
  * @contact Jane Doe
  */
 @ActivityType("DownloadBanana")

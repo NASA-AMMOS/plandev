@@ -89,13 +89,13 @@ public class DataModel {
   }
 
   private void registerStates(Registrar registrar, Configuration config) {
-    registrar.real("desiredRateA", assumeLinear(desiredRateA));
-    registrar.real("desiredRateB", assumeLinear(desiredRateB));
-    registrar.real("desiredRateC", assumeLinear(desiredRateC));
+    registrar.real("desiredRateA", assumeLinear(desiredRateA), "The desiredRateA description");
+    registrar.real("desiredRateB", assumeLinear(desiredRateB), "The desiredRateB description");
+    registrar.real("desiredRateC", assumeLinear(desiredRateC), "The desiredRateC description");
 
-    registrar.real("actualRateA", assumeLinear(actualRateA));
-    registrar.real("actualRateB", assumeLinear(actualRateB));
-    registrar.real("actualRateC", assumeLinear(actualRateC));
+    registrar.real("actualRateA", assumeLinear(actualRateA), "The actualRateA description");
+    registrar.real("actualRateB", assumeLinear(actualRateB), "The actualRateB description");
+    registrar.real("actualRateC", assumeLinear(actualRateC), "The actualRateC description");
 
     registrar.real("volumeA", assumeLinear(volumeA));
     registrar.real("volumeB", assumeLinear(volumeB));

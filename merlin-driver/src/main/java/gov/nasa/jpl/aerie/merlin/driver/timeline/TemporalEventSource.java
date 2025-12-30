@@ -62,7 +62,7 @@ public class TemporalEventSource implements EventSource, Iterable<TemporalEventS
   }
 
   private static int ctr = 0;
-  private final int i = ctr++;
+  private final int i = ctr++;  // An instance id to differentiate old and new TemporalEventSources
 
   /**
    * cellCache keeps duplicates and old cells that can be reused to more quickly get a past cell value.

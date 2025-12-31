@@ -23,24 +23,34 @@ public record ThreadedTask<T>(TestRegistrar.CellMap cellMap, Supplier<T> task, T
     if (finished.getValue()) {
       throw new IllegalStateException("Stepping finished task");
     }
-    return TestContext.set(
-        new TestContext.Context(cellMap, scheduler, this),
-        () -> {
-          final ThreadedTaskStatus<T> response;
-          try {
-            thread.inbox().put(new Message.Resume());
-            response = thread.outbox().take();
-          } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-          }
-          if (response instanceof ThreadedTaskStatus.Aborted<T> r) {
-            throw new RuntimeException(r.throwable());
-          }
-          if (response instanceof ThreadedTaskStatus.Completed<T> r) {
-            finished.setTrue();
-          }
-          return response.withContinuation(this);
-        });
+
+    // Set context in main thread for synchronous operations
+    final var context = new TestContext.Context(cellMap, scheduler, this);
+    TestContext.setContext(context);
+
+    final ThreadedTaskStatus<T> response;
+    try {
+      // Pass context to worker thread so it can set its own ThreadLocal
+      thread.contextQueue().put(context);
+      thread.inbox().put(new Message.Resume());
+      response = thread.outbox().take();
+    } catch (InterruptedException e) {
+      TestContext.clearContext();
+      throw new RuntimeException(e);
+    }
+
+    if (response instanceof ThreadedTaskStatus.Aborted<T> r) {
+      TestContext.clearContext();
+      throw new RuntimeException(r.throwable());
+    }
+
+    if (response instanceof ThreadedTaskStatus.Completed<T> r) {
+      finished.setTrue();
+      TestContext.clearContext();
+    }
+
+    // Keep context set for next step() if task is yielding
+    return response.withContinuation(this);
   }
 
   @Override
@@ -61,12 +71,14 @@ public record ThreadedTask<T>(TestRegistrar.CellMap cellMap, Supplier<T> task, T
   record TaskThread<T>(
       Supplier<T> task,
       ArrayBlockingQueue<Message> inbox,
-      ArrayBlockingQueue<ThreadedTaskStatus<T>> outbox
+      ArrayBlockingQueue<ThreadedTaskStatus<T>> outbox,
+      ArrayBlockingQueue<TestContext.Context> contextQueue
   )
   {
     public static <T> TaskThread<T> start(Executor executor, Supplier<T> task) {
       final var taskThread = new TaskThread<>(
           task,
+          new ArrayBlockingQueue<>(1),
           new ArrayBlockingQueue<>(1),
           new ArrayBlockingQueue<>(1));
       executor.execute(taskThread::start);
@@ -76,7 +88,18 @@ public record ThreadedTask<T>(TestRegistrar.CellMap cellMap, Supplier<T> task, T
     private void start() {
       try {
         if (inbox.take() instanceof Message.Abort) outbox.put(null);
-        outbox.put(new ThreadedTaskStatus.Completed<>(task.get()));
+
+        // Receive context from main thread and set it in this worker thread's ThreadLocal
+        final var context = contextQueue.take();
+        TestContext.setContext(context);
+
+        try {
+          // Execute task with context set in this thread
+          outbox.put(new ThreadedTaskStatus.Completed<>(task.get()));
+        } finally {
+          // Clean up this thread's context when done
+          TestContext.clearContext();
+        }
       } catch (InterruptedException e) {
         return; //throw new RuntimeException(e);
       } catch (Throwable throwable) {
@@ -92,6 +115,9 @@ public record ThreadedTask<T>(TestRegistrar.CellMap cellMap, Supplier<T> task, T
       try {
         outbox.put(new ThreadedTaskStatus.Delayed<>(duration));
         inbox.take();
+        // Update context after resuming from delay
+        final var context = contextQueue.take();
+        TestContext.setContext(context);
       } catch (InterruptedException e) {
         throw new RuntimeException(e);
       }
@@ -101,6 +127,9 @@ public record ThreadedTask<T>(TestRegistrar.CellMap cellMap, Supplier<T> task, T
       try {
         outbox.put(new ThreadedTaskStatus.CallingTask<>(childSpan, child));
         inbox.take();
+        // Update context after resuming from call
+        final var context = contextQueue.take();
+        TestContext.setContext(context);
       } catch (InterruptedException e) {
         throw new RuntimeException(e);
       }
@@ -110,6 +139,9 @@ public record ThreadedTask<T>(TestRegistrar.CellMap cellMap, Supplier<T> task, T
       try {
         outbox.put(new ThreadedTaskStatus.AwaitingCondition<>(condition));
         inbox.take();
+        // Update context after resuming from wait
+        final var context = contextQueue.take();
+        TestContext.setContext(context);
       } catch (InterruptedException e) {
         throw new RuntimeException(e);
       }

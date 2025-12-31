@@ -66,7 +66,10 @@ docs/source/scheduling-edsl-api/
 /sequencing-server/plugins/fprime-dictionary-parser/fprime-parser.js
 
 # Local development files
-docker-compose.override.yml
+.tmp/
+docker*.yml
+docker*.yaml
 output*.json
 report-tests.sh
 .claude/settings.local.json
+

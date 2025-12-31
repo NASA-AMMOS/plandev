@@ -24,15 +24,27 @@ public final class Registrar {
   }
 
   public <Value> void discrete(final String name, final Resource<Value> resource, final ValueMapper<Value> mapper) {
-    this.builder.resource(name, makeResource("discrete", resource, mapper.getValueSchema(), mapper::serializeValue));
+    this.builder.resource(name, makeResource("discrete", resource, mapper.getValueSchema(), mapper::serializeValue, null));
+  }
+
+  public <Value> void discrete(final String name, final Resource<Value> resource, final ValueMapper<Value> mapper, final String description) {
+    this.builder.resource(name, makeResource("discrete", resource, mapper.getValueSchema(), mapper::serializeValue, description));
   }
 
   public void real(final String name, final Resource<RealDynamics> resource) {
     real(name, resource, $ -> $);
   }
 
+  public void real(final String name, final Resource<RealDynamics> resource, final String description) {
+    real(name, resource, $ -> $, description);
+  }
+
   public <T> void realWithMetadata(final String name, final Resource<RealDynamics> resource, final String key, final T metadata, final ValueMapper<T> metadataValueMapper) {
-    real(name, resource, $ -> ValueSchema.withMeta(key, metadataValueMapper.serializeValue(metadata), $));
+    realWithMetadata(name, resource, key, metadata, metadataValueMapper, null);
+  }
+
+  public <T> void realWithMetadata(final String name, final Resource<RealDynamics> resource, final String key, final T metadata, final ValueMapper<T> metadataValueMapper, String description) {
+    real(name, resource, $ -> ValueSchema.withMeta(key, metadataValueMapper.serializeValue(metadata), $), description);
   }
 
   private void real(final String name, final Resource<RealDynamics> resource, UnaryOperator<ValueSchema> schemaModifier) {
@@ -46,14 +58,33 @@ public final class Registrar {
                 "rate", ValueSchema.REAL))),
             dynamics -> SerializedValue.of(Map.of(
                 "initial", SerializedValue.of(dynamics.initial),
-                "rate", SerializedValue.of(dynamics.rate)))));
+                "rate", SerializedValue.of(dynamics.rate))),
+            null
+        ));
+  }
+
+  private void real(final String name, final Resource<RealDynamics> resource, UnaryOperator<ValueSchema> schemaModifier, final String description) {
+    this.builder.resource(
+        name,
+        makeResource(
+            "real",
+            resource,
+            schemaModifier.apply(ValueSchema.ofStruct(Map.of(
+                "initial", ValueSchema.REAL,
+                "rate", ValueSchema.REAL))),
+            dynamics -> SerializedValue.of(Map.of(
+                "initial", SerializedValue.of(dynamics.initial),
+                "rate", SerializedValue.of(dynamics.rate))),
+            description
+            ));
   }
 
   private static <Value> gov.nasa.jpl.aerie.merlin.protocol.model.Resource<Value> makeResource(
       final String type,
       final Resource<Value> resource,
       final ValueSchema valueSchema,
-      final Function<Value, SerializedValue> serializer
+      final Function<Value, SerializedValue> serializer,
+      final String description
   ) {
     return new gov.nasa.jpl.aerie.merlin.protocol.model.Resource<>() {
       @Override
@@ -66,6 +97,9 @@ public final class Registrar {
         return new OutputType<>() {
           @Override
           public ValueSchema getSchema() {
+            if (description != null) {
+              return ValueSchema.withMeta("description", SerializedValue.of(Map.of("value", SerializedValue.of(description))), valueSchema);
+            }
             return valueSchema;
           }
 

@@ -24,6 +24,7 @@ repositories {
 
 dependencies {
   implementation project(':parsing-utilities')
+  implementation project(':permissions')
 
   implementation 'io.javalin:javalin:5.6.3'
   implementation 'org.slf4j:slf4j-simple:2.0.7'
@@ -33,7 +34,7 @@ dependencies {
   implementation 'org.postgresql:postgresql:42.6.1'
   implementation 'com.zaxxer:HikariCP:5.0.1'
 
-  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+  testImplementation 'org.junit.jupiter:junit-jupiter-engine:6.0.1'
   testImplementation 'net.jqwik:jqwik:1.6.5'
 
   testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

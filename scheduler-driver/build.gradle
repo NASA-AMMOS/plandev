@@ -49,7 +49,7 @@ dependencies {
   testImplementation project(':constraints')
   testImplementation project(':examples:banananation')
   testImplementation project(':examples:foo-missionmodel')
-  testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+  testImplementation 'org.junit.jupiter:junit-jupiter:6.0.1'
   testImplementation 'com.google.guava:guava-testlib:32.1.2-jre'
   implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
 

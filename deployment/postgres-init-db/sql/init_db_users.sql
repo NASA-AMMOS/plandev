@@ -50,6 +50,9 @@ begin;
   alter default privileges in schema merlin grant select, insert, update, delete on tables to :"merlin_user";
   alter default privileges in schema merlin grant execute on routines to :"merlin_user";
 
+  grant usage on schema tags to :"merlin_user";
+  grant select, insert on table tags.tags to :"merlin_user";
+
   --------------------------------
   -- Scheduler User Permissions --
   --------------------------------

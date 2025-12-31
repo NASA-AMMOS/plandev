@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -669,6 +670,11 @@ public class AnchorSchedulerTest {
     }
 
     @Override
+    public Optional<String> getSubsystem() {
+      return Optional.empty();
+    }
+
+    @Override
     public TaskFactory<Object> getTaskFactory(final Object o, final Object o2) {
       return executor -> new OneStepTask<>($ -> {
         $.startActivity(this, delayedActivityDirectiveInputTopic);
@@ -691,6 +697,11 @@ public class AnchorSchedulerTest {
     @Override
     public OutputType<Object> getOutputType() {
       return testModelOutputType;
+    }
+
+    @Override
+    public Optional<String> getSubsystem() {
+      return Optional.empty();
     }
 
     @Override
@@ -806,6 +817,11 @@ public class AnchorSchedulerTest {
             @Override
             public InputType<Object> getConfigurationType() {
               return testModelInputType;
+            }
+
+            @Override
+            public List<String> getSubsystems() {
+              return Collections.emptyList();
             }
 
             @Override

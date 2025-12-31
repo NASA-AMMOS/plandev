@@ -763,27 +763,319 @@
                 "endTime": "2024-07-01T11:40:55.219Z"
             },
             {
-              "id": 1,
-              "directiveId": null,
-              "parentId": 5,
-              "childIds": [
-              ],
-              "type": "DaemonCheckerActivity",
-              "startOffset": "+11:40:55.219000",
-              "duration": "+00:00:00.000000",
-              "attributes": {
-              },
-              "arguments": {
-                "minutesElapsed": 700
-              },
-              "startTime": "2024-07-01T11:40:55.219Z",
-              "endTime": "2024-07-01T11:40:55.219Z"
+                "id": 1,
+                "directiveId": null,
+                "parentId": 5,
+                "childIds": [
+                ],
+                "type": "DaemonCheckerActivity",
+                "startOffset": "+11:40:55.219000",
+                "duration": "+00:00:00.000000",
+                "attributes": {
+                },
+                "arguments": {
+                    "minutesElapsed": 700
+                },
+                "startTime": "2024-07-01T11:40:55.219Z",
+                "endTime": "2024-07-01T11:40:55.219Z"
             }
         ],
         "unfinishedActivities": [
         ]
     },
-    "events": {
-        "event": []
-    }
+    "topics": {
+        "ActivityType.Input.SolarPanelNonLinear": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                    "omega_max": {
+                        "type": "real"
+                    },
+                    "theta_turn": {
+                        "type": "real"
+                    },
+                    "alpha_max": {
+                        "type": "real"
+                    }
+                }
+            }
+        },
+        "ActivityType.Output.bar": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                }
+            }
+        },
+        "ActivityType.Input.SolarPanelNonLinearTimeDependent": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                    "command": {
+                        "type": "real"
+                    },
+                    "omega_max": {
+                        "type": "real"
+                    },
+                    "alpha_max": {
+                        "type": "real"
+                    }
+                }
+            }
+        },
+        "ActivityType.Output.foo": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                }
+            }
+        },
+        "ActivityType.Input.OtherControllableDurationActivity": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                    "duration": {
+                        "type": "struct",
+                        "items": {
+                            "amountInMicroseconds": {
+                                "type": "int"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "ActivityType.Input.parent": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                    "label": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "ActivityType.Output.BasicActivity": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                }
+            }
+        },
+        "ActivityType.Output.BasicFooActivity": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                }
+            }
+        },
+        "ActivityType.Input.DaemonTaskActivity": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                    "minutesElapsed": {
+                        "type": "int"
+                    },
+                    "spawnDelay": {
+                        "type": "int"
+                    }
+                }
+            }
+        },
+        "ActivityType.Input.foo": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                    "z": {
+                        "type": "int"
+                    },
+                    "y": {
+                        "type": "string"
+                    },
+                    "x": {
+                        "type": "int"
+                    },
+                    "vecs": {
+                        "type": "series",
+                        "items": {
+                            "type": "series",
+                            "items": {
+                                "type": "real"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "ActivityType.Input.ControllableDurationActivity": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                    "duration": {
+                        "type": "struct",
+                        "items": {
+                            "amountInMicroseconds": {
+                                "type": "int"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "ActivityType.Output.SolarPanelNonLinearTimeDependent": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                }
+            }
+        },
+        "ActivityType.Input.ZeroDurationUncontrollableActivity": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                }
+            }
+        },
+        "ActivityType.Output.OtherControllableDurationActivity": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                }
+            }
+        },
+        "ActivityType.Input.DaemonCheckerSpawner": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                    "minutesElapsed": {
+                        "type": "int"
+                    },
+                    "spawnDelay": {
+                        "type": "int"
+                    }
+                }
+            }
+        },
+        "ActivityType.Output.ControllableDurationActivity": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                }
+            }
+        },
+        "ActivityType.Input.LateRiser": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                }
+            }
+        },
+        "ActivityType.Output.parent": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                }
+            }
+        },
+        "ActivityType.Input.BasicActivity": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                }
+            }
+        },
+        "ActivityType.Input.bar": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                }
+            }
+        },
+        "ActivityType.Input.BasicFooActivity": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                    "duration": {
+                        "type": "struct",
+                        "items": {
+                            "amountInMicroseconds": {
+                                "type": "int"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "ActivityType.Input.child": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                    "counter": {
+                        "type": "int"
+                    }
+                }
+            }
+        },
+        "ActivityType.Output.DaemonTaskActivity": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                }
+            }
+        },
+        "ActivityType.Output.SolarPanelNonLinear": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                }
+            }
+        },
+        "ActivityType.Output.ZeroDurationUncontrollableActivity": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                }
+            }
+        },
+        "ActivityType.Output.DaemonCheckerActivity": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                }
+            }
+        },
+        "ActivityType.Output.DaemonCheckerSpawner": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                }
+            }
+        },
+        "ActivityType.Input.DaemonCheckerActivity": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                    "minutesElapsed": {
+                        "type": "int"
+                    }
+                }
+            }
+        },
+        "ActivityType.Output.LateRiser": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                }
+            }
+        },
+        "ActivityType.Output.child": {
+            "schema": {
+                "type": "struct",
+                "items": {
+                }
+            }
+        }
+    },
+    "events": [
+    ]
 }

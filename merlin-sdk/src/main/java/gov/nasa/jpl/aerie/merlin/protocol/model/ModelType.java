@@ -3,6 +3,8 @@ package gov.nasa.jpl.aerie.merlin.protocol.model;
 import gov.nasa.jpl.aerie.merlin.protocol.driver.Initializer;
 
 import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -47,6 +49,15 @@ public interface ModelType<Config, Model> {
    *   The configuration type accepted by this model.
    */
   InputType<Config> getConfigurationType();
+
+  /**
+   * Gets the subsystems defined in this model.
+   *
+   * @return A list of the subsystems defined in this model.
+   */
+  default List<String> getSubsystems() {
+    return Collections.emptyList();
+  }
 
   /**
    * Constructs a model instance with the given configuration, allocating cells from the given initializer.

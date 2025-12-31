@@ -237,6 +237,21 @@ For PRs that depend on other in-flight PRs:
 - Environment template: `.env.template`
 - Gradle settings: `settings.gradle`, `build.gradle`
 
+## Documentation
+
+### Committed Documentation
+- **docs/investigations/**: In-depth technical investigations and analyses (e.g., flaky test root causes, merge strategies)
+- **Top-level .md files**:
+  - `TEST_FAILURES_POST_MERGE.md`: Test failure analysis after merges
+  - `MERGE_STRATEGY.md`: Strategies used for complex merges
+- See `docs/investigations/` for detailed technical writeups
+
+### Temporary Files (.tmp directory)
+- **Purpose**: Scratch space for non-committed documents, logs, and intermediate work
+- **Location**: `.tmp/` at repository root
+- **Not tracked in git**: This directory is for local development only
+- **Use for**: Debug logs, temporary analysis files, draft documents
+
 ## Important Notes
 
 - **Java version**: OpenJDK 21 (Temurin LTS)

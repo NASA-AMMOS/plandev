@@ -79,29 +79,37 @@ public class Registrar {
     profile = false;
   }
 
-  public <Value> void discrete(final String name, final Resource<Discrete<Value>> resource, final ValueMapper<Value> mapper) {
+  public <Value> void discrete(final String name, final Resource<Discrete<Value>> resource, final ValueMapper<Value> mapper, final String description) {
     name(resource, name);
     var debugResource = debug(name, resource);
     gov.nasa.jpl.aerie.merlin.framework.Resource<Value> registeredResource = switch (errorBehavior) {
       case Log -> () -> currentValue(debugResource, null);
       case Throw -> wrapErrors(name, () -> currentValue(debugResource));
     };
-    baseRegistrar.discrete(name, registeredResource, new NullableValueMapper<>(mapper));
+    baseRegistrar.discrete(name, registeredResource, new NullableValueMapper<>(mapper), description);
     if (errorBehavior.equals(Log)) logErrors(name, debugResource);
   }
 
-  public void real(final String name, final Resource<Linear> resource) {
+  public <Value> void discrete(final String name, final Resource<Discrete<Value>> resource, final ValueMapper<Value> mapper) {
+    discrete(name, resource, mapper, null);
+  }
+
+    public void real(final String name, final Resource<Linear> resource, final String description) {
     name(resource, name);
     var debugResource = debug(name, resource);
     gov.nasa.jpl.aerie.merlin.framework.Resource<RealDynamics> registeredResource = switch (errorBehavior) {
       case Log -> () -> realDynamics(currentData(debugResource, linear(0, 0)));
       case Throw -> wrapErrors(name, () -> realDynamics(currentData(debugResource)));
     };
-    baseRegistrar.real(name, registeredResource);
+    baseRegistrar.real(name, registeredResource, description);
     if (errorBehavior.equals(Log)) logErrors(name, debugResource);
   }
 
-  private static RealDynamics realDynamics(Linear linear) {
+  public void real(final String name, final Resource<Linear> resource) {
+    real(name, resource, null);
+  }
+
+    private static RealDynamics realDynamics(Linear linear) {
     return RealDynamics.linear(linear.extract(), linear.rate());
   }
 

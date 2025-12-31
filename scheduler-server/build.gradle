@@ -36,8 +36,8 @@ dependencies {
 
   testImplementation project(':examples:foo-missionmodel')
   testImplementation project(':merlin-framework')
-  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
-  testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.0'
+  testImplementation 'org.junit.jupiter:junit-jupiter-engine:6.0.1'
+  testImplementation 'org.junit.jupiter:junit-jupiter-params:6.0.1'
 
   testFixturesImplementation project(':merlin-driver')
 

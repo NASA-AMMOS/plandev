@@ -47,7 +47,7 @@ dependencies {
   testImplementation project(':merlin-framework')
   testImplementation project(':merlin-framework-junit')
   testImplementation project(':contrib')
-  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+  testImplementation 'org.junit.jupiter:junit-jupiter-engine:6.0.1'
   testImplementation "net.jqwik:jqwik:1.6.5"
   implementation 'com.google.guava:guava:32.1.2-jre'
   testImplementation 'com.google.guava:guava-testlib:32.1.2-jre'

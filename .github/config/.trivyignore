@@ -14,3 +14,15 @@ CVE-2024-24790
 # https://access.redhat.com/security/cve/CVE-2023-7272
 # This is not part of our threat model, we intentionally allow users to perform many long-running actions that could cause DoS
 CVE-2023-7272
+
+# CVE-2025-6965: libsqlite3 present but unused by postgres; no path for attacker-supplied sqlite files, not exploitable in this image
+CVE-2025-6965
+
+# CVE-2024-56171: libxml2 bundled via debian but aerie-postgres does not parse untrusted xml, no viable exploit path
+CVE-2024-56171
+
+# CVE-2025-49794: libxml2 dtd/attribute overflow, aerie-postgres does not parse untrusted xml, no viable exploit path
+CVE-2025-49794
+
+# CVE-2025-49796: libxml2 sax/entity handling vuln; aerie-postgres does not parse untrusted xml, no viable exploit path
+CVE-2025-49796

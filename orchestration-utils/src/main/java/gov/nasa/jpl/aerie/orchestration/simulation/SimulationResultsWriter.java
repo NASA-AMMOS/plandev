@@ -2,37 +2,26 @@ package gov.nasa.jpl.aerie.orchestration.simulation;
 
 import gov.nasa.jpl.aerie.merlin.driver.EventGraphFlattener;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface;
-import gov.nasa.jpl.aerie.types.ActivityInstance;
-import gov.nasa.jpl.aerie.types.ActivityInstanceId;
+import gov.nasa.jpl.aerie.json.JsonParser;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
-import gov.nasa.jpl.aerie.merlin.driver.UnfinishedActivity;
-import gov.nasa.jpl.aerie.merlin.driver.engine.EventRecord;
 import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfile;
-import gov.nasa.jpl.aerie.merlin.driver.timeline.EventGraph;
-import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 
 import javax.json.Json;
-import javax.json.JsonObject;
 import javax.json.JsonReader;
-import javax.json.JsonValue;
 import javax.json.stream.JsonGenerator;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.io.StringReader;
-import java.io.StringWriter;
+import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.RecursiveTask;
+
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.types.Plan;
 import gov.nasa.jpl.aerie.types.Timestamp;
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.lang3.tuple.Triple;
 
 import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
 import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
@@ -47,13 +36,9 @@ public class SimulationResultsWriter {
   // Write JSONs with Pretty Printing
   private final static Map<String,String> config = Map.of(JsonGenerator.PRETTY_PRINTING, "");
 
-  private final RecursiveTask<JsonObject> profilesTask;
-  private final RecursiveTask<JsonObject> eventsTask;
-  private final RecursiveTask<JsonObject> spansTask;
-  private final RecursiveTask<JsonObject> simConfigTask;
-
+  private final SimulationResultsInterface results;
   private final Plan plan;
-  private final Duration extent;
+  private final ResourceFileStreamer resourceFileStreamer;
 
   /**
    * Creates a SimulationResultsWriter that will write SimulationResults generated
@@ -62,37 +47,44 @@ public class SimulationResultsWriter {
    * @param plan The Plan simulated
    * @param rfs The ResourceFileStreamer used during the simulation
    */
+//<<<<<<< HEAD
+//  public SimulationResultsWriter(SimulationResultsInterface results, Plan plan, ResourceFileStreamer rfs) {
+//    this.plan = plan;
+//    this.extent = results.getDuration();
+//    this.profilesTask = new RecursiveTask<>() {
+//      @Override
+//      protected JsonObject compute() {
+//        try {
+//          return buildProfiles(results.getRealProfiles(), results.getDiscreteProfiles(), rfs);
+//        } catch (IOException e) {
+//          throw new RuntimeException(e);
+//        }
+//      }
+//    };
+//    this.eventsTask = new RecursiveTask<>() {
+//      @Override
+//      protected JsonObject compute() {
+//        return buildEvents(results.getEvents(),results.getTopics());
+//      }
+//    };
+//    this.spansTask = new RecursiveTask<>() {
+//      @Override
+//      protected JsonObject compute() {
+//        return buildSpans(results.getSimulatedActivities(),results.getUnfinishedActivities(), plan.simulationStartTimestamp);
+//      }
+//    };
+//    this.simConfigTask = new RecursiveTask<>() {
+//      @Override
+//      protected JsonObject compute() {
+//        return buildSimConfig(plan);
+//      }
+//    };
+//=======
   public SimulationResultsWriter(SimulationResultsInterface results, Plan plan, ResourceFileStreamer rfs) {
+    this.results = results;
     this.plan = plan;
-    this.extent = results.getDuration();
-    this.profilesTask = new RecursiveTask<>() {
-      @Override
-      protected JsonObject compute() {
-        try {
-          return buildProfiles(results.getRealProfiles(), results.getDiscreteProfiles(), rfs);
-        } catch (IOException e) {
-          throw new RuntimeException(e);
-        }
-      }
-    };
-    this.eventsTask = new RecursiveTask<>() {
-      @Override
-      protected JsonObject compute() {
-        return buildEvents(results.getEvents(),results.getTopics());
-      }
-    };
-    this.spansTask = new RecursiveTask<>() {
-      @Override
-      protected JsonObject compute() {
-        return buildSpans(results.getSimulatedActivities(),results.getUnfinishedActivities(), plan.simulationStartTimestamp);
-      }
-    };
-    this.simConfigTask = new RecursiveTask<>() {
-      @Override
-      protected JsonObject compute() {
-        return buildSimConfig(plan);
-      }
-    };
+    this.resourceFileStreamer = rfs;
+//>>>>>>> origin/develop
   }
 
   /**
@@ -102,40 +94,7 @@ public class SimulationResultsWriter {
    * @param plan The plan simulated
    */
   public SimulationResultsWriter(SimulationResults results, Plan plan) {
-    this.plan = plan;
-    this.extent = results.duration;
-    this.profilesTask = new RecursiveTask<>() {
-      @Override
-      protected JsonObject compute() {
-        return buildProfiles(results.realProfiles, results.discreteProfiles);
-      }
-    };
-    this.eventsTask = new RecursiveTask<>() {
-      @Override
-      protected JsonObject compute() {
-        return buildEvents(results.events,results.topics);
-      }
-    };
-    this.spansTask = new RecursiveTask<>() {
-      @Override
-      protected JsonObject compute() {
-        return buildSpans(results.simulatedActivities,results.unfinishedActivities, plan.simulationStartTimestamp);
-      }
-    };
-    this.simConfigTask = new RecursiveTask<>() {
-      @Override
-      protected JsonObject compute() {
-        return buildSimConfig(plan);
-      }
-    };
-  }
-
-  /** Fork tasks to build subjsons in parallel **/
-  private void forkSubTasks() {
-    profilesTask.fork();
-    eventsTask.fork();
-    spansTask.fork();
-    simConfigTask.fork();
+    this(results, plan, null);
   }
 
   /**
@@ -144,27 +103,10 @@ public class SimulationResultsWriter {
    *    Used to determine if the results represent a canceled simulation.
    */
   public void writeResults(CanceledListener canceledListener) {
-    final var stringWriter = new StringWriter();
-    try(final var resultsJsonGenerator = Json.createGeneratorFactory(config).createGenerator(stringWriter)) {
-      forkSubTasks();
-
-      // Output the starting information
-      writeOpening(resultsJsonGenerator, canceledListener.get());
-      print(resultsJsonGenerator, stringWriter);
-
-      // Join the forked tasks
-      resultsJsonGenerator.write("simulationConfiguration", simConfigTask.join());
-      print(resultsJsonGenerator, stringWriter);
-
-      resultsJsonGenerator.write("profiles", profilesTask.join());
-      print(resultsJsonGenerator, stringWriter);
-
-      resultsJsonGenerator.write("spans", spansTask.join());
-      print(resultsJsonGenerator, stringWriter);
-
-      resultsJsonGenerator.write("events", eventsTask.join());
-      resultsJsonGenerator.writeEnd();
-      print(resultsJsonGenerator, stringWriter);
+    try (final var outWriter = new OutputStreamWriter(System.out)) {
+      writeResults(canceledListener, outWriter);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
   }
 
@@ -175,333 +117,268 @@ public class SimulationResultsWriter {
    * @param outputFilePath The file path to write results to.
    */
   public void writeResults(CanceledListener canceledListener, Path outputFilePath) {
-    final var stringWriter = new StringWriter();
-    try(final var resultsJsonGenerator = Json.createGeneratorFactory(config).createGenerator(stringWriter);
-        final var fileWriter = new FileWriter(outputFilePath.toFile()))
-    {
-      forkSubTasks();
-
-      // Output the starting information
-      writeOpening(resultsJsonGenerator, canceledListener.get());
-      printFile(resultsJsonGenerator, stringWriter, fileWriter);
-
-      // Join the forked tasks
-      resultsJsonGenerator.write("simulationConfiguration", simConfigTask.join());
-      printFile(resultsJsonGenerator, stringWriter, fileWriter);
-
-      resultsJsonGenerator.write("profiles", profilesTask.join());
-      printFile(resultsJsonGenerator, stringWriter, fileWriter);
-
-      resultsJsonGenerator.write("spans", spansTask.join());
-      printFile(resultsJsonGenerator, stringWriter, fileWriter);
-
-      resultsJsonGenerator.write("events", eventsTask.join());
-      resultsJsonGenerator.writeEnd();
-      printFile(resultsJsonGenerator, stringWriter, fileWriter);
-
-      fileWriter.flush();
+    try (final var fileWriter = new FileWriter(outputFilePath.toFile())) {
+      writeResults(canceledListener, fileWriter);
       System.out.println("Results written to "+outputFilePath);
     } catch (IOException e) {
       throw new RuntimeException("Unable to write to file: "+outputFilePath, e);
     }
   }
 
-  /** Helper method that handles buffer management for printing to System.out */
-  private void print(JsonGenerator resultsGenerator, StringWriter stringWriter) {
-    resultsGenerator.flush();
-    System.out.print(stringWriter.toString().trim());
-    // StringWriter.flush() does nothing, so we must clear the underlying buffer manually
-    stringWriter.getBuffer().setLength(0);
-    stringWriter.getBuffer().trimToSize(); // deallocates used buffer memory
+  public void writeResults(CanceledListener canceledListener, Writer outputWriter) {
+    try (final var resultsJsonGenerator = Json.createGeneratorFactory(config).createGenerator(outputWriter)) {
+      // Start the top-level object
+      resultsJsonGenerator.writeStartObject();
+
+      // Output the starting information, a set of top-level fields
+      writeOpening(resultsJsonGenerator, canceledListener.get());
+
+      // Write each of the main subsections
+
+      resultsJsonGenerator.writeKey("simulationConfiguration");
+      writeSimConfig(resultsJsonGenerator);
+
+      resultsJsonGenerator.writeKey("profiles");
+      writeProfiles(resultsJsonGenerator);
+
+      resultsJsonGenerator.writeKey("spans");
+      writeSpans(resultsJsonGenerator);
+
+      resultsJsonGenerator.writeKey("topics");
+      writeTopics(resultsJsonGenerator);
+
+      resultsJsonGenerator.writeKey("events");
+      writeEvents(resultsJsonGenerator);
+
+      // End the top-level object
+      resultsJsonGenerator.writeEnd();
+    }
   }
 
-  /** Helper method that handles buffer management for writing to a file */
-  private void printFile(JsonGenerator resultsGenerator, StringWriter stringWriter, FileWriter fileWriter)
-  throws IOException {
-    resultsGenerator.flush();
-    fileWriter.write(stringWriter.toString().trim());
-    // StringWriter.flush() does nothing, so we must clear the underlying buffer manually
-    stringWriter.getBuffer().setLength(0);
-    stringWriter.getBuffer().trimToSize(); // deallocates used buffer memory
-  }
-
-  /** Write the beginning and top-level fields of the results JSON */
+  /** Write the top-level fields of the results JSON */
   private void writeOpening(JsonGenerator resultsGenerator, boolean canceled) {
-    final var simEndTime = plan.simulationStartTimestamp.plusMicros(extent.in(Duration.MICROSECOND));
+    final var simEndTime = plan.simulationStartTimestamp.plusMicros(results.getDuration().in(Duration.MICROSECOND));
 
-    resultsGenerator.writeStartObject();
-    resultsGenerator.write("version", SCHEMA_VERSION);
-    resultsGenerator.write("simulationStartTime", plan.simulationStartTimestamp.toString());
-    resultsGenerator.write("simulationEndTime", simEndTime.toString());
-
-    if (canceled) { resultsGenerator.write("canceled", JsonValue.TRUE); }
-    else { resultsGenerator.write("canceled", JsonValue.FALSE); }
+    resultsGenerator
+        .write("version", SCHEMA_VERSION)
+        .write("simulationStartTime", plan.simulationStartTimestamp.toString())
+        .write("simulationEndTime", simEndTime.toString())
+        .write("canceled", canceled);
   }
 
-  /** Build up a JSON Object containing the resource profiles. */
-  private JsonObject buildProfiles(
-      final Map<String, ResourceProfile<RealDynamics>> realProfiles,
-      final Map<String, ResourceProfile<SerializedValue>> discreteProfiles
-  ) {
-    final var realProfileBuilder = Json.createArrayBuilder();
-    final var discreteProfileBuilder = Json.createArrayBuilder();
-
-    for (final var e : realProfiles.entrySet()) {
-      final var name = e.getKey();
-      final var profile = e.getValue();
-
-      // Precompute segments
-      final var segmentsBuilder = Json.createArrayBuilder();
-      profile.segments().forEach(s -> segmentsBuilder.add(Json.createObjectBuilder()
-                                                              .add("extent", s.extent().toString())
-                                                              .add("dynamics", realDynamicsP.unparse(s.dynamics()))));
-
-      final var profileBuilder = Json.createObjectBuilder()
-                                     .add("name", name)
-                                     .add("schema", valueSchemaP.unparse(profile.schema()))
-                                     .add("segments", segmentsBuilder);
-
-      // Append to the array builder
-      realProfileBuilder.add(profileBuilder);
-    }
-
-    for (final var e : discreteProfiles.entrySet()) {
-      final var name = e.getKey();
-      final var profile = e.getValue();
-
-      // Precompute segments
-      final var segmentsBuilder = Json.createArrayBuilder();
-      profile.segments().forEach(s -> segmentsBuilder.add(Json.createObjectBuilder()
-                                                              .add("extent", s.extent().toString())
-                                                              .add("dynamics", serializedValueP.unparse(s.dynamics()))));
-
-      final var profileBuilder = Json.createObjectBuilder()
-                                     .add("name", name)
-                                     .add("schema", valueSchemaP.unparse(profile.schema()))
-                                     .add("segments", segmentsBuilder);
-
-      // Append to the array builder
-      discreteProfileBuilder.add(profileBuilder);
-    }
-
-    return Json.createObjectBuilder()
-               .add("realProfiles", realProfileBuilder)
-               .add("discreteProfiles", discreteProfileBuilder)
-               .build();
+  /** Write the simulation configuration section of the results */
+  private void writeSimConfig(JsonGenerator resultsGenerator) {
+    resultsGenerator.writeStartObject()
+        .write("startTime", plan.simulationStartTimestamp.toString())
+        .write("endTime", plan.simulationEndTimestamp.toString())
+        .write("arguments", simulationArgumentsP.unparse(plan.simulationConfiguration()))
+        .writeEnd();
   }
 
   /**
-   * Build up a JSON Object containing the resource profiles.
-   * Prioritizes getting profile segments from ResourceFileStreamer,
-   * using the Maps as fallbacks should a resource file be missing.
+   * Write the profiles section of the results.
+   * Will get profile segments from resourceFileStreamer if it's non-null, or from results' maps otherwise.
    */
-  private JsonObject buildProfiles(
-      final Map<String, ResourceProfile<RealDynamics>> realProfiles,
-      final Map<String, ResourceProfile<SerializedValue>> discreteProfiles,
-      final ResourceFileStreamer rfs
-  ) throws IOException
-  {
-    final var realProfileBuilder = Json.createArrayBuilder();
-    final var discreteProfileBuilder = Json.createArrayBuilder();
+  private void writeProfiles(JsonGenerator resultsGenerator) {
+    resultsGenerator.writeStartObject();
 
-    for(final var e : realProfiles.entrySet()) {
-      final var name = e.getKey();
-      final var profile = e.getValue();
-      final var filepath = Path.of(rfs.getFileName(name));
-
-      // Precompute segments
-      final var segmentsBuilder = Json.createArrayBuilder();
-
-      try (final var stream = Files.lines(filepath)) {
-        stream.forEach(s -> {
-          if (!s.isBlank()) {
-            try (final JsonReader jr = Json.createReader(new StringReader(s))) {
-              segmentsBuilder.add(jr.readObject());
-            }
-          }
-        });
-      }
-
-      // If somehow the file didn't exist and didn't except above, use the resources in the rmgr
-      if(!Files.deleteIfExists(filepath)){
-        profile.segments().forEach(s -> segmentsBuilder.add(Json.createObjectBuilder()
-                                                                .add("extent", s.extent().toString())
-                                                                .add("dynamics", realDynamicsP.unparse(s.dynamics()))));
-      }
-
-      final var profileBuilder = Json.createObjectBuilder()
-                                     .add("name", name)
-                                     .add("schema", valueSchemaP.unparse(profile.schema()))
-                                     .add("segments", segmentsBuilder);
-
-      // Append to the array builder
-      realProfileBuilder.add(profileBuilder);
+    // Each real profile is an object in the array realProfiles
+    resultsGenerator.writeStartArray("realProfiles");
+    for (var e : results.getRealProfiles().entrySet()) {
+      writeProfile(resultsGenerator, e.getKey(), e.getValue(), realDynamicsP);
     }
+    resultsGenerator.writeEnd();
 
-    for(final var e : discreteProfiles.entrySet()) {
-      final var name = e.getKey();
-      final var profile = e.getValue();
-      final var filepath = Path.of(rfs.getFileName(name));
-
-       // Precompute segments
-      final var segmentsBuilder = Json.createArrayBuilder();
-      try (final var stream = Files.lines(filepath)) {
-        stream.forEach(s -> {
-          if (!s.isBlank()) {
-            try (final JsonReader jr = Json.createReader(new StringReader(s))) {
-              segmentsBuilder.add(jr.readObject());
-            }
-          }
-        });
-      }
-
-      // If somehow the file didn't exist and didn't except above, use the resources in the rmgr
-      if(!Files.deleteIfExists(filepath)){
-        profile.segments().forEach(s -> segmentsBuilder.add(Json.createObjectBuilder()
-                                                                .add("extent", s.extent().toString())
-                                                                .add("dynamics", serializedValueP.unparse(s.dynamics()))));
-      }
-
-      final var profileBuilder = Json.createObjectBuilder()
-                                     .add("name",name)
-                                     .add("schema", valueSchemaP.unparse(profile.schema()))
-                                     .add("segments", segmentsBuilder);
-
-      // Append to the array builder
-      discreteProfileBuilder.add(profileBuilder);
+    // Each discrete profile is an object in the array discreteProfiles
+    resultsGenerator.writeStartArray("discreteProfiles");
+    for (var e : results.getDiscreteProfiles().entrySet()) {
+      writeProfile(resultsGenerator, e.getKey(), e.getValue(), serializedValueP);
     }
+    resultsGenerator.writeEnd();
 
-    return Json.createObjectBuilder()
-               .add("realProfiles", realProfileBuilder)
-               .add("discreteProfiles", discreteProfileBuilder)
-               .build();
+    resultsGenerator.writeEnd(); // end of profiles object
   }
 
-  /** Build up a JSON Object containing the activity spans. */
-  private JsonObject buildSpans(
-      final Map<ActivityInstanceId, ActivityInstance> simulatedActivities,
-      final Map<ActivityInstanceId, UnfinishedActivity> unfinishedActivities,
-      final Timestamp simStartTime
+  /** Write a single resource profile object */
+  private <D> void writeProfile(
+      JsonGenerator resultsGenerator,
+      String profileName,
+      ResourceProfile<D> profile,
+      JsonParser<D> dynamicsParser
   ) {
-    final var simulatedActivitiesBuilder = Json.createArrayBuilder();
-    final var unfinishedActivitiesBuilder = Json.createArrayBuilder();
+    resultsGenerator.writeStartObject()
+                    .write("name", profileName)
+                    .write("schema", valueSchemaP.unparse(profile.schema()))
+                    .writeStartArray("segments");
 
-    for(final var e : simulatedActivities.entrySet()) {
+    if (resourceFileStreamer != null) {
+      // We expect RFS made a temp file where each line is a profile segment
+      var resourceTempFile = Path.of(resourceFileStreamer.getFileName(profileName));
+      try (final var stream = Files.lines(resourceTempFile)) {
+        stream.forEach(s -> {
+          if (!s.isBlank()) {
+            // s is a JSON object for a single segment, write it as a value to the results generator
+            // Sadly, this requires reading the object into a JsonValue, just to write it back out (!)
+            try (final JsonReader jr = Json.createReader(new StringReader(s))) {
+              resultsGenerator.write(jr.readValue());
+            }
+          }
+        });
+      } catch (IOException ex) {
+        throw new RuntimeException(ex);
+      }
+      resourceTempFile.toFile().delete();
+    } else {
+      for (var s : profile.segments()) {
+        resultsGenerator.writeStartObject()
+                        .write("extent", s.extent().toString())
+                        .write("dynamics", dynamicsParser.unparse(s.dynamics()))
+                        .writeEnd();
+      }
+    }
+
+    resultsGenerator.writeEnd().writeEnd();
+  }
+
+  /** Write the spans section of the results file, containing all activity spans */
+  private void writeSpans(JsonGenerator resultsGenerator) {
+    resultsGenerator.writeStartObject();
+
+    // Each simulated activity is an object in the array simulatedActivities
+    resultsGenerator.writeStartArray("simulatedActivities");
+    for (var e : results.getSimulatedActivities().entrySet()) {
       final var id = e.getKey();
       final var act = e.getValue();
 
-      // Precompute complicated fields
-      final var childIdsBuilder = Json.createArrayBuilder();
-      act.childIds().forEach(ci -> childIdsBuilder.add(ci.id()));
+      resultsGenerator.writeStartObject();
 
-      final var startOffset = Duration.of(simStartTime.microsUntil(new Timestamp(act.start())), Duration.MICROSECOND).toString();
+      final var startOffset = Duration.of(plan.simulationStartTimestamp.microsUntil(new Timestamp(act.start())), Duration.MICROSECOND).toString();
       final var endTime = act.start().plus(act.duration().in(Duration.MICROSECOND), ChronoUnit.MICROS).toString();
 
-      // Build activity's builder
-      final var actBuilder = Json.createObjectBuilder().add("id", id.id());
+      resultsGenerator.write("id", id.id());
 
-      act.directiveId().ifPresentOrElse(did -> actBuilder.add("directiveId", did.id()),
-                                        () -> actBuilder.add("directiveId", JsonValue.NULL));
-      if(act.parentId() != null) { actBuilder.add("parentId", act.parentId().id()); }
-      else { actBuilder.add("parentId", JsonValue.NULL); }
+      resultsGenerator.writeKey("directiveId");
+      act.directiveId().ifPresentOrElse(
+          did -> resultsGenerator.write(did.id()),
+          resultsGenerator::writeNull);
 
-      actBuilder.add("childIds", childIdsBuilder)
-                .add("type", act.type())
-                .add("startOffset", startOffset)
-                .add("duration", act.duration().toString())
-                .add("attributes", serializedValueP.unparse(act.computedAttributes()))
-                .add("arguments", activityArgumentsP.unparse(act.arguments()))
-                .add("startTime", act.start().toString())
-                .add("endTime", endTime);
+      resultsGenerator.writeKey("parentId");
+      if (act.parentId() != null) {
+        resultsGenerator.write(act.parentId().id());
+      } else {
+        resultsGenerator.writeNull();
+      }
 
-      // Append to the array builder
-      simulatedActivitiesBuilder.add(actBuilder);
+      resultsGenerator.writeStartArray("childIds");
+      for (var ci : act.childIds()) resultsGenerator.write(ci.id());
+      resultsGenerator.writeEnd();
+
+      resultsGenerator
+          .write("type", act.type())
+          .write("startOffset", startOffset)
+          .write("duration", act.duration().toString())
+          .write("attributes", serializedValueP.unparse(act.computedAttributes()))
+          .write("arguments", activityArgumentsP.unparse(act.arguments()))
+          .write("startTime", act.start().toString())
+          .write("endTime", endTime);
+
+      resultsGenerator.writeEnd();
     }
+    resultsGenerator.writeEnd();
 
-    for(final var e : unfinishedActivities.entrySet()) {
+    // Each unfinished activity is an object in the array unfinishedActivities
+    resultsGenerator.writeStartArray("unfinishedActivities");
+    for (var e : results.getUnfinishedActivities().entrySet()) {
       final var id = e.getKey();
       final var act = e.getValue();
 
-      // Precompute complicated fields
-      final var childIdsBuilder = Json.createArrayBuilder();
-      act.childIds().forEach(ci -> childIdsBuilder.add(ci.id()));
+      resultsGenerator.writeStartObject();
 
-      final var startOffset = Duration.of(simStartTime.microsUntil(new Timestamp(act.start())), Duration.MICROSECOND).toString();
+      final var startOffset = Duration.of(plan.simulationStartTimestamp.microsUntil(new Timestamp(act.start())), Duration.MICROSECOND).toString();
 
-      // Build activity's builder
-      final var actBuilder = Json.createObjectBuilder().add("id", id.id());
+      resultsGenerator.write("id", id.id());
 
-      act.directiveId().ifPresentOrElse(did -> actBuilder.add("directiveId", did.id()),
-                                        () -> actBuilder.add("directiveId", JsonValue.NULL));
-      if(act.parentId() != null) { actBuilder.add("parentId", act.parentId().id()); }
-      else { actBuilder.add("parentId", JsonValue.NULL); }
+      resultsGenerator.writeKey("directiveId");
+      act.directiveId().ifPresentOrElse(
+          did -> resultsGenerator.write(did.id()),
+          resultsGenerator::writeNull);
 
-      actBuilder.add("childIds", childIdsBuilder)
-                .add("type", act.type())
-                .add("startOffset", startOffset)
-                .add("arguments", activityArgumentsP.unparse(act.arguments()))
-                .add("startTime", act.start().toString());
+      resultsGenerator.writeKey("parentId");
+      if (act.parentId() != null) {
+        resultsGenerator.write(act.parentId().id());
+      } else {
+        resultsGenerator.writeNull();
+      }
 
-      // Append to the array builder
-      unfinishedActivitiesBuilder.add(actBuilder);
+      resultsGenerator.writeStartArray("childIds");
+      for (var ci : act.childIds()) resultsGenerator.write(ci.id());
+      resultsGenerator.writeEnd();
+
+      resultsGenerator
+          .write("type", act.type())
+          .write("startOffset", startOffset)
+          .write("arguments", activityArgumentsP.unparse(act.arguments()))
+          .write("startTime", act.start().toString());
+
+      resultsGenerator.writeEnd();
     }
+    resultsGenerator.writeEnd();
 
-    return Json.createObjectBuilder()
-               .add("simulatedActivities", simulatedActivitiesBuilder)
-               .add("unfinishedActivities", unfinishedActivitiesBuilder)
-               .build();
+    resultsGenerator.writeEnd(); // end of spans object
   }
 
-  /** Build up a JSON Object containing the simulation events. */
-  private JsonObject buildEvents(final Map<Duration, List<EventGraph<EventRecord>>> events, final List<Triple<Integer, String, ValueSchema>> topics ) {
-    final var eventArrayBuilder = Json.createArrayBuilder();
+  /** Write the topics section of the results */
+  private void writeTopics(JsonGenerator resultsGenerator) {
+    resultsGenerator.writeStartObject();
+    for (var t : results.getTopics()) {
+      resultsGenerator.writeStartObject(t.getMiddle())
+          .write("schema", valueSchemaP.unparse(t.getRight()))
+          .writeEnd();
+    }
+    resultsGenerator.writeEnd(); // end of topics object
+  }
 
-    for (final var eventPoint : events.entrySet()) {
-      final var realTime = eventPoint.getKey();
-      final var transactions = eventPoint.getValue();
+  /** Write the events section of the results */
+  private void writeEvents(JsonGenerator resultsGenerator) {
+    resultsGenerator.writeStartArray();
 
-      for (int transactionIndex = 0; transactionIndex < transactions.size(); transactionIndex++) {
-        final var eventGraph = transactions.get(transactionIndex);
-        final var flattenedEventGraph = EventGraphFlattener.flatten(eventGraph);
+    for (var e : results.getEvents().entrySet()) {
+      var realTime = e.getKey();
+      var transactions = e.getValue();
 
-        for (final Pair<String, EventRecord> entry : flattenedEventGraph) {
-          final EventRecord event = entry.getRight();
-          final var eventBuilder = Json.createObjectBuilder()
-                                    .add("causalTime",entry.getLeft())
-                                    .add("realTime",realTime.toString())
-                                    .add("transactionIndex",transactionIndex)
-                                    .add("value", serializedValueP.unparse(event.value()));
+      int transactionIndex = 0;
+      for (var eventGraph : transactions) {
+        var flattenedEventGraph = EventGraphFlattener.flatten(eventGraph);
+
+        for (var entry : flattenedEventGraph) {
+          var event = entry.getRight();
+
+          resultsGenerator.writeStartObject()
+              .write("causalTime", entry.getLeft())
+              .write("realTime", realTime.toString())
+              .write("transactionIndex", transactionIndex)
+              .write("value", serializedValueP.unparse(event.value()));
 
           //grab the topic from the event's topic id
-          topics.stream()
-                .filter(topic -> topic.getLeft() == event.topicId())
-                .findFirst()
-                .ifPresent(topic -> eventBuilder.add("topic", Json.createObjectBuilder()
-                                                                  .add("name",topic.getMiddle())
-                                                                  .add("valueSchema", valueSchemaP.unparse(topic.getRight()))));
+          results.getTopics()
+              .stream()
+              .filter(topic -> topic.getLeft() == event.topicId())
+              .findFirst()
+              .ifPresent(topic -> resultsGenerator.write("topic", topic.getMiddle()));
 
           // optional span id
-          event.spanId().ifPresentOrElse(spanId -> eventBuilder.add("spanId", spanId),
-                                         () -> eventBuilder.add("spanId", JsonValue.NULL));
-          eventArrayBuilder.add(eventBuilder);
+          resultsGenerator.writeKey("spanId");
+          event.spanId().ifPresentOrElse(resultsGenerator::write, resultsGenerator::writeNull);
+
+          resultsGenerator.writeEnd(); // end of event object
         }
+
+        ++transactionIndex;
       }
     }
 
-    return Json.createObjectBuilder()
-               .add("event",eventArrayBuilder.build())
-               .build();
+    resultsGenerator.writeEnd(); // end of events array
   }
-
-  /** Build up a JSON Object containing the simulation configuration. */
-  private JsonObject buildSimConfig(final Plan plan) {
-    return Json.createObjectBuilder()
-               .add("startTime", plan.simulationStartTimestamp.toString())
-               .add("endTime",plan.simulationEndTimestamp.toString())
-               .add("arguments", simulationArgumentsP.unparse(plan.simulationConfiguration()))
-               .build();
-  }
-
 }
 
 /*
@@ -572,16 +449,21 @@ spans: {
   ]
 }
 
-events: {
-  causalTime : string,
-  realTime : Timestamp,
-  transactionIndex : int,
-  value : {},
-  topic: {
-    name : string
-    valueSchema : {}
+topics: [
+  "ActivityType.Output.DaemonCheckerSpawner": { //topic name
+      schema: ValueSchema
+  },
+]
+
+events: [
+  {
+    causalTime : string,
+    realTime : Timestamp,
+    transactionIndex : int,
+    value : {},
+    topic: string
+    spanId: int,
   }
-  spanId: int,
-}
+]
 }
  */

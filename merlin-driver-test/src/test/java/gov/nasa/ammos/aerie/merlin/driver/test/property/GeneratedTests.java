@@ -522,4 +522,291 @@ public class GeneratedTests {
       assertEquals(expected, actual);
     }
   }
+
+  @Test
+  void test8_deleteAndAddAtSameTime_minimal() {
+    // Extracted from jqwik property test (seed: -1474950772479154912) - SHRUNK VERSION
+    // Bug: Two DT3 activities deleted at T=3584, topics marked as removed
+    // but not unmarked when new activities emit to same topics
+    // This is the minimal failing case with only 3 activities added at T=0
+    final var model = new TestRegistrar();
+    Cell[] cells = new Cell[8];
+    for (int i = 0; i < cells.length; i++) {
+      cells[i] = model.cell();
+    }
+
+    model.activity("DT1", it -> {
+      spawn(() -> {
+        call(() -> {
+          cells[6].emit("38");
+        });
+        cells[6].emit("38");
+        cells[6].get();
+        cells[0].get();
+        cells[3].emit("39493");
+      });
+    });
+
+    model.activity("DT2", it -> {
+      call(() -> {
+        cells[6].emit("38");
+      });
+      cells[6].emit("38");
+      cells[6].get();
+      cells[0].get();
+      cells[3].emit("39493");
+    });
+
+    model.activity("DT3", it -> {
+      call(() -> {
+        call(() -> {
+          cells[6].emit("38");
+        });
+        cells[6].emit("38");
+      });
+    });
+
+    for (int i = 0; i < cells.length; i++) {
+      final var cell = cells[i];
+      model.resource("cell" + i, () -> cell.get().toString());
+    }
+
+    final var schedule = new DualSchedule();
+    schedule.add(duration(0, SECONDS), "DT1");
+    schedule.add(duration(4, SECONDS), "DT2");
+    schedule.add(duration(5, SECONDS), "DT1");
+    schedule.add(duration(5, SECONDS), "DT1");
+    schedule.add(duration(6, SECONDS), "DT3");
+    schedule.add(duration(7, SECONDS), "DT2");
+    schedule.add(duration(17, SECONDS), "DT1");
+    schedule.add(duration(21, SECONDS), "DT3");
+    schedule.add(duration(60, SECONDS), "DT2");
+    schedule.add(duration(150, SECONDS), "DT1");
+    schedule.add(duration(216, SECONDS), "DT2");
+    schedule.add(duration(220, SECONDS), "DT2");
+    schedule.add(duration(291, SECONDS), "DT3");
+    schedule.add(duration(487, SECONDS), "DT3");
+    schedule.add(duration(573, SECONDS), "DT2");
+    schedule.add(duration(640, SECONDS), "DT3");
+    schedule.add(duration(682, SECONDS), "DT2");
+    schedule.add(duration(768, SECONDS), "DT2");
+    schedule.add(duration(912, SECONDS), "DT1");
+    schedule.add(duration(972, SECONDS), "DT2");
+    schedule.add(duration(1048, SECONDS), "DT2");
+    schedule.add(duration(1064, SECONDS), "DT3");
+    schedule.add(duration(1087, SECONDS), "DT1").thenUpdate(duration(1088, SECONDS));
+    schedule.add(duration(1100, SECONDS), "DT1").thenUpdate(duration(1101, SECONDS));
+    schedule.add(duration(1493, SECONDS), "DT1").thenUpdate(duration(1494, SECONDS));
+    schedule.add(duration(1655, SECONDS), "DT2").thenUpdate(duration(1656, SECONDS));
+    schedule.add(duration(1695, SECONDS), "DT3").thenUpdate(duration(1696, SECONDS));
+    schedule.add(duration(1777, SECONDS), "DT1").thenUpdate(duration(1778, SECONDS));
+    schedule.add(duration(1872, SECONDS), "DT1").thenUpdate(duration(1873, SECONDS));
+    schedule.add(duration(1880, SECONDS), "DT1").thenUpdate(duration(1881, SECONDS));
+    schedule.add(duration(1932, SECONDS), "DT2").thenUpdate(duration(1933, SECONDS));
+    schedule.add(duration(2117, SECONDS), "DT3").thenUpdate(duration(2118, SECONDS));
+    schedule.add(duration(2149, SECONDS), "DT3").thenUpdate(duration(2150, SECONDS));
+    schedule.add(duration(2396, SECONDS), "DT1").thenUpdate(duration(2397, SECONDS));
+    schedule.add(duration(2466, SECONDS), "DT2").thenUpdate(duration(2467, SECONDS));
+    schedule.add(duration(2475, SECONDS), "DT3").thenUpdate(duration(2476, SECONDS));
+    schedule.add(duration(2511, SECONDS), "DT2").thenUpdate(duration(2512, SECONDS));
+    schedule.add(duration(2516, SECONDS), "DT1").thenUpdate(duration(2517, SECONDS));
+    schedule.add(duration(2621, SECONDS), "DT3").thenUpdate(duration(2622, SECONDS));
+    schedule.add(duration(2629, SECONDS), "DT3").thenUpdate(duration(2630, SECONDS));
+    schedule.add(duration(2677, SECONDS), "DT2").thenUpdate(duration(2678, SECONDS));
+    schedule.add(duration(2859, SECONDS), "DT3").thenUpdate(duration(2860, SECONDS));
+    schedule.add(duration(2868, SECONDS), "DT3").thenUpdate(duration(2869, SECONDS));
+    schedule.add(duration(3048, SECONDS), "DT3").thenDelete();
+    schedule.add(duration(3170, SECONDS), "DT1").thenDelete();
+    schedule.add(duration(3242, SECONDS), "DT3").thenDelete();
+    schedule.add(duration(3323, SECONDS), "DT2").thenDelete();
+    schedule.add(duration(3332, SECONDS), "DT2").thenDelete();
+    schedule.add(duration(3373, SECONDS), "DT1").thenDelete();
+    schedule.add(duration(3440, SECONDS), "DT3").thenDelete();
+    schedule.add(duration(3549, SECONDS), "DT1").thenDelete();
+    schedule.add(duration(3584, SECONDS), "DT3").thenDelete(); // CRITICAL: DELETE 1 at T=3584
+    schedule.add(duration(3584, SECONDS), "DT3").thenDelete(); // CRITICAL: DELETE 2 at T=3584
+    schedule.add(duration(3595, SECONDS), "DT1").thenDelete();
+    schedule.add(duration(3596, SECONDS), "DT2").thenDelete();
+    schedule.add(duration(3599, SECONDS), "DT1").thenDelete();
+    schedule.add(duration(3599, SECONDS), "DT2").thenDelete();
+    // Minimal shrunk case: only 3 activities added at T=0
+    schedule.thenAdd(duration(0, SECONDS), "DT1");
+    schedule.thenAdd(duration(0, SECONDS), "DT1");
+    schedule.thenAdd(duration(0, SECONDS), "DT1");
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    final var schedule1 = schedule.schedule1();
+    final var schedule2 = schedule.schedule2();
+
+    final var referenceSimulator = REGULAR_SIMULATOR.create(model.asModelType(), UNIT, Instant.EPOCH, HOUR);
+    final var testSimulator = INCREMENTAL_SIMULATOR.create(model.asModelType(), UNIT, Instant.EPOCH, HOUR);
+
+    {
+      System.out.println("Reference simulation 1");
+      final var referenceProfiles = referenceSimulator.simulate(schedule1).discreteProfiles();
+
+      System.out.println("Test simulation 1");
+      final var testProfiles = testSimulator.simulate(schedule1).discreteProfiles();
+      assertLastSegmentsEqual(referenceProfiles, testProfiles);
+    }
+
+    {
+      System.out.println("Reference simulation 2");
+      final var referenceProfiles = referenceSimulator.simulate(schedule2).discreteProfiles();
+
+      System.out.println("Test simulation 2");
+      final var testProfiles = testSimulator.simulate(schedule2).discreteProfiles();
+      assertLastSegmentsEqual(referenceProfiles, testProfiles);
+    }
+  }
+
+  @Test
+  void test9_deleteAndAddAtSameTime_concurrentGrouping() {
+    // Extracted from jqwik property test (seed: -1474950772479154912)
+    // Bug: EventGraph.Concurrently grouping differs between regular and incremental sim
+    // This version demonstrates the full scenario with all added activities
+    // Fix is partially working but shows parentheses grouping differences in cell3 and cell6
+    final var model = new TestRegistrar();
+    Cell[] cells = new Cell[8];
+    for (int i = 0; i < cells.length; i++) {
+      cells[i] = model.cell();
+    }
+
+    model.activity("DT1", it -> {
+      spawn(() -> {
+        call(() -> {
+          cells[6].emit("38");
+        });
+        cells[6].emit("38");
+        cells[6].get();
+        cells[0].get();
+        cells[3].emit("39493");
+      });
+    });
+
+    model.activity("DT2", it -> {
+      call(() -> {
+        cells[6].emit("38");
+      });
+      cells[6].emit("38");
+      cells[6].get();
+      cells[0].get();
+      cells[3].emit("39493");
+    });
+
+    model.activity("DT3", it -> {
+      call(() -> {
+        call(() -> {
+          cells[6].emit("38");
+        });
+        cells[6].emit("38");
+      });
+    });
+
+    for (int i = 0; i < cells.length; i++) {
+      final var cell = cells[i];
+      model.resource("cell" + i, () -> cell.get().toString());
+    }
+
+    final var schedule = new DualSchedule();
+    schedule.add(duration(0, SECONDS), "DT1");
+    schedule.add(duration(4, SECONDS), "DT2");
+    schedule.add(duration(5, SECONDS), "DT1");
+    schedule.add(duration(5, SECONDS), "DT1");
+    schedule.add(duration(6, SECONDS), "DT3");
+    schedule.add(duration(7, SECONDS), "DT2");
+    schedule.add(duration(17, SECONDS), "DT1");
+    schedule.add(duration(21, SECONDS), "DT3");
+    schedule.add(duration(60, SECONDS), "DT2");
+    schedule.add(duration(150, SECONDS), "DT1");
+    schedule.add(duration(216, SECONDS), "DT2");
+    schedule.add(duration(220, SECONDS), "DT2");
+    schedule.add(duration(291, SECONDS), "DT3");
+    schedule.add(duration(487, SECONDS), "DT3");
+    schedule.add(duration(573, SECONDS), "DT2");
+    schedule.add(duration(640, SECONDS), "DT3");
+    schedule.add(duration(682, SECONDS), "DT2");
+    schedule.add(duration(768, SECONDS), "DT2");
+    schedule.add(duration(912, SECONDS), "DT1");
+    schedule.add(duration(972, SECONDS), "DT2");
+    schedule.add(duration(1048, SECONDS), "DT2");
+    schedule.add(duration(1064, SECONDS), "DT3");
+    schedule.add(duration(1087, SECONDS), "DT1").thenUpdate(duration(1088, SECONDS));
+    schedule.add(duration(1100, SECONDS), "DT1").thenUpdate(duration(1101, SECONDS));
+    schedule.add(duration(1493, SECONDS), "DT1").thenUpdate(duration(1494, SECONDS));
+    schedule.add(duration(1655, SECONDS), "DT2").thenUpdate(duration(1656, SECONDS));
+    schedule.add(duration(1695, SECONDS), "DT3").thenUpdate(duration(1696, SECONDS));
+    schedule.add(duration(1777, SECONDS), "DT1").thenUpdate(duration(1778, SECONDS));
+    schedule.add(duration(1872, SECONDS), "DT1").thenUpdate(duration(1873, SECONDS));
+    schedule.add(duration(1880, SECONDS), "DT1").thenUpdate(duration(1881, SECONDS));
+    schedule.add(duration(1932, SECONDS), "DT2").thenUpdate(duration(1933, SECONDS));
+    schedule.add(duration(2117, SECONDS), "DT3").thenUpdate(duration(2118, SECONDS));
+    schedule.add(duration(2149, SECONDS), "DT3").thenUpdate(duration(2150, SECONDS));
+    schedule.add(duration(2396, SECONDS), "DT1").thenUpdate(duration(2397, SECONDS));
+    schedule.add(duration(2466, SECONDS), "DT2").thenUpdate(duration(2467, SECONDS));
+    schedule.add(duration(2475, SECONDS), "DT3").thenUpdate(duration(2476, SECONDS));
+    schedule.add(duration(2511, SECONDS), "DT2").thenUpdate(duration(2512, SECONDS));
+    schedule.add(duration(2516, SECONDS), "DT1").thenUpdate(duration(2517, SECONDS));
+    schedule.add(duration(2621, SECONDS), "DT3").thenUpdate(duration(2622, SECONDS));
+    schedule.add(duration(2629, SECONDS), "DT3").thenUpdate(duration(2630, SECONDS));
+    schedule.add(duration(2677, SECONDS), "DT2").thenUpdate(duration(2678, SECONDS));
+    schedule.add(duration(2859, SECONDS), "DT3").thenUpdate(duration(2860, SECONDS));
+    schedule.add(duration(2868, SECONDS), "DT3").thenUpdate(duration(2869, SECONDS));
+    schedule.add(duration(3048, SECONDS), "DT3").thenDelete();
+    schedule.add(duration(3170, SECONDS), "DT1").thenDelete();
+    schedule.add(duration(3242, SECONDS), "DT3").thenDelete();
+    schedule.add(duration(3323, SECONDS), "DT2").thenDelete();
+    schedule.add(duration(3332, SECONDS), "DT2").thenDelete();
+    schedule.add(duration(3373, SECONDS), "DT1").thenDelete();
+    schedule.add(duration(3440, SECONDS), "DT3").thenDelete();
+    schedule.add(duration(3549, SECONDS), "DT1").thenDelete();
+    schedule.add(duration(3584, SECONDS), "DT3").thenDelete(); // CRITICAL: DELETE 1 at T=3584
+    schedule.add(duration(3584, SECONDS), "DT3").thenDelete(); // CRITICAL: DELETE 2 at T=3584
+    schedule.add(duration(3595, SECONDS), "DT1").thenDelete();
+    schedule.add(duration(3596, SECONDS), "DT2").thenDelete();
+    schedule.add(duration(3599, SECONDS), "DT1").thenDelete();
+    schedule.add(duration(3599, SECONDS), "DT2").thenDelete();
+    // Full set of added activities - demonstrates EventGraph.Concurrently grouping issue
+    schedule.thenAdd(duration(2647, SECONDS), "DT1");
+    schedule.thenAdd(duration(3569, SECONDS), "DT1");
+    schedule.thenAdd(duration(3366, SECONDS), "DT1");
+    schedule.thenAdd(duration(887, SECONDS), "DT1");
+    schedule.thenAdd(duration(3076, SECONDS), "DT1");
+    schedule.thenAdd(duration(1358, SECONDS), "DT1");
+    schedule.thenAdd(duration(4, SECONDS), "DT1");
+    schedule.thenAdd(duration(109, SECONDS), "DT1");
+    schedule.thenAdd(duration(16, SECONDS), "DT1");
+    schedule.thenAdd(duration(2792, SECONDS), "DT1");
+    schedule.thenAdd(duration(1414, SECONDS), "DT1");
+    schedule.thenAdd(duration(2565, SECONDS), "DT1");
+    schedule.thenAdd(duration(3460, SECONDS), "DT1");
+    schedule.thenAdd(duration(1821, SECONDS), "DT1");
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+    final var schedule1 = schedule.schedule1();
+    final var schedule2 = schedule.schedule2();
+
+    final var referenceSimulator = REGULAR_SIMULATOR.create(model.asModelType(), UNIT, Instant.EPOCH, HOUR);
+    final var testSimulator = INCREMENTAL_SIMULATOR.create(model.asModelType(), UNIT, Instant.EPOCH, HOUR);
+
+    {
+      System.out.println("Reference simulation 1");
+      final var referenceProfiles = referenceSimulator.simulate(schedule1).discreteProfiles();
+
+      System.out.println("Test simulation 1");
+      final var testProfiles = testSimulator.simulate(schedule1).discreteProfiles();
+      assertLastSegmentsEqual(referenceProfiles, testProfiles);
+    }
+
+    {
+      System.out.println("Reference simulation 2");
+      final var referenceProfiles = referenceSimulator.simulate(schedule2).discreteProfiles();
+
+      System.out.println("Test simulation 2");
+      final var testProfiles = testSimulator.simulate(schedule2).discreteProfiles();
+      assertLastSegmentsEqual(referenceProfiles, testProfiles);
+    }
+  }
 }

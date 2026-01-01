@@ -133,6 +133,18 @@ public class TemporalEventSource implements EventSource, Iterable<TemporalEventS
     var topics = extractTopics(newEventGraph);
     var commit = new TimePoint.Commit(newEventGraph, topics);
 
+    // Remove topics from the "removed" set if they're being re-added by this new event graph.
+    // This handles the case where an activity is deleted and a new activity is added at the same time.
+    var removedAtTime = this.topicsOfRemovedEvents.get(time);
+    if (removedAtTime != null && !removedAtTime.isEmpty() && !topics.isEmpty()) {
+      var intersection = new HashSet<>(removedAtTime);
+      intersection.retainAll(topics);
+      if (!intersection.isEmpty()) {
+        System.err.println("[FIX] Time=" + time + " removing " + intersection + " from removedEvents");
+        removedAtTime.removeAll(topics);
+      }
+    }
+
     // put the commit into the list of commits at for the time/offset
     if (combineGraphs) {
       commits.set(stepIndexAtTime, commit);
@@ -333,7 +345,7 @@ public class TemporalEventSource implements EventSource, Iterable<TemporalEventS
     topicsForEventGraph.put(newG, newTopics);
     var allTopics = new HashSet<Topic<?>>();
     if (oldTopics != null) allTopics.addAll(oldTopics);
-    Set<Topic<?>> lostTopics = oldTopics.stream().filter(t -> !newTopics.contains(t)).collect(Collectors.toSet());
+    Set<Topic<?>> lostTopics = (oldTopics == null) ? Set.of() : oldTopics.stream().filter(t -> !newTopics.contains(t)).collect(Collectors.toSet());
     this.topicsOfRemovedEvents.computeIfAbsent(time, $ -> new HashSet<>()).addAll(lostTopics);
     allTopics.addAll(newTopics);
     allTopics.forEach(t -> {

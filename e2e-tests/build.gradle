@@ -68,7 +68,7 @@ dependencies {
   testImplementation "com.zaxxer:HikariCP:5.1.0"
   testImplementation("org.postgresql:postgresql:42.6.0")
 
-  testImplementation 'com.microsoft.playwright:playwright:1.37.0'
+  testImplementation 'com.microsoft.playwright:playwright:1.55.0'
 
   testImplementation 'org.glassfish:javax.json:1.1.4'
   testImplementation 'org.apache.commons:commons-lang3:3.13.0'

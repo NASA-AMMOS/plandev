@@ -1,5 +1,5 @@
 name: "\U0001F41E Bug Report"
-description: Report an issue with Aerie.
+description: Report an issue with PlanDev.
 labels: ["bug"]
 body:
   - type: markdown
@@ -29,7 +29,7 @@ body:
     id: bug-version
     attributes:
       label: Version
-      description: What version of Aerie are you observing this bug in?
+      description: What version of PlanDev are you observing this bug in?
       placeholder: "1.4.0, 1.5.0, develop, etc."
     validations:
       required: true

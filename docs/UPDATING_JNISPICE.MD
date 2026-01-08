@@ -1,9 +1,9 @@
-# Updating Aerie's JNISpice Toolkit
+# Updating PlanDev's JNISpice Toolkit
 
-Aerie currently runs a custom-compiled version of [JNISpice](https://naif.jpl.nasa.gov/pub/naif/misc/JNISpice/) in order to support model-scoped SPICE.
-Additionally, Aerie supports SPICE in M1 Mac and Linux-ARM environments, which are not currently offered by NAIF.
+PlanDev currently runs a custom-compiled version of [JNISpice](https://naif.jpl.nasa.gov/pub/naif/misc/JNISpice/) in order to support model-scoped SPICE.
+Additionally, PlanDev supports SPICE in M1 Mac and Linux-ARM environments, which are not currently offered by NAIF.
 
-This document goes over the process of updating Aerie's JNISpice Toolkit.
+This document goes over the process of updating PlanDev's JNISpice Toolkit.
 
 ### Prerequisite Software
 
@@ -16,13 +16,13 @@ Aside from that, you will need the following software:
 - gcc
 - Docker
 
-If you have already set up your machine for Aerie development then all of these programs should already be installed.
+If you have already set up your machine for PlanDev development then all of these programs should already be installed.
 
 ### Step 1: Compiling the JAR and x86 binaries
 
 This step has been entirely automated.
 
-1. Navigate to the ["Create x86 JNISpice Artifacts"](https://github.com/NASA-AMMOS/aerie/actions/workflows/create_jnispice.yml) Action on the Aerie GitHub.
+1. Navigate to the ["Create x86 JNISpice Artifacts"](https://github.com/NASA-AMMOS/aerie/actions/workflows/create_jnispice.yml) Action on the PlanDev GitHub.
 2. Click "Run Workflow" and run the Workflow against `develop`.
 3. When the workflow has finished, navigate to the run's "Summary" page. Download everything under "Artifacts".
 4. Extract all the downloaded Artifacts.

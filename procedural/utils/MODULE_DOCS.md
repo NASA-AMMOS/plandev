@@ -1,7 +1,7 @@
 # Module Utils
 
 This library provides utility functions and classes for running procedural
-goals and constraints outside of Aerie.
+goals and constraints outside of PlanDev.
 
 # Package gov.nasa.ammos.aerie.procedural.utils
 

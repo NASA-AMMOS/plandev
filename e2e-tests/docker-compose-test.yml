@@ -1,4 +1,4 @@
-# This compose file is used for end-to-end testing the Aerie services.
+# This compose file is used for end-to-end testing the PlanDev services.
 # See .github/workflows/test.yml for how this file is utilized.
 
 version: '3.7'

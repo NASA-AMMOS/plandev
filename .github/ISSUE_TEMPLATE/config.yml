@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Aerie UI
+  - name: PlanDev UI
     url: https://github.com/NASA-AMMOS/aerie-ui/issues/new/choose
-    about: Issues and feature requests for the Aerie UI repo (not backend related).
-  - name: Aerie Docs
-    url: https://github.com/NASA-AMMOS/aerie-docs/issues/new/choose
-    about: Issues and feature requests for the Aerie Documentation.
+    about: Issues and feature requests for the PlanDev UI repo (not backend related).
+  - name: PlanDev Docs
+    url: https://github.com/NASA-AMMOS/plandev-docs/issues/new/choose
+    about: Issues and feature requests for the PlanDev Documentation.
   - name: Slack Chat
     url: https://jpl.slack.com/archives/C0163E42UBF
-    about: Ask questions and discuss with other Aerie users in real time.
+    about: Ask questions and discuss with other PlanDev users in real time.

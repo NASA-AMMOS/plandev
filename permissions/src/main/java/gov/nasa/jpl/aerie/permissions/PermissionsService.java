@@ -4,6 +4,7 @@ import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchSchedulingSpecificationException;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException;
+import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsException;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
 import gov.nasa.jpl.aerie.permissions.gql.GraphQLPermissionsService;
 import gov.nasa.jpl.aerie.permissions.gql.PlanId;
@@ -20,44 +21,68 @@ public final class PermissionsService {
   }
 
   public void check(final HasuraAction action, final String role, final String username, final PlanId planId)
-  throws Forbidden, IOException, PermissionsServiceException, NoSuchPlanException {
-    final var permissionType = getActionPermission(action, role);
-    final var authorized = canPerformAction(permissionType, username, planId);
-    if (!authorized) throw new Forbidden(action, role, username, permissionType, planId);
+  throws PermissionsException {
+    try {
+      final var permissionType = getActionPermission(action, role);
+      final var authorized = canPerformAction(permissionType, username, planId);
+      if (!authorized) throw new Forbidden(action, role, username, permissionType, planId);
+    } catch (Forbidden f) {
+      throw new PermissionsException(403, f);
+    } catch (NoSuchPlanException nsp) {
+      throw new PermissionsException(404, nsp);
+    } catch (PermissionsServiceException | IOException ex) {
+      throw new PermissionsException(500, ex);
+    }
   }
 
   public void check(
       final HasuraAction action,
       final String role,
       final String username,
-      final SchedulingSpecificationId specificationId)
-  throws Forbidden, IOException, PermissionsServiceException, NoSuchSchedulingSpecificationException,
-         NoSuchPlanException
-  {
-    final var planId = gqlService.getPlanIdFromSchedulingSpecificationId(specificationId);
-    check(action, role, username, planId);
+      final SchedulingSpecificationId specificationId
+  ) throws PermissionsException {
+    try {
+      final var planId = gqlService.getPlanIdFromSchedulingSpecificationId(specificationId);
+      check(action, role, username, planId);
+    } catch (NoSuchSchedulingSpecificationException nss) {
+      throw new PermissionsException(404, nss);
+    } catch (PermissionsServiceException | IOException ex) {
+      throw new PermissionsException(500, ex);
+    }
   }
 
   public void check(
       final WorkspaceAction action,
       final String role,
       final String username,
-      final WorkspaceId workspaceId)
-  throws Forbidden, IOException, PermissionsServiceException, NoSuchWorkspaceException
-  {
-    final var permissionType = getWorkspaceActionPermission(action, role);
-    final var authorized = canPerformWorkspaceAction(permissionType, username, workspaceId);
-    if (!authorized) throw new Forbidden(action, role, username, permissionType, workspaceId);
+      final WorkspaceId workspaceId
+  ) throws PermissionsException {
+    try {
+      final var permissionType = getWorkspaceActionPermission(action, role);
+      final var authorized = canPerformWorkspaceAction(permissionType, username, workspaceId);
+      if (!authorized) throw new Forbidden(action, role, username, permissionType, workspaceId);
+    } catch (Forbidden f) {
+      throw new PermissionsException(403, f);
+    } catch (NoSuchWorkspaceException nsw) {
+      throw new PermissionsException(404, nsw);
+    } catch (PermissionsServiceException | IOException ex) {
+      throw new PermissionsException(500, ex);
+    }
   }
 
   public void checkCoarseGrained(final Action action, final String role)
-  throws PermissionsServiceException, Forbidden, IOException
+  throws PermissionsException
   {
-    if(action instanceof WorkspaceAction workspaceAction) {
-      getWorkspaceActionPermission(workspaceAction, role);
-    }
-    else {
-      throw new IllegalArgumentException("Unsupported action subtype: "+action.getClass());
+    try {
+      if (action instanceof WorkspaceAction workspaceAction) {
+        getWorkspaceActionPermission(workspaceAction, role);
+      } else {
+        throw new IllegalArgumentException("Unsupported action subtype: " + action.getClass());
+      }
+    } catch (Forbidden f) {
+      throw new PermissionsException(403, f);
+    } catch (PermissionsServiceException | IOException ex) {
+      throw new PermissionsException(500, ex);
     }
   }
 

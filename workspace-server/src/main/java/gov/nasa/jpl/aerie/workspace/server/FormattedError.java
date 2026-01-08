@@ -47,6 +47,25 @@ final class FormattedError {
   }
 
   /**
+   * For use in the event of an endpoint failing without throwing an exception, but where there's a more detailed cause.
+   */
+  public FormattedError(String message, String cause) {
+    this.type = "INTERNAL_ERROR";
+    this.message = message;
+    this.cause = Optional.ofNullable(cause);
+  }
+
+  /**
+   * For use in the event of an endpoint failing without throwing an exception,
+   *  but "INTERNAL_ERROR" does not make sense as the error type (i.e. the request is malformed)
+   */
+  public FormattedError(String type, String message, Optional<String> cause) {
+    this.type = type;
+    this.message = message;
+    this.cause = cause;
+  }
+
+  /**
    * Create a FormattedException from a generic Exception object.
    * @param type the category of exception. Should be in SCREAMING_SNAKE_CASE
    * @param ex the exception to be formatted.
@@ -135,8 +154,8 @@ final class FormattedError {
   }
 
   // IllegalArgumentException
-  public FormattedError(IllegalArgumentException iae, String message) {
-    this("ILLEGAL_ARGUMENT", message, iae);
+  public FormattedError(IllegalArgumentException iae) {
+    this("ILLEGAL_ARGUMENT", iae);
   }
 
   // JSONException
@@ -149,6 +168,16 @@ final class FormattedError {
     this.type = "ENDPOINT_VALIDATION_EXCEPTION";
     this.message = ve.getMessage() != null ? ve.getMessage() : "Invalid request";
     trace = Optional.of(generateTrace(ve));
+  }
+
+  // Null Pointer Exception
+  public FormattedError(NullPointerException ne, String message) {
+    this("NULL_POINTER_EXCEPTION", message, ne);
+  }
+
+  //Security Exception
+  public FormattedError(SecurityException se) {
+    this("SECURITY_EXCEPTION", se.getMessage(), se);
   }
   //endregion
 
@@ -182,6 +211,11 @@ final class FormattedError {
     return builder.build();
   }
 
+  @Override
+  public String toString() {
+    return this.toJson().toString();
+  }
+
   /**
    * Internal class so that Javalin serializes the FormattedError class using its `toJson` method.
    * This avoids needing to call `toJson` every time the FormattedError class is used as an endpoint return.
@@ -194,7 +228,7 @@ final class FormattedError {
         final JsonGenerator jsonGenerator,
         final SerializerProvider serializerProvider) throws IOException
     {
-      jsonGenerator.writeRaw(formattedError.toJson().toString());
+      jsonGenerator.writeRaw(formattedError.toString());
     }
   }
 }

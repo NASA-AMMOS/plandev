@@ -46,7 +46,7 @@ public interface WorkspaceService {
    * @return true if the file was saved, false otherwise
    */
   boolean saveFile(final int workspaceId, final Path filePath, final UploadedFile file)
-  throws IOException, NoSuchWorkspaceException;
+  throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException;
 
   /**
   * Copy a file within a workspace or between workspaces.
@@ -78,12 +78,14 @@ public interface WorkspaceService {
    * @param filePath the path, relative to the workspace's root, to the file to be deleted
    * @return true if the file was deleted, false otherwise
    */
-  boolean deleteFile(final int workspaceId, final Path filePath) throws IOException, NoSuchWorkspaceException;
+  boolean deleteFile(final int workspaceId, final Path filePath)
+  throws IOException, NoSuchWorkspaceException, SQLException;
 
   DirectoryTree listFiles(final int workspaceId, final Optional<Path> directoryPath, final int depth)
   throws SQLException, NoSuchWorkspaceException, IOException;
 
-  boolean createDirectory(final int workspaceId, final Path directoryPath) throws IOException, NoSuchWorkspaceException;
+  boolean createDirectory(final int workspaceId, final Path directoryPath)
+  throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException;
   /**
    * Move a directory within a workspace or between workspaces.
    * @param oldWorkspaceId the id of the source workspace

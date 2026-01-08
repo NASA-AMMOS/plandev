@@ -12,9 +12,12 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,14 +27,31 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   final WorkspacePostgresRepository postgresRepository;
 
   /**
-   * Resolves a relative path against a workspace root, ensuring the result stays within the root directory.
+   * Resolve and validate a relative path against a workspace root for the purpose of writing while ensuring the
+   * result stays within the root directory.
+   * Prevents path traversal attacks by rejecting absolute paths and any resolved path that escape the specified root.
+   * @param rootPath the workspace root path
+   * @param filePath the untrusted path to resolve against the root
+   * @return the resolved and normalized path, guaranteed to be within the root
+   * @throws SecurityException if the resolved path escapes the root or if the input is absolute
+   * @throws WorkspaceFileOpException if the resolved path is invalid (ie, contains illegal characters)
+   */
+  Path resolveWritingPath(final Path rootPath, final Path filePath) throws WorkspaceFileOpException {
+    final var resolvedPath = resolveReadingPath(rootPath, filePath);
+    validatePath(resolvedPath);
+    return resolvedPath;
+  }
+
+  /**
+   * Resolves a relative path against a workspace root for reading or otherwise fetching a File while ensuring the
+   *   result stays within the root directory.
    * Prevents path traversal attacks by rejecting absolute paths and any resolved path that escape the specified root.
    * @param rootPath the workspace root path
    * @param filePath the untrusted path to resolve against the root
    * @return the resolved and normalized path, guaranteed to be within the root
    * @throws SecurityException if the resolved path escapes the root or if the input is absolute
    */
-  Path resolveSubPath(final Path rootPath, final Path filePath) {
+  Path resolveReadingPath(final Path rootPath, final Path filePath) {
     // disallow absolute file paths, since Path.of("/foo").resolve(Path.of("/etc/passwd")) -> "/etc/passwd"
     if (filePath.isAbsolute()) {
       throw new SecurityException("Absolute file paths not allowed");
@@ -42,6 +62,65 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       throw new SecurityException("Path traversal attempt detected");
     }
     return resolvedPath;
+  }
+
+  /**
+   * Validates that the path does not contain any invalid characters.
+   *
+   * Forbidden Characters for File and Folder names:
+   *   < (less than), > (greater than), : (colon), " (double quote), / (forward slash), \ (backslash),
+   *   | (vertical bar or pipe), ? (question mark), * (asterisk),
+   *   % (percent sign - causes issues with URL path resolution as it is not automatically encoded),
+   *   # (pound sign - causes issues with URL path resolution as it is not automatically encoded),
+   *   Unicode Control Characters (0-31, 127-159),
+   *   trailing .
+   *   trailing space
+   *
+   * While / (forward slash) is a forbidden characters in filenames, it's interpreted by Java's Path class as a
+   *  folder delineator, meaning that it will not appear as a path segment.
+   *  The character is still checked for just in case.
+   *
+   * Reserved Filenames (these are not permitted on Windows even if they have an extension):
+   *   CON, PRN, AUX, NUL, COM1, COM2, COM3, COM4, COM5, COM6, COM7, COM8, COM9,
+   *   LPT1, LPT2, LPT3, LPT4, LPT5, LPT6, LPT7, LPT8, LPT9
+   *
+   * @param path the Path to validate
+   */
+  void validatePath(final Path path) throws WorkspaceFileOpException {
+    final String[] reservedFilenames = {"CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7",
+                                         "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"};
+    final var controlCharacters = Pattern.compile("([\u0000-\u001F]|[\u007F-\u009F])+", Pattern.UNICODE_CHARACTER_CLASS);
+    final var forbiddenCharacters = Pattern.compile("([|<>:/\"?*%#\\\\])+", Pattern.UNICODE_CHARACTER_CLASS);
+
+
+    for(final var pathSegment : path) {
+      final var segment = pathSegment.toString();
+      // Check for trailing period or space
+      if(segment.endsWith(" ")) {
+        throw new WorkspaceFileOpException("Path segment '"+ segment+ "' cannot end in a space.");
+      }
+      if(segment.endsWith(".")) {
+        throw new WorkspaceFileOpException("Path segment '"+ segment+ "' cannot end in a period.");
+      }
+
+      // Check for control characters
+      final var controlMatcher = controlCharacters.matcher(segment);
+      if(controlMatcher.find()){
+        throw new WorkspaceFileOpException("Path segment '"+ segment+ "' has illegal characters: "+controlMatcher.group());
+      }
+
+      // Check for forbidden characters
+      final var forbiddenMatcher = forbiddenCharacters.matcher(segment);
+      if(forbiddenMatcher.find()){
+        throw new WorkspaceFileOpException("Path segment '"+ segment+ "' has illegal characters: "+forbiddenMatcher.group());
+      }
+
+      // Check that the segment is not a reserved filenames:
+      final var name = segment.split("\\.")[0];
+      if(Arrays.asList(reservedFilenames).contains(name)){
+        throw new WorkspaceFileOpException("Path segment '"+ segment+ "' contains reserved name: "+name);
+      }
+    }
   }
 
   public WorkspaceFileSystemService(final WorkspacePostgresRepository postgresRepository) {
@@ -120,14 +199,14 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   @Override
   public boolean checkFileExists(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
-    final var path = resolveSubPath(repoPath, filePath);
+    final var path = resolveReadingPath(repoPath, filePath);
     return path.toFile().exists();
   }
 
   @Override
   public boolean isDirectory(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
-    final var path = resolveSubPath(repoPath, filePath);
+    final var path = resolveReadingPath(repoPath, filePath);
     return path.toFile().isDirectory();
   }
 
@@ -140,7 +219,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   @Override
   public FileStream loadFile(final int workspaceId, final Path filePath) throws IOException, NoSuchWorkspaceException {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
-    final var path = resolveSubPath(repoPath, filePath);
+    final var path = resolveReadingPath(repoPath, filePath);
     final var file = path.toFile();
 
     return new FileStream(new FileInputStream(file), file.getName(), Files.size(file.toPath()));
@@ -148,9 +227,9 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   @Override
   public boolean saveFile(final int workspaceId, final Path filePath, final UploadedFile file)
-  throws NoSuchWorkspaceException {
+  throws NoSuchWorkspaceException, WorkspaceFileOpException {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
-    final var path = resolveSubPath(repoPath, filePath);
+    final var path = resolveWritingPath(repoPath, filePath);
 
     if(path.toFile().isDirectory()) return false;
 
@@ -163,13 +242,10 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws NoSuchWorkspaceException, SQLException, WorkspaceFileOpException
   {
     final var oldRepoPath = postgresRepository.workspaceRootPath(oldWorkspaceId);
-    final var oldPath = resolveSubPath(oldRepoPath, oldFilePath);
+    final var oldPath = resolveReadingPath(oldRepoPath, oldFilePath);
     final var newRepoPath = (oldWorkspaceId == newWorkspaceId) ? oldRepoPath : postgresRepository.workspaceRootPath(newWorkspaceId);
-    final var newPath = resolveSubPath(newRepoPath, newFilePath);
+    final var newPath = resolveWritingPath(newRepoPath, newFilePath);
     boolean success = true;
-
-    // Do not move the file if the destination already exists
-    if(newPath.toFile().exists()) throw new WorkspaceFileOpException("Destination file \"%s\" in workspace %d already exists.".formatted(newFilePath, newWorkspaceId));
 
     // Find hidden metadata files, if they exist, and move them
     final var metadataExtensions = postgresRepository.getMetadataExtensions();
@@ -189,22 +265,19 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws NoSuchWorkspaceException, SQLException, WorkspaceFileOpException
   {
     final var sourceRepoPath = postgresRepository.workspaceRootPath(sourceWorkspaceId);
-    final var sourcePath = resolveSubPath(sourceRepoPath, sourceFilePath);
+    final var sourcePath = resolveReadingPath(sourceRepoPath, sourceFilePath);
     final var destRepoPath = (sourceWorkspaceId == destWorkspaceId) ? sourceRepoPath : postgresRepository.workspaceRootPath(destWorkspaceId);
-    final var destPath = resolveSubPath(destRepoPath, destFilePath);
+    final var destPath = resolveWritingPath(destRepoPath, destFilePath);
 
     try {
       // Do not copy the file if the source file does not exist
       if(!sourcePath.toFile().exists()) throw new WorkspaceFileOpException("Source file \"%s\" in workspace %d does not exist.".formatted(sourceFilePath, sourceWorkspaceId));
 
-      // Do not copy the file if the destination already exists
-      if(destPath.toFile().exists()) throw new WorkspaceFileOpException("Destination file \"%s\" in workspace %d already exists.".formatted(destFilePath, destWorkspaceId));
-
       // Create any parent directories that don't already exist
       Files.createDirectories(destPath.getParent());
 
       // Copy the main file
-      Files.copy(sourcePath, destPath);
+      Files.copy(sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING);
 
       // Find and copy hidden metadata files
       final var metadataExtensions = postgresRepository.getMetadataExtensions();
@@ -229,17 +302,14 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws NoSuchWorkspaceException, WorkspaceFileOpException
   {
     final var sourceRepoPath = postgresRepository.workspaceRootPath(sourceWorkspaceId);
-    final var sourcePath = resolveSubPath(sourceRepoPath, sourceFilePath);
+    final var sourcePath = resolveReadingPath(sourceRepoPath, sourceFilePath);
     final var destRepoPath = (sourceWorkspaceId == destWorkspaceId) ? sourceRepoPath : postgresRepository.workspaceRootPath(destWorkspaceId);
-    final var destPath = resolveSubPath(destRepoPath, destFilePath);
+    final var destPath = resolveWritingPath(destRepoPath, destFilePath);
 
     try {
       // Validate source exists and is a directory
       if (!Files.exists(sourcePath)) throw new WorkspaceFileOpException("Source directory \"%s\" in workspace %d does not exist.".formatted(sourceFilePath, sourceWorkspaceId));
-      if (!Files.isDirectory(sourcePath)) throw new WorkspaceFileOpException("Source directory \"%s\" in workspace %d is not actually a directory.".formatted(sourceFilePath, sourceWorkspaceId));
-
-      // Do not copy if destination already exists
-      if (Files.exists(destPath)) throw new WorkspaceFileOpException("Destination directory \"%s\" in workspace %d already exists.".formatted(destFilePath, destWorkspaceId));
+      if (!Files.isDirectory(sourcePath)) throw new WorkspaceFileOpException("Source directory \"%s\" in workspace %d is not a directory.".formatted(sourceFilePath, sourceWorkspaceId));
 
       // Do not try to copy a directory into itself
       if(sourceWorkspaceId == destWorkspaceId && destPath.startsWith(sourcePath)){
@@ -256,7 +326,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
             if (Files.isDirectory(source)) {
               Files.createDirectories(target);
             } else {
-              Files.copy(source, target);
+              Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
             }
           } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -273,18 +343,30 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
 
   @Override
-  public boolean deleteFile(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException {
+  public boolean deleteFile(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException, SQLException {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
-    final var path = resolveSubPath(repoPath, filePath);
+    final var path = resolveReadingPath(repoPath, filePath);
     final var file = path.toFile();
-    return file.delete();
+
+    boolean success = true;
+
+    // Find hidden metadata files, if they exist, and delete them
+    final var metadataExtensions = postgresRepository.getMetadataExtensions();
+    for(final var extension : metadataExtensions) {
+      final File oldFile = path.resolveSibling(path.getFileName() + extension).toFile();
+      if(oldFile.exists()) {
+        success = rm(file) && success; // Do not fast-fail
+      }
+    }
+
+    return rm(file) && success;
   }
 
   @Override
   public DirectoryTree listFiles(final int workspaceId, final Optional<Path> directoryPath, final int depth)
   throws SQLException, NoSuchWorkspaceException, IOException {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
-    final var path = resolveSubPath(repoPath, directoryPath.orElse(Path.of("")));
+    final var path = resolveReadingPath(repoPath, directoryPath.orElse(Path.of("")));
 
     if(!path.toFile().isDirectory()) {
       return null;
@@ -300,9 +382,10 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
-  public boolean createDirectory(final int workspaceId, final Path directoryPath) throws IOException, NoSuchWorkspaceException {
+  public boolean createDirectory(final int workspaceId, final Path directoryPath)
+  throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
-    final var path = resolveSubPath(repoPath, directoryPath);
+    final var path = resolveWritingPath(repoPath, directoryPath);
     Files.createDirectories(path);
     return true;
   }
@@ -313,9 +396,9 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException
   {
     final var oldRepoPath = postgresRepository.workspaceRootPath(oldWorkspaceId).normalize();
-    final var oldPath = resolveSubPath(oldRepoPath, oldDirectoryPath);
+    final var oldPath = resolveReadingPath(oldRepoPath, oldDirectoryPath);
     final var newRepoPath = (oldWorkspaceId == newWorkspaceId) ? oldRepoPath : postgresRepository.workspaceRootPath(newWorkspaceId).normalize();
-    final var newPath = resolveSubPath(newRepoPath, newDirectoryPath);
+    final var newPath = resolveWritingPath(newRepoPath, newDirectoryPath);
 
     // Do not permit the source workspace's root directory to be moved
     if(Files.isSameFile(oldPath, oldRepoPath)) throw new WorkspaceFileOpException("Cannot move the workspace root directory.");
@@ -334,7 +417,11 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
-  public boolean deleteDirectory(final int workspaceId, final Path directoryPath) throws NoSuchWorkspaceException {
-    return deleteFile(workspaceId, directoryPath);
+  public boolean deleteDirectory(final int workspaceId, final Path directoryPath)
+  throws NoSuchWorkspaceException
+  {
+    final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
+    final var path = resolveReadingPath(repoPath, directoryPath);
+    return rmDirectory(path.toFile());
   }
 }

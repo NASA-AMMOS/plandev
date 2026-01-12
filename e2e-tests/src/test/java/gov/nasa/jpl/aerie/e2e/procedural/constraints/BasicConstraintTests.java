@@ -2,7 +2,9 @@ package gov.nasa.jpl.aerie.e2e.procedural.constraints;
 
 import gov.nasa.jpl.aerie.e2e.procedural.scheduling.ProceduralSchedulingSetup;
 import gov.nasa.jpl.aerie.e2e.types.ConstraintInvocationId;
+import gov.nasa.jpl.aerie.e2e.types.ConstraintResult;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,7 +48,7 @@ public class BasicConstraintTests extends ProceduralSchedulingSetup {
     final var resp = hasura.checkConstraints(planId);
     assertEquals(1, resp.constraintsRun().size());
     assertEquals(1, resp.constraintsRun().getFirst().errors().size());
-    resp.constraintsRun().getFirst().errors().getFirst().message().contains("gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException: Invalid arguments for input type \"FruitThresholdConstraint\": extraneous arguments: [], unconstructable arguments: [], missing arguments: [MissingArgument[parameterName=upperBound, schema=IntSchema[]]], valid arguments: [ValidArgument[parameterName=lowerBound, serializedValue=NumericValue[value=5]]]");
+    assertTrue(resp.constraintsRun().getFirst().errors().getFirst().message().contains("gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException: Invalid arguments for input type \"FruitThresholdConstraint\": extraneous arguments: [], unconstructable arguments: [], missing arguments: [MissingArgument[parameterName=upperBound, schema=IntSchema[]]], valid arguments: [ValidArgument[parameterName=lowerBound, serializedValue=NumericValue[value=5]]]"));
   }
 
   /**
@@ -59,6 +61,11 @@ public class BasicConstraintTests extends ProceduralSchedulingSetup {
     hasura.awaitSimulation(planId);
     final var resp = hasura.checkConstraints(planId);
     assertTrue(resp.constraintsRun().getFirst().success());
+    final var violations = resp.constraintsRun().getFirst().result().get().violations();
+    assertEquals(1, violations.size());
+
+    var violation = violations.getFirst();
+    assertEquals(violation.windows(), List.of(new ConstraintResult.Interval(0, Duration.hours(48).micros())));
   }
 
   /**

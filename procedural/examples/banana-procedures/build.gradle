@@ -42,16 +42,34 @@ tasks.create("generateProcedureJarTasks") {
   group = 'ProcedureJars'
 
   final proceduresDir = findFirstMatchingBuildDir("generated/procedures")
+  final constraintsDir = findFirstMatchingBuildDir("generated/constraints")
 
-  if (proceduresDir == null) {
-    println "No procedures folder found"
+  if (proceduresDir == null && constraintsDir == null) {
+    println "No procedures or constraints folders found"
     return
   }
-  println "Generating jar tasks for the following procedures directory: ${proceduresDir}"
 
-  final files = file(proceduresDir).listFiles()
-  if (files.length == 0) {
-    println "No procedures available within folder ${proceduresDir}"
+  def allFiles = []
+
+  if (proceduresDir != null) {
+    println "Generating jar tasks for the following procedures directory: ${proceduresDir}"
+    final procedureFiles = file(proceduresDir).listFiles()
+    if (procedureFiles != null) {
+      allFiles.addAll(procedureFiles)
+    }
+  }
+
+  if (constraintsDir != null) {
+    println "Generating jar tasks for the following constraints directory: ${constraintsDir}"
+    final constraintFiles = file(constraintsDir).listFiles()
+    if (constraintFiles != null) {
+      allFiles.addAll(constraintFiles)
+    }
+  }
+
+  final files = allFiles
+  if (files.size() == 0) {
+    println "No procedures or constraints available within folders"
     return
   }
 

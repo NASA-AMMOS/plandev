@@ -6,6 +6,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.opentest4j.AssertionFailedError;
 
 import javax.json.Json;
 import javax.json.JsonValue;
@@ -15,9 +16,11 @@ import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 public class TemplateParametersTest extends ProceduralSchedulingSetup {
   private GoalInvocationId dumbRecurrenceWithTemplateDefaultsGoalId;
+  private GoalInvocationId dumbRecurrenceGoalId;
 
   @BeforeEach
   void localBeforeEach() throws IOException {
@@ -31,12 +34,23 @@ public class TemplateParametersTest extends ProceduralSchedulingSetup {
           specId,
           0
       );
+
+      final int dumbRecurrenceGoalJarId = gateway.uploadJarFile(
+          "build/libs/DumbRecurrenceGoal.jar");
+      // Add Scheduling Procedure
+      dumbRecurrenceGoalId = hasura.createSchedulingSpecProcedure(
+          "Test Scheduling Procedure 2",
+          dumbRecurrenceGoalJarId,
+          specId,
+          1
+      );
     }
   }
 
   @AfterEach
   void localAfterEach() throws IOException {
     hasura.deleteSchedulingGoal(dumbRecurrenceWithTemplateDefaultsGoalId.goalId());
+    hasura.deleteSchedulingGoal(dumbRecurrenceGoalId.goalId());
   }
 
   /**
@@ -45,11 +59,22 @@ public class TemplateParametersTest extends ProceduralSchedulingSetup {
    */
   @Test
   void executeSchedulingRunWithoutArguments() throws IOException {
-    hasura.awaitScheduling(specId);
+    try {
+      hasura.awaitScheduling(specId);
+      fail("Expected scheduling to fail because biteSize parameter was missing");
+    } catch (AssertionFailedError e) {
+      if (!e.getMessage().contains("MissingArgument[parameterName=biteSize, schema=IntSchema[]]]")) {
+        throw e;
+      }
+    }
+
+    hasura.updateSchedulingSpecGoalArguments(dumbRecurrenceGoalId.invocationId(), Json.createObjectBuilder().add("biteSize", 0).build());
+    assertEquals("complete", hasura.awaitScheduling(specId).status());
+
     final var plan = hasura.getPlan(planId);
     final var activities = plan.activityDirectives();
 
-    assertEquals(3, activities.size());
+    assertEquals(8, activities.size());
 
     assertTrue(activities.stream().anyMatch(
         it -> Objects.equals(it.type(), "BiteBanana") && Objects.equals(it.startOffset(), "24:00:00")

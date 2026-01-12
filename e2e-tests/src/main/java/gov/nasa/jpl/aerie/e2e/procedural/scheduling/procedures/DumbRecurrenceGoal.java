@@ -35,6 +35,7 @@ public record DumbRecurrenceGoal(int quantity, int biteSize) implements Goal {
           )
       );
       currentTime = currentTime.plus(step);
+      if (currentTime.longerThan(plan.duration())) break;
     }
     plan.commit();
   }

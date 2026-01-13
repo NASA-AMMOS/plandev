@@ -24,10 +24,6 @@ public record ActivityType(String name, Map<String, Parameter> parameters, Value
     this(name, parameters, computedAttributes, subsystem, null);
   }
 
-  public ActivityType(final String name, final Map<String, Parameter> parameters, final ValueSchema computedAttributes) {
-    this(name, parameters, new ValueSchema.ValueSchemaStruct(Map.of()), null, null);
-  }
-
   public static ActivityType fromJSON(JsonObject json) {
     final var parameters = json.getJsonObject("parameters");
     final var parameterMap = new HashMap<String, Parameter>();

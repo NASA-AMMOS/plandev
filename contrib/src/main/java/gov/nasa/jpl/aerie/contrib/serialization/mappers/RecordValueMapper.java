@@ -8,6 +8,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.RecordComponent;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -36,11 +37,15 @@ public final class RecordValueMapper<R extends Record> implements ValueMapper<R>
   @Override
   public ValueSchema getValueSchema() {
     final var valueSchemas = new HashMap<String, ValueSchema>();
+    final var metadata = new ArrayList<SerializedValue>();
     for (final var component : this.components) {
+      metadata.add(SerializedValue.of(component.name));
       valueSchemas.put(component.name,
                        component.mapper.getValueSchema());
     }
-    return ValueSchema.ofStruct(valueSchemas);
+    return components.isEmpty() ?
+        ValueSchema.ofStruct(valueSchemas) :
+        ValueSchema.withMeta("item_order", SerializedValue.of(metadata), ValueSchema.ofStruct(valueSchemas));
   }
 
   @Override

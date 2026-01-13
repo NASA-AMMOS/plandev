@@ -16,6 +16,7 @@ class RecordValueMapperTest {
   record StringRecord(String aString) {}
 
   record MultiValueRecord(String aString, Map<String, List<Boolean>> fancy) {}
+  record NestedMultiValueRecord(String aString, Map<String, List<Boolean>> fancy, MultiValueRecord record) {}
 
   @Test
   void getValueSchema_emptyRecord() {
@@ -32,12 +33,16 @@ class RecordValueMapperTest {
             StringRecord::aString,
             new StringValueMapper()
         ))).getValueSchema();
-    assertEquals(ValueSchema.ofStruct(Map.of("aString", ValueSchema.STRING)), valueSchema);
+    assertEquals(ValueSchema.withMeta(
+        "item_order",
+        SerializedValue.of(List.of(SerializedValue.of("aString"))),
+        ValueSchema.ofStruct(Map.of("aString", ValueSchema.STRING))),
+                 valueSchema);
+
   }
 
-  @Test
-  void getValueSchema_multiValueRecord() {
-    final var valueSchema = new RecordValueMapper<>(
+  final RecordValueMapper<MultiValueRecord> getMultiValueRecordValueMapper() {
+    return new RecordValueMapper<>(
         MultiValueRecord.class,
         List.of(
             new RecordValueMapper.Component<>(
@@ -49,15 +54,65 @@ class RecordValueMapperTest {
                 "fancy",
                 MultiValueRecord::fancy,
                 new MapValueMapper<>(new StringValueMapper(), new ListValueMapper<>(new BooleanValueMapper()))
-            ))).getValueSchema();
-    assertEquals(ValueSchema.ofStruct(Map.of(
-        "aString", ValueSchema.STRING,
-        "fancy", ValueSchema.ofSeries(
+            )));
+  }
+
+  @Test
+  void getValueSchema_multiValueRecord() {
+    final var valueSchema = getMultiValueRecordValueMapper().getValueSchema();
+    assertEquals(
+        ValueSchema.withMeta(
+            "item_order",
+            SerializedValue.of(List.of(SerializedValue.of("aString"), SerializedValue.of("fancy"))),
             ValueSchema.ofStruct(Map.of(
-                "key", ValueSchema.STRING,
-                "value", ValueSchema.ofSeries(ValueSchema.BOOLEAN)
-            ))
-        ))), valueSchema);
+                "aString", ValueSchema.STRING,
+                "fancy", ValueSchema.ofSeries(ValueSchema.ofStruct(Map.of(
+                    "key", ValueSchema.STRING,
+                    "value", ValueSchema.ofSeries(ValueSchema.BOOLEAN))))))),
+        valueSchema);
+  }
+
+  @Test
+  void getValueSchema_nested() {
+    final var valueSchema = new RecordValueMapper<>(
+        NestedMultiValueRecord.class,
+        List.of(
+            new RecordValueMapper.Component<>(
+                "aString",
+                NestedMultiValueRecord::aString,
+                new StringValueMapper()
+            ),
+            new RecordValueMapper.Component<>(
+                "fancy",
+                NestedMultiValueRecord::fancy,
+                new MapValueMapper<>(new StringValueMapper(), new ListValueMapper<>(new BooleanValueMapper()))
+            ),
+            new RecordValueMapper.Component<>(
+                "record",
+                NestedMultiValueRecord::record,
+                getMultiValueRecordValueMapper()
+            ))).getValueSchema();
+    assertEquals(
+        ValueSchema.withMeta(
+            "item_order",
+            SerializedValue.of(List.of(
+                SerializedValue.of("aString"),
+                SerializedValue.of("fancy"),
+                SerializedValue.of("record"))),
+            ValueSchema.ofStruct(Map.of(
+                "aString", ValueSchema.STRING,
+                "fancy", ValueSchema.ofSeries(ValueSchema.ofStruct(Map.of(
+                    "key", ValueSchema.STRING,
+                    "value", ValueSchema.ofSeries(ValueSchema.BOOLEAN)))),
+                "record", ValueSchema.withMeta(
+                    "item_order",
+                    SerializedValue.of(List.of(SerializedValue.of("aString"), SerializedValue.of("fancy"))),
+                    ValueSchema.ofStruct(Map.of(
+                        "aString", ValueSchema.STRING,
+                        "fancy", ValueSchema.ofSeries(ValueSchema.ofStruct(Map.of(
+                            "key", ValueSchema.STRING,
+                            "value", ValueSchema.ofSeries(ValueSchema.BOOLEAN)))))))))),
+        valueSchema);
   }
 
   @Test

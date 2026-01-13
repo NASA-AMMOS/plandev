@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.constraintArgumentsP;
 import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.parseJson;
 
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraActivityActionP;
@@ -107,6 +108,7 @@ public final class MerlinBindings implements Plugin {
       path("extendExternalDataset", () -> post(this::extendExternalDataset));
       path("constraintsDslTypescript", () -> post(this::getConstraintsDslTypescript));
       path("refreshConstraintProcedureParameterTypes", () -> post(this::refreshConstrainProcedureParameterTypes));
+      path("getConstraintProcedureEffectiveArgumentsBulk", () -> post(this::getConstraintProcedureEffectiveArgumentsBulk));
       path("health", () -> get(ctx -> ctx.status(200)));
     });
 
@@ -437,6 +439,20 @@ public final class MerlinBindings implements Plugin {
       ctx.status(400).result(ResponseSerializers.serializeMissionModelLoadException(ex).toString());
     }
   }
+
+  private void getConstraintProcedureEffectiveArgumentsBulk(final Context ctx) {
+    try {
+      final var input = parseJson(ctx.body(), constraintArgumentsP());
+      final var responses = this.constraintAction.getConstraintProcedureEffectiveArgumentsBulk(input.input());
+      ctx.result(ResponseSerializers.serializeIterable(
+          ResponseSerializers::serializeConstraintBulkEffectiveArgumentResponse, responses).toString());
+    } catch (final InvalidJsonException ex) {
+      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
+    } catch (final InvalidEntityException ex) {
+      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
+    }
+  }
+
 
   private void addExternalDataset(final Context ctx) {
     try {

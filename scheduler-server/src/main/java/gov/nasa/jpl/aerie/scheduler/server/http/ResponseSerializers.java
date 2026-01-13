@@ -8,8 +8,12 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import gov.nasa.jpl.aerie.json.JsonParseResult;
 import gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser;
+import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
+import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.jpl.aerie.scheduler.ProcedureLoader;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchPlanException;
+import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSchedulingGoalException;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSpecificationException;
 import gov.nasa.jpl.aerie.scheduler.model.GoalId;
 import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingCompilationError;
@@ -17,6 +21,8 @@ import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleAction;
 import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleResults;
 import gov.nasa.jpl.aerie.scheduler.server.services.UnexpectedSubtypeError;
 import org.apache.commons.lang3.tuple.Pair;
+
+import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
 
 /**
  * json serialization methods for data entities used in the scheduler response bodies
@@ -79,6 +85,101 @@ public class ResponseSerializers {
     } else {
       throw new UnexpectedSubtypeError(ScheduleAction.Response.class, response);
     }
+  }
+
+  public static JsonValue serializeArgument(final SerializedValue parameter) {
+    if (parameter == null) return JsonValue.NULL;
+    return serializedValueP.unparse(parameter);
+  }
+
+  public static JsonValue serializeBulkEffectiveArgumentResponseList(final List<BulkEffectiveArgumentResponse> responses) {
+    return serializeIterable(ResponseSerializers::serializeBulkEffectiveArgumentResponse, responses);
+  }
+
+  public static JsonValue serializeBulkEffectiveArgumentResponse(BulkEffectiveArgumentResponse response) {
+    // TODO use pattern matching in switch statement with JDK 21
+    if (response instanceof BulkEffectiveArgumentResponse.Success(
+        GoalId goalId, Map<String, SerializedValue> effectiveArguments)) {
+      return Json.createObjectBuilder()
+                 .add("id", goalId.id())
+                 .add("revision", goalId.revision())
+                 .add("success", JsonValue.TRUE)
+                 .add("arguments",
+                      serializeMap(
+                          ResponseSerializers::serializeArgument,
+                          effectiveArguments))
+                 .build();
+    } else if (response instanceof BulkEffectiveArgumentResponse.TypeFailure(GoalId goalId)) {
+      return Json.createObjectBuilder()
+                 .add("id", goalId.id())
+                 .add("revision", goalId.revision())
+                 .add("success", JsonValue.FALSE)
+                 .add("errors", "Goal is not procedural")
+                 .build();
+    } else if (response instanceof BulkEffectiveArgumentResponse.InstantiationFailure(
+        GoalId goalId,
+        InstantiationException ex)) {
+      return Json.createObjectBuilder(serializeInstantiationException(ex).asJsonObject())
+                 .add("id", goalId.id())
+                 .add("revision", goalId.revision())
+                 .build();
+    }
+    else if (response instanceof BulkEffectiveArgumentResponse.NoGoalFailure(
+        GoalId goalId,
+        NoSuchSchedulingGoalException ex)) {
+      return Json.createObjectBuilder()
+                 .add("success", JsonValue.FALSE)
+                 .add("id", goalId.id())
+                 .add("revision", goalId.revision())
+                 .add("errors", "There is no goal with this id")
+                 .build();
+    }
+    else if (response instanceof BulkEffectiveArgumentResponse.ProcedureLoadFailure(
+       GoalId goalId,
+       ProcedureLoader.ProcedureLoadException ex)) {
+      return Json.createObjectBuilder()
+                 .add("success", JsonValue.FALSE)
+                 .add("id", goalId.id())
+                 .add("revision", goalId.revision())
+                 .add("errors", "Error when loading the procedure jar")
+                 .build();
+    }
+    return Json.createObjectBuilder()
+               .add("success", JsonValue.FALSE)
+               .add("errors", String.format("Internal error: %s", response))
+               .build();
+  }
+
+  public static JsonValue serializeInstantiationException(final gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException ex) {
+    return Json.createObjectBuilder()
+               .add("success", JsonValue.FALSE)
+               .add("errors", Json.createObjectBuilder()
+                                  .add("extraneousArguments", serializeStringList(ex.extraneousArguments.stream().map(a -> a.parameterName()).toList()))
+                                  .add("unconstructableArguments", serializeIterable(ResponseSerializers::serializeUnconstructableArgument, ex.unconstructableArguments))
+                                  .add("missingArguments", serializeStringList(ex.missingArguments.stream().map(a -> a.parameterName()).toList()))
+                                  .build())
+               .add("arguments", serializeMap(ResponseSerializers::serializeArgument, ex.validArguments.stream().collect(Collectors.toMap(
+                   gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException.ValidArgument::parameterName,
+                   InstantiationException.ValidArgument::serializedValue))))
+               .build();
+  }
+
+  public static JsonValue serializeStringList(final List<String> elements) {
+    return serializeIterable(ResponseSerializers::serializeString, elements);
+  }
+
+  public static JsonValue serializeString(final String value) {
+    if (value == null) return JsonValue.NULL;
+    return Json.createValue(value);
+  }
+
+  private static JsonValue serializeUnconstructableArgument(
+      final InstantiationException.UnconstructableArgument argument)
+  {
+    return Json.createObjectBuilder()
+               .add("name", argument.parameterName())
+               .add("failure", argument.failure())
+               .build();
   }
 
   /**

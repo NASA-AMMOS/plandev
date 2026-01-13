@@ -1,13 +1,13 @@
 package gov.nasa.jpl.aerie.e2e.procedural.scheduling.procedures;
 
-import gov.nasa.ammos.aerie.procedural.scheduling.annotations.WithDefaults;
-import gov.nasa.ammos.aerie.procedural.scheduling.plan.EditablePlan;
 import gov.nasa.ammos.aerie.procedural.scheduling.Goal;
 import gov.nasa.ammos.aerie.procedural.scheduling.annotations.SchedulingProcedure;
+import gov.nasa.ammos.aerie.procedural.scheduling.annotations.Template;
+import gov.nasa.ammos.aerie.procedural.scheduling.plan.EditablePlan;
 import gov.nasa.ammos.aerie.procedural.scheduling.plan.NewDirective;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart;
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import org.jetbrains.annotations.NotNull;
 
@@ -18,7 +18,7 @@ import java.util.Map;
  * one every 6hrs.
  */
 @SchedulingProcedure
-public record DumbRecurrenceGoal(int quantity, int biteSize) implements Goal {
+public record DumbRecurrenceGoalWithTemplateDefaults(int quantity, int biteSize) implements Goal {
   @Override
   public void run(@NotNull final EditablePlan plan) {
     final var firstTime = Duration.hours(24);
@@ -35,15 +35,12 @@ public record DumbRecurrenceGoal(int quantity, int biteSize) implements Goal {
           )
       );
       currentTime = currentTime.plus(step);
-      if (currentTime.longerThan(plan.duration())) break;
     }
     plan.commit();
   }
 
-  /**
-   * Default parameters. Quantity is provided but biteSize is not so it is required.
-   */
-  public static @WithDefaults class Defaults {
-    public int quantity = 360;
+  public static @Template DumbRecurrenceGoalWithTemplateDefaults create() {
+    return new DumbRecurrenceGoalWithTemplateDefaults(3, 5);
   }
 }
+

@@ -5,6 +5,7 @@ import gov.nasa.ammos.aerie.procedural.scheduling.plan.DeletedAnchorStrategy;
 import gov.nasa.ammos.aerie.procedural.scheduling.utils.DefaultEditablePlanDriver;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
+import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.ammos.aerie.procedural.scheduling.ProcedureMapper;
 import gov.nasa.ammos.aerie.procedural.scheduling.plan.Edit;
@@ -157,7 +158,11 @@ public class Procedure extends Goal {
       } catch (ProcedureLoader.ProcedureLoadException e) {
         throw new RuntimeException(e);
       }
-      this.goal = procedureMapper.deserialize(SerializedValue.of(this.args));
+      try {
+        this.goal = procedureMapper.getInputType().instantiate(this.args);
+      } catch (InstantiationException e) {
+        throw new RuntimeException(e);
+      }
     }
   }
 

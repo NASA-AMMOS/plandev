@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.scheduler.server.http;
 
 import gov.nasa.jpl.aerie.json.JsonParser;
+import gov.nasa.jpl.aerie.scheduler.model.GoalId;
 import gov.nasa.jpl.aerie.scheduler.server.models.HasuraAction;
 import gov.nasa.jpl.aerie.scheduler.server.models.PlanId;
 import gov.nasa.jpl.aerie.scheduler.server.models.SpecificationId;
@@ -15,12 +16,15 @@ import java.util.List;
 import java.util.Optional;
 
 import static gov.nasa.jpl.aerie.json.BasicParsers.anyP;
+import static gov.nasa.jpl.aerie.json.BasicParsers.listP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.longP;
+import static gov.nasa.jpl.aerie.json.BasicParsers.mapP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.nullableP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.productP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.stringP;
 import static gov.nasa.jpl.aerie.json.Uncurry.tuple;
 import static gov.nasa.jpl.aerie.json.Uncurry.untuple;
+import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
 import static gov.nasa.jpl.aerie.scheduler.server.remotes.postgres.PostgresParsers.pgTimestampP;
 
 /**
@@ -47,6 +51,25 @@ public final class SchedulerParsers {
       . map(
           PlanId::new,
           PlanId::id);
+
+  public static JsonParser<HasuraAction<HasuraAction.HasuraBulkEffectiveArguments>> hasuraBulkProcedureArgumentsP() {
+    return hasuraActionF(
+        productP
+        .field("arguments", listP(procedureArgumentsP()))
+        .map(
+            untuple((items) -> new HasuraAction.HasuraBulkEffectiveArguments(items)),
+            procedureArguments -> tuple(procedureArguments.items())));
+  }
+
+  public static JsonParser<ProcedureArguments> procedureArgumentsP() {
+    return productP
+        .field("id", longP)
+        .field("revision", longP)
+        .field("arguments", mapP(serializedValueP))
+        .map(
+            untuple((id, revision, arguments) -> new ProcedureArguments(new GoalId(id, revision), arguments)),
+            procedureArguments -> tuple(procedureArguments.goalId().id(), procedureArguments.goalId().revision(), procedureArguments.arguments()));
+  }
 
   public static final JsonParser<ScheduleFailure> scheduleFailureP = productP
       .field("type", stringP)

@@ -1,10 +1,12 @@
 package gov.nasa.jpl.aerie.merlin.server.services;
 
+import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationException;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.driver.resources.SimulationResourceManager;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.server.ResultsProtocol;
+import gov.nasa.jpl.aerie.merlin.server.exceptions.MerlinFormattedError;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.http.ResponseSerializers;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
@@ -41,10 +43,11 @@ public record SimulationAgent (
         return;
       }
     } catch (final NoSuchPlanException ex) {
+      final var formattedException = new MerlinFormattedError(ex);
       writer.failWith(b -> b
-          .type("NO_SUCH_PLAN")
-          .message(ex.toString())
-          .data(ResponseSerializers.serializeNoSuchPlanException(ex))
+          .type(formattedException.getType())
+          .message(formattedException.getMessage())
+          .data(formattedException.toJson())
           .trace(ex));
       return;
     }
@@ -91,17 +94,27 @@ public record SimulationAgent (
           .trace(ex.cause));
       return;
     } catch (final MissionModelService.NoSuchMissionModelException ex) {
+      final var formattedError = new MerlinFormattedError(ex);
       writer.failWith(b -> b
-          .type("NO_SUCH_MISSION_MODEL")
-          .message(ex.toString())
-          .data(ResponseSerializers.serializeNoSuchMissionModelException(ex))
+          .type(formattedError.getType())
+          .message(formattedError.getMessage())
+          .data(formattedError.toJson())
           .trace(ex));
       return;
     } catch (final MissionModelService.NoSuchActivityTypeException ex) {
+      final var formattedError = new MerlinFormattedError(ex, "Activity of type `%s` could not be instantiated".formatted(ex.activityTypeId));
       writer.failWith(b -> b
-          .type("NO_SUCH_ACTIVITY_TYPE")
-          .message("Activity of type `%s` could not be instantiated".formatted(ex.activityTypeId))
-          .data(ResponseSerializers.serializeNoSuchActivityTypeException(ex))
+          .type(formattedError.getType())
+          .message(formattedError.getMessage())
+          .data(formattedError.toJson())
+          .trace(ex));
+      return;
+    } catch (MissionModelLoader.MissionModelLoadException ex) {
+      final var formattedError = new MerlinFormattedError(ex);
+      writer.failWith(b -> b
+          .type(formattedError.getType())
+          .message(formattedError.getMessage())
+          .data(formattedError.toJson())
           .trace(ex));
       return;
     }

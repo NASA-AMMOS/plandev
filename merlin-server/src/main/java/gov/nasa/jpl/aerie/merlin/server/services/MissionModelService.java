@@ -94,7 +94,7 @@ public interface MissionModelService {
     public final String activityTypeId;
 
     public NoSuchActivityTypeException(final String activityTypeId, final Throwable cause) {
-      super(cause);
+      super("No such activity type " + activityTypeId, cause);
       this.activityTypeId = activityTypeId;
     }
 

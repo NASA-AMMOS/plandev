@@ -1,26 +1,20 @@
 package gov.nasa.jpl.aerie.merlin.server.http;
 
-import gov.nasa.jpl.aerie.constraints.InputMismatchException;
 import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
-import gov.nasa.jpl.aerie.json.JsonParseResult.FailureReason;
+import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
+import gov.nasa.jpl.aerie.merlin.server.exceptions.MerlinFormattedError;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintId;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser;
 import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.Parameter;
 import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.ValidationNotice;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
-import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
-import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
-import gov.nasa.jpl.aerie.merlin.server.exceptions.SimulationDatasetMismatchException;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintsCompilationError;
 import gov.nasa.jpl.aerie.merlin.server.models.ProcedureLoader;
-import gov.nasa.jpl.aerie.merlin.server.remotes.MissionModelAccessException;
 import gov.nasa.jpl.aerie.merlin.server.services.BulkConstraintEffectiveArgumentResponse;
 import gov.nasa.jpl.aerie.merlin.server.services.GetSimulationResultsAction;
-import gov.nasa.jpl.aerie.merlin.server.services.LocalMissionModelService;
 import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService;
 import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService.BulkEffectiveArgumentResponse;
 import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService.BulkArgumentValidationResponse;
@@ -31,7 +25,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import javax.json.Json;
 import javax.json.JsonObjectBuilder;
 import javax.json.JsonValue;
-import javax.json.stream.JsonParsingException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -201,46 +194,44 @@ public final class ResponseSerializers {
   }
 
   public static JsonValue serializeBulkArgumentValidationResponse(BulkArgumentValidationResponse response) {
-    // TODO use pattern matching in switch statement with JDK 21
-    if (response instanceof BulkArgumentValidationResponse.Success) {
-      return Json.createObjectBuilder()
-                 .add("success", JsonValue.TRUE)
-                 .build();
-    } else if (response instanceof BulkArgumentValidationResponse.Validation v) {
-      return Json.createObjectBuilder()
-                 .add("success", JsonValue.FALSE)
-                 .add("type", "VALIDATION_NOTICES")
-                 .add("errors", Json.createObjectBuilder()
-                     .add("validationNotices", serializeIterable(ResponseSerializers::serializeValidationNotice, v.notices()))
-                     .build())
-                 .build();
-    } else if (response instanceof BulkArgumentValidationResponse.NoSuchActivityError e) {
-      return Json.createObjectBuilder()
-                 .add("success", JsonValue.FALSE)
-                 .add("type", "NO_SUCH_ACTIVITY_TYPE")
-                 .add("errors", Json.createObjectBuilder()
-                     .add("noSuchActivityError", serializeNoSuchActivityTypeException(e.ex()))
-                     .build())
-                 .build();
-    } else if (response instanceof BulkArgumentValidationResponse.InstantiationError f) {
-      return Json.createObjectBuilder(serializeInstantiationException(f.ex()).asJsonObject())
-          .add("type", "INSTANTIATION_ERRORS")
-          .build();
-    } else if (response instanceof BulkArgumentValidationResponse.NoSuchMissionModelError m) {
-      return Json.createObjectBuilder()
-                 .add("success", JsonValue.FALSE)
-                 .add("type", "NO_SUCH_MISSION_MODEL")
-                 .add("errors", Json.createObjectBuilder()
-                     .add("noSuchMissionModelError", serializeNoSuchMissionModelException(m.ex()))
-                     .build())
-                 .build();
-    }
-
-    // This should never happen, but we don't have exhaustive pattern matching
-    return Json.createObjectBuilder()
-               .add("success", JsonValue.FALSE)
-               .add("errors", String.format("Internal error: %s", response))
-               .build();
+    return switch (response){
+      case BulkArgumentValidationResponse.Success s ->
+          Json.createObjectBuilder()
+              .add("success", JsonValue.TRUE)
+              .build();
+      case BulkArgumentValidationResponse.Validation v ->
+          Json.createObjectBuilder()
+              .add("success", JsonValue.FALSE)
+              .add("type", "VALIDATION_NOTICES")
+              .add("errors", Json.createObjectBuilder()
+                                 .add("validationNotices", serializeIterable(ResponseSerializers::serializeValidationNotice, v.notices()))
+                                 .build())
+              .build();
+      case BulkArgumentValidationResponse.NoSuchActivityError e ->
+          Json.createObjectBuilder()
+              .add("success", JsonValue.FALSE)
+              .add("type", "NO_SUCH_ACTIVITY_TYPE")
+              .add("errors", Json.createObjectBuilder()
+                                 .add("noSuchActivityError", new MerlinFormattedError(e.ex()).toJson())
+                                 .build())
+              .build();
+      case BulkArgumentValidationResponse.InstantiationError f ->
+          Json.createObjectBuilder(serializeInstantiationException(f.ex()).asJsonObject())
+              .add("type", "INSTANTIATION_ERRORS")
+              .build();
+      case BulkArgumentValidationResponse.NoSuchMissionModelError m ->
+          Json.createObjectBuilder()
+              .add("success", JsonValue.FALSE)
+              .add("type", "NO_SUCH_MISSION_MODEL")
+              .add("errors", Json.createObjectBuilder()
+                                 .add("noSuchMissionModelError", new MerlinFormattedError(m.ex()).toJson())
+                                 .build())
+              .build();
+      default -> Json.createObjectBuilder()
+                     .add("success", JsonValue.FALSE)
+                     .add("errors", String.format("Internal error: %s", response))
+                     .build();
+    };
   }
 
   public static JsonValue serializeCreatedDatasetId(final long datasetId) {
@@ -250,15 +241,14 @@ public final class ResponseSerializers {
   }
 
   private static JsonValue serializeUnconstructableActivityFailure(final MissionModelService.ActivityInstantiationFailure reason) {
-    // TODO use pattern-matching switch expression here when available with LTS
     final var builder = Json.createObjectBuilder();
-    if (reason instanceof final MissionModelService.ActivityInstantiationFailure.InstantiationFailure r) {
-      return builder.add("reason", serializeInstantiationException(r.ex())).build();
-    }
-    else if (reason instanceof final MissionModelService.ActivityInstantiationFailure.NoSuchActivityType r) {
-      return builder.add("reason", serializeNoSuchActivityTypeException(r.ex())).build();
-    }
-    throw new UnexpectedSubtypeError(MissionModelService.ActivityInstantiationFailure.class, reason);
+    return switch (reason) {
+      case MissionModelService.ActivityInstantiationFailure.InstantiationFailure r ->
+          builder.add("reason", serializeInstantiationException(r.ex())).build();
+      case MissionModelService.ActivityInstantiationFailure.NoSuchActivityType r ->
+          builder.add("reason", new MerlinFormattedError(r.ex()).toJson()).build();
+      default -> throw new UnexpectedSubtypeError(MissionModelService.ActivityInstantiationFailure.class, reason);
+    };
   }
 
   public static JsonValue serializeUnconstructableActivityFailures(final Map<ActivityDirectiveId, MissionModelService.ActivityInstantiationFailure> failures) {
@@ -425,27 +415,11 @@ public final class ResponseSerializers {
         .build();
   }
 
-  private static JsonValue serializeUnconstructableArgument(
-      final InstantiationException.UnconstructableArgument argument)
-  {
+  private static JsonValue serializeUnconstructableArgument(final InstantiationException.UnconstructableArgument argument) {
     return Json.createObjectBuilder()
        .add("name", argument.parameterName())
        .add("failure", argument.failure())
        .build();
-  }
-
-  public static JsonValue serializeJsonParsingException(final JsonParsingException ex) {
-    // TODO: Improve diagnostic information
-    return Json.createObjectBuilder()
-        .add("message", "invalid json")
-        .build();
-  }
-
-  public static JsonValue serializeInvalidJsonException(final InvalidJsonException ex) {
-    return Json.createObjectBuilder()
-               .add("kind", "invalid-entity")
-               .add("message", "invalid json")
-               .build();
   }
 
   public static JsonValue serializeConstraintErrors(final List<? extends Exception> errors) {
@@ -469,104 +443,5 @@ public final class ResponseSerializers {
       failureArrayBuilder.add(errorBuilder);
     }
     return failureArrayBuilder.build();
-  }
-
-  public static JsonValue serializeInvalidEntityException(final InvalidEntityException ex) {
-    return Json.createObjectBuilder()
-               .add("kind", "invalid-entity")
-               .add("failures", serializeIterable(ResponseSerializers::serializeFailureReason, ex.failures))
-               .build();
-  }
-
-  public static JsonValue serializeMissionModelLoadException(
-      final LocalMissionModelService.MissionModelLoadException ex)
-  {
-    // TODO: Improve diagnostic information?
-    return Json.createObjectBuilder()
-               .add("message", ex.getMessage())
-               .add("type", "Mission Model Load Failure")
-               .build();
-  }
-
-  public static JsonValue serializeMissionModelAccessException(final MissionModelAccessException ex) {
-    // TODO: Improve diagnostic information?
-    return Json.createObjectBuilder()
-               .add("message", ex.getMessage())
-               .build();
-  }
-
-  public static JsonValue serializeFailureReason(final FailureReason failure) {
-    return Json.createObjectBuilder()
-               .add("breadcrumbs", serializeIterable(ResponseSerializers::serializeParseFailureBreadcrumb, failure.breadcrumbs()))
-               .add("message", failure.reason())
-               .build();
-  }
-
-  public static JsonValue serializeParseFailureBreadcrumb(final gov.nasa.jpl.aerie.json.Breadcrumb breadcrumb) {
-    return breadcrumb.visit(new gov.nasa.jpl.aerie.json.Breadcrumb.BreadcrumbVisitor<>() {
-      @Override
-      public JsonValue onString(final String s) {
-        return Json.createValue(s);
-      }
-
-      @Override
-      public JsonValue onInteger(final Integer i) {
-        return Json.createValue(i);
-      }
-    });
-  }
-
-  public static JsonValue serializeNoSuchPlanException(final NoSuchPlanException ex) {
-    return Json.createObjectBuilder()
-        .add("message", "no such plan")
-        .add("plan_id", ex.id.id())
-        .build();
-  }
-
-  public static JsonValue serializeNoSuchPlanDatasetException(final NoSuchPlanDatasetException ex) {
-    return Json.createObjectBuilder()
-               .add("message", "no such plan dataset")
-               .add("plan_id", ex.id.id())
-               .build();
-  }
-
-  public static JsonValue serializeNoSuchMissionModelException(final MissionModelService.NoSuchMissionModelException ex) {
-    return Json.createObjectBuilder()
-        .add("message", "no such mission model")
-        .add("mission_model_id", ex.missionModelId.id())
-        .build();
-  }
-
-  public static JsonValue serializeNoSuchActivityTypeException(final MissionModelService.NoSuchActivityTypeException ex) {
-    return Json.createObjectBuilder()
-        .add("message", "no such activity type")
-        .add("activity_type", ex.activityTypeId)
-        .build();
-  }
-
-  public static JsonValue serializeInputMismatchException(final InputMismatchException ex) {
-    return Json.createObjectBuilder()
-               .add("message", "input mismatch exception")
-               .add("extensions", serializeCauseAsExtension(ex.getMessage()))
-               .build();
-  }
-
-  public static JsonValue serializeSimulationDatasetMismatchException(final SimulationDatasetMismatchException ex){
-     return Json.createObjectBuilder()
-               .add("message", "simulation dataset mismatch exception")
-               .add("extensions", serializeCauseAsExtension(ex.getMessage()))
-               .build();
-  }
-
-  /**
-   * Any exception that gets sent through a Hasura action needs to be wrapped in an "extensions" object to be
-   * preserved in the response.
-   * <a href="https://hasura.io/docs/2.0/actions/action-handlers/#returning-an-error-response">Reference</a>
-   *
-   * @param message
-   * @return An object builder that sets "cause" to the message.
-   */
-  public static JsonObjectBuilder serializeCauseAsExtension(String message) {
-    return Json.createObjectBuilder().add("cause", message);
   }
 }

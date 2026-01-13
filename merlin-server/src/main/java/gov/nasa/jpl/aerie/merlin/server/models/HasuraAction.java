@@ -36,4 +36,6 @@ public record HasuraAction<I extends HasuraAction.Input>(String name, I input, S
 
   public record ConstraintsInput(MissionModelId missionModelId, Optional<PlanId> planId) implements Input {}
   public record NewConstraintRevisionEvent(long constraintId, long revision) implements Input {}
+  public record ConstraintArgumentItem(long constraintId, long revision, Map<String, SerializedValue> arguments) implements Input {}
+  public record ConstraintArguments(List<ConstraintArgumentItem> items) implements Input {}
 }

@@ -362,6 +362,28 @@ public enum GQL {
         success
       }
     }"""),
+  GET_EFFECTIVE_PROCEDURAL_GOALS_ARGUMENTS_BULK("""
+    query GetSchedulingProcedureEffectiveArgumentsBulk($arguments: [ProcedureEffectiveArgumentsInput!]!) {
+      getSchedulingProcedureEffectiveArgumentsBulk(
+        arguments: $arguments
+      ) {
+        success
+        arguments
+        errors
+        id
+      }
+    }"""),
+  GET_EFFECTIVE_PROCEDURAL_CONSTRAINTS_ARGUMENTS_BULK("""
+    query GetConstraintProcedureEffectiveArgumentsBulk($arguments: [ProcedureEffectiveArgumentsInput!]!) {
+      getConstraintProcedureEffectiveArgumentsBulk(
+        arguments: $arguments
+      ) {
+        success
+        arguments
+        errors
+        id
+      }
+    }"""),
   GET_ACTIVITY_VALIDATIONS("""
     query GetActivityValidations($planId: Int!) {
       activity_directive_validations(where: {plan_id: {_eq: $planId}}) {
@@ -762,6 +784,15 @@ public enum GQL {
 				arguments
 			}
 		}"""),
+  UPDATE_CONSTRAINT_ARGUMENTS("""
+  mutation updateConstraintArguments($constraint_id: Int!, $arguments: jsonb!) {
+    update_constraint_specification(where: {constraint_id: {_eq: $constraint_id}}, _set: {arguments: $arguments}){
+      returning {
+        arguments
+      }
+    }
+  }
+  """),
   UPDATE_SCHEDULING_SPEC_GOALS_ENABLED("""
 		mutation updateSchedulingSpecGoalVersion($goal_invocation_id: Int!, $enabled: Boolean!) {
 			update_scheduling_specification_goals_by_pk(

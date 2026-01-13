@@ -13,18 +13,18 @@ import java.util.Objects;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class BasicTests extends ProceduralSchedulingSetup {
-  private int procedureJarId;
-  private GoalInvocationId procedureId;
+public class BasicSchedulingTests extends ProceduralSchedulingSetup {
+  private int dumbRecurrenceGoalJarId;
+  private GoalInvocationId dumbRecurrenceGoalId;
 
   @BeforeEach
   void localBeforeEach() throws IOException {
     try (final var gateway = new GatewayRequests(playwright)) {
-      procedureJarId = gateway.uploadJarFile("build/libs/DumbRecurrenceGoal.jar");
+      dumbRecurrenceGoalJarId = gateway.uploadJarFile("build/libs/DumbRecurrenceGoal.jar");
       // Add Scheduling Procedure
-      procedureId = hasura.createSchedulingSpecProcedure(
-          "Test Scheduling Procedure",
-          procedureJarId,
+      dumbRecurrenceGoalId = hasura.createSchedulingSpecProcedure(
+          "Test Scheduling Procedure 1",
+          dumbRecurrenceGoalJarId,
           specId,
           0
       );
@@ -33,7 +33,7 @@ public class BasicTests extends ProceduralSchedulingSetup {
 
   @AfterEach
   void localAfterEach() throws IOException {
-    hasura.deleteSchedulingGoal(procedureId.goalId());
+    hasura.deleteSchedulingGoal(dumbRecurrenceGoalId.goalId());
   }
 
   /**
@@ -44,7 +44,7 @@ public class BasicTests extends ProceduralSchedulingSetup {
     final var ids = hasura.getSchedulingSpecGoalIds(specId);
 
     assertEquals(1, ids.size());
-    assertEquals(procedureId.goalId(), ids.getFirst());
+    assertEquals(dumbRecurrenceGoalId.goalId(), ids.getFirst());
   }
 
   /**
@@ -55,7 +55,7 @@ public class BasicTests extends ProceduralSchedulingSetup {
   void executeSchedulingRunWithoutArguments() throws IOException {
     final var resp = hasura.awaitFailingScheduling(specId);
     final var message = resp.reason().getString("message");
-    assertTrue(message.contains("java.lang.RuntimeException: Record missing key Component[name=quantity"));
+    assertTrue(message.contains("java.lang.RuntimeException: gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException: Invalid arguments for input type \"DumbRecurrenceGoal\": extraneous arguments: [], unconstructable arguments: [], missing arguments: [MissingArgument[parameterName=biteSize, schema=IntSchema[]]], valid arguments: [ValidArgument[parameterName=quantity, serializedValue=NumericValue[value=360]]]"));
   }
 
   /**
@@ -63,9 +63,9 @@ public class BasicTests extends ProceduralSchedulingSetup {
    */
   @Test
   void executeSchedulingRunWithArguments() throws IOException {
-    final var args = Json.createObjectBuilder().add("quantity", 2).build();
+    final var args = Json.createObjectBuilder().add("quantity", 2).add("biteSize", 1).build();
 
-    hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
+    hasura.updateSchedulingSpecGoalArguments(dumbRecurrenceGoalId.invocationId(), args);
 
     hasura.awaitScheduling(specId);
 
@@ -88,10 +88,10 @@ public class BasicTests extends ProceduralSchedulingSetup {
    */
   @Test
   void executeMultipleInvocationsOfSameProcedure() throws IOException {
-    final var args = Json.createObjectBuilder().add("quantity", 2).build();
-    hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
+    final var args = Json.createObjectBuilder().add("quantity", 2).add("biteSize", 1).build();
+    hasura.updateSchedulingSpecGoalArguments(dumbRecurrenceGoalId.invocationId(), args);
 
-    final var secondInvocationId = hasura.insertGoalInvocation(procedureId.goalId(), specId);
+    final var secondInvocationId = hasura.insertGoalInvocation(dumbRecurrenceGoalId.goalId(), specId);
     hasura.updateSchedulingSpecGoalArguments(secondInvocationId.invocationId(), args);
 
     hasura.awaitScheduling(specId);
@@ -107,12 +107,12 @@ public class BasicTests extends ProceduralSchedulingSetup {
    */
   @Test
   void executeMultipleProcedures() throws IOException {
-    final var args = Json.createObjectBuilder().add("quantity", 2).build();
-    hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
+    final var args = Json.createObjectBuilder().add("quantity", 2).add("biteSize", 1).build();
+    hasura.updateSchedulingSpecGoalArguments(dumbRecurrenceGoalId.invocationId(), args);
 
     final var secondProcedure = hasura.createSchedulingSpecProcedure(
         "Test Scheduling Procedure 2",
-        procedureJarId,
+        dumbRecurrenceGoalJarId,
         specId,
         1);
 
@@ -131,8 +131,8 @@ public class BasicTests extends ProceduralSchedulingSetup {
    */
   @Test
   void executeEDSLAndProcedure() throws IOException {
-    final var args = Json.createObjectBuilder().add("quantity", 4).build();
-    hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
+    final var args = Json.createObjectBuilder().add("quantity", 4).add("biteSize", 1).build();
+    hasura.updateSchedulingSpecGoalArguments(dumbRecurrenceGoalId.invocationId(), args);
 
     final String recurrenceGoalDefinition =
         """
@@ -161,8 +161,8 @@ public class BasicTests extends ProceduralSchedulingSetup {
    */
   @Test
   void saveActivityName() throws IOException {
-    final var args = Json.createObjectBuilder().add("quantity", 2).build();
-    hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
+    final var args = Json.createObjectBuilder().add("quantity", 2).add("biteSize", 1).build();
+    hasura.updateSchedulingSpecGoalArguments(dumbRecurrenceGoalId.invocationId(), args);
 
     hasura.awaitScheduling(specId);
 

@@ -67,6 +67,26 @@ public abstract class HasuraParsers {
               )
   );
 
+  public static JsonParser<HasuraAction<HasuraAction.ConstraintArguments>> constraintArgumentsP() {
+    return hasuraActionF(
+            productP
+                .field("arguments", listP(constraintArgumentsItemP())
+                .map(
+                    untuple(HasuraAction.ConstraintArguments::new),
+                    constraintArguments -> tuple(constraintArguments.items()))));
+  }
+
+  public static JsonParser<HasuraAction.ConstraintArgumentItem> constraintArgumentsItemP() {
+    return productP
+        .field("id", longP)
+        .field("revision", longP)
+        .field("arguments", mapP(serializedValueP))
+        .map(
+           untuple(HasuraAction.ConstraintArgumentItem::new),
+           constraintArgumentItem -> tuple(constraintArgumentItem.constraintId(), constraintArgumentItem.revision(), constraintArgumentItem.arguments()));
+  }
+
+
   public static final JsonParser<HasuraAction<HasuraAction.ConstraintViolationsInput>> hasuraConstraintsViolationsActionP
       = hasuraActionF(
       productP

@@ -4,6 +4,7 @@ import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchConstraintException;
 import gov.nasa.jpl.aerie.merlin.server.http.Fallible;
+import gov.nasa.jpl.aerie.merlin.server.models.ConstraintId;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintType;
 import gov.nasa.jpl.aerie.merlin.server.models.DBConstraintResult;
@@ -58,6 +59,16 @@ public class PostgresConstraintRepository implements ConstraintRepository {
                                 .orElseThrow(() -> new NoSuchConstraintException(constraintId, revision));
     } catch (SQLException ex) {
       throw new DatabaseException("Failed to get constraint.", ex);
+    }
+  }
+
+  @Override
+  public Map<ConstraintId, ConstraintRecord> getConstraints(List<ConstraintId> ids) {
+    try(final var connection = this.dataSource.getConnection();
+        final var getConstraintAction = new GetConstraintAction(connection)) {
+      return getConstraintAction.get(ids);
+    } catch (SQLException ex) {
+      throw new DatabaseException("Failed to get constraints", ex);
     }
   }
 

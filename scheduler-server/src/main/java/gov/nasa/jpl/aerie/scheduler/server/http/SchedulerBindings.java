@@ -6,7 +6,9 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.List;
 import java.util.Objects;
+
 import static gov.nasa.jpl.aerie.scheduler.server.http.ResponseSerializers.*;
+import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.hasuraBulkProcedureArgumentsP;
 import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.hasuraSchedulingDSLTypescriptActionP;
 import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.hasuraSchedulingGoalEventTriggerP;
 import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.hasuraSpecificationActionP;
@@ -69,6 +71,7 @@ public record SchedulerBindings(
       path("health", () -> get(ctx -> ctx.status(200)));
       path("schedulingDslTypescript", () -> post(this::getSchedulingDslTypescript));
       path("refreshSchedulingProcedureParameterTypes", () -> post(this::refreshSchedulingProcedureParameterTypes));
+      path("getSchedulingProcedureEffectiveArgumentsBulk", () -> post(this::getSchedulingProcedureEffectiveArgumentsBulk));
     });
   }
 
@@ -175,6 +178,19 @@ public record SchedulerBindings(
       ctx.status(400).result(serializeInvalidEntityException(ex).toString());
     } catch (final InvalidJsonException ex) {
       ctx.status(400).result(serializeInvalidJsonException(ex).toString());
+    }
+  }
+
+  private void getSchedulingProcedureEffectiveArgumentsBulk(final Context ctx) {
+    try {
+      final var input = parseJson(ctx.body(), hasuraBulkProcedureArgumentsP());
+
+      final var responses = this.specificationService.getSchedulingProcedureEffectiveArguments(input.input().items());
+      ctx.result(ResponseSerializers.serializeBulkEffectiveArgumentResponseList(responses).toString());
+    } catch (final InvalidJsonException ex) {
+      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
+    } catch (final InvalidEntityException ex) {
+      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
     }
   }
 

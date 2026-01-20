@@ -47,7 +47,7 @@ public record GraphQLPermissionsService(
    */
   private Optional<JsonObject> postRequest(final String query, final JsonObject variables) throws IOException, PermissionsServiceException
   {
-    try {
+    try(final var httpClient = HttpClient.newHttpClient()) {
       //TODO: (mem optimization) use streams here to avoid several copies of strings
       final var reqBody = Json
           .createObjectBuilder()
@@ -62,8 +62,7 @@ public record GraphQLPermissionsService(
           .header("x-hasura-admin-secret", hasuraGraphQlAdminSecret)
           .POST(HttpRequest.BodyPublishers.ofString(reqBody.toString()))
           .build();
-      final var httpResp = HttpClient
-          .newHttpClient().send(httpReq, HttpResponse.BodyHandlers.ofInputStream());
+      final var httpResp = httpClient.send(httpReq, HttpResponse.BodyHandlers.ofInputStream());
       if (httpResp.statusCode() != 200) {
         throw new IOException("Unexpected " + httpResp.statusCode() + " status when connecting to hasura");
       }

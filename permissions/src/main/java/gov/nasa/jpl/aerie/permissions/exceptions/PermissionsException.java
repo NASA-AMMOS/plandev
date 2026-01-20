@@ -1,5 +1,7 @@
 package gov.nasa.jpl.aerie.permissions.exceptions;
 
+import gov.nasa.jpl.aerie.json.FormattedError;
+
 /**
  * Wrapper Exception for all thrown exceptions in the Permissions Service.
  * This exception contains the root exception thrown alongside the recommended
@@ -7,17 +9,15 @@ package gov.nasa.jpl.aerie.permissions.exceptions;
  */
 public class PermissionsException extends Exception {
   private final int httpStatus;
-  private final Exception rootException;
+  private final FormattedError formattedError;
 
-  public PermissionsException(int httpStatus, Exception rootException) {
-    super(rootException);
+  public PermissionsException(int httpStatus, FormattedError formattedError) {
     this.httpStatus = httpStatus;
-    this.rootException = rootException;
+    this.formattedError = formattedError;
   }
 
   public int httpStatusCode() {
     return httpStatus;
   }
-
-  public Exception rootException() { return rootException; }
+  public FormattedError formattedError() {return formattedError;}
 }

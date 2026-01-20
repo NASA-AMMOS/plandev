@@ -6,10 +6,10 @@ import gov.nasa.jpl.aerie.permissions.OwnerOrCollaborator;
 import gov.nasa.jpl.aerie.permissions.WorkspaceAction;
 import gov.nasa.jpl.aerie.permissions.WorkspacePermissionType;
 import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
+import gov.nasa.jpl.aerie.permissions.exceptions.GraphQLServiceException;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchSchedulingSpecificationException;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException;
-import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
 
 import javax.json.Json;
 import javax.json.JsonException;
@@ -45,7 +45,7 @@ public record GraphQLPermissionsService(
    * @param query the graphQL query or mutation to send to aerie
    * @return the json response returned by aerie, or an empty optional in case of io errors
    */
-  private Optional<JsonObject> postRequest(final String query, final JsonObject variables) throws IOException, PermissionsServiceException
+  private Optional<JsonObject> postRequest(final String query, final JsonObject variables) throws IOException, GraphQLServiceException
   {
     try(final var httpClient = HttpClient.newHttpClient()) {
       //TODO: (mem optimization) use streams here to avoid several copies of strings
@@ -68,7 +68,7 @@ public record GraphQLPermissionsService(
       }
       final var respBody = Json.createReader(httpResp.body()).readObject();
       if (respBody.containsKey("errors")) {
-        throw new PermissionsServiceException(respBody.toString(), respBody.get("errors"));
+        throw new GraphQLServiceException(respBody.toString(), respBody.get("errors"));
       }
       return Optional.of(respBody);
     } catch (final InterruptedException e) {
@@ -79,7 +79,7 @@ public record GraphQLPermissionsService(
   }
 
   public PlanPermissionType getActionPermission(final HasuraAction action, final String role)
-  throws IOException, Forbidden, PermissionsServiceException {
+  throws IOException, Forbidden, GraphQLServiceException {
     final var query = """
         query getActionPermission($role: user_roles_enum!, $action: String!) {
           check: user_role_permission_by_pk(role: $role) {
@@ -99,7 +99,7 @@ public record GraphQLPermissionsService(
   }
 
   public WorkspacePermissionType getWorkspaceActionPermission(final WorkspaceAction action, final String role)
-  throws IOException, Forbidden, PermissionsServiceException {
+  throws IOException, Forbidden, GraphQLServiceException {
     final var query = """
         query getWorkspaceActionPermission($role: user_roles_enum!, $action: String!) {
           check: user_role_permission_by_pk(role: $role) {
@@ -118,7 +118,8 @@ public record GraphQLPermissionsService(
     return WorkspacePermissionType.valueOf(check.getString("permission"));
   }
 
-  public OwnerOrCollaborator checkPlanOwnerCollaborator(final PlanId planId, final String username) throws IOException, NoSuchPlanException, PermissionsServiceException {
+  public OwnerOrCollaborator checkPlanOwnerCollaborator(final PlanId planId, final String username)
+  throws IOException, NoSuchPlanException, GraphQLServiceException {
     final var query = """
         query getPlanOwnerCollaborators($id: Int!, $username: String!) {
           plan: plan_by_pk(id: $id) {
@@ -144,7 +145,7 @@ public record GraphQLPermissionsService(
   }
 
   public OwnerOrCollaborator checkWorkspaceOwnerCollaborator(final WorkspaceId workspaceId, final String username)
-  throws IOException, NoSuchWorkspaceException, PermissionsServiceException {
+  throws IOException, NoSuchWorkspaceException, GraphQLServiceException {
     final var query = """
         query getWorkspaceOwnerCollaborators($id: Int!, $username: String!) {
           workspace: workspace_by_pk(id: $id) {
@@ -184,7 +185,7 @@ public record GraphQLPermissionsService(
   }
 
   public boolean checkMissionModelOwner(final PlanId planId, final String username)
-  throws PermissionsServiceException, IOException, NoSuchPlanException
+  throws GraphQLServiceException, IOException, NoSuchPlanException
   {
     final var query = """
         query getModelOwner($id: Int!) {
@@ -211,7 +212,7 @@ public record GraphQLPermissionsService(
   }
 
   public PlanId getPlanIdFromSchedulingSpecificationId(final SchedulingSpecificationId specificationId)
-  throws PermissionsServiceException, IOException, NoSuchSchedulingSpecificationException
+  throws GraphQLServiceException, IOException, NoSuchSchedulingSpecificationException
   {
     final var query = """
         query planIdFromSpecId($id: Int!) {

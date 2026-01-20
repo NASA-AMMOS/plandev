@@ -1,11 +1,12 @@
 package gov.nasa.jpl.aerie.permissions;
 
 import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
+import gov.nasa.jpl.aerie.permissions.exceptions.GraphQLServiceException;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchSchedulingSpecificationException;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsException;
-import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
+import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsFormattedError;
 import gov.nasa.jpl.aerie.permissions.gql.GraphQLPermissionsService;
 import gov.nasa.jpl.aerie.permissions.gql.PlanId;
 import gov.nasa.jpl.aerie.permissions.gql.SchedulingSpecificationId;
@@ -27,11 +28,13 @@ public final class PermissionsService {
       final var authorized = canPerformAction(permissionType, username, planId);
       if (!authorized) throw new Forbidden(action, role, username, permissionType, planId);
     } catch (Forbidden f) {
-      throw new PermissionsException(403, f);
+      throw new PermissionsException(403, new PermissionsFormattedError(f));
     } catch (NoSuchPlanException nsp) {
-      throw new PermissionsException(404, nsp);
-    } catch (PermissionsServiceException | IOException ex) {
-      throw new PermissionsException(500, ex);
+      throw new PermissionsException(404, new PermissionsFormattedError(nsp));
+    } catch (GraphQLServiceException ex) {
+      throw new PermissionsException(500, new PermissionsFormattedError(ex));
+    } catch (IOException io) {
+      throw new PermissionsException(500, new PermissionsFormattedError(io));
     }
   }
 
@@ -44,10 +47,12 @@ public final class PermissionsService {
     try {
       final var planId = gqlService.getPlanIdFromSchedulingSpecificationId(specificationId);
       check(action, role, username, planId);
-    } catch (NoSuchSchedulingSpecificationException nss) {
-      throw new PermissionsException(404, nss);
-    } catch (PermissionsServiceException | IOException ex) {
-      throw new PermissionsException(500, ex);
+    } catch (NoSuchSchedulingSpecificationException nsp) {
+      throw new PermissionsException(404, new PermissionsFormattedError(nsp));
+    } catch (GraphQLServiceException ex) {
+      throw new PermissionsException(500, new PermissionsFormattedError(ex));
+    } catch (IOException io) {
+      throw new PermissionsException(500, new PermissionsFormattedError(io));
     }
   }
 
@@ -62,11 +67,13 @@ public final class PermissionsService {
       final var authorized = canPerformWorkspaceAction(permissionType, username, workspaceId);
       if (!authorized) throw new Forbidden(action, role, username, permissionType, workspaceId);
     } catch (Forbidden f) {
-      throw new PermissionsException(403, f);
-    } catch (NoSuchWorkspaceException nsw) {
-      throw new PermissionsException(404, nsw);
-    } catch (PermissionsServiceException | IOException ex) {
-      throw new PermissionsException(500, ex);
+      throw new PermissionsException(403, new PermissionsFormattedError(f));
+    } catch (NoSuchWorkspaceException nsp) {
+      throw new PermissionsException(404, new PermissionsFormattedError(nsp));
+    } catch (GraphQLServiceException ex) {
+      throw new PermissionsException(500, new PermissionsFormattedError(ex));
+    } catch (IOException io) {
+      throw new PermissionsException(500, new PermissionsFormattedError(io));
     }
   }
 
@@ -80,14 +87,16 @@ public final class PermissionsService {
         throw new IllegalArgumentException("Unsupported action subtype: " + action.getClass());
       }
     } catch (Forbidden f) {
-      throw new PermissionsException(403, f);
-    } catch (PermissionsServiceException | IOException ex) {
-      throw new PermissionsException(500, ex);
+      throw new PermissionsException(403, new PermissionsFormattedError(f));
+    } catch (GraphQLServiceException ex) {
+      throw new PermissionsException(500, new PermissionsFormattedError(ex));
+    } catch (IOException io) {
+      throw new PermissionsException(500, new PermissionsFormattedError(io));
     }
   }
 
   private PlanPermissionType getActionPermission(final HasuraAction action, final String role)
-  throws Forbidden, IOException, PermissionsServiceException
+  throws Forbidden, IOException, GraphQLServiceException
   {
     if (role.equals("aerie_admin")) {
       return PlanPermissionType.NO_CHECK;
@@ -99,7 +108,7 @@ public final class PermissionsService {
       final PlanPermissionType permissionType,
       final String username,
       final PlanId planId)
-  throws IOException, PermissionsServiceException, NoSuchPlanException {
+  throws IOException, GraphQLServiceException, NoSuchPlanException {
     return switch (permissionType) {
       case NO_CHECK -> true;
       case MISSION_MODEL_OWNER -> gqlService.checkMissionModelOwner(planId, username);
@@ -110,13 +119,13 @@ public final class PermissionsService {
   }
 
   private OwnerOrCollaborator getPlanPermissions(final String username, final PlanId planId)
-  throws IOException, PermissionsServiceException, NoSuchPlanException
+  throws IOException, GraphQLServiceException, NoSuchPlanException
   {
     return gqlService.checkPlanOwnerCollaborator(planId, username);
   }
 
   private WorkspacePermissionType getWorkspaceActionPermission(final WorkspaceAction action, final String role)
-  throws Forbidden, IOException, PermissionsServiceException
+  throws Forbidden, IOException, GraphQLServiceException
   {
     if (role.equals("aerie_admin")) {
       return WorkspacePermissionType.NO_CHECK;
@@ -128,7 +137,7 @@ public final class PermissionsService {
       final WorkspacePermissionType permissionType,
       final String username,
       final WorkspaceId workspaceId)
-  throws IOException, PermissionsServiceException, NoSuchWorkspaceException {
+  throws IOException, GraphQLServiceException, NoSuchWorkspaceException {
     return switch (permissionType) {
       case NO_CHECK -> true;
       case OWNER -> getWorkspacePermissions(username, workspaceId).isOwner();
@@ -138,7 +147,7 @@ public final class PermissionsService {
   }
 
   private OwnerOrCollaborator getWorkspacePermissions(final String username, final WorkspaceId workspaceId)
-  throws IOException, PermissionsServiceException, NoSuchWorkspaceException
+  throws IOException, GraphQLServiceException, NoSuchWorkspaceException
   {
     return gqlService.checkWorkspaceOwnerCollaborator(workspaceId, username);
   }

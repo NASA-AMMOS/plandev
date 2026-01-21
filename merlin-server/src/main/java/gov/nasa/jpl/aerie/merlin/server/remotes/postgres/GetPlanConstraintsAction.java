@@ -1,12 +1,12 @@
 package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 
 import gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser;
-import gov.nasa.jpl.aerie.merlin.server.http.InvalidEntityException;
-import gov.nasa.jpl.aerie.merlin.server.http.InvalidJsonException;
+import gov.nasa.jpl.aerie.merlin.server.http.InvalidJsonEntityException;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintType;
 import org.intellij.lang.annotations.Language;
 
+import javax.json.stream.JsonParsingException;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -107,7 +107,7 @@ import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.parseJson;
       } while (results.next());
 
       return Optional.of(constraints);
-    } catch (InvalidJsonException | InvalidEntityException e) {
+    } catch (JsonParsingException | InvalidJsonEntityException e) {
       throw new SQLException(e);
     }
   }

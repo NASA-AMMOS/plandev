@@ -13,7 +13,6 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.models.ActivityType;
 import gov.nasa.jpl.aerie.merlin.server.models.MissionModelJar;
-import gov.nasa.jpl.aerie.merlin.server.services.LocalMissionModelService;
 import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService;
 
 import java.nio.file.Path;
@@ -166,7 +165,6 @@ public final class StubMissionModelService implements MissionModelService {
   public Map<ActivityDirectiveId, ActivityInstantiationFailure> validateActivityInstantiations(
       final MissionModelId missionModelId,
       final Map<ActivityDirectiveId, SerializedActivity> activities)
-  throws LocalMissionModelService.MissionModelLoadException
   {
     return Map.of();
   }
@@ -180,7 +178,6 @@ public final class StubMissionModelService implements MissionModelService {
 
   @Override
   public List<ValidationNotice> validateModelArguments(final MissionModelId missionModelId, final Map<String, SerializedValue> arguments)
-  throws LocalMissionModelService.MissionModelLoadException
   {
     return List.of();
   }
@@ -194,7 +191,6 @@ public final class StubMissionModelService implements MissionModelService {
   public Map<String, SerializedValue> getModelEffectiveArguments(
       final MissionModelId missionModelId,
       final Map<String, SerializedValue> arguments)
-  throws LocalMissionModelService.MissionModelLoadException
   {
     return Map.of();
   }

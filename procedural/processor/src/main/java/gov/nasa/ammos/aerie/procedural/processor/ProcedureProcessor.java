@@ -266,7 +266,7 @@ public final class ProcedureProcessor implements Processor {
   private List<ParameterRecord> getExportParameters(final TypeElement exportTypeElement)
   {
     return exportTypeElement.getEnclosedElements().stream()
-                            .filter(e -> e.getKind() == ElementKind.FIELD) // Element must be a field
+                            .filter(e -> e.getKind() == ElementKind.RECORD_COMPONENT) // Element must be a record component
                             .map(e -> new ParameterRecord(e.getSimpleName().toString(), e.asType(), e))
                             .toList();
   }

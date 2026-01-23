@@ -77,7 +77,8 @@ public class FormattedError {
 
   /**
    * Create a FormattedException from a generic Exception object.
-   * @param type the category of exception. Should be in SCREAMING_SNAKE_CASE
+   * @param service the service that throw the exception.
+   * @param type the category of exception. Should be in SCREAMING_SNAKE_CASE.
    * @param ex the exception to be formatted.
    */
   public FormattedError(AerieService service, String type, Exception ex) {
@@ -90,7 +91,8 @@ public class FormattedError {
   /**
    * Create a FormattedException from a generic Exception object with a custom error message.
    * The exception's built-in error message, if included, will be put into the 'cause' field.
-   * @param type the category of exception. Should be in SCREAMING_SNAKE_CASE
+   * @param service the service that throw the exception.
+   * @param type the category of exception. Should be in SCREAMING_SNAKE_CASE.
    * @param message the custom error message explaining the cause of the error.
    *  Should be human-readable and between 1-2 sentences.
    * @param ex the exception to be formatted.
@@ -100,6 +102,23 @@ public class FormattedError {
     this.message = message;
     this.service = service;
     cause = Optional.ofNullable(ex.getMessage());
+    trace = Optional.of(generateTrace(ex));
+  }
+
+  /**
+   * Create a FormattedException from a generic Exception object with a custom error message and cause.
+   * @param service the service that throw the exception.
+   * @param type the category of exception. Should be in SCREAMING_SNAKE_CASE.
+   * @param message the custom error message explaining the cause of the error.
+   *  Should be human-readable and between 1-2 sentences.
+   * @param cause the root cause of the exception.
+   * @param ex the exception to be formatted.
+   */
+  public FormattedError(AerieService service, String type, String message, String cause, Exception ex) {
+    this.type = type;
+    this.message = message;
+    this.service = service;
+    this.cause = Optional.ofNullable(cause);
     trace = Optional.of(generateTrace(ex));
   }
 
@@ -176,7 +195,7 @@ public class FormattedError {
   /**
    * Generate a stack trace string from an Exception.
    */
-  private String generateTrace(Exception ex) {
+  protected static String generateTrace(Exception ex) {
     final var sw = new StringWriter();
     try(final var pw = new PrintWriter(sw)) {
       ex.printStackTrace(pw);

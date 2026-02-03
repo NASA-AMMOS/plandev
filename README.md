@@ -1,12 +1,12 @@
-[![slack](https://img.shields.io/badge/slack-aerie-brightgreen?logo=slack)](https://join.slack.com/t/nasa-ammos/shared_invite/zt-1mlgmk5c2-MgqVSyKzVRUWrXy87FNqPw)
+[![slack](https://img.shields.io/badge/slack-plandev-brightgreen?logo=slack)](https://join.slack.com/t/nasa-ammos/shared_invite/zt-1mlgmk5c2-MgqVSyKzVRUWrXy87FNqPw)
 
 <br>
 <div align="center">
-  <img alt="Aerie" height="85" src="docs/img/aerie-wordmark-with-background.svg">
+  <img alt="PlanDev" height="40" src="docs/img/plandev-logo-light.svg">
 </div>
 <br>
 
-Aerie is a software framework for modeling spacecraft. Its main features include:
+PlanDev is a software framework for modeling spacecraft. Its main features include:
 
 - A Java-based mission modeling library
 - A discrete-event simulator
@@ -14,21 +14,36 @@ Aerie is a software framework for modeling spacecraft. Its main features include
 - An embedded TypeScript DSL for defining and executing constraints
 - An embedded TypeScript DSL for defining and executing activity command expansions
 - An embedded TypeScript DSL for defining sequences
-- A [GraphQL API](https://nasa-ammos.github.io/aerie-docs/api/introduction)
+- A [GraphQL API](https://nasa-ammos.github.io/plandev-docs/api/introduction)
 - A web-based [client application][ui-repo]
+
+## Aerie -> PlanDev Rebrand
+
+This product was **formerly known as Aerie and is now named PlanDev**. While we've updated most documentation and external references, some legacy mentions of the old product name may remain as we complete the transition.
+
+What to know:
+
+* The planning product, including modeling, simulation, scheduling and constraint-checking, is now named PlanDev
+* The sequencing product, including the sequence editor, workspaces, and actions, is now named SeqDev
+* All features and functionality remain the same
+* Currently, repository names, package names and other internal code references will retain their existing names, and deployment/migration procedures have not changed
+* In a future release, our repository and/or package names may change. If so, this will be communicated to users via release notes and normal communication channels
+
+For the latest documentation, visit: [PlanDev Documentation](https://nasa-ammos.github.io/plandev-docs/)
+
 
 ## Getting Started
 
-To get started using Aerie for the first time please do our [fast track tutorial][fast-track] on our documentation website.
+To get started using PlanDev for the first time please do our [fast track tutorial][fast-track] on our documentation website.
 
 ## Need Help?
 
-- Join us on the [NASA-AMMOS Slack](https://join.slack.com/t/nasa-ammos/shared_invite/zt-1mlgmk5c2-MgqVSyKzVRUWrXy87FNqPw) (#aerie-users)
-- Contact aerie-support@googlegroups.com
+- Join us on the [NASA-AMMOS Slack](https://join.slack.com/t/nasa-ammos/shared_invite/zt-1mlgmk5c2-MgqVSyKzVRUWrXy87FNqPw) (#plandev-users)
+- Contact plandev-support@googlegroups.com
 
 ## News and Updates
 
-- Join the [Aerie Users](https://groups.google.com/u/3/g/aerie-users) group to stay up to date on news, releases, and our project roadmap. 
+- Join the [PlanDev Users](https://groups.google.com/u/3/g/plandev-users) group to stay up to date on news, releases, and our project roadmap. 
 
 ## Directory Structure
 
@@ -39,7 +54,7 @@ To get started using Aerie for the first time please do our [fast track tutorial
 ├── contrib                     # Java convenience classes for mission models
 ├── db-tests                    # Database unit tests
 ├── deployment                  # Deployment artifacts and documentation
-├── docker                      # Additional Dockerfiles for Aerie-specific images
+├── docker                      # Additional Dockerfiles for PlanDev-specific images
 ├── docs                        # Documentation
 ├── e2e-tests                   # End-to-end tests
 ├── examples                    # Example mission models
@@ -72,6 +87,6 @@ The scripts and documentation in this project are released under the [MIT Licens
 [contributing]: ./docs/CONTRIBUTING.md
 [deployment]: ./deployment
 [dev]: ./docs/DEVELOPER.md
-[fast-track]: https://nasa-ammos.github.io/aerie-docs/introduction/#fast-track
+[fast-track]: https://nasa-ammos.github.io/plandev-docs/introduction/#fast-track
 [ui-repo]: https://github.com/NASA-AMMOS/aerie-ui
 

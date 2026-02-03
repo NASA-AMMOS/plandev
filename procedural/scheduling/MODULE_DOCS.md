@@ -3,7 +3,7 @@
 This library provides tools for creating scheduling procedures, based on the timeline library.
 To write a procedure, create a class that implements the Procedure interface.
 Then, follow the tutorial documentation (TODO: link to tutorial documentation once written)
-to package and upload your constraint to Aerie.
+to package and upload your constraint to PlanDev.
 
 # Package gov.nasa.ammos.aerie.procedural.scheduling
 The top-level procedure types.

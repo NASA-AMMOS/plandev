@@ -1,6 +1,6 @@
-# Aerie Project Governance
+# PlanDev Project Governance
 
-The Aerie project aims to create an open source community that encourages transparency, contributions, and collaboration, but maintains sound technical and quality standards. Our goal is to build a community comprised of members across the space community and beyond, including from private organizations, universities, Federally Funded Research and Development Centers (FFRDCs), other government organizations, and international organizations. 
+The PlanDev project aims to create an open source community that encourages transparency, contributions, and collaboration, but maintains sound technical and quality standards. Our goal is to build a community comprised of members across the space community and beyond, including from private organizations, universities, Federally Funded Research and Development Centers (FFRDCs), other government organizations, and international organizations. 
 
 The project follows a fairly liberal contribution model where people and/or organizations who do the most work will have the most influence on project direction. Technical decision making will primarily be made through a "[consensus-seeking](https://en.wikipedia.org/wiki/Consensus-seeking_decision-making)" approach. 
 
@@ -8,7 +8,7 @@ The project follows a fairly liberal contribution model where people and/or orga
 
 ### User
 
-Anyone who has downloaded, deployed, or operated the Aerie system to meet a specific objective. Aerie was primarily designed for space mission activity planning, modeling, and simulation, but let us know if you've found other uses for it.  
+Anyone who has downloaded, deployed, or operated the PlanDev system to meet a specific objective. PlanDev was primarily designed for space mission activity planning, modeling, and simulation, but let us know if you've found other uses for it.  
 
 ### Contributor
 
@@ -16,7 +16,7 @@ Contributors include anyone that provides input to the project. This includes co
 
 ### Triager
 
-Subset of contributors who have demonstrated a strong familiarity with Aerie and are regularly contributing to the project via issue creation, commenting, discussions, etc. Triagers are given the "Triage" GitHub role and are added to corresponding GitHub team. These team members have the ability to do the following:
+Subset of contributors who have demonstrated a strong familiarity with PlanDev and are regularly contributing to the project via issue creation, commenting, discussions, etc. Triagers are given the "Triage" GitHub role and are added to corresponding GitHub team. These team members have the ability to do the following:
 
     - Label issues and pull requests
     - Comment, close, and reopen issues and pull requests
@@ -25,9 +25,9 @@ Subset of contributors who have demonstrated a strong familiarity with Aerie and
  
 ### Collaborator
 
-Subset of contributors who have been given write access to one or more of the Aerie repositories. Both contributors and collaborators can propose changes to the project via pull requests, but only collaborators can formally review and approve (merge) these requests. Any contributor who has made a non-trivial contribution should be on-boarded as a collaborator in a timely manner. 
+Subset of contributors who have been given write access to one or more of the PlanDev repositories. Both contributors and collaborators can propose changes to the project via pull requests, but only collaborators can formally review and approve (merge) these requests. Any contributor who has made a non-trivial contribution should be on-boarded as a collaborator in a timely manner. 
 
-If you are planning on making a substantial contribution to the project or feel as though you should be given write access to a repository, please send a request to aerie_support@jpl.nasa.gov. 
+If you are planning on making a substantial contribution to the project or feel as though you should be given write access to a repository, please send a request to plandev_support@jpl.nasa.gov. 
 
 [List of current collaborators](https://github.com/orgs/NASA-AMMOS/teams/aerie-collaborators/members)
 
@@ -59,19 +59,19 @@ A subset of the collaborators forms the Technical Steering Committee (TSC). The 
  
 ### Scope
 
-The TSC is primarily responsible for the Aerie core and UI projects:
+The TSC is primarily responsible for the PlanDev core and UI projects:
 
 - https://github.com/NASA-AMMOS/aerie
 - https://github.com/NASA-AMMOS/aerie-ui
 
 However, the TSC also has responsibility over some projects, which are dependencies of the core projects:
 
-- https://github.com/NASA-AMMOS/aerie-docs
+- https://github.com/NASA-AMMOS/plandev-docs
 - https://github.com/NASA-AMMOS/aerie-gateway
 - https://github.com/NASA-AMMOS/aerie-ts-user-code-runner
 - https://github.com/NASA-AMMOS/aerie-ampcs
 
-Addtionally, the TSC has authority over a few other "Aerie Extended Universe" projects:
+Addtionally, the TSC has authority over a few other "PlanDev Extended Universe" projects:
 
 - https://github.com/NASA-AMMOS/aerie-cli
 - https://github.com/NASA-AMMOS/aerie-mission-model-template
@@ -85,7 +85,7 @@ The TSC can nominate new members at any time. Candidates for membership tend to 
 
 ## Project Management Committee 
 
-The Project Management Committee (PMC) is made up of sponsor organization representatives (i.e. those providing funding to the project) and key stakeholders who rely or plan to rely on Aerie to meet a critical need (e.g. project using Aerie for space mission operations). The PMC has the following primary responsibilities
+The Project Management Committee (PMC) is made up of sponsor organization representatives (i.e. those providing funding to the project) and key stakeholders who rely or plan to rely on PlanDev to meet a critical need (e.g. project using PlanDev for space mission operations). The PMC has the following primary responsibilities
 
 - Maintaining the overall project roadmap
 - Determining project requirements and commitments to sponsors and stakeholders
@@ -95,7 +95,7 @@ The Project Management Committee (PMC) is made up of sponsor organization repres
 - Overall project governance (including this policy)
 - Addressing any legal considerations
 
-The current list of PMC members is currently in work. If your project or organization is planning to use Aerie and you would like to join the PMC, please contact aerie_support@jpl.nasa.gov.   
+The current list of PMC members is currently in work. If your project or organization is planning to use PlanDev and you would like to join the PMC, please contact plandev_support@jpl.nasa.gov.   
 
 ### Scope
 

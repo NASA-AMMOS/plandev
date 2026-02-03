@@ -1,20 +1,20 @@
 # Docker
 
-This directory contains additional Dockerfiles for images built by Aerie.
+This directory contains additional Dockerfiles for images built by PlanDev.
 
-- [Dockerfile.hasura](./Dockerfile.hasura) - A Hasura Docker image with bundled Aerie-specific Hasura metadata
-- [Dockerfile.postgres](./Dockerfile.postgres) - A Postgres Docker image with bundled Aerie-specific SQL
+- [Dockerfile.hasura](./Dockerfile.hasura) - A Hasura Docker image with bundled PlanDev-specific Hasura metadata
+- [Dockerfile.postgres](./Dockerfile.postgres) - A Postgres Docker image with bundled PlanDev-specific SQL
 
 ## Build
 
-First build Aerie to make sure the SQL files are properly added to the [deployment](../deployment/) directory:
+First build PlanDev to make sure the SQL files are properly added to the [deployment](../deployment/) directory:
 
 ```sh
 cd aerie
 ./gradlew assemble
 ```
 
-Next, still from the top-level Aerie directory, build the images from the provided Dockerfiles:
+Next, still from the top-level PlanDev directory, build the images from the provided Dockerfiles:
 
 ```sh
 docker build -t aerie-hasura -f ./docker/Dockerfile.hasura .

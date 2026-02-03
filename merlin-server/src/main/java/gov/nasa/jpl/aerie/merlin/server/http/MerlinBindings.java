@@ -479,10 +479,8 @@ public final class MerlinBindings implements Plugin {
       final var responses = this.constraintAction.getConstraintProcedureEffectiveArgumentsBulk(input.input());
       ctx.result(ResponseSerializers.serializeIterable(
           ResponseSerializers::serializeConstraintBulkEffectiveArgumentResponse, responses).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     }
   }
 

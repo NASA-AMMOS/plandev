@@ -5,6 +5,7 @@ import gov.nasa.jpl.aerie.constraints.InputMismatchException;
 import gov.nasa.jpl.aerie.constraints.model.DiscreteProfile;
 import gov.nasa.jpl.aerie.constraints.model.*;
 import gov.nasa.jpl.aerie.constraints.tree.Expression;
+import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.SimulationDatasetMismatchException;
@@ -251,7 +252,7 @@ public class ConstraintAction {
           Optional.of(simDatasetId),
           ((ConstraintType.EDSL) constraint.type()).definition()
       );
-    } catch (MissionModelService.NoSuchMissionModelException | NoSuchPlanException ex) {
+    } catch (MissionModelService.NoSuchMissionModelException | NoSuchPlanException | MissionModelLoader.MissionModelLoadException ex) {
       return Fallible.failure(
           new ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error(
              List.of(

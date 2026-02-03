@@ -1,9 +1,7 @@
 package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 
 import gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.server.http.InvalidEntityException;
-import gov.nasa.jpl.aerie.merlin.server.http.InvalidJsonException;
+import gov.nasa.jpl.aerie.merlin.server.http.InvalidJsonEntityException;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintId;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintType;
@@ -79,7 +77,7 @@ public class GetConstraintAction implements AutoCloseable {
             parseJson(results.getString("arguments"), new SerializedValueJsonParser()).asMap().orElse(Map.of())
         );
         constraints.put(id, c);
-      } catch (InvalidJsonException | InvalidEntityException e) {
+      } catch (InvalidJsonEntityException e) {
         throw new SQLException(e);
       }
     }

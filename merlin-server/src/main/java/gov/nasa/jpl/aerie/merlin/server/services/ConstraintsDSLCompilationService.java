@@ -3,6 +3,7 @@ package gov.nasa.jpl.aerie.merlin.server.services;
 import gov.nasa.jpl.aerie.constraints.model.EDSLConstraintResult;
 import gov.nasa.jpl.aerie.constraints.tree.Expression;
 import gov.nasa.jpl.aerie.json.JsonParser;
+import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.http.InvalidJsonEntityException;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintsCompilationError;
@@ -59,7 +60,8 @@ public class ConstraintsDSLCompilationService {
       final Optional<PlanId> planId,
       final Optional<SimulationDatasetId> simulationDatasetId,
       final String constraintTypescript
-  ) throws MissionModelService.NoSuchMissionModelException, NoSuchPlanException
+  ) throws MissionModelService.NoSuchMissionModelException, NoSuchPlanException,
+           MissionModelLoader.MissionModelLoadException
   {
     final var missionModelGeneratedCode = this.typescriptCodeGenerationService.generateTypescriptTypes(missionModelId, planId, simulationDatasetId);
     final JsonObject messageJson = Json.createObjectBuilder()

@@ -98,7 +98,8 @@ public class ConstraintsTests {
     final var message = exception.getMessage().split("\"message\":\"")[1].split("\"}]")[0];
     // Hasura strips the cause message ("Assumption falsified -- mission model for existing plan does not exist")
     // from the error it returns
-    if (!message.equals("input mismatch exception")) {
+    final var expectedMessage = "plan with id " + planId + " has not yet been simulated at its current revision";
+    if (!message.equals(expectedMessage)) {
       throw exception;
     }
   }

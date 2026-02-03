@@ -62,7 +62,7 @@ public class BasicSchedulingTests extends ProceduralTestingSetup {
   void executeSchedulingRunWithoutArguments() throws IOException {
     final var resp = hasura.awaitFailingScheduling(specId);
     final var message = resp.reason().getString("message");
-    assertTrue(message.contains("java.lang.RuntimeException: gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException: Invalid arguments for input type \"DumbRecurrenceGoal\": extraneous arguments: [], unconstructable arguments: [], missing arguments: [MissingArgument[parameterName=biteSize, schema=IntSchema[]]], valid arguments: [ValidArgument[parameterName=quantity, serializedValue=NumericValue[value=360]]]"));
+    assertTrue(message.contains("gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException: Invalid arguments for input type \"DumbRecurrenceGoal\": extraneous arguments: [], unconstructable arguments: [], missing arguments: [MissingArgument[parameterName=biteSize, schema=IntSchema[]]], valid arguments: [ValidArgument[parameterName=quantity, serializedValue=NumericValue[value=360]]]"));
   }
 
   /**

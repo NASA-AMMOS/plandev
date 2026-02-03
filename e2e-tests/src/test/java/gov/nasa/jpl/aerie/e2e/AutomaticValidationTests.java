@@ -90,7 +90,7 @@ public class AutomaticValidationTests {
     Thread.sleep(1000); // TODO consider a while loop here
     final var activityValidations = hasura.getActivityValidations(planId);
     final ActivityValidation activityValidation = activityValidations.get((long) activityId);
-    assertEquals(new ActivityValidation.NoSuchActivityTypeFailure("no such activity type", "NopeBanana"), activityValidation);
+    assertEquals(new ActivityValidation.NoSuchActivityTypeFailure("No such activity type NopeBanana", "NopeBanana"), activityValidation);
   }
 
   @Test
@@ -150,7 +150,7 @@ public class AutomaticValidationTests {
     final var activityValidations = hasura.getActivityValidations(planId);
     final ActivityValidation activityValidation = activityValidations.get((long) activityId);
     assertEquals(
-        new ActivityValidation.NoSuchMissionModelFailure("no such mission model", 0),
+        new ActivityValidation.NoSuchMissionModelFailure("No mission model exists with id `0`", 0),
         activityValidation
     );
   }

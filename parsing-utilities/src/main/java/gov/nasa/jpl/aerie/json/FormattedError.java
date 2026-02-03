@@ -10,6 +10,7 @@ import io.javalin.validation.ValidationException;
 import javax.json.Json;
 import javax.json.JsonException;
 import javax.json.JsonObject;
+import javax.json.JsonValue;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -42,7 +43,7 @@ public class FormattedError {
   private final AerieService service;
   private Optional<String> cause = Optional.empty();
   private Optional<String> trace = Optional.empty();
-  private Optional<JsonObject> data = Optional.empty();
+  private Optional<JsonValue> data = Optional.empty();
 
   /**
    * For use in the event of an endpoint failing without throwing an exception.
@@ -121,6 +122,20 @@ public class FormattedError {
     this.cause = Optional.ofNullable(cause);
     trace = Optional.of(generateTrace(ex));
   }
+
+  /**
+   * Create a FormattedException with additional data from a generic Exception object.
+   * @param type the category of exception. Should be in SCREAMING_SNAKE_CASE
+   * @param ex the exception to be formatted.
+   */
+  public FormattedError(AerieService service, String type, Exception ex, JsonValue data) {
+    this.type = type;
+    message = ex.getMessage() == null ? "No exception message provided." : ex.getMessage();
+    this.service = service;
+    trace = Optional.of(generateTrace(ex));
+    this.data = Optional.of(data);
+  }
+
 
   // region Constructors for specific exceptions
   //  This helps `type` be consistent every time the exception is thrown.

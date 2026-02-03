@@ -150,14 +150,12 @@ public final class SchedulerParsers {
           $ -> tuple($.goalId(), $.revision()));
 
   public static <T> T parseJson(final String jsonStr, final JsonParser<T> parser)
-  throws InvalidJsonException, InvalidEntityException
+  throws JsonParsingException, InvalidJsonEntityException
   {
     try (final var reader = Json.createReader(new StringReader(jsonStr))) {
       final var requestJson = reader.readValue();
       final var result = parser.parse(requestJson);
-      return result.getSuccessOrThrow(reason -> new InvalidEntityException(List.of(reason)));
-    } catch (JsonParsingException e) {
-      throw new InvalidJsonException(e);
+      return result.getSuccessOrThrow(reason -> new InvalidJsonEntityException(List.of(reason)));
     }
   }
 }

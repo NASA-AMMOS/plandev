@@ -6,15 +6,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import gov.nasa.jpl.aerie.json.JsonParseResult;
-import gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser;
+
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.scheduler.ProcedureLoader;
-import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSchedulingGoalException;
-import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSpecificationException;
 import gov.nasa.jpl.aerie.scheduler.model.GoalId;
 import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingCompilationError;
 import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleAction;
@@ -237,67 +233,5 @@ public class ResponseSerializers {
             .add("errors", serializeIterable(ResponseSerializers::serializeUserCodeError, goalFailures.getValue()))
             .build(),
         failedGoals);
-  }
-
-  public static JsonValue serializeNoSuchSpecificationException(final NoSuchSpecificationException e) {
-    return Json.createObjectBuilder().add("specification_id", e.specificationId.id()).build();
-  }
-
-  public static JsonValue serializeNoSuchPlanException(final NoSuchPlanException e) {
-    return Json.createObjectBuilder().add("specification_id", e.getInvalidPlanId().id()).build();
-  }
-
-  /**
-   * create report of given exception that can be passed as json payload
-   *
-   * @param e the exception to generate json report for
-   * @return a json serialization of the exception details
-   */
-  public static JsonValue serializeException(final Exception e) {
-    //TODO: stack trace or other details back to ui / client?
-    return Json.createObjectBuilder()
-               .add("message", e.toString())
-               .build();
-  }
-
-  public static JsonValue serializeFailureReason(final JsonParseResult.FailureReason failure) {
-    return Json.createObjectBuilder()
-               .add("breadcrumbs", serializeIterable(ResponseSerializers::serializeParseFailureBreadcrumb, failure.breadcrumbs()))
-               .add("message", failure.reason())
-               .build();
-  }
-
-  public static JsonValue serializeParseFailureBreadcrumb(final gov.nasa.jpl.aerie.json.Breadcrumb breadcrumb) {
-    return breadcrumb.visit(new gov.nasa.jpl.aerie.json.Breadcrumb.BreadcrumbVisitor<>() {
-      @Override
-      public JsonValue onString(final String s) {
-        return Json.createValue(s);
-      }
-
-      @Override
-      public JsonValue onInteger(final Integer i) {
-        return Json.createValue(i);
-      }
-    });
-  }
-
-  public static JsonValue serializeInvalidJsonException(final InvalidJsonException ex) {
-    return Json.createObjectBuilder()
-               .add("kind", "invalid-entity")
-               .add("message", "invalid json")
-               .build();
-  }
-
-  public static JsonValue serializeInvalidEntityException(final InvalidEntityException ex) {
-    return Json.createObjectBuilder()
-               .add("kind", "invalid-entity")
-               .add("failures", serializeIterable(ResponseSerializers::serializeFailureReason, ex.failures))
-               .build();
-  }
-
-  public static JsonValue serializeValueSchema(final ValueSchema schema) {
-    if (schema == null) return JsonValue.NULL;
-
-    return new ValueSchemaJsonParser().unparse(schema);
   }
 }

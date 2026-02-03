@@ -84,7 +84,6 @@ public final class SchedulerAppDriver {
       javalinConfig.plugins.enableCors(cors -> cors.add(it -> it.anyHost())); //TODO: probably don't want literally any cross-origin request...
       javalinConfig.plugins.register(bindings);
       javalinConfig.jetty.server(() -> server);
-      //TODO: exception handling (shxould elevate/reuse from MerlinApp for consistency?)
     });
 
     //start the http server and handle requests as configured above

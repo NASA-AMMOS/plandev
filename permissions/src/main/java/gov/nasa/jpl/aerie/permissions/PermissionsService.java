@@ -47,8 +47,8 @@ public final class PermissionsService {
     try {
       final var planId = gqlService.getPlanIdFromSchedulingSpecificationId(specificationId);
       check(action, role, username, planId);
-    } catch (NoSuchSchedulingSpecificationException nsp) {
-      throw new PermissionsException(404, new PermissionsFormattedError(nsp));
+    } catch (NoSuchSchedulingSpecificationException nss) {
+      throw new PermissionsException(404, new PermissionsFormattedError(nss));
     } catch (GraphQLServiceException ex) {
       throw new PermissionsException(500, new PermissionsFormattedError(ex));
     } catch (IOException io) {

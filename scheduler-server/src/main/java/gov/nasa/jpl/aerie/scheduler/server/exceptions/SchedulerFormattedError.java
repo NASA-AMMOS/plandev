@@ -6,15 +6,31 @@ import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonEntityException;
 import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingCompilationError;
 import gov.nasa.jpl.aerie.scheduler.server.services.MerlinServiceException;
 
+import javax.json.Json;
+
 @JsonSerialize(using = FormattedError.FormattedErrorSerializer.class)
 public class SchedulerFormattedError extends FormattedError {
   //region NO SUCH X
   public SchedulerFormattedError(NoSuchSpecificationException ex) {
-    super(AerieService.SCHEDULER_SERVER, "NO_SUCH_SCHEDULING_SPECIFICATION", ex);
+    super(
+        AerieService.SCHEDULER_SERVER,
+        "NO_SUCH_SCHEDULING_SPECIFICATION",
+        ex,
+        Json.createObjectBuilder()
+            .add("specification_id", ex.specificationId.id())
+            .build()
+    );
   }
 
   public SchedulerFormattedError(NoSuchPlanException npe) {
-    super(AerieService.SCHEDULER_SERVER, "NO_SUCH_PLAN", npe);
+    super(
+        AerieService.SCHEDULER_SERVER,
+        "NO_SUCH_PLAN",
+        npe,
+        Json.createObjectBuilder()
+            .add("plan_id", npe.getInvalidPlanId().id())
+            .build()
+    );
   }
   //endregion
 

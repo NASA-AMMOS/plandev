@@ -127,10 +127,27 @@ public class FormattedError {
    * Create a FormattedException with additional data from a generic Exception object.
    * @param type the category of exception. Should be in SCREAMING_SNAKE_CASE
    * @param ex the exception to be formatted.
+   * @param data the additional data to be included
    */
   public FormattedError(AerieService service, String type, Exception ex, JsonValue data) {
     this.type = type;
     message = ex.getMessage() == null ? "No exception message provided." : ex.getMessage();
+    this.service = service;
+    trace = Optional.of(generateTrace(ex));
+    this.data = Optional.of(data);
+  }
+
+  /**
+   * Create a FormattedException with a custom message and additional data from a generic Exception object.
+   * @param type the category of exception. Should be in SCREAMING_SNAKE_CASE
+   * @param message  the custom error message explaining the cause of the error.
+   *    Should be human-readable and between 1-2 sentences.
+   * @param ex the exception to be formatted.
+   * @param data the additional data to be included
+   */
+  public FormattedError(AerieService service, String type, String message, Exception ex, JsonValue data) {
+    this.type = type;
+    this.message = message;
     this.service = service;
     trace = Optional.of(generateTrace(ex));
     this.data = Optional.of(data);

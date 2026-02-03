@@ -3,6 +3,7 @@ package gov.nasa.jpl.aerie.permissions.exceptions;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import gov.nasa.jpl.aerie.json.FormattedError;
 
+import javax.json.Json;
 import java.io.IOException;
 
 /**
@@ -17,21 +18,33 @@ public final class PermissionsFormattedError extends FormattedError{
     super(AerieService.PERMISSIONS_SERVICE,
           "NO_SUCH_PLAN",
           "Could not check permissions on plan %d: plan does not exist.".formatted(npe.id.id()),
-          npe);
+          npe,
+          Json.createObjectBuilder()
+              .add("plan_id", npe.id.id())
+              .build()
+    );
   }
 
   public PermissionsFormattedError(NoSuchSchedulingSpecificationException nsse) {
     super(AerieService.PERMISSIONS_SERVICE,
           "NO_SUCH_SCHEDULING_SPECIFICATION",
           "Could not check permissions on scheduling specification %d: specification does not exist.".formatted(nsse.id.id()),
-          nsse);
+          nsse,
+          Json.createObjectBuilder()
+              .add("specification_id", nsse.id.id())
+              .build()
+    );
   }
 
   public PermissionsFormattedError(NoSuchWorkspaceException nse) {
     super(AerieService.PERMISSIONS_SERVICE,
           "NO_SUCH_WORKSPACE",
           "Could not check permissions on workspace %d: workspace does not exist.".formatted(nse.id.id()),
-          nse);
+          nse,
+          Json.createObjectBuilder()
+              .add("workspace_id", nse.id.id())
+              .build()
+    );
   }
 
   // IOException

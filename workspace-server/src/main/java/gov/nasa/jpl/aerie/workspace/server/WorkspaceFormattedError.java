@@ -8,6 +8,8 @@ import gov.nasa.jpl.aerie.workspace.server.exceptions.NoSuchFileException;
 import gov.nasa.jpl.aerie.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 
+import javax.json.Json;
+
 /**
  * Class for formatting Workspace-specific exceptions into JSON objects
  * that meet the Aerie HTTP endpoint error message format
@@ -16,10 +18,25 @@ import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 final class WorkspaceFormattedError extends FormattedError {
   // NoSuchWorkspace
   public WorkspaceFormattedError(NoSuchWorkspaceException nse) {
-    super(AerieService.WORKSPACE_SERVER, "NO_SUCH_WORKSPACE", nse);
+    super(
+        AerieService.WORKSPACE_SERVER,
+        "NO_SUCH_WORKSPACE",
+        nse,
+        Json.createObjectBuilder()
+            .add("workspace_id", nse.getWorkspaceId())
+            .build()
+    );
   }
   public WorkspaceFormattedError(NoSuchWorkspaceException nse, String message) {
-    super(AerieService.WORKSPACE_SERVER, "NO_SUCH_WORKSPACE", message, nse);
+    super(
+        AerieService.WORKSPACE_SERVER,
+        "NO_SUCH_WORKSPACE",
+        message,
+        nse,
+        Json.createObjectBuilder()
+            .add("workspace_id", nse.getWorkspaceId())
+            .build()
+    );
   }
 
   // NoSuchFile

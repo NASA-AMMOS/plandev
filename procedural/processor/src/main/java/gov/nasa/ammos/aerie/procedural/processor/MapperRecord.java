@@ -26,7 +26,7 @@ public final class MapperRecord {
 
     final var mapperName = ClassName.get(
         jarPackage + ".generated" + generatedSuffix,
-        procedureTypeName.simpleName() + "Mapper");
+        procedureTypeName.simpleName());
 
     return new MapperRecord(mapperName);
   }

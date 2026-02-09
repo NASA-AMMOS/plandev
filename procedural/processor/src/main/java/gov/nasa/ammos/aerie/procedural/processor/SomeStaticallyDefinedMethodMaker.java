@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 
   @Override
   public MethodSpec makeInstantiateMethod() {
-    var activityTypeName = inputType.declaration().getSimpleName().toString();
+    var activityTypeName = inputType.declaration().getQualifiedName().toString();
 
     var methodBuilder = MethodSpec.methodBuilder("instantiate")
         .addModifiers(Modifier.PUBLIC)

@@ -108,7 +108,7 @@ tasks.create("generateProcedureJarTasks") {
   }
 
   files.toList().each { file ->
-    final nameWithoutExtension = file.name.replace(".java", "").replace("Mapper", "")
+    final nameWithoutExtension = file.name.replace(".java", "")
     final taskName = "buildProcedureJar_${nameWithoutExtension}"
 
     println "Generating ${taskName} task, which will build ${nameWithoutExtension}.jar"

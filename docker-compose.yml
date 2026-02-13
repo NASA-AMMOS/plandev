@@ -45,7 +45,7 @@ services:
       GATEWAY_DB_PASSWORD: "${GATEWAY_PASSWORD}"
 #    image: "aerie-gateway:no-auth-1"
     build:
-      context: ../../NASA-AMMOS/aerie-gateway
+      context: ../aerie-gateway
       dockerfile: Dockerfile
     ports: ["9000:9000"]
     restart: always

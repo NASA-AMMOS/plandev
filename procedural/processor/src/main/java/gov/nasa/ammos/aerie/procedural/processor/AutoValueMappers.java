@@ -33,7 +33,7 @@ import java.util.Set;
 public class AutoValueMappers {
   static TypeRule recordTypeRule(final Element autoValueMapperElement, final ClassName generatedClassName) {
     if (!autoValueMapperElement.getKind().equals(ElementKind.RECORD)) {
-      throw new RuntimeException("SchedulingProcedures must be records");
+      throw new RuntimeException("Procedures must be records");
     }
 
     final var componentsAndMappers = getComponentsAndMappers(autoValueMapperElement);

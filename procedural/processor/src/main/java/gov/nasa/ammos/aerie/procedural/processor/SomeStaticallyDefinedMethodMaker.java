@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 
   @Override
   public MethodSpec makeInstantiateMethod() {
-    var activityTypeName = inputType.declaration().getSimpleName().toString();
+    var procedureName = inputType.declaration().getQualifiedName().toString();
 
     var methodBuilder = MethodSpec.methodBuilder("instantiate")
         .addModifiers(Modifier.PUBLIC)
@@ -46,7 +46,7 @@ import java.util.stream.Collectors;
       var defaultsName = element.getSimpleName().toString();
       methodBuilder = methodBuilder.addStatement(
           "final var defaults = new $L.$L()",
-          activityTypeName,
+          procedureName,
           defaultsName);
 
       methodBuilder = methodBuilder.addCode(

@@ -9,8 +9,11 @@ import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan;
 import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults;
 import org.jetbrains.annotations.NotNull;
 
+/**
+ * Equivalent to FruitThresholdConstraint, except it does not include a message in the violations
+ */
 @ConstraintProcedure
-public record FruitThresholdConstraint(int lowerBound, int upperBound) implements Constraint {
+public record NoMessageConstraint(int lowerBound, int upperBound) implements Constraint {
   @NotNull
   @Override
   public Violations run(@NotNull Plan plan, @NotNull SimulationResults simResults) {
@@ -19,7 +22,7 @@ public record FruitThresholdConstraint(int lowerBound, int upperBound) implement
     return Violations.on(
         fruit.lessThan(upperBound).and(fruit.greaterThan(lowerBound)),
         false
-    ).withDefaultMessage("Fruit count is outside of boundaries: [%d, %d]".formatted(lowerBound, upperBound));
+    );
   }
 
   @WithDefaults

@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 
   @Override
   public MethodSpec makeInstantiateMethod() {
-    final var activityTypeName = inputType.declaration().getQualifiedName().toString();
+    final var procedureName = inputType.declaration().getQualifiedName().toString();
 
     var methodBuilder = MethodSpec.methodBuilder("instantiate")
         .addModifiers(Modifier.PUBLIC)
@@ -43,7 +43,7 @@ import java.util.stream.Collectors;
       if (element.getKind() != ElementKind.METHOD && element.getKind() != ElementKind.CONSTRUCTOR) continue;
       if (element.getAnnotation(Template.class) == null) continue;
       var templateName = element.getSimpleName().toString();
-      methodBuilder = methodBuilder.addStatement("final var template = $L.$L()", activityTypeName, templateName);
+      methodBuilder = methodBuilder.addStatement("final var template = $L.$L()", procedureName, templateName);
 
       methodBuilder = methodBuilder.addCode(
           inputType.parameters()

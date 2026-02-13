@@ -313,9 +313,12 @@ public final class ConstraintParsers {
       productP
           .field("windows", listP(intervalP))
           .field("activityInstanceIds", listP(longP))
+          .optionalField("message", stringP)
           .map(
-              untuple(Violation::new),
-              $ -> tuple($.windows(), $.activityInstanceIds())
+              untuple((windows, aids, message) -> message
+                  .map(s -> new Violation(windows, aids, s))
+                  .orElseGet(() -> new Violation(windows, aids))),
+              $ -> tuple($.windows(), $.activityInstanceIds(), $.message())
           );
 
   public static final JsonParser<EDSLConstraintResult> edslConstraintResultP =

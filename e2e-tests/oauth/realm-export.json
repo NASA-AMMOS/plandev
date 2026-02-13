@@ -2,7 +2,17 @@
   "id": "aerie-dev",
   "realm": "aerie-dev",
   "enabled": "true",
+  "sslRequired": "none",
   "defaultSignatureAlgorithm": "RS256",
+  "roles": {
+    "client": {
+      "aerie": [
+        { "name": "viewer", "clientRole": true },
+        { "name": "user", "clientRole": true },
+        { "name": "aerie_admin", "clientRole": true }
+      ]
+    }
+  },
   "clients": [
     {
       "id": "aerie",
@@ -46,7 +56,7 @@
           "config": {
             "introspection.token.claim": "true",
             "userinfo.token.claim": "true",
-            "user.attribute": "id",
+            "user.attribute": "username",
             "id.token.claim": "true",
             "lightweight.claim": "false",
             "access.token.claim": "true",

@@ -89,7 +89,7 @@ public class ConstraintAction {
    * @throws MissionModelService.NoSuchMissionModelException If the plan's mission model does not exist.
    * @throws SimulationDatasetMismatchException If the specified simulation is not a simulation of the specified plan.
    */
-  public Pair<Integer, Map<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>>> getViolations(
+  public Pair<Integer, SortedMap<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>>> getViolations(
       final PlanId planId,
       final Optional<SimulationDatasetId> simulationDatasetId,
       final boolean force,
@@ -117,7 +117,7 @@ public class ConstraintAction {
     final SimulationDatasetId simDatasetId = resultsHandle.getSimulationDatasetId();
 
     final var constraints = new ArrayList<>(this.planService.getConstraintsForPlan(planId));
-    final var constraintResultMap = new HashMap<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>>();
+    final var constraintResultMap = new TreeMap<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>>();
 
     // Load cached results if the force rerun flag is not set
     final var validConstraintRuns = force ? new HashMap<ConstraintRecord, ConstraintResult>() :

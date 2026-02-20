@@ -38,6 +38,18 @@ spec:
               value: "5432"
             - name: AERIE_DB_HOST
               value: postgres
+            - name: ACTION_COOKIE_NAMES
+              valueFrom:
+                secretKeyRef:
+                  name: dev-env
+                  key: ACTION_COOKIE_NAMES
+                  optional: true
+            - name: ACTION_CORS_ALLOWED_ORIGIN
+              valueFrom:
+                secretKeyRef:
+                  name: dev-env
+                  key: ACTION_CORS_ALLOWED_ORIGIN
+                  optional: true
             - name: ACTION_LOCAL_STORE
               value: /usr/src/app/action_file_store
             - name: ACTION_DB_USER

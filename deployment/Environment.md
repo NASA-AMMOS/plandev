@@ -6,6 +6,7 @@ This document provides detailed information about environment variables for each
 - [PlanDev Merlin](#plandev-merlin)
 - [PlanDev Scheduler](#plandev-scheduler)
 - [PlanDev Sequencing](#plandev-sequencing)
+- [PlanDev Action Server](#plandev-action-server)
 - [PlanDev UI](#plandev-ui)
 - [Hasura](#hasura)
 - [Postgres](#postgres)
@@ -85,6 +86,22 @@ See the [environment variables document](https://github.com/NASA-AMMOS/aerie-gat
 | `SEQUENCING_LOCAL_STORE`      | Local storage file storage in the container                                                   | `string` | /usr/src/app/sequencing_file_store |
 | `SEQUENCING_SERVER_PORT`      | Port the server listens on                                                                    | `number` | 27184                              |
 | `SEQUENCING_LANGUAGE`         | The language that sequences are generated in when using templates ("SEQN", "STOL", or "TEXT") | `string` | "SEQN"                             |
+
+## PlanDev Action Server
+
+| Name                          | Description                                                                                                       | Type     | Default |
+|-------------------------------|-------------------------------------------------------------------------------------------------------------------|----------|---------|
+| `ACTION_COOKIE_NAMES`         | Comma-separated list of browser cookie names to extract and forward to actions as secrets (e.g. `ssosession`)     | `string` |         |
+| `ACTION_CORS_ALLOWED_ORIGIN`  | Allowed CORS origin for the action server. If unset, reflects the request's `Origin` header                       | `string` |         |
+| `ACTION_DB_USER`              | Username of the Action Server DB User                                                                             | `string` |         |
+| `ACTION_DB_PASSWORD`          | Password of the Action Server DB User                                                                             | `string` |         |
+| `ACTION_LOCAL_STORE`          | Local storage for the action server in the container                                                              | `string` | /usr/src/app/action_file_store |
+| `ACTION_WORKER_NUM`           | Number of action worker threads                                                                                   | `number` | 1       |
+| `ACTION_MAX_WORKER_NUM`       | Maximum number of action worker threads                                                                           | `number` | 1       |
+| `HASURA_GRAPHQL_JWT_SECRET`   | The JWT secret for JSON web token auth                                                                            | `string` |         |
+| `LOG_FILE`                    | Either an output filepath to log to, or 'console'                                                                 | `string` | console |
+| `LOG_LEVEL`                   | Logging level for filtering logs                                                                                  | `string` | debug   |
+| `MERLIN_GRAPHQL_URL`          | URI of the PlanDev GraphQL API                                                                                    | `string` | http://hasura:8080/v1/graphql |
 
 ## PlanDev UI
 

@@ -1,4 +1,5 @@
 import { ErrorRequestHandler, RequestHandler, NextFunction, Request, Response } from "express";
+import { configuration } from "./config";
 import {decodeJwt} from "./utils/auth";
 
 // custom error handling middleware so we always return a JSON object for errors
@@ -13,7 +14,8 @@ export const jsonErrorMiddleware: ErrorRequestHandler = (err, req, res, next) =>
 };
 
 export const corsMiddleware: RequestHandler = (req, res, next) => {
-  const allowedOrigin = process.env.ACTION_CORS_ALLOWED_ORIGIN || req.headers.origin || "*";
+  const { ACTION_CORS_ALLOWED_ORIGIN } = configuration();
+  const allowedOrigin = ACTION_CORS_ALLOWED_ORIGIN || req.headers.origin || "*";
   res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
   res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");

@@ -1,4 +1,5 @@
-import express, { Response } from "express";
+import express from "express";
+import { configuration } from "./config";
 import {authMiddleware, corsMiddleware, jsonErrorMiddleware} from "./middleware";
 import { ActionRunner } from "./type/actionRunner";
 import { extractCookies } from "./utils/auth";
@@ -25,8 +26,8 @@ app.post(
     const { action_run_id, secrets } = req.body;
     const actionRunId = action_run_id as string;
 
-    const cookieNames = (process.env.ACTION_COOKIE_NAMES ?? '').split(',').map(s => s.trim()).filter(Boolean);
-    const forwardedCookies = extractCookies(req.headers.cookie ?? '', cookieNames);
+    const { ACTION_COOKIE_NAMES } = configuration();
+    const forwardedCookies = extractCookies(req.headers.cookie ?? '', ACTION_COOKIE_NAMES);
 
     const fullSecrets = {
       ...secrets,

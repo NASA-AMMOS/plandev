@@ -15,9 +15,15 @@ export const jsonErrorMiddleware: ErrorRequestHandler = (err, req, res, next) =>
 
 export const corsMiddleware: RequestHandler = (req, res, next) => {
   const { ACTION_CORS_ALLOWED_ORIGIN } = configuration();
-  const allowedOrigin = ACTION_CORS_ALLOWED_ORIGIN || req.headers.origin || "*";
-  res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
-  res.setHeader("Access-Control-Allow-Credentials", "true");
+
+  if (ACTION_CORS_ALLOWED_ORIGIN) {
+    // Explicit origin configured: strict CORS with credentials support
+    res.setHeader("Access-Control-Allow-Origin", ACTION_CORS_ALLOWED_ORIGIN);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+  } else {
+    // No origin configured: reflect request origin for compatibility, but without credentials
+    res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, authorization, x-hasura-role");
   next();

@@ -70,3 +70,55 @@ test('auth middleware', async () => {
     assert.equal(res.status, 401);
   });
 });
+
+test('cookie forwarding', async () => {
+  const validToken = jwt.sign({ sub: 'user-123' }, key, { algorithm: 'HS256', expiresIn: '1h' });
+
+  await test('should forward configured cookies as secrets', async () => {
+    process.env.ACTION_COOKIE_NAMES = 'ssosession,other_cookie';
+    called.length = 0; // reset array, can't re-assign since our mock has a static reference to this array
+
+    const res = await request(app)
+        .post('/secrets')
+        .send({ action_run_id: 'test-run-1', secrets: { mySecret: 'value' } })
+        .set('Authorization', `Bearer ${validToken}`)
+        .set('Cookie', 'ssosession=token123; other_cookie=abc; unrelated=xyz');
+
+    assert.equal(res.status, 200);
+    assert.equal(called.length, 1);
+    assert.equal(called[0].secrets.ssosession, 'token123');
+    assert.equal(called[0].secrets.other_cookie, 'abc');
+    assert.equal(called[0].secrets.unrelated, undefined);
+    assert.equal(called[0].secrets.mySecret, 'value');
+  });
+
+  await test('should not forward cookies when ACTION_COOKIE_NAMES is unset', async () => {
+    delete process.env.ACTION_COOKIE_NAMES;
+    called.length = 0;
+
+    const res = await request(app)
+        .post('/secrets')
+        .send({ action_run_id: 'test-run-2', secrets: {} })
+        .set('Authorization', `Bearer ${validToken}`)
+        .set('Cookie', 'ssosession=token123');
+
+    assert.equal(res.status, 200);
+    assert.equal(called.length, 1);
+    assert.equal(called[0].secrets.ssosession, undefined);
+  });
+
+  await test('should handle cookies with equals signs in values', async () => {
+    process.env.ACTION_COOKIE_NAMES = 'ssosession';
+    called.length = 0;
+
+    const res = await request(app)
+        .post('/secrets')
+        .send({ action_run_id: 'test-run-3', secrets: {} })
+        .set('Authorization', `Bearer ${validToken}`)
+        .set('Cookie', 'ssosession=base64value==;');
+
+    assert.equal(res.status, 200);
+    assert.equal(called.length, 1);
+    assert.equal(called[0].secrets.ssosession, 'base64value==');
+  });
+});

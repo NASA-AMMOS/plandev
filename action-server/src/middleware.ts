@@ -12,10 +12,10 @@ export const jsonErrorMiddleware: ErrorRequestHandler = (err, req, res, next) =>
   });
 };
 
-// temporary CORS middleware to allow access from all origins
-// TODO: set more strict CORS rules
 export const corsMiddleware: RequestHandler = (req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  const allowedOrigin = process.env.ACTION_CORS_ALLOWED_ORIGIN || req.headers.origin || "*";
+  res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+  res.setHeader("Access-Control-Allow-Credentials", "true");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, authorization, x-hasura-role");
   next();

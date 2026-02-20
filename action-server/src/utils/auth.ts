@@ -63,6 +63,25 @@ export type UserRoles = {
 };
 
 
+/**
+ * Extracts specified cookies from a cookie header string.
+ * Returns a record of cookie name to cookie value for matching cookies found in the header.
+ */
+export function extractCookies(cookieHeader: string, cookieNames: string[]): Record<string, string> {
+  const cookies: Record<string, string> = {};
+
+  if (cookieNames.length > 0) {
+    for (const pair of cookieHeader.split(';')) {
+      const [name, ...rest] = pair.trim().split('=');
+      if (cookieNames.includes(name)) {
+        cookies[name] = rest.join('=');
+      }
+    }
+  }
+
+  return cookies;
+}
+
 export function authorizationHeaderToToken(authorizationHeader: string | undefined | null): JsonWebToken | never {
   if (authorizationHeader !== null && authorizationHeader !== undefined) {
     if (authorizationHeader.startsWith('Bearer ')) {

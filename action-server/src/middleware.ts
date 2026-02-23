@@ -21,8 +21,8 @@ export const corsMiddleware: RequestHandler = (req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", ACTION_CORS_ALLOWED_ORIGIN);
     res.setHeader("Access-Control-Allow-Credentials", "true");
   } else {
-    // No origin configured: reflect request origin for compatibility, but without credentials
-    res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
+    // No origin configured: allow access from all origins but without credentials
+    res.setHeader("Access-Control-Allow-Origin", "*");
   }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, authorization, x-hasura-role");

@@ -1,6 +1,8 @@
-import express, { Response } from "express";
+import express from "express";
+import { configuration } from "./config";
 import {authMiddleware, corsMiddleware, jsonErrorMiddleware} from "./middleware";
 import { ActionRunner } from "./type/actionRunner";
+import { extractCookies } from "./utils/auth";
 
 
 // init express app and middleware
@@ -24,8 +26,12 @@ app.post(
     const { action_run_id, secrets } = req.body;
     const actionRunId = action_run_id as string;
 
+    const { ACTION_COOKIE_NAMES } = configuration();
+    const forwardedCookies = extractCookies(req.headers.cookie ?? '', ACTION_COOKIE_NAMES);
+
     const fullSecrets = {
       ...secrets,
+      ...forwardedCookies,
       authorization: res.locals.authorization,
       user: JSON.stringify(res.locals.user),
       userRole: res.locals.userRole

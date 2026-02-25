@@ -1,9 +1,9 @@
-import {Algorithm} from "jsonwebtoken";
-
 export interface Config {
   AERIE_DB: string;
   AERIE_DB_HOST: string;
   AERIE_DB_PORT: string;
+  ACTION_COOKIE_NAMES: string[];
+  ACTION_CORS_ALLOWED_ORIGIN: string;
   ACTION_DB_USER: string;
   ACTION_DB_PASSWORD: string;
   ACTION_LOCAL_STORE: string;
@@ -26,6 +26,8 @@ export const configuration = (): Config => {
     AERIE_DB: env.AERIE_DB ?? "aerie",
     AERIE_DB_HOST: env.AERIE_DB_HOST ?? "postgres",
     AERIE_DB_PORT: env.AERIE_DB_PORT ?? "5432",
+    ACTION_COOKIE_NAMES: (env.ACTION_COOKIE_NAMES ?? '').split(',').map(s => s.trim()).filter(Boolean),
+    ACTION_CORS_ALLOWED_ORIGIN: env.ACTION_CORS_ALLOWED_ORIGIN ?? "",
     ACTION_DB_USER: env.ACTION_DB_USER ?? "",
     ACTION_DB_PASSWORD: env.ACTION_DB_PASSWORD ?? "",
     ACTION_LOCAL_STORE: env.ACTION_LOCAL_STORE ?? "/usr/src/app/action_file_store",

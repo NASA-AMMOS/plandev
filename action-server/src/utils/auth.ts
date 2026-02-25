@@ -1,6 +1,7 @@
 import { Request } from 'express';
 import { configuration } from "../config";
 import jwt, {Algorithm} from "jsonwebtoken";
+import { parseCookie } from "cookie";
 
 export type JsonWebToken = string;
 
@@ -62,6 +63,24 @@ export type UserRoles = {
   allowed_roles: string[];
 };
 
+
+/**
+ * Extracts specified cookies from a cookie header string.
+ * Returns a record of cookie name to cookie value for matching cookies found in the header.
+ */
+export function extractCookies(cookieHeader: string, cookieNames: string[]): Record<string, string> {
+  if (!cookieHeader || cookieNames.length === 0) return {};
+
+  const parsedCookies = parseCookie(cookieHeader);
+  const selectedCookies: Record<string,string> = {};
+
+  for (const name of cookieNames) {
+    if (parsedCookies[name] !== undefined) {
+      selectedCookies[name] = parsedCookies[name];
+    }
+  }
+  return selectedCookies;
+}
 
 export function authorizationHeaderToToken(authorizationHeader: string | undefined | null): JsonWebToken | never {
   if (authorizationHeader !== null && authorizationHeader !== undefined) {

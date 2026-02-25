@@ -31,8 +31,8 @@ app.post(
 
     const fullSecrets = {
       ...secrets,
-      ...forwardedCookies,
       authorization: res.locals.authorization,
+      cookies: forwardedCookies,
       user: JSON.stringify(res.locals.user),
       userRole: res.locals.userRole
     }

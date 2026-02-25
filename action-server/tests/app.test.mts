@@ -86,9 +86,9 @@ test('cookie forwarding', async () => {
 
     assert.equal(res.status, 200);
     assert.equal(called.length, 1);
-    assert.equal(called[0].secrets.ssosession, 'token123');
-    assert.equal(called[0].secrets.other_cookie, 'abc');
-    assert.equal(called[0].secrets.unrelated, undefined);
+    assert.equal(called[0].secrets.cookies.ssosession, 'token123');
+    assert.equal(called[0].secrets.cookies.other_cookie, 'abc');
+    assert.equal(called[0].secrets.cookies.unrelated, undefined);
     assert.equal(called[0].secrets.mySecret, 'value');
   });
 
@@ -104,7 +104,7 @@ test('cookie forwarding', async () => {
 
     assert.equal(res.status, 200);
     assert.equal(called.length, 1);
-    assert.equal(called[0].secrets.ssosession, undefined);
+    assert.deepEqual(called[0].secrets.cookies, {});
   });
 
   await test('should handle cookies with equals signs in values', async () => {
@@ -119,6 +119,6 @@ test('cookie forwarding', async () => {
 
     assert.equal(res.status, 200);
     assert.equal(called.length, 1);
-    assert.equal(called[0].secrets.ssosession, 'base64value==');
+    assert.equal(called[0].secrets.cookies.ssosession, 'base64value==');
   });
 });

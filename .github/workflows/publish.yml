@@ -168,7 +168,7 @@ jobs:
           exit-code: "1"
           severity: "CRITICAL"
           format: "template"
-          template: "@$HOME/.local/bin/trivy-bin/contrib/html.tpl"
+          template: "@${{ env.HOME }}/.local/bin/trivy-bin/contrib/html.tpl"
           scanners: "vuln"
           output: "${{ matrix.image }}-results.html"
           trivyignores: .github/config/.trivyignore

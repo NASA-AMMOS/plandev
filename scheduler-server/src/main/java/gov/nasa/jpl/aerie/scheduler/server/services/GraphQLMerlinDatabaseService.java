@@ -1894,18 +1894,21 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
       final var act = spans.get(id);
 
       final var startTime = graphQLIntervalFromDuration(simulationStart, act.start);
-      spansJson.add(Json.createObjectBuilder()
-                        .add("span_id",id.id())
-                        .add("dataset_id", datasetId.id())
-                        .add("start_offset", startTime.toString())
-                        .add("duration", act.duration.isPresent() ? graphQLIntervalFromDuration(act.duration().get()).toString() : "null")
-                        .add("type", act.type())
-                        .add("attributes", buildAttributes(
-                            act.attributes().directiveId().map($ -> uploadIdMap.get(new ActivityDirectiveId($)).id()),
-                            act.attributes().arguments(),
-                            act.attributes().computedAttributes()
-                        ))
-                        .build());
+      final var spanBuilder = Json.createObjectBuilder()
+                                  .add("span_id",id.id())
+                                  .add("dataset_id", datasetId.id())
+                                  .add("start_offset", startTime.toString())
+                                  .add("type", act.type())
+                                  .add("attributes", buildAttributes(
+                                      act.attributes().directiveId().map($ -> uploadIdMap.get(new ActivityDirectiveId($)).id()),
+                                      act.attributes().arguments(),
+                                      act.attributes().computedAttributes()
+                                  ));
+      if (act.duration.isPresent()){
+        spanBuilder.add("duration", graphQLIntervalFromDuration(act.duration().get()).toString());
+      }
+
+      spansJson.add(spanBuilder.build());
     }
     final var arguments = Json.createObjectBuilder()
                               .add("spans", spansJson)

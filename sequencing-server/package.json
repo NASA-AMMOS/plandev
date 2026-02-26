@@ -1,6 +1,6 @@
 {
   "name": "sequencing-server",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "description": "PlanDev sequencing server",
   "type": "module",
   "license": "MIT",

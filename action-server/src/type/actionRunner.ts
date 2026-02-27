@@ -49,8 +49,10 @@ export class ActionRunner {
 
     const actionRunFunc = this.actionRunQueue.get(actionRunId);
     if(!actionRunFunc || typeof actionRunFunc !== "function") {
+      logger.warn(`Action Run ${actionRunId} not found in queue (may have already been processed). Ignoring duplicate secrets.`);
       this.deleteActionSecret(actionRunId);
-      throw new Error(`Action Run ${actionRunId} not found in queue: ${actionRunFunc}`);
+
+      return;
     }
 
     setTimeout(() => {

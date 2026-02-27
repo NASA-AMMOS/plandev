@@ -3,6 +3,7 @@ import { configuration } from "./config";
 import {authMiddleware, corsMiddleware, jsonErrorMiddleware} from "./middleware";
 import { ActionRunner } from "./type/actionRunner";
 import { extractCookies } from "./utils/auth";
+import logger from "./utils/logger";
 
 
 // init express app and middleware
@@ -36,7 +37,9 @@ app.post(
       user: JSON.stringify(res.locals.user),
       userRole: res.locals.userRole
     }
-    ActionRunner.addActionSecret(actionRunId, fullSecrets);
+    ActionRunner.addActionSecret(actionRunId, fullSecrets).catch((error: unknown) => {
+      logger.error(`Error processing secrets for Action Run ${actionRunId}: ${String(error)}`);
+    });
 
     res.status(200).send({ success: true });
   }

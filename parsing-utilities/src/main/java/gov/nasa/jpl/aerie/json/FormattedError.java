@@ -30,7 +30,9 @@ public class FormattedError {
     MERLIN_SERVER("aerie_merlin"),
     SCHEDULER_SERVER("aerie_scheduler"),
     WORKSPACE_SERVER("aerie_workspace"),
-    PERMISSIONS_SERVICE("aerie_permissions");
+    PERMISSIONS_SERVICE("aerie_permissions"),
+    SIMULATION_WORKER("aerie_merlin_worker"),
+    SCHEDULER_WORKER("aerie_scheduler_worker");
 
     private final String serviceName;
     AerieService(String serviceName) { this.serviceName = serviceName; }
@@ -98,7 +100,7 @@ public class FormattedError {
    *  Should be human-readable and between 1-2 sentences.
    * @param ex the exception to be formatted.
    */
-  public FormattedError(AerieService service, String type, String message, Exception ex) {
+  public FormattedError(AerieService service, String type, String message, Throwable ex) {
     this.type = type;
     this.message = message;
     this.service = service;
@@ -227,7 +229,7 @@ public class FormattedError {
   /**
    * Generate a stack trace string from an Exception.
    */
-  protected static String generateTrace(Exception ex) {
+  private String generateTrace(Throwable ex) {
     final var sw = new StringWriter();
     try(final var pw = new PrintWriter(sw)) {
       ex.printStackTrace(pw);

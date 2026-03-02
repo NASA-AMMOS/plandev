@@ -5,6 +5,8 @@ import gov.nasa.jpl.aerie.constraints.InputMismatchException;
 import gov.nasa.jpl.aerie.json.FormattedError;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader.MissionModelLoadException;
 import gov.nasa.jpl.aerie.merlin.server.http.InvalidJsonEntityException;
+import gov.nasa.jpl.aerie.merlin.server.models.ProcedureLoader;
+import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.DatabaseException;
 import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService.NoSuchMissionModelException;
 import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService.NoSuchActivityTypeException;
 
@@ -72,6 +74,10 @@ public class MerlinFormattedError extends FormattedError {
             .build()
     );
   }
+
+  public MerlinFormattedError(NoSuchConstraintException ex) {
+    super(AerieService.MERLIN_SERVER, "NO_SUCH_CONSTRAINT", ex);
+  }
   // endregion
 
   public MerlinFormattedError(MissionModelLoadException mle) {
@@ -88,5 +94,13 @@ public class MerlinFormattedError extends FormattedError {
 
   public MerlinFormattedError(SimulationDatasetMismatchException ex) {
     super(AerieService.MERLIN_SERVER, "SIM_DATASET_MISMATCH_EXCEPTION", ex);
+  }
+
+  public MerlinFormattedError(DatabaseException ex) {
+    super(AerieService.MERLIN_SERVER, "DATABASE_EXCEPTION", ex);
+  }
+
+  public MerlinFormattedError(ProcedureLoader.ProcedureLoadException ex) {
+    super(AerieService.MERLIN_SERVER, "PROCEDURE_LOAD_EXCEPTION", ex);
   }
 }

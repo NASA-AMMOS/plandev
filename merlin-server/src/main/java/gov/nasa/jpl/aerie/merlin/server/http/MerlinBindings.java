@@ -4,6 +4,9 @@ import gov.nasa.jpl.aerie.constraints.InputMismatchException;
 import gov.nasa.jpl.aerie.json.FormattedError;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader.MissionModelLoadException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.MerlinFormattedError;
+import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchConstraintException;
+import gov.nasa.jpl.aerie.merlin.server.models.ProcedureLoader;
+import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.DatabaseException;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsException;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
@@ -149,6 +152,11 @@ public final class MerlinBindings implements Plugin {
       logger.warn("Security Exception: {}", fe);
       ctx.status(500).json(fe);
     });
+    javalin.exception(DatabaseException.class, (ex, ctx) -> {
+      final var fe = new MerlinFormattedError(ex);
+      logger.warn("Database Exception: {}", fe);
+      ctx.status(500).json(fe);
+    });
     javalin.exception(MissionModelLoadException.class, (ex, ctx) ->
         ctx.status(500).json(new MerlinFormattedError(ex)));
     javalin.exception(
@@ -248,6 +256,10 @@ public final class MerlinBindings implements Plugin {
       ctx.status(400).json(new MerlinFormattedError(ex));
     } catch (final JsonParsingException ex) {
       ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    } catch (NoSuchConstraintException ex) {
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    } catch (ProcedureLoader.ProcedureLoadException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     }
   }
 

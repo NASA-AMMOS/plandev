@@ -25,6 +25,7 @@ import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsException;
 import gov.nasa.jpl.aerie.permissions.gql.SchedulingSpecificationId;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSpecificationException;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.SchedulerFormattedError;
+import gov.nasa.jpl.aerie.scheduler.server.remotes.postgres.DatabaseException;
 import gov.nasa.jpl.aerie.scheduler.server.services.GenerateSchedulingLibAction;
 import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleAction;
 import gov.nasa.jpl.aerie.scheduler.server.services.SchedulerService;
@@ -94,6 +95,12 @@ public record SchedulerBindings(
           logger.warn("SQL Exception: {}", fe);
           ctx.status(500).json(fe);
         });
+    javalin.exception(
+        DatabaseException.class, (ex, ctx) -> {
+      final var fe = new SchedulerFormattedError(ex);
+      logger.warn("Database Exception: {}", fe);
+      ctx.status(500).json(fe);
+    });
     javalin.exception(
         UnauthorizedResponse.class, (ex, ctx) -> {
           final var message = ex.getMessage() != null ? ex.getMessage() : "Unauthorized";

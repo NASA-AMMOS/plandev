@@ -7,6 +7,7 @@ import gov.nasa.jpl.aerie.constraints.model.*;
 import gov.nasa.jpl.aerie.constraints.tree.Expression;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
+import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchConstraintException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.SimulationDatasetMismatchException;
 import gov.nasa.jpl.aerie.merlin.server.http.Fallible;
@@ -40,7 +41,9 @@ public class ConstraintAction {
    * @param constraintId The id of the constraint's metadata
    * @param revision The definition to be updated
    */
-  public void refreshConstraintProcedureParameterTypes(long constraintId, long revision) {
+  public void refreshConstraintProcedureParameterTypes(long constraintId, long revision)
+  throws NoSuchConstraintException, ProcedureLoader.ProcedureLoadException
+  {
     constraintService.refreshConstraintProcedureParameterTypes(constraintId, revision);
   }
 

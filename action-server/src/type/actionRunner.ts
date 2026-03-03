@@ -42,7 +42,8 @@ export class ActionRunner {
     }, this.WAIT_FOR_SECRET_TIMEOUT);
   }
 
-  static async addActionSecret(actionRunId: string, actionSecrets: Record<string, string>): Promise<void> {
+
+  static addActionSecret(actionRunId: string, actionSecrets: Record<string, string>) {
     this.actionSecretsMap.set(actionRunId, actionSecrets);
 
     logger.info(`Secrets received for Action Run: ${actionRunId}, running action...`);
@@ -51,8 +52,7 @@ export class ActionRunner {
     if(!actionRunFunc || typeof actionRunFunc !== "function") {
       logger.warn(`Action Run ${actionRunId} not found in queue (may have already been processed). Ignoring duplicate secrets.`);
       this.deleteActionSecret(actionRunId);
-
-      return;
+      throw new Error(`Action Run ${actionRunId} not found in queue: ${actionRunFunc}`);
     }
 
     setTimeout(() => {
@@ -63,8 +63,7 @@ export class ActionRunner {
       }
     }, this.WAIT_FOR_ACTION_RUN_TIMEOUT);
 
-    await actionRunFunc(actionRunId);
-    this.deleteActionSecret(actionRunId);
+    return actionRunFunc;
   }
 
   static deleteActionRun(actionRunId: string): void {

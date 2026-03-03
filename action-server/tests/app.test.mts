@@ -11,6 +11,8 @@ mock.module('../src/threads/workerPool', {
   namedExports: { ActionWorkerPool: { setup: () => {} } }
 });
 
+const ERROR_CAUSING_ID = "ERROR_CAUSING_ID";
+
 const called: any[] = [];
 mock.module('../src/type/actionRunner', {
   namedExports: {
@@ -19,6 +21,7 @@ mock.module('../src/type/actionRunner', {
         console.log('mocked action runner');
         called.push({ id, secrets });
         // mock actionRunFunc
+        if(id === ERROR_CAUSING_ID) throw new Error("Expected error");
         return () => Promise.resolve();
       },
       deleteActionSecret: (id: string) => {}
@@ -87,8 +90,6 @@ test('cookie forwarding', async () => {
         .set('Authorization', `Bearer ${validToken}`)
         .set('Cookie', 'ssosession=token123; other_cookie=abc; unrelated=xyz');
 
-    console.log("HELLO??");
-    console.log(res.body);
     assert.equal(res.status, 200);
     assert.equal(called.length, 1);
     assert.equal(called[0].secrets.cookies.ssosession, 'token123');
@@ -125,5 +126,32 @@ test('cookie forwarding', async () => {
     assert.equal(res.status, 200);
     assert.equal(called.length, 1);
     assert.equal(called[0].secrets.cookies.ssosession, 'base64value==');
+  });
+
+  await test('returns a 404 for missing route', async () => {
+    called.length = 0;
+
+    const res = await request(app)
+        .get('/nothing')
+        .set('Authorization', `Bearer ${validToken}`)
+        .set('Cookie', 'ssosession=base64value==;');
+
+    assert.equal(res.status, 404);
+  });
+
+  await test('thrown errors are returned in proper JSON format', async () => {
+    called.length = 0;
+
+    const res = await request(app)
+        .post('/secrets')
+        .send({ action_run_id: ERROR_CAUSING_ID, secrets: {} })
+        .set('Authorization', `Bearer ${validToken}`)
+        .set('Cookie', 'ssosession=base64value==;');
+
+    assert.equal(res.status, 500);
+    const parsedError = JSON.parse(res.text);
+    assert.equal(!!parsedError.error, true);
+    assert.equal(parsedError.error.message, "Expected error");
+    assert.equal(!!parsedError.error.stack, true);
   });
 });

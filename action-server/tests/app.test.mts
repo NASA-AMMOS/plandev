@@ -15,10 +15,13 @@ const called: any[] = [];
 mock.module('../src/type/actionRunner', {
   namedExports: {
     ActionRunner: {
-      addActionSecret: async (id: string, secrets: Record<string, string>) => {
+      addActionSecret: (id: string, secrets: Record<string, string>) => {
         console.log('mocked action runner');
         called.push({ id, secrets });
+        // mock actionRunFunc
+        return () => Promise.resolve();
       },
+      deleteActionSecret: (id: string) => {}
     },
   },
 });
@@ -84,6 +87,8 @@ test('cookie forwarding', async () => {
         .set('Authorization', `Bearer ${validToken}`)
         .set('Cookie', 'ssosession=token123; other_cookie=abc; unrelated=xyz');
 
+    console.log("HELLO??");
+    console.log(res.body);
     assert.equal(res.status, 200);
     assert.equal(called.length, 1);
     assert.equal(called[0].secrets.cookies.ssosession, 'token123');

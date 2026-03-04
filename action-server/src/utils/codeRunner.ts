@@ -134,7 +134,11 @@ export const jsExecute = async (
     const actionsAPI = new ActionsAPI(client, workspaceId, actionConfig);
     const results = await context.main(parameters, settings, actionsAPI);
 
-    return { results, console: logBuffer, errors: null };
+    // clone + serialize results returned from action
+    // to sanitize unserializable things in object (todo: investigate more)
+    const cleanResults = JSON.parse(JSON.stringify(results));
+
+    return { results: cleanResults, console: logBuffer, errors: null };
   } catch (error: any) {
     // wrap `throw 10` into a `new throw(10)`
     let errorResponse: Error;

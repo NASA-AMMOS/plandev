@@ -136,7 +136,7 @@ export const jsExecute = async (
 
     // clone + serialize results returned from action
     // to sanitize unserializable things in object (todo: investigate more)
-    const cleanResults = JSON.parse(JSON.stringify(results));
+    const cleanResults = results ? JSON.parse(JSON.stringify(results)) : results;
 
     return { results: cleanResults, console: logBuffer, errors: null };
   } catch (error: any) {

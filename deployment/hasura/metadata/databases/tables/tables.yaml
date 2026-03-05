@@ -195,4 +195,5 @@
 #### Actions ####
 #################
 - "!include actions/action_definition.yaml"
+- "!include actions/action_definition_version.yaml"
 - "!include actions/action_run.yaml"

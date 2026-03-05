@@ -45,6 +45,7 @@ export type ActionTask = {
 export type ActionDefinitionInsertedPayload = {
   action_definition_id: number;
   action_file_path: string;
+  revision: number;
 };
 
 export type ActionRunInsertedPayload = {
@@ -52,6 +53,7 @@ export type ActionRunInsertedPayload = {
   settings: Record<string, any>;
   parameters: Record<string, any>;
   action_definition_id: number;
+  action_definition_revision: number;
   workspace_id: number;
   action_file_path: string;
   has_secrets: boolean;

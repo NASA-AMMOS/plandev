@@ -46,7 +46,17 @@ public final class MissionModelProcessor implements Processor {
 
   @Override
   public Set<String> getSupportedOptions() {
-    return Set.of();
+    // Enable Gradle incremental annotation processing
+    // This processor generates both:
+    // 1. Individual Mappers (isolating - each depends on one activity)
+    // 2. Registry files (aggregating - depend on all activities)
+    // We use "isolating" and rely on originating elements to express the aggregating dependencies.
+    // Gradle will figure out that ActivityActions/ActivityTypes depend on all activities from the
+    // originating elements we register in MissionModelGenerator.
+    // See: https://docs.gradle.org/current/userguide/java_plugin.html#sec:incremental_annotation_processing
+    return Set.of(
+        "org.gradle.annotation.processing.isolating"
+    );
   }
 
   /** Elements marked by these annotations will be treated as processing roots. */
@@ -125,9 +135,10 @@ public final class MissionModelProcessor implements Processor {
         generatedFiles.addAll(List.of(
             missionModelGen.generateModelType(missionModelRecord),
             missionModelGen.generateSchedulerModel(missionModelRecord),
-            missionModelGen.generateActivityActions(missionModelRecord),
-            missionModelGen.generateActivityTypes(missionModelRecord)
+            missionModelGen.generateActivityActions(missionModelRecord)
         ));
+        // Add all ActivityTypes files (one per activity plus master)
+        generatedFiles.addAll(missionModelGen.generateActivityTypes(missionModelRecord));
 
         final var autoValueMappers = AutoValueMappers.generateAutoValueMappers(
             missionModelRecord,

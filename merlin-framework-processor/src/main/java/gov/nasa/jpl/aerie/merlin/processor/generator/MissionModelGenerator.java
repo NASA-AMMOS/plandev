@@ -48,6 +48,8 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -419,7 +421,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                                 .addStatement(
                                     "final var $L = $T.$L",
                                     "mapper",
-                                    missionModel.getTypesName(),
+                                    ClassName.get(missionModel.getTypesName().packageName(), "ActivityTypes_" + entry.name()),
                                     entry.inputType().mapper().name.canonicalName().replace(".", "_"))
                                 .addStatement(
                                     "$T.spawnWithSpan($L.getTaskFactory($L, $L))",
@@ -446,7 +448,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                                 .addStatement(
                                     "final var $L = $T.$L",
                                     "mapper",
-                                    missionModel.getTypesName(),
+                                    ClassName.get(missionModel.getTypesName().packageName(), "ActivityTypes_" + entry.name()),
                                     entry.inputType().mapper().name.canonicalName().replace(".", "_"))
                                 .addStatement(
                                     "$T.deferWithSpan($L, $L.getTaskFactory($L, $L))",
@@ -502,7 +504,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                                 .addStatement(
                                     "final var $L = $T.$L",
                                     "mapper",
-                                    missionModel.getTypesName(),
+                                    ClassName.get(missionModel.getTypesName().packageName(), "ActivityTypes_" + entry.name()),
                                     entry.inputType().mapper().name.canonicalName().replace(".", "_"))
                                 .addStatement(
                                     "$T.callWithSpan($L.getTaskFactory($L, $L))",
@@ -521,102 +523,186 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
   }
 
   /** Generate `ActivityTypes` class. */
-  public JavaFile generateActivityTypes(final MissionModelRecord missionModel) {
-    final var typeName = missionModel.getTypesName();
+  /** Generate `ActivityTypes` classes - one per activity plus master. */
+  public List<JavaFile> generateActivityTypes(final MissionModelRecord missionModel) {
+    final var files = new ArrayList<JavaFile>();
 
-    final var typeSpec =
-        TypeSpec
-            .classBuilder(typeName)
-            .addAnnotation(
-                AnnotationSpec
-                    .builder(javax.annotation.processing.Generated.class)
-                    .addMember("value", "$S", MissionModelProcessor.class.getCanonicalName())
-                    .build())
-            .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
-            .addFields(
-                missionModel.activityTypes()
-                    .stream()
-                    .map(activityType -> FieldSpec
-                        .builder(
-                            activityType.inputType().mapper().name,
-                            activityType.inputType().mapper().name.canonicalName().replace(".", "_"),
-                            Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
-                        .initializer("new $T()", activityType.inputType().mapper().name)
-                        .build())
-                    .toList())
-            .addField(
-                FieldSpec
-                    .builder(
-                        ParameterizedTypeName.get(
-                            ClassName.get(Map.class),
-                            ClassName.get(String.class),
-                            ParameterizedTypeName.get(
-                                ClassName.get(gov.nasa.jpl.aerie.merlin.framework.ActivityMapper.class),
-                                ClassName.get(missionModel.topLevelModel()),
-                                WildcardTypeName.subtypeOf(Object.class),
-                                WildcardTypeName.subtypeOf(Object.class))),
-                        "directiveTypes",
-                        Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
-                    .initializer(
-                        "$T.ofEntries($>$>$L$<$<)",
+    // Generate one file per activity
+    for (final var activityType : missionModel.activityTypes()) {
+      files.add(generateActivityTypeFile(missionModel, activityType));
+    }
+
+    // Generate master ActivityTypes that loads all activity files via reflection
+    files.add(generateMasterActivityTypes(missionModel));
+
+    return files;
+  }
+
+  /** Generate a single ActivityTypes file for one activity. */
+  private JavaFile generateActivityTypeFile(
+      final MissionModelRecord missionModel,
+      final ActivityTypeRecord activityType) {
+
+    final var packageName = missionModel.getTypesName().packageName();
+    final var className = "ActivityTypes_" + activityType.name();
+    final var mapperFieldName = activityType.inputType().mapper().name.canonicalName().replace(".", "_");
+
+    final var mapperType = ParameterizedTypeName.get(
+        ClassName.get(ActivityMapper.class),
+        ClassName.get(missionModel.topLevelModel()),
+        WildcardTypeName.subtypeOf(Object.class),
+        WildcardTypeName.subtypeOf(Object.class));
+
+    final var typeSpec = TypeSpec
+        .classBuilder(className)
+        // Only depend on THIS activity for incremental compilation
+        .addOriginatingElement(activityType.inputType().declaration())
+        .addAnnotation(
+            AnnotationSpec
+                .builder(javax.annotation.processing.Generated.class)
+                .addMember("value", "$S", MissionModelProcessor.class.getCanonicalName())
+                .build())
+        .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
+        // Add single mapper field for this activity
+        .addField(
+            FieldSpec
+                .builder(
+                    activityType.inputType().mapper().name,
+                    mapperFieldName,
+                    Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+                .initializer("new $T()", activityType.inputType().mapper().name)
+                .build())
+        // Add single-entry Map for this activity
+        .addField(
+            FieldSpec
+                .builder(
+                    ParameterizedTypeName.get(
                         ClassName.get(Map.class),
-                        missionModel.activityTypes()
-                            .stream()
-                            .map(activityType -> CodeBlock
-                                .builder()
-                                .add(
-                                    "\n$T.entry($S, $L)",
-                                    ClassName.get(Map.class),
-                                    activityType.name(),
-                                    activityType.inputType().mapper().name.canonicalName().replace(".", "_")))
-                            .reduce((x, y) -> x.add(",").add(y.build()))
-                            .orElse(CodeBlock.builder())
-                            .build())
-                    .build())
-            .addMethod(
-                MethodSpec
-                    .methodBuilder("registerTopics")
-                    .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                    .addParameter(TypeName.get(Initializer.class), "initializer", Modifier.FINAL)
-                    .addStatement(
-                        "$L.forEach((name, mapper) -> registerDirectiveType($L, name, mapper))",
-                        "directiveTypes",
-                        "initializer")
-                    .build())
-            .addMethod(
-                MethodSpec
-                    .methodBuilder("registerDirectiveType")
-                    .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
-                    .addTypeVariable(TypeVariableName.get("Input"))
-                    .addTypeVariable(TypeVariableName.get("Output"))
-                    .addParameter(ClassName.get(Initializer.class), "initializer", Modifier.FINAL)
-                    .addParameter(ClassName.get(String.class), "name", Modifier.FINAL)
-                    .addParameter(
-                        ParameterizedTypeName.get(
-                            ClassName.get(ActivityMapper.class),
-                            ClassName.get(missionModel.topLevelModel()),
-                            TypeVariableName.get("Input"),
-                            TypeVariableName.get("Output")),
-                        "mapper",
-                        Modifier.FINAL)
-                    .addStatement(
-                        "$L.topic($L, $L, $L)",
-                        "initializer",
-                        CodeBlock.of("$S + $L", "ActivityType.Input.", "name"),
-                        CodeBlock.of("$L.getInputTopic()", "mapper"),
-                        CodeBlock.of("$L.getInputAsOutput()", "mapper"))
-                    .addStatement(
-                        "$L.topic($L, $L, $L)",
-                        "initializer",
-                        CodeBlock.of("$S + $L", "ActivityType.Output.", "name"),
-                        CodeBlock.of("$L.getOutputTopic()", "mapper"),
-                        CodeBlock.of("$L.getOutputType()", "mapper"))
-                    .build()
-            )
-            .build();
+                        ClassName.get(String.class),
+                        mapperType),
+                    "directiveTypes",
+                    Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+                .initializer("$T.of($S, $L)",
+                    Map.class,
+                    activityType.name(),
+                    mapperFieldName)
+                .build())
+        .build();
 
     return JavaFile
-        .builder(typeName.packageName(), typeSpec)
+        .builder(packageName, typeSpec)
+        .skipJavaLangImports(true)
+        .build();
+  }
+
+  /** Generate master ActivityTypes class that loads all activity types via reflection. */
+  private JavaFile generateMasterActivityTypes(final MissionModelRecord missionModel) {
+    final var typeName = missionModel.getTypesName();
+    final var packageName = typeName.packageName();
+
+    final var mapperType = ParameterizedTypeName.get(
+        ClassName.get(ActivityMapper.class),
+        ClassName.get(missionModel.topLevelModel()),
+        WildcardTypeName.subtypeOf(Object.class),
+        WildcardTypeName.subtypeOf(Object.class));
+
+    final var mapType = ParameterizedTypeName.get(
+        ClassName.get(Map.class),
+        ClassName.get(String.class),
+        mapperType);
+
+    // Generate the reflection loading code
+    final var loadingCodeBuilder = CodeBlock.builder();
+    loadingCodeBuilder.addStatement("var combined = new $T<$T, $T>()", HashMap.class, String.class, mapperType);
+
+    for (final var activityType : missionModel.activityTypes()) {
+      final var activityClassName = packageName + ".ActivityTypes_" + activityType.name();
+      loadingCodeBuilder.beginControlFlow("try");
+      loadingCodeBuilder.addStatement(
+          "combined.putAll(($T) $T.forName($S).getField($S).get(null))",
+          Map.class,
+          Class.class,
+          activityClassName,
+          "directiveTypes");
+      loadingCodeBuilder.nextControlFlow("catch ($T e)", Exception.class);
+      loadingCodeBuilder.addStatement("throw new $T($S + e.getMessage(), e)",
+          RuntimeException.class,
+          "Failed to load activity type " + activityType.name() + ": ");
+      loadingCodeBuilder.endControlFlow();
+    }
+
+    loadingCodeBuilder.addStatement("return $T.unmodifiableMap(combined)", Collections.class);
+
+    final var typeSpec = TypeSpec
+        .classBuilder(typeName)
+        // Only depend on the package, not individual activities
+        // This means master won't regenerate when individual activities change!
+        .addOriginatingElement(missionModel.$package())
+        .addAnnotation(
+            AnnotationSpec
+                .builder(javax.annotation.processing.Generated.class)
+                .addMember("value", "$S", MissionModelProcessor.class.getCanonicalName())
+                .build())
+        .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
+        // Static field initialized by loading method
+        .addField(
+            FieldSpec
+                .builder(mapType, "directiveTypes", Modifier.PUBLIC, Modifier.STATIC, Modifier.FINAL)
+                .initializer("loadAllActivityTypes()")
+                .build())
+        // Method to load all ActivityTypes_* classes using reflection
+        .addMethod(
+            MethodSpec
+                .methodBuilder("loadAllActivityTypes")
+                .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
+                .returns(mapType)
+                .addCode(loadingCodeBuilder.build())
+                .build())
+        // Keep registerTopics method for compatibility
+        .addMethod(
+            MethodSpec
+                .methodBuilder("registerTopics")
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+                .addParameter(TypeName.get(Initializer.class), "initializer", Modifier.FINAL)
+                .addStatement(
+                    "$L.forEach((name, mapper) -> registerDirectiveType($L, name, mapper))",
+                    "directiveTypes",
+                    "initializer")
+                .build())
+        // Keep registerDirectiveType method for compatibility
+        .addMethod(
+            MethodSpec
+                .methodBuilder("registerDirectiveType")
+                .addModifiers(Modifier.PRIVATE, Modifier.STATIC)
+                .addTypeVariable(TypeVariableName.get("Input"))
+                .addTypeVariable(TypeVariableName.get("Output"))
+                .addParameter(ClassName.get(Initializer.class), "initializer", Modifier.FINAL)
+                .addParameter(ClassName.get(String.class), "name", Modifier.FINAL)
+                .addParameter(
+                    ParameterizedTypeName.get(
+                        ClassName.get(ActivityMapper.class),
+                        ClassName.get(missionModel.topLevelModel()),
+                        TypeVariableName.get("Input"),
+                        TypeVariableName.get("Output")),
+                    "mapper",
+                    Modifier.FINAL)
+                .addStatement(
+                    "$L.topic($L, $L, $L)",
+                    "initializer",
+                    CodeBlock.of("$S + $L", "ActivityType.Input.", "name"),
+                    CodeBlock.of("$L.getInputTopic()", "mapper"),
+                    CodeBlock.of("$L.getInputAsOutput()", "mapper"))
+                .addStatement(
+                    "$L.topic($L, $L, $L)",
+                    "initializer",
+                    CodeBlock.of("$S + $L", "ActivityType.Output.", "name"),
+                    CodeBlock.of("$L.getOutputTopic()", "mapper"),
+                    CodeBlock.of("$L.getOutputType()", "mapper"))
+                .build())
+        .build();
+
+    return JavaFile
+        .builder(packageName, typeSpec)
         .skipJavaLangImports(true)
         .build();
   }

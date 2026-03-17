@@ -101,3 +101,5 @@ end$$;
 -- Drop version table and its trigger function
 drop table if exists actions.action_definition_version;
 drop function if exists actions.action_definition_version_set_revision();
+
+call migrations.mark_migration_rolled_back(31);

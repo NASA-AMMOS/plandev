@@ -63,16 +63,9 @@ from actions.action_definition;
 alter table actions.action_definition
   add column archived boolean not null default false;
 
--- 5. Add action_definition_revision to action_run (nullable initially, then backfill)
+-- 5. Add action_definition_revision to action_run, backfill with revision 0
 alter table actions.action_run
-  add column action_definition_revision integer;
-
--- Backfill existing runs with revision 0
-update actions.action_run set action_definition_revision = 0;
-
--- Make non-null after backfill
-alter table actions.action_run
-  alter column action_definition_revision set not null;
+  add column action_definition_revision integer not null default 0;
 
 -- 6. Move notify_action_definition_inserted trigger to version table
 drop trigger if exists notify_action_definition_inserted on actions.action_definition;
@@ -168,3 +161,5 @@ alter table actions.action_definition
   drop column action_file_id,
   drop column parameter_schema,
   drop column settings_schema;
+
+call migrations.mark_migration_applied(31, true);

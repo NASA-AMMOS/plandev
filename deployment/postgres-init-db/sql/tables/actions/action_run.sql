@@ -10,7 +10,7 @@ create table actions.action_run (
   has_secrets boolean not null default false,
 
   action_definition_id integer not null,
-  action_definition_revision integer not null,
+  action_definition_revision integer not null default 0,
 
   requested_by text,
   requested_at timestamptz not null default now(),

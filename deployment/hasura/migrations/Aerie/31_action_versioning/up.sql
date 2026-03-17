@@ -162,4 +162,4 @@ alter table actions.action_definition
   drop column parameter_schema,
   drop column settings_schema;
 
-call migrations.mark_migration_applied(31, true);
+call migrations.mark_migration_applied(31);

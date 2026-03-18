@@ -33,18 +33,8 @@ insert_permissions:
       check: {}
       set:
         author: "x-hasura-user-id"
-  - role: user
-    permission:
-      columns: [action_definition_id, action_file_id, archived, parameter_schema, settings_schema]
-      check: { "action_definition": { "workspace": { "_or": [ { "owner": { "_eq": "X-Hasura-User-Id" } },{ "collaborators": { "collaborator": { "_eq": "X-Hasura-User-Id" } } } ] } } }
-      set:
-        author: "x-hasura-user-id"
 update_permissions:
   - role: aerie_admin
     permission:
-      columns: [archived, parameter_schema, settings_schema]
-      filter: {}
-  - role: user
-    permission:
       columns: [archived]
-      filter: { "action_definition": { "workspace": { "_or": [ { "owner": { "_eq": "X-Hasura-User-Id" } },{ "collaborators": { "collaborator": { "_eq": "X-Hasura-User-Id" } } } ] } } }
+      filter: {}

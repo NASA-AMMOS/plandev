@@ -19,6 +19,7 @@ import java.util.function.Function;
 public final class RecordValueMapper<R extends Record> implements ValueMapper<R> {
   private final Class<R> recordType;
   private final List<Component<R, ?>> components;
+  private final Constructor<R> cachedConstructor;
 
   public RecordValueMapper(
       final Class<R> recordType,
@@ -26,6 +27,11 @@ public final class RecordValueMapper<R extends Record> implements ValueMapper<R>
   ) {
     this.recordType = recordType;
     this.components = components;
+    try {
+      this.cachedConstructor = getCanonicalConstructor(recordType);
+    } catch (NoSuchMethodException e) {
+      throw new IllegalArgumentException("Cannot find canonical constructor for record type: " + recordType.getName(), e);
+    }
   }
 
   public record Component<R, T>(
@@ -69,8 +75,8 @@ public final class RecordValueMapper<R extends Record> implements ValueMapper<R>
             arguments[i] = deserializedValue.getSuccessOrThrow();
           }
           try {
-            return Result.success(getCanonicalConstructor(this.recordType).newInstance(arguments));
-          } catch (InstantiationException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+            return Result.success(cachedConstructor.newInstance(arguments));
+          } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
             return Result.failure(e.toString());
           }
         }))

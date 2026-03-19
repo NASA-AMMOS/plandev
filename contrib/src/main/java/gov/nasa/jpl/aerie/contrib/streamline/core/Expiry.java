@@ -20,14 +20,13 @@ public record Expiry(Optional<Duration> value) implements Comparable<Expiry> {
   }
 
   public Expiry or(Expiry other) {
-    // If this has a value...
-    //   If other has a value, compare and return the minimum
-    //   Else other is NEVER, so return this
-    // Else (this is NEVER), so return other
-    return this.value.map(thisValue ->
-            other.value.map(otherValue -> Expiry.at(Duration.min(thisValue, otherValue)))
-                    .orElse(this))
-            .orElse(other);
+    if (this.value.isPresent()) {
+      if (other.value.isPresent()) {
+        return Expiry.at(Duration.min(this.value.get(), other.value.get()));
+      }
+      return this;
+    }
+    return other;
   }
 
   public Expiry minus(Duration t) {

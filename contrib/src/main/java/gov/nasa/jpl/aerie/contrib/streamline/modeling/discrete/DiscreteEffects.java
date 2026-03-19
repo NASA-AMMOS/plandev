@@ -8,7 +8,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentValue;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.name;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteDynamicsMonad.effect;
 
 public final class DiscreteEffects {
@@ -20,7 +19,7 @@ public final class DiscreteEffects {
    * Set the resource to the given value.
    */
   public static <A> void set(MutableResource<Discrete<A>> resource, A newValue) {
-    resource.emit(name(effect(x -> newValue), "Set %s", newValue));
+    resource.emit(effect(x -> newValue));
   }
 
   // Flag/Switch style operations
@@ -43,7 +42,7 @@ public final class DiscreteEffects {
    * Toggle the resource value.
    */
   public static void toggle(MutableResource<Discrete<Boolean>> resource) {
-    resource.emit("Toggle", effect(x -> !x));
+    resource.emit(effect(x -> !x));
   }
 
   // Counter style operations
@@ -59,7 +58,7 @@ public final class DiscreteEffects {
    * Add the given amount to the resource's value.
    */
   public static void increment(MutableResource<Discrete<Integer>> resource, int amount) {
-    resource.emit(name(effect(x -> x + amount), "Increment by %s", amount));
+    resource.emit(effect(x -> x + amount));
   }
 
   /**
@@ -73,7 +72,7 @@ public final class DiscreteEffects {
    * Subtract the given amount from the resource's value.
    */
   public static void decrement(MutableResource<Discrete<Integer>> resource, int amount) {
-    resource.emit(name(effect(x -> x - amount), "Decrement by %s", amount));
+    resource.emit(effect(x -> x - amount));
   }
 
   // General numeric resources
@@ -82,14 +81,14 @@ public final class DiscreteEffects {
    * Add amount to resource's value
    */
   public static void increase(MutableResource<Discrete<Double>> resource, double amount) {
-    resource.emit(name(effect(x -> x + amount), "Increase by %s", amount));
+    resource.emit(effect(x -> x + amount));
   }
 
   /**
    * Subtract amount from resource's value
    */
   public static void decrease(MutableResource<Discrete<Double>> resource, double amount) {
-    resource.emit(name(effect(x -> x - amount), "Decrease by %s", amount));
+    resource.emit(effect(x -> x - amount));
   }
 
   // Queue style operations, mirroring the Queue interface
@@ -98,11 +97,11 @@ public final class DiscreteEffects {
    * Add element to the end of the queue resource
    */
   public static <T> void add(MutableResource<Discrete<List<T>>> resource, T element) {
-    resource.emit(name(effect(q -> {
+    resource.emit(effect(q -> {
       var q$ = new LinkedList<>(q);
       q$.add(element);
       return q$;
-    }), "Add %s to queue", element));
+    }));
   }
 
   /**
@@ -116,14 +115,14 @@ public final class DiscreteEffects {
     if (currentQueue.isEmpty()) return Optional.empty();
 
     final T result = currentQueue.get(0);
-    resource.emit(name(effect(q -> {
+    resource.emit(effect(q -> {
       var q$ = new LinkedList<>(q);
       T purportedResult = q$.removeFirst();
       if (!result.equals(purportedResult)) {
         throw new IllegalStateException("Detected effect conflicting with queue remove operation");
       }
       return q$;
-    }), "Remove %s from queue", result));
+    }));
     return Optional.of(result);
   }
 
@@ -133,14 +132,14 @@ public final class DiscreteEffects {
    * Subtract the given amount from resource.
    */
   public static void consume(MutableResource<Discrete<Double>> resource, double amount) {
-    resource.emit(name(effect(x -> x - amount), "Consume %s", amount));
+    resource.emit(effect(x -> x - amount));
   }
 
   /**
    * Add the given amount to resource.
    */
   public static void restore(MutableResource<Discrete<Double>> resource, double amount) {
-    resource.emit(name(effect(x -> x + amount), "Restore %s", amount));
+    resource.emit(effect(x -> x + amount));
   }
 
   // Non-consumable style operations

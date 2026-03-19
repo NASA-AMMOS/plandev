@@ -112,35 +112,27 @@ public final class CellRefV2 {
     return new EffectTrait<>() {
       @Override
       public DynamicsEffect<D> empty() {
-        final DynamicsEffect<D> result = x -> x;
-        name(result, "No-op");
-        return result;
+        return x -> x;
       }
 
       @Override
       public DynamicsEffect<D> sequentially(final DynamicsEffect<D> prefix, final DynamicsEffect<D> suffix) {
-        final DynamicsEffect<D> result = x -> suffix.apply(prefix.apply(x));
-        name(result, "(%s) then (%s)", prefix, suffix);
-        return result;
+        return x -> suffix.apply(prefix.apply(x));
       }
 
       @Override
       public DynamicsEffect<D> concurrently(final DynamicsEffect<D> left, final DynamicsEffect<D> right) {
         try {
           final DynamicsEffect<D> combined = combineConcurrent.apply(left, right);
-          final DynamicsEffect<D> result = x -> {
-                try {
-                  return combined.apply(x);
-                } catch (Exception e) {
-                  return failure(e);
-                }
-              };
-          name(result, "(%s) and (%s)", left, right);
-          return result;
+          return x -> {
+            try {
+              return combined.apply(x);
+            } catch (Exception e) {
+              return failure(e);
+            }
+          };
         } catch (Throwable e) {
-          final DynamicsEffect<D> result = $ -> failure(e);
-          name(result, "Failed to combine concurrent effects: (%s) and (%s)", left, right);
-          return result;
+          return $ -> failure(e);
         }
       }
     };

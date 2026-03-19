@@ -53,7 +53,7 @@ public final class ResourceMonad {
   }
 
   public static <A, B> Resource<B> apply(Resource<A> a, Resource<Function<A, B>> f) {
-    Resource<B> result = ThinResourceMonad.apply(a, ThinResourceMonad.map(f, DynamicsMonad::apply))::getDynamics;
+    Resource<B> result = () -> DynamicsMonad.apply(a.getDynamics(), f.getDynamics());
     addDependency(result, a);
     addDependency(result, f);
     if (profileAllResources) result = profile(result);

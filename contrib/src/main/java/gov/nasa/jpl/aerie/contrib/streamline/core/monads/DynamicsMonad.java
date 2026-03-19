@@ -27,7 +27,19 @@ public final class DynamicsMonad {
   }
 
   public static <A, B> ErrorCatching<Expiring<B>> apply(ErrorCatching<Expiring<A>> a, ErrorCatching<Expiring<Function<A, B>>> f) {
-    return ErrorCatchingMonad.apply(a, ErrorCatchingMonad.map(f, ExpiringMonad::apply));
+    if (f instanceof ErrorCatching.Success<Expiring<Function<A, B>>> fSuccess) {
+      if (a instanceof ErrorCatching.Success<Expiring<A>> aSuccess) {
+        return ErrorCatching.success(ExpiringMonad.apply(aSuccess.result(), fSuccess.result()));
+      }
+      // SAFETY: Failure holds only Throwable, so the cast is safe.
+      @SuppressWarnings("unchecked")
+      var result = (ErrorCatching<Expiring<B>>) (ErrorCatching<?>) a;
+      return result;
+    }
+    // SAFETY: Failure holds only Throwable, so the cast is safe.
+    @SuppressWarnings("unchecked")
+    var result = (ErrorCatching<Expiring<B>>) (ErrorCatching<?>) f;
+    return result;
   }
 
   private static <A> ErrorCatching<Expiring<A>> distribute(Expiring<ErrorCatching<A>> a) {
@@ -56,7 +68,14 @@ public final class DynamicsMonad {
   }
   
   public static <A, B> ErrorCatching<Expiring<B>> map(ErrorCatching<Expiring<A>> a, Function<A, B> f) {
-    return apply(a, pure(f));
+    if (a instanceof ErrorCatching.Success<Expiring<A>> s) {
+      var ea = s.result();
+      return ErrorCatching.success(Expiring.expiring(f.apply(ea.data()), ea.expiry()));
+    }
+    // SAFETY: Failure holds only Throwable, so the cast is safe.
+    @SuppressWarnings("unchecked")
+    var result = (ErrorCatching<Expiring<B>>) (ErrorCatching<?>) a;
+    return result;
   }
   
   public static <A, B> Function<ErrorCatching<Expiring<A>>, ErrorCatching<Expiring<B>>> map(Function<A, B> f) {

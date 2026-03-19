@@ -127,10 +127,13 @@ class DefaultEditablePlanDriver(
      * This has SHARED OWNERSHIP with [DefaultEditablePlanDriver]; the editable plan may add more to
      * this list AFTER the commit is created.
      */
-    val upToDateSimResultsSet: MutableSet<WeakReference<PerishableSimulationResults>>
+    val upToDateSimResultsSet: MutableSet<WeakReference<PerishableSimulationResults>>,
+
+    /** The plan generation at the time of this commit, used to restore on rollback. */
+    val planGeneration: Long
   )
 
-  private var committedChanges = Commit(setOf(), mutableSetOf())
+  private var committedChanges = Commit(setOf(), mutableSetOf(), 0L)
   private var uncommittedChanges = mutableListOf<Edit>()
 
   /** Whether there are uncommitted changes. */
@@ -144,13 +147,17 @@ class DefaultEditablePlanDriver(
   // Jointly owned set of up-to-date simulation results. See class-level comment for algorithm explanation.
   private var upToDateSimResultsSet: MutableSet<WeakReference<PerishableSimulationResults>> = mutableSetOf()
 
+  // Generation counter for O(1) staleness checking. Incremented on every edit (create/delete),
+  // snapshot on simulate. Avoids the previous approach of deserializing and comparing all directives.
+  private var planGeneration = 0L
+  private var lastSimulatedGeneration = -1L
+
   override fun latestResults(): SimulationResults? {
-    val internalResults = adapter.latestResults()
+    val internalResults = adapter.latestResults() ?: return null
 
-    // kotlin checks structural equality by default, not referential equality.
-    val isStale = internalResults?.inputDirectives()?.toSet() != directives().toSet()
+    val isStale = planGeneration != lastSimulatedGeneration
 
-    internalResults?.setStale(isStale)
+    internalResults.setStale(isStale)
 
     if (!isStale) upToDateSimResultsSet.add(WeakReference(internalResults))
     return internalResults
@@ -175,6 +182,8 @@ class DefaultEditablePlanDriver(
     adapter.validate(resolved)
 
     adapter.create(resolved)
+
+    planGeneration++
 
     for (simResults in upToDateSimResultsSet) {
       simResults.get()?.setStale(true)
@@ -232,6 +241,8 @@ class DefaultEditablePlanDriver(
       adapter.create(d)
     }
 
+    planGeneration++
+
     for (simResults in upToDateSimResultsSet) {
       simResults.get()?.setStale(true)
     }
@@ -281,7 +292,7 @@ class DefaultEditablePlanDriver(
     uncommittedChanges = mutableListOf()
 
     // Create a commit that shares ownership of the simResults set.
-    committedChanges = Commit(newTotalDiff, upToDateSimResultsSet)
+    committedChanges = Commit(newTotalDiff, upToDateSimResultsSet, planGeneration)
   }
 
   override fun rollback(): List<Edit> {
@@ -303,11 +314,13 @@ class DefaultEditablePlanDriver(
       simResult.get()?.setStale(false)
     }
     upToDateSimResultsSet = committedChanges.upToDateSimResultsSet
+    planGeneration = committedChanges.planGeneration
     return result
   }
 
   override fun simulate(options: SimulateOptions): SimulationResults {
     adapter.simulate(options)
+    lastSimulatedGeneration = planGeneration
     return latestResults()!!
   }
 

@@ -25,6 +25,24 @@ import java.util.stream.IntStream;
 public final class Naming {
   private Naming() {}
 
+  private static volatile boolean enabled = true;
+
+  /**
+   * Enable name registration. When disabled (the default), {@link #name} is a no-op
+   * and {@link #getName} returns empty / the anonymous fallback for everything.
+   */
+  public static void enableNaming() {
+    enabled = true;
+  }
+
+  /**
+   * Disable name registration and clear all recorded names.
+   */
+  public static void disableNaming() {
+    enabled = false;
+    NAMES.clear();
+  }
+
   // Use a WeakHashMap so that naming a thing doesn't prevent it from being garbage-collected.
   private static final WeakHashMap<Object, Function<NamingContext, Optional<String>>> NAMES = new WeakHashMap<>();
 
@@ -49,6 +67,7 @@ public final class Naming {
    * If any of the args are anonymous, so is this thing.
    */
   public static <T> T name(T thing, String nameFormat, Object... args) {
+    if (!enabled) return thing;
     // Only capture weak references to arguments, so we don't leak memory
     var args$ = Arrays.stream(args).map(WeakReference::new).toArray(WeakReference[]::new);
     NAMES.put(thing, context -> {

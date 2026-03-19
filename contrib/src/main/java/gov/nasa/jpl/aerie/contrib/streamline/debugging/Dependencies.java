@@ -8,6 +8,8 @@ import static java.util.stream.Collectors.joining;
 public final class Dependencies {
   private Dependencies() {}
 
+  private static volatile boolean enabled = false;
+
   // Use a WeakHashMap so that describing a thing's dependencies
   // doesn't prevent it from being garbage-collected.
   private static final WeakHashMap<Object, Set<Object>> DEPENDENCIES = new WeakHashMap<>();
@@ -15,9 +17,27 @@ public final class Dependencies {
   private static final String ANONYMOUS_NAME = "...";
 
   /**
+   * Enable dependency tracking. When disabled (the default), {@link #addDependency} is a no-op
+   * and {@link #describeDependencyGraph} returns an empty graph.
+   */
+  public static void enableTracking() {
+    enabled = true;
+  }
+
+  /**
+   * Disable dependency tracking and clear all recorded dependencies.
+   */
+  public static void disableTracking() {
+    enabled = false;
+    DEPENDENCIES.clear();
+    DEPENDENTS.clear();
+  }
+
+  /**
    * Register that dependent depends on dependency.
    */
   public static void addDependency(Object dependent, Object dependency) {
+    if (!enabled) return;
     // Use WeakSet = newSetFromMap + WeakHashMap, to only weakly reference dependencies.
     DEPENDENCIES.computeIfAbsent(dependent, $ -> newSetFromMap(new WeakHashMap<>())).add(dependency);
     DEPENDENTS.computeIfAbsent(dependency, $ -> newSetFromMap(new WeakHashMap<>())).add(dependent);

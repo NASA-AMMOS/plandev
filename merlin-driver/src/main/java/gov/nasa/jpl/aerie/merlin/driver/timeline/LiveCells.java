@@ -23,11 +23,14 @@ public final class LiveCells {
   }
 
   public <State> Optional<State> getState(final Query<State> query) {
-    return getCell(query).map(Cell::getState);
+    final var cell = getCell(query);
+    return cell != null ? Optional.of(cell.getState()) : Optional.empty();
   }
 
   public Optional<Duration> getExpiry(final Query<?> query) {
-    return getCell(query).flatMap(Cell::getExpiry);
+    final var cell = getCell(query);
+    if (cell == null) return Optional.empty();
+    return cell.getExpiry();
   }
 
   public <State> void put(final Query<State> query, final Cell<State> cell) {
@@ -35,27 +38,31 @@ public final class LiveCells {
     this.cells.put(query, new LiveCell<>(cell, this.source.cursor()));
   }
 
-  private <State> Optional<Cell<State>> getCell(final Query<State> query) {
+  /**
+   * Returns the cell for the given query, or null if not found.
+   * Private method — callers wrap in Optional for the public API.
+   */
+  private <State> Cell<State> getCell(final Query<State> query) {
     // First, check if we have this cell already.
     {
       // SAFETY: By the invariant, if there is an entry for this query, it is of type Cell<State>.
       @SuppressWarnings("unchecked")
       final var cell = (LiveCell<State>) this.cells.get(query);
 
-      if (cell != null) return Optional.of(cell.get());
+      if (cell != null) return cell.get();
     }
 
     // Otherwise, go ask our parent for the cell.
-    if (this.parent == null) return Optional.empty();
-    final var cell$ = this.parent.getCell(query);
-    if (cell$.isEmpty()) return Optional.empty();
+    if (this.parent == null) return null;
+    final var parentCell = this.parent.getCell(query);
+    if (parentCell == null) return null;
 
-    final var cell = new LiveCell<>(cell$.get().duplicate(), this.source.cursor());
+    final var cell = new LiveCell<>(parentCell.duplicate(), this.source.cursor());
 
     // SAFETY: The query and cell share the same State type parameter.
     this.cells.put(query, cell);
 
-    return Optional.of(cell.get());
+    return cell.get();
   }
 
   public void freeze() {

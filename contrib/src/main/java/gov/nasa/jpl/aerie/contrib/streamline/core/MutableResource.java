@@ -2,7 +2,6 @@ package gov.nasa.jpl.aerie.contrib.streamline.core;
 
 import gov.nasa.jpl.aerie.contrib.streamline.core.monads.DynamicsMonad;
 import gov.nasa.jpl.aerie.contrib.streamline.core.monads.ErrorCatchingMonad;
-import gov.nasa.jpl.aerie.contrib.streamline.debugging.Context;
 import gov.nasa.jpl.aerie.contrib.streamline.debugging.Profiling;
 import gov.nasa.jpl.aerie.merlin.framework.CellRef;
 import gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.Cell;
@@ -14,7 +13,6 @@ import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.DynamicsMonad.pu
 import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.*;
 import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Profiling.profile;
 import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Profiling.profileEffects;
-import static java.util.stream.Collectors.joining;
 
 /**
  * A resource to which effects can be applied.
@@ -46,12 +44,7 @@ public interface MutableResource<D extends Dynamics<?, D>> extends Resource<D> {
 
       @Override
       public void emit(final DynamicsEffect<D> effect) {
-        // NOTE: The strange pattern of naming effect::apply is to create a new object, identical in behavior to effect,
-        //   which we can assign a more informative name without actually getting the name of effect.
-        // Replacing effect::apply with effect would create a self-loop in the naming graph on effect, which isn't allowed.
-        // Using Naming.getName to get effect's current name and use that when elaborating is correct but potentially slow,
-        //   depending on how deep the naming graph is.
-        cell.emit(name(effect::apply, "%s on %s" + Context.get().stream().map(c -> " during " + c).collect(joining()), effect, this));
+        cell.emit(effect);
       }
 
       @Override
@@ -69,11 +62,11 @@ public interface MutableResource<D extends Dynamics<?, D>> extends Resource<D> {
   }
 
   static <D extends Dynamics<?, D>> void set(MutableResource<D> resource, D newDynamics) {
-    resource.emit(name(DynamicsMonad.effect(x -> newDynamics), "Set %s", newDynamics));
+    resource.emit(DynamicsMonad.effect(x -> newDynamics));
   }
 
   static <D extends Dynamics<?, D>> void set(MutableResource<D> resource, Expiring<D> newDynamics) {
-    resource.emit(name(ErrorCatchingMonad.<Expiring<D>, Expiring<D>>map($ -> newDynamics)::apply, "Set %s", newDynamics));
+    resource.emit(ErrorCatchingMonad.<Expiring<D>, Expiring<D>>map($ -> newDynamics)::apply);
   }
 
   /**

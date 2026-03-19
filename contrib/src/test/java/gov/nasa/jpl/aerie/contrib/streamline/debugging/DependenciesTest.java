@@ -21,6 +21,9 @@ import static org.junit.jupiter.api.Assertions.*;
 @ExtendWith(MerlinExtension.class)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class DependenciesTest {
+  // Enable tracking and naming so dependency graph tests work
+  { Dependencies.enableTracking(); Naming.enableNaming(); }
+
   Resource<Discrete<Boolean>> constantTrue = DiscreteResources.constant(true);
   Resource<Polynomial> constant1234 = constant(1234);
   Resource<Polynomial> constant5678 = constant(5678);

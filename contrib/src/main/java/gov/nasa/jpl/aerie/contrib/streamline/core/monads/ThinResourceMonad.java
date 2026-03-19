@@ -34,7 +34,11 @@ public final class ThinResourceMonad {
    * </p>
    */
   public static <A> ThinResource<A> reduce(Collection<? extends ThinResource<A>> operands, A identity, BiFunction<A, A, A> f) {
-    return () -> operands.stream().map(ThinResource::getDynamics).reduce(identity, f, f::apply);
+    return () -> {
+      var acc = identity;
+      for (var op : operands) acc = f.apply(acc, op.getDynamics());
+      return acc;
+    };
   }
 
   // GENERATED CODE START

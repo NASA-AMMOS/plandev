@@ -1,5 +1,7 @@
 package gov.nasa.jpl.aerie.e2e.utils;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.microsoft.playwright.APIRequest;
 import com.microsoft.playwright.APIRequestContext;
 import com.microsoft.playwright.APIResponse;
@@ -9,7 +11,6 @@ import com.microsoft.playwright.options.FormData;
 import com.microsoft.playwright.options.RequestOptions;
 import gov.nasa.jpl.aerie.e2e.types.workspaces.BulkPutItem;
 
-import javax.json.Json;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -57,10 +58,10 @@ public class WorkspaceRequests implements AutoCloseable {
    * @return the created workspace's id
    */
   public int createWorkspace(String workspaceLocation, int parcelId) throws IOException {
-    final String body = Json.createObjectBuilder()
-                            .add("workspaceLocation", workspaceLocation)
-                            .add("parcelId", parcelId)
-                            .build()
+    final String body = JsonNodeFactory.instance.objectNode()
+                            .put("workspaceLocation", workspaceLocation)
+                            .put("parcelId", parcelId)
+                            
                             .toString();
     final var options = RequestOptions.create()
                                       .setHeader("x-hasura-admin-secret", hasuraAdminSecret);
@@ -84,17 +85,16 @@ public class WorkspaceRequests implements AutoCloseable {
    * @return the workspace server's response
    */
   public APIResponse createWorkspace(String userToken, String workspaceLocation, Optional<String> workspaceName, int parcelId) {
-    final var body = Json.createObjectBuilder()
-                            .add("workspaceLocation", workspaceLocation)
-                            .add("parcelId", parcelId);
-    workspaceName.ifPresent(n -> body.add("workspaceName", n));
+    final var body = JsonNodeFactory.instance.objectNode()
+                            .put("workspaceLocation", workspaceLocation)
+                            .put("parcelId", parcelId);
+    workspaceName.ifPresent(n -> body.set("workspaceName", n));
 
     final var options = RequestOptions.create()
                                       .setHeader("Authorization", "Bearer "+userToken)
-                                      .setData(body.build().toString());
+                                      .setData(body.toString());
     return request.post("/ws/create", options);
   }
-
 
   /**
    * Call the 'put file' endpoint in the Workspace server. Does not pass the "overwrite" flag.
@@ -191,7 +191,6 @@ public class WorkspaceRequests implements AutoCloseable {
     return request.delete("/ws/%d".formatted(workspaceId), options);
   }
 
-
   /**
    * Call the GET endpoint in the Workspace Server
    * @param token The JWT token for the user making the request
@@ -214,7 +213,7 @@ public class WorkspaceRequests implements AutoCloseable {
    */
   public APIResponse bulkPut(String token, int workspaceId, List<BulkPutItem> toPut) {
     final var formData = FormData.create();
-    final var bodyArray = Json.createArrayBuilder();
+    final var bodyArray = JsonNodeFactory.instance.arrayNode();
 
     // Generate the request body
     for(final var putItem : toPut) {
@@ -228,7 +227,7 @@ public class WorkspaceRequests implements AutoCloseable {
     final var options = RequestOptions
         .create()
         .setHeader("Authorization", "Bearer "+token)
-        .setMultipart(formData.set("body", bodyArray.build().toString()));
+        .setMultipart(formData.set("body", bodyArray.toString()));
 
     return request.put("/ws/bulk/%d".formatted(workspaceId), options);
   }
@@ -253,22 +252,22 @@ public class WorkspaceRequests implements AutoCloseable {
       Optional<Boolean> overwrite
   ) {
     // Generate the request body
-    final var body = Json.createObjectBuilder().add("moveTo", destination.toString());
+    final var body = JsonNodeFactory.instance.objectNode().set("moveTo", destination.toString());
 
-    final var itemsArray = Json.createArrayBuilder();
-    paths.forEach(p -> itemsArray.add(Json.createObjectBuilder().add("path", p.toString())));
-    body.add("items", itemsArray);
+    final var itemsArray = JsonNodeFactory.instance.arrayNode();
+    paths.forEach(p -> itemsArray.add(JsonNodeFactory.instance.objectNode().set("path", p.toString())));
+    body.set("items", itemsArray);
 
-    destinationWorkspaceId.ifPresent(wid -> body.add("toWorkspace", wid));
+    destinationWorkspaceId.ifPresent(wid -> body.put("toWorkspace", wid));
 
-    overwrite.ifPresent(o -> body.add("overwrite", o));
+    overwrite.ifPresent(o -> body.set("overwrite", o));
 
     // Generate request
     final var options = RequestOptions
         .create()
         .setHeader("Authorization", "Bearer "+token)
         .setHeader("Content-type", "application/json")
-        .setData(body.build().toString());
+        .setData(body.toString());
 
     return request.post("/ws/bulk/%d".formatted(workspaceId), options);
   }
@@ -292,26 +291,25 @@ public class WorkspaceRequests implements AutoCloseable {
       Optional<Boolean> overwrite
   ) {
     // Generate the request body
-    final var body = Json.createObjectBuilder().add("copyTo", destination.toString());
+    final var body = JsonNodeFactory.instance.objectNode().set("copyTo", destination.toString());
 
-    final var itemsArray = Json.createArrayBuilder();
-    paths.forEach(p -> itemsArray.add(Json.createObjectBuilder().add("path", p.toString())));
-    body.add("items", itemsArray);
+    final var itemsArray = JsonNodeFactory.instance.arrayNode();
+    paths.forEach(p -> itemsArray.add(JsonNodeFactory.instance.objectNode().set("path", p.toString())));
+    body.set("items", itemsArray);
 
-    destinationWorkspaceId.ifPresent(wid -> body.add("toWorkspace", wid));
+    destinationWorkspaceId.ifPresent(wid -> body.put("toWorkspace", wid));
 
-    overwrite.ifPresent(o -> body.add("overwrite", o));
+    overwrite.ifPresent(o -> body.set("overwrite", o));
 
     // Generate request
     final var options = RequestOptions
         .create()
         .setHeader("Authorization", "Bearer "+token)
         .setHeader("Content-type", "application/json")
-        .setData(body.build().toString());
+        .setData(body.toString());
 
     return request.post("/ws/bulk/%d".formatted(workspaceId), options);
   }
-
 
   /**
    * Call the 'Bulk DELETE' endpoint in the Workspace server.
@@ -322,7 +320,7 @@ public class WorkspaceRequests implements AutoCloseable {
    */
   public APIResponse bulkDelete(String token, int workspaceId, List<Path> paths) {
     // Generate the request body
-    final var body = Json.createArrayBuilder();
+    final var body = JsonNodeFactory.instance.arrayNode();
     paths.forEach(p -> body.add(p.toString()));
 
     // Generate request
@@ -330,7 +328,7 @@ public class WorkspaceRequests implements AutoCloseable {
         .create()
         .setHeader("Authorization", "Bearer "+token)
         .setHeader("Content-type", "application/json")
-        .setData(body.build().toString());
+        .setData(body.toString());
 
     return request.delete("/ws/bulk/%d".formatted(workspaceId), options);
   }

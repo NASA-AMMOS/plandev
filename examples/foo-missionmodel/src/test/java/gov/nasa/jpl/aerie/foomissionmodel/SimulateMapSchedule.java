@@ -1,5 +1,7 @@
 package gov.nasa.jpl.aerie.foomissionmodel;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import gov.nasa.jpl.aerie.foomissionmodel.generated.GeneratedModelType;
 import gov.nasa.jpl.aerie.merlin.driver.*;
 import gov.nasa.jpl.aerie.merlin.driver.json.JsonEncoding;
@@ -8,7 +10,7 @@ import gov.nasa.jpl.aerie.types.ActivityDirective;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
 
-import javax.json.Json;
+import java.io.IOException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -66,13 +68,21 @@ public class SimulateMapSchedule {
     final var schedule = new HashMap<ActivityDirectiveId, ActivityDirective>();
     long counter = 0;
 
-    final var planJson = Json.createReader(SimulateMapSchedule.class.getResourceAsStream("plan.json")).readValue();
-    for (final var scheduledActivity : planJson.asJsonArray()) {
-      final var deferInMicroseconds = scheduledActivity.asJsonObject().getJsonNumber("defer").longValueExact();
-      final var activityType = scheduledActivity.asJsonObject().getString("type");
+    final JsonNode planJson;
+    try {
+      planJson = new ObjectMapper().readTree(SimulateMapSchedule.class.getResourceAsStream("plan.json"));
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to read plan.json", e);
+    }
+    for (final var scheduledActivity : planJson) {
+      final var deferInMicroseconds = scheduledActivity.get("defer").longValue();
+      final var activityType = scheduledActivity.get("type").textValue();
 
       final var arguments = new HashMap<String, SerializedValue>();
-      for (final var field : scheduledActivity.asJsonObject().getJsonObject("arguments").entrySet()) {
+      final var argsNode = scheduledActivity.get("arguments");
+      final var fields = argsNode.fields();
+      while (fields.hasNext()) {
+        final var field = fields.next();
         arguments.put(field.getKey(), JsonEncoding.decode(field.getValue()));
       }
 

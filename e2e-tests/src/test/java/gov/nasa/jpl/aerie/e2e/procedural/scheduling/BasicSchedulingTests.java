@@ -1,5 +1,7 @@
 package gov.nasa.jpl.aerie.e2e.procedural.scheduling;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import gov.nasa.jpl.aerie.e2e.types.GoalInvocationId;
 import gov.nasa.jpl.aerie.e2e.types.Plan;
 import gov.nasa.jpl.aerie.e2e.types.SimulationDataset;
@@ -8,7 +10,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import javax.json.Json;
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.Objects;
@@ -62,7 +63,7 @@ public class BasicSchedulingTests extends ProceduralSchedulingSetup {
   @Test
   void executeSchedulingRunWithoutArguments() throws IOException {
     final var resp = hasura.awaitFailingScheduling(specId);
-    final var message = resp.reason().getString("message");
+    final var message = resp.reason().get("message").textValue();
     assertTrue(message.contains("java.lang.RuntimeException: gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException: Invalid arguments for input type \"DumbRecurrenceGoal\": extraneous arguments: [], unconstructable arguments: [], missing arguments: [MissingArgument[parameterName=biteSize, schema=IntSchema[]]], valid arguments: [ValidArgument[parameterName=quantity, serializedValue=NumericValue[value=360]]]"));
   }
 
@@ -71,7 +72,7 @@ public class BasicSchedulingTests extends ProceduralSchedulingSetup {
    */
   @Test
   void executeSchedulingRunWithArguments() throws IOException {
-    final var args = Json.createObjectBuilder().add("quantity", 2).add("biteSize", 1).build();
+    final var args = JsonNodeFactory.instance.objectNode().put("quantity", 2).put("biteSize", 1);
 
     hasura.updateSchedulingSpecGoalArguments(dumbRecurrenceGoalId.invocationId(), args);
 
@@ -96,7 +97,7 @@ public class BasicSchedulingTests extends ProceduralSchedulingSetup {
    */
   @Test
   void executeMultipleInvocationsOfSameProcedure() throws IOException {
-    final var args = Json.createObjectBuilder().add("quantity", 2).add("biteSize", 1).build();
+    final var args = JsonNodeFactory.instance.objectNode().put("quantity", 2).put("biteSize", 1);
     hasura.updateSchedulingSpecGoalArguments(dumbRecurrenceGoalId.invocationId(), args);
 
     final var secondInvocationId = hasura.insertGoalInvocation(dumbRecurrenceGoalId.goalId(), specId);
@@ -115,7 +116,7 @@ public class BasicSchedulingTests extends ProceduralSchedulingSetup {
    */
   @Test
   void executeMultipleProcedures() throws IOException {
-    final var args = Json.createObjectBuilder().add("quantity", 2).add("biteSize", 1).build();
+    final var args = JsonNodeFactory.instance.objectNode().put("quantity", 2).put("biteSize", 1);
     hasura.updateSchedulingSpecGoalArguments(dumbRecurrenceGoalId.invocationId(), args);
 
     final var secondProcedure = hasura.createSchedulingSpecProcedure(
@@ -139,7 +140,7 @@ public class BasicSchedulingTests extends ProceduralSchedulingSetup {
    */
   @Test
   void executeEDSLAndProcedure() throws IOException {
-    final var args = Json.createObjectBuilder().add("quantity", 4).add("biteSize", 1).build();
+    final var args = JsonNodeFactory.instance.objectNode().put("quantity", 4).put("biteSize", 1);
     hasura.updateSchedulingSpecGoalArguments(dumbRecurrenceGoalId.invocationId(), args);
 
     final String recurrenceGoalDefinition =
@@ -169,7 +170,7 @@ public class BasicSchedulingTests extends ProceduralSchedulingSetup {
    */
   @Test
   void saveActivityName() throws IOException {
-    final var args = Json.createObjectBuilder().add("quantity", 2).add("biteSize", 1).build();
+    final var args = JsonNodeFactory.instance.objectNode().put("quantity", 2).put("biteSize", 1);
     hasura.updateSchedulingSpecGoalArguments(dumbRecurrenceGoalId.invocationId(), args);
 
     hasura.awaitScheduling(specId);

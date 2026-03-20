@@ -1,5 +1,7 @@
 package gov.nasa.jpl.aerie.e2e;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.microsoft.playwright.Playwright;
 import gov.nasa.jpl.aerie.e2e.types.ActivityValidation;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
@@ -11,8 +13,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import javax.json.Json;
-import javax.json.JsonValue;
 import java.io.IOException;
 import java.util.List;
 
@@ -73,7 +73,7 @@ public class AutomaticValidationTests {
         planId,
         "BiteBanana",
         "1h",
-        Json.createObjectBuilder().add("biteSize", 1).build());
+        JsonNodeFactory.instance.objectNode().put("biteSize", 1));
     Thread.sleep(1000); // TODO consider a while loop here
     final var activityValidations = hasura.getActivityValidations(planId);
     final ActivityValidation activityValidation = activityValidations.get((long) activityId);
@@ -86,7 +86,7 @@ public class AutomaticValidationTests {
         planId,
         "NopeBanana",
         "1h",
-        Json.createObjectBuilder().build());
+        JsonNodeFactory.instance.objectNode());
     Thread.sleep(1000); // TODO consider a while loop here
     final var activityValidations = hasura.getActivityValidations(planId);
     final ActivityValidation activityValidation = activityValidations.get((long) activityId);
@@ -99,7 +99,7 @@ public class AutomaticValidationTests {
         planId,
         "BiteBanana",
         "1h",
-        Json.createObjectBuilder().add("biteSize", 0).build());
+        JsonNodeFactory.instance.objectNode().put("biteSize", 0));
     Thread.sleep(1000); // TODO consider a while loop here
     final var activityValidations = hasura.getActivityValidations(planId);
     final ActivityValidation activityValidation = activityValidations.get((long) activityId);
@@ -114,11 +114,11 @@ public class AutomaticValidationTests {
         planId,
         "BakeBananaBread",
         "1h",
-        Json.createObjectBuilder()
-            .add("dontNeed", 0)
-            .add("temperature", "this is a string")
-            .add("tbSugar", 1)
-            .build());
+        JsonNodeFactory.instance.objectNode()
+            .put("dontNeed", 0)
+            .put("temperature", "this is a string")
+            .put("tbSugar", 1)
+            );
     Thread.sleep(1000); // TODO consider a while loop here
     final var activityValidations = hasura.getActivityValidations(planId);
     final ActivityValidation activityValidation = activityValidations.get((long) activityId);
@@ -137,13 +137,13 @@ public class AutomaticValidationTests {
         planId,
         "BiteBanana",
         "1h",
-        JsonValue.EMPTY_JSON_OBJECT
+        JsonNodeFactory.instance.objectNode()
     );
     Thread.sleep(1000); // TODO consider a while loop here
 
     hasura.deleteMissionModel(modelId);
 
-    final var arguments = Json.createObjectBuilder().add("biteSize", 2).build();
+    final var arguments = JsonNodeFactory.instance.objectNode().put("biteSize", 2);
     hasura.updateActivityDirectiveArguments(planId, activityId, arguments);
     Thread.sleep(1000); // TODO consider a while loop here
 
@@ -161,7 +161,7 @@ public class AutomaticValidationTests {
         planId,
         "ExceptionActivity",
         "1h",
-        Json.createObjectBuilder().add("throwException", true).build());
+        JsonNodeFactory.instance.objectNode().put("throwException", true));
 
     // sleep to make sure exception activity is picked up
     Thread.sleep(1000); // TODO consider a while loop here
@@ -170,7 +170,7 @@ public class AutomaticValidationTests {
         planId,
         "BiteBanana",
         "1h",
-        Json.createObjectBuilder().add("biteSize", 1).build());
+        JsonNodeFactory.instance.objectNode().put("biteSize", 1));
 
     Thread.sleep(1000); // TODO consider a while loop here
 

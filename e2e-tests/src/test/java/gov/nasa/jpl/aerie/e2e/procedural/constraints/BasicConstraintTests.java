@@ -1,5 +1,7 @@
 package gov.nasa.jpl.aerie.e2e.procedural.constraints;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import gov.nasa.jpl.aerie.e2e.procedural.scheduling.ProceduralSchedulingSetup;
 import gov.nasa.jpl.aerie.e2e.types.ConstraintInvocationId;
 import gov.nasa.jpl.aerie.e2e.types.ConstraintResult;
@@ -10,7 +12,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import javax.json.Json;
 import java.io.IOException;
 import java.util.List;
 
@@ -56,7 +57,7 @@ public class BasicConstraintTests extends ProceduralSchedulingSetup {
    */
   @Test
   void executeConstraintRunWithArguments() throws IOException {
-    final var args = Json.createObjectBuilder().add("upperBound", 10).build();
+    final var args = JsonNodeFactory.instance.objectNode().put("upperBound", 10);
     hasura.updateConstraintArguments(fruitTresholdConstraintId.invocationId(), args);
     hasura.awaitSimulation(planId);
     final var resp = hasura.checkConstraints(planId);
@@ -74,7 +75,7 @@ public class BasicConstraintTests extends ProceduralSchedulingSetup {
   @Test
   void effectiveArgumentsQuery() throws IOException {
     final var effectiveArgs = hasura.getEffectiveProceduralConstraintsArgumentsBulk(
-        List.of(Pair.of(fruitTresholdConstraintId.id(), Json.createObjectBuilder().add("upperBound", 10).build())));
+        List.of(Pair.of(fruitTresholdConstraintId.id(), JsonNodeFactory.instance.objectNode().put("upperBound", 10))));
     assertEquals(1, effectiveArgs.size());
     assertTrue(effectiveArgs.get(0).success());
     assertTrue(effectiveArgs.get(0).arguments().isPresent());
@@ -83,7 +84,7 @@ public class BasicConstraintTests extends ProceduralSchedulingSetup {
     // Check returned Arguments
     final var args = effectiveArgs.get(0).arguments().get();
     assertEquals(2, args.size());
-    assertEquals(10, args.getInt("upperBound"));
-    assertEquals(5, args.getInt("lowerBound"));
+    assertEquals(10, args.get("upperBound").intValue());
+    assertEquals(5, args.get("lowerBound").intValue());
   }
 }

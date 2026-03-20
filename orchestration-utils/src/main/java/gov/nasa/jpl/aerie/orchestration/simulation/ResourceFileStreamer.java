@@ -3,14 +3,14 @@ package gov.nasa.jpl.aerie.orchestration.simulation;
 import gov.nasa.jpl.aerie.merlin.driver.resources.AsyncConsumer;
 import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfiles;
 
-import javax.json.Json;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.UUID;
 
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import gov.nasa.jpl.aerie.merlin.driver.json.JsonEncoding;
 import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.realDynamicsP;
 
 /**
@@ -56,10 +56,9 @@ public class ResourceFileStreamer implements AsyncConsumer<ResourceProfiles> {
       final var name = getFileName(r.getKey());
       try (final var fileWriter = new FileWriter(name, true)) {
         for(final var segment : r.getValue().segments()) {
-          final var s = Json.createObjectBuilder()
-                            .add("extent", segment.extent().toString())
-                            .add("dynamics", realDynamicsP.unparse(segment.dynamics()))
-                            .build();
+          final var s = JsonNodeFactory.instance.objectNode();
+          s.put("extent", segment.extent().toString());
+          s.set("dynamics", realDynamicsP.unparse(segment.dynamics()));
           fileWriter.write(s.toString()+"\n");
         }
         fileWriter.flush();
@@ -72,10 +71,9 @@ public class ResourceFileStreamer implements AsyncConsumer<ResourceProfiles> {
       final var name = getFileName(d.getKey());
       try (final var fileWriter = new FileWriter(name, true)) {
           for(final var segment : d.getValue().segments()) {
-          final var s = Json.createObjectBuilder()
-                            .add("extent", segment.extent().toString())
-                            .add("dynamics", serializedValueP.unparse(segment.dynamics()))
-                            .build();
+          final var s = JsonNodeFactory.instance.objectNode();
+          s.put("extent", segment.extent().toString());
+          s.set("dynamics", JsonEncoding.encode(segment.dynamics()));
           fileWriter.write(s.toString()+"\n");
         }
         fileWriter.flush();

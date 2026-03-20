@@ -1,5 +1,10 @@
 package gov.nasa.jpl.aerie.e2e;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.BooleanNode;
+import com.fasterxml.jackson.databind.node.IntNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.NullNode;
 import com.microsoft.playwright.Playwright;
 import gov.nasa.jpl.aerie.e2e.types.ExternalDataset.ProfileInput;
 import gov.nasa.jpl.aerie.e2e.types.ExternalDataset.ProfileInput.ProfileSegmentInput;
@@ -20,9 +25,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.opentest4j.AssertionFailedError;
 
-import javax.json.Json;
-import javax.json.JsonObject;
-import javax.json.JsonValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -139,21 +141,21 @@ class EdslSchedulingTests {
 
   private void insertActivities() throws IOException {
     // Duration argument is specified on one but not the other to verify that the scheduler can pick up on effective args
-    hasura.insertActivityDirective(planId, "GrowBanana", "1h", JsonValue.EMPTY_JSON_OBJECT);
-    hasura.insertActivityDirective(planId, "GrowBanana", "3h", Json.createObjectBuilder()
-                                                                   .add("growingDuration", 7200000000L) // 2h
-                                                                   .build());
+    hasura.insertActivityDirective(planId, "GrowBanana", "1h", JsonNodeFactory.instance.objectNode());
+    hasura.insertActivityDirective(planId, "GrowBanana", "3h", JsonNodeFactory.instance.objectNode()
+                                                                   .put("growingDuration", 7200000000L) // 2h
+                                                                   );
     hasura.updatePlanRevisionSchedulingSpec(planId);
   }
 
   private void insertSatisfyingActivities() throws IOException {
     // Duration argument is specified on one but not the other to verify that the scheduler can pick up on effective args
-    hasura.insertActivityDirective(planId, "BiteBanana", "2h5m", Json.createObjectBuilder()
-                                                                     .add("biteSize", 1) // 2h
-                                                                     .build());
-    hasura.insertActivityDirective(planId, "BiteBanana", "5h5m", Json.createObjectBuilder()
-                                                                     .add("biteSize", 1) // 2h
-                                                                     .build());
+    hasura.insertActivityDirective(planId, "BiteBanana", "2h5m", JsonNodeFactory.instance.objectNode()
+                                                                     .put("biteSize", 1) // 2h
+                                                                     );
+    hasura.insertActivityDirective(planId, "BiteBanana", "5h5m", JsonNodeFactory.instance.objectNode()
+                                                                     .put("biteSize", 1) // 2h
+                                                                     );
     hasura.updatePlanRevisionSchedulingSpec(planId);
   }
 
@@ -162,19 +164,19 @@ class EdslSchedulingTests {
 
     // Duration argument is specified on one but not the other to verify that the scheduler can pick up on effective args
     Integer id1 = hasura.insertActivityDirective(planId, "GrowBanana", "0h",
-                                                 Json.createObjectBuilder()
-                                        .add("growingDuration", 10800000L) // 3h
-                                        .build());
+                                                 JsonNodeFactory.instance.objectNode()
+                                        .put("growingDuration", 10800000L) // 3h
+                                        );
     anchors.add(id1);
     hasura.insertActivityDirective(planId, "GrowBanana", "5h",
-                                   Json.createObjectBuilder()
-                                       .add("growingDuration", 10800000L) // 3h
-                                       .build());
+                                   JsonNodeFactory.instance.objectNode()
+                                       .put("growingDuration", 10800000L) // 3h
+                                       );
     anchors.add(id1);
     Integer id3 = hasura.insertActivityDirective(planId, "GrowBanana", "10h",
-                                                 Json.createObjectBuilder()
-                                        .add("growingDuration", 10800000L) // 3h
-                                        .build());
+                                                 JsonNodeFactory.instance.objectNode()
+                                        .put("growingDuration", 10800000L) // 3h
+                                        );
     anchors.add(id3);
     hasura.updatePlanRevisionSchedulingSpec(planId);
 
@@ -278,7 +280,6 @@ class EdslSchedulingTests {
     // Setup: Add Goal and Activities
     insertAnchorActivities();
     hasura.createSchedulingSpecGoal("Coexistence Scheduling Test Goal", coexistenceGoalWithAnchorsDefinition, schedulingSpecId, 0);
-
 
     try {
       // Schedule and get Plan
@@ -426,7 +427,7 @@ class EdslSchedulingTests {
       assertEquals("02:05:00", flagSegments.get(1).startOffset()); // GB1 end
       assertEquals("05:05:00", flagSegments.get(2).startOffset()); // GB2 end
 
-      final var initialFruit = Json.createObjectBuilder().add("rate", 0.0).add("initial", 4.0).build();
+      final var initialFruit = JsonNodeFactory.instance.objectNode().put("rate", 0.0).put("initial", 4.0);
       assertEquals(initialFruit, fruitSegments.get(0).dynamics());
 
       // Plant resource is impacted by the two GrowBananas, which each create one segment
@@ -439,8 +440,8 @@ class EdslSchedulingTests {
       final var topics = hasura.getTopicsEvents(datasetId);
       assertEquals(41, topics.size());
       // Assert that the keys to be inspected are included
-      assertTrue(topics.containsKey("ActivityType.Input.GrowBanana"));
-      assertTrue(topics.containsKey("ActivityType.Output.GrowBanana"));
+      assertTrue(topics.has("ActivityType.Input.GrowBanana"));
+      assertTrue(topics.has("ActivityType.Output.GrowBanana"));
       for(final var topic : topics.entrySet()) {
         switch (topic.getKey()) {
           case "ActivityType.Input.GrowBanana",
@@ -456,7 +457,6 @@ class EdslSchedulingTests {
       hasura.deleteSchedulingGoal(coexistenceGoalId);
     }
   }
-
 
   /**
    * This tests that Scheduling does not post simulation results if the plan has been simulated before scheduling
@@ -499,7 +499,7 @@ class EdslSchedulingTests {
     void outdatedPlanRevision() throws IOException {
       hasura.awaitSimulation(planId);
       // Add Grow Banana
-      hasura.insertActivityDirective(planId, "GrowBanana", "5h", JsonObject.EMPTY_JSON_OBJECT);
+      hasura.insertActivityDirective(planId, "GrowBanana", "5h", JsonNodeFactory.instance.objectNode());
 
       // Setup: Add Goal
       final int coexistenceGoalId = hasura.createSchedulingSpecGoal(
@@ -547,7 +547,7 @@ class EdslSchedulingTests {
       final int templateId = hasura.insertAndAssociateSimTemplate(
           modelId,
           "Scheduling Tests Template",
-          Json.createObjectBuilder().add("initialPlantCount", 400).build(),
+          JsonNodeFactory.instance.objectNode().put("initialPlantCount", 400),
           hasura.getSimulationId(planId)
       );
       hasura.awaitSimulation(planId);
@@ -586,18 +586,18 @@ class EdslSchedulingTests {
           planStartTimestamp,
           planEndTimestamp,
           "success",
-          JsonObject.EMPTY_JSON_OBJECT,
+          JsonNodeFactory.instance.objectNode(),
           hasura.getPlanRevision(planId));
-      final var plantType = Json.createObjectBuilder()
-                                .add("type", "discrete")
-                                .add("schema", Json.createObjectBuilder().add("type", "int"))
-                                .build();
+      final var plantType = JsonNodeFactory.instance.objectNode()
+                                .put("type", "discrete")
+                                .set("schema", JsonNodeFactory.instance.objectNode().put("type", "int"))
+                                ;
       hasura.insertProfile(
           datasetId,
           "/plant",
           "24h",
           plantType,
-          List.of(new ProfileSegment("0h", false, Json.createValue(400))));
+          List.of(new ProfileSegment("0h", false, IntNode.valueOf(400))));
 
       // Insert Goal
       final int plantGoal = hasura.createSchedulingSpecGoal(
@@ -755,10 +755,10 @@ class EdslSchedulingTests {
           "discrete",
           ValueSchema.VALUE_SCHEMA_BOOLEAN,
           List.of(
-              new ProfileSegmentInput(3600000000L, JsonValue.FALSE),
-              new ProfileSegmentInput(3600000000L, JsonValue.TRUE),
-              new ProfileSegmentInput(3600000000L, JsonValue.NULL),
-              new ProfileSegmentInput(3600000000L, JsonValue.FALSE)));
+              new ProfileSegmentInput(3600000000L, BooleanNode.FALSE),
+              new ProfileSegmentInput(3600000000L, BooleanNode.TRUE),
+              new ProfileSegmentInput(3600000000L, NullNode.getInstance()),
+              new ProfileSegmentInput(3600000000L, BooleanNode.FALSE)));
 
       datasetId = hasura.insertExternalDataset(
           planId,
@@ -843,7 +843,7 @@ class EdslSchedulingTests {
       final var activity = activities.get(0);
       assertEquals("BiteBanana", activity.type());
       assertEquals("02:00:00", activity.startOffset());
-      assertEquals(Json.createObjectBuilder().add("biteSize", 1).build(), activity.arguments());
+      assertEquals(JsonNodeFactory.instance.objectNode().put("biteSize", 1), activity.arguments());
     }
   }
 
@@ -916,8 +916,8 @@ class EdslSchedulingTests {
       // Assert the data in the reason
       final var reasonData = reason.data();
       assertEquals(2, reasonData.size());
-      assertTrue(reasonData.containsKey("location"));
-      assertEquals("Scheduling was interrupted while "+ reasonData.getString("location"), reasonData.getString("message"));
+      assertTrue(reasonData.has("location"));
+      assertEquals("Scheduling was interrupted while "+ reasonData.get("location").textValue(), reasonData.get("message").textValue());
     }
   }
 

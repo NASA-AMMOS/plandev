@@ -1,6 +1,6 @@
 package gov.nasa.jpl.aerie.e2e.types;
 
-import javax.json.JsonObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.Optional;
 
 public record SchedulingRequest(
@@ -17,27 +17,27 @@ public record SchedulingRequest(
       String type,
       String message,
       String trace,
-      JsonObject data
+      ObjectNode data
   )
   {
-    public static SchedulingReason fromJSON(JsonObject json) {
+    public static SchedulingReason fromJSON(ObjectNode json) {
       return new SchedulingReason(
-          json.getString("type"),
-          json.getString("message"),
-          json.getString("trace"),
-          json.getJsonObject("data")
+          json.get("type").textValue(),
+          json.get("message").textValue(),
+          json.get("trace").textValue(),
+          json.get("data")
       );
     }
   }
 
-  public static SchedulingRequest fromJSON(JsonObject json) {
+  public static SchedulingRequest fromJSON(ObjectNode json) {
     return new SchedulingRequest(
-        json.getInt("analysis_id"),
-        json.getInt("specification_id"),
-        json.getInt("specification_revision"),
-        SchedulingStatus.valueOf(json.getString("status")),
-        json.getBoolean("canceled"),
-        json.isNull("reason") ? Optional.empty() : Optional.of(SchedulingReason.fromJSON(json.getJsonObject("reason")))
+        json.get("analysis_id").intValue(),
+        json.get("specification_id").intValue(),
+        json.get("specification_revision").intValue(),
+        SchedulingStatus.valueOf(json.get("status").textValue()),
+        json.get("canceled").booleanValue(),
+        (json.get("reason") == null || json.get("reason").isNull()) ? Optional.empty() : Optional.of(SchedulingReason.fromJSON(json.get("reason")))
     );
   }
 }

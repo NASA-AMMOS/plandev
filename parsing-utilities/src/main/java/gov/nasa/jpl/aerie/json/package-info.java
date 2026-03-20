@@ -27,7 +27,7 @@
  * that interface. </p>
  *
  * <p> Lastly, we do not parse JSON documents out of strings, but rather work with values of
- * type {@code javax.json.JsonValue}. Any library that produces and consumes these values can be used to bridge the
+ * type {@code com.fasterxml.jackson.databind.JsonNode}. Any library that produces and consumes these values can be used to bridge the
  * last gap from this library to the filesystem or network. </p>
  *
  * <h2> Defining a format </h2>
@@ -171,7 +171,7 @@
  *       = recursiveP(selfP -> stringExprP(selfP)); }
  *
  * <p> Now, if {@code stringExprP} models the root of our expression grammar, we can invoke
- * {@link gov.nasa.jpl.aerie.json.JsonParser#parse(javax.json.JsonValue)} on it to convert a JSON document into an
+ * {@link gov.nasa.jpl.aerie.json.JsonParser#parse(com.fasterxml.jackson.databind.JsonNode)} on it to convert a JSON document into an
  * {@code Expr<String>}, or invoke {@link gov.nasa.jpl.aerie.json.JsonParser#unparse(java.lang.Object)} to convert
  * an {@code Expr<String>} into a JSON document. As a bonus, the {@link gov.nasa.jpl.aerie.json.JsonParser#getSchema()}
  * method will produce a JSON Schema-compliant document describing the class of JSON documents modeled by

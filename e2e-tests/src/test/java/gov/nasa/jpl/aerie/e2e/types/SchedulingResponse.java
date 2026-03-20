@@ -1,19 +1,18 @@
 package gov.nasa.jpl.aerie.e2e.types;
 
-import javax.json.JsonObject;
-
+import com.fasterxml.jackson.databind.node.ObjectNode;
 public record SchedulingResponse(
     int analysisId,
     Integer datasetId,
     String status,
-    JsonObject reason
+    ObjectNode reason
 ){
-  public static SchedulingResponse fromJSON(JsonObject json){
+  public static SchedulingResponse fromJSON(ObjectNode json){
     return new SchedulingResponse(
-      json.getInt("analysisId"),
-      json.containsKey("datasetId") ? json.getInt("datasetId") : null,
-      json.getString("status"),
-      json.getJsonObject("reason")
+      json.get("analysisId").intValue(),
+      json.has("datasetId") ? json.get("datasetId").intValue() : null,
+      json.get("status").textValue(),
+      json.get("reason")
     );
   }
 }

@@ -5,6 +5,7 @@
 @WithMappers(BasicValueMappers.class)
 
 @WithActivityType(ComplexActivity.class)
+@WithActivityType(StressActivity.class)
 
 package gov.nasa.jpl.aerie.serializationbenchmark;
 

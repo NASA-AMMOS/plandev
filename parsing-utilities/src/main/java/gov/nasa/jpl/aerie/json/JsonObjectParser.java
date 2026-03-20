@@ -1,13 +1,13 @@
 package gov.nasa.jpl.aerie.json;
 
-import javax.json.JsonObject;
-import javax.json.JsonValue;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.Objects;
 import java.util.function.Function;
 
 public interface JsonObjectParser<T> extends JsonParser<T> {
   @Override
-  JsonObject unparse(final T value);
+  ObjectNode unparse(final T value);
 
   @Override
   default <S> JsonObjectParser<S> map(final Convert<T, S> transform) {
@@ -17,17 +17,17 @@ public interface JsonObjectParser<T> extends JsonParser<T> {
 
     return new JsonObjectParser<>() {
       @Override
-      public JsonObject getSchema(final SchemaCache anchors) {
+      public ObjectNode getSchema(final SchemaCache anchors) {
         return self.getSchema(anchors);
       }
 
       @Override
-      public JsonParseResult<S> parse(final JsonValue json) {
+      public JsonParseResult<S> parse(final JsonNode json) {
         return self.parse(json).mapSuccess(transform::from);
       }
 
       @Override
-      public JsonObject unparse(final S value) {
+      public ObjectNode unparse(final S value) {
         return self.unparse(transform.to(value));
       }
     };

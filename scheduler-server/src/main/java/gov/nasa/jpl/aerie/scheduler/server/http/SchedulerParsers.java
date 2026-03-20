@@ -1,5 +1,7 @@
 package gov.nasa.jpl.aerie.scheduler.server.http;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import gov.nasa.jpl.aerie.json.JsonParser;
 import gov.nasa.jpl.aerie.scheduler.model.GoalId;
 import gov.nasa.jpl.aerie.scheduler.server.models.HasuraAction;
@@ -9,9 +11,6 @@ import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleFailure;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import gov.nasa.jpl.aerie.types.Timestamp;
 
-import javax.json.Json;
-import javax.json.stream.JsonParsingException;
-import java.io.StringReader;
 import java.util.List;
 import java.util.Optional;
 
@@ -152,11 +151,12 @@ public final class SchedulerParsers {
   public static <T> T parseJson(final String jsonStr, final JsonParser<T> parser)
   throws InvalidJsonException, InvalidEntityException
   {
-    try (final var reader = Json.createReader(new StringReader(jsonStr))) {
-      final var requestJson = reader.readValue();
+    try {
+      final var mapper = new ObjectMapper();
+      final var requestJson = mapper.readTree(jsonStr);
       final var result = parser.parse(requestJson);
       return result.getSuccessOrThrow(reason -> new InvalidEntityException(List.of(reason)));
-    } catch (JsonParsingException e) {
+    } catch (JsonProcessingException e) {
       throw new InvalidJsonException(e);
     }
   }

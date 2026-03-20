@@ -12,7 +12,7 @@ import gov.nasa.jpl.aerie.scheduler.server.models.ActivityType;
 import gov.nasa.jpl.aerie.scheduler.server.models.ResourceType;
 import org.apache.commons.lang3.tuple.Pair;
 
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import gov.nasa.jpl.aerie.merlin.driver.json.JsonEncoding;
 
 public final class TypescriptCodeGenerationService {
   private TypescriptCodeGenerationService() { }
@@ -147,7 +147,7 @@ return (<T>makeAllDiscreteProfile(args))
         result.add(indent(indent("get \"%s\"(): %s {".formatted(preset.getKey(), TypescriptType.toString(activityTypeCode.getArgumentsType(), false)))));
         result.add(indent(indent(indent("return {"))));
         for (final var argument: preset.getValue().entrySet()) {
-          final var deserializedJson = serializedValueP.unparse(argument.getValue());
+          final var deserializedJson = JsonEncoding.encode(argument.getValue());
           result.add(indent(indent(indent(indent("\"%s\": %s,".formatted(argument.getKey(), deserializedJson))))));
         }
         result.add(indent(indent(indent("};"))));

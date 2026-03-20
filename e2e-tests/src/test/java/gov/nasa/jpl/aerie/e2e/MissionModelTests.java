@@ -1,5 +1,7 @@
 package gov.nasa.jpl.aerie.e2e;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.microsoft.playwright.Playwright;
 import gov.nasa.jpl.aerie.e2e.types.ActivityType;
 import gov.nasa.jpl.aerie.e2e.types.ActivityType.Parameter;
@@ -13,8 +15,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import javax.json.Json;
-import javax.json.JsonObject;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -72,7 +72,7 @@ public class MissionModelTests {
     resourceTypes.add(new ResourceType("/data/line_count", VALUE_SCHEMA_INT));
     resourceTypes.add(new ResourceType(
         "/flag",
-        new ValueSchemaMeta(Map.of("description", Json.createObjectBuilder(Map.of("value", "The flag set")).build()),
+        new ValueSchemaMeta(Map.of("description", JsonNodeFactory.instance.objectNode().put("value", "The flag set")),
                             new ValueSchemaVariant(List.of(new Variant("A", "A"), new Variant("B", "B")))
         )));
     resourceTypes.add(new ResourceType("/flag/conflicted", VALUE_SCHEMA_BOOLEAN));
@@ -80,21 +80,21 @@ public class MissionModelTests {
         "/fruit",
         new ValueSchemaMeta(
             Map.of(
-                "unit", Json.createObjectBuilder(Map.of("value", "bananas")).build(),
-                "description", Json.createObjectBuilder(Map.of("value", "The number of fruits collected")).build()),
+                "unit", JsonNodeFactory.instance.objectNode().put("value", "bananas"),
+                "description", JsonNodeFactory.instance.objectNode().put("value", "The number of fruits collected")),
             new ValueSchemaStruct(Map.of("rate", VALUE_SCHEMA_REAL, "initial", VALUE_SCHEMA_REAL)))
     ));
     resourceTypes.add(new ResourceType("/peel",
                                        new ValueSchemaMeta(Map.of(
-                                           "unit", Json.createObjectBuilder(Map.of("value", "kg")).build()),
+                                           "unit", JsonNodeFactory.instance.objectNode().put("value", "kg")),
                                                            VALUE_SCHEMA_REAL)));
     resourceTypes.add(new ResourceType("/plant",
                                        new ValueSchemaMeta(Map.of(
-                                           "unit", Json.createObjectBuilder(Map.of("value", "count")).build()),
+                                           "unit", JsonNodeFactory.instance.objectNode().put("value", "count")),
                                                            VALUE_SCHEMA_INT)));
     resourceTypes.add(new ResourceType("/producer",
                                        new ValueSchemaMeta(Map.of(
-                                           "description", Json.createObjectBuilder(Map.of("value", "The producer of the fruit")).build()),
+                                           "description", JsonNodeFactory.instance.objectNode().put("value", "The producer of the fruit")),
                                                                     VALUE_SCHEMA_STRING)));
     return resourceTypes;
   }
@@ -110,12 +110,12 @@ public class MissionModelTests {
             "tbSugar", new Parameter(1,
                                      new ValueSchemaMeta(
                 Map.of(
-                    "description", Json.createObjectBuilder(Map.of("value", "Tablespoons of sugar to add")).build(),
-                    "unit", Json.createObjectBuilder(Map.of("value", "tbl")).build()
+                    "description", JsonNodeFactory.instance.objectNode().put("value", "Tablespoons of sugar to add"),
+                    "unit", JsonNodeFactory.instance.objectNode().put("value", "tbl")
                 ), VALUE_SCHEMA_INT)),
             "glutenFree", new Parameter(2, VALUE_SCHEMA_BOOLEAN),
             "temperature", new Parameter(0, new ValueSchemaMeta(
-                Map.of("description", Json.createObjectBuilder(Map.of("value", "The baking temperature in degrees Fahrenheit")).build()), VALUE_SCHEMA_REAL))),
+                Map.of("description", JsonNodeFactory.instance.objectNode().put("value", "The baking temperature in degrees Fahrenheit")), VALUE_SCHEMA_REAL))),
         VALUE_SCHEMA_INT,
         "Prepare",
         "Bakes banana bread at a certain temperature"));
@@ -126,15 +126,15 @@ public class MissionModelTests {
             0,
             new ValueSchemaMeta(Map.of(
                 "unit",
-                Json.createObjectBuilder(Map.of("value", "m")).build(),
+                JsonNodeFactory.instance.objectNode().put("value", "m"),
                 "description",
-                Json.createObjectBuilder(Map.of("value", "The size of the bite in meters")).build()
+                JsonNodeFactory.instance.objectNode().put("value", "The size of the bite in meters")
             ), VALUE_SCHEMA_REAL))),
         new ValueSchemaMeta(
-            Map.of("item_order", Json.createArrayBuilder().add("biteSizeWasBig").add("newFlag").build()),
+            Map.of("item_order", JsonNodeFactory.instance.arrayNode().add("biteSizeWasBig").add("newFlag")),
             new ValueSchemaStruct(Map.of("biteSizeWasBig", new ValueSchemaMeta(
                 Map.of(
-                    "description", Json.createObjectBuilder(Map.of("value", "Big Bite")).build()),
+                    "description", JsonNodeFactory.instance.objectNode().put("value", "Big Bite")),
                 VALUE_SCHEMA_BOOLEAN), "newFlag", new ValueSchemaVariant(List.of(new Variant("A", "A"), new Variant("B", "B")))))
         ),
         "Eat",
@@ -156,9 +156,9 @@ public class MissionModelTests {
         "DurationParameterActivity",
         Map.of("duration", new Parameter(0, VALUE_SCHEMA_DURATION)),
         new ValueSchemaMeta(
-            Map.of("item_order", Json.createArrayBuilder().add("duration").add("durationInSeconds").build()),
+            Map.of("item_order", JsonNodeFactory.instance.arrayNode().add("duration").add("durationInSeconds")),
             new ValueSchemaStruct(Map.of("duration", VALUE_SCHEMA_DURATION,
-            "durationInSeconds", new ValueSchemaMeta(Map.of("unit", Json.createObjectBuilder(Map.of("value", "s")).build()), VALUE_SCHEMA_REAL)))),
+            "durationInSeconds", new ValueSchemaMeta(Map.of("unit", JsonNodeFactory.instance.objectNode().put("value", "s")), VALUE_SCHEMA_REAL)))),
         null));
     activityTypes.add(new ActivityType("ExceptionActivity", Map.of("throwException", new Parameter(0, VALUE_SCHEMA_BOOLEAN))));
     activityTypes.add(new ActivityType("grandchild", Map.of("counter", new Parameter(0, VALUE_SCHEMA_INT))));
@@ -226,7 +226,7 @@ public class MissionModelTests {
                                       "obnoxious",
                                       "nested",
                                       "genericParameter"};
-    final var parameterTestItemOrder = Json.createArrayBuilder();
+    final var parameterTestItemOrder = JsonNodeFactory.instance.arrayNode();
     for(final var param: allSubs){
       parameterTestItemOrder.add(param);
     }
@@ -239,12 +239,12 @@ public class MissionModelTests {
             entry("record",
             new Parameter(
                 58,
-                new ValueSchemaMeta(Map.of("item_order", parameterTestItemOrder.build()), new ValueSchemaStruct(Map.<String, ValueSchema>ofEntries(
+                new ValueSchemaMeta(Map.of("item_order", parameterTestItemOrder), new ValueSchemaStruct(Map.<String, ValueSchema>ofEntries(
                     entry("intMap", new ValueSchemaSeries(new ValueSchemaStruct(Map.of(
                         "key", VALUE_SCHEMA_INT,
                         "value", VALUE_SCHEMA_INT)))),
                     entry("nested", new ValueSchemaMeta(
-                     Map.of( "item_order", Json.createArrayBuilder().add("a").add("b").build()),
+                     Map.of( "item_order", JsonNodeFactory.instance.arrayNode().add("a").add("b")),
                      new ValueSchemaStruct(Map.of(
                         "a", VALUE_SCHEMA_STRING,
                         "b", new ValueSchemaSeries(new ValueSchemaStruct(Map.of(
@@ -369,8 +369,8 @@ public class MissionModelTests {
             entry("byteArray", new Parameter(19,new ValueSchemaSeries(VALUE_SCHEMA_INT))),
             entry("charArray", new Parameter(23, new ValueSchemaSeries(VALUE_SCHEMA_STRING))),
             entry("doubleMap", new Parameter(43,new ValueSchemaSeries(new ValueSchemaStruct(Map.of(
-                "key", new ValueSchemaMeta(Map.of("unit", Json.createObjectBuilder(Map.of("value", "s")).build()), VALUE_SCHEMA_REAL),
-                "value", new ValueSchemaMeta(Map.of("unit", Json.createObjectBuilder(Map.of("value", "W")).build()), VALUE_SCHEMA_REAL)))))),
+                "key", new ValueSchemaMeta(Map.of("unit", JsonNodeFactory.instance.objectNode().put("value", "s")), VALUE_SCHEMA_REAL),
+                "value", new ValueSchemaMeta(Map.of("unit", JsonNodeFactory.instance.objectNode().put("value", "W")), VALUE_SCHEMA_REAL)))))),
             entry("floatList", new Parameter(35, new ValueSchemaSeries(VALUE_SCHEMA_REAL))),
             entry("longArray", new Parameter(22, new ValueSchemaSeries(VALUE_SCHEMA_INT))),
             entry("obnoxious", new Parameter(57, new ValueSchemaSeries(new ValueSchemaSeries(new ValueSchemaStruct(Map.of(
@@ -387,7 +387,7 @@ public class MissionModelTests {
                 "value", VALUE_SCHEMA_BOOLEAN))))),
             entry("boxedFloat", new Parameter(9, VALUE_SCHEMA_REAL)),
             entry("boxedShort", new Parameter(11, VALUE_SCHEMA_INT)),
-            entry("doubleList", new Parameter(34, new ValueSchemaSeries(new ValueSchemaMeta(Map.of("unit", Json.createObjectBuilder(Map.of("value", "m")).build()), VALUE_SCHEMA_REAL)))),
+            entry("doubleList", new Parameter(34, new ValueSchemaSeries(new ValueSchemaMeta(Map.of("unit", JsonNodeFactory.instance.objectNode().put("value", "m")), VALUE_SCHEMA_REAL)))),
             entry("floatArray", new Parameter(18, new ValueSchemaSeries(VALUE_SCHEMA_REAL))),
             entry("shortArray", new Parameter(20, new ValueSchemaSeries(VALUE_SCHEMA_INT))),
             entry("stringList", new Parameter(42, new ValueSchemaSeries(VALUE_SCHEMA_STRING))),
@@ -422,7 +422,7 @@ public class MissionModelTests {
         "PeelBanana",
         Map.of("peelDirection",
                new Parameter(0,
-                   new ValueSchemaMeta(Map.of("unit", Json.createObjectBuilder(Map.of("value", "direction")).build()),
+                   new ValueSchemaMeta(Map.of("unit", JsonNodeFactory.instance.objectNode().put("value", "direction")),
                    new ValueSchemaVariant(List.of(
                        new Variant("fromStem", "fromStem"),
                        new Variant("fromTip", "fromTip")))))),
@@ -466,7 +466,7 @@ public class MissionModelTests {
       final var actualParams = activityTypes.get(i).parameters();
       assertEquals(expectedParams.size(), actualParams.size());
       for(final var key : expectedParams.keySet()){
-        assertTrue(actualParams.containsKey(key));
+        assertTrue(actualParams.has(key));
         assertEquals(expectedParams.get(key), actualParams.get(key));
       }
 

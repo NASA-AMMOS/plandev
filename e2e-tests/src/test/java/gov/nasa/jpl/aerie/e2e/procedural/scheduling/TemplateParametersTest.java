@@ -1,5 +1,7 @@
 package gov.nasa.jpl.aerie.e2e.procedural.scheduling;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import gov.nasa.jpl.aerie.e2e.types.GoalInvocationId;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import org.apache.commons.lang3.tuple.Pair;
@@ -8,8 +10,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.opentest4j.AssertionFailedError;
 
-import javax.json.Json;
-import javax.json.JsonValue;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
@@ -68,7 +68,7 @@ public class TemplateParametersTest extends ProceduralSchedulingSetup {
       }
     }
 
-    hasura.updateSchedulingSpecGoalArguments(dumbRecurrenceGoalId.invocationId(), Json.createObjectBuilder().add("biteSize", 0).build());
+    hasura.updateSchedulingSpecGoalArguments(dumbRecurrenceGoalId.invocationId(), JsonNodeFactory.instance.objectNode().put("biteSize", 0));
     assertEquals("complete", hasura.awaitScheduling(specId).status());
 
     final var plan = hasura.getPlan(planId);
@@ -92,7 +92,7 @@ public class TemplateParametersTest extends ProceduralSchedulingSetup {
   @Test
   void defaultArgsTotal() throws IOException {
     final var effectiveArgs = hasura.getEffectiveProceduralGoalsArgumentsBulk(
-        List.of(Pair.of(dumbRecurrenceWithTemplateDefaultsGoalId.goalId(), JsonValue.EMPTY_JSON_OBJECT)));
+        List.of(Pair.of(dumbRecurrenceWithTemplateDefaultsGoalId.goalId(), JsonNodeFactory.instance.objectNode())));
     assertEquals(1, effectiveArgs.size());
     assertTrue(effectiveArgs.get(0).success());
     assertTrue(effectiveArgs.get(0).arguments().isPresent());
@@ -101,8 +101,8 @@ public class TemplateParametersTest extends ProceduralSchedulingSetup {
     // Check returned Arguments
     final var args = effectiveArgs.get(0).arguments().get();
     assertEquals(2, args.size());
-    assertEquals(5, args.getInt("biteSize"));
-    assertEquals(3, args.getInt("quantity"));
+    assertEquals(5, args.get("biteSize").intValue());
+    assertEquals(3, args.get("quantity").intValue());
   }
 
   @Test
@@ -110,7 +110,7 @@ public class TemplateParametersTest extends ProceduralSchedulingSetup {
     final var effectiveArgs = hasura.getEffectiveProceduralGoalsArgumentsBulk(
         List.of(Pair.of(
             dumbRecurrenceWithTemplateDefaultsGoalId.goalId(),
-            Json.createObjectBuilder().add("quantity", 4).build())));
+            JsonNodeFactory.instance.objectNode().put("quantity", 4))));
     assertEquals(1, effectiveArgs.size());
     assertTrue(effectiveArgs.get(0).success());
     assertTrue(effectiveArgs.get(0).arguments().isPresent());
@@ -119,8 +119,8 @@ public class TemplateParametersTest extends ProceduralSchedulingSetup {
     // Check returned Arguments
     final var args = effectiveArgs.get(0).arguments().get();
     assertEquals(2, args.size());
-    assertEquals(5, args.getInt("biteSize"));
-    assertEquals(4, args.getInt("quantity"));
+    assertEquals(5, args.get("biteSize").intValue());
+    assertEquals(4, args.get("quantity").intValue());
   }
 
 }

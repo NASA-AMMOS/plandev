@@ -49,6 +49,6 @@ public final class ListValueMapper<T> implements ValueMapper<List<T>> {
     for (final var element : elements) {
       serializedElements.add(this.elementMapper.serializeValue(element));
     }
-    return SerializedValue.of(serializedElements);
+    return SerializedValue.ofTrusted(serializedElements);
   }
 }

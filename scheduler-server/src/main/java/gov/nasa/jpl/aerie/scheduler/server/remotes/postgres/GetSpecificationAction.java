@@ -1,10 +1,11 @@
 package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.types.Timestamp;
 import org.intellij.lang.annotations.Language;
 
-import javax.json.Json;
+import java.io.IOException;
 import java.io.Reader;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -62,13 +63,16 @@ import java.util.Optional;
   }
 
   private Map<String, SerializedValue> parseSimulationArguments(final Reader stream) {
-    try (final var reader = Json.createReader(stream)) {
-      final var json = reader.readValue();
+    try {
+      final var mapper = new ObjectMapper();
+      final var json = mapper.readTree(stream);
       return PostgresParsers.simulationArgumentsP
           .parse(json)
           .getSuccessOrThrow(
               failureReason -> new Error("Corrupt simulation arguments cannot be parsed: " + failureReason.reason())
           );
+    } catch (final IOException e) {
+      throw new RuntimeException("Failed to parse simulation arguments JSON", e);
     }
   }
 

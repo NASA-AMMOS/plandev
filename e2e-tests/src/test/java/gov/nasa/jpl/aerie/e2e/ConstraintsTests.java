@@ -1,5 +1,8 @@
 package gov.nasa.jpl.aerie.e2e;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.BooleanNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.microsoft.playwright.Playwright;
 import gov.nasa.jpl.aerie.e2e.types.ConstraintActionResponse;
 import gov.nasa.jpl.aerie.e2e.types.ConstraintError;
@@ -10,8 +13,6 @@ import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
 import org.junit.jupiter.api.*;
 
-import javax.json.Json;
-import javax.json.JsonValue;
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.List;
@@ -73,7 +74,7 @@ public class ConstraintsTests {
         planId,
         "BiteBanana",
         "1h",
-        Json.createObjectBuilder().add("biteSize", 1).build());
+        JsonNodeFactory.instance.objectNode().put("biteSize", 1));
     // Insert the Constraint
     final var insertResp = hasura.insertPlanConstraint(
         constraintName,
@@ -150,7 +151,7 @@ public class ConstraintsTests {
         planId,
         "PeelBanana",
         "1h",
-        Json.createObjectBuilder().add("peelDirection", "fromStem").build());
+        JsonNodeFactory.instance.objectNode().put("peelDirection", "fromStem"));
 
     hasura.awaitSimulation(planId);
     final var constraintsResponses = hasura.checkConstraintsJustResults(planId);
@@ -282,7 +283,7 @@ public class ConstraintsTests {
         planId,
         "ControllableDurationActivity",
         "0h",
-        Json.createObjectBuilder().add("duration", thirtyFiveDays).build());
+        JsonNodeFactory.instance.objectNode().set("duration", thirtyFiveDays));
     hasura.awaitSimulation(planId);
     final var constraintsResponses = hasura.checkConstraints(planId).constraintsRun();
     assertEquals(1, constraintsResponses.size());
@@ -328,7 +329,6 @@ public class ConstraintsTests {
     assertTrue(newConstraintResponses.getFirst().result().isPresent());
     final var newConstraintResult = newConstraintResponses.getFirst().result().get();
     assertTrue(newConstraintResult.violations().isEmpty());
-
 
     // Expect one violation on the old simulation
     final var oldConstraintsResponses = hasura.checkConstraints(planId, oldSimDatasetId).constraintsRun();
@@ -474,8 +474,8 @@ public class ConstraintsTests {
         "discrete",
         ValueSchema.VALUE_SCHEMA_BOOLEAN,
         List.of(
-            new ProfileSegmentInput(3600000000L, JsonValue.TRUE), // 1hr in micros
-            new ProfileSegmentInput(3600000000L, JsonValue.FALSE)));
+            new ProfileSegmentInput(3600000000L, BooleanNode.TRUE), // 1hr in micros
+            new ProfileSegmentInput(3600000000L, BooleanNode.FALSE)));
 
     public static final String constraintDefinition = "export default (): Constraint => Discrete.Resource(\"/my_boolean\").equal(true)";
 
@@ -525,7 +525,6 @@ public class ConstraintsTests {
 
       // The results should be the same
       assertEquals(nRecordResults, wRecordResults);
-
 
       // Resources
       assertEquals(1, nRecordResults.resourceIds().size());

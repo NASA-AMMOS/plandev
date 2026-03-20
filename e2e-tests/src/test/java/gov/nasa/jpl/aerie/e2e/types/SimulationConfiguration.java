@@ -1,6 +1,6 @@
 package gov.nasa.jpl.aerie.e2e.types;
 
-import javax.json.JsonObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.Optional;
 
 public record SimulationConfiguration(
@@ -8,18 +8,18 @@ public record SimulationConfiguration(
     int revision,
     int planId,
     Optional<Integer> simulationTemplateId,
-    JsonObject arguments,
+    ObjectNode arguments,
     String simulationStartTime,
     String simulationEndTime
 ) {
-  public static SimulationConfiguration fromJSON(JsonObject json) {
+  public static SimulationConfiguration fromJSON(ObjectNode json) {
     return new SimulationConfiguration(
-        json.getInt("id"),
-        json.getInt("revision"),
-        json.getInt("plan_id"),
-        json.isNull("simulation_template_id") ? Optional.empty() : Optional.of(json.getInt("simulation_template_id")),
-        json.getJsonObject("arguments"),
-        json.getString("simulation_start_time"),
-        json.getString("simulation_end_time"));
+        json.get("id").intValue(),
+        json.get("revision").intValue(),
+        json.get("plan_id").intValue(),
+        (json.get("simulation_template_id") == null || json.get("simulation_template_id").isNull()) ? Optional.empty() : Optional.of(json.get("simulation_template_id").intValue()),
+        json.get("arguments"),
+        json.get("simulation_start_time").textValue(),
+        json.get("simulation_end_time").textValue());
   }
 }

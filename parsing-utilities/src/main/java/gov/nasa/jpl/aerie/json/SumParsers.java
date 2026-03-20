@@ -1,8 +1,8 @@
 package gov.nasa.jpl.aerie.json;
 
-import javax.json.Json;
-import javax.json.JsonObject;
-import javax.json.JsonValue;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.List;
 import java.util.Objects;
 
@@ -22,41 +22,45 @@ public final class SumParsers {
   JsonParser<T> sumP(final String tagField, final Class<T> klass, final List<Variant<? extends T>> variants) {
     return new JsonObjectParser<T>() {
       @Override
-      public JsonObject getSchema(final SchemaCache anchors) {
-        final var builder = Json.createArrayBuilder();
+      public ObjectNode getSchema(final SchemaCache anchors) {
+        final var arr = JsonNodeFactory.instance.arrayNode();
         for (final var variant : variants) {
           final var schema = variant.parser.getSchema(anchors);
-          final var properties = schema.getJsonObject("properties");
-          final var requiredProperties = schema.getJsonArray("required");
+          final var properties = (ObjectNode) schema.get("properties");
+          final var requiredProperties = schema.get("required");
 
-          builder.add(Json
-              .createObjectBuilder(schema)
-              .add("properties", Json
-                  .createObjectBuilder()
-                  .add(tagField, Json
-                      .createObjectBuilder()
-                      .add("const", Json.createValue(variant.tag()))
-                      .build())
-                  .addAll(Json.createObjectBuilder(properties)))
-              .add("required", Json
-                  .createArrayBuilder()
-                  .add(tagField)
-                  .addAll(Json.createArrayBuilder(requiredProperties)))
-              .build());
+          // Build the augmented properties with tag field
+          final var tagSchema = JsonNodeFactory.instance.objectNode();
+          tagSchema.put("const", variant.tag());
+          final var augProperties = properties.deepCopy();
+          augProperties.set(tagField, tagSchema);
+
+          // Build the augmented required array with tag field
+          final var augRequired = JsonNodeFactory.instance.arrayNode();
+          augRequired.add(tagField);
+          if (requiredProperties != null && requiredProperties.isArray()) {
+            for (final var req : requiredProperties) {
+              augRequired.add(req);
+            }
+          }
+
+          final var variantSchema = schema.deepCopy();
+          variantSchema.set("properties", augProperties);
+          variantSchema.set("required", augRequired);
+          arr.add(variantSchema);
         }
 
-        return Json
-            .createObjectBuilder()
-            .add("oneOf", builder.build())
-            .build();
+        final var node = JsonNodeFactory.instance.objectNode();
+        node.set("oneOf", arr);
+        return node;
       }
 
       @Override
-      public JsonParseResult<T> parse(final JsonValue json) {
-        if (!(json instanceof JsonObject obj)) return JsonParseResult.failure("expected object");
-        if (!obj.containsKey(tagField)) return JsonParseResult.failure("missing field `%s`".formatted(tagField));
+      public JsonParseResult<T> parse(final JsonNode json) {
+        if (!json.isObject()) return JsonParseResult.failure("expected object");
+        if (!json.has(tagField)) return JsonParseResult.failure("missing field `%s`".formatted(tagField));
 
-        final var tag$ = stringP.parse(obj.get(tagField));
+        final var tag$ = stringP.parse(json.get(tagField));
         if (tag$ instanceof JsonParseResult.Failure<?> f) {
           return f.cast();
         } else if (tag$ instanceof JsonParseResult.Success<String> s) {
@@ -65,7 +69,9 @@ public final class SumParsers {
           for (final var variant : variants) {
             if (!Objects.equals(variant.tag(), tag)) continue;
 
-            final var prunedObj = Json.createObjectBuilder(obj).remove(tagField).build();
+            // Create a copy without the tag field
+            final var prunedObj = ((ObjectNode) json).deepCopy();
+            prunedObj.remove(tagField);
             return variant.parser().parse(prunedObj).mapSuccess($ -> $);
           }
 
@@ -78,21 +84,20 @@ public final class SumParsers {
       }
 
       @Override
-      public JsonObject unparse(final T value) {
+      public ObjectNode unparse(final T value) {
         for (final var variant : variants) {
           if (!variant.klass.isAssignableFrom(value.getClass())) continue;
 
-          return Json
-              .createObjectBuilder(unsafeParseSubclass(variant, value))
-              .add(tagField, variant.tag())
-              .build();
+          final var obj = unsafeParseSubclass(variant, value);
+          obj.put(tagField, variant.tag());
+          return obj;
         }
           throw new RuntimeException(
               "Unknown subclass %s of class %s with value %s"
                   .formatted(value.getClass(), klass, value));
       }
 
-      public <S extends T> JsonObject unsafeParseSubclass(final Variant<S> variant, final T value) {
+      public <S extends T> ObjectNode unsafeParseSubclass(final Variant<S> variant, final T value) {
         return variant.parser().unparse(variant.klass().cast(value));
       }
     };

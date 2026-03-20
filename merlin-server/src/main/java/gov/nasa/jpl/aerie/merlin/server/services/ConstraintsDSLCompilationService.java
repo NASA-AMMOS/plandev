@@ -1,5 +1,8 @@
 package gov.nasa.jpl.aerie.merlin.server.services;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import gov.nasa.jpl.aerie.constraints.model.EDSLConstraintResult;
 import gov.nasa.jpl.aerie.constraints.tree.Expression;
 import gov.nasa.jpl.aerie.json.JsonParser;
@@ -12,12 +15,8 @@ import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
 import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 
-import javax.json.Json;
-import javax.json.JsonObject;
-import javax.json.stream.JsonParsingException;
 import java.io.File;
 import java.io.IOException;
-import java.io.StringReader;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -26,6 +25,7 @@ public class ConstraintsDSLCompilationService {
 
   private final Process nodeProcess;
   private final TypescriptCodeGenerationServiceAdapter typescriptCodeGenerationService;
+  private static final ObjectMapper objectMapper = new ObjectMapper();
 
   public ConstraintsDSLCompilationService(final TypescriptCodeGenerationServiceAdapter typescriptCodeGenerationService)
   throws IOException
@@ -63,11 +63,10 @@ public class ConstraintsDSLCompilationService {
   ) throws MissionModelService.NoSuchMissionModelException, NoSuchPlanException
   {
     final var missionModelGeneratedCode = this.typescriptCodeGenerationService.generateTypescriptTypes(missionModelId, planId, simulationDatasetId);
-    final JsonObject messageJson = Json.createObjectBuilder()
-        .add("constraintCode", constraintTypescript)
-        .add("missionModelGeneratedCode", missionModelGeneratedCode)
-        .add("expectedReturnType", "Constraint")
-        .build();
+    final var messageJson = JsonNodeFactory.instance.objectNode();
+    messageJson.put("constraintCode", constraintTypescript);
+    messageJson.put("missionModelGeneratedCode", missionModelGeneratedCode);
+    messageJson.put("expectedReturnType", "Constraint");
     /*
      * PROTOCOL:
      *   denote this java program as JAVA, and the node subprocess as NODE
@@ -110,11 +109,11 @@ public class ConstraintsDSLCompilationService {
   private static <T> T parseJson(final String jsonStr, final JsonParser<T> parser)
   throws InvalidJsonException, InvalidEntityException
   {
-    try (final var reader = Json.createReader(new StringReader(jsonStr))) {
-      final var requestJson = reader.readValue();
+    try {
+      final var requestJson = objectMapper.readTree(jsonStr);
       final var result = parser.parse(requestJson);
       return result.getSuccessOrThrow(reason -> new InvalidEntityException(List.of(reason)));
-    } catch (JsonParsingException e) {
+    } catch (JsonProcessingException e) {
       throw new InvalidJsonException(e);
     }
   }

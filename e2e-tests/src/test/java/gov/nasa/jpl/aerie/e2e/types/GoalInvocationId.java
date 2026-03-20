@@ -1,12 +1,11 @@
 package gov.nasa.jpl.aerie.e2e.types;
 
-import javax.json.JsonObject;
-
+import com.fasterxml.jackson.databind.node.ObjectNode;
 public record GoalInvocationId(int goalId, int invocationId) {
-  public static GoalInvocationId fromJSON(JsonObject json) {
+  public static GoalInvocationId fromJSON(ObjectNode json) {
     return new GoalInvocationId(
-        json.getInt("goal_id"),
-        json.getInt("goal_invocation_id")
+        json.get("goal_id").intValue(),
+        json.get("goal_invocation_id").intValue()
     );
   }
 }

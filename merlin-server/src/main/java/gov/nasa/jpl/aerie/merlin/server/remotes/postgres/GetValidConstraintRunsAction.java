@@ -1,12 +1,13 @@
 package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.server.models.DBConstraintResult;
 import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
 import org.intellij.lang.annotations.Language;
 
-import javax.json.Json;
-import java.io.StringReader;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -33,6 +34,8 @@ final class GetValidConstraintRunsAction implements AutoCloseable {
     order by run.request_id desc
     limit 1;
   """;
+
+  private static final ObjectMapper objectMapper = new ObjectMapper();
 
   private final PreparedStatement statement;
   private final List<ConstraintRecord> constraints;
@@ -63,10 +66,11 @@ final class GetValidConstraintRunsAction implements AutoCloseable {
 
       try(final var results = this.statement.executeQuery()) {
         if(results.next()) {
-          try(final var resultsReader = new StringReader(results.getString("results"));
-              final var resultsParser = Json.createParser(resultsReader)) {
-            resultsParser.next();
-            cachedResults.put(constraint, new DBConstraintResult(results.getLong("id"), resultsParser.getObject()));
+          try {
+            final var resultsJson = (ObjectNode) objectMapper.readTree(results.getString("results"));
+            cachedResults.put(constraint, new DBConstraintResult(results.getLong("id"), resultsJson));
+          } catch (IOException e) {
+            throw new SQLException("Failed to parse constraint results JSON", e);
           }
         }
       }

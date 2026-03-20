@@ -8,9 +8,9 @@ import org.postgresql.PGConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.json.Json;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import javax.sql.DataSource;
-import java.io.StringReader;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.concurrent.BlockingQueue;
 
@@ -52,8 +52,9 @@ public class ListenSchedulerCapability {
               if (channelName.equals("scheduling_cancel")) {
                   canceledListener.receiveSignal(new SpecificationId(Long.parseLong(payload)));
               } else {
-                try (final var reader = Json.createReader(new StringReader(payload))) {
-                  final var jsonValue = reader.readValue();
+                try {
+                  final var mapper = new ObjectMapper();
+                  final var jsonValue = mapper.readTree(payload);
                   final var notificationPayload = postgresSchedulingRequestNotificationP
                       .parse(jsonValue)
                       .getSuccessOrThrow();
@@ -64,6 +65,8 @@ public class ListenSchedulerCapability {
                     logger.info("Listener has been interrupted");
                     return;
                   }
+                } catch (IOException e) {
+                  logger.error("Failed to parse notification payload as JSON", e);
                 }
               }
             }

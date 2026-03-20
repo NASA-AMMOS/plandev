@@ -1,15 +1,12 @@
 package gov.nasa.jpl.aerie.database;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import gov.nasa.jpl.aerie.database.TagsTests.Tag;
 import org.junit.jupiter.api.*;
 
-import javax.json.Json;
-import javax.json.JsonArray;
-import javax.json.JsonObject;
-import javax.json.JsonReader;
-import javax.json.JsonValue;
 import java.io.IOException;
-import java.io.StringReader;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.*;
@@ -68,10 +65,9 @@ public class PlanMigrationTests {
           select merlin.duplicate_plan(%s, '%s', 'PlanMigrationTests') as id;
           """.formatted(planId, newPlanName));
       res.next();
-      return res.getInt("id");
+      return res.get("id").intValue();
     }
   }
-
 
   private record ImpactedDirective(String directiveType, String issue) {};
 
@@ -81,16 +77,18 @@ public class PlanMigrationTests {
   // [{"activity_directive": {..."type": "Type1"}, "issue": "removed"}, {...}]
   private List<ImpactedDirective> parseImpactedDirectivesJson(String str) {
     ArrayList<ImpactedDirective> impactedDirectives = new ArrayList<>();
-    try (JsonReader reader = Json.createReader(new StringReader(str))) {
-      JsonArray jsonArray = reader.readArray();
-      for (JsonObject element: jsonArray.getValuesAs(JsonObject.class)) {
-        JsonObject directiveInfo  = element.getJsonObject("activity_directive");
-        impactedDirectives.add(new ImpactedDirective(directiveInfo.getString("type"), element.getString("issue")));
+    try {
+      ArrayNode jsonArray = (ArrayNode) new ObjectMapper().readTree(str);
+      for (var node : jsonArray) {
+        ObjectNode element = (ObjectNode) node;
+        ObjectNode directiveInfo = (ObjectNode) element.get("activity_directive");
+        impactedDirectives.add(new ImpactedDirective(directiveInfo.get("type").textValue(), element.get("issue").textValue()));
       }
+    } catch (Exception e) {
+      throw new RuntimeException(e);
     }
     return impactedDirectives;
   }
-
 
   private List<Integer> getLatestSnapshots(final int planId) throws SQLException {
     try(final var statement = connection.createStatement()){
@@ -105,7 +103,7 @@ public class PlanMigrationTests {
         );
         final List<Integer> latestSnapshots = new ArrayList<>();
         while (results.next()) {
-          latestSnapshots.add(results.getInt(1));
+          latestSnapshots.add(results.get(1).intValue());
         }
         return latestSnapshots;
       }
@@ -122,12 +120,11 @@ public class PlanMigrationTests {
           """.formatted(snapshotId)
       );
       if (results.next()) {
-        return results.getString(1);
+        return results.get(1).textValue();
       }
     }
     return "SnapshotNotFound";
   }
-
 
   private String getModelName(final int modelId) throws SQLException {
     try(final var statement = connection.createStatement()){
@@ -140,13 +137,11 @@ public class PlanMigrationTests {
           """.formatted(modelId)
       );
       if (results.next()) {
-        return results.getString(1);
+        return results.get(1).textValue();
       }
     }
     return "ModelNotFound";
   }
-
-
 
   private int createMergeRequest(final int planId_receiving, final int planId_supplying) throws SQLException{
     try(final var statement = connection.createStatement()){
@@ -157,7 +152,7 @@ public class PlanMigrationTests {
           """.formatted(planId_supplying, planId_receiving)
       );
       res.next();
-      return res.getInt(1);
+      return res.get(1).intValue();
     }
   }
 
@@ -176,9 +171,9 @@ public class PlanMigrationTests {
 
       if (res.next()) {
         final var resultMap = new HashMap<String, String>();
-        resultMap.put("removed_activity_types", res.getString("removed_activity_types"));
-        resultMap.put("modified_activity_types", res.getString("modified_activity_types"));
-        resultMap.put("impacted_directives", res.getString("impacted_directives"));
+        resultMap.put("removed_activity_types", res.get("removed_activity_types").textValue());
+        resultMap.put("modified_activity_types", res.get("modified_activity_types").textValue());
+        resultMap.put("impacted_directives", res.get("impacted_directives").textValue());
         return resultMap;
       } else {
         throw new SQLException("No result returned from check_model_compatibility");
@@ -208,10 +203,9 @@ public class PlanMigrationTests {
           where id = %d;
           """.formatted(planId));
       assertTrue(res.next());
-      return res.getInt(1);
+      return res.get(1).intValue();
     }
   }
-
 
   /**
    * Check that migration fails if:
@@ -228,13 +222,11 @@ public class PlanMigrationTests {
     );
     assertTrue(sqlEx.getMessage().contains("Plan -1 does not exist"), "bad error message, got " + sqlEx.getMessage());
 
-
     final var sqlEx2 = assertThrows(
       SQLException.class,
       () -> migratePlanToModel(planId, -1)
     );
     assertTrue(sqlEx2.getMessage().contains("Model -1 does not exist"), "bad error message, got " + sqlEx2.getMessage());
-
 
     final var sqlEx3 = assertThrows(
       SQLException.class,
@@ -242,7 +234,6 @@ public class PlanMigrationTests {
     );
     assertTrue(sqlEx3.getMessage().contains("Plan -1 does not exist"), "bad error message, got " + sqlEx3.getMessage());
   }
-
 
   /**
    * Check that migration fails if there exist open merge requests on _plan_id.
@@ -289,7 +280,6 @@ public class PlanMigrationTests {
     final int modelIdInDb = getPlanModel(planId);
     assertEquals(modelIdInDb, newModelId);
   }
-
 
   /**
    * Verify that a compatability check will not show any differences for identical models.

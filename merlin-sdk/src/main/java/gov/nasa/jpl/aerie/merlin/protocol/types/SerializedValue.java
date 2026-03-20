@@ -101,6 +101,7 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
     // `BigDecimal#equals` is too strict -- values differing only in representation need to be considered the same.
     @Override
     public boolean equals(final Object obj) {
+      if (obj instanceof DoubleValue d) return BigDecimal.valueOf(d.value).compareTo(this.value) == 0;
       if (!(obj instanceof NumericValue other)) return false;
       return (this.value.compareTo(other.value) == 0);
     }
@@ -108,6 +109,35 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
     @Override
     public int hashCode() {
       return this.value.stripTrailingZeros().hashCode();
+    }
+  }
+
+  /**
+   * Lightweight numeric variant that avoids {@link BigDecimal} allocation for doubles.
+   * The {@link BigDecimal} conversion is deferred to when {@link #match} is actually called.
+   */
+  record DoubleValue(double value) implements SerializedValue {
+    @Override
+    public <T> T match(final Visitor<T> visitor) {
+      return visitor.onNumeric(BigDecimal.valueOf(value));
+    }
+
+    @Override
+    public Double getValue() {
+      return value;
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+      if (obj instanceof DoubleValue d) return Double.compare(value, d.value) == 0;
+      if (obj instanceof NumericValue n) return BigDecimal.valueOf(value).compareTo(n.value()) == 0;
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      // Must be consistent with NumericValue.hashCode for equal values.
+      return BigDecimal.valueOf(value).stripTrailingZeros().hashCode();
     }
   }
 
@@ -181,7 +211,7 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
    * @return A new {@link SerializedValue} containing a real number.
    */
   static SerializedValue of(final double value) {
-    return new NumericValue(BigDecimal.valueOf(value));
+    return new DoubleValue(value);
   }
 
   /**
@@ -228,6 +258,14 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
   }
 
   /**
+   * Creates a {@link SerializedValue} wrapping the given map without defensive copying.
+   * The caller must guarantee the map is not modified after this call.
+   */
+  static SerializedValue ofTrusted(final Map<String, SerializedValue> map) {
+    return new MapValue(map);
+  }
+
+  /**
    * Creates a {@link SerializedValue} containing a list of {@link SerializedValue}s.
    *
    * @param list Any list of {@link SerializedValue}s.
@@ -237,6 +275,14 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
     for (final var v : Objects.requireNonNull(list)) Objects.requireNonNull(v);
     final var value = List.copyOf(list);
     return new ListValue(value);
+  }
+
+  /**
+   * Creates a {@link SerializedValue} wrapping the given list without defensive copying.
+   * The caller must guarantee the list is not modified after this call.
+   */
+  static SerializedValue ofTrusted(final List<SerializedValue> list) {
+    return new ListValue(list);
   }
 
 
@@ -300,125 +346,54 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
    * @return True if this object represents a null value, and false otherwise.
    */
   default boolean isNull() {
-    return this.match(new DefaultVisitor<>() {
-      @Override
-      public Boolean onNull() {
-        return true;
-      }
-
-      @Override
-      protected Boolean onDefault() {
-        return false;
-      }
-    });
+    return this instanceof NullValue;
   }
 
-  /**
-   * Attempts to access the data in this object as an arbitrary-precision number.
-   *
-   * @return An {@link Optional} containing a BigDecimal if this object contains an arbitrary-precision number.
-   *   Otherwise, returns an empty {@link Optional}.
-   */
   default Optional<BigDecimal> asNumeric() {
-    return this.match(new OptionalVisitor<>() {
-      @Override
-      public Optional<BigDecimal> onNumeric(final BigDecimal value) {
-        return Optional.of(value);
-      }
-    });
+    if (this instanceof NumericValue n) return Optional.of(n.value());
+    if (this instanceof DoubleValue d) return Optional.of(BigDecimal.valueOf(d.value()));
+    return Optional.empty();
   }
 
-  /**
-   * Attempts to access the data in this object as a real number.
-   *
-   * @return An {@link Optional} containing a double if this object contains a real number.
-   *   Otherwise, returns an empty {@link Optional}.
-   */
   default Optional<Double> asReal() {
-    return this.match(new OptionalVisitor<>() {
-      @Override
-      public Optional<Double> onNumeric(final BigDecimal value) {
-        return Optional.of(value.doubleValue());
-      }
-    });
+    if (this instanceof DoubleValue d) return Optional.of(d.value());
+    if (this instanceof NumericValue n) return Optional.of(n.value().doubleValue());
+    return Optional.empty();
   }
 
-  /**
-   * Attempts to access the data in this object as an integral number.
-   *
-   * @return An {@link Optional} containing a long if this object contains an integral number.
-   *   Otherwise, returns an empty {@link Optional}.
-   */
   default Optional<Long> asInt() {
-    return this.match(new OptionalVisitor<>() {
-      @Override
-      public Optional<Long> onNumeric(final BigDecimal value) {
-        try {
-          return Optional.of(value.longValueExact());
-        } catch (final ArithmeticException ex) {
-          return Optional.empty();
-        }
+    if (this instanceof NumericValue n) {
+      try {
+        return Optional.of(n.value().longValueExact());
+      } catch (final ArithmeticException ex) {
+        return Optional.empty();
       }
-    });
+    }
+    if (this instanceof DoubleValue d) {
+      final var l = (long) d.value();
+      if (l == d.value()) return Optional.of(l);
+      return Optional.empty();
+    }
+    return Optional.empty();
   }
 
-  /**
-   * Attempts to access the data in this object as a boolean.
-   *
-   * @return An {@link Optional} containing a boolean if this object contains a boolean.
-   *   Otherwise, returns an empty {@link Optional}.
-   */
   default Optional<Boolean> asBoolean() {
-    return this.match(new OptionalVisitor<>() {
-      @Override
-      public Optional<Boolean> onBoolean(final boolean value) {
-        return Optional.of(value);
-      }
-    });
+    if (this instanceof BooleanValue b) return Optional.of(b.value());
+    return Optional.empty();
   }
 
-  /**
-   * Attempts to access the data in this object as a {@link String}.
-   *
-   * @return An {@link Optional} containing a {@link String} if this object contains a {@link String}.
-   *   Otherwise, returns an empty {@link Optional}.
-   */
   default Optional<String> asString() {
-    return this.match(new OptionalVisitor<>() {
-      @Override
-      public Optional<String> onString(final String value) {
-        return Optional.of(value);
-      }
-    });
+    if (this instanceof StringValue s) return Optional.of(s.value());
+    return Optional.empty();
   }
 
-  /**
-   * Attempts to access the data in this object as a map of named {@code SerializedValue}s.
-   *
-   * @return An {@link Optional} containing a map if this object contains a map.
-   *   Otherwise, returns an empty {@link Optional}.
-   */
   default Optional<Map<String, SerializedValue>> asMap() {
-    return this.match(new OptionalVisitor<>() {
-      @Override
-      public Optional<Map<String, SerializedValue>> onMap(final Map<String, SerializedValue> value) {
-        return Optional.of(value);
-      }
-    });
+    if (this instanceof MapValue m) return Optional.of(m.map());
+    return Optional.empty();
   }
 
-  /**
-   * Attempts to access the data in this object as a list of {@code SerializedValue}s.
-   *
-   * @return An {@link Optional} containing a list if this object contains a list.
-   *   Otherwise, returns an empty {@link Optional}.
-   */
   default Optional<List<SerializedValue>> asList() {
-    return this.match(new OptionalVisitor<>() {
-      @Override
-      public Optional<List<SerializedValue>> onList(final List<SerializedValue> value) {
-        return Optional.of(value);
-      }
-    });
+    if (this instanceof ListValue l) return Optional.of(l.list());
+    return Optional.empty();
   }
 }

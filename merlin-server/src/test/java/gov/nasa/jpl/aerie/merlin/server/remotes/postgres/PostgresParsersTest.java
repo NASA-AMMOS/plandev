@@ -1,6 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 
-import javax.json.Json;
+import com.fasterxml.jackson.databind.node.TextNode;
 import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.pgTimestampP;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -13,7 +13,7 @@ public final class PostgresParsersTest {
   public void testTimestampParser() {
     final var timestamp = "2022-01-01T23:43:59.83237+00:00";
     final var expected = Timestamp.fromString("2022-001T23:43:59.83237");
-    final var actual = pgTimestampP.parse(Json.createValue(timestamp)).getSuccessOrThrow();
+    final var actual = pgTimestampP.parse(TextNode.valueOf(timestamp)).getSuccessOrThrow();
 
     assertEquals(expected, actual);
   }

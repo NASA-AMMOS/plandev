@@ -1,7 +1,8 @@
 package gov.nasa.jpl.aerie.e2e.types;
 
-import javax.json.Json;
-import javax.json.JsonObject;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -28,15 +29,15 @@ public record ActionPermissionsSet(Map<ActionKey, Permission> permissions){
       PLAN_OWNER_COLLABORATOR
     }
 
-    public static ActionPermissionsSet fromJSON(JsonObject json) {
+    public static ActionPermissionsSet fromJSON(ObjectNode json) {
       final var permissions = new HashMap<ActionKey, Permission>(9);
-      json.forEach((k, __) ->
-        permissions.put(ActionKey.valueOf(k), Permission.valueOf(json.getString(k))));
+      json.fields().forEachRemaining(entry ->
+        permissions.put(ActionKey.valueOf(entry.getKey()), Permission.valueOf(entry.getValue().textValue())));
       return new ActionPermissionsSet(permissions);
     }
-    public JsonObject toJSON(){
-      final var jsonBuilder = Json.createObjectBuilder();
-      permissions.forEach((k, v) -> jsonBuilder.add(k.name(), v.name()));
-      return jsonBuilder.build();
+    public ObjectNode toJSON(){
+      final var jsonBuilder = JsonNodeFactory.instance.objectNode();
+      permissions.forEach((k, v) -> jsonBuilder.put(k.name(), v.name()));
+      return jsonBuilder;
     }
   }

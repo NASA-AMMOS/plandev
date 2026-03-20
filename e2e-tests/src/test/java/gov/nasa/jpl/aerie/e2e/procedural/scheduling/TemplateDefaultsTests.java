@@ -1,12 +1,13 @@
 package gov.nasa.jpl.aerie.e2e.procedural.scheduling;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import gov.nasa.jpl.aerie.e2e.types.GoalInvocationId;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import javax.json.Json;
 import java.io.IOException;
 import java.util.Objects;
 
@@ -63,19 +64,19 @@ public class TemplateDefaultsTests extends ProceduralSchedulingSetup {
         it ->
             Objects.equals(it.type(), "BiteBanana") &&
             Objects.equals(it.startOffset(), "24:00:00") &&
-            Objects.equals(it.arguments().getInt("biteSize"), 5)));
+            Objects.equals(it.arguments().get("biteSize").intValue(), 5)));
 
     assertTrue(activities.stream().anyMatch(
         it ->
             Objects.equals(it.type(), "BiteBanana") &&
             Objects.equals(it.startOffset(), "30:00:00") &&
-            Objects.equals(it.arguments().getInt("biteSize"), 5)));
+            Objects.equals(it.arguments().get("biteSize").intValue(), 5)));
 
     assertTrue(activities.stream().anyMatch(
         it ->
             Objects.equals(it.type(), "BiteBanana") &&
             Objects.equals(it.startOffset(), "36:00:00") &&
-            Objects.equals(it.arguments().getInt("biteSize"), 5)));
+            Objects.equals(it.arguments().get("biteSize").intValue(), 5)));
   }
 
   /**
@@ -83,7 +84,7 @@ public class TemplateDefaultsTests extends ProceduralSchedulingSetup {
    */
   @Test
   void executeSchedulingRunWithOneArgument() throws IOException {
-    final var args = Json.createObjectBuilder().add("biteSize", 2).build();
+    final var args = JsonNodeFactory.instance.objectNode().put("biteSize", 2);
 
     hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
 
@@ -98,19 +99,19 @@ public class TemplateDefaultsTests extends ProceduralSchedulingSetup {
         it ->
             Objects.equals(it.type(), "BiteBanana") &&
             Objects.equals(it.startOffset(), "24:00:00") &&
-            Objects.equals(it.arguments().getInt("biteSize"), 2)));
+            Objects.equals(it.arguments().get("biteSize").intValue(), 2)));
 
     assertTrue(activities.stream().anyMatch(
         it ->
             Objects.equals(it.type(), "BiteBanana") &&
             Objects.equals(it.startOffset(), "30:00:00") &&
-            Objects.equals(it.arguments().getInt("biteSize"), 2)));
+            Objects.equals(it.arguments().get("biteSize").intValue(), 2)));
 
     assertTrue(activities.stream().anyMatch(
         it ->
             Objects.equals(it.type(), "BiteBanana") &&
             Objects.equals(it.startOffset(), "36:00:00") &&
-            Objects.equals(it.arguments().getInt("biteSize"), 2)));
+            Objects.equals(it.arguments().get("biteSize").intValue(), 2)));
   }
 
 }

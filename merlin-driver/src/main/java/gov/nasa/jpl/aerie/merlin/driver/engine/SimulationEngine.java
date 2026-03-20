@@ -28,6 +28,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
+import java.util.Iterator;
 import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.apache.commons.lang3.mutable.MutableObject;
@@ -92,13 +93,14 @@ public final class SimulationEngine implements AutoCloseable {
 
   /* The top-level simulation timeline. */
   private final TemporalEventSource timeline;
-  private final TemporalEventSource referenceTimeline;
+  /** Frozen timeline segments from ancestor engines, shared by reference (never copied). */
+  private final List<TemporalEventSource> frozenTimelineSegments;
   private final LiveCells cells;
   private Duration elapsedTime;
 
   public SimulationEngine(LiveCells initialCells) {
     timeline = new TemporalEventSource();
-    referenceTimeline = new TemporalEventSource();
+    frozenTimelineSegments = new ArrayList<>();
     cells = new LiveCells(timeline, initialCells);
     elapsedTime = Duration.ZERO;
 
@@ -118,14 +120,17 @@ public final class SimulationEngine implements AutoCloseable {
 
   private SimulationEngine(SimulationEngine other) {
     other.timeline.freeze();
-    other.referenceTimeline.freeze();
     other.cells.freeze();
 
     elapsedTime = other.elapsedTime;
 
     timeline = new TemporalEventSource();
     cells = new LiveCells(timeline, other.cells);
-    referenceTimeline = other.combineTimeline();
+    // Share frozen timeline segments by reference instead of copying all events.
+    // The parent's frozen segments plus its now-frozen timeline become our reference chain.
+    frozenTimelineSegments = new ArrayList<>(other.frozenTimelineSegments.size() + 1);
+    frozenTimelineSegments.addAll(other.frozenTimelineSegments);
+    frozenTimelineSegments.add(other.timeline);
 
     // New Executor allows other SimulationEngine to be closed
     executor = Executors.newVirtualThreadPerTaskExecutor();
@@ -226,7 +231,12 @@ public final class SimulationEngine implements AutoCloseable {
       final var schema = update.resource().getOutputType().getSchema();
 
       switch (update.resource.getType()) {
-        case "real" -> realResourceUpdates.put(name, Pair.of(schema, SimulationEngine.extractRealDynamics(update)));
+        case "real" -> {
+          // Fast path: real resources always have Dynamics=RealDynamics, so cast directly
+          // instead of serialize → asMap → asReal round-trip.
+          final var dynamics = (RealDynamics) update.update.dynamics();
+          realResourceUpdates.put(name, Pair.of(schema, dynamics));
+        }
         case "discrete" -> dynamicResourceUpdates.put(
             name,
             Pair.of(
@@ -719,12 +729,12 @@ public final class SimulationEngine implements AutoCloseable {
   private SpanInfo computeSpanInfo(
       final Topic<ActivityDirectiveId> activityTopic,
       final Iterable<SerializableTopic<?>> serializableTopics,
-      final TemporalEventSource timeline
+      final Iterable<TemporalEventSource.TimePoint> timelinePoints
   ) {
     // Collect per-span information from the event graph.
     final var spanInfo = new SpanInfo();
 
-    for (final var point : timeline) {
+    for (final var point : timelinePoints) {
       if (!(point instanceof TemporalEventSource.TimePoint.Commit p)) continue;
 
       final var trait = new SpanInfo.Trait(serializableTopics, activityTopic);
@@ -740,7 +750,7 @@ public final class SimulationEngine implements AutoCloseable {
   ) {
     return computeActivitySimulationResults(
         startTime,
-        computeSpanInfo(activityTopic, serializableTopics, combineTimeline())
+        computeSpanInfo(activityTopic, serializableTopics, combinedTimelineView())
     );
   }
 
@@ -851,49 +861,64 @@ public final class SimulationEngine implements AutoCloseable {
   }
 
   private TreeMap<Duration, List<EventGraph<EventRecord>>> createSerializedTimeline(
-      final TemporalEventSource combinedTimeline,
+      final Iterable<TemporalEventSource.TimePoint> combinedTimeline,
       final Iterable<SerializableTopic<?>> serializableTopics,
       final HashMap<SpanId, ActivityInstanceId> spanToActivities,
       final HashMap<SerializableTopic<?>, Integer> serializableTopicToId) {
+
+    // Build a topic-keyed index so each event can find its SerializableTopic in O(1)
+    // instead of scanning all topics. Topic uses identity-based equality, matching
+    // the reference check in Event.extract().
+    final var topicIndex = new HashMap<Topic<?>, SerializableTopic<?>>();
+    for (final var serializableTopic : serializableTopics) {
+      topicIndex.put(serializableTopic.topic(), serializableTopic);
+    }
+
+    // Pre-compute ancestor activity mappings for all spans so the per-event loop
+    // doesn't need to walk the span tree.
+    for (final var spanId : new ArrayList<>(this.spans.keySet())) {
+      if (spanToActivities.containsKey(spanId)) continue;
+      // Walk up to find the nearest ancestor with an activity mapping
+      var current = Optional.of(spanId);
+      final var chain = new ArrayList<SpanId>();
+      while (current.isPresent()) {
+        final var id = current.get();
+        if (spanToActivities.containsKey(id)) {
+          // Cache the found mapping for every span in the chain
+          final var activityId = spanToActivities.get(id);
+          for (final var chainId : chain) {
+            spanToActivities.put(chainId, activityId);
+          }
+          break;
+        }
+        chain.add(id);
+        final var span = this.getSpan(id);
+        current = span != null ? span.parent() : Optional.empty();
+      }
+    }
+
     final var serializedTimeline = new TreeMap<Duration, List<EventGraph<EventRecord>>>();
     var time = Duration.ZERO;
-    for (var point : combinedTimeline.points()) {
+    for (var point : combinedTimeline) {
       if (point instanceof TemporalEventSource.TimePoint.Delta delta) {
         time = time.plus(delta.delta());
       } else if (point instanceof TemporalEventSource.TimePoint.Commit commit) {
         final var serializedEventGraph = commit.events().substitute(
             event -> {
-              // TODO can we do this more efficiently?
-              EventGraph<EventRecord> output = EventGraph.empty();
-              for (final var serializableTopic : serializableTopics) {
-                Optional<SerializedValue> serializedEvent = trySerializeEvent(event, serializableTopic);
-                if (serializedEvent.isPresent()) {
-                  // If the event's `provenance` has no simulated activity id, search its ancestors to find the nearest
-                  // simulated activity id, if one exists
-                  if (!spanToActivities.containsKey(event.provenance())) {
-                    var spanId = Optional.of(event.provenance());
+              // O(1) topic lookup via index instead of O(T) scan
+              @SuppressWarnings("unchecked")
+              final var serializableTopic = (SerializableTopic) topicIndex.get(event.topic());
+              if (serializableTopic == null) return EventGraph.empty();
 
-                    while (true) {
-                      if (spanToActivities.containsKey(spanId.get())) {
-                        spanToActivities.put(event.provenance(), spanToActivities.get(spanId.get()));
-                        break;
-                      }
-                      spanId = this.getSpan(spanId.get()).parent();
-                      if (spanId.isEmpty()) {
-                        break;
-                      }
-                    }
-                  }
-                  var activitySpanID = Optional.ofNullable(spanToActivities.get(event.provenance())).map(ActivityInstanceId::id);
-                  output = EventGraph.concurrently(
-                      output,
-                      EventGraph.atom(
-                          new EventRecord(serializableTopicToId.get(serializableTopic),
-                                          activitySpanID,
-                                          serializedEvent.get())));
-                }
-              }
-              return output;
+              @SuppressWarnings("unchecked")
+              final Optional<SerializedValue> serializedEvent = trySerializeEvent(event, serializableTopic);
+              if (serializedEvent.isEmpty()) return EventGraph.empty();
+
+              final var activitySpanID = Optional.ofNullable(spanToActivities.get(event.provenance())).map(ActivityInstanceId::id);
+              return EventGraph.atom(
+                  new EventRecord(serializableTopicToId.get(serializableTopic),
+                                  activitySpanID,
+                                  serializedEvent.get()));
             }
         ).evaluate(new EventGraph.IdentityTrait<>(), EventGraph::atom);
         if (!(serializedEventGraph instanceof EventGraph.Empty)) {
@@ -920,9 +945,8 @@ public final class SimulationEngine implements AutoCloseable {
       final Iterable<SerializableTopic<?>> serializableTopics,
       final SimulationResourceManager resourceManager
   ) {
-    final var combinedTimeline = this.combineTimeline();
     // Collect per-task information from the event graph.
-    final var spanInfo = computeSpanInfo(activityTopic, serializableTopics, combinedTimeline);
+    final var spanInfo = computeSpanInfo(activityTopic, serializableTopics, combinedTimelineView());
 
     // Extract profiles for every resource.
     final var resourceProfiles = resourceManager.computeProfiles(elapsedTime);
@@ -939,7 +963,7 @@ public final class SimulationEngine implements AutoCloseable {
     }
 
     final var serializedTimeline = createSerializedTimeline(
-        combinedTimeline,
+        combinedTimelineView(),
         serializableTopics,
         spanToSimulatedActivities(spanInfo),
         serializableTopicToId
@@ -963,9 +987,8 @@ public final class SimulationEngine implements AutoCloseable {
       final SimulationResourceManager resourceManager,
       final Set<String> resourceNames
   ) {
-    final var combinedTimeline = this.combineTimeline();
     // Collect per-task information from the event graph.
-    final var spanInfo = computeSpanInfo(activityTopic, serializableTopics, combinedTimeline);
+    final var spanInfo = computeSpanInfo(activityTopic, serializableTopics, combinedTimelineView());
 
     // Extract profiles for every resource.
     final var resourceProfiles = resourceManager.computeProfiles(elapsedTime, resourceNames);
@@ -982,7 +1005,7 @@ public final class SimulationEngine implements AutoCloseable {
     }
 
     final var serializedTimeline = createSerializedTimeline(
-        combinedTimeline,
+        combinedTimelineView(),
         serializableTopics,
         spanToSimulatedActivities(spanInfo),
         serializableTopicToId
@@ -1183,25 +1206,35 @@ public final class SimulationEngine implements AutoCloseable {
   }
 
   /**
-   * Create a timeline that in the output of the engine's reference timeline combined with its expanded timeline.
+   * Return an iterable view over the full timeline (all frozen ancestor segments + current).
+   * This is O(1) — no copying. Each iteration traverses the segments in order.
    */
-  public TemporalEventSource combineTimeline() {
-    final TemporalEventSource combinedTimeline = new TemporalEventSource();
-    for (final var timePoint : referenceTimeline.points()) {
-      if (timePoint instanceof TemporalEventSource.TimePoint.Delta t) {
-        combinedTimeline.add(t.delta());
-      } else if (timePoint instanceof TemporalEventSource.TimePoint.Commit t) {
-        combinedTimeline.add(t.events());
+  public Iterable<TemporalEventSource.TimePoint> combinedTimelineView() {
+    return () -> {
+      final var segments = new ArrayList<Iterator<TemporalEventSource.TimePoint>>(frozenTimelineSegments.size() + 1);
+      for (final var segment : frozenTimelineSegments) {
+        segments.add(segment.points().iterator());
       }
-    }
+      segments.add(timeline.points().iterator());
 
-    for (final var timePoint : timeline) {
-      if (timePoint instanceof TemporalEventSource.TimePoint.Delta t) {
-        combinedTimeline.add(t.delta());
-      } else if (timePoint instanceof TemporalEventSource.TimePoint.Commit t) {
-        combinedTimeline.add(t.events());
-      }
-    }
-    return combinedTimeline;
+      return new Iterator<>() {
+        private int currentIndex = 0;
+
+        @Override
+        public boolean hasNext() {
+          while (currentIndex < segments.size()) {
+            if (segments.get(currentIndex).hasNext()) return true;
+            currentIndex++;
+          }
+          return false;
+        }
+
+        @Override
+        public TemporalEventSource.TimePoint next() {
+          if (!hasNext()) throw new java.util.NoSuchElementException();
+          return segments.get(currentIndex).next();
+        }
+      };
+    };
   }
 }

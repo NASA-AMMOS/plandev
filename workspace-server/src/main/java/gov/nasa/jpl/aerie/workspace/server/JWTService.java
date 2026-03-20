@@ -6,7 +6,7 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 
-import javax.json.JsonObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.List;
 
 /**
@@ -22,10 +22,10 @@ public final class JWTService {
    */
   public record UserSession(String userId, String activeRole) {}
 
-  JWTService(final JsonObject jwtInfo) {
-    final var key = jwtInfo.getString("key");
-    final var typeString = jwtInfo.getString("type");
-    final var issuer = jwtInfo.containsKey("iss") ? jwtInfo.getString("iss") : null;
+  JWTService(final ObjectNode jwtInfo) {
+    final var key = jwtInfo.get("key").textValue();
+    final var typeString = jwtInfo.get("type").textValue();
+    final var issuer = jwtInfo.has("iss") ? jwtInfo.get("iss").textValue() : null;
 
     // Expand on this switch statement as we support more Algorithm types.
     // Currently, the Gateway only supports HMAC key variants

@@ -1,6 +1,6 @@
 package gov.nasa.jpl.aerie.constraints.model;
 
-import javax.json.JsonObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public interface ConstraintResult {
   /**
@@ -8,5 +8,5 @@ public interface ConstraintResult {
    * in the Database or returning it as part of the Run Constraints Action
    * @return A JSON representation of the results object.
    */
-  JsonObject toJSON();
+  ObjectNode toJSON();
 }

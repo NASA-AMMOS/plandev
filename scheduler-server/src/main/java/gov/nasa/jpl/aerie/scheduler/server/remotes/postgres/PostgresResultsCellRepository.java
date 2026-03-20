@@ -1,6 +1,6 @@
 package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
 
-import javax.json.Json;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -353,12 +353,12 @@ public final class PostgresResultsCellRepository implements ResultsCellRepositor
     @Override
     public void reportCanceled(final SchedulingInterruptedException e) {
       try (final var connection = dataSource.getConnection()) {
+        final var dataNode = JsonNodeFactory.instance.objectNode();
+        dataNode.put("location", e.location);
+        dataNode.put("message", e.getMessage());
         final var reason = new ScheduleFailure.Builder()
             .type("SCHEDULING_CANCELED")
-            .data(Json.createObjectBuilder()
-                      .add("location", e.location)
-                      .add("message", e.getMessage())
-                      .build())
+            .data(dataNode)
             .message("Scheduling run was canceled")
             .build();
         try (final var setRequestStateAction = new SetRequestStateAction(connection)) {

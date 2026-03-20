@@ -1,5 +1,7 @@
 package gov.nasa.jpl.aerie.e2e.procedural.scheduling;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import gov.nasa.jpl.aerie.e2e.types.GoalInvocationId;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import org.junit.jupiter.api.AfterEach;
@@ -7,8 +9,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.opentest4j.AssertionFailedError;
 
-import javax.json.Json;
-import javax.json.JsonValue;
 import java.io.IOException;
 import java.util.Objects;
 
@@ -42,15 +42,15 @@ public class DatabaseDeletionTests extends ProceduralSchedulingSetup {
   void deletesDirectiveAlreadyInDatabase() throws IOException {
     final var args = Json
         .createObjectBuilder()
-        .add("anchorStrategy", "PreserveTree")
-        .build();
+        .put("anchorStrategy", "PreserveTree")
+        ;
     hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
 
     hasura.insertActivityDirective(
         planId,
         "BiteBanana",
         "1h",
-        JsonValue.EMPTY_JSON_OBJECT
+        JsonNodeFactory.instance.objectNode()
     );
     hasura.updatePlanRevisionSchedulingSpec(planId);
 
@@ -67,23 +67,23 @@ public class DatabaseDeletionTests extends ProceduralSchedulingSetup {
   void deletesDirectiveInDatabaseWithAnchor() throws IOException {
     final var args = Json
         .createObjectBuilder()
-        .add("anchorStrategy", "PreserveTree")
-        .build();
+        .put("anchorStrategy", "PreserveTree")
+        ;
     hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
 
     final var bite = hasura.insertActivityDirective(
         planId,
         "BiteBanana",
         "1h",
-        JsonValue.EMPTY_JSON_OBJECT
+        JsonNodeFactory.instance.objectNode()
     );
 
     final var grow = hasura.insertActivityDirective(
         planId,
         "GrowBanana",
         "1h",
-        JsonValue.EMPTY_JSON_OBJECT,
-        Json.createObjectBuilder().add("anchor_id", bite)
+        JsonNodeFactory.instance.objectNode(),
+        JsonNodeFactory.instance.objectNode().put("anchor_id", bite)
     );
     hasura.updatePlanRevisionSchedulingSpec(planId);
 
@@ -123,23 +123,23 @@ public class DatabaseDeletionTests extends ProceduralSchedulingSetup {
 
     final var args = Json
         .createObjectBuilder()
-        .add("anchorStrategy", "PreserveTree")
-        .build();
+        .put("anchorStrategy", "PreserveTree")
+        ;
     hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
 
     final var grow1 = hasura.insertActivityDirective(
         planId,
         "GrowBanana",
         "1h",
-        JsonValue.EMPTY_JSON_OBJECT
+        JsonNodeFactory.instance.objectNode()
     );
 
     final var bite = hasura.insertActivityDirective(
         planId,
         "BiteBanana",
         "1h",
-        JsonValue.EMPTY_JSON_OBJECT,
-        Json.createObjectBuilder().add("anchor_id", grow1)
+        JsonNodeFactory.instance.objectNode(),
+        JsonNodeFactory.instance.objectNode().put("anchor_id", grow1)
     );
 
     int grow2 = -1;
@@ -148,8 +148,8 @@ public class DatabaseDeletionTests extends ProceduralSchedulingSetup {
           planId,
           "GrowBanana",
           i + "h",
-          JsonValue.EMPTY_JSON_OBJECT,
-          Json.createObjectBuilder().add("anchor_id", bite)
+          JsonNodeFactory.instance.objectNode(),
+          JsonNodeFactory.instance.objectNode().put("anchor_id", bite)
       );
     }
 
@@ -157,8 +157,8 @@ public class DatabaseDeletionTests extends ProceduralSchedulingSetup {
         planId,
         "GrowBanana",
         "0h",
-        JsonValue.EMPTY_JSON_OBJECT,
-        Json.createObjectBuilder().add("anchor_id", grow2)
+        JsonNodeFactory.instance.objectNode(),
+        JsonNodeFactory.instance.objectNode().put("anchor_id", grow2)
     );
     hasura.updatePlanRevisionSchedulingSpec(planId);
 
@@ -202,26 +202,25 @@ public class DatabaseDeletionTests extends ProceduralSchedulingSetup {
   void deleteCascadeInDatabase() throws IOException {
     final var args = Json
         .createObjectBuilder()
-        .add("anchorStrategy", "Cascade")
-        .build();
+        .put("anchorStrategy", "Cascade")
+        ;
     hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
 
     final var bite = hasura.insertActivityDirective(
         planId,
         "BiteBanana",
         "1h",
-        JsonValue.EMPTY_JSON_OBJECT
+        JsonNodeFactory.instance.objectNode()
     );
 
     final var grow = hasura.insertActivityDirective(
         planId,
         "GrowBanana",
         "1h",
-        JsonValue.EMPTY_JSON_OBJECT,
-        Json.createObjectBuilder().add("anchor_id", bite)
+        JsonNodeFactory.instance.objectNode(),
+        JsonNodeFactory.instance.objectNode().put("anchor_id", bite)
     );
     hasura.updatePlanRevisionSchedulingSpec(planId);
-
 
     var plan = hasura.getPlan(planId);
     assertEquals(2, plan.activityDirectives().size());
@@ -237,26 +236,25 @@ public class DatabaseDeletionTests extends ProceduralSchedulingSetup {
   void deleteErrorInDatabase() throws IOException {
     final var args = Json
         .createObjectBuilder()
-        .add("anchorStrategy", "Error")
-        .build();
+        .put("anchorStrategy", "Error")
+        ;
     hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
 
     final var bite = hasura.insertActivityDirective(
         planId,
         "BiteBanana",
         "1h",
-        JsonValue.EMPTY_JSON_OBJECT
+        JsonNodeFactory.instance.objectNode()
     );
 
     final var grow = hasura.insertActivityDirective(
         planId,
         "GrowBanana",
         "1h",
-        JsonValue.EMPTY_JSON_OBJECT,
-        Json.createObjectBuilder().add("anchor_id", bite)
+        JsonNodeFactory.instance.objectNode(),
+        JsonNodeFactory.instance.objectNode().put("anchor_id", bite)
     );
     hasura.updatePlanRevisionSchedulingSpec(planId);
-
 
     var plan = hasura.getPlan(planId);
     assertEquals(2, plan.activityDirectives().size());

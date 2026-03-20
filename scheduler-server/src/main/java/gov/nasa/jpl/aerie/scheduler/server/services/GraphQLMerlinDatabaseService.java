@@ -7,6 +7,7 @@ import gov.nasa.jpl.aerie.constraints.model.DiscreteProfile;
 import gov.nasa.jpl.aerie.constraints.model.LinearProfile;
 import gov.nasa.jpl.aerie.json.BasicParsers;
 import gov.nasa.jpl.aerie.json.JsonParser;
+import gov.nasa.jpl.aerie.merlin.driver.json.JsonEncoding;
 import gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser;
 import gov.nasa.jpl.aerie.types.ActivityInstance;
 import gov.nasa.jpl.aerie.types.ActivityInstanceId;
@@ -50,13 +51,12 @@ import gov.nasa.jpl.aerie.types.MissionModelId;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 
-import javax.json.Json;
-import javax.json.JsonArray;
-import javax.json.JsonArrayBuilder;
-import javax.json.JsonException;
-import javax.json.JsonObject;
-import javax.json.JsonObjectBuilder;
-import javax.json.JsonValue;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -138,10 +138,11 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
    * @param gqlStr the graphQL query or mutation to send to aerie
    * @return the json response returned by aerie, or an empty optional in case of io errors
    */
-  private Optional<JsonObject> postRequest(final String gqlStr) throws IOException, MerlinServiceException {
+  private Optional<ObjectNode> postRequest(final String gqlStr) throws IOException, MerlinServiceException {
     try {
       //TODO: (mem optimization) use streams here to avoid several copies of strings
-      final var reqBody = Json.createObjectBuilder().add("query", gqlStr).build();
+      final var reqBody = JsonNodeFactory.instance.objectNode();
+      reqBody.put("query", gqlStr);
       final var httpReq = HttpRequest
           .newBuilder().uri(merlinGraphqlURI).timeout(httpTimeout)
           .header("Content-Type", "application/json")
@@ -157,28 +158,25 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
         //TODO: how severely to error out if aerie cannot be reached or has a 500 error or json is garbled etc etc?
         return Optional.empty();
       }
-      final var respBody = Json.createReader(httpResp.body()).readObject();
-      if (respBody.containsKey("errors")) {
+      final var mapper = new ObjectMapper();
+      final var respBody = (ObjectNode) mapper.readTree(httpResp.body());
+      if (respBody.has("errors")) {
         throw new MerlinServiceException(respBody.toString());
       }
       return Optional.of(respBody);
     } catch (final InterruptedException e) {
       //TODO: maybe retry if interrupted? but depends on semantics (eg don't duplicate mutation if not idempotent)
       return Optional.empty();
-    } catch (final JsonException e) { // or also JsonParsingException
-      throw new IOException("json parse error on graphql response:" + e.getMessage(), e);
     }
   }
 
-  protected Optional<JsonObject> postRequest(final String query, final JsonObject variables)
+  protected Optional<ObjectNode> postRequest(final String query, final ObjectNode variables)
   throws IOException, MerlinServiceException {
     try {
       //TODO: (mem optimization) use streams here to avoid several copies of strings
-      final var reqBody = Json
-          .createObjectBuilder()
-          .add("query", query)
-          .add("variables", variables)
-          .build();
+      final var reqBody = JsonNodeFactory.instance.objectNode();
+      reqBody.put("query", query);
+      reqBody.set("variables", variables);
       final var httpReq = HttpRequest
           .newBuilder().uri(merlinGraphqlURI).timeout(httpTimeout)
           .header("Content-Type", "application/json")
@@ -194,16 +192,15 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
         //TODO: how severely to error out if aerie cannot be reached or has a 500 error or json is garbled etc etc?
         return Optional.empty();
       }
-      final var respBody = Json.createReader(httpResp.body()).readObject();
-      if (respBody.containsKey("errors")) {
+      final var mapper = new ObjectMapper();
+      final var respBody = (ObjectNode) mapper.readTree(httpResp.body());
+      if (respBody.has("errors")) {
         throw new MerlinServiceException(respBody.toString());
       }
       return Optional.of(respBody);
     } catch (final InterruptedException e) {
       //TODO: maybe retry if interrupted? but depends on semantics (eg don't duplicate mutation if not idempotent)
       return Optional.empty();
-    } catch (final JsonException e) { // or also JsonParsingException
-      throw new IOException("json parse error on graphql response:" + e.getMessage(), e);
     }
   }
 
@@ -222,11 +219,12 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           }
         }
         """;
-    final var variables = Json.createObjectBuilder().add("id", planId.id()).build();
+    final var variables = JsonNodeFactory.instance.objectNode();
+    variables.put("id", planId.id());
 
     final var response = postRequest(query, variables).orElseThrow(() -> new NoSuchPlanException(planId));
     try {
-      return response.getJsonObject("data").getJsonObject("plan_by_pk").getJsonNumber("revision").longValueExact();
+      return response.get("data").get("plan_by_pk").get("revision").longValue();
     } catch (ClassCastException | ArithmeticException e) {
       throw new NoSuchPlanException(planId);
     }
@@ -255,27 +253,27 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
     final var response = postRequest(request).orElseThrow(() -> new NoSuchPlanException(planId));
     try {
       //TODO: elevate and then leverage existing MerlinParsers (after updating them to match current db!)
-      final var plan = response.getJsonObject("data").getJsonObject("plan_by_pk");
-      final long planPK = plan.getJsonNumber("id").longValue();
-      final long planRev = plan.getJsonNumber("revision").longValue();
-      final var startTime = parseGraphQLTimestamp(plan.getString("start_time"));
-      final var duration = durationFromPGInterval(plan.getString("duration"));
+      final var plan = response.get("data").get("plan_by_pk");
+      final long planPK = plan.get("id").longValue();
+      final long planRev = plan.get("revision").longValue();
+      final var startTime = parseGraphQLTimestamp(plan.get("start_time").textValue());
+      final var duration = durationFromPGInterval(plan.get("duration").textValue());
 
-      final var model = plan.getJsonObject("mission_model");
-      final var modelId = model.getJsonNumber("id").longValue();
-      final var modelName = model.getString("name");
-      final var modelVersion = model.getString("version");
+      final var model = plan.get("mission_model");
+      final var modelId = model.get("id").longValue();
+      final var modelName = model.get("name").textValue();
+      final var modelVersion = model.get("version").textValue();
 
-      final var file = model.getJsonObject("uploaded_file");
-      final var modelPath = Path.of(file.getString("name"));
+      final var file = model.get("uploaded_file");
+      final var modelPath = Path.of(file.get("name").textValue());
       //NB: not using the "path" field because it is just a hex-encoded duplicate of the name field anyway
       //NB: the name includes the .jar extension
 
       //TODO: how to know right model config for scheduling? for now choosing latest sim setup (see query above)
       var modelConfiguration = Map.<String, SerializedValue>of();
-      final var sims = plan.getJsonArray("simulations");
+      final var sims = plan.get("simulations");
       if (!sims.isEmpty()) {
-        final var args = sims.getJsonObject(0).getJsonObject("arguments");
+        final var args = sims.get(0).get("arguments");
         modelConfiguration = BasicParsers
             .mapP(serializedValueP).parse(args)
             .getSuccessOrThrow((reason) -> new InvalidJsonException(new InvalidEntityException(List.of(reason))));
@@ -312,15 +310,15 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
         "query { plan_by_pk(id:%d) { activity_directives { id start_offset type arguments anchor_id anchored_to_start } duration start_time }} ".formatted(
             planMetadata.planId().id());
     final var response = postRequest(request).orElseThrow(() -> new NoSuchPlanException(planMetadata.planId()));
-    final var jsonplan = response.getJsonObject("data").getJsonObject("plan_by_pk");
-    final var activityDirectives = jsonplan.getJsonArray("activity_directives");
+    final var jsonplan = response.get("data").get("plan_by_pk");
+    final var activityDirectives = jsonplan.get("activity_directives");
     for (int i = 0; i < activityDirectives.size(); i++) {
-      final var jsonActivity = activityDirectives.getJsonObject(i);
-      final var type = activityDirectives.getJsonObject(i).getString("type");
-      final var start = jsonActivity.getString("start_offset");
-      final Integer anchorId = jsonActivity.isNull("anchor_id") ? null : jsonActivity.getInt("anchor_id");
-      final boolean anchoredToStart = jsonActivity.getBoolean("anchored_to_start");
-      final var arguments = jsonActivity.getJsonObject("arguments");
+      final var jsonActivity = activityDirectives.get(i);
+      final var type = activityDirectives.get(i).get("type").textValue();
+      final var start = jsonActivity.get("start_offset").textValue();
+      final Integer anchorId = jsonActivity.get("anchor_id").isNull() ? null : jsonActivity.get("anchor_id").intValue();
+      final boolean anchoredToStart = jsonActivity.get("anchored_to_start").booleanValue();
+      final var arguments = jsonActivity.get("arguments");
       final var deserializedArguments = BasicParsers
           .mapP(serializedValueP)
           .parse(arguments)
@@ -336,7 +334,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           effectiveArguments,
           (anchorId != null) ? new ActivityDirectiveId(anchorId) : null,
           anchoredToStart);
-      final var actPK = new ActivityDirectiveId(jsonActivity.getJsonNumber("id").longValue());
+      final var actPK = new ActivityDirectiveId(jsonActivity.get("id").longValue());
       merlinPlan.addActivity(actPK, merlinActivity);
     }
     return merlinPlan;
@@ -398,10 +396,10 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
     try {
       return new PlanId(
           response
-              .getJsonObject("data")
-              .getJsonObject("insert_plan_one")
-              .getJsonNumber("id")
-              .longValueExact());
+              .get("data")
+              .get("insert_plan_one")
+              .get("id")
+              .longValue());
     } catch (ClassCastException | ArithmeticException e) {
       throw new NoSuchPlanException(null);
     }
@@ -466,7 +464,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
       if (act.anchorId() != null) {
         toModify.add(new ActivityModification(
             ids.get(act.id()),
-            List.of($ -> $.add("anchor_id", ids.get(act.anchorId()).id()))
+            List.of($ -> $.put("anchor_id", ids.get(act.anchorId()).id()))
         ));
       }
     }
@@ -500,25 +498,25 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
 
     if (newState.startOffset() != oldState.startOffset()) {
       operations.add(
-          $ -> $.add("start_offset", newState.startOffset().toString())
+          $ -> $.put("start_offset", newState.startOffset().toString())
       );
     }
 
     if (newState.anchorId() != oldState.anchorId()) {
       if (newState.anchorId() != null) {
         operations.add(
-            $ -> $.add("anchor_id", newState.anchorId().id())
+            $ -> $.put("anchor_id", newState.anchorId().id())
         );
       } else {
         operations.add(
-            $ -> $.addNull("anchor_id")
+            $ -> $.set("anchor_id", NullNode.getInstance())
         );
       }
     }
 
     if (newState.anchoredToStart() != oldState.anchoredToStart()) {
       operations.add(
-          $ -> $.add("anchor_id", newState.anchoredToStart())
+          $ -> $.put("anchor_id", newState.anchoredToStart())
       );
     }
 
@@ -538,10 +536,10 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
       final var id =
           new PlanId(
               response
-              .getJsonObject("data")
-              .getJsonObject("plan_by_pk")
-              .getJsonNumber("id")
-              .longValueExact());
+              .get("data")
+              .get("plan_by_pk")
+              .get("id")
+              .longValue());
       if (!id.equals(planId)) {
         throw exceptionFactory.get();
       }
@@ -569,7 +567,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
     ).formatted(planId.id());
     final var response = postRequest(request).orElseThrow(() -> new NoSuchPlanException(planId));
     try {
-      response.getJsonObject("data").getJsonObject("delete_activity").getJsonNumber("affected_rows").longValueExact();
+      response.get("data").get("delete_activity").get("affected_rows").longValue();
     } catch (ClassCastException | ArithmeticException e) {
       throw new NoSuchPlanException(planId);
     }
@@ -615,57 +613,54 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
     //TODO: (optimization) could use a lazy evaluating stream of strings to avoid large set of strings in memory
     //TODO: (defensive) should sanitize all strings uses as keys/values to avoid injection attacks
 
-    final var insertionObjects = Json.createArrayBuilder();
+    final var insertionObjects = JsonNodeFactory.instance.arrayNode();
     for (final var act : orderedActivities) {
-      final var insertionObject = Json
-          .createObjectBuilder()
-          .add("plan_id", planId.id())
-          .add("type", act.getType().getName())
-          .add("start_offset", act.startOffset().toString())
-          .add("anchored_to_start", act.anchoredToStart());
+      final var insertionObject = JsonNodeFactory.instance.objectNode();
+      insertionObject.put("plan_id", planId.id());
+      insertionObject.put("type", act.getType().getName());
+      insertionObject.put("start_offset", act.startOffset().toString());
+      insertionObject.put("anchored_to_start", act.anchoredToStart());
 
-      if (act.name() != null) insertionObject.add("name", act.name());
+      if (act.name() != null) insertionObject.put("name", act.name());
 
       //add duration to parameters if controllable
-      final var insertionObjectArguments = Json.createObjectBuilder();
+      final var insertionObjectArguments = JsonNodeFactory.instance.objectNode();
       if(act.getType().getDurationType() instanceof DurationType.Controllable(String parameterName)){
         if(!act.arguments().containsKey(parameterName)){
-          insertionObjectArguments.add(parameterName, serializedValueP.unparse(schedulerModel.serializeDuration(act.duration())));
+          insertionObjectArguments.set(parameterName, JsonEncoding.encode(schedulerModel.serializeDuration(act.duration())));
         }
       }
 
       final var goalId = activityToGoalId.get(act);
       if (goalId != null) {
-        insertionObject.add("source_scheduling_goal_id", goalId.id());
-        goalId.goalInvocationId().ifPresent($ -> insertionObject.add("source_scheduling_goal_invocation_id", $));
+        insertionObject.put("source_scheduling_goal_id", goalId.id());
+        goalId.goalInvocationId().ifPresent($ -> insertionObject.put("source_scheduling_goal_invocation_id", $));
       }
 
       for (final var arg : act.arguments().entrySet()) {
-        insertionObjectArguments.add(arg.getKey(), serializedValueP.unparse(arg.getValue()));
+        insertionObjectArguments.set(arg.getKey(), JsonEncoding.encode(arg.getValue()));
       }
-      insertionObject.add("arguments", insertionObjectArguments.build());
-      insertionObjects.add(insertionObject.build());
+      insertionObject.set("arguments", insertionObjectArguments);
+      insertionObjects.add(insertionObject);
     }
 
-    final var arguments = Json
-        .createObjectBuilder()
-        .add("activities", insertionObjects.build())
-        .build();
+    final var arguments = JsonNodeFactory.instance.objectNode();
+    arguments.set("activities", insertionObjects);
 
     final var response = postRequest(query, arguments).orElseThrow(() -> new NoSuchPlanException(planId));
 
     final Map<ActivityDirectiveId, ActivityDirectiveId> activityToDirectiveId = new HashMap<>();
     try {
       final var numCreated = response
-          .getJsonObject("data").getJsonObject("insert_activity_directive").getJsonNumber("affected_rows").longValueExact();
+          .get("data").get("insert_activity_directive").get("affected_rows").longValue();
       if (numCreated != orderedActivities.size()) {
         throw new NoSuchPlanException(planId);
       }
       var ids = response
-          .getJsonObject("data").getJsonObject("insert_activity_directive").getJsonArray("returning");
+          .get("data").get("insert_activity_directive").get("returning");
       //make sure we associate the right id with the right activity
       for(int i = 0; i < ids.size(); i++) {
-        final var newId = new ActivityDirectiveId(ids.getJsonObject(i).getInt("id"));
+        final var newId = new ActivityDirectiveId(ids.get(i).get("id").intValue());
         activityToDirectiveId.put(orderedActivities.get(i).id(), newId);
       }
     } catch (ClassCastException | ArithmeticException e) {
@@ -680,7 +675,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
   ) {}
 
   interface ActivityOperation {
-    void apply(JsonObjectBuilder obj);
+    void apply(ObjectNode obj);
   }
 
   private void modifyActivityDirectives(
@@ -698,7 +693,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
         modifications.stream().map($ -> "$activity_%d: activity_directive_set_input!".formatted($.id().id())).toList()
     ));
     request.append(") {");
-    final var arguments = Json.createObjectBuilder();
+    final var arguments = JsonNodeFactory.instance.objectNode();
     for (final var mod : modifications) {
       final var id = mod.id().id();
       request.append("""
@@ -707,14 +702,13 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
                          }
                          """.formatted(id, id, planId.id(), id));
 
-      final var activityObject = Json
-          .createObjectBuilder();
+      final var activityObject = JsonNodeFactory.instance.objectNode();
       mod.operations.forEach($ -> $.apply(activityObject));
 
-      arguments.add("activity_%d".formatted(id), activityObject);
+      arguments.set("activity_%d".formatted(id), activityObject);
     }
     request.append("}");
-    postRequest(request.toString(), arguments.build()).orElseThrow(() -> new NoSuchPlanException(planId));
+    postRequest(request.toString(), arguments).orElseThrow(() -> new NoSuchPlanException(planId));
   }
 
   private void deleteActivityDirectives(
@@ -758,57 +752,57 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           }
         }
         """.formatted(planId.id());
-    final JsonObject response;
+    final ObjectNode response;
     response = postRequest(request).get();
 
     final var activityTypesJsonArray =
-        response.getJsonObject("data")
-                .getJsonObject("plan_by_pk")
-                .getJsonObject("mission_model")
-                .getJsonArray("activity_types");
+        response.get("data")
+                .get("plan_by_pk")
+                .get("mission_model")
+                .get("activity_types");
     final var activityTypes = parseActivityTypes(activityTypesJsonArray);
 
-    final var missionModelId = new MissionModelId(response.getJsonObject("data")
-                                       .getJsonObject("plan_by_pk")
-                                       .getJsonObject("mission_model")
-                                       .getInt("id"));
+    final var missionModelId = new MissionModelId(response.get("data")
+                                       .get("plan_by_pk")
+                                       .get("mission_model")
+                                       .get("id").intValue());
 
     return new MerlinDatabaseService.MissionModelTypes(activityTypes, getResourceTypes(missionModelId));
   }
 
-  private static List<ActivityType> parseActivityTypes(final JsonArray activityTypesJsonArray) {
+  private static List<ActivityType> parseActivityTypes(final JsonNode activityTypesJsonArray) {
     final var activityTypes = new ArrayList<ActivityType>();
     for (final var activityTypeJson : activityTypesJsonArray) {
-      final var parametersJson = activityTypeJson.asJsonObject().getJsonObject("parameters");
+      final var parametersJson = activityTypeJson.get("parameters");
       final var parameters = new HashMap<String, ValueSchema>();
-      for (final var parameterJson : parametersJson.entrySet()) {
+      final var parameterFields = parametersJson.fields();
+      while (parameterFields.hasNext()) {
+        final var parameterJson = parameterFields.next();
         parameters.put(
             parameterJson.getKey(),
             valueSchemaP
-                .parse(
-                    parameterJson
-                        .getValue()
-                        .asJsonObject()
-                        .getJsonObject("schema"))
+                .parse(parameterJson.getValue().get("schema"))
                 .getSuccessOrThrow());
       }
-      final var presetsJsonArray = activityTypeJson.asJsonObject().getJsonArray("presets");
+      final var presetsJsonArray = activityTypeJson.get("presets");
       final var presets = new HashMap<String, Map<String, SerializedValue>>();
       for (final var presetJson: presetsJsonArray) {
-        final var argumentsJson = presetJson.asJsonObject().getJsonObject("arguments");
+        final var argumentsJson = presetJson.get("arguments");
         final var arguments = new HashMap<String, SerializedValue>();
-        for (final var argumentJson: argumentsJson.entrySet()) {
+        final var argumentFields = argumentsJson.fields();
+        while (argumentFields.hasNext()) {
+          final var argumentJson = argumentFields.next();
           arguments.put(
               argumentJson.getKey(),
-              serializedValueP.parse(argumentJson.getValue()).getSuccessOrThrow()
+              JsonEncoding.decode(argumentJson.getValue())
           );
         }
         presets.put(
-            presetJson.asJsonObject().getString("name"),
+            presetJson.get("name").textValue(),
             arguments
         );
       }
-      activityTypes.add(new ActivityType(activityTypeJson.asJsonObject().getString("name"), parameters, presets));
+      activityTypes.add(new ActivityType(activityTypeJson.get("name").textValue(), parameters, presets));
     }
     return activityTypes;
   }
@@ -831,13 +825,13 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           }
         }
         """.formatted(missionModelId.id());
-    final JsonObject response;
+    final ObjectNode response;
     response = postRequest(request).get();
-    final var data = response.getJsonObject("data");
-    if (data.get("mission_model_by_pk").getValueType().equals(JsonValue.ValueType.NULL)) throw new NoSuchMissionModelException(missionModelId);
+    final var data = response.get("data");
+    if (data.get("mission_model_by_pk").isNull()) throw new NoSuchMissionModelException(missionModelId);
     final var activityTypesJsonArray = data
-        .getJsonObject("mission_model_by_pk")
-        .getJsonArray("activity_types");
+        .get("mission_model_by_pk")
+        .get("activity_types");
     final var activityTypes = parseActivityTypes(activityTypesJsonArray);
 
     return new MerlinDatabaseService.MissionModelTypes(activityTypes, getResourceTypes(missionModelId));
@@ -854,17 +848,16 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
            }
          }
         """.formatted(missionModelId.id());
-    final JsonObject response;
+    final ObjectNode response;
     response = postRequest(request).get();
-    final var data = response.getJsonObject("data");
-    final var resourceTypesJsonArray = data.getJsonArray("resource_type");
+    final var data = response.get("data");
+    final var resourceTypesJsonArray = data.get("resource_type");
 
     final var resourceTypes = new ArrayList<ResourceType>();
 
     for (final var jsonValue : resourceTypesJsonArray) {
-      final var jsonObject = jsonValue.asJsonObject();
-      final var name = jsonObject.getString("name");
-      final var schema = jsonObject.getJsonObject("schema");
+      final var name = jsonValue.get("name").textValue();
+      final var schema = jsonValue.get("schema");
 
       resourceTypes.add(new ResourceType(name, valueSchemaP.parse(schema).getSuccessOrThrow()));
     }
@@ -911,19 +904,18 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           }
         }
         """.formatted(planId.id());
-    final JsonObject response = postRequest(request).get();
-    final var data = response.getJsonObject("data");
-    final List<Map.Entry<ActivityDirectiveId, GoalId>> results = data.getJsonArray("activity_directive").getValuesAs(
-        $ -> {
-          final var obj = $.asJsonObject();
-          final var id = new ActivityDirectiveId(obj.getInt("id"));
-          if (obj.isNull("source_scheduling_goal_id")) return null;
-          final var source_goal = obj.getInt("source_scheduling_goal_id");
-          if (obj.isNull("source_scheduling_goal_invocation_id")) return entry(id, new GoalId(source_goal, -1, Optional.empty()));
-          final Long source_invocation = (long) obj.getInt("source_scheduling_goal_invocation_id");
-          return entry(id, new GoalId(source_goal, -1, Optional.of(source_invocation)));
-        }
-    );
+    final ObjectNode response = postRequest(request).get();
+    final var data = response.get("data");
+    final var activityDirectiveArray = data.get("activity_directive");
+    final var results = new ArrayList<Map.Entry<ActivityDirectiveId, GoalId>>();
+    for (final var $ : activityDirectiveArray) {
+      final var id = new ActivityDirectiveId($.get("id").intValue());
+      if ($.get("source_scheduling_goal_id").isNull()) { results.add(null); continue; }
+      final var source_goal = $.get("source_scheduling_goal_id").intValue();
+      if ($.get("source_scheduling_goal_invocation_id").isNull()) { results.add(entry(id, new GoalId(source_goal, -1, Optional.empty()))); continue; }
+      final Long source_invocation = (long) $.get("source_scheduling_goal_invocation_id").intValue();
+      results.add(entry(id, new GoalId(source_goal, -1, Optional.of(source_invocation))));
+    }
     return Map.ofEntries(results.stream().filter(Objects::nonNull).toArray(Map.Entry[]::new));
   }
 
@@ -935,10 +927,10 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           }
         }
         """.formatted(planId.id());
-  final JsonObject response;
+  final ObjectNode response;
   response = postRequest(request).get();
-  final var data = response.getJsonObject("data");
-  final var simulationId = data.getJsonArray("simulation").get(0).asJsonObject().getInt("id");
+  final var data = response.get("data");
+  final var simulationId = data.get("simulation").get(0).get("id").intValue();
   return new SimulationId(simulationId);
 }
 
@@ -985,9 +977,9 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           }
         }
         """.formatted(datasetId.id());
-    final JsonObject response;
+    final ObjectNode response;
     response = postRequest(request).get();
-    final var data = response.getJsonObject("data").getJsonArray("simulated_activity");
+    final var data = response.get("data").get("simulated_activity");
     return parseSimulatedActivities(data, startSimulation);
   }
 
@@ -1000,9 +992,9 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           }
         }
         """.formatted(datasetId.id());
-    final JsonObject response;
+    final ObjectNode response;
     response = postRequest(request).get();
-    final var data = response.getJsonObject("data").getJsonArray("profile");
+    final var data = response.get("data").get("profile");
     return parseProfiles(data);
   }
 
@@ -1021,9 +1013,9 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           }
         }
         """.formatted(datasetId.id());
-    final JsonObject response;
+    final ObjectNode response;
     response = postRequest(request).get();
-    final var data = response.getJsonObject("data").getJsonArray("profile");
+    final var data = response.get("data").get("profile");
     return parseProfiles(data);
   }
 
@@ -1040,9 +1032,9 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
             }
             }
         """.formatted(datasetId.id());
-  final JsonObject response;
+  final ObjectNode response;
   response = postRequest(request).get();
-  final var data = response.getJsonObject("data").getJsonArray("span");
+  final var data = response.get("data").get("span");
   return parseUnfinishedActivities(data, startTime);
   }
 
@@ -1099,15 +1091,13 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
         }
         """.formatted(planId.id());
     final var response = postRequest(request).get();
-    final var data = response.getJsonObject("data").getJsonArray("plan_dataset");
+    final var data = response.get("data").get("plan_dataset");
     if (data.size() == 0) {
       return Optional.empty();
     }
     for(final var dataset:data){
-      final var datasetId = new DatasetId(dataset.asJsonObject().getInt("dataset_id"));
-      final var offsetFromPlanStart = durationFromPGInterval(dataset
-                                                                 .asJsonObject()
-                                                                 .getString("offset_from_plan_start"));
+      final var datasetId = new DatasetId(dataset.get("dataset_id").intValue());
+      final var offsetFromPlanStart = durationFromPGInterval(dataset.get("offset_from_plan_start").textValue());
       datasets.add(new DatasetMetadata(datasetId, offsetFromPlanStart));
     }
     return Optional.of(datasets);
@@ -1152,19 +1142,17 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           }
         }
         """;
-    final JsonObject derivationGroupsResponse = postRequest(
+    final var planIdVar = JsonNodeFactory.instance.objectNode();
+    planIdVar.put("planId", planId.id());
+    final ObjectNode derivationGroupsResponse = postRequest(
         derivationGroupsRequest,
-        Json.createObjectBuilder().add("planId", planId.id()).build()).get();
-    final var derivationGroups = Json
-        .createObjectBuilder()
-        .add("derivationGroups", Json.createArrayBuilder(
-            derivationGroupsResponse
-                .getJsonObject("data")
-                .getJsonArray("plan_derivation_group")
-                .stream()
-                .map($ -> $.asJsonObject().getString("derivation_group_name"))
-                .toList()
-    ).build()).build();
+        planIdVar).get();
+    final var derivationGroupNames = JsonNodeFactory.instance.arrayNode();
+    for (final var $ : derivationGroupsResponse.get("data").get("plan_derivation_group")) {
+      derivationGroupNames.add($.get("derivation_group_name").textValue());
+    }
+    final var derivationGroups = JsonNodeFactory.instance.objectNode();
+    derivationGroups.set("derivationGroups", derivationGroupNames);
 
     final var eventsRequest = """
         query DerivedEventsForPlan($derivationGroups: [String!]!) {
@@ -1184,9 +1172,9 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           }
         }""";
 
-    final JsonObject eventsResponse = postRequest(eventsRequest, derivationGroups).get();
+    final ObjectNode eventsResponse = postRequest(eventsRequest, derivationGroups).get();
 
-    final var data = eventsResponse.getJsonObject("data").getJsonArray("derived_events");
+    final var data = eventsResponse.get("data").get("derived_events");
     final var unorganized =  parseExternalEvents(data, horizonStart);
     final var result = new HashMap<String, List<ExternalEvent>>();
     for (final var event: unorganized) {
@@ -1207,18 +1195,18 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
     return resourceTypes;
   }
 
-  private Map<ActivityInstanceId, UnfinishedActivity> parseUnfinishedActivities(JsonArray unfinishedActivitiesJson, Instant simulationStart){
+  private Map<ActivityInstanceId, UnfinishedActivity> parseUnfinishedActivities(JsonNode unfinishedActivitiesJson, Instant simulationStart){
     final var unfinishedActivities = new HashMap<ActivityInstanceId, UnfinishedActivity>();
     for(final var unfinishedActivityJson: unfinishedActivitiesJson){
-      final var activityAttributes = activityAttributesP.parse(unfinishedActivityJson.asJsonObject().getJsonObject("attributes")).getSuccessOrThrow();
+      final var activityAttributes = activityAttributesP.parse(unfinishedActivityJson.get("attributes")).getSuccessOrThrow();
       ActivityInstanceId parentId = null;
-      if(!unfinishedActivityJson.asJsonObject().isNull("parent_id")){
-        parentId = new ActivityInstanceId(unfinishedActivityJson.asJsonObject().getJsonNumber("parent_id").longValue());
+      if(!unfinishedActivityJson.get("parent_id").isNull()){
+        parentId = new ActivityInstanceId(unfinishedActivityJson.get("parent_id").longValue());
       }
-      final var activityType = unfinishedActivityJson.asJsonObject().getJsonString("type").getString();
+      final var activityType = unfinishedActivityJson.get("type").textValue();
       final var start = instantFromStart(simulationStart,
-          durationFromPGInterval(unfinishedActivityJson.asJsonObject().getJsonString("start_offset").getString()));
-      final var id = new ActivityInstanceId(unfinishedActivityJson.asJsonObject().getJsonNumber("id").longValue());
+          durationFromPGInterval(unfinishedActivityJson.get("start_offset").textValue()));
+      final var id = new ActivityInstanceId(unfinishedActivityJson.get("id").longValue());
       Optional<ActivityDirectiveId> actDirectiveId = Optional.empty();
       if(activityAttributes.directiveId().isPresent()){
         actDirectiveId = Optional.of(new ActivityDirectiveId(activityAttributes.directiveId().get()));
@@ -1256,42 +1244,42 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
     return unwrapped;
   }
 
-  private ProfileSet parseProfiles(JsonArray dataset){
+  private ProfileSet parseProfiles(JsonNode dataset){
     Map<String, ResourceProfile<Optional<RealDynamics>>> realProfiles = new HashMap<>();
     Map<String, ResourceProfile<Optional<SerializedValue>>> discreteProfiles = new HashMap<>();
     for(final var profile :dataset){
-      final var name = profile.asJsonObject().getString("name");
-      final var type = profile.asJsonObject().getJsonObject("type");
-      final var typetype = type.getString("type");
+      final var name = profile.get("name").textValue();
+      final var type = profile.get("type");
+      final var typetype = type.get("type").textValue();
       final boolean isReal = typetype.equals("real");
       if(isReal){
-        final var realProfile = parseProfile(profile.asJsonObject(), realDynamicsP);
+        final var realProfile = parseProfile(profile, realDynamicsP);
         realProfiles.put(name, realProfile);
       } else {
-        final var discreteProfile = parseProfile(profile.asJsonObject(), serializedValueP);
+        final var discreteProfile = parseProfile(profile, serializedValueP);
         discreteProfiles.put(name, discreteProfile);
       }
     }
     return new ProfileSet(realProfiles, discreteProfiles);
   }
 
-  private <Dynamics> ResourceProfile<Optional<Dynamics>> parseProfile(JsonObject profile, JsonParser<Dynamics> dynamicsParser){
+  private <Dynamics> ResourceProfile<Optional<Dynamics>> parseProfile(JsonNode profile, JsonParser<Dynamics> dynamicsParser){
     // Profile segments are stored with their start offset relative to simulation start
     // We must convert these to durations describing how long each segment lasts
-    final var type = chooseP(discreteValueSchemaTypeP, realValueSchemaTypeP).parse(profile.getJsonObject("type")).getSuccessOrThrow();
+    final var type = chooseP(discreteValueSchemaTypeP, realValueSchemaTypeP).parse(profile.get("type")).getSuccessOrThrow();
     final var segments = new ArrayList<ProfileSegment<Optional<Dynamics>>>();
-    if(profile.containsKey("profile_segments")) {
-      final var resultSet = profile.getJsonArray("profile_segments").iterator();
-      JsonValue curProfileSegment = null;
+    if(profile.has("profile_segments")) {
+      final var resultSet = profile.get("profile_segments").iterator();
+      JsonNode curProfileSegment = null;
       if (resultSet.hasNext()) {
-        final var profileExtent = durationFromPGInterval(profile.asJsonObject().getString("duration"));
+        final var profileExtent = durationFromPGInterval(profile.get("duration").textValue());
         curProfileSegment = resultSet.next();
-        var offset = durationFromPGInterval(curProfileSegment.asJsonObject().getString("start_offset"));
-        var isGap = curProfileSegment.asJsonObject().getBoolean("is_gap");
+        var offset = durationFromPGInterval(curProfileSegment.get("start_offset").textValue());
+        var isGap = curProfileSegment.get("is_gap").booleanValue();
         Optional<Dynamics> dynamics;
         if (!isGap) {
           dynamics = Optional.of(dynamicsParser
-                                     .parse(curProfileSegment.asJsonObject().get("dynamics"))
+                                     .parse(curProfileSegment.get("dynamics"))
                                      .getSuccessOrThrow());
         } else {
           dynamics = Optional.empty();
@@ -1299,14 +1287,14 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
 
         while (resultSet.hasNext()) {
           curProfileSegment = resultSet.next();
-          final var nextOffset = durationFromPGInterval(curProfileSegment.asJsonObject().getString("start_offset"));
+          final var nextOffset = durationFromPGInterval(curProfileSegment.get("start_offset").textValue());
           final var duration = nextOffset.minus(offset);
           segments.add(new ProfileSegment<>(duration, dynamics));
-          isGap = curProfileSegment.asJsonObject().getBoolean("is_gap");
+          isGap = curProfileSegment.get("is_gap").booleanValue();
           offset = nextOffset;
           if (!isGap) {
             dynamics = Optional.of(dynamicsParser
-                                       .parse(curProfileSegment.asJsonObject().get("dynamics"))
+                                       .parse(curProfileSegment.get("dynamics"))
                                        .getSuccessOrThrow());
           } else {
             dynamics = Optional.empty();
@@ -1320,35 +1308,34 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
     return ResourceProfile.of(type, segments);
   }
 
-  private List<ExternalEvent> parseExternalEvents(final JsonArray eventsJson, final Instant horizonStart)
+  private List<ExternalEvent> parseExternalEvents(final JsonNode eventsJson, final Instant horizonStart)
   throws InvalidEntityException
   {
     final var result = new ArrayList<ExternalEvent>();
     for (final var eventJson : eventsJson) {
-      final var e = eventJson.asJsonObject();
       final var start = new Duration(
-          horizonStart.until(ZonedDateTime.parse(e.getString("start_time")).toInstant(), ChronoUnit.MICROS)
+          horizonStart.until(ZonedDateTime.parse(eventJson.get("start_time").textValue()).toInstant(), ChronoUnit.MICROS)
       );
-      final var end = start.plus(Duration.fromString(e.getString("duration")));
+      final var end = start.plus(Duration.fromString(eventJson.get("duration").textValue()));
 
       final var eventAttributes = new SerializedValueJsonParser()
-          .parse(e.getJsonObject("attributes"))
+          .parse(eventJson.get("attributes"))
           .getSuccessOrThrow(reason -> new InvalidEntityException(List.of(reason)))
           .asMap()
           .get();
 
       final var sourceAttributes = new SerializedValueJsonParser()
-          .parse(e.getJsonObject("external_source").getJsonObject("attributes"))
+          .parse(eventJson.get("external_source").get("attributes"))
           .getSuccessOrThrow(reason -> new InvalidEntityException(List.of(reason)))
           .asMap()
           .get();
 
       result.add(new ExternalEvent(
-          e.getString("event_key"),
-          e.getString("event_type_name"),
+          eventJson.get("event_key").textValue(),
+          eventJson.get("event_type_name").textValue(),
           new ExternalSource(
-              e.getString("source_key"),
-              e.getString("derivation_group_name"),
+              eventJson.get("source_key").textValue(),
+              eventJson.get("derivation_group_name").textValue(),
               sourceAttributes
           ),
           eventAttributes,
@@ -1358,29 +1345,29 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
     return result;
   }
 
-  private Map<ActivityInstanceId, ActivityInstance> parseSimulatedActivities(JsonArray simulatedActivitiesArray, Instant simulationStart)
+  private Map<ActivityInstanceId, ActivityInstance> parseSimulatedActivities(JsonNode simulatedActivitiesArray, Instant simulationStart)
   throws InvalidJsonException
   {
     final var simulatedActivities = new HashMap<ActivityInstanceId, ActivityInstance>();
     for(final var simulatedActivityJson: simulatedActivitiesArray) {
       //if no duration, this is an unfinished activity
-      if(simulatedActivityJson.asJsonObject().isNull("duration")) continue;
-      final var activityDuration = GraphQLParsers.durationP.parse(simulatedActivityJson.asJsonObject().get("duration")).getSuccessOrThrow();
-      final var activityId = simulatedActivityJson.asJsonObject().getJsonNumber("id").longValue();
+      if(simulatedActivityJson.get("duration").isNull()) continue;
+      final var activityDuration = GraphQLParsers.durationP.parse(simulatedActivityJson.get("duration")).getSuccessOrThrow();
+      final var activityId = simulatedActivityJson.get("id").longValue();
       ActivityInstanceId parentId = null;
-      if(!simulatedActivityJson.asJsonObject().isNull("parent_id")){
-        parentId = new ActivityInstanceId(simulatedActivityJson.asJsonObject().getJsonNumber("parent_id").longValue());
+      if(!simulatedActivityJson.get("parent_id").isNull()){
+        parentId = new ActivityInstanceId(simulatedActivityJson.get("parent_id").longValue());
       }
-      final var startOffset = instantFromStart(simulationStart,durationFromPGInterval(simulatedActivityJson.asJsonObject().getString("start_offset")));
-      final var computedAttributes = serializedValueP.parse(simulatedActivityJson.asJsonObject().get("attributes")).getSuccessOrThrow();
-      final var activityDirective = simulatedActivityJson.asJsonObject().getJsonObject("activity_directive");
-      final var activityDirectiveId = new ActivityDirectiveId(activityDirective.getInt("id"));
-      final var activityDirectiveArguments = activityDirective.getJsonObject("arguments");
+      final var startOffset = instantFromStart(simulationStart,durationFromPGInterval(simulatedActivityJson.get("start_offset").textValue()));
+      final var computedAttributes = JsonEncoding.decode(simulatedActivityJson.get("attributes"));
+      final var activityDirective = simulatedActivityJson.get("activity_directive");
+      final var activityDirectiveId = new ActivityDirectiveId(activityDirective.get("id").intValue());
+      final var activityDirectiveArguments = activityDirective.get("arguments");
       final var deserializedArguments = BasicParsers
           .mapP(serializedValueP)
           .parse(activityDirectiveArguments)
           .getSuccessOrThrow((reason) -> new InvalidJsonException(new InvalidEntityException(List.of(reason))));
-      final var activityType = activityDirective.getString("type");
+      final var activityType = activityDirective.get("type").textValue();
       final var simulatedActivity = new ActivityInstance(
           activityType,
           deserializedArguments,
@@ -1427,15 +1414,15 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
             planMetadata.horizon().getStartInstant(),
             planMetadata.horizon().getEndInstant(),
             planMetadata.planId().id());
-    final JsonObject response;
+    final ObjectNode response;
     response = postRequest(request).get();
-    final var data = response.getJsonObject("data");
-    final var simulationDatasets = data.getJsonArray("simulation_dataset");
+    final var data = response.get("data");
+    final var simulationDatasets = data.get("simulation_dataset");
     for(final var simulationDataset  : simulationDatasets){
-      final var simulationDatasetId = simulationDataset.asJsonObject().getInt("id");
-      final var datasetId = simulationDataset.asJsonObject().getInt("dataset_id");
-      final var simulationDatasetArguments = simulationArgumentsP.parse(simulationDataset.asJsonObject().getJsonObject("arguments")).getSuccessOrThrow();
-      final var simulationArguments = simulationArgumentsP.parse(simulationDataset.asJsonObject().getJsonObject("simulation").getJsonObject("arguments")).getSuccessOrThrow();
+      final var simulationDatasetId = simulationDataset.get("id").intValue();
+      final var datasetId = simulationDataset.get("dataset_id").intValue();
+      final var simulationDatasetArguments = simulationArgumentsP.parse(simulationDataset.get("arguments")).getSuccessOrThrow();
+      final var simulationArguments = simulationArgumentsP.parse(simulationDataset.get("simulation").get("arguments")).getSuccessOrThrow();
       if(!simulationDatasetArguments.equals(simulationArguments)) continue;
       return Optional.of(new DatasetIds(new DatasetId(datasetId), new SimulationDatasetId(simulationDatasetId)));
     }
@@ -1455,10 +1442,10 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
             planId.id(),
             simulationArgumentsP.unparse(arguments)
     );
-    final JsonObject response;
+    final ObjectNode response;
     response = postRequest(request).get();
-    final var data = response.getJsonObject("data");
-    final var simulationId = data.getJsonObject("insert_simulation_one").getInt("id");
+    final var data = response.get("data");
+    final var simulationId = data.get("insert_simulation_one").get("id").intValue();
     return new SimulationId(simulationId);
   }
 
@@ -1476,10 +1463,10 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
         id.id(),
         state.status().label
     );
-    final JsonObject response;
+    final ObjectNode response;
     response = postRequest(request).get();
-    final var data = response.getJsonObject("data");
-    final var affected = data.getJsonObject("update_simulation_dataset").getInt("affected_rows");
+    final var data = response.get("data");
+    final var affected = data.get("update_simulation_dataset").get("affected_rows").intValue();
     if(affected != 1){
       throw new MerlinServiceException("Unable to modify the status of simulation dataset with id %d".formatted(id.id()));
     }
@@ -1501,11 +1488,11 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
             planMetadata.horizon().getEndInstant(),
             SimulationStateRecord.Status.INCOMPLETE.label
     );
-    final JsonObject response;
+    final ObjectNode response;
     response = postRequest(request).get();
-    final var data = response.getJsonObject("data");
-    final var datasetId = data.getJsonObject("insert_simulation_dataset_one").getInt("dataset_id");
-    final var simulationDatasetId = data.getJsonObject("insert_simulation_dataset_one").getInt("id");
+    final var data = response.get("data");
+    final var datasetId = data.get("insert_simulation_dataset_one").get("dataset_id").intValue();
+    final var simulationDatasetId = data.get("insert_simulation_dataset_one").get("id").intValue();
     return new DatasetIds(new DatasetId(datasetId), new SimulationDatasetId(simulationDatasetId));
   }
 
@@ -1531,7 +1518,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
             }
           }
         }""";
-    final var allProfiles = Json.createArrayBuilder();
+    final var allProfiles = JsonNodeFactory.instance.arrayNode();
     final var resourceNames = new ArrayList<String>();
     final var resourceTypes = new ArrayList<Pair<String, ValueSchema>>();
     final var durations = new ArrayList<Duration>();
@@ -1544,13 +1531,12 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
       resourceNames.add(resource);
       resourceTypes.add(realResourceType);
       durations.add(duration);
-      allProfiles.add(Json.createObjectBuilder()
-          .add("dataset_id", datasetId.id())
-          .add("duration", graphQLIntervalFromDuration(duration).toString())
-          .add("name", resource)
-          .add("type",realProfileTypeP.unparse(realResourceType))
-          .build()
-      );
+      final var profileNode = JsonNodeFactory.instance.objectNode();
+      profileNode.put("dataset_id", datasetId.id());
+      profileNode.put("duration", graphQLIntervalFromDuration(duration).toString());
+      profileNode.put("name", resource);
+      profileNode.set("type", realProfileTypeP.unparse(realResourceType));
+      allProfiles.add(profileNode);
     }
     for (final var entry : discreteProfiles.entrySet()) {
       final var resource = entry.getKey();
@@ -1561,28 +1547,26 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
       resourceNames.add(resource);
       resourceTypes.add(resourceType);
       durations.add(duration);
-      allProfiles.add(Json.createObjectBuilder()
-                      .add("dataset_id", datasetId.id())
-                      .add("duration", graphQLIntervalFromDuration(duration).toString())
-                      .add("name", resource)
-                      .add("type",discreteProfileTypeP.unparse(resourceType))
-                      .build()
-      );
+      final var profileNode = JsonNodeFactory.instance.objectNode();
+      profileNode.put("dataset_id", datasetId.id());
+      profileNode.put("duration", graphQLIntervalFromDuration(duration).toString());
+      profileNode.put("name", resource);
+      profileNode.set("type", discreteProfileTypeP.unparse(resourceType));
+      allProfiles.add(profileNode);
     }
-    final var arguments = Json.createObjectBuilder()
-                              .add("profiles", allProfiles.build())
-                              .build();
-    final JsonObject response;
+    final var arguments = JsonNodeFactory.instance.objectNode();
+    arguments.set("profiles", allProfiles);
+    final ObjectNode response;
     response = postRequest(req, arguments).get();
-    final var data = response.getJsonObject("data").getJsonObject("insert_profile").getJsonArray("returning");
+    final var data = response.get("data").get("insert_profile").get("returning");
     final var profileRecords = new HashMap<String, ProfileRecord>(resourceNames.size());
     for (int i = 0; i < resourceNames.size(); i++) {
       final var dataReturned = data.get(i);
       final var resource = resourceNames.get(i);
       final var type = resourceTypes.get(i);
       final var duration = durations.get(i);
-      final var id = dataReturned.asJsonObject().getInt("id");
-      final var nameResourceReturned = dataReturned.asJsonObject().getString("name");
+      final var id = dataReturned.get("id").intValue();
+      final var nameResourceReturned = dataReturned.get("name").textValue();
       if(!nameResourceReturned.equals(resource)){
         throw new MerlinServiceException("Resource do not match");
       }
@@ -1636,42 +1620,41 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           }
         }
         """;
-    final var profiles = Json.createArrayBuilder();
+    final var profiles = JsonNodeFactory.instance.arrayNode();
     var accumulatedOffset = Duration.ZERO;
     for (final var pair : segments) {
       final var duration = pair.extent();
       final var dynamics = pair.dynamics();
 
-      final JsonValue serializedDynamics;
+      final JsonNode serializedDynamics;
       final boolean stringIsGap;
       if (dynamics.isPresent()) {
         serializedDynamics = dynamicsP.unparse(dynamics.get());
         stringIsGap = false;
       } else {
-        serializedDynamics = null;
+        serializedDynamics = NullNode.getInstance();
         stringIsGap = true;
       }
-      profiles.add(Json.createObjectBuilder()
-          .add("dataset_id", datasetId.id())
-          .add("profile_id", profileRecord.id())
-          .add("start_offset", graphQLIntervalFromDuration(accumulatedOffset).toString())
-          .add("is_gap", stringIsGap)
-          .add("dynamics", serializedDynamics)
-          .build());
+      final var segmentNode = JsonNodeFactory.instance.objectNode();
+      segmentNode.put("dataset_id", datasetId.id());
+      segmentNode.put("profile_id", profileRecord.id());
+      segmentNode.put("start_offset", graphQLIntervalFromDuration(accumulatedOffset).toString());
+      segmentNode.put("is_gap", stringIsGap);
+      segmentNode.set("dynamics", serializedDynamics);
+      profiles.add(segmentNode);
       accumulatedOffset = Duration.add(accumulatedOffset, duration);
     }
 
-    final var arguments = Json.createObjectBuilder()
-                              .add("profileSegments", profiles)
-                              .build();
+    final var arguments = JsonNodeFactory.instance.objectNode();
+    arguments.set("profileSegments", profiles);
 
-    final JsonObject response;
+    final ObjectNode response;
     try {
       response = postRequest(req, arguments).get();
     } catch (MerlinServiceException e) {
       throw new MerlinServiceException(e.toString());
     }
-    final var affected_rows = response.getJsonObject("data").getJsonObject("insert_profile_segment").getInt("affected_rows");
+    final var affected_rows = response.get("data").get("insert_profile_segment").get("affected_rows").intValue();
     if(affected_rows!=segments.size()) {
       throw new MerlinServiceException("not the same size");
     }
@@ -1704,20 +1687,17 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           }
         }
         """;
-    final var jsonTopics = Json.createArrayBuilder();
+    final var jsonTopics = JsonNodeFactory.instance.arrayNode();
     for (final var topic : topics) {
-      jsonTopics.add(
-          Json.createObjectBuilder()
-              .add("dataset_id", datasetId.id())
-              .add("topic_index", topic.getLeft())
-              .add("name", topic.getMiddle())
-              .add("value_schema", valueSchemaP.unparse(topic.getRight()))
-              .build()
-      );
+      final var topicNode = JsonNodeFactory.instance.objectNode();
+      topicNode.put("dataset_id", datasetId.id());
+      topicNode.put("topic_index", topic.getLeft());
+      topicNode.put("name", topic.getMiddle());
+      topicNode.set("value_schema", valueSchemaP.unparse(topic.getRight()));
+      jsonTopics.add(topicNode);
     }
-    final var arguments = Json.createObjectBuilder()
-                              .add("topics", jsonTopics.build())
-                              .build();
+    final var arguments = JsonNodeFactory.instance.objectNode();
+    arguments.set("topics", jsonTopics);
     postRequest(req, arguments);
   }
 
@@ -1732,7 +1712,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
                   }
             }
         """;
-    final var events = Json.createArrayBuilder();
+    final var events = JsonNodeFactory.instance.arrayNode();
     for (final var eventPoint : eventPoints.entrySet()) {
       final var time = eventPoint.getKey();
       final var transactions = eventPoint.getValue();
@@ -1742,33 +1722,30 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
         events.addAll(batchInsertEventGraph(datasetId.id(), time, transactionIndex, flattenedEventGraph));
       }
     }
-    final var arguments = Json.createObjectBuilder()
-                              .add("events", events)
-                              .build();
+    final var arguments = JsonNodeFactory.instance.objectNode();
+    arguments.set("events", events);
     postRequest(req, arguments);
   }
 
-  private JsonArrayBuilder batchInsertEventGraph(
+  private ArrayNode batchInsertEventGraph(
       final long datasetId,
       final Duration duration,
       final int transactionIndex,
       final List<Pair<String, EventRecord>> flattenedEventGraph
   ) {
-    final var events = Json.createArrayBuilder();
+    final var events = JsonNodeFactory.instance.arrayNode();
     for (final Pair<String, EventRecord> entry : flattenedEventGraph) {
       final var causalTime = entry.getLeft();
       final EventRecord event = entry.getRight();
-      events.add(
-          Json.createObjectBuilder()
-              .add("dataset_id",datasetId)
-              .add("real_time", graphQLIntervalFromDuration(duration).toString())
-              .add("transaction_index", transactionIndex)
-              .add("causal_time", causalTime)
-              .add("topic_index", event.topicId())
-              .add("value", serializedValueP.unparse(event.value()))
-              .add("span_id", event.spanId().get())
-              .build()
-      );
+      final var eventNode = JsonNodeFactory.instance.objectNode();
+      eventNode.put("dataset_id", datasetId);
+      eventNode.put("real_time", graphQLIntervalFromDuration(duration).toString());
+      eventNode.put("transaction_index", transactionIndex);
+      eventNode.put("causal_time", causalTime);
+      eventNode.put("topic_index", event.topicId());
+      eventNode.set("value", JsonEncoding.encode(event.value()));
+      eventNode.put("span_id", event.spanId().get());
+      events.add(eventNode);
     }
     return events;
   }
@@ -1813,34 +1790,40 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
         }
       }
       """;
-  final var updates = Json.createArrayBuilder();
+  final var updates = JsonNodeFactory.instance.arrayNode();
   int updateCounter = 0;
   for (final var entry : simulatedActivities.entrySet()) {
     final var activity =  entry.getValue();
     final var id =  entry.getKey();
     if (activity.parentId().isEmpty()) continue;
-    updates.add(Json.createObjectBuilder()
-                   .add("where", Json.createObjectBuilder()
-                                     .add("dataset_id",Json.createObjectBuilder().add("_eq", datasetId.id()).build())
-                                     .add("span_id", Json.createObjectBuilder().add("_eq", id.id()).build()))
-                   .add("_set", Json.createObjectBuilder().add("parent_id", activity.parentId().get()))
-                   .build());
+    final var datasetIdEq = JsonNodeFactory.instance.objectNode();
+    datasetIdEq.put("_eq", datasetId.id());
+    final var spanIdEq = JsonNodeFactory.instance.objectNode();
+    spanIdEq.put("_eq", id.id());
+    final var whereNode = JsonNodeFactory.instance.objectNode();
+    whereNode.set("dataset_id", datasetIdEq);
+    whereNode.set("span_id", spanIdEq);
+    final var setNode = JsonNodeFactory.instance.objectNode();
+    setNode.put("parent_id", activity.parentId().get());
+    final var updateNode = JsonNodeFactory.instance.objectNode();
+    updateNode.set("where", whereNode);
+    updateNode.set("_set", setNode);
+    updates.add(updateNode);
     updateCounter++;
   }
-  final var arguments = Json.createObjectBuilder()
-                            .add("updates", updates.build())
-                            .build();
+  final var arguments = JsonNodeFactory.instance.objectNode();
+  arguments.set("updates", updates);
 
-  final JsonObject response;
+  final ObjectNode response;
   response = postRequest(req, arguments).get();
-    final var jsonValue = response.getJsonObject("data").get("update_span_many");
+    final var jsonValue = response.get("data").get("update_span_many");
     var affected_rows = 0;
-    if (jsonValue.getValueType() == JsonValue.ValueType.ARRAY) {
-      for (final var jsonObject : response.getJsonObject("data").getJsonArray("update_span_many").getValuesAs(JsonObject.class)) {
-        affected_rows += jsonObject.getInt("affected_rows");
+    if (jsonValue.isArray()) {
+      for (final var jsonObject : jsonValue) {
+        affected_rows += jsonObject.get("affected_rows").intValue();
       }
     } else {
-      affected_rows = response.getJsonObject("data").getJsonObject("update_span_many").getInt("affected_rows");
+      affected_rows = jsonValue.get("affected_rows").intValue();
     }
     if(affected_rows != updateCounter) {
       throw new MerlinServiceException("not the same size");
@@ -1888,35 +1871,34 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
                          }
                         }
                         """;
-    final var spansJson = Json.createArrayBuilder();
+    final var spansJson = JsonNodeFactory.instance.arrayNode();
     final var ids = spans.keySet().stream().toList();
     for (final var id : ids) {
       final var act = spans.get(id);
 
       final var startTime = graphQLIntervalFromDuration(simulationStart, act.start);
-      final var spanBuilder = Json.createObjectBuilder()
-                                  .add("span_id",id.id())
-                                  .add("dataset_id", datasetId.id())
-                                  .add("start_offset", startTime.toString())
-                                  .add("type", act.type())
-                                  .add("attributes", buildAttributes(
-                                      act.attributes().directiveId().map($ -> uploadIdMap.get(new ActivityDirectiveId($)).id()),
-                                      act.attributes().arguments(),
-                                      act.attributes().computedAttributes()
-                                  ));
+      final var spanBuilder = JsonNodeFactory.instance.objectNode();
+      spanBuilder.put("span_id", id.id());
+      spanBuilder.put("dataset_id", datasetId.id());
+      spanBuilder.put("start_offset", startTime.toString());
+      spanBuilder.put("type", act.type());
+      spanBuilder.set("attributes", buildAttributes(
+          act.attributes().directiveId().map($ -> uploadIdMap.get(new ActivityDirectiveId($)).id()),
+          act.attributes().arguments(),
+          act.attributes().computedAttributes()
+      ));
       if (act.duration.isPresent()){
-        spanBuilder.add("duration", graphQLIntervalFromDuration(act.duration().get()).toString());
+        spanBuilder.put("duration", graphQLIntervalFromDuration(act.duration().get()).toString());
       }
 
-      spansJson.add(spanBuilder.build());
+      spansJson.add(spanBuilder);
     }
-    final var arguments = Json.createObjectBuilder()
-                              .add("spans", spansJson)
-                              .build();
+    final var arguments = JsonNodeFactory.instance.objectNode();
+    arguments.set("spans", spansJson);
     postRequest(req, arguments).get();
   }
 
-  private JsonValue buildAttributes(final Optional<Long> directiveId, final Map<String, SerializedValue> arguments, final Optional<SerializedValue> returnValue) {
+  private JsonNode buildAttributes(final Optional<Long> directiveId, final Map<String, SerializedValue> arguments, final Optional<SerializedValue> returnValue) {
     return activityAttributesP.unparse(new ActivityAttributesRecord(directiveId, arguments, returnValue));
   }
 

@@ -8,7 +8,6 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.serializationbenchmark.DataTypes.*;
 import org.junit.jupiter.api.Test;
 
-import javax.json.JsonValue;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;

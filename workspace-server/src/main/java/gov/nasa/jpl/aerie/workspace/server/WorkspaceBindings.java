@@ -1,6 +1,13 @@
 package gov.nasa.jpl.aerie.workspace.server;
 
 import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import gov.nasa.jpl.aerie.permissions.PermissionsService;
 import gov.nasa.jpl.aerie.permissions.WorkspaceAction;
 import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
@@ -23,15 +30,10 @@ import io.javalin.http.UploadedFile;
 import io.javalin.plugin.Plugin;
 import io.javalin.validation.ValidationException;
 
-import javax.json.Json;
-import javax.json.JsonArray;
-import javax.json.JsonException;
-import javax.json.JsonString;
-import javax.json.JsonValue;
 import java.io.IOException;
-import java.io.StringReader;
 import java.nio.file.Path;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +49,7 @@ import static io.javalin.apibuilder.ApiBuilder.path;
 
 public class WorkspaceBindings implements Plugin {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceBindings.class);
+  private static final ObjectMapper mapper = new ObjectMapper();
   private final JWTService jwtService;
   private final WorkspaceService workspaceService;
   private final PermissionsService permissionsService;
@@ -252,23 +255,23 @@ public class WorkspaceBindings implements Plugin {
     final int parcelId;
     final var user = authorize(context);
 
-    try(final var reader = Json.createReader(new StringReader(context.body()))) {
-      final var bodyJson = reader.readObject();
+    try {
+      final var bodyJson = (ObjectNode) mapper.readTree(context.body());
       final String errorMsg = "Mandatory body parameter '%s' is missing or null. Request body format is:\n" + helpText;
 
       // Parcel Id
-      if (!bodyJson.containsKey("parcelId") || bodyJson.isNull("parcelId")) {
+      if (!bodyJson.has("parcelId") || bodyJson.get("parcelId").isNull()) {
         context.status(400).json(new FormattedError(errorMsg.formatted("parcelId")));
         return;
       }
-      parcelId = bodyJson.getInt("parcelId");
+      parcelId = bodyJson.get("parcelId").intValue();
 
       // Workspace Location
-      if (!bodyJson.containsKey("workspaceLocation") || bodyJson.isNull("workspaceLocation")) {
+      if (!bodyJson.has("workspaceLocation") || bodyJson.get("workspaceLocation").isNull()) {
         context.status(400).json(new FormattedError(errorMsg.formatted("workspaceLocation")));
         return;
       }
-      final var workspaceString = bodyJson.getString("workspaceLocation");
+      final var workspaceString = bodyJson.get("workspaceLocation").textValue();
       if(workspaceString.contains("/") || workspaceString.contains(".") || workspaceString.contains("~")){
         context.status(400).json(new FormattedError("Workspace location may not contain '/' or '.' or '~'"));
         return;
@@ -280,19 +283,22 @@ public class WorkspaceBindings implements Plugin {
       workspaceLocation = Path.of(workspaceString);
 
       // Workspace Name
-      if(bodyJson.containsKey("workspaceName")) {
-        if(bodyJson.isNull("workspaceName")) {
+      if(bodyJson.has("workspaceName")) {
+        if(bodyJson.get("workspaceName").isNull()) {
           context.status(400).json(new FormattedError("Workspace name may not be null."));
         }
-        workspaceName = bodyJson.getString("workspaceName");
+        workspaceName = bodyJson.get("workspaceName").textValue();
         if(workspaceName.isBlank()) {
           context.status(400).json(new FormattedError("Workspace name may not be blank"));
         }
       } else {
         workspaceName = workspaceString;
       }
-    } catch (JsonException je) {
+    } catch (JsonProcessingException je) {
       context.status(400).json(new FormattedError(je, "Request body is malformed. Request body format is:\n" + helpText));
+      return;
+    } catch (IOException ie) {
+      context.status(400).json(new FormattedError(ie, "Request body is malformed. Request body format is:\n" + helpText));
       return;
     }
 
@@ -474,8 +480,8 @@ public class WorkspaceBindings implements Plugin {
       return;
     }
 
-    if(uploadResults.response.getValueType() == JsonValue.ValueType.STRING) {
-      context.status(uploadResults.status).result(((JsonString) uploadResults.response()).getString());
+    if(uploadResults.response.isTextual()) {
+      context.status(uploadResults.status).result(uploadResults.response().textValue());
     } else {
       context.status(uploadResults.status).json(uploadResults.response);
     }
@@ -514,11 +520,17 @@ public class WorkspaceBindings implements Plugin {
     if(!ContentType.JSON.equals(context.contentType())) {
       context.status(400).json(new FormattedError("Body must be type "+ContentType.JSON));
     }
-    try(final var bodyReader = Json.createReader(new StringReader(context.body()))){
-      body = PostBody.fromJson(bodyReader.readObject(), sourceWorkspace);
-    } catch (JsonException je) {
+    try {
+      final var bodyJson = (ObjectNode) mapper.readTree(context.body());
+      body = PostBody.fromJson(bodyJson, sourceWorkspace);
+    } catch (JsonProcessingException je) {
       context.status(400).json(new FormattedError(
           je,
+          "Invalid body format. Expected body format is an array of JSON objects with the form:\n\n"+helpText));
+      return;
+    } catch (IOException ie) {
+      context.status(400).json(new FormattedError(
+          ie,
           "Invalid body format. Expected body format is an array of JSON objects with the form:\n\n"+helpText));
       return;
     }
@@ -539,8 +551,8 @@ public class WorkspaceBindings implements Plugin {
             sourceWorkspace,
             body.destinationWorkspaceId(),
             body.overwrite());
-        if(moveResults.response.getValueType() == JsonValue.ValueType.STRING) {
-          context.status(moveResults.status).result(((JsonString) moveResults.response()).getString());
+        if(moveResults.response.isTextual()) {
+          context.status(moveResults.status).result(moveResults.response().textValue());
         } else {
           context.status(moveResults.status).json(moveResults.response);
         }
@@ -555,8 +567,8 @@ public class WorkspaceBindings implements Plugin {
               sourceWorkspace,
               body.destinationWorkspaceId(),
               body.overwrite());
-          if (copyResults.response.getValueType() == JsonValue.ValueType.STRING) {
-            context.status(copyResults.status).result(((JsonString) copyResults.response()).getString());
+          if (copyResults.response.isTextual()) {
+            context.status(copyResults.status).result(copyResults.response().textValue());
           } else {
             context.status(copyResults.status).json(copyResults.response);
           }
@@ -575,8 +587,8 @@ public class WorkspaceBindings implements Plugin {
 
     final var deleteResults = handleDelete(pathInfo.workspaceId, pathInfo.filePath);
 
-    if(deleteResults.response.getValueType() == JsonValue.ValueType.STRING) {
-      context.status(deleteResults.status).result(((JsonString) deleteResults.response()).getString());
+    if(deleteResults.response.isTextual()) {
+      context.status(deleteResults.status).result(deleteResults.response().textValue());
     } else {
       context.status(deleteResults.status).json(deleteResults.response);
     }
@@ -584,7 +596,7 @@ public class WorkspaceBindings implements Plugin {
   // endregion
 
   // region Single Item Action Handlers
-  private record HandlerResult(int status, JsonValue response){
+  private record HandlerResult(int status, JsonNode response){
     HandlerResult(int status, FormattedError fe) {
       this(status, fe.toJson());
     }
@@ -606,7 +618,7 @@ public class WorkspaceBindings implements Plugin {
       if (workspaceService.saveFile(workspaceId, uploadPath, file)) {
         return new HandlerResult(
             200,
-            Json.createValue("File " + uploadPath.getFileName() + " uploaded to " + uploadPath));
+            TextNode.valueOf("File " + uploadPath.getFileName() + " uploaded to " + uploadPath));
       } else {
         logger.warn("UPLOAD: Save File failed for path {}", uploadPath);
         return new HandlerResult(500, new FormattedError("Could not save file."));
@@ -627,7 +639,7 @@ public class WorkspaceBindings implements Plugin {
   private HandlerResult handleCreateDirectory(int workspaceId, Path destinationPath) {
     try {
       if (workspaceService.createDirectory(workspaceId, destinationPath)) {
-        return new HandlerResult(200, Json.createValue("Directory created."));
+        return new HandlerResult(200, TextNode.valueOf("Directory created."));
       } else {
         logger.warn("UPLOAD: Create Directory failed for path {}", destinationPath);
         return new HandlerResult(500, new FormattedError("Could not create directory."));
@@ -653,7 +665,7 @@ public class WorkspaceBindings implements Plugin {
   {
     final var errorMsg = "Unable to move '%s' in Workspace %d to '%s' in Workspace %d."
             .formatted(toMove, sourceWorkspaceId, destinationPath, destinationWorkspaceId);
-    final var successMsg = Json.createValue(
+    final var successMsg = TextNode.valueOf(
         "'%s' in Workspace %d moved to '%s' in Workspace %d"
             .formatted(toMove, sourceWorkspaceId, destinationPath, destinationWorkspaceId));
 
@@ -700,7 +712,7 @@ public class WorkspaceBindings implements Plugin {
   {
     final var errorMsg = "Unable to copy '%s' in Workspace %d to '%s' in Workspace %d."
         .formatted(toCopy, sourceWorkspaceId, destinationPath, destinationWorkspaceId);
-    final var successMsg = Json.createValue(
+    final var successMsg = TextNode.valueOf(
         "'%s' in Workspace %d copied to '%s' in Workspace %d"
             .formatted(toCopy, sourceWorkspaceId, destinationPath, destinationWorkspaceId));
 
@@ -744,7 +756,7 @@ public class WorkspaceBindings implements Plugin {
 
       if (workspaceService.isDirectory(workspaceId, filePath)) {
         if (workspaceService.deleteDirectory(workspaceId, filePath)) {
-          return new HandlerResult(200, Json.createValue("Directory deleted."));
+          return new HandlerResult(200, TextNode.valueOf("Directory deleted."));
         } else {
           logger.warn("DELETE: Delete Directory failed for path {}", filePath);
           return new HandlerResult(500, new FormattedError(errorMsg));
@@ -752,7 +764,7 @@ public class WorkspaceBindings implements Plugin {
       } else {
 
         if (workspaceService.deleteFile(workspaceId, filePath)) {
-          return new HandlerResult(200, Json.createValue("File deleted."));
+          return new HandlerResult(200, TextNode.valueOf("File deleted."));
         } else {
           logger.warn("DELETE: Delete File failed for path {}", filePath);
           return new HandlerResult(500, new FormattedError(errorMsg));
@@ -828,11 +840,20 @@ public class WorkspaceBindings implements Plugin {
                       "files", which contains all uploaded file contents""")));
       return;
     }
-    try(final var bodyReader = Json.createReader(new StringReader(context.formParam("body")))){
-      toUpload = bodyReader.readArray().getValuesAs(obj -> BulkPutItem.fromJson(obj.asJsonObject()));
-    } catch (JsonException je) {
+    try {
+      final var bodyArray = (ArrayNode) mapper.readTree(context.formParam("body"));
+      toUpload = new ArrayList<>();
+      for (final var element : bodyArray) {
+        toUpload.add(BulkPutItem.fromJson((ObjectNode) element));
+      }
+    } catch (JsonProcessingException je) {
       context.status(400).json(new FormattedError(
           je,
+          "Invalid body format. Expected body format is an array of JSON objects with the form:\n\n"+helpText));
+      return;
+    } catch (IOException ie) {
+      context.status(400).json(new FormattedError(
+          ie,
           "Invalid body format. Expected body format is an array of JSON objects with the form:\n\n"+helpText));
       return;
     }
@@ -879,25 +900,25 @@ public class WorkspaceBindings implements Plugin {
     context.status(207).json(handleBulkUpload(toUpload, fileMap, workspaceId).toString());
   }
 
-  private JsonArray handleBulkUpload(
+  private ArrayNode handleBulkUpload(
       List<BulkPutItem> toUpload,
       Map<String, UploadedFile> fileMap,
       int workspaceId
   ) {
-    final var responseArray = Json.createArrayBuilder();
+    final var responseArray = JsonNodeFactory.instance.arrayNode();
 
     for(final var item : toUpload){
       final HandlerResult uploadResults;
-      final var response = Json.createObjectBuilder()
-                               .add("item", item.path().toString());
+      final var response = JsonNodeFactory.instance.objectNode();
+      response.put("item", item.path().toString());
 
       if(item.uploadType() == ItemType.file) {
         // Do not create the file if the file contents are not provided
         final var uploadedFileName = item.inputFileName().orElse(item.path().getFileName().toString());
         final var file = fileMap.getOrDefault(uploadedFileName, null);
         if(file == null) {
-          response.add("status", 400)
-                  .add("response", new FormattedError(
+          response.put("status", 400);
+          response.set("response", new FormattedError(
                       "MALFORMED_REQUEST",
                       "No file provided with the name "+uploadedFileName,
                       Optional.of("Attach file contents under the 'files' part of the request.")).toJson());
@@ -911,23 +932,23 @@ public class WorkspaceBindings implements Plugin {
             file,
             item.overwrite()
         );
-        response.add("status", uploadResults.status)
-                .add("response", uploadResults.response);
+        response.put("status", uploadResults.status);
+        response.set("response", uploadResults.response);
       }
       else if (item.uploadType() == ItemType.directory) {
         uploadResults = handleCreateDirectory(workspaceId, item.path());
-        response.add("status", uploadResults.status)
-                .add("response", uploadResults.response);
+        response.put("status", uploadResults.status);
+        response.set("response", uploadResults.response);
       } else {
         logger.debug("BULK UPLOAD: Unsupported item upload type: {}", item.uploadType());
-        response.add("status", 501)
-                .add("response", new FormattedError("Unsupported item upload type: "+item.uploadType().name()).toJson());
+        response.put("status", 501);
+        response.set("response", new FormattedError("Unsupported item upload type: "+item.uploadType().name()).toJson());
       }
       // Add response to array
       responseArray.add(response);
     }
 
-    return responseArray.build();
+    return responseArray;
   }
 
   /**
@@ -998,14 +1019,22 @@ public class WorkspaceBindings implements Plugin {
       return;
     }
 
-    try(final var bodyReader = Json.createReader(new StringReader(context.body()))){
-      final var jsonBody = bodyReader.readObject();
+    try {
+      final var jsonBody = (ObjectNode) mapper.readTree(context.body());
       body = PostBody.fromJson(jsonBody, sourceWorkspace);
-      items = jsonBody.getJsonArray("items")
-                      .getValuesAs(o -> BulkPostItem.fromJson(o.asJsonObject(), body.destinationPath()));
-    } catch (JsonException je) {
+      final var itemsArray = (ArrayNode) jsonBody.get("items");
+      items = new ArrayList<>();
+      for (final var element : itemsArray) {
+        items.add(BulkPostItem.fromJson((ObjectNode) element, body.destinationPath()));
+      }
+    } catch (JsonProcessingException je) {
       context.status(400).json(new FormattedError(
           je,
+          "Invalid body format. Expected body format is a JSON object with the form:\n\n"+helpText));
+      return;
+    } catch (IOException ie) {
+      context.status(400).json(new FormattedError(
+          ie,
           "Invalid body format. Expected body format is a JSON object with the form:\n\n"+helpText));
       return;
     }
@@ -1063,13 +1092,13 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
-  private JsonArray handleBulkMove(
+  private ArrayNode handleBulkMove(
       List<BulkPostItem> toMove,
       int sourceWorkspaceId,
       int destinationWorkspaceId,
       boolean overwrite
   ) throws NoSuchWorkspaceException {
-    final var responseArray = Json.createArrayBuilder();
+    final var responseArray = JsonNodeFactory.instance.arrayNode();
     for(final var item : toMove){
       final var results = handleMove(
           item.currentLocation(),
@@ -1077,22 +1106,22 @@ public class WorkspaceBindings implements Plugin {
           sourceWorkspaceId,
           destinationWorkspaceId,
           overwrite);
-      final var response = Json.createObjectBuilder()
-                               .add("item", item.currentLocation().toString())
-                               .add("status", results.status)
-                               .add("response", results.response);
+      final var response = JsonNodeFactory.instance.objectNode();
+      response.put("item", item.currentLocation().toString());
+      response.put("status", results.status);
+      response.set("response", results.response);
       responseArray.add(response);
     }
-    return responseArray.build();
+    return responseArray;
   }
 
-  private JsonArray handleBulkCopy(
+  private ArrayNode handleBulkCopy(
       List<BulkPostItem> toCopy,
       int sourceWorkspaceId,
       int destinationWorkspaceId,
       boolean overwrite
   ) throws NoSuchWorkspaceException {
-    final var responseArray = Json.createArrayBuilder();
+    final var responseArray = JsonNodeFactory.instance.arrayNode();
     for(final var item : toCopy) {
       final var results = handleCopy(
           item.currentLocation(),
@@ -1100,13 +1129,13 @@ public class WorkspaceBindings implements Plugin {
           sourceWorkspaceId,
           destinationWorkspaceId,
           overwrite);
-      final var response = Json.createObjectBuilder()
-                               .add("item", item.currentLocation().toString())
-                               .add("status", results.status)
-                               .add("response", results.response);
+      final var response = JsonNodeFactory.instance.objectNode();
+      response.put("item", item.currentLocation().toString());
+      response.put("status", results.status);
+      response.set("response", results.response);
       responseArray.add(response);
     }
-    return responseArray.build();
+    return responseArray;
   }
 
   /**
@@ -1134,10 +1163,17 @@ public class WorkspaceBindings implements Plugin {
           Optional.empty()));
       return;
     }
-    try(final var bodyReader = Json.createReader(new StringReader(context.body()))){
-      toDelete = bodyReader.readArray().getValuesAs(JsonString::getString);
-    } catch (JsonException je) {
+    try {
+      final var bodyArray = (ArrayNode) mapper.readTree(context.body());
+      toDelete = new ArrayList<>();
+      for (final var element : bodyArray) {
+        toDelete.add(element.textValue());
+      }
+    } catch (JsonProcessingException je) {
       context.status(400).json(new FormattedError(je, "Invalid body format. Expected body format is an array of paths."));
+      return;
+    } catch (IOException ie) {
+      context.status(400).json(new FormattedError(ie, "Invalid body format. Expected body format is an array of paths."));
       return;
     }
     // Ensure that the user has specified at least one file or directory to get the contents of
@@ -1158,19 +1194,19 @@ public class WorkspaceBindings implements Plugin {
     context.status(207).json(handleBulkDelete(workspaceId, toDelete).toString());
   }
 
-  private JsonArray handleBulkDelete(int workspaceId, List<String> toDelete) {
-    final var responseArray = Json.createArrayBuilder();
+  private ArrayNode handleBulkDelete(int workspaceId, List<String> toDelete) {
+    final var responseArray = JsonNodeFactory.instance.arrayNode();
 
     for(final var item : toDelete) {
       final var results = handleDelete(workspaceId, Path.of(item));
-      final var response = Json.createObjectBuilder()
-                               .add("item", item)
-                               .add("status", results.status)
-                               .add("response", results.response);
+      final var response = JsonNodeFactory.instance.objectNode();
+      response.put("item", item);
+      response.put("status", results.status);
+      response.set("response", results.response);
       responseArray.add(response);
     }
 
-    return responseArray.build();
+    return responseArray;
   }
   //endregion
 }

@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.services;
 
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationException;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.driver.resources.SimulationResourceManager;
@@ -10,7 +11,6 @@ import gov.nasa.jpl.aerie.merlin.server.http.ResponseSerializers;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
 import gov.nasa.jpl.aerie.types.Plan;
 
-import javax.json.Json;
 import java.util.Map;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -78,16 +78,16 @@ public record SimulationAgent (
             resourceManager);
       }
     } catch (SimulationException ex) {
-      final var errorMsgBuilder = Json.createObjectBuilder()
-                                      .add("elapsedTime", SimulationException.formatDuration(ex.elapsedTime))
-                                      .add("utcTimeDoy", SimulationException.formatInstant(ex.instant));
-      ex.directiveId.ifPresent(directiveId -> errorMsgBuilder.add("executingDirectiveId", directiveId.id()));
-      ex.activityType.ifPresent(activityType -> errorMsgBuilder.add("executingActivityType", activityType));
-      ex.activityStackTrace.ifPresent(activityStackTrace -> errorMsgBuilder.add("activityStackTrace", activityStackTrace));
+      final var errorMsgBuilder = JsonNodeFactory.instance.objectNode();
+      errorMsgBuilder.put("elapsedTime", SimulationException.formatDuration(ex.elapsedTime));
+      errorMsgBuilder.put("utcTimeDoy", SimulationException.formatInstant(ex.instant));
+      ex.directiveId.ifPresent(directiveId -> errorMsgBuilder.put("executingDirectiveId", directiveId.id()));
+      ex.activityType.ifPresent(activityType -> errorMsgBuilder.put("executingActivityType", activityType));
+      ex.activityStackTrace.ifPresent(activityStackTrace -> errorMsgBuilder.put("activityStackTrace", activityStackTrace));
       writer.failWith(b -> b
           .type("SIMULATION_EXCEPTION")
           .message(ex.cause.getMessage())
-          .data(errorMsgBuilder.build())
+          .data(errorMsgBuilder)
           .trace(ex.cause));
       return;
     } catch (final MissionModelService.NoSuchMissionModelException ex) {

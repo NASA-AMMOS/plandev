@@ -1,8 +1,8 @@
 package gov.nasa.jpl.aerie.scheduler.server.http;
 
-import javax.json.Json;
-import javax.json.JsonObject;
-import javax.json.JsonValue;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.HashMap;
 import java.util.Map;
 import gov.nasa.jpl.aerie.constraints.tree.StructExpressionAt;
@@ -25,20 +25,19 @@ public class ActivityTemplateJsonParser implements JsonParser<SchedulingDSL.Acti
   }
 
   @Override
-  public JsonObject getSchema(final SchemaCache anchors) {
-    return Json
-        .createObjectBuilder()
-        .add("type", "object")
-        .build();
+  public ObjectNode getSchema(final SchemaCache anchors) {
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("type", "object");
+    return node;
   }
 
   @Override
-  public JsonParseResult<SchedulingDSL.ActivityTemplate> parse(final JsonValue json) {
-    if (!(json instanceof JsonObject)) return JsonParseResult.failure("expected object");
-    final var asObject = json.asJsonObject();
-    if(!asObject.containsKey("activityType") || !asObject.containsKey("args")) return JsonParseResult.failure("expected elements activityType and args");
-    final var activityType = asObject.getString("activityType");
-    final var args = asObject.getJsonObject("args");
+  public JsonParseResult<SchedulingDSL.ActivityTemplate> parse(final JsonNode json) {
+    if (!(json instanceof ObjectNode)) return JsonParseResult.failure("expected object");
+    final var asObject = (ObjectNode) json;
+    if(!asObject.has("activityType") || !asObject.has("args")) return JsonParseResult.failure("expected elements activityType and args");
+    final var activityType = asObject.get("activityType").textValue();
+    final var args = (ObjectNode) asObject.get("args");
     if(args.isEmpty()){
       return JsonParseResult.success(new SchedulingDSL.ActivityTemplate(activityType, new StructExpressionAt(Map.of())));
     } else{
@@ -48,11 +47,11 @@ public class ActivityTemplateJsonParser implements JsonParser<SchedulingDSL.Acti
   }
 
   @Override
-  public JsonValue unparse(final SchedulingDSL.ActivityTemplate activityTemplate) {
-    final var builder = Json.createObjectBuilder();
-    builder.add("activityType", activityTemplate.activityType());
-    builder.add("args", structExpressionF(profileExpressionP)
+  public JsonNode unparse(final SchedulingDSL.ActivityTemplate activityTemplate) {
+    final var builder = JsonNodeFactory.instance.objectNode();
+    builder.put("activityType", activityTemplate.activityType());
+    builder.set("args", structExpressionF(profileExpressionP)
         .unparse(activityTemplate.arguments()));
-    return builder.build();
+    return builder;
   }
 }

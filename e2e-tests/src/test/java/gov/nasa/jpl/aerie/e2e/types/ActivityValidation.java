@@ -1,9 +1,9 @@
 package gov.nasa.jpl.aerie.e2e.types;
 
-import javax.json.JsonObject;
-import javax.json.JsonString;
-import javax.json.JsonValue;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.List;
+import java.util.stream.StreamSupport;
 
 public sealed interface ActivityValidation {
   record Pending() implements ActivityValidation {}
@@ -16,44 +16,42 @@ public sealed interface ActivityValidation {
   record ValidationNotice(List<String> subjects, String message) { }
   record UnconstructableArgument(String name, String failure) { }
 
-  static ActivityValidation fromJSON(JsonObject obj) {
-    final var status = obj.getString("status");
+  static ActivityValidation fromJSON(ObjectNode obj) {
+    final var status = obj.get("status").textValue();
     if (!status.equals("complete")) {
       return new Pending();
     }
-    final var validations = obj.getJsonObject("validations");
-    if (validations.getBoolean("success")) {
+    final var validations = obj.get("validations");
+    if (validations.get("success").booleanValue()) {
       return new Success();
     }
-    final String type = validations.getString("type");
-    final JsonObject errors = validations.getJsonObject("errors");
+    final String type = validations.get("type").textValue();
+    final JsonNode errors = validations.get("errors");
     return switch (type) {
       case "INSTANTIATION_ERRORS" -> new InstantiationFailure(
           getStringArray(errors, "extraneousArguments"),
           getStringArray(errors, "missingArguments"),
-          errors
-              .asJsonObject()
-              .getJsonArray("unconstructableArguments")
-              .getValuesAs(
-                  $ -> new UnconstructableArgument(
-                      $.asJsonObject().getString("name"),
-                      $.asJsonObject().getString("failure"))));
+          StreamSupport.stream(errors.get("unconstructableArguments").spliterator(), false)
+              .map($ -> new UnconstructableArgument(
+                      $.get("name").textValue(),
+                      $.get("failure").textValue()))
+              .toList());
       case "VALIDATION_NOTICES" -> new ValidationFailure(
-          errors.getJsonArray("validationNotices")
-                .getValuesAs(
-                    $ -> new ValidationNotice(
+          StreamSupport.stream(errors.get("validationNotices").spliterator(), false)
+                .map($ -> new ValidationNotice(
                         getStringArray($, "subjects"),
-                        $.asJsonObject().getString("message"))));
-      case "NO_SUCH_ACTIVITY_TYPE" -> new NoSuchActivityTypeFailure(errors.getJsonObject("noSuchActivityError").getString("message"), errors.getJsonObject("noSuchActivityError").getString("activity_type"));
+                        $.get("message").textValue()))
+                .toList());
+      case "NO_SUCH_ACTIVITY_TYPE" -> new NoSuchActivityTypeFailure(errors.get("noSuchActivityError").get("message").textValue(), errors.get("noSuchActivityError").get("activity_type").textValue());
       case "NO_SUCH_MISSION_MODEL" -> new NoSuchMissionModelFailure(
-          errors.getJsonObject("noSuchMissionModelError").getString("message"),
-          errors.getJsonObject("noSuchMissionModelError").getJsonNumber("mission_model_id").longValue()
+          errors.get("noSuchMissionModelError").get("message").textValue(),
+          errors.get("noSuchMissionModelError").get("mission_model_id").longValue()
       );
       default -> throw new RuntimeException("Unhandled error type: " + type);
     };
   }
 
-  static List<String> getStringArray(JsonValue object, String key) {
-    return object.asJsonObject().getJsonArray(key).getValuesAs(subj -> ((JsonString) subj).getString());
+  static List<String> getStringArray(JsonNode object, String key) {
+    return StreamSupport.stream(object.get(key).spliterator(), false).map(JsonNode::textValue).toList();
   }
 }

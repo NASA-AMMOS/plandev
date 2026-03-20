@@ -4,23 +4,24 @@ import gov.nasa.jpl.aerie.json.JsonParser;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfile;
 
-import javax.json.Json;
-import javax.json.JsonReader;
-import javax.json.stream.JsonGenerator;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.io.StringReader;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.temporal.ChronoUnit;
-import java.util.Map;
 
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.EventGraphFlattener;
 import gov.nasa.jpl.aerie.types.Plan;
 import gov.nasa.jpl.aerie.types.Timestamp;
+
+import gov.nasa.jpl.aerie.merlin.driver.json.JsonEncoding;
 
 import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
 import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
@@ -32,8 +33,7 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
 public class SimulationResultsWriter {
   private final static double SCHEMA_VERSION = 1;
 
-  // Write JSONs with Pretty Printing
-  private final static Map<String,String> config = Map.of(JsonGenerator.PRETTY_PRINTING, "");
+  private static final ObjectMapper objectMapper = new ObjectMapper();
 
   private final SimulationResults results;
   private final Plan plan;
@@ -91,7 +91,8 @@ public class SimulationResultsWriter {
   }
 
   public void writeResults(CanceledListener canceledListener, Writer outputWriter) {
-    try (final var resultsJsonGenerator = Json.createGeneratorFactory(config).createGenerator(outputWriter)) {
+    try (final var resultsJsonGenerator = objectMapper.createGenerator(outputWriter)) {
+      resultsJsonGenerator.useDefaultPrettyPrinter();
       // Start the top-level object
       resultsJsonGenerator.writeStartObject();
 
@@ -100,68 +101,70 @@ public class SimulationResultsWriter {
 
       // Write each of the main subsections
 
-      resultsJsonGenerator.writeKey("simulationConfiguration");
+      resultsJsonGenerator.writeFieldName("simulationConfiguration");
       writeSimConfig(resultsJsonGenerator);
 
-      resultsJsonGenerator.writeKey("profiles");
+      resultsJsonGenerator.writeFieldName("profiles");
       writeProfiles(resultsJsonGenerator);
 
-      resultsJsonGenerator.writeKey("spans");
+      resultsJsonGenerator.writeFieldName("spans");
       writeSpans(resultsJsonGenerator);
 
-      resultsJsonGenerator.writeKey("topics");
+      resultsJsonGenerator.writeFieldName("topics");
       writeTopics(resultsJsonGenerator);
 
-      resultsJsonGenerator.writeKey("events");
+      resultsJsonGenerator.writeFieldName("events");
       writeEvents(resultsJsonGenerator);
 
       // End the top-level object
-      resultsJsonGenerator.writeEnd();
+      resultsJsonGenerator.writeEndObject();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
   }
 
   /** Write the top-level fields of the results JSON */
-  private void writeOpening(JsonGenerator resultsGenerator, boolean canceled) {
+  private void writeOpening(JsonGenerator resultsGenerator, boolean canceled) throws IOException {
     final var simEndTime = plan.simulationStartTimestamp.plusMicros(results.duration.in(Duration.MICROSECOND));
 
-    resultsGenerator
-        .write("version", SCHEMA_VERSION)
-        .write("simulationStartTime", plan.simulationStartTimestamp.toString())
-        .write("simulationEndTime", simEndTime.toString())
-        .write("canceled", canceled);
+    resultsGenerator.writeNumberField("version", SCHEMA_VERSION);
+    resultsGenerator.writeStringField("simulationStartTime", plan.simulationStartTimestamp.toString());
+    resultsGenerator.writeStringField("simulationEndTime", simEndTime.toString());
+    resultsGenerator.writeBooleanField("canceled", canceled);
   }
 
   /** Write the simulation configuration section of the results */
-  private void writeSimConfig(JsonGenerator resultsGenerator) {
-    resultsGenerator.writeStartObject()
-        .write("startTime", plan.simulationStartTimestamp.toString())
-        .write("endTime", plan.simulationEndTimestamp.toString())
-        .write("arguments", simulationArgumentsP.unparse(plan.simulationConfiguration()))
-        .writeEnd();
+  private void writeSimConfig(JsonGenerator resultsGenerator) throws IOException {
+    resultsGenerator.writeStartObject();
+    resultsGenerator.writeStringField("startTime", plan.simulationStartTimestamp.toString());
+    resultsGenerator.writeStringField("endTime", plan.simulationEndTimestamp.toString());
+    resultsGenerator.writeFieldName("arguments");
+    resultsGenerator.writeTree(simulationArgumentsP.unparse(plan.simulationConfiguration()));
+    resultsGenerator.writeEndObject();
   }
 
   /**
    * Write the profiles section of the results.
    * Will get profile segments from resourceFileStreamer if it's non-null, or from results' maps otherwise.
    */
-  private void writeProfiles(JsonGenerator resultsGenerator) {
+  private void writeProfiles(JsonGenerator resultsGenerator) throws IOException {
     resultsGenerator.writeStartObject();
 
     // Each real profile is an object in the array realProfiles
-    resultsGenerator.writeStartArray("realProfiles");
+    resultsGenerator.writeArrayFieldStart("realProfiles");
     for (var e : results.realProfiles.entrySet()) {
       writeProfile(resultsGenerator, e.getKey(), e.getValue(), realDynamicsP);
     }
-    resultsGenerator.writeEnd();
+    resultsGenerator.writeEndArray();
 
     // Each discrete profile is an object in the array discreteProfiles
-    resultsGenerator.writeStartArray("discreteProfiles");
+    resultsGenerator.writeArrayFieldStart("discreteProfiles");
     for (var e : results.discreteProfiles.entrySet()) {
       writeProfile(resultsGenerator, e.getKey(), e.getValue(), serializedValueP);
     }
-    resultsGenerator.writeEnd();
+    resultsGenerator.writeEndArray();
 
-    resultsGenerator.writeEnd(); // end of profiles object
+    resultsGenerator.writeEndObject(); // end of profiles object
   }
 
   /** Write a single resource profile object */
@@ -170,11 +173,12 @@ public class SimulationResultsWriter {
       String profileName,
       ResourceProfile<D> profile,
       JsonParser<D> dynamicsParser
-  ) {
-    resultsGenerator.writeStartObject()
-                    .write("name", profileName)
-                    .write("schema", valueSchemaP.unparse(profile.schema()))
-                    .writeStartArray("segments");
+  ) throws IOException {
+    resultsGenerator.writeStartObject();
+    resultsGenerator.writeStringField("name", profileName);
+    resultsGenerator.writeFieldName("schema");
+    resultsGenerator.writeTree(valueSchemaP.unparse(profile.schema()));
+    resultsGenerator.writeArrayFieldStart("segments");
 
     if (resourceFileStreamer != null) {
       // We expect RFS made a temp file where each line is a profile segment
@@ -183,34 +187,37 @@ public class SimulationResultsWriter {
         stream.forEach(s -> {
           if (!s.isBlank()) {
             // s is a JSON object for a single segment, write it as a value to the results generator
-            // Sadly, this requires reading the object into a JsonValue, just to write it back out (!)
-            try (final JsonReader jr = Json.createReader(new StringReader(s))) {
-              resultsGenerator.write(jr.readValue());
+            // Sadly, this requires reading the object into a JsonNode, just to write it back out (!)
+            try {
+              final JsonNode node = objectMapper.readTree(s);
+              resultsGenerator.writeTree(node);
+            } catch (IOException ex) {
+              throw new RuntimeException(ex);
             }
           }
         });
-      } catch (IOException ex) {
-        throw new RuntimeException(ex);
       }
       resourceTempFile.toFile().delete();
     } else {
       for (var s : profile.segments()) {
-        resultsGenerator.writeStartObject()
-                        .write("extent", s.extent().toString())
-                        .write("dynamics", dynamicsParser.unparse(s.dynamics()))
-                        .writeEnd();
+        resultsGenerator.writeStartObject();
+        resultsGenerator.writeStringField("extent", s.extent().toString());
+        resultsGenerator.writeFieldName("dynamics");
+        resultsGenerator.writeTree(dynamicsParser.unparse(s.dynamics()));
+        resultsGenerator.writeEndObject();
       }
     }
 
-    resultsGenerator.writeEnd().writeEnd();
+    resultsGenerator.writeEndArray();
+    resultsGenerator.writeEndObject();
   }
 
   /** Write the spans section of the results file, containing all activity spans */
-  private void writeSpans(JsonGenerator resultsGenerator) {
+  private void writeSpans(JsonGenerator resultsGenerator) throws IOException {
     resultsGenerator.writeStartObject();
 
     // Each simulated activity is an object in the array simulatedActivities
-    resultsGenerator.writeStartArray("simulatedActivities");
+    resultsGenerator.writeArrayFieldStart("simulatedActivities");
     for (var e : results.simulatedActivities.entrySet()) {
       final var id = e.getKey();
       final var act = e.getValue();
@@ -220,39 +227,44 @@ public class SimulationResultsWriter {
       final var startOffset = Duration.of(plan.simulationStartTimestamp.microsUntil(new Timestamp(act.start())), Duration.MICROSECOND).toString();
       final var endTime = act.start().plus(act.duration().in(Duration.MICROSECOND), ChronoUnit.MICROS).toString();
 
-      resultsGenerator.write("id", id.id());
+      resultsGenerator.writeNumberField("id", id.id());
 
-      resultsGenerator.writeKey("directiveId");
+      resultsGenerator.writeFieldName("directiveId");
       act.directiveId().ifPresentOrElse(
-          did -> resultsGenerator.write(did.id()),
-          resultsGenerator::writeNull);
+          did -> {
+            try { resultsGenerator.writeNumber(did.id()); } catch (IOException ex) { throw new RuntimeException(ex); }
+          },
+          () -> {
+            try { resultsGenerator.writeNull(); } catch (IOException ex) { throw new RuntimeException(ex); }
+          });
 
-      resultsGenerator.writeKey("parentId");
+      resultsGenerator.writeFieldName("parentId");
       if (act.parentId() != null) {
-        resultsGenerator.write(act.parentId().id());
+        resultsGenerator.writeNumber(act.parentId().id());
       } else {
         resultsGenerator.writeNull();
       }
 
-      resultsGenerator.writeStartArray("childIds");
-      for (var ci : act.childIds()) resultsGenerator.write(ci.id());
-      resultsGenerator.writeEnd();
+      resultsGenerator.writeArrayFieldStart("childIds");
+      for (var ci : act.childIds()) resultsGenerator.writeNumber(ci.id());
+      resultsGenerator.writeEndArray();
 
-      resultsGenerator
-          .write("type", act.type())
-          .write("startOffset", startOffset)
-          .write("duration", act.duration().toString())
-          .write("attributes", serializedValueP.unparse(act.computedAttributes()))
-          .write("arguments", activityArgumentsP.unparse(act.arguments()))
-          .write("startTime", act.start().toString())
-          .write("endTime", endTime);
+      resultsGenerator.writeStringField("type", act.type());
+      resultsGenerator.writeStringField("startOffset", startOffset);
+      resultsGenerator.writeStringField("duration", act.duration().toString());
+      resultsGenerator.writeFieldName("attributes");
+      resultsGenerator.writeTree(JsonEncoding.encode(act.computedAttributes()));
+      resultsGenerator.writeFieldName("arguments");
+      resultsGenerator.writeTree(activityArgumentsP.unparse(act.arguments()));
+      resultsGenerator.writeStringField("startTime", act.start().toString());
+      resultsGenerator.writeStringField("endTime", endTime);
 
-      resultsGenerator.writeEnd();
+      resultsGenerator.writeEndObject();
     }
-    resultsGenerator.writeEnd();
+    resultsGenerator.writeEndArray();
 
     // Each unfinished activity is an object in the array unfinishedActivities
-    resultsGenerator.writeStartArray("unfinishedActivities");
+    resultsGenerator.writeArrayFieldStart("unfinishedActivities");
     for (var e : results.unfinishedActivities.entrySet()) {
       final var id = e.getKey();
       final var act = e.getValue();
@@ -261,50 +273,55 @@ public class SimulationResultsWriter {
 
       final var startOffset = Duration.of(plan.simulationStartTimestamp.microsUntil(new Timestamp(act.start())), Duration.MICROSECOND).toString();
 
-      resultsGenerator.write("id", id.id());
+      resultsGenerator.writeNumberField("id", id.id());
 
-      resultsGenerator.writeKey("directiveId");
+      resultsGenerator.writeFieldName("directiveId");
       act.directiveId().ifPresentOrElse(
-          did -> resultsGenerator.write(did.id()),
-          resultsGenerator::writeNull);
+          did -> {
+            try { resultsGenerator.writeNumber(did.id()); } catch (IOException ex) { throw new RuntimeException(ex); }
+          },
+          () -> {
+            try { resultsGenerator.writeNull(); } catch (IOException ex) { throw new RuntimeException(ex); }
+          });
 
-      resultsGenerator.writeKey("parentId");
+      resultsGenerator.writeFieldName("parentId");
       if (act.parentId() != null) {
-        resultsGenerator.write(act.parentId().id());
+        resultsGenerator.writeNumber(act.parentId().id());
       } else {
         resultsGenerator.writeNull();
       }
 
-      resultsGenerator.writeStartArray("childIds");
-      for (var ci : act.childIds()) resultsGenerator.write(ci.id());
-      resultsGenerator.writeEnd();
+      resultsGenerator.writeArrayFieldStart("childIds");
+      for (var ci : act.childIds()) resultsGenerator.writeNumber(ci.id());
+      resultsGenerator.writeEndArray();
 
-      resultsGenerator
-          .write("type", act.type())
-          .write("startOffset", startOffset)
-          .write("arguments", activityArgumentsP.unparse(act.arguments()))
-          .write("startTime", act.start().toString());
+      resultsGenerator.writeStringField("type", act.type());
+      resultsGenerator.writeStringField("startOffset", startOffset);
+      resultsGenerator.writeFieldName("arguments");
+      resultsGenerator.writeTree(activityArgumentsP.unparse(act.arguments()));
+      resultsGenerator.writeStringField("startTime", act.start().toString());
 
-      resultsGenerator.writeEnd();
+      resultsGenerator.writeEndObject();
     }
-    resultsGenerator.writeEnd();
+    resultsGenerator.writeEndArray();
 
-    resultsGenerator.writeEnd(); // end of spans object
+    resultsGenerator.writeEndObject(); // end of spans object
   }
 
   /** Write the topics section of the results */
-  private void writeTopics(JsonGenerator resultsGenerator) {
+  private void writeTopics(JsonGenerator resultsGenerator) throws IOException {
     resultsGenerator.writeStartObject();
     for (var t : results.topics) {
-      resultsGenerator.writeStartObject(t.getMiddle())
-          .write("schema", valueSchemaP.unparse(t.getRight()))
-          .writeEnd();
+      resultsGenerator.writeObjectFieldStart(t.getMiddle());
+      resultsGenerator.writeFieldName("schema");
+      resultsGenerator.writeTree(valueSchemaP.unparse(t.getRight()));
+      resultsGenerator.writeEndObject();
     }
-    resultsGenerator.writeEnd(); // end of topics object
+    resultsGenerator.writeEndObject(); // end of topics object
   }
 
   /** Write the events section of the results */
-  private void writeEvents(JsonGenerator resultsGenerator) {
+  private void writeEvents(JsonGenerator resultsGenerator) throws IOException {
     resultsGenerator.writeStartArray();
 
     for (var e : results.events.entrySet()) {
@@ -318,31 +335,40 @@ public class SimulationResultsWriter {
         for (var entry : flattenedEventGraph) {
           var event = entry.getRight();
 
-          resultsGenerator.writeStartObject()
-              .write("causalTime", entry.getLeft())
-              .write("realTime", realTime.toString())
-              .write("transactionIndex", transactionIndex)
-              .write("value", serializedValueP.unparse(event.value()));
+          resultsGenerator.writeStartObject();
+          resultsGenerator.writeStringField("causalTime", entry.getLeft());
+          resultsGenerator.writeStringField("realTime", realTime.toString());
+          resultsGenerator.writeNumberField("transactionIndex", transactionIndex);
+          resultsGenerator.writeFieldName("value");
+          resultsGenerator.writeTree(JsonEncoding.encode(event.value()));
 
           //grab the topic from the event's topic id
           results.topics
               .stream()
               .filter(topic -> topic.getLeft() == event.topicId())
               .findFirst()
-              .ifPresent(topic -> resultsGenerator.write("topic", topic.getMiddle()));
+              .ifPresent(topic -> {
+                try { resultsGenerator.writeStringField("topic", topic.getMiddle()); } catch (IOException ex) { throw new RuntimeException(ex); }
+              });
 
           // optional span id
-          resultsGenerator.writeKey("spanId");
-          event.spanId().ifPresentOrElse(resultsGenerator::write, resultsGenerator::writeNull);
+          resultsGenerator.writeFieldName("spanId");
+          event.spanId().ifPresentOrElse(
+              spanId -> {
+                try { resultsGenerator.writeNumber(spanId); } catch (IOException ex) { throw new RuntimeException(ex); }
+              },
+              () -> {
+                try { resultsGenerator.writeNull(); } catch (IOException ex) { throw new RuntimeException(ex); }
+              });
 
-          resultsGenerator.writeEnd(); // end of event object
+          resultsGenerator.writeEndObject(); // end of event object
         }
 
         ++transactionIndex;
       }
     }
 
-    resultsGenerator.writeEnd(); // end of events array
+    resultsGenerator.writeEndArray(); // end of events array
   }
 }
 

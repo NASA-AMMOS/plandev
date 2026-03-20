@@ -42,7 +42,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import org.junit.jupiter.api.Test;
 
-import javax.json.Json;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -62,14 +62,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 public final class ConstraintParsersTest {
   @Test
   public void testParseAbsoluteInterval() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "AbsoluteInterval")
-        .add("start", "2020-03-30T19:00:00Z")
-        .add("end", "2020-03-30T20:00:00Z")
-        .add("startInclusivity", "Inclusive")
-        .add("endInclusivity", "Exclusive")
-        .build();
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "AbsoluteInterval");
+    json.put("start", "2020-03-30T19:00:00Z");
+    json.put("end", "2020-03-30T20:00:00Z");
+    json.put("startInclusivity", "Inclusive");
+    json.put("endInclusivity", "Exclusive");
     final var result = absoluteIntervalP.parse(json).getSuccessOrThrow();
 
     final var expected = new AbsoluteInterval(
@@ -81,7 +79,8 @@ public final class ConstraintParsersTest {
 
     assertEquals(expected, result);
 
-    final var emptyJson = Json.createObjectBuilder().add("kind", "AbsoluteInterval").build();
+    final var emptyJson = JsonNodeFactory.instance.objectNode();
+    emptyJson.put("kind", "AbsoluteInterval");
     final var emptyResult = absoluteIntervalP.parse(emptyJson).getSuccessOrThrow();
     final var emptyExpected = new AbsoluteInterval(
         Optional.empty(),
@@ -94,11 +93,9 @@ public final class ConstraintParsersTest {
   }
   @Test
   public void testParseDiscreteValue() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "DiscreteProfileValue")
-        .add("value", false)
-        .build();
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "DiscreteProfileValue");
+    json.put("value", false);
     final var result = discreteProfileExprP.parse(json).getSuccessOrThrow();
 
     final var expected =
@@ -109,14 +106,13 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseChanges() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "ProfileChanges")
-        .add("expression", Json
-            .createObjectBuilder()
-            .add("kind", "DiscreteProfileValue")
-            .add("value", false))
-        .build();
+    final var innerObj = JsonNodeFactory.instance.objectNode();
+    innerObj.put("kind", "DiscreteProfileValue");
+    innerObj.put("value", false);
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "ProfileChanges");
+    json.set("expression", innerObj);
     final var result = windowsExpressionP.parse(json).getSuccessOrThrow();
 
     final var expected =
@@ -129,11 +125,9 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseDiscreteResource() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "DiscreteProfileResource")
-        .add("name", "ResA")
-        .build();
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "DiscreteProfileResource");
+    json.put("name", "ResA");
     final var result = discreteResourceP.parse(json).getSuccessOrThrow();
 
     final var expected =
@@ -144,16 +138,15 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseTransition() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "DiscreteProfileTransition")
-        .add("profile", Json
-            .createObjectBuilder()
-            .add("kind", "DiscreteProfileResource")
-            .add("name", "ResA"))
-        .add("from", "old")
-        .add("to", "new")
-        .build();
+    final var profileObj = JsonNodeFactory.instance.objectNode();
+    profileObj.put("kind", "DiscreteProfileResource");
+    profileObj.put("name", "ResA");
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "DiscreteProfileTransition");
+    json.set("profile", profileObj);
+    json.put("from", "old");
+    json.put("to", "new");
     final var result = windowsExpressionP.parse(json).getSuccessOrThrow();
 
     final var expected =
@@ -167,12 +160,10 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseRealParameter() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "RealProfileParameter")
-        .add("alias", "act")
-        .add("name", "pJones")
-        .build();
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "RealProfileParameter");
+    json.put("alias", "act");
+    json.put("name", "pJones");
     final var result = linearProfileExprP.parse(json).getSuccessOrThrow();
 
     final var expected = new RealParameter("act", "pJones");
@@ -182,12 +173,10 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseRealValue() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "RealProfileValue")
-        .add("value", 3.4)
-        .add("rate", 2.2)
-        .build();
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "RealProfileValue");
+    json.put("value", 3.4);
+    json.put("rate", 2.2);
     final var result = linearProfileExprP.parse(json).getSuccessOrThrow();
 
     final var expected = new RealValue(3.4, 2.2, Optional.empty());
@@ -197,11 +186,9 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseRealResource() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "RealProfileResource")
-        .add("name", "ResA")
-        .build();
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "RealProfileResource");
+    json.put("name", "ResA");
     final var result = linearProfileExprP.parse(json).getSuccessOrThrow();
 
     final var expected = new RealResource("ResA");
@@ -211,18 +198,18 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParsePlus() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "RealProfilePlus")
-        .add("left", Json
-            .createObjectBuilder()
-            .add("kind", "RealProfileResource")
-            .add("name", "ResA"))
-        .add("right", Json
-            .createObjectBuilder()
-            .add("kind", "RealProfileResource")
-            .add("name", "ResB"))
-        .build();
+    final var leftObj = JsonNodeFactory.instance.objectNode();
+    leftObj.put("kind", "RealProfileResource");
+    leftObj.put("name", "ResA");
+
+    final var rightObj = JsonNodeFactory.instance.objectNode();
+    rightObj.put("kind", "RealProfileResource");
+    rightObj.put("name", "ResB");
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "RealProfilePlus");
+    json.set("left", leftObj);
+    json.set("right", rightObj);
     final var result = linearProfileExprP.parse(json).getSuccessOrThrow();
 
     final var expected =
@@ -235,15 +222,14 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseTimes() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "RealProfileTimes")
-        .add("profile", Json
-            .createObjectBuilder()
-            .add("kind", "RealProfileResource")
-            .add("name", "ResA"))
-        .add("multiplier", 2.7)
-        .build();
+    final var profileObj = JsonNodeFactory.instance.objectNode();
+    profileObj.put("kind", "RealProfileResource");
+    profileObj.put("name", "ResA");
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "RealProfileTimes");
+    json.set("profile", profileObj);
+    json.put("multiplier", 2.7);
     final var result = linearProfileExprP.parse(json).getSuccessOrThrow();
 
     final var expected =
@@ -256,14 +242,13 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseRate() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "RealProfileRate")
-        .add("profile", Json
-            .createObjectBuilder()
-            .add("kind", "RealProfileResource")
-            .add("name", "ResA"))
-        .build();
+    final var profileObj = JsonNodeFactory.instance.objectNode();
+    profileObj.put("kind", "RealProfileResource");
+    profileObj.put("name", "ResA");
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "RealProfileRate");
+    json.set("profile", profileObj);
     final var result = linearProfileExprP.parse(json).getSuccessOrThrow();
 
     final var expected =
@@ -275,11 +260,9 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseDuringWindow() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "WindowsExpressionActivityWindow")
-        .add("alias", "TEST")
-        .build();
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "WindowsExpressionActivityWindow");
+    json.put("alias", "TEST");
     final var result = windowsExpressionP.parse(json).getSuccessOrThrow();
 
     final var expected = new ActivityWindow("TEST");
@@ -289,11 +272,9 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseDuringSpan() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "SpansExpressionActivitySpan")
-        .add("alias", "TEST")
-        .build();
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "SpansExpressionActivitySpan");
+    json.put("alias", "TEST");
     final var result = spansExpressionP.parse(json).getSuccessOrThrow();
 
     final var expected = new ActivitySpan("TEST");
@@ -304,11 +285,9 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseStartOf() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "WindowsExpressionStartOf")
-        .add("alias", "TEST")
-        .build();
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "WindowsExpressionStartOf");
+    json.put("alias", "TEST");
     final var result = windowsExpressionP.parse(json).getSuccessOrThrow();
 
     final var expected = new StartOf("TEST");
@@ -318,11 +297,9 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseEndOf() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "WindowsExpressionEndOf")
-        .add("alias", "TEST")
-        .build();
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "WindowsExpressionEndOf");
+    json.put("alias", "TEST");
     final var result = windowsExpressionP.parse(json).getSuccessOrThrow();
 
     final var expected = new EndOf("TEST");
@@ -332,12 +309,10 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseParameter() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "DiscreteProfileParameter")
-        .add("alias", "TEST")
-        .add("name", "paramesan")
-        .build();
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "DiscreteProfileParameter");
+    json.put("alias", "TEST");
+    json.put("name", "paramesan");
     final var result = discreteProfileExprP.parse(json).getSuccessOrThrow();
 
     final var expected = new DiscreteParameter("TEST", "paramesan");
@@ -347,11 +322,9 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseWindowsValue() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "WindowsExpressionValue")
-        .add("value", true)
-        .build();
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "WindowsExpressionValue");
+    json.put("value", true);
     final var result = windowsValueP.parse(json).getSuccessOrThrow();
 
     final var expected = new WindowsValue(true, Optional.empty());
@@ -361,18 +334,18 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseEqual() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "ExpressionEqual")
-        .add("left", Json
-            .createObjectBuilder()
-            .add("kind", "RealProfileResource")
-            .add("name", "ResA"))
-        .add("right", Json
-            .createObjectBuilder()
-            .add("kind", "RealProfileResource")
-            .add("name", "ResB"))
-        .build();
+    final var leftObj = JsonNodeFactory.instance.objectNode();
+    leftObj.put("kind", "RealProfileResource");
+    leftObj.put("name", "ResA");
+
+    final var rightObj = JsonNodeFactory.instance.objectNode();
+    rightObj.put("kind", "RealProfileResource");
+    rightObj.put("name", "ResB");
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "ExpressionEqual");
+    json.set("left", leftObj);
+    json.set("right", rightObj);
     final var result = windowsExpressionP.parse(json).getSuccessOrThrow();
 
     final var expected =
@@ -385,18 +358,18 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseNotEqual() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "ExpressionNotEqual")
-        .add("left", Json
-            .createObjectBuilder()
-            .add("kind", "RealProfileResource")
-            .add("name", "ResA"))
-        .add("right", Json
-            .createObjectBuilder()
-            .add("kind", "RealProfileResource")
-            .add("name", "ResB"))
-        .build();
+    final var leftObj = JsonNodeFactory.instance.objectNode();
+    leftObj.put("kind", "RealProfileResource");
+    leftObj.put("name", "ResA");
+
+    final var rightObj = JsonNodeFactory.instance.objectNode();
+    rightObj.put("kind", "RealProfileResource");
+    rightObj.put("name", "ResB");
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "ExpressionNotEqual");
+    json.set("left", leftObj);
+    json.set("right", rightObj);
     final var result = windowsExpressionP.parse(json).getSuccessOrThrow();
 
     final var expected =
@@ -409,18 +382,18 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseLessThan() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "RealProfileLessThan")
-        .add("left", Json
-            .createObjectBuilder()
-            .add("kind", "RealProfileResource")
-            .add("name", "ResA"))
-        .add("right", Json
-            .createObjectBuilder()
-            .add("kind", "RealProfileResource")
-            .add("name", "ResB"))
-        .build();
+    final var leftObj = JsonNodeFactory.instance.objectNode();
+    leftObj.put("kind", "RealProfileResource");
+    leftObj.put("name", "ResA");
+
+    final var rightObj = JsonNodeFactory.instance.objectNode();
+    rightObj.put("kind", "RealProfileResource");
+    rightObj.put("name", "ResB");
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "RealProfileLessThan");
+    json.set("left", leftObj);
+    json.set("right", rightObj);
     final var result = windowsExpressionP.parse(json).getSuccessOrThrow();
 
     final var expected =
@@ -433,18 +406,18 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseLessThanOrEqual() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "RealProfileLessThanOrEqual")
-        .add("left", Json
-            .createObjectBuilder()
-            .add("kind", "RealProfileResource")
-            .add("name", "ResA"))
-        .add("right", Json
-            .createObjectBuilder()
-            .add("kind", "RealProfileResource")
-            .add("name", "ResB"))
-        .build();
+    final var leftObj = JsonNodeFactory.instance.objectNode();
+    leftObj.put("kind", "RealProfileResource");
+    leftObj.put("name", "ResA");
+
+    final var rightObj = JsonNodeFactory.instance.objectNode();
+    rightObj.put("kind", "RealProfileResource");
+    rightObj.put("name", "ResB");
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "RealProfileLessThanOrEqual");
+    json.set("left", leftObj);
+    json.set("right", rightObj);
     final var result = windowsExpressionP.parse(json).getSuccessOrThrow();
 
     final var expected =
@@ -457,18 +430,18 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseGreaterThanOrEqual() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "RealProfileGreaterThanOrEqual")
-        .add("left", Json
-            .createObjectBuilder()
-            .add("kind", "RealProfileResource")
-            .add("name", "ResA"))
-        .add("right", Json
-            .createObjectBuilder()
-            .add("kind", "RealProfileResource")
-            .add("name", "ResB"))
-        .build();
+    final var leftObj = JsonNodeFactory.instance.objectNode();
+    leftObj.put("kind", "RealProfileResource");
+    leftObj.put("name", "ResA");
+
+    final var rightObj = JsonNodeFactory.instance.objectNode();
+    rightObj.put("kind", "RealProfileResource");
+    rightObj.put("name", "ResB");
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "RealProfileGreaterThanOrEqual");
+    json.set("left", leftObj);
+    json.set("right", rightObj);
     final var result = windowsExpressionP.parse(json).getSuccessOrThrow();
 
     final var expected =
@@ -481,18 +454,18 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseGreaterThan() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "RealProfileGreaterThan")
-        .add("left", Json
-            .createObjectBuilder()
-            .add("kind", "RealProfileResource")
-            .add("name", "ResA"))
-        .add("right", Json
-            .createObjectBuilder()
-            .add("kind", "RealProfileResource")
-            .add("name", "ResB"))
-        .build();
+    final var leftObj = JsonNodeFactory.instance.objectNode();
+    leftObj.put("kind", "RealProfileResource");
+    leftObj.put("name", "ResA");
+
+    final var rightObj = JsonNodeFactory.instance.objectNode();
+    rightObj.put("kind", "RealProfileResource");
+    rightObj.put("name", "ResB");
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "RealProfileGreaterThan");
+    json.set("left", leftObj);
+    json.set("right", rightObj);
     final var result = windowsExpressionP.parse(json).getSuccessOrThrow();
 
     final var expected =
@@ -505,29 +478,29 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseAnd() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "WindowsExpressionAnd")
-        .add("expressions", Json
-            .createArrayBuilder()
-            .add(Json
-                     .createObjectBuilder()
-                     .add("kind", "WindowsExpressionFromSpans")
-                     .add("spansExpression", Json
-                         .createObjectBuilder()
-                         .add("kind", "SpansExpressionActivitySpan")
-                         .add("alias", "A"))
-            )
-            .add(Json
-                     .createObjectBuilder()
-                     .add("kind", "WindowsExpressionFromSpans")
-                     .add("spansExpression", Json
-                         .createObjectBuilder()
-                         .add("kind", "SpansExpressionActivitySpan")
-                         .add("alias", "B"))
-            )
-        )
-        .build();
+    final var spanA = JsonNodeFactory.instance.objectNode();
+    spanA.put("kind", "SpansExpressionActivitySpan");
+    spanA.put("alias", "A");
+
+    final var fromSpansA = JsonNodeFactory.instance.objectNode();
+    fromSpansA.put("kind", "WindowsExpressionFromSpans");
+    fromSpansA.set("spansExpression", spanA);
+
+    final var spanB = JsonNodeFactory.instance.objectNode();
+    spanB.put("kind", "SpansExpressionActivitySpan");
+    spanB.put("alias", "B");
+
+    final var fromSpansB = JsonNodeFactory.instance.objectNode();
+    fromSpansB.put("kind", "WindowsExpressionFromSpans");
+    fromSpansB.set("spansExpression", spanB);
+
+    final var expressionsArr = JsonNodeFactory.instance.arrayNode();
+    expressionsArr.add(fromSpansA);
+    expressionsArr.add(fromSpansB);
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "WindowsExpressionAnd");
+    json.set("expressions", expressionsArr);
 
     final var result = windowsExpressionP.parse(json).getSuccessOrThrow();
 
@@ -542,20 +515,21 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseOr() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "WindowsExpressionOr")
-        .add("expressions", Json
-            .createArrayBuilder()
-            .add(Json
-                     .createObjectBuilder()
-                     .add("kind", "WindowsExpressionActivityWindow")
-                     .add("alias", "A"))
-            .add(Json
-                     .createObjectBuilder()
-                     .add("kind", "WindowsExpressionActivityWindow")
-                     .add("alias", "B")))
-        .build();
+    final var windowA = JsonNodeFactory.instance.objectNode();
+    windowA.put("kind", "WindowsExpressionActivityWindow");
+    windowA.put("alias", "A");
+
+    final var windowB = JsonNodeFactory.instance.objectNode();
+    windowB.put("kind", "WindowsExpressionActivityWindow");
+    windowB.put("alias", "B");
+
+    final var expressionsArr = JsonNodeFactory.instance.arrayNode();
+    expressionsArr.add(windowA);
+    expressionsArr.add(windowB);
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "WindowsExpressionOr");
+    json.set("expressions", expressionsArr);
 
     final var result = windowsExpressionP.parse(json).getSuccessOrThrow();
 
@@ -568,14 +542,13 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseNot() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "WindowsExpressionNot")
-        .add("expression", Json
-            .createObjectBuilder()
-            .add("kind", "WindowsExpressionActivityWindow")
-            .add("alias", "A"))
-        .build();
+    final var innerObj = JsonNodeFactory.instance.objectNode();
+    innerObj.put("kind", "WindowsExpressionActivityWindow");
+    innerObj.put("alias", "A");
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "WindowsExpressionNot");
+    json.set("expression", innerObj);
 
     final var result = windowsExpressionP.parse(json).getSuccessOrThrow();
 
@@ -588,14 +561,13 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseStarts() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "IntervalsExpressionStarts")
-        .add("expression", Json
-            .createObjectBuilder()
-            .add("kind", "WindowsExpressionActivityWindow")
-            .add("alias", "A"))
-        .build();
+    final var innerObj = JsonNodeFactory.instance.objectNode();
+    innerObj.put("kind", "WindowsExpressionActivityWindow");
+    innerObj.put("alias", "A");
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "IntervalsExpressionStarts");
+    json.set("expression", innerObj);
 
     final var result = windowsExpressionP.parse(json).getSuccessOrThrow();
 
@@ -608,14 +580,13 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseEnds() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "IntervalsExpressionEnds")
-        .add("expression", Json
-            .createObjectBuilder()
-            .add("kind", "WindowsExpressionActivityWindow")
-            .add("alias", "A"))
-        .build();
+    final var innerObj = JsonNodeFactory.instance.objectNode();
+    innerObj.put("kind", "WindowsExpressionActivityWindow");
+    innerObj.put("alias", "A");
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "IntervalsExpressionEnds");
+    json.set("expression", innerObj);
 
     final var result = windowsExpressionP.parse(json).getSuccessOrThrow();
 
@@ -628,17 +599,16 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseSplitWindows() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "SpansExpressionSplit")
-        .add("intervals", Json
-            .createObjectBuilder()
-            .add("kind", "WindowsExpressionActivityWindow")
-            .add("alias", "A"))
-        .add("numberOfSubIntervals", 3)
-        .add("internalStartInclusivity", "Exclusive")
-        .add("internalEndInclusivity", "Exclusive")
-        .build();
+    final var intervalsObj = JsonNodeFactory.instance.objectNode();
+    intervalsObj.put("kind", "WindowsExpressionActivityWindow");
+    intervalsObj.put("alias", "A");
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "SpansExpressionSplit");
+    json.set("intervals", intervalsObj);
+    json.put("numberOfSubIntervals", 3);
+    json.put("internalStartInclusivity", "Exclusive");
+    json.put("internalEndInclusivity", "Exclusive");
 
     final var result = spansExpressionP.parse(json).getSuccessOrThrow();
 
@@ -655,18 +625,16 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseSplitSpans() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "SpansExpressionSplit")
-        .add("intervals", Json
-            .createObjectBuilder()
-            .add("kind", "SpansExpressionActivitySpan")
-            .add("alias", "A")
-        )
-        .add("numberOfSubIntervals", 3)
-        .add("internalStartInclusivity", "Inclusive")
-        .add("internalEndInclusivity", "Exclusive")
-        .build();
+    final var intervalsObj = JsonNodeFactory.instance.objectNode();
+    intervalsObj.put("kind", "SpansExpressionActivitySpan");
+    intervalsObj.put("alias", "A");
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "SpansExpressionSplit");
+    json.set("intervals", intervalsObj);
+    json.put("numberOfSubIntervals", 3);
+    json.put("internalStartInclusivity", "Inclusive");
+    json.put("internalEndInclusivity", "Exclusive");
 
     final var result = spansExpressionP.parse(json).getSuccessOrThrow();
 
@@ -683,15 +651,14 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseAccumulatedDurationWindows() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "RealProfileAccumulatedDuration")
-        .add("intervalsExpression", Json
-            .createObjectBuilder()
-            .add("kind", "WindowsExpressionActivityWindow")
-            .add("alias", "A"))
-        .add("unit", 101)
-        .build();
+    final var intervalsObj = JsonNodeFactory.instance.objectNode();
+    intervalsObj.put("kind", "WindowsExpressionActivityWindow");
+    intervalsObj.put("alias", "A");
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "RealProfileAccumulatedDuration");
+    json.set("intervalsExpression", intervalsObj);
+    json.put("unit", 101);
 
     final var result = linearProfileExprP.parse(json).getSuccessOrThrow();
 
@@ -706,15 +673,14 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseAccumulatedDurationSpans() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "RealProfileAccumulatedDuration")
-        .add("intervalsExpression", Json
-            .createObjectBuilder()
-            .add("kind", "SpansExpressionActivitySpan")
-            .add("alias", "A"))
-        .add("unit", 101)
-        .build();
+    final var intervalsObj = JsonNodeFactory.instance.objectNode();
+    intervalsObj.put("kind", "SpansExpressionActivitySpan");
+    intervalsObj.put("alias", "A");
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "RealProfileAccumulatedDuration");
+    json.set("intervalsExpression", intervalsObj);
+    json.put("unit", 101);
 
     final var result = linearProfileExprP.parse(json).getSuccessOrThrow();
 
@@ -729,16 +695,15 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testForEachActivity() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "ForEachActivityViolations")
-        .add("activityType", "TypeA")
-        .add("alias", "A")
-        .add("expression", Json
-            .createObjectBuilder()
-            .add("kind", "WindowsExpressionActivityWindow")
-            .add("alias", "A"))
-        .build();
+    final var expressionObj = JsonNodeFactory.instance.objectNode();
+    expressionObj.put("kind", "WindowsExpressionActivityWindow");
+    expressionObj.put("alias", "A");
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "ForEachActivityViolations");
+    json.put("activityType", "TypeA");
+    json.put("alias", "A");
+    json.set("expression", expressionObj);
     final var result = constraintP.parse(json).getSuccessOrThrow();
 
     final var expected =
@@ -753,18 +718,18 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testAssignGaps() {
-    var json = Json
-        .createObjectBuilder()
-        .add("kind", "AssignGapsExpression")
-        .add("originalProfile", Json
-            .createObjectBuilder()
-            .add("kind", "WindowsExpressionValue")
-            .add("value", true))
-        .add("defaultProfile", Json
-            .createObjectBuilder()
-            .add("kind", "WindowsExpressionValue")
-            .add("value", false))
-        .build();
+    final var originalWindows = JsonNodeFactory.instance.objectNode();
+    originalWindows.put("kind", "WindowsExpressionValue");
+    originalWindows.put("value", true);
+
+    final var defaultWindows = JsonNodeFactory.instance.objectNode();
+    defaultWindows.put("kind", "WindowsExpressionValue");
+    defaultWindows.put("value", false);
+
+    var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "AssignGapsExpression");
+    json.set("originalProfile", originalWindows);
+    json.set("defaultProfile", defaultWindows);
 
     final var resultWindows = windowsExpressionP.parse(json).getSuccessOrThrow();
 
@@ -775,18 +740,18 @@ public final class ConstraintParsersTest {
 
     assertEquivalent(expectedWindows, resultWindows);
 
-    json = Json
-        .createObjectBuilder()
-        .add("kind", "AssignGapsExpression")
-        .add("originalProfile", Json
-            .createObjectBuilder()
-            .add("kind", "DiscreteProfileResource")
-            .add("name", "ResA"))
-        .add("defaultProfile", Json
-            .createObjectBuilder()
-            .add("kind", "DiscreteProfileResource")
-            .add("name", "ResB"))
-        .build();
+    final var originalProfile = JsonNodeFactory.instance.objectNode();
+    originalProfile.put("kind", "DiscreteProfileResource");
+    originalProfile.put("name", "ResA");
+
+    final var defaultProfile = JsonNodeFactory.instance.objectNode();
+    defaultProfile.put("kind", "DiscreteProfileResource");
+    defaultProfile.put("name", "ResB");
+
+    json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "AssignGapsExpression");
+    json.set("originalProfile", originalProfile);
+    json.set("defaultProfile", defaultProfile);
 
     final var resultProfile = discreteProfileExprP.parse(json).getSuccessOrThrow();
 
@@ -800,72 +765,104 @@ public final class ConstraintParsersTest {
 
   @Test
   public void testParseMassiveExpression() {
-    var json = Json
-        .createObjectBuilder()
-        .add("kind", "ForEachActivityViolations")
-        .add("activityType", "TypeA")
-        .add("alias", "A")
-        .add("expression", Json
-            .createObjectBuilder()
-            .add("kind", "ForEachActivityViolations")
-            .add("activityType", "TypeB")
-            .add("alias", "B")
-            .add("expression", Json
-                .createObjectBuilder()
-                .add("kind", "WindowsExpressionOr")
-                .add("expressions", Json
-                    .createArrayBuilder()
-                    .add(Json
-                             .createObjectBuilder()
-                             .add("kind", "WindowsExpressionOr")
-                             .add("expressions", Json
-                                 .createArrayBuilder()
-                                 .add(Json
-                                          .createObjectBuilder()
-                                          .add("kind", "WindowsExpressionNot")
-                                          .add("expression", Json
-                                              .createObjectBuilder()
-                                              .add("kind", "RealProfileLessThan")
-                                              .add("left", Json
-                                                  .createObjectBuilder()
-                                                  .add("kind", "RealProfileTimes")
-                                                  .add("profile", Json
-                                                      .createObjectBuilder()
-                                                      .add("kind", "RealProfileResource")
-                                                      .add("name", "ResC"))
-                                                  .add("multiplier", 2.0))
-                                              .add("right", Json
-                                                  .createObjectBuilder()
-                                                  .add("kind", "RealProfileParameter")
-                                                  .add("alias", "A")
-                                                  .add("name", "a"))))
-                                 .add(Json
-                                          .createObjectBuilder()
-                                          .add("kind", "ExpressionEqual")
-                                          .add("left", Json
-                                              .createObjectBuilder()
-                                              .add("kind", "DiscreteProfileValue")
-                                              .add("value", false))
-                                          .add("right", Json
-                                              .createObjectBuilder()
-                                              .add("kind", "DiscreteProfileParameter")
-                                              .add("alias", "B")
-                                              .add("name", "b")))))
-                    .add(Json
-                             .createObjectBuilder()
-                             .add("kind", "WindowsExpressionNot")
-                             .add("expression", Json
-                                 .createObjectBuilder()
-                                 .add("kind", "WindowsExpressionActivityWindow")
-                                 .add("alias", "A")))
-                    .add(Json
-                             .createObjectBuilder()
-                             .add("kind", "WindowsExpressionNot")
-                             .add("expression", Json
-                                 .createObjectBuilder()
-                                 .add("kind", "WindowsExpressionActivityWindow")
-                                 .add("alias", "B"))))))
-        .build();
+    // Build innermost expressions first, then compose outward
+
+    // ResC resource
+    final var resCObj = JsonNodeFactory.instance.objectNode();
+    resCObj.put("kind", "RealProfileResource");
+    resCObj.put("name", "ResC");
+
+    // Times(ResC, 2.0)
+    final var timesObj = JsonNodeFactory.instance.objectNode();
+    timesObj.put("kind", "RealProfileTimes");
+    timesObj.set("profile", resCObj);
+    timesObj.put("multiplier", 2.0);
+
+    // Parameter A.a
+    final var paramAObj = JsonNodeFactory.instance.objectNode();
+    paramAObj.put("kind", "RealProfileParameter");
+    paramAObj.put("alias", "A");
+    paramAObj.put("name", "a");
+
+    // LessThan(Times(ResC, 2.0), Parameter(A, a))
+    final var lessThanObj = JsonNodeFactory.instance.objectNode();
+    lessThanObj.put("kind", "RealProfileLessThan");
+    lessThanObj.set("left", timesObj);
+    lessThanObj.set("right", paramAObj);
+
+    // Not(LessThan(...))
+    final var notLessThanObj = JsonNodeFactory.instance.objectNode();
+    notLessThanObj.put("kind", "WindowsExpressionNot");
+    notLessThanObj.set("expression", lessThanObj);
+
+    // DiscreteProfileValue(false)
+    final var discreteValueObj = JsonNodeFactory.instance.objectNode();
+    discreteValueObj.put("kind", "DiscreteProfileValue");
+    discreteValueObj.put("value", false);
+
+    // DiscreteProfileParameter(B, b)
+    final var paramBObj = JsonNodeFactory.instance.objectNode();
+    paramBObj.put("kind", "DiscreteProfileParameter");
+    paramBObj.put("alias", "B");
+    paramBObj.put("name", "b");
+
+    // Equal(DiscreteProfileValue(false), DiscreteProfileParameter(B, b))
+    final var equalObj = JsonNodeFactory.instance.objectNode();
+    equalObj.put("kind", "ExpressionEqual");
+    equalObj.set("left", discreteValueObj);
+    equalObj.set("right", paramBObj);
+
+    // Inner Or: [Not(LessThan(...)), Equal(...)]
+    final var innerOrExprs = JsonNodeFactory.instance.arrayNode();
+    innerOrExprs.add(notLessThanObj);
+    innerOrExprs.add(equalObj);
+
+    final var innerOrObj = JsonNodeFactory.instance.objectNode();
+    innerOrObj.put("kind", "WindowsExpressionOr");
+    innerOrObj.set("expressions", innerOrExprs);
+
+    // Not(ActivityWindow(A))
+    final var actWindowA = JsonNodeFactory.instance.objectNode();
+    actWindowA.put("kind", "WindowsExpressionActivityWindow");
+    actWindowA.put("alias", "A");
+
+    final var notA = JsonNodeFactory.instance.objectNode();
+    notA.put("kind", "WindowsExpressionNot");
+    notA.set("expression", actWindowA);
+
+    // Not(ActivityWindow(B))
+    final var actWindowB = JsonNodeFactory.instance.objectNode();
+    actWindowB.put("kind", "WindowsExpressionActivityWindow");
+    actWindowB.put("alias", "B");
+
+    final var notB = JsonNodeFactory.instance.objectNode();
+    notB.put("kind", "WindowsExpressionNot");
+    notB.set("expression", actWindowB);
+
+    // Outer Or: [innerOr, Not(A), Not(B)]
+    final var outerOrExprs = JsonNodeFactory.instance.arrayNode();
+    outerOrExprs.add(innerOrObj);
+    outerOrExprs.add(notA);
+    outerOrExprs.add(notB);
+
+    final var outerOrObj = JsonNodeFactory.instance.objectNode();
+    outerOrObj.put("kind", "WindowsExpressionOr");
+    outerOrObj.set("expressions", outerOrExprs);
+
+    // ForEachActivityViolations(TypeB, B, outerOr)
+    final var forEachB = JsonNodeFactory.instance.objectNode();
+    forEachB.put("kind", "ForEachActivityViolations");
+    forEachB.put("activityType", "TypeB");
+    forEachB.put("alias", "B");
+    forEachB.set("expression", outerOrObj);
+
+    // ForEachActivityViolations(TypeA, A, forEachB)
+    var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "ForEachActivityViolations");
+    json.put("activityType", "TypeA");
+    json.put("alias", "A");
+    json.set("expression", forEachB);
+
     final var result = constraintP.parse(json).getSuccessOrThrow();
 
     final var expected = new ForEachActivityViolations(
@@ -895,47 +892,65 @@ public final class ConstraintParsersTest {
   // I know its excessive, I just wanted to be sure :)
   @Test
   public void testDeepMutualRecursion() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("kind", "WindowsExpressionFromSpans")
-        .add("spansExpression", Json
-            .createObjectBuilder()
-            .add("kind", "SpansExpressionFromWindows")
-            .add("windowsExpression", Json
-                .createObjectBuilder()
-                .add("kind", "WindowsExpressionFromSpans")
-                .add("spansExpression", Json
-                    .createObjectBuilder()
-                    .add("kind", "SpansExpressionFromWindows")
-                    .add("windowsExpression", Json
-                        .createObjectBuilder()
-                        .add("kind", "WindowsExpressionFromSpans")
-                        .add("spansExpression", Json
-                            .createObjectBuilder()
-                            .add("kind", "SpansExpressionFromWindows")
-                            .add("windowsExpression", Json
-                                .createObjectBuilder()
-                                .add("kind", "WindowsExpressionFromSpans")
-                                .add("spansExpression", Json
-                                    .createObjectBuilder()
-                                    .add("kind", "SpansExpressionFromWindows")
-                                    .add("windowsExpression", Json
-                                        .createObjectBuilder()
-                                        .add("kind", "WindowsExpressionFromSpans")
-                                        .add("spansExpression", Json
-                                            .createObjectBuilder()
-                                            .add("kind", "SpansExpressionFromWindows")
-                                            .add("windowsExpression", Json
-                                                .createObjectBuilder()
-                                                .add("kind", "WindowsExpressionFromSpans")
-                                                .add("spansExpression", Json
-                                                    .createObjectBuilder()
-                                                    .add("kind", "SpansExpressionFromWindows")
-                                                    .add("windowsExpression", Json
-                                                        .createObjectBuilder()
-                                                        .add("kind", "WindowsExpressionActivityWindow")
-                                                        .add("alias", "TEST")))))))))))))
-        .build();
+    // Build from innermost to outermost
+    final var actWindow = JsonNodeFactory.instance.objectNode();
+    actWindow.put("kind", "WindowsExpressionActivityWindow");
+    actWindow.put("alias", "TEST");
+
+    // Layer 1 (innermost SpansFromWindows)
+    final var sfwLayer1 = JsonNodeFactory.instance.objectNode();
+    sfwLayer1.put("kind", "SpansExpressionFromWindows");
+    sfwLayer1.set("windowsExpression", actWindow);
+
+    final var wfsLayer1 = JsonNodeFactory.instance.objectNode();
+    wfsLayer1.put("kind", "WindowsExpressionFromSpans");
+    wfsLayer1.set("spansExpression", sfwLayer1);
+
+    // Layer 2
+    final var sfwLayer2 = JsonNodeFactory.instance.objectNode();
+    sfwLayer2.put("kind", "SpansExpressionFromWindows");
+    sfwLayer2.set("windowsExpression", wfsLayer1);
+
+    final var wfsLayer2 = JsonNodeFactory.instance.objectNode();
+    wfsLayer2.put("kind", "WindowsExpressionFromSpans");
+    wfsLayer2.set("spansExpression", sfwLayer2);
+
+    // Layer 3
+    final var sfwLayer3 = JsonNodeFactory.instance.objectNode();
+    sfwLayer3.put("kind", "SpansExpressionFromWindows");
+    sfwLayer3.set("windowsExpression", wfsLayer2);
+
+    final var wfsLayer3 = JsonNodeFactory.instance.objectNode();
+    wfsLayer3.put("kind", "WindowsExpressionFromSpans");
+    wfsLayer3.set("spansExpression", sfwLayer3);
+
+    // Layer 4
+    final var sfwLayer4 = JsonNodeFactory.instance.objectNode();
+    sfwLayer4.put("kind", "SpansExpressionFromWindows");
+    sfwLayer4.set("windowsExpression", wfsLayer3);
+
+    final var wfsLayer4 = JsonNodeFactory.instance.objectNode();
+    wfsLayer4.put("kind", "WindowsExpressionFromSpans");
+    wfsLayer4.set("spansExpression", sfwLayer4);
+
+    // Layer 5
+    final var sfwLayer5 = JsonNodeFactory.instance.objectNode();
+    sfwLayer5.put("kind", "SpansExpressionFromWindows");
+    sfwLayer5.set("windowsExpression", wfsLayer4);
+
+    final var wfsLayer5 = JsonNodeFactory.instance.objectNode();
+    wfsLayer5.put("kind", "WindowsExpressionFromSpans");
+    wfsLayer5.set("spansExpression", sfwLayer5);
+
+    // Layer 6 (outermost)
+    final var sfwLayer6 = JsonNodeFactory.instance.objectNode();
+    sfwLayer6.put("kind", "SpansExpressionFromWindows");
+    sfwLayer6.set("windowsExpression", wfsLayer5);
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.put("kind", "WindowsExpressionFromSpans");
+    json.set("spansExpression", sfwLayer6);
+
     final var result = windowsExpressionP.parse(json).getSuccessOrThrow();
 
     final var expected = new WindowsFromSpans(

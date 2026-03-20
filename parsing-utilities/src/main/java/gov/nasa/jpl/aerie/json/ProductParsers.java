@@ -1,11 +1,11 @@
 package gov.nasa.jpl.aerie.json;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.BooleanNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.commons.lang3.tuple.Pair;
 
-import javax.json.Json;
-import javax.json.JsonObject;
-import javax.json.JsonObjectBuilder;
-import javax.json.JsonValue;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
@@ -23,25 +23,24 @@ public abstract class ProductParsers {
     private EmptyProductParser() {}
 
     @Override
-    public JsonObject getSchema(final SchemaCache anchors) {
-      return Json
-          .createObjectBuilder()
-          .add("type", "object")
-          .add("additionalProperties", JsonValue.FALSE)
-          .build();
+    public ObjectNode getSchema(final SchemaCache anchors) {
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("type", "object");
+      node.put("additionalProperties", false);
+      return node;
     }
 
     @Override
-    public JsonParseResult<Unit> parse(final JsonValue json) {
-      if (!(json instanceof JsonObject)) return JsonParseResult.failure("expected object");
-      if (!json.asJsonObject().isEmpty()) return JsonParseResult.failure("expected empty object");
+    public JsonParseResult<Unit> parse(final JsonNode json) {
+      if (!json.isObject()) return JsonParseResult.failure("expected object");
+      if (json.size() != 0) return JsonParseResult.failure("expected empty object");
 
       return JsonParseResult.success(Unit.UNIT);
     }
 
     @Override
-    public JsonObject unparse(final Unit value) {
-      return Json.createObjectBuilder().build();
+    public ObjectNode unparse(final Unit value) {
+      return JsonNodeFactory.instance.objectNode();
     }
 
     public <S> VariadicProductParser<S> field(final String key, final JsonParser<S> valueParser) {
@@ -55,22 +54,21 @@ public abstract class ProductParsers {
     public JsonObjectParser<Unit> rest() {
       return new JsonObjectParser<>() {
         @Override
-        public JsonObject getSchema(final SchemaCache anchors) {
-          return Json
-              .createObjectBuilder()
-              .add("type", "object")
-              .build();
+        public ObjectNode getSchema(final SchemaCache anchors) {
+          final var node = JsonNodeFactory.instance.objectNode();
+          node.put("type", "object");
+          return node;
         }
 
         @Override
-        public JsonParseResult<Unit> parse(final JsonValue json) {
-          if (!(json instanceof JsonObject)) return JsonParseResult.failure("expected object");
+        public JsonParseResult<Unit> parse(final JsonNode json) {
+          if (!json.isObject()) return JsonParseResult.failure("expected object");
           return JsonParseResult.success(Unit.UNIT);
         }
 
         @Override
-        public JsonObject unparse(final Unit value) {
-          return Json.createObjectBuilder().build();
+        public ObjectNode unparse(final Unit value) {
+          return JsonNodeFactory.instance.objectNode();
         }
       };
     }
@@ -89,18 +87,14 @@ public abstract class ProductParsers {
     }
 
     @Override
-    public JsonParseResult<T> parse(final JsonValue json) {
-      if (!(json instanceof JsonObject obj)) return JsonParseResult.failure("expected object");
+    public JsonParseResult<T> parse(final JsonNode json) {
+      if (!json.isObject()) return JsonParseResult.failure("expected object");
 
       if (!this.acceptUnspecified) {
         // Detect unexpected fields in the json
-        // TODO: We should return all unexpected fields, but currently
-        //       we can only return one failure reason, with one set of
-        //       breadcrumbs. When we allow multiple failure reasons
-        //       this should be updated to build a failure reason for
-        //       each unexpected parameter provided
-        for (final var param : obj.entrySet()) {
-          final var name = param.getKey();
+        final var fieldNames = json.fieldNames();
+        while (fieldNames.hasNext()) {
+          final var name = fieldNames.next();
 
           if (getFieldSpec(name).isEmpty()) {
             return JsonParseResult
@@ -113,15 +107,10 @@ public abstract class ProductParsers {
       }
 
       // Parse the fields
-      //
-      // PRECONDITION: accumulated result is of type T1
-      // INVARIANT: accumulated result is of type Pair<...Pair<T1, T2>..., Ti>
-      //   where `i` is the number of fields iterated through.
-      // POSTCONDITION: accumulated result is of type T = Pair<...Pair<Pair<T1, T2>, T3>..., Tn>.
       final var iter = this.fields.iterator();
-      var accumulator = parseField(iter.next(), obj);
+      var accumulator = parseField(iter.next(), json);
       while (iter.hasNext()) {
-        accumulator = accumulator.parWith(parseField(iter.next(), obj)).mapSuccess(x -> x);
+        accumulator = accumulator.parWith(parseField(iter.next(), json)).mapSuccess(x -> x);
       }
 
       return accumulator.mapSuccess(result -> {
@@ -133,54 +122,49 @@ public abstract class ProductParsers {
     }
 
     @Override
-    public JsonObject unparse(final T value) {
-      final var builder = Json.createObjectBuilder();
+    public ObjectNode unparse(final T value) {
+      final var obj = JsonNodeFactory.instance.objectNode();
 
-      unparse(builder, value, fields.size());
+      unparse(obj, value, fields.size());
 
-      return builder.build();
+      return obj;
     }
 
-    private JsonObjectBuilder unparse(final JsonObjectBuilder builder, Object value, int i) {
-      if (i <= 0) return builder; // This shouldn't happen, but doing nothing is a safe behavior.
+    private void unparse(final ObjectNode obj, Object value, int i) {
+      if (i <= 0) return; // This shouldn't happen, but doing nothing is a safe behavior.
 
       final Object element;
-      final JsonObjectBuilder resultBuilder;
       if (i == 1) { // type(value) = Ti
         element = value;
-        resultBuilder = builder;
       } else { // type(value) = Pair<..., Ti>
         final var pair = (Pair<?, ?>) value;
 
         element = pair.getRight();
-        resultBuilder = unparse(builder, pair.getLeft(), i - 1);
+        unparse(obj, pair.getLeft(), i - 1);
       }
 
-      return unparseField(resultBuilder, this.fields.get(i - 1), element);
+      unparseField(obj, this.fields.get(i - 1), element);
     }
 
     @Override
-    public JsonObject getSchema(final SchemaCache anchors) {
-      final var fieldSchemas = Json.createObjectBuilder();
+    public ObjectNode getSchema(final SchemaCache anchors) {
+      final var fieldSchemas = JsonNodeFactory.instance.objectNode();
       for (final var field : this.fields) {
-        fieldSchemas.add(field.name, anchors.lookup(field.valueParser));
+        fieldSchemas.set(field.name, anchors.lookup(field.valueParser));
       }
 
-      final var requiredFields = Json.createArrayBuilder();
+      final var requiredFields = JsonNodeFactory.instance.arrayNode();
       for (final var field : this.fields) {
         if (!field.isOptional) requiredFields.add(field.name);
       }
 
-      return Json
-          .createObjectBuilder()
-          // an object containing all and only the listed properties
-          .add("type", "object")
-          .add("properties", fieldSchemas)
-          .add("required", // all
-               requiredFields)
-          .add("additionalProperties", // and only
-               (this.acceptUnspecified) ? JsonValue.TRUE : JsonValue.FALSE)
-          .build();
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("type", "object");
+      node.set("properties", fieldSchemas);
+      node.set("required", requiredFields);
+      node.set("additionalProperties",
+               (this.acceptUnspecified) ? BooleanNode.TRUE : BooleanNode.FALSE);
+      return node;
     }
 
     private Optional<FieldSpec<?>> getFieldSpec(final String name) {
@@ -190,16 +174,16 @@ public abstract class ProductParsers {
       return Optional.empty();
     }
 
-    private static JsonParseResult<?> parseField(final FieldSpec<?> field, final JsonObject obj) {
+    private static JsonParseResult<?> parseField(final FieldSpec<?> field, final JsonNode obj) {
       final JsonParseResult<?> result;
       if (field.isOptional) {
-        if (!obj.containsKey(field.name)) {
+        if (!obj.has(field.name)) {
           result = JsonParseResult.success(Optional.empty());
         } else {
           result = field.valueParser.parse(obj.get(field.name)).mapSuccess(Optional::of);
         }
       } else {
-        if (!obj.containsKey(field.name)) {
+        if (!obj.has(field.name)) {
           result = JsonParseResult.failure("required field not present");
         } else {
           result = field.valueParser.parse(obj.get(field.name));
@@ -211,20 +195,19 @@ public abstract class ProductParsers {
 
     // PRECONDITION: `value` is of type `Ti` or `Optional<Ti>` (depending on `field.isOptional`).
     private static <Ti>
-    JsonObjectBuilder unparseField(final JsonObjectBuilder builder, final FieldSpec<Ti> field, final Object value) {
+    void unparseField(final ObjectNode obj, final FieldSpec<Ti> field, final Object value) {
       if (field.isOptional) { // type(value) = Optional<Ti>
         // SAFETY: By precondition.
         @SuppressWarnings("unchecked")
         final var result = (Optional<Ti>) value;
 
-        result.ifPresent($ -> builder.add(field.name, field.valueParser.unparse($)));
-        return builder;
+        result.ifPresent($ -> obj.set(field.name, field.valueParser.unparse($)));
       } else { // type(value) = Ti
         // SAFETY: By precondition.
         @SuppressWarnings("unchecked")
         final var result = (Ti) value;
 
-        return builder.add(field.name, field.valueParser.unparse(result));
+        obj.set(field.name, field.valueParser.unparse(result));
       }
     }
 
@@ -259,9 +242,6 @@ public abstract class ProductParsers {
     }
 
     private static <T> List<T> extend(final List<T> list, final T element) {
-      // It's pretty inefficient to copy the set of field specs every time.
-      // We don't expect our sets to grow very large, so this probably isn't a problem.
-      // In the future, we can use a persistent collections library to efficiently append.
       final var fields = new ArrayList<>(list);
       fields.add(element);
       return fields;
@@ -272,9 +252,6 @@ public abstract class ProductParsers {
 
   /**
    * Documents a parameter that takes ownership of a provided value.
-   *
-   * For instance, after invoking a method {@code void foo(@Owned List<?> list)} as {@code foo(xs)},
-   * the value held by the variable {@code xs} should be considered moved and inaccessible to the caller.
    */
   // Amusingly, TYPE_USE is necessary for IntelliJ to display the annotation in completions.
   @Target(ElementType.TYPE_USE)

@@ -1,5 +1,11 @@
 package gov.nasa.jpl.aerie.e2e;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.BooleanNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.microsoft.playwright.APIRequest;
 import com.microsoft.playwright.APIRequestContext;
 import com.microsoft.playwright.APIResponse;
@@ -31,12 +37,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import javax.json.Json;
-import javax.json.JsonArray;
-import javax.json.JsonObject;
-import javax.json.JsonValue;
 import java.io.IOException;
-import java.io.StringReader;
+
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
@@ -95,9 +97,11 @@ public class BindingsTests {
    * @param response APIResponse from a Playwright Request
    * @return the JSON Object representation of the response body
    */
-  private static JsonObject getBody(final APIResponse response){
-    try(final var reader = Json.createReader(new StringReader(response.text()))){
-      return reader.readObject();
+  private static ObjectNode getBody(final APIResponse response){
+    try {
+      return (ObjectNode) new ObjectMapper().readTree(response.text());
+    } catch (Exception e) {
+      throw new RuntimeException(e);
     }
   }
 
@@ -106,9 +110,11 @@ public class BindingsTests {
    * @param response APIResponse from a Playwright Request
    * @return the JSON Array representation of the response body
    */
-  private static JsonArray getArrayBody(final APIResponse response){
-    try(final var reader = Json.createReader(new StringReader(response.text()))){
-      return reader.readArray();
+  private static ArrayNode getArrayBody(final APIResponse response){
+    try {
+      return (ArrayNode) new ObjectMapper().readTree(response.text());
+    } catch (Exception e) {
+      throw new RuntimeException(e);
     }
   }
 
@@ -177,79 +183,78 @@ public class BindingsTests {
       void invalidPlanId() {
         // Returns a 404 if the PlanId is invalid
         // message is "no such plan"
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "simulate"))
-                                .add("input", Json.createObjectBuilder().add("planId", -1))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "simulate"))
+                                .set("input", JsonNodeFactory.instance.objectNode().put("planId", -1))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/getSimulationResults", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
-        assertEquals("no such plan", getBody(response).getString("message"));
+        assertEquals("no such plan", getBody(response).get("message").textValue());
       }
 
       @Test
       void forbidden() {
         // Returns a 403 if Forbidden
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "simulate"))
-                                .add("input", Json.createObjectBuilder().add("planId", planId))
-                                .add("request_query", "")
-                                .add("session_variables", nonOwner.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "simulate"))
+                                .set("input", JsonNodeFactory.instance.objectNode().put("planId", planId))
+                                .put("request_query", "")
+                                .set("session_variables", nonOwner.getSession())
+                                
                                 .toString();
         final var response = request.post("/getSimulationResults", RequestOptions.create().setData(data));
         assertEquals(403, response.status());
         assertEquals(
             "User '" + nonOwner.name() + "' with role 'user' cannot perform 'simulate' because they are not "
             + "a 'PLAN_OWNER_COLLABORATOR' for plan with id '" + planId + "'",
-            getBody(response).getString("message"));
+            getBody(response).get("message").textValue());
       }
 
       @Test
       void valid() throws InterruptedException {
         // Returns a 200 otherwise
         // "status" is not "failed"
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "simulate"))
-                                .add("input", Json.createObjectBuilder().add("planId", planId))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "simulate"))
+                                .set("input", JsonNodeFactory.instance.objectNode().put("planId", planId))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/getSimulationResults", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
-        assertNotEquals("failed", getBody(response).getString("status"));
+        assertNotEquals("failed", getBody(response).get("status").textValue());
         // Delay 1s to allow any workers to finish with the request
         Thread.sleep(1000);
       }
 
       static Stream<Arguments> forceArgs() {
         return Stream.of(
-            Arguments.arguments(named("valid, force is NULL", JsonValue.NULL)),
-            Arguments.arguments(named("valid, force is TRUE", JsonValue.TRUE)),
-            Arguments.arguments(named("valid, force is FALSE", JsonValue.FALSE))
+            Arguments.arguments(named("valid, force is NULL", NullNode.getInstance())),
+            Arguments.arguments(named("valid, force is TRUE", BooleanNode.TRUE)),
+            Arguments.arguments(named("valid, force is FALSE", BooleanNode.FALSE))
         );
       }
 
       @ParameterizedTest
       @MethodSource("forceArgs")
-      void validWithForce(JsonValue force) throws InterruptedException {
+      void validWithForce(JsonNode force) throws InterruptedException {
         // Returns a 200 otherwise
         // "status" is not "failed"
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "simulate"))
-                                .add(
-                                    "input",
-                                    Json.createObjectBuilder().add("planId", planId).add("force", force))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "simulate"))
+                                .set("input",
+                                    JsonNodeFactory.instance.objectNode().put("planId", planId).set("force", force))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/getSimulationResults", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
-        assertNotEquals("failed", getBody(response).getString("status"));
+        assertNotEquals("failed", getBody(response).get("status").textValue());
         // Delay 1s to allow any workers to finish with the request
         Thread.sleep(1000);
       }
@@ -261,16 +266,16 @@ public class BindingsTests {
       void invalidPlanId() {
         // Returns a 404 if the PlanId is invalid
         // message is "no such plan"
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "resource_samples"))
-                                .add("input", Json.createObjectBuilder().add("planId", -1))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "resource_samples"))
+                                .set("input", JsonNodeFactory.instance.objectNode().put("planId", -1))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/resourceSamples", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
-        assertEquals("no such plan", getBody(response).getString("message"));
+        assertEquals("no such plan", getBody(response).get("message").textValue());
       }
       @Test
       void forbidden() throws IOException {
@@ -279,18 +284,18 @@ public class BindingsTests {
         final var tempPermission = new ActionPermissionsSet(Map.of(ActionKey.resource_samples, Permission.PLAN_OWNER));
         hasura.updateActionPermissionsForRole("user", tempPermission);
 
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "resource_samples"))
-                                .add("input", Json.createObjectBuilder().add("planId", planId))
-                                .add("request_query", "")
-                                .add("session_variables", nonOwner.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "resource_samples"))
+                                .set("input", JsonNodeFactory.instance.objectNode().put("planId", planId))
+                                .put("request_query", "")
+                                .set("session_variables", nonOwner.getSession())
+                                
                                 .toString();
         final var response = request.post("/resourceSamples", RequestOptions.create().setData(data));
         assertEquals(403, response.status());
         assertEquals("User '"+nonOwner.name()+"' with role 'user' cannot perform 'resource_samples' because they "
                      + "are not a 'PLAN_OWNER' for plan with id '"+planId+"'",
-                     getBody(response).getString("message"));
+                     getBody(response).get("message").textValue());
 
         // Fix Permissions
         hasura.updateActionPermissionsForRole("user", ogPermissions);
@@ -300,18 +305,18 @@ public class BindingsTests {
       void valid() {
         // Returns 200 otherwise
         // resourceSamples is empty since no sim has been run
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "resource_samples"))
-                                .add("input", Json.createObjectBuilder().add("planId", planId))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "resource_samples"))
+                                .set("input", JsonNodeFactory.instance.objectNode().put("planId", planId))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/resourceSamples", RequestOptions.create().setData(data));
         final var jsonBody = getBody(response);
         assertEquals(200, response.status());
-        assertTrue(jsonBody.containsKey("resourceSamples"));
-        assertEquals(JsonValue.EMPTY_JSON_OBJECT, jsonBody.getJsonObject("resourceSamples"));
+        assertTrue(jsonBody.has("resourceSamples"));
+        assertEquals(JsonNodeFactory.instance.objectNode(), jsonBody.get("resourceSamples"));
       }
     }
 
@@ -321,16 +326,16 @@ public class BindingsTests {
       void invalidPlanId() {
         // Returns a 404 if the PlanId is invalid
         // message is "no such plan"
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "check_constraints"))
-                                .add("input", Json.createObjectBuilder().add("planId", -1))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "check_constraints"))
+                                .set("input", JsonNodeFactory.instance.objectNode().put("planId", -1))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
-        assertEquals("no such plan", getBody(response).getString("message"));
+        assertEquals("no such plan", getBody(response).get("message").textValue());
       }
 
       @Test
@@ -338,22 +343,22 @@ public class BindingsTests {
         // Returns a 404 if the SimDatasetId is invalid
         // Message is an "input mismatch exception"
         hasura.awaitSimulation(planId);
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "check_constraints"))
-                                .add("input", Json.createObjectBuilder()
-                                                  .add("planId", planId)
-                                                  .add("simulationDatasetId", -1))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "check_constraints"))
+                                .set("input", JsonNodeFactory.instance.objectNode()
+                                                  .put("planId", planId)
+                                                  .put("simulationDatasetId", -1))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
-        final var expectedResponse = Json.createObjectBuilder()
-                                         .add("message", "input mismatch exception")
-                                         .add("extensions", Json.createObjectBuilder()
-                                                               .add("cause", "simulation dataset with id `-1` does not exist"))
-                                         .build();
+        final var expectedResponse = JsonNodeFactory.instance.objectNode()
+                                         .put("message", "input mismatch exception")
+                                         .set("extensions", JsonNodeFactory.instance.objectNode()
+                                                               .put("cause", "simulation dataset with id `-1` does not exist"))
+                                         ;
         assertEquals(expectedResponse, getBody(response));
       }
 
@@ -371,22 +376,22 @@ public class BindingsTests {
 
           // Returns a 404 because the simDataset belonged to a different plan
           // Message is 'simulation dataset mismatch exception'
-          final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "check_constraints"))
-                                .add("input", Json.createObjectBuilder()
-                                                  .add("planId", planId)
-                                                  .add("simulationDatasetId", simDatasetId))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+          final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "check_constraints"))
+                                .set("input", JsonNodeFactory.instance.objectNode()
+                                                  .put("planId", planId)
+                                                  .put("simulationDatasetId", simDatasetId))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
         final var expectedCause = "Simulation Dataset with id `"+simDatasetId+"` does not belong to Plan with id `"+planId+"`";
-        final var expectedResponse = Json.createObjectBuilder()
-                                         .add("message", "simulation dataset mismatch exception")
-                                         .add("extensions", Json.createObjectBuilder().add("cause", expectedCause))
-                                         .build();
+        final var expectedResponse = JsonNodeFactory.instance.objectNode()
+                                         .put("message", "simulation dataset mismatch exception")
+                                         .set("extensions", JsonNodeFactory.instance.objectNode().set("cause", expectedCause))
+                                         ;
         assertEquals(expectedResponse, getBody(response));
         } finally {
           hasura.deletePlan(secondPlanId);
@@ -396,37 +401,37 @@ public class BindingsTests {
       @Test
       void forbidden() {
         // Returns a 403 if Forbidden
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "check_constraints"))
-                                .add("input", Json.createObjectBuilder().add("planId", planId))
-                                .add("request_query", "")
-                                .add("session_variables", nonOwner.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "check_constraints"))
+                                .set("input", JsonNodeFactory.instance.objectNode().put("planId", planId))
+                                .put("request_query", "")
+                                .set("session_variables", nonOwner.getSession())
+                                
                                 .toString();
         final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
         assertEquals(403, response.status());
         assertEquals( "User '"+nonOwner.name()+"' with role 'user' cannot perform 'check_constraints' because they"
                       + " are not a 'PLAN_OWNER_COLLABORATOR' for plan with id '"+planId+"'",
-                      getBody(response).getString("message"));
+                      getBody(response).get("message").textValue());
       }
 
       @Test
       void noSimDatasets() {
         // Returns a 404 if no simulation datasets are found
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "check_constraints"))
-                                .add("input", Json.createObjectBuilder().add("planId", planId))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "check_constraints"))
+                                .set("input", JsonNodeFactory.instance.objectNode().put("planId", planId))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
         final var expectedCause = "plan with id " + planId + " has not yet been simulated at its current revision";
-        final var expectedBody = Json.createObjectBuilder()
-                                         .add("message", "input mismatch exception")
-                                         .add("extensions", Json.createObjectBuilder().add("cause", expectedCause))
-                                         .build();
+        final var expectedBody = JsonNodeFactory.instance.objectNode()
+                                         .put("message", "input mismatch exception")
+                                         .set("extensions", JsonNodeFactory.instance.objectNode().set("cause", expectedCause))
+                                         ;
         assertEquals(expectedBody, getBody(response));
       }
 
@@ -437,21 +442,21 @@ public class BindingsTests {
 
         // Returns a 200 because Sim Dataset exists
         // results are an empty array because there are no constraints that could've failed
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "check_constraints"))
-                                .add("input", Json.createObjectBuilder().add("planId", planId))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "check_constraints"))
+                                .set("input", JsonNodeFactory.instance.objectNode().put("planId", planId))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
 
         final var body = getBody(response);
-        assertTrue(body.containsKey("requestId"));
-        assertFalse(body.isNull("requestId"));
-        assertTrue(body.containsKey("constraintsRun"));
-        assertEquals(JsonValue.EMPTY_JSON_ARRAY, body.getJsonArray("constraintsRun"));
+        assertTrue(body.has("requestId"));
+        assertFalse((body.get("requestId") == null || body.get("requestId").isNull()));
+        assertTrue(body.has("constraintsRun"));
+        assertEquals(JsonNodeFactory.instance.arrayNode(), body.get("constraintsRun"));
       }
 
       @Test
@@ -461,22 +466,22 @@ public class BindingsTests {
 
         // Returns a 200 because Sim Dataset exists
         // results are an empty array because there are no constraints that could've failed
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "check_constraints"))
-                                .add("input", Json.createObjectBuilder()
-                                                  .add("planId", planId)
-                                                  .add("simulationDatasetId", simDatasetId))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "check_constraints"))
+                                .set("input", JsonNodeFactory.instance.objectNode()
+                                                  .put("planId", planId)
+                                                  .put("simulationDatasetId", simDatasetId))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
         final var body = getBody(response);
-        assertTrue(body.containsKey("requestId"));
-        assertFalse(body.isNull("requestId"));
-        assertTrue(body.containsKey("constraintsRun"));
-        assertEquals(JsonValue.EMPTY_JSON_ARRAY, body.getJsonArray("constraintsRun"));
+        assertTrue(body.has("requestId"));
+        assertFalse((body.get("requestId") == null || body.get("requestId").isNull()));
+        assertTrue(body.has("constraintsRun"));
+        assertEquals(JsonNodeFactory.instance.arrayNode(), body.get("constraintsRun"));
       }
     }
 
@@ -486,27 +491,27 @@ public class BindingsTests {
       void invalidMissionModelId() {
         // Returns a 404 if the MissionModelId is invalid
         // message is "no such mission model"
-        final String data = Json.createObjectBuilder()
-                                .add("event", Json.createObjectBuilder()
-                                         .add("data", Json.createObjectBuilder()
-                                                  .add("old", JsonValue.NULL)
-                                                  .add("new", Json.createObjectBuilder().add("id", -1))))
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("event", JsonNodeFactory.instance.objectNode()
+                                         .set("data", JsonNodeFactory.instance.objectNode()
+                                                  .set("old", NullNode.getInstance())
+                                                  .set("new", JsonNodeFactory.instance.objectNode().put("id", -1))))
+                                
                                 .toString();
         final var response = request.post("/refreshModelParameters", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
-        assertEquals("no such mission model", getBody(response).getString("message"));
+        assertEquals("no such mission model", getBody(response).get("message").textValue());
       }
       @Test
       void valid() {
         // Returns a 200 if the ID is valid
         // There is no response body from this endpoint
-        final String data = Json.createObjectBuilder()
-                                .add("event", Json.createObjectBuilder()
-                                         .add("data", Json.createObjectBuilder()
-                                                  .add("old", JsonValue.NULL)
-                                                  .add("new", Json.createObjectBuilder().add("id", modelId))))
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("event", JsonNodeFactory.instance.objectNode()
+                                         .set("data", JsonNodeFactory.instance.objectNode()
+                                                  .set("old", NullNode.getInstance())
+                                                  .set("new", JsonNodeFactory.instance.objectNode().put("id", modelId))))
+                                
                                 .toString();
         final var response = request.post("/refreshModelParameters", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
@@ -519,27 +524,27 @@ public class BindingsTests {
       void invalidMissionModelId() {
         // Returns a 404 if the MissionModelId is invalid
         // message is "no such mission model"
-        final String data = Json.createObjectBuilder()
-                                .add("event", Json.createObjectBuilder()
-                                         .add("data", Json.createObjectBuilder()
-                                                  .add("old", JsonValue.NULL)
-                                                  .add("new", Json.createObjectBuilder().add("id", -1))))
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("event", JsonNodeFactory.instance.objectNode()
+                                         .set("data", JsonNodeFactory.instance.objectNode()
+                                                  .set("old", NullNode.getInstance())
+                                                  .set("new", JsonNodeFactory.instance.objectNode().put("id", -1))))
+                                
                                 .toString();
         final var response = request.post("/refreshActivityTypes", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
-        assertEquals("no such mission model", getBody(response).getString("message"));
+        assertEquals("no such mission model", getBody(response).get("message").textValue());
       }
       @Test
       void valid() {
         // Returns a 200 if the ID is valid
         // There is no response body from this endpoint
-        final String data = Json.createObjectBuilder()
-                                .add("event", Json.createObjectBuilder()
-                                         .add("data", Json.createObjectBuilder()
-                                                  .add("old", JsonValue.NULL)
-                                                  .add("new", Json.createObjectBuilder().add("id", modelId))))
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("event", JsonNodeFactory.instance.objectNode()
+                                         .set("data", JsonNodeFactory.instance.objectNode()
+                                                  .set("old", NullNode.getInstance())
+                                                  .set("new", JsonNodeFactory.instance.objectNode().put("id", modelId))))
+                                
                                 .toString();
         final var response = request.post("/refreshActivityTypes", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
@@ -552,27 +557,27 @@ public class BindingsTests {
       void invalidMissionModelId() {
         // Returns a 404 if the MissionModelId is invalid
         // message is "no such mission model"
-        final String data = Json.createObjectBuilder()
-                                .add("event", Json.createObjectBuilder()
-                                         .add("data", Json.createObjectBuilder()
-                                                  .add("old", JsonValue.NULL)
-                                                  .add("new", Json.createObjectBuilder().add("id", -1))))
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("event", JsonNodeFactory.instance.objectNode()
+                                         .set("data", JsonNodeFactory.instance.objectNode()
+                                                  .set("old", NullNode.getInstance())
+                                                  .set("new", JsonNodeFactory.instance.objectNode().put("id", -1))))
+                                
                                 .toString();
         final var response = request.post("/refreshResourceTypes", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
-        assertEquals("no such mission model", getBody(response).getString("message"));
+        assertEquals("no such mission model", getBody(response).get("message").textValue());
       }
       @Test
       void valid() {
         // Returns a 200 if the ID is valid
         // There is no response body from this endpoint
-        final String data = Json.createObjectBuilder()
-                                .add("event", Json.createObjectBuilder()
-                                         .add("data", Json.createObjectBuilder()
-                                                  .add("old", JsonValue.NULL)
-                                                  .add("new", Json.createObjectBuilder().add("id", modelId))))
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("event", JsonNodeFactory.instance.objectNode()
+                                         .set("data", JsonNodeFactory.instance.objectNode()
+                                                  .set("old", NullNode.getInstance())
+                                                  .set("new", JsonNodeFactory.instance.objectNode().put("id", modelId))))
+                                
                                 .toString();
         final var response = request.post("/refreshResourceTypes", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
@@ -585,37 +590,37 @@ public class BindingsTests {
       void invalidMissionModelId() {
         // Returns a 404 if the MissionModelId is invalid
         // message is "no such mission model"
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "validateActivityArguments"))
-                                .add("input", Json.createObjectBuilder()
-                                                  .add("missionModelId", -1)
-                                                  .add("activityTypeName", "BiteBanana")
-                                                  .add("activityArguments", JsonValue.EMPTY_JSON_OBJECT))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "validateActivityArguments"))
+                                .set("input", JsonNodeFactory.instance.objectNode()
+                                                  .put("missionModelId", -1)
+                                                  .put("activityTypeName", "BiteBanana")
+                                                  .set("activityArguments", JsonNodeFactory.instance.objectNode()))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/validateActivityArguments", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
-        assertEquals("no such mission model", getBody(response).getString("message"));
+        assertEquals("no such mission model", getBody(response).get("message").textValue());
       }
       @Test
       void valid() {
         // Returns a 200 otherwise
         // "success" is true
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "validateActivityArguments"))
-                                .add("input", Json.createObjectBuilder()
-                                                  .add("missionModelId", modelId)
-                                                  .add("activityTypeName", "BiteBanana")
-                                                  .add("activityArguments", JsonValue.EMPTY_JSON_OBJECT))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "validateActivityArguments"))
+                                .set("input", JsonNodeFactory.instance.objectNode()
+                                                  .put("missionModelId", modelId)
+                                                  .put("activityTypeName", "BiteBanana")
+                                                  .set("activityArguments", JsonNodeFactory.instance.objectNode()))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/validateActivityArguments", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
-        assertTrue(getBody(response).getBoolean("success"));
+        assertTrue(getBody(response).get("success").booleanValue());
       }
     }
 
@@ -625,35 +630,35 @@ public class BindingsTests {
       void invalidMissionModelId() {
         // Returns a 404 if the MissionModelId is invalid
         // message is "no such mission model"
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "validateModelArguments"))
-                                .add("input", Json.createObjectBuilder()
-                                                  .add("missionModelId", -1)
-                                                  .add("modelArguments", JsonValue.EMPTY_JSON_OBJECT))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "validateModelArguments"))
+                                .set("input", JsonNodeFactory.instance.objectNode()
+                                                  .put("missionModelId", -1)
+                                                  .set("modelArguments", JsonNodeFactory.instance.objectNode()))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/validateModelArguments", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
-        assertEquals("no such mission model", getBody(response).getString("message"));
+        assertEquals("no such mission model", getBody(response).get("message").textValue());
       }
       @Test
       void valid() {
         // Returns a 200 if the ID is valid
         // "success" is true
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "validateModelArguments"))
-                                .add("input", Json.createObjectBuilder()
-                                                  .add("missionModelId", modelId)
-                                                  .add("modelArguments", JsonValue.EMPTY_JSON_OBJECT))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "validateModelArguments"))
+                                .set("input", JsonNodeFactory.instance.objectNode()
+                                                  .put("missionModelId", modelId)
+                                                  .set("modelArguments", JsonNodeFactory.instance.objectNode()))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/validateModelArguments", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
-        assertTrue(getBody(response).getBoolean("success"));
+        assertTrue(getBody(response).get("success").booleanValue());
       }
     }
 
@@ -663,31 +668,31 @@ public class BindingsTests {
       void invalidPlanId() {
         // Returns a 404 if the PlanId is invalid
         // message is "no such plan"
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "validatePlan"))
-                                .add("input", Json.createObjectBuilder().add("planId", -1))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "validatePlan"))
+                                .set("input", JsonNodeFactory.instance.objectNode().put("planId", -1))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/validatePlan", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
-        assertEquals("no such plan", getBody(response).getString("message"));
+        assertEquals("no such plan", getBody(response).get("message").textValue());
       }
       @Test
       void valid() {
         // Returns a 200 if the ID is valid
         // "success" is true
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "validatePlan"))
-                                .add("input", Json.createObjectBuilder().add("planId", planId))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "validatePlan"))
+                                .set("input", JsonNodeFactory.instance.objectNode().put("planId", planId))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/validatePlan", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
-        assertTrue(getBody(response).getBoolean("success"));
+        assertTrue(getBody(response).get("success").booleanValue());
       }
     }
 
@@ -697,48 +702,46 @@ public class BindingsTests {
       void invalidMissionModelId() {
         // Returns a 404 if the MissionModelId is invalid
         // message is "no such mission model"
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "getModelEffectiveArguments"))
-                                .add("input", Json.createObjectBuilder()
-                                                  .add("missionModelId", -1)
-                                                  .add("modelArguments", JsonValue.EMPTY_JSON_OBJECT))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "getModelEffectiveArguments"))
+                                .set("input", JsonNodeFactory.instance.objectNode()
+                                                  .put("missionModelId", -1)
+                                                  .set("modelArguments", JsonNodeFactory.instance.objectNode()))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/getModelEffectiveArguments", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
-        assertEquals("no such mission model", getBody(response).getString("message"));
+        assertEquals("no such mission model", getBody(response).get("message").textValue());
       }
       @Test
       void valid() {
         // Returns a 200 otherwise
         // Body contains the complete set of args for the mission model (all default in this case)
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "getModelEffectiveArguments"))
-                                .add("input", Json.createObjectBuilder()
-                                                  .add("missionModelId", modelId)
-                                                  .add("modelArguments", JsonValue.EMPTY_JSON_OBJECT))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "getModelEffectiveArguments"))
+                                .set("input", JsonNodeFactory.instance.objectNode()
+                                                  .put("missionModelId", modelId)
+                                                  .set("modelArguments", JsonNodeFactory.instance.objectNode()))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/getModelEffectiveArguments", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
         // Validate Body
-        final var expectedBody = Json.createObjectBuilder()
-                                     .add("success", true)
-                                     .add("arguments",
-                                          Json.createObjectBuilder()
-                                              .add("initialPlantCount", 200)
-                                              .add("initialDataPath", "/etc/os-release")
-                                              .add("initialProducer", "Chiquita")
-                                              .add("initialConditions",
-                                                   Json.createObjectBuilder()
-                                                       .add("peel", 4.0)
-                                                       .add("fruit", 4.0)
-                                                       .add("flag", "A")))
-                                     .build();
+        final var expectedBody = JsonNodeFactory.instance.objectNode()
+                                     .put("success", true)
+                                     .set("arguments", JsonNodeFactory.instance.objectNode()
+                                              .put("initialPlantCount", 200)
+                                              .put("initialDataPath", "/etc/os-release")
+                                              .put("initialProducer", "Chiquita")
+                                              .set("initialConditions", JsonNodeFactory.instance.objectNode()
+                                                       .put("peel", 4.0)
+                                                       .put("fruit", 4.0)
+                                                       .put("flag", "A")))
+                                     ;
         assertEquals(expectedBody, getBody(response));
       }
     }
@@ -749,58 +752,58 @@ public class BindingsTests {
       void invalidMissionModelId() {
         // Returns a 404 if the MissionModelId is invalid
         // message is "no such mission model"
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "getActivityEffectiveArgumentsBulk"))
-                                .add("input", Json.createObjectBuilder()
-                                                  .add("missionModelId", -1)
-                                                  .add("activities", JsonValue.EMPTY_JSON_ARRAY))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "getActivityEffectiveArgumentsBulk"))
+                                .set("input", JsonNodeFactory.instance.objectNode()
+                                                  .put("missionModelId", -1)
+                                                  .set("activities", JsonNodeFactory.instance.arrayNode()))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/getActivityEffectiveArgumentsBulk", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
-        assertEquals("no such mission model", getBody(response).getString("message"));
+        assertEquals("no such mission model", getBody(response).get("message").textValue());
       }
       @Test
       void valid() {
         // Returns a 200 otherwise
         // Body contains the complete set of args for the given activities
-        final var activitiesBuilder = Json.createArrayBuilder()
-                                   .add(Json.createObjectBuilder()
-                                            .add("activityTypeName", "GrowBanana")
-                                            .add("activityArguments", JsonValue.EMPTY_JSON_OBJECT))
-                                   .add(Json.createObjectBuilder()
-                                            .add("activityTypeName", "GrowBanana")
-                                            .add("activityArguments", Json.createObjectBuilder().add("quantity", 100)));
+        final var activitiesBuilder = JsonNodeFactory.instance.arrayNode()
+                                   .add(JsonNodeFactory.instance.objectNode()
+                                            .put("activityTypeName", "GrowBanana")
+                                            .set("activityArguments", JsonNodeFactory.instance.objectNode()))
+                                   .add(JsonNodeFactory.instance.objectNode()
+                                            .put("activityTypeName", "GrowBanana")
+                                            .set("activityArguments", JsonNodeFactory.instance.objectNode().put("quantity", 100)));
 
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "getActivityEffectiveArgumentsBulk"))
-                                .add("input", Json.createObjectBuilder()
-                                                  .add("missionModelId", modelId)
-                                                  .add("activities", activitiesBuilder))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "getActivityEffectiveArgumentsBulk"))
+                                .set("input", JsonNodeFactory.instance.objectNode()
+                                                  .put("missionModelId", modelId)
+                                                  .set("activities", activitiesBuilder))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/getActivityEffectiveArgumentsBulk", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
 
         // Validate Body
-        final var expectedBody = Json.createArrayBuilder()
-                                     .add(Json.createObjectBuilder()
-                                              .add("typeName", "GrowBanana")
-                                              .add("success", true)
-                                              .add("arguments", Json.createObjectBuilder()
-                                                                    .add("growingDuration", 3600000000L)
-                                                                    .add("quantity", 1)))
-                                     .add(Json.createObjectBuilder()
-                                              .add("typeName", "GrowBanana")
-                                              .add("success", true)
-                                              .add("arguments", Json.createObjectBuilder()
-                                                                    .add("growingDuration", 3600000000L)
-                                                                    .add("quantity", 100)))
-                                     .build();
+        final var expectedBody = JsonNodeFactory.instance.arrayNode()
+                                     .add(JsonNodeFactory.instance.objectNode()
+                                              .put("typeName", "GrowBanana")
+                                              .put("success", true)
+                                              .set("arguments", JsonNodeFactory.instance.objectNode()
+                                                                    .put("growingDuration", 3600000000L)
+                                                                    .put("quantity", 1)))
+                                     .add(JsonNodeFactory.instance.objectNode()
+                                              .put("typeName", "GrowBanana")
+                                              .put("success", true)
+                                              .set("arguments", JsonNodeFactory.instance.objectNode()
+                                                                    .put("growingDuration", 3600000000L)
+                                                                    .put("quantity", 100)))
+                                     ;
         assertEquals(expectedBody, getArrayBody(response));
       }
     }
@@ -811,58 +814,54 @@ public class BindingsTests {
       void invalidPlanId() {
         // Returns a 404 if the PlanId is invalid
         // message is "no such plan"
-        final var profileSetBuilder = Json.createObjectBuilder()
-                                          .add("/my_boolean",
-                                               Json.createObjectBuilder()
-                                                   .add("schema", Json.createObjectBuilder().add("type", "boolean"))
-                                                   .add("segments",
-                                                        Json.createArrayBuilder()
-                                                            .add(Json.createObjectBuilder()
-                                                                     .add("duration", 3600000000L)
-                                                                     .add("dynamics", true)))
-                                                   .add("type", "discrete"));
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "addExternalDataset"))
-                                .add("input", Json.createObjectBuilder()
-                                                  .add("planId", -1)
-                                                  .add("datasetStart", "2021-001T06:00:00.000")
-                                                  .add("profileSet", profileSetBuilder)
-                                                  .add("simulationDatasetId", JsonValue.NULL))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final var profileSetBuilder = JsonNodeFactory.instance.objectNode()
+                                          .set("/my_boolean", JsonNodeFactory.instance.objectNode()
+                                                   .set("schema", JsonNodeFactory.instance.objectNode().put("type", "boolean"))
+                                                   .set("segments", JsonNodeFactory.instance.arrayNode()
+                                                            .add(JsonNodeFactory.instance.objectNode()
+                                                                     .put("duration", 3600000000L)
+                                                                     .put("dynamics", true)))
+                                                   .put("type", "discrete"));
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "addExternalDataset"))
+                                .set("input", JsonNodeFactory.instance.objectNode()
+                                                  .put("planId", -1)
+                                                  .put("datasetStart", "2021-001T06:00:00.000")
+                                                  .set("profileSet", profileSetBuilder)
+                                                  .set("simulationDatasetId", NullNode.getInstance()))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/addExternalDataset", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
-        assertEquals("no such plan", getBody(response).getString("message"));
+        assertEquals("no such plan", getBody(response).get("message").textValue());
       }
       @Test
       void valid() {
         // Returns a 201 otherwise
-        final var profileSetBuilder = Json.createObjectBuilder()
-                                          .add("/my_boolean",
-                                               Json.createObjectBuilder()
-                                                   .add("schema", Json.createObjectBuilder().add("type", "boolean"))
-                                                   .add("segments",
-                                                        Json.createArrayBuilder()
-                                                            .add(Json.createObjectBuilder()
-                                                                     .add("duration", 3600000000L)
-                                                                     .add("dynamics", true)))
-                                                   .add("type", "discrete"));
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "addExternalDataset"))
-                                .add("input", Json.createObjectBuilder()
-                                                  .add("planId", planId)
-                                                  .add("datasetStart", "2021-001T06:00:00.000")
-                                                  .add("profileSet", profileSetBuilder)
-                                                  .add("simulationDatasetId", JsonValue.NULL))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final var profileSetBuilder = JsonNodeFactory.instance.objectNode()
+                                          .set("/my_boolean", JsonNodeFactory.instance.objectNode()
+                                                   .set("schema", JsonNodeFactory.instance.objectNode().put("type", "boolean"))
+                                                   .set("segments", JsonNodeFactory.instance.arrayNode()
+                                                            .add(JsonNodeFactory.instance.objectNode()
+                                                                     .put("duration", 3600000000L)
+                                                                     .put("dynamics", true)))
+                                                   .put("type", "discrete"));
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "addExternalDataset"))
+                                .set("input", JsonNodeFactory.instance.objectNode()
+                                                  .put("planId", planId)
+                                                  .put("datasetStart", "2021-001T06:00:00.000")
+                                                  .set("profileSet", profileSetBuilder)
+                                                  .set("simulationDatasetId", NullNode.getInstance()))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/addExternalDataset", RequestOptions.create().setData(data));
         assertEquals(201, response.status());
-        assertTrue(getBody(response).containsKey("datasetId"));
+        assertTrue(getBody(response).has("datasetId"));
         assertFalse(getBody(response).isNull("datasetId"));
       }
     }
@@ -873,28 +872,26 @@ public class BindingsTests {
       void invalidDatasetId() {
         // Returns a 404 if the DatasetId is invalid
         // message is "no such plan dataset"
-        final var profileSetBuilder = Json.createObjectBuilder()
-                                          .add("/my_boolean",
-                                               Json.createObjectBuilder()
-                                                   .add("schema", Json.createObjectBuilder().add("type", "boolean"))
-                                                   .add("segments",
-                                                        Json.createArrayBuilder()
-                                                            .add(Json.createObjectBuilder()
-                                                                     .add("duration", 3600000000L)
-                                                                     .add("dynamics", true)))
-                                                   .add("type", "discrete"));
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "extendExternalDataset"))
-                                .add("input", Json.createObjectBuilder()
-                                                  .add("datasetId", -1)
-                                                  .add("profileSet", profileSetBuilder))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final var profileSetBuilder = JsonNodeFactory.instance.objectNode()
+                                          .set("/my_boolean", JsonNodeFactory.instance.objectNode()
+                                                   .set("schema", JsonNodeFactory.instance.objectNode().put("type", "boolean"))
+                                                   .set("segments", JsonNodeFactory.instance.arrayNode()
+                                                            .add(JsonNodeFactory.instance.objectNode()
+                                                                     .put("duration", 3600000000L)
+                                                                     .put("dynamics", true)))
+                                                   .put("type", "discrete"));
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "extendExternalDataset"))
+                                .set("input", JsonNodeFactory.instance.objectNode()
+                                                  .put("datasetId", -1)
+                                                  .set("profileSet", profileSetBuilder))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/extendExternalDataset", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
-        assertEquals("no such plan dataset", getBody(response).getString("message"));
+        assertEquals("no such plan dataset", getBody(response).get("message").textValue());
       }
 
       @Test
@@ -904,7 +901,7 @@ public class BindingsTests {
             "/my_boolean",
             "discrete",
             ValueSchema.VALUE_SCHEMA_BOOLEAN,
-            List.of(new ExternalDataset.ProfileInput.ProfileSegmentInput(3600000000L, JsonValue.TRUE)));
+            List.of(new ExternalDataset.ProfileInput.ProfileSegmentInput(3600000000L, BooleanNode.TRUE)));
         final var datasetId = hasura.insertExternalDataset(
             planId,
             "2021-001T06:00:00.000",
@@ -913,18 +910,18 @@ public class BindingsTests {
         // Returns a 200 if the ID is valid
         // Performed inside a try-finally to ensure that cleanup is attempted, even if there is an exception during the test
         try {
-          final String data = Json.createObjectBuilder()
-                                  .add("action", Json.createObjectBuilder().add("name", "extendExternalDataset"))
-                                  .add("input", Json.createObjectBuilder()
-                                                    .add("datasetId", datasetId)
-                                                    .add("profileSet", Json.createObjectBuilder().add(myBooleanProfile.name(), myBooleanProfile.toJSON())))
-                                  .add("request_query", "")
-                                  .add("session_variables", admin.getSession())
-                                  .build()
+          final String data = JsonNodeFactory.instance.objectNode()
+                                  .set("action", JsonNodeFactory.instance.objectNode().put("name", "extendExternalDataset"))
+                                  .set("input", JsonNodeFactory.instance.objectNode()
+                                                    .put("datasetId", datasetId)
+                                                    .set("profileSet", JsonNodeFactory.instance.objectNode().add(myBooleanProfile.name(), myBooleanProfile.toJSON())))
+                                  .put("request_query", "")
+                                  .set("session_variables", admin.getSession())
+                                  
                                   .toString();
           final var response = request.post("/extendExternalDataset", RequestOptions.create().setData(data));
           assertEquals(200, response.status());
-          assertEquals(Json.createObjectBuilder().add("datasetId", datasetId).build(), getBody(response));
+          assertEquals(JsonNodeFactory.instance.objectNode().put("datasetId", datasetId), getBody(response));
         } finally {
           // Cleanup: remove external dataset
           hasura.deleteExternalDataset(planId, datasetId);
@@ -938,21 +935,21 @@ public class BindingsTests {
       void invalidMissionModelId() {
         // Returns a 200 with a failure status if the MissionModelId is invalid
         // reason is "No mission model exists with id `-1`"
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "constraintsDslTypescript"))
-                                .add("input", Json.createObjectBuilder()
-                                                  .add("missionModelId", -1)
-                                                  .add("planId", JsonValue.NULL))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "constraintsDslTypescript"))
+                                .set("input", JsonNodeFactory.instance.objectNode()
+                                                  .put("missionModelId", -1)
+                                                  .set("planId", NullNode.getInstance()))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/constraintsDslTypescript", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
-        final var expectedBody = Json.createObjectBuilder()
-                                         .add("status", "failure")
-                                         .add("reason", "No mission model exists with id `-1`")
-                                         .build();
+        final var expectedBody = JsonNodeFactory.instance.objectNode()
+                                         .put("status", "failure")
+                                         .put("reason", "No mission model exists with id `-1`")
+                                         ;
         assertEquals(expectedBody, getBody(response));
       }
 
@@ -968,50 +965,50 @@ public class BindingsTests {
       void invalidPlanId() {
         // Returns a 200 with a failure status if the PlanId is invalid
         // reason is "No plan exists with id `-1`"
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "constraintsDslTypescript"))
-                                .add("input", Json.createObjectBuilder()
-                                                  .add("missionModelId", modelId)
-                                                  .add("planId", -1))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "constraintsDslTypescript"))
+                                .set("input", JsonNodeFactory.instance.objectNode()
+                                                  .put("missionModelId", modelId)
+                                                  .put("planId", -1))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/constraintsDslTypescript", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
-        final var expectedBody = Json.createObjectBuilder()
-                                         .add("status", "failure")
-                                         .add("reason", "No mission model exists with id `-1`")
-                                         .build();
+        final var expectedBody = JsonNodeFactory.instance.objectNode()
+                                         .put("status", "failure")
+                                         .put("reason", "No mission model exists with id `-1`")
+                                         ;
         assertEquals(expectedBody, getBody(response));
       }
 
       @Test
       void valid() {
         // Returns a 200 with a success status if the ID is valid
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "constraintsDslTypescript"))
-                                .add("input", Json.createObjectBuilder()
-                                                  .add("missionModelId", modelId)
-                                                  .add("planId", JsonValue.NULL))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "constraintsDslTypescript"))
+                                .set("input", JsonNodeFactory.instance.objectNode()
+                                                  .put("missionModelId", modelId)
+                                                  .set("planId", NullNode.getInstance()))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/constraintsDslTypescript", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
 
         // Validate response body
         final var jsonBody = getBody(response);
-        assertEquals("success", jsonBody.getString("status"));
-        assertTrue(jsonBody.containsKey("typescriptFiles"));
-        assertFalse(jsonBody.getJsonArray("typescriptFiles").isEmpty());
+        assertEquals("success", jsonBody.get("status").textValue());
+        assertTrue(jsonBody.has("typescriptFiles"));
+        assertFalse(jsonBody.get("typescriptFiles").isEmpty());
 
-        for(final var entry : jsonBody.getJsonArray("typescriptFiles")){
-          final var file = entry.asJsonObject();
-          assertTrue(file.containsKey("filePath"));
-          assertTrue(file.containsKey("content"));
-          assertFalse(file.getString("content").isEmpty());
+        for(final var entry : jsonBody.get("typescriptFiles")){
+          final var file = (ObjectNode) entry;
+          assertTrue(file.has("filePath"));
+          assertTrue(file.has("content"));
+          assertFalse(file.get("content").textValue().isEmpty());
         }
       }
     }
@@ -1086,42 +1083,42 @@ public class BindingsTests {
       void invalidSpecId(){
         // Returns a 404 if the SpecId is invalid
         // message is "no such scheduling specification"
-        final String data = Json.createObjectBuilder()
-                                   .add("action", Json.createObjectBuilder().add("name", "scheduler"))
-                                   .add("input", Json.createObjectBuilder().add("specificationId", -1))
-                                   .add("request_query", "")
-                                   .add("session_variables", admin.getSession())
-                                   .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                   .set("action", JsonNodeFactory.instance.objectNode().put("name", "scheduler"))
+                                   .set("input", JsonNodeFactory.instance.objectNode().put("specificationId", -1))
+                                   .put("request_query", "")
+                                   .set("session_variables", admin.getSession())
+                                   
                                    .toString();
         final var response = request.post("/schedule", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
-        assertEquals("no such scheduling specification", getBody(response).getString("message"));
+        assertEquals("no such scheduling specification", getBody(response).get("message").textValue());
       }
       @Test
       void forbidden(){
         // Returns a 403 if the user isn't allowed to run scheduling on the plan
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "scheduler"))
-                                .add("input", Json.createObjectBuilder().add("specificationId", schedulingSpecId))
-                                .add("request_query", "")
-                                .add("session_variables", nonOwner.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "scheduler"))
+                                .set("input", JsonNodeFactory.instance.objectNode().put("specificationId", schedulingSpecId))
+                                .put("request_query", "")
+                                .set("session_variables", nonOwner.getSession())
+                                
                                 .toString();
         final var response = request.post("/schedule", RequestOptions.create().setData(data));
         assertEquals(403, response.status());
         assertEquals("User '"+nonOwner.name()+"' with role 'user' cannot perform 'schedule' because they are not "
                      + "a 'PLAN_OWNER_COLLABORATOR' for plan with id '"+planId+"'",
-                     getBody(response).getString("message"));
+                     getBody(response).get("message").textValue());
       }
       @Test
       void valid() throws InterruptedException{
         // Returns a 200 if the ID is valid
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "scheduler"))
-                                .add("input", Json.createObjectBuilder().add("specificationId", schedulingSpecId))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "scheduler"))
+                                .set("input", JsonNodeFactory.instance.objectNode().put("specificationId", schedulingSpecId))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/schedule", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
@@ -1136,92 +1133,92 @@ public class BindingsTests {
       void invalidModelId(){
         // Returns a 200 with a failure status if the MissionModelId is invalid
         // reason is "No mission model exists with id `MissionModelId[id=-1]`"
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "schedulingDslTypescript"))
-                                .add("input", Json.createObjectBuilder().add("missionModelId", -1))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "schedulingDslTypescript"))
+                                .set("input", JsonNodeFactory.instance.objectNode().put("missionModelId", -1))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/schedulingDslTypescript", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
-        final var expectedBody = Json.createObjectBuilder()
-                                         .add("status", "failure")
-                                         .add("reason", "No mission model exists with id `-1`")
-                                         .build();
+        final var expectedBody = JsonNodeFactory.instance.objectNode()
+                                         .put("status", "failure")
+                                         .put("reason", "No mission model exists with id `-1`")
+                                         ;
         assertEquals(expectedBody, getBody(response));
       }
       @Test
       void invalidPlanId() {
         // Returns a 200 with a failure status if an invalid plan id is passed
         // message is "No plan exists with id `PlanId[id=-1]`"
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "schedulingDslTypescript"))
-                                .add("input", Json.createObjectBuilder()
-                                                  .add("missionModelId", modelId)
-                                                  .add("planId", -1))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "schedulingDslTypescript"))
+                                .set("input", JsonNodeFactory.instance.objectNode()
+                                                  .put("missionModelId", modelId)
+                                                  .put("planId", -1))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/schedulingDslTypescript", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
-        final var expectedBody = Json.createObjectBuilder()
-                                         .add("status", "failure")
-                                         .add("reason", "No plan exists with id `PlanId[id=-1]`")
-                                         .build();
+        final var expectedBody = JsonNodeFactory.instance.objectNode()
+                                         .put("status", "failure")
+                                         .put("reason", "No plan exists with id `PlanId[id=-1]`")
+                                         ;
         assertEquals(expectedBody, getBody(response));
       }
       @Test
       void validModelId() {
         // Returns a 200 with a success status if the ID is valid
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "schedulingDslTypescript"))
-                                .add("input", Json.createObjectBuilder().add("missionModelId", modelId))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "schedulingDslTypescript"))
+                                .set("input", JsonNodeFactory.instance.objectNode().put("missionModelId", modelId))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/schedulingDslTypescript", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
         final var jsonBody = getBody(response);
         // Validate response body
-        assertEquals("success", jsonBody.getString("status"));
-        assertTrue(jsonBody.containsKey("typescriptFiles"));
-        assertFalse(jsonBody.getJsonArray("typescriptFiles").isEmpty());
+        assertEquals("success", jsonBody.get("status").textValue());
+        assertTrue(jsonBody.has("typescriptFiles"));
+        assertFalse(jsonBody.get("typescriptFiles").isEmpty());
 
-        for(final var entry : jsonBody.getJsonArray("typescriptFiles")){
-          final var file = entry.asJsonObject();
-          assertTrue(file.containsKey("filePath"));
-          assertTrue(file.containsKey("content"));
-          assertFalse(file.getString("content").isEmpty());
+        for(final var entry : jsonBody.get("typescriptFiles")){
+          final var file = (ObjectNode) entry;
+          assertTrue(file.has("filePath"));
+          assertTrue(file.has("content"));
+          assertFalse(file.get("content").textValue().isEmpty());
         }
       }
       @Test
       void bothValid() {
         // Returns a 200 with a success status if both IDs are valid
-        final String data = Json.createObjectBuilder()
-                                .add("action", Json.createObjectBuilder().add("name", "schedulingDslTypescript"))
-                                .add("input", Json.createObjectBuilder()
-                                                  .add("missionModelId", modelId)
-                                                  .add("planId", planId))
-                                .add("request_query", "")
-                                .add("session_variables", admin.getSession())
-                                .build()
+        final String data = JsonNodeFactory.instance.objectNode()
+                                .set("action", JsonNodeFactory.instance.objectNode().put("name", "schedulingDslTypescript"))
+                                .set("input", JsonNodeFactory.instance.objectNode()
+                                                  .put("missionModelId", modelId)
+                                                  .put("planId", planId))
+                                .put("request_query", "")
+                                .set("session_variables", admin.getSession())
+                                
                                 .toString();
         final var response = request.post("/schedulingDslTypescript", RequestOptions.create().setData(data));
         assertEquals(200, response.status());
         final var jsonBody = getBody(response);
         // Validate response body
-        assertEquals("success", jsonBody.getString("status"));
-        assertTrue(jsonBody.containsKey("typescriptFiles"));
-        assertFalse(jsonBody.getJsonArray("typescriptFiles").isEmpty());
+        assertEquals("success", jsonBody.get("status").textValue());
+        assertTrue(jsonBody.has("typescriptFiles"));
+        assertFalse(jsonBody.get("typescriptFiles").isEmpty());
 
-        for(final var entry : jsonBody.getJsonArray("typescriptFiles")){
-          final var file = entry.asJsonObject();
-          assertTrue(file.containsKey("filePath"));
-          assertTrue(file.containsKey("content"));
-          assertFalse(file.getString("content").isEmpty());
+        for(final var entry : jsonBody.get("typescriptFiles")){
+          final var file = (ObjectNode) entry;
+          assertTrue(file.has("filePath"));
+          assertTrue(file.has("content"));
+          assertFalse(file.get("content").textValue().isEmpty());
         }
       }
     }
@@ -1301,15 +1298,15 @@ public class BindingsTests {
           final var response = wsServer.createWorkspace(viewerToken, "Should Fail", Optional.empty(), parcelId);
           assertEquals(403, response.status());
           final var body = getBody(response);
-          assertEquals("FORBIDDEN", body.getString("type"));
-          assertEquals("Role 'viewer' is not allowed to perform action 'create_workspace'", body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+          assertEquals("FORBIDDEN", body.get("type").textValue());
+          assertEquals("Role 'viewer' is not allowed to perform action 'create_workspace'", body.get("message").textValue());
+          assertEquals("aerie_workspace", body.get("service").textValue());
         }
 
         @ParameterizedTest
         @MethodSource("improperlyFormattedBodyArgs")
         @Disabled
-        void improperlyFormattedBody(JsonObject jsonBodyString) {
+        void improperlyFormattedBody(ObjectNode jsonBodyString) {
           // TODO: make this a parametrized test that includes:
           //  no body,
           //  empty body,
@@ -1323,20 +1320,19 @@ public class BindingsTests {
         Stream<Arguments> improperlyFormattedBodyArgs() {
           return Stream.of(
               Arguments.arguments(named("no body", null)),
-              Arguments.arguments(named("empty body", JsonValue.EMPTY_JSON_OBJECT)),
-              Arguments.arguments(named("array", JsonValue.EMPTY_JSON_ARRAY)),
-              Arguments.arguments(named("no workspace location", Json.createObjectBuilder()
-                                                                     .add("parcelId", parcelId)
-                                                                     .build())),
-              Arguments.arguments(named("no parcel id", Json.createObjectBuilder()
-                                                            .add("workspaceLocation", "improperBodyArgsWs")
-                                                            .build())),
-              Arguments.arguments(named("no workspace location or parcel id", Json.createObjectBuilder()
-                                                                                  .add("workspaceName", "Improper Body WS")
-                                                                                  .build()))
+              Arguments.arguments(named("empty body", JsonNodeFactory.instance.objectNode())),
+              Arguments.arguments(named("array", JsonNodeFactory.instance.arrayNode())),
+              Arguments.arguments(named("no workspace location", JsonNodeFactory.instance.objectNode()
+                                                                     .put("parcelId", parcelId)
+                                                                     )),
+              Arguments.arguments(named("no parcel id", JsonNodeFactory.instance.objectNode()
+                                                            .put("workspaceLocation", "improperBodyArgsWs")
+                                                            )),
+              Arguments.arguments(named("no workspace location or parcel id", JsonNodeFactory.instance.objectNode()
+                                                                                  .put("workspaceName", "Improper Body WS")
+                                                                                  ))
           );
         }
-
 
         @ParameterizedTest
         @NullAndEmptySource
@@ -1408,11 +1404,11 @@ public class BindingsTests {
           final var response = wsServer.deleteWorkspace(nonOwnerToken, workspaceId);
           assertEquals(403, response.status());
           final var body = getBody(response);
-          assertEquals("FORBIDDEN", body.getString("type"));
+          assertEquals("FORBIDDEN", body.get("type").textValue());
           assertEquals(("User 'bindings_not_owner' with role 'user' cannot perform 'delete_workspace' "
                         + "because they are not a 'OWNER' for workspace with id '%d'").formatted(workspaceId),
-                       body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+                       body.get("message").textValue());
+          assertEquals("aerie_workspace", body.get("service").textValue());
         }
 
         /**
@@ -1424,11 +1420,11 @@ public class BindingsTests {
           final var response = wsServer.deleteWorkspace(nonOwnerToken, workspaceId);
           assertEquals(403, response.status());
           final var body = getBody(response);
-          assertEquals("FORBIDDEN", body.getString("type"));
+          assertEquals("FORBIDDEN", body.get("type").textValue());
           assertEquals(("User 'bindings_not_owner' with role 'user' cannot perform 'delete_workspace' "
                         + "because they are not a 'OWNER' for workspace with id '%d'").formatted(workspaceId),
-                       body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+                       body.get("message").textValue());
+          assertEquals("aerie_workspace", body.get("service").textValue());
         }
 
         /**
@@ -1942,21 +1938,21 @@ public class BindingsTests {
 
           for (int i = 0; i < respBody.size(); ++i) {
             final var expected = inputs.get(i);
-            final var actual = respBody.get(i).asJsonObject();
+            final var actual = respBody.get(i);
 
             // Check the PUT response
-            assertEquals(200, actual.getInt("status"));
-            assertEquals(expected.getPath().toString(), actual.getString("item"));
+            assertEquals(200, actual.get("status").intValue());
+            assertEquals(expected.getPath().toString(), actual.get("item").textValue());
             if (expected instanceof BulkPutItem.FileBulkPutItem file) {
               assertEquals(
                   "File " + expected.getPath().getFileName() + " uploaded to " + expected.getPath(),
-                  actual.getString("response"));
+                  actual.get("response").textValue());
               // Check that file was uploaded with the correct contents
               final var getResp = wsServer.get(ownerToken, workspaceId, expected.getPath());
               assertEquals(200, getResp.status());
               assertEquals(file.fileContents(), getResp.text());
             } else {
-              assertEquals("Directory created.", actual.getString("response"));
+              assertEquals("Directory created.", actual.get("response").textValue());
               // Simple check that the item was actually uploaded -- does not check directory contents
               final var getResp = wsServer.get(ownerToken, workspaceId, expected.getPath());
               assertEquals(200, getResp.status());
@@ -2016,23 +2012,23 @@ public class BindingsTests {
           assertEquals(3, respBody.size());
 
           // First item should be the conflicted file with a 409 Conflicted
-          final var conflictFile = respBody.getFirst().asJsonObject();
-          assertEquals("file.txt", conflictFile.getString("item"));
-          assertEquals(409, conflictFile.getInt("status"));
+          final var conflictFile = respBody.getFirst();
+          assertEquals("file.txt", conflictFile.get("item").textValue());
+          assertEquals(409, conflictFile.get("status").intValue());
           assertEquals("original file contents", wsServer.get(ownerToken, workspaceId, Path.of("file.txt")).text());
 
           // Second item should be the unconflicted directory
-          final var dir = respBody.get(1).asJsonObject();
-          assertEquals("myDir", dir.getString("item"));
-          assertEquals(200, dir.getInt("status"));
+          final var dir = respBody.get(1);
+          assertEquals("myDir", dir.get("item").textValue());
+          assertEquals(200, dir.get("status").intValue());
           assertEquals(
               "[{\"name\":\"file.txt\",\"type\":\"TEXT\"}]",
               wsServer.get(ownerToken, workspaceId, Path.of("myDir")).text());
 
           // Third item should be the unconflicted file
-          final var otherFile = respBody.getLast().asJsonObject();
-          assertEquals("myDir/file.txt", otherFile.getString("item"));
-          assertEquals(200, otherFile.getInt("status"));
+          final var otherFile = respBody.getLast();
+          assertEquals("myDir/file.txt", otherFile.get("item").textValue());
+          assertEquals(200, otherFile.get("status").intValue());
           assertEquals(
               "file with same name in another folder",
               wsServer.get(ownerToken, workspaceId, Path.of("myDir/file.txt")).text());
@@ -2060,15 +2056,15 @@ public class BindingsTests {
 
           for (int i = 0; i < respBody.size(); ++i) {
             final var expected = toUpload.get(i);
-            final var actual = respBody.get(i).asJsonObject();
+            final var actual = respBody.get(i);
 
             // Check the PUT response
-            assertEquals(200, actual.getInt("status"));
-            assertEquals(expected.getPath().toString(), actual.getString("item"));
+            assertEquals(200, actual.get("status").intValue());
+            assertEquals(expected.getPath().toString(), actual.get("item").textValue());
             if (expected instanceof BulkPutItem.FileBulkPutItem file) {
               assertEquals(
                   "File " + expected.getPath().getFileName() + " uploaded to " + expected.getPath(),
-                  actual.getString("response"));
+                  actual.get("response").textValue());
               // Check that file was uploaded with the correct contents
               final var getResp = wsServer.get(ownerToken, workspaceId, expected.getPath());
               assertEquals(200, getResp.status());
@@ -2101,15 +2097,15 @@ public class BindingsTests {
 
           for (int i = 0; i < respBody.size(); ++i) {
             final var expected = toUpload.get(i);
-            final var actual = respBody.get(i).asJsonObject();
+            final var actual = respBody.get(i);
 
             // Check the PUT response
-            assertEquals(200, actual.getInt("status"));
-            assertEquals(expected.getPath().toString(), actual.getString("item"));
+            assertEquals(200, actual.get("status").intValue());
+            assertEquals(expected.getPath().toString(), actual.get("item").textValue());
             if (expected instanceof BulkPutItem.FileBulkPutItem file) {
               assertEquals(
                   "File " + expected.getPath().getFileName() + " uploaded to " + expected.getPath(),
-                  actual.getString("response"));
+                  actual.get("response").textValue());
               // Check that file was uploaded with the correct contents
               final var getResp = wsServer.get(ownerToken, workspaceId, expected.getPath());
               assertEquals(200, getResp.status());
@@ -2144,8 +2140,8 @@ public class BindingsTests {
             final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.PUT);
             assertEquals(400, resp.status());
             final var respBody = getBody(resp);
-            assertEquals("MALFORMED_REQUEST", respBody.getString("type"));
-            assertEquals("Invalid body format.", respBody.getString("message"));
+            assertEquals("MALFORMED_REQUEST", respBody.get("type").textValue());
+            assertEquals("Invalid body format.", respBody.get("message").textValue());
           }
 
           /**
@@ -2160,18 +2156,18 @@ public class BindingsTests {
             final var options = RequestOptions
                 .create()
                 .setHeader("Authorization", "Bearer "+ownerToken)
-                .setMultipart(formData.set("body", Json.createArrayBuilder().add(fileUpload.toJson()).build().toString()));
+                .setMultipart(formData.set("body", JsonNodeFactory.instance.arrayNode().add(fileUpload.toJson()).toString()));
 
             final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.PUT);
             assertEquals(207, resp.status());
-            final var fileResp = getArrayBody(resp).getFirst().asJsonObject();
-            assertEquals("file.txt", fileResp.getString("item"));
-            assertEquals(400, fileResp.getInt("status"));
+            final var fileResp = getArrayBody(resp).getFirst();
+            assertEquals("file.txt", fileResp.get("item").textValue());
+            assertEquals(400, fileResp.get("status").intValue());
 
-            final var fileError = fileResp.getJsonObject("response");
-            assertEquals("MALFORMED_REQUEST", fileError.getString("type"));
-            assertEquals("No file provided with the name file.txt", fileError.getString("message"));
-            assertEquals("Attach file contents under the 'files' part of the request.", fileError.getString("cause"));
+            final var fileError = fileResp.get("response");
+            assertEquals("MALFORMED_REQUEST", fileError.get("type").textValue());
+            assertEquals("No file provided with the name file.txt", fileError.get("message").textValue());
+            assertEquals("Attach file contents under the 'files' part of the request.", fileError.get("cause").textValue());
 
             assertEquals(404, wsServer.get(ownerToken, workspaceId, fileUpload.getPath()).status());
           }
@@ -2190,8 +2186,8 @@ public class BindingsTests {
             // Check Response
             assertEquals(400, resp.status());
             final var body = getBody(resp);
-            assertEquals("MALFORMED_REQUEST", body.getString("type"));
-            assertEquals("Cannot process request: multiple files are attached under the same name.", body.getString("message"));
+            assertEquals("MALFORMED_REQUEST", body.get("type").textValue());
+            assertEquals("Cannot process request: multiple files are attached under the same name.", body.get("message").textValue());
 
             // Check that no files were actually uploaded
             for(final var item : toUpload) {
@@ -2210,8 +2206,8 @@ public class BindingsTests {
             // Check Response
             assertEquals(409, resp.status());
             final var body = getBody(resp);
-            assertEquals("MALFORMED_REQUEST", body.getString("type"));
-            assertEquals("Multiple items are attempting to be uploaded to the same location. Please give all items unique names.", body.getString("message"));
+            assertEquals("MALFORMED_REQUEST", body.get("type").textValue());
+            assertEquals("Multiple items are attempting to be uploaded to the same location. Please give all items unique names.", body.get("message").textValue());
 
             // Check that no items were actually created
             for(final var item : toUpload) {
@@ -2255,13 +2251,13 @@ public class BindingsTests {
                 .create()
                 .setHeader("Authorization", "Bearer "+ownerToken)
                 .setHeader("content-type", "application/json")
-                .setData(Json.createArrayBuilder().add(directoryUpload.toJson()).build().toString());
+                .setData(JsonNodeFactory.instance.arrayNode().add(directoryUpload.toJson()).toString());
 
             final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.PUT);
             assertEquals(400, resp.status());
             final var respBody = getBody(resp);
-            assertEquals("MALFORMED_REQUEST", respBody.getString("type"));
-            assertEquals("Invalid body format.", respBody.getString("message"));
+            assertEquals("MALFORMED_REQUEST", respBody.get("type").textValue());
+            assertEquals("Invalid body format.", respBody.get("message").textValue());
 
             assertEquals(404, wsServer.get(ownerToken, workspaceId, directoryUpload.getPath()).status());
           }
@@ -2274,13 +2270,13 @@ public class BindingsTests {
             final var options = RequestOptions
                 .create()
                 .setHeader("Authorization", "Bearer "+ownerToken)
-                .setMultipart(FormData.create().set("body", "make a new folder please"));
+                .setMultipart(FormData.create().put("body", "make a new folder please"));
 
             final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.PUT);
             assertEquals(400, resp.status());
             final var respBody = getBody(resp);
-            assertEquals("JSON_PARSING_EXCEPTION", respBody.getString("type"));
-            assertTrue(respBody.getString("message").startsWith("Invalid body format. Expected body format is an array of JSON objects with the form:"));
+            assertEquals("JSON_PARSING_EXCEPTION", respBody.get("type").textValue());
+            assertTrue(respBody.get("message").textValue().startsWith("Invalid body format. Expected body format is an array of JSON objects with the form:"));
           }
 
           /**
@@ -2288,11 +2284,11 @@ public class BindingsTests {
            */
           @Test
           void customInputNameDisallowedDirectory() {
-            final var dirInput = Json.createObjectBuilder()
-                                     .add("path", "myDir")
-                                     .add("type", "directory")
-                                     .add("input_file_name", "otherDir")
-                                     .build();
+            final var dirInput = JsonNodeFactory.instance.objectNode()
+                                     .put("path", "myDir")
+                                     .put("type", "directory")
+                                     .put("input_file_name", "otherDir")
+                                     ;
 
             final var options = RequestOptions
                 .create()
@@ -2305,9 +2301,9 @@ public class BindingsTests {
                 WorkspaceRequests.RequestType.PUT);
             assertEquals(400, resp.status());
             final var respBody = getBody(resp);
-            assertEquals("JSON_PARSING_EXCEPTION", respBody.getString("type"));
+            assertEquals("JSON_PARSING_EXCEPTION", respBody.get("type").textValue());
             assertTrue(respBody
-                           .getString("message")
+                           .get("message").textValue()
                            .startsWith(
                                "Invalid body format. Expected body format is an array of JSON objects with the form:"));
           }
@@ -2318,7 +2314,7 @@ public class BindingsTests {
           @Test
           void bodyInFilesRejected() {
             final BulkPutItem fileUpload = new BulkPutItem.FileBulkPutItem(Path.of("file.txt"), "file contents");
-            final var body = Json.createArrayBuilder().add(fileUpload.toJson()).build().toString();
+            final var body = JsonNodeFactory.instance.arrayNode().add(fileUpload.toJson()).toString();
             final var formData = FormData.create();
 
             // Generate the request
@@ -2329,14 +2325,14 @@ public class BindingsTests {
 
             final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.PUT);
             assertEquals(207, resp.status());
-            final var fileResp = getArrayBody(resp).getFirst().asJsonObject();
-            assertEquals("file.txt", fileResp.getString("item"));
-            assertEquals(400, fileResp.getInt("status"));
+            final var fileResp = getArrayBody(resp).getFirst();
+            assertEquals("file.txt", fileResp.get("item").textValue());
+            assertEquals(400, fileResp.get("status").intValue());
 
-            final var fileError = fileResp.getJsonObject("response");
-            assertEquals("MALFORMED_REQUEST", fileError.getString("type"));
-            assertEquals("No file provided with the name file.txt", fileError.getString("message"));
-            assertEquals("Attach file contents under the 'files' part of the request.", fileError.getString("cause"));
+            final var fileError = fileResp.get("response");
+            assertEquals("MALFORMED_REQUEST", fileError.get("type").textValue());
+            assertEquals("No file provided with the name file.txt", fileError.get("message").textValue());
+            assertEquals("Attach file contents under the 'files' part of the request.", fileError.get("cause").textValue());
 
             assertEquals(404, wsServer.get(ownerToken, workspaceId, fileUpload.getPath()).status());
           }
@@ -2349,13 +2345,13 @@ public class BindingsTests {
             final var options = RequestOptions
                 .create()
                 .setHeader("Authorization", "Bearer "+ownerToken)
-                .setMultipart(FormData.create().set("body", "[]"));
+                .setMultipart(FormData.create().put("body", "[]"));
 
             final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.PUT);
             assertEquals(400, resp.status());
             final var respBody = getBody(resp);
-            assertEquals("MALFORMED_REQUEST", respBody.getString("type"));
-            assertEquals("Cannot process request: at least one item must be specified.", respBody.getString("message"));
+            assertEquals("MALFORMED_REQUEST", respBody.get("type").textValue());
+            assertEquals("Cannot process request: at least one item must be specified.", respBody.get("message").textValue());
           }
         }
 
@@ -2371,11 +2367,11 @@ public class BindingsTests {
            */
           @Test
           void overwriteDisallowedDirectory() {
-            final var dirInput = Json.createObjectBuilder()
-                                     .add("path", "myDir")
-                                     .add("type", "directory")
-                                     .add("overwrite", true)
-                                     .build();
+            final var dirInput = JsonNodeFactory.instance.objectNode()
+                                     .put("path", "myDir")
+                                     .put("type", "directory")
+                                     .put("overwrite", true)
+                                     ;
 
             final var options = RequestOptions
                 .create()
@@ -2388,9 +2384,9 @@ public class BindingsTests {
                 WorkspaceRequests.RequestType.PUT);
             assertEquals(400, resp.status());
             final var respBody = getBody(resp);
-            assertEquals("JSON_PARSING_EXCEPTION", respBody.getString("type"));
+            assertEquals("JSON_PARSING_EXCEPTION", respBody.get("type").textValue());
             assertTrue(respBody
-                           .getString("message")
+                           .get("message").textValue()
                            .startsWith(
                                "Invalid body format. Expected body format is an array of JSON objects with the form:"));
           }
@@ -2412,12 +2408,12 @@ public class BindingsTests {
             assertEquals(1, body.size());
 
             // The item's specific response was a 409
-            final var item = body.getFirst().asJsonObject();
-            final var itemResp = item.getJsonObject("response");
-            assertEquals("myFile.txt", item.getString("item"));
-            assertEquals(409, item.getInt("status"));
-            assertEquals("INTERNAL_ERROR", itemResp.getString("type"));
-            assertEquals("myFile.txt already exists.", itemResp.getString("message"));
+            final var item = body.getFirst();
+            final var itemResp = item.get("response");
+            assertEquals("myFile.txt", item.get("item").textValue());
+            assertEquals(409, item.get("status").intValue());
+            assertEquals("INTERNAL_ERROR", itemResp.get("type").textValue());
+            assertEquals("myFile.txt already exists.", itemResp.get("message").textValue());
 
             // The file's contents were NOT overwritten
             assertEquals("original file contents", wsServer.get(ownerToken, workspaceId, Path.of("myFile.txt")).text());
@@ -2441,12 +2437,12 @@ public class BindingsTests {
             assertEquals(1, body.size());
 
             // The item's specific response was a 409
-            final var item = body.getFirst().asJsonObject();
-            final var itemResp = item.getJsonObject("response");
-            assertEquals("myFile.txt", item.getString("item"));
-            assertEquals(409, item.getInt("status"));
-            assertEquals("INTERNAL_ERROR", itemResp.getString("type"));
-            assertEquals("myFile.txt already exists.", itemResp.getString("message"));
+            final var item = body.getFirst();
+            final var itemResp = item.get("response");
+            assertEquals("myFile.txt", item.get("item").textValue());
+            assertEquals(409, item.get("status").intValue());
+            assertEquals("INTERNAL_ERROR", itemResp.get("type").textValue());
+            assertEquals("myFile.txt already exists.", itemResp.get("message").textValue());
 
             // The file's contents were NOT overwritten
             assertEquals("original file contents", wsServer.get(ownerToken, workspaceId, Path.of("myFile.txt")).text());
@@ -2470,10 +2466,10 @@ public class BindingsTests {
             assertEquals(1, body.size());
 
             // The item's specific response was a 200
-            final var item = body.getFirst().asJsonObject();
-            assertEquals("myFile.txt", item.getString("item"));
-            assertEquals(200, item.getInt("status"));
-            assertEquals("File myFile.txt uploaded to myFile.txt", item.getString("response"));
+            final var item = body.getFirst();
+            assertEquals("myFile.txt", item.get("item").textValue());
+            assertEquals(200, item.get("status").intValue());
+            assertEquals("File myFile.txt uploaded to myFile.txt", item.get("response").textValue());
 
             // The file's contents were overwritten
             assertEquals("new file contents", wsServer.get(ownerToken, workspaceId, Path.of("myFile.txt")).text());
@@ -2535,7 +2531,6 @@ public class BindingsTests {
               Optional.empty(),
               Optional.empty());
 
-
           // Check status code
           assertEquals(207, resp.status());
 
@@ -2546,14 +2541,14 @@ public class BindingsTests {
           for (int i = 0; i < respBody.size(); ++i) {
             final var expected = inputs.get(i);
             final var expectedDestination = destinationPath.resolve(expected.getFileName());
-            final var actual = respBody.get(i).asJsonObject();
+            final var actual = respBody.get(i);
 
             // Check the POST response
-            assertEquals(200, actual.getInt("status"));
-            assertEquals(expected.toString(), actual.getString("item"));
+            assertEquals(200, actual.get("status").intValue());
+            assertEquals(expected.toString(), actual.get("item").textValue());
             assertEquals("'%s' in Workspace %d moved to '%s' in Workspace %d"
                              .formatted(expected, workspaceId, expectedDestination, workspaceId),
-                         actual.getString("response"));
+                         actual.get("response").textValue());
 
             // Simple check that the item was actually moved:
             //  trying to get it at its old location should return a 404 Resource Not Found
@@ -2585,7 +2580,6 @@ public class BindingsTests {
               Optional.of(otherWorkspaceId),
               Optional.empty());
 
-
           // Check status code
           assertEquals(207, resp.status());
 
@@ -2596,14 +2590,14 @@ public class BindingsTests {
           for (int i = 0; i < respBody.size(); ++i) {
             final var expected = inputs.get(i);
             final var expectedDestination = destinationPath.resolve(expected.getFileName());
-            final var actual = respBody.get(i).asJsonObject();
+            final var actual = respBody.get(i);
 
             // Check the POST response
-            assertEquals(200, actual.getInt("status"));
-            assertEquals(expected.toString(), actual.getString("item"));
+            assertEquals(200, actual.get("status").intValue());
+            assertEquals(expected.toString(), actual.get("item").textValue());
             assertEquals("'%s' in Workspace %d moved to '%s' in Workspace %d"
                              .formatted(expected, workspaceId, expectedDestination, otherWorkspaceId),
-                         actual.getString("response"));
+                         actual.get("response").textValue());
 
             // Simple check that the item was actually moved:
             //  trying to get it at both its old and new location should return a 200
@@ -2635,7 +2629,6 @@ public class BindingsTests {
               Optional.empty(),
               Optional.empty());
 
-
           // Check status code
           assertEquals(207, resp.status());
 
@@ -2646,14 +2639,14 @@ public class BindingsTests {
           for (int i = 0; i < respBody.size(); ++i) {
             final var expected = inputs.get(i);
             final var expectedDestination = destinationPath.resolve(expected.getFileName());
-            final var actual = respBody.get(i).asJsonObject();
+            final var actual = respBody.get(i);
 
             // Check the POST response
-            assertEquals(200, actual.getInt("status"));
-            assertEquals(expected.toString(), actual.getString("item"));
+            assertEquals(200, actual.get("status").intValue());
+            assertEquals(expected.toString(), actual.get("item").textValue());
             assertEquals("'%s' in Workspace %d copied to '%s' in Workspace %d"
                              .formatted(expected, workspaceId, expectedDestination, workspaceId),
-                         actual.getString("response"));
+                         actual.get("response").textValue());
 
             // Simple check that the item was actually copied:
             //  trying to get it at both its old and new location should return a 200
@@ -2687,7 +2680,6 @@ public class BindingsTests {
               Optional.of(otherWorkspaceId),
               Optional.empty());
 
-
           // Check status code
           assertEquals(207, resp.status());
 
@@ -2698,14 +2690,14 @@ public class BindingsTests {
           for (int i = 0; i < respBody.size(); ++i) {
             final var expected = inputs.get(i);
             final var expectedDestination = destinationPath.resolve(expected.getFileName());
-            final var actual = respBody.get(i).asJsonObject();
+            final var actual = respBody.get(i);
 
             // Check the POST response
-            assertEquals(200, actual.getInt("status"));
-            assertEquals(expected.toString(), actual.getString("item"));
+            assertEquals(200, actual.get("status").intValue());
+            assertEquals(expected.toString(), actual.get("item").textValue());
             assertEquals("'%s' in Workspace %d copied to '%s' in Workspace %d"
                              .formatted(expected, workspaceId, expectedDestination, otherWorkspaceId),
-                         actual.getString("response"));
+                         actual.get("response").textValue());
 
             // Simple check that the item was actually copied:
             //  trying to get it at both its old and new location should return a 200
@@ -2764,22 +2756,22 @@ public class BindingsTests {
           assertEquals(3, respBody.size());
 
           // First item should be the nonexistant file with a 404 File Not Found
-          final var fakeFile = respBody.getFirst().asJsonObject();
-          assertEquals("fake_file.seq", fakeFile.getString("item"));
-          assertEquals(404, fakeFile.getInt("status"));
+          final var fakeFile = respBody.getFirst();
+          assertEquals("fake_file.seq", fakeFile.get("item").textValue());
+          assertEquals(404, fakeFile.get("status").intValue());
 
           // Second item should be the file that exists
-          final var realFile = respBody.get(1).asJsonObject();
-          assertEquals("top_file.txt", realFile.getString("item"));
-          assertEquals(200, realFile.getInt("status"));
+          final var realFile = respBody.get(1);
+          assertEquals("top_file.txt", realFile.get("item").textValue());
+          assertEquals(200, realFile.get("status").intValue());
           // Check the item was moved
           assertEquals(404, wsServer.get(ownerToken, workspaceId, Path.of("top_file.txt")).status());
           assertEquals(200, wsServer.get(ownerToken, workspaceId, Path.of("top_dir/other_nested_dir/top_file.txt")).status());
 
           // Third item should be the directory that exists
-          final var otherFile = respBody.getLast().asJsonObject();
-          assertEquals("other_dir", otherFile.getString("item"));
-          assertEquals(200, otherFile.getInt("status"));
+          final var otherFile = respBody.getLast();
+          assertEquals("other_dir", otherFile.get("item").textValue());
+          assertEquals(200, otherFile.get("status").intValue());
           // Check the item was moved
           assertEquals(404, wsServer.get(ownerToken, workspaceId, Path.of("other_dir")).status());
           assertEquals(200, wsServer.get(ownerToken, workspaceId, Path.of("top_dir/other_nested_dir/other_dir")).status());
@@ -2805,22 +2797,22 @@ public class BindingsTests {
           assertEquals(3, respBody.size());
 
           // First item should be the nonexistant file with a 404 File Not Found
-          final var fakeFile = respBody.getFirst().asJsonObject();
-          assertEquals("fake_file.seq", fakeFile.getString("item"));
-          assertEquals(404, fakeFile.getInt("status"));
+          final var fakeFile = respBody.getFirst();
+          assertEquals("fake_file.seq", fakeFile.get("item").textValue());
+          assertEquals(404, fakeFile.get("status").intValue());
 
           // Second item should be the file that exists
-          final var realFile = respBody.get(1).asJsonObject();
-          assertEquals("top_file.txt", realFile.getString("item"));
-          assertEquals(200, realFile.getInt("status"));
+          final var realFile = respBody.get(1);
+          assertEquals("top_file.txt", realFile.get("item").textValue());
+          assertEquals(200, realFile.get("status").intValue());
           // Check the item was copied
           assertEquals(200, wsServer.get(ownerToken, workspaceId, Path.of("top_file.txt")).status());
           assertEquals(200, wsServer.get(ownerToken, workspaceId, Path.of("top_dir/other_nested_dir/top_file.txt")).status());
 
           // Third item should be the directory that exists
-          final var otherFile = respBody.getLast().asJsonObject();
-          assertEquals("other_dir", otherFile.getString("item"));
-          assertEquals(200, otherFile.getInt("status"));
+          final var otherFile = respBody.getLast();
+          assertEquals("other_dir", otherFile.get("item").textValue());
+          assertEquals(200, otherFile.get("status").intValue());
           // Check the item was copied
           assertEquals(200, wsServer.get(ownerToken, workspaceId, Path.of("other_dir")).status());
           assertEquals(200, wsServer.get(ownerToken, workspaceId, Path.of("top_dir/other_nested_dir/other_dir")).status());
@@ -2872,11 +2864,11 @@ public class BindingsTests {
                 + "{\"name\":\"nested_file.txt\",\"type\":\"TEXT\"}]},"
                 + "{\"name\":\"other_nested_dir\",\"type\":\"DIRECTORY\",\"contents\":[]},"
                 + "{\"name\":\"sub_file.txt\",\"type\":\"TEXT\"}]",
-                JsonArray.EMPTY_JSON_ARRAY.toString());
+                JsonNodeFactory.instance.arrayNode().toString());
             final var nestedDir = new ConflictItem(
                 Path.of("other_dir/nested_dir"),
-                JsonArray.EMPTY_JSON_ARRAY.toString(),
-                JsonArray.EMPTY_JSON_ARRAY.toString());
+                JsonNodeFactory.instance.arrayNode().toString(),
+                JsonNodeFactory.instance.arrayNode().toString());
 
             return Stream.of(
                 Arguments.arguments(named("Top Level File", List.of(topFile))),
@@ -2926,11 +2918,11 @@ public class BindingsTests {
 
             for (int i = 0; i < withinRespBody.size(); ++i) {
               final var expected = inputs.get(i);
-              final var actualWithin = withinRespBody.get(i).asJsonObject();
-              final var actualBetween = betweenRespBody.get(i).asJsonObject();
+              final var actualWithin = withinRespBody.get(i);
+              final var actualBetween = betweenRespBody.get(i);
 
-              assertEquals(409, actualWithin.getInt("status"));
-              assertEquals(409, actualBetween.getInt("status"));
+              assertEquals(409, actualWithin.get("status").intValue());
+              assertEquals(409, actualBetween.get("status").intValue());
 
               // Check file contents
               final var conflictLocation = destination.resolve(expected.originalPath.getFileName());
@@ -2979,11 +2971,11 @@ public class BindingsTests {
 
             for (int i = 0; i < withinRespBody.size(); ++i) {
               final var expected = inputs.get(i);
-              final var actualWithin = withinRespBody.get(i).asJsonObject();
-              final var actualBetween = betweenRespBody.get(i).asJsonObject();
+              final var actualWithin = withinRespBody.get(i);
+              final var actualBetween = betweenRespBody.get(i);
 
-              assertEquals(409, actualWithin.getInt("status"));
-              assertEquals(409, actualBetween.getInt("status"));
+              assertEquals(409, actualWithin.get("status").intValue());
+              assertEquals(409, actualBetween.get("status").intValue());
 
               // Check file contents
               final var conflictLocation = destination.resolve(expected.originalPath.getFileName());
@@ -3018,12 +3010,11 @@ public class BindingsTests {
             // Check Details of Responses
             final var withinRespBody = getArrayBody(withinResp);
 
-
             for (int i = 0; i < withinRespBody.size(); ++i) {
               final var expected = inputs.get(i);
-              final var actualWithin = withinRespBody.get(i).asJsonObject();
+              final var actualWithin = withinRespBody.get(i);
 
-              assertEquals(200, actualWithin.getInt("status"));
+              assertEquals(200, actualWithin.get("status").intValue());
 
               // Check file contents
               final var conflictLocation = destination.resolve(expected.originalPath.getFileName());
@@ -3059,9 +3050,9 @@ public class BindingsTests {
 
             for (int i = 0; i < betweenRespBody.size(); ++i) {
               final var expected = inputs.get(i);
-              final var actualBetween = betweenRespBody.get(i).asJsonObject();
+              final var actualBetween = betweenRespBody.get(i);
 
-              assertEquals(200, actualBetween.getInt("status"));
+              assertEquals(200, actualBetween.get("status").intValue());
 
               // Check file contents
               final var conflictLocation = destination.resolve(expected.originalPath.getFileName());
@@ -3109,11 +3100,11 @@ public class BindingsTests {
 
             for (int i = 0; i < withinRespBody.size(); ++i) {
               final var expected = inputs.get(i);
-              final var actualWithin = withinRespBody.get(i).asJsonObject();
-              final var actualBetween = betweenRespBody.get(i).asJsonObject();
+              final var actualWithin = withinRespBody.get(i);
+              final var actualBetween = betweenRespBody.get(i);
 
-              assertEquals(409, actualWithin.getInt("status"));
-              assertEquals(409, actualBetween.getInt("status"));
+              assertEquals(409, actualWithin.get("status").intValue());
+              assertEquals(409, actualBetween.get("status").intValue());
 
               // Check file contents
               final var conflictLocation = destination.resolve(expected.originalPath.getFileName());
@@ -3162,11 +3153,11 @@ public class BindingsTests {
 
             for (int i = 0; i < withinRespBody.size(); ++i) {
               final var expected = inputs.get(i);
-              final var actualWithin = withinRespBody.get(i).asJsonObject();
-              final var actualBetween = betweenRespBody.get(i).asJsonObject();
+              final var actualWithin = withinRespBody.get(i);
+              final var actualBetween = betweenRespBody.get(i);
 
-              assertEquals(409, actualWithin.getInt("status"));
-              assertEquals(409, actualBetween.getInt("status"));
+              assertEquals(409, actualWithin.get("status").intValue());
+              assertEquals(409, actualBetween.get("status").intValue());
 
               // Check file contents
               final var conflictLocation = destination.resolve(expected.originalPath.getFileName());
@@ -3201,12 +3192,11 @@ public class BindingsTests {
             // Check Details of Responses
             final var withinRespBody = getArrayBody(withinResp);
 
-
             for (int i = 0; i < withinRespBody.size(); ++i) {
               final var expected = inputs.get(i);
-              final var actualWithin = withinRespBody.get(i).asJsonObject();
+              final var actualWithin = withinRespBody.get(i);
 
-              assertEquals(200, actualWithin.getInt("status"));
+              assertEquals(200, actualWithin.get("status").intValue());
 
               // Check file contents
               final var conflictLocation = destination.resolve(expected.originalPath.getFileName());
@@ -3242,9 +3232,9 @@ public class BindingsTests {
 
             for (int i = 0; i < betweenRespBody.size(); ++i) {
               final var expected = inputs.get(i);
-              final var actualBetween = betweenRespBody.get(i).asJsonObject();
+              final var actualBetween = betweenRespBody.get(i);
 
-              assertEquals(200, actualBetween.getInt("status"));
+              assertEquals(200, actualBetween.get("status").intValue());
 
               // Check file contents
               final var conflictLocation = destination.resolve(expected.originalPath.getFileName());
@@ -3270,8 +3260,8 @@ public class BindingsTests {
             final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.POST);
             assertEquals(400, resp.status());
             final var body = getBody(resp);
-            assertEquals("JSON_PARSING_EXCEPTION", body.getString("type"));
-            assertTrue(body.getString("message").startsWith("Invalid body format. Expected body format is a JSON object with the form:"));
+            assertEquals("JSON_PARSING_EXCEPTION", body.get("type").textValue());
+            assertTrue(body.get("message").textValue().startsWith("Invalid body format. Expected body format is a JSON object with the form:"));
           }
 
           @Test
@@ -3285,8 +3275,8 @@ public class BindingsTests {
             final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.POST);
             assertEquals(400, resp.status());
             final var body = getBody(resp);
-            assertEquals("MALFORMED_REQUEST", body.getString("type"));
-            assertEquals("Body must be type application/json", body.getString("message"));
+            assertEquals("MALFORMED_REQUEST", body.get("type").textValue());
+            assertEquals("Body must be type application/json", body.get("message").textValue());
           }
 
           @Test
@@ -3300,8 +3290,8 @@ public class BindingsTests {
             final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.POST);
             assertEquals(400, resp.status());
             final var body = getBody(resp);
-            assertEquals("MALFORMED_REQUEST", body.getString("type"));
-            assertEquals("Body must be type application/json", body.getString("message"));
+            assertEquals("MALFORMED_REQUEST", body.get("type").textValue());
+            assertEquals("Body must be type application/json", body.get("message").textValue());
           }
 
           @Test
@@ -3315,8 +3305,8 @@ public class BindingsTests {
             final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.POST);
             assertEquals(400, resp.status());
             final var body = getBody(resp);
-            assertEquals("JSON_PARSING_EXCEPTION", body.getString("type"));
-            assertTrue(body.getString("message").startsWith("Invalid body format. Expected body format is a JSON object with the form:"));
+            assertEquals("JSON_PARSING_EXCEPTION", body.get("type").textValue());
+            assertTrue(body.get("message").textValue().startsWith("Invalid body format. Expected body format is a JSON object with the form:"));
           }
 
           @Test
@@ -3330,8 +3320,8 @@ public class BindingsTests {
             final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.POST);
             assertEquals(400, resp.status());
             final var body = getBody(resp);
-            assertEquals("MALFORMED_REQUEST", body.getString("type"));
-            assertEquals("Cannot process request: at least one item must be specified.", body.getString("message"));
+            assertEquals("MALFORMED_REQUEST", body.get("type").textValue());
+            assertEquals("Cannot process request: at least one item must be specified.", body.get("message").textValue());
           }
 
           @Test
@@ -3345,8 +3335,8 @@ public class BindingsTests {
             final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.POST);
             assertEquals(400, resp.status());
             final var body = getBody(resp);
-            assertEquals("JSON_PARSING_EXCEPTION", body.getString("type"));
-            assertTrue(body.getString("message").startsWith("Invalid body format. Expected body format is a JSON object with the form:"));
+            assertEquals("JSON_PARSING_EXCEPTION", body.get("type").textValue());
+            assertTrue(body.get("message").textValue().startsWith("Invalid body format. Expected body format is a JSON object with the form:"));
           }
 
           /**
@@ -3363,8 +3353,8 @@ public class BindingsTests {
             final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.POST);
             assertEquals(400, resp.status());
             final var body = getBody(resp);
-            assertEquals("JSON_PARSING_EXCEPTION", body.getString("type"));
-            assertTrue(body.getString("message").startsWith("Invalid body format. Expected body format is a JSON object with the form:"));
+            assertEquals("JSON_PARSING_EXCEPTION", body.get("type").textValue());
+            assertTrue(body.get("message").textValue().startsWith("Invalid body format. Expected body format is a JSON object with the form:"));
           }
 
           @Test
@@ -3378,8 +3368,8 @@ public class BindingsTests {
             final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.POST);
             assertEquals(400, resp.status());
             final var body = getBody(resp);
-            assertEquals("JSON_PARSING_EXCEPTION", body.getString("type"));
-            assertTrue(body.getString("message").startsWith("Invalid body format. Expected body format is a JSON object with the form:"));
+            assertEquals("JSON_PARSING_EXCEPTION", body.get("type").textValue());
+            assertTrue(body.get("message").textValue().startsWith("Invalid body format. Expected body format is a JSON object with the form:"));
           }
         }
       }
@@ -3436,12 +3426,11 @@ public class BindingsTests {
 
           for (int i = 0; i < respBody.size(); ++i) {
             final var expected = inputs.get(i);
-            final var actual = respBody.get(i).asJsonObject();
+            final var actual = respBody.get(i);
 
             // Check the DELETE response
-            assertEquals(200, actual.getInt("status"));
-            assertEquals(expected.toString(), actual.getString("item"));
-
+            assertEquals(200, actual.get("status").intValue());
+            assertEquals(expected.toString(), actual.get("item").textValue());
 
             // Simple check that the item was actually deleted -- trying to get it should return a 404 Resource Not Found
             final var getResp = wsServer.get(ownerToken, workspaceId, expected);
@@ -3488,20 +3477,20 @@ public class BindingsTests {
           assertEquals(3, respBody.size());
 
           // First item should be the nonexistant file with a 404 File Not Found
-          final var fakeFile = respBody.getFirst().asJsonObject();
-          assertEquals("fake_file.seq", fakeFile.getString("item"));
-          assertEquals(404, fakeFile.getInt("status"));
+          final var fakeFile = respBody.getFirst();
+          assertEquals("fake_file.seq", fakeFile.get("item").textValue());
+          assertEquals(404, fakeFile.get("status").intValue());
 
           // Second item should be the file that exists
-          final var realFile = respBody.get(1).asJsonObject();
-          assertEquals("top_file.txt", realFile.getString("item"));
-          assertEquals(200, realFile.getInt("status"));
+          final var realFile = respBody.get(1);
+          assertEquals("top_file.txt", realFile.get("item").textValue());
+          assertEquals(200, realFile.get("status").intValue());
           assertEquals(404, wsServer.get(ownerToken, workspaceId, Path.of("top_file.txt")).status());
 
           // Third item should be the directory that exists
-          final var otherFile = respBody.getLast().asJsonObject();
-          assertEquals("other_dir", otherFile.getString("item"));
-          assertEquals(200, otherFile.getInt("status"));
+          final var otherFile = respBody.getLast();
+          assertEquals("other_dir", otherFile.get("item").textValue());
+          assertEquals(200, otherFile.get("status").intValue());
           assertEquals(404, wsServer.get(ownerToken, workspaceId, Path.of("other_dir")).status());
         }
 
@@ -3519,8 +3508,8 @@ public class BindingsTests {
             final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.DELETE);
             assertEquals(400, resp.status());
             final var body = getBody(resp);
-            assertEquals("JSON_PARSING_EXCEPTION", body.getString("type"));
-            assertEquals("Invalid body format. Expected body format is an array of paths.", body.getString("message"));
+            assertEquals("JSON_PARSING_EXCEPTION", body.get("type").textValue());
+            assertEquals("Invalid body format. Expected body format is an array of paths.", body.get("message").textValue());
           }
 
           @Test
@@ -3534,8 +3523,8 @@ public class BindingsTests {
             final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.DELETE);
             assertEquals(400, resp.status());
             final var body = getBody(resp);
-            assertEquals("MALFORMED_REQUEST", body.getString("type"));
-            assertEquals("Body must be type application/json", body.getString("message"));
+            assertEquals("MALFORMED_REQUEST", body.get("type").textValue());
+            assertEquals("Body must be type application/json", body.get("message").textValue());
           }
 
           @Test
@@ -3549,8 +3538,8 @@ public class BindingsTests {
             final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.DELETE);
             assertEquals(400, resp.status());
             final var body = getBody(resp);
-            assertEquals("MALFORMED_REQUEST", body.getString("type"));
-            assertEquals("Body must be type application/json", body.getString("message"));
+            assertEquals("MALFORMED_REQUEST", body.get("type").textValue());
+            assertEquals("Body must be type application/json", body.get("message").textValue());
           }
 
           @Test
@@ -3564,8 +3553,8 @@ public class BindingsTests {
             final var resp = wsServer.makeRequest(endpoint.formatted(workspaceId), options, WorkspaceRequests.RequestType.DELETE);
             assertEquals(400, resp.status());
             final var body = getBody(resp);
-            assertEquals("MALFORMED_REQUEST", body.getString("type"));
-            assertEquals("Cannot process request: at least one item must be specified.", body.getString("message"));
+            assertEquals("MALFORMED_REQUEST", body.get("type").textValue());
+            assertEquals("Cannot process request: at least one item must be specified.", body.get("message").textValue());
           }
         }
       }
@@ -3601,9 +3590,9 @@ public class BindingsTests {
         final var response = wsServer.listWorkspaceContents(Map.of(), workspaceId);
         assertEquals(401, response.status());
         final var body = getBody(response);
-        assertEquals("UNAUTHORIZED", body.getString("type"));
-        assertEquals("Invalid Authorization header provided.", body.getString("message"));
-        assertEquals("aerie_workspace", body.getString("service"));
+        assertEquals("UNAUTHORIZED", body.get("type").textValue());
+        assertEquals("Invalid Authorization header provided.", body.get("message").textValue());
+        assertEquals("aerie_workspace", body.get("service").textValue());
       }
 
       @Nested
@@ -3622,9 +3611,9 @@ public class BindingsTests {
           final var response = wsServer.listWorkspaceContents(headers, workspaceId);
           assertEquals(401, response.status());
           final var body = getBody(response);
-          assertEquals("UNAUTHORIZED", body.getString("type"));
-          assertEquals("Invalid Hasura admin secret", body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+          assertEquals("UNAUTHORIZED", body.get("type").textValue());
+          assertEquals("Invalid Hasura admin secret", body.get("message").textValue());
+          assertEquals("aerie_workspace", body.get("service").textValue());
         }
 
         /**
@@ -3638,9 +3627,9 @@ public class BindingsTests {
           final var response = wsServer.listWorkspaceContents(headers, workspaceId);
           assertEquals(401, response.status());
           final var body = getBody(response);
-          assertEquals("UNAUTHORIZED", body.getString("type"));
-          assertEquals("x-hasura-user-id header is required when x-hasura-admin-secret is set", body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+          assertEquals("UNAUTHORIZED", body.get("type").textValue());
+          assertEquals("x-hasura-user-id header is required when x-hasura-admin-secret is set", body.get("message").textValue());
+          assertEquals("aerie_workspace", body.get("service").textValue());
         }
 
         /**
@@ -3692,9 +3681,9 @@ public class BindingsTests {
                                                     WorkspaceRequests.RequestType.PUT);
           assertEquals(403, response.status());
           final var body = getBody(response);
-          assertEquals("FORBIDDEN", body.getString("type"));
-          assertEquals("Role 'viewer' is not allowed to perform action 'write_file_directory'", body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+          assertEquals("FORBIDDEN", body.get("type").textValue());
+          assertEquals("Role 'viewer' is not allowed to perform action 'write_file_directory'", body.get("message").textValue());
+          assertEquals("aerie_workspace", body.get("service").textValue());
         }
       }
 
@@ -3711,9 +3700,9 @@ public class BindingsTests {
           final var response = wsServer.listWorkspaceContents(headers, workspaceId);
           assertEquals(401, response.status());
           final var body = getBody(response);
-          assertEquals("UNAUTHORIZED", body.getString("type"));
-          assertEquals("Invalid Authorization header provided.", body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+          assertEquals("UNAUTHORIZED", body.get("type").textValue());
+          assertEquals("Invalid Authorization header provided.", body.get("message").textValue());
+          assertEquals("aerie_workspace", body.get("service").textValue());
         }
 
         private Stream<Arguments> misformattedJWTHeaderArgs() {
@@ -3734,9 +3723,9 @@ public class BindingsTests {
           final var response = wsServer.listWorkspaceContents(headers, workspaceId);
           assertEquals(401, response.status());
           final var body = getBody(response);
-          assertEquals("UNAUTHORIZED", body.getString("type"));
-          assertEquals("The token was expected to have 3 parts, but got 0.", body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+          assertEquals("UNAUTHORIZED", body.get("type").textValue());
+          assertEquals("The token was expected to have 3 parts, but got 0.", body.get("message").textValue());
+          assertEquals("aerie_workspace", body.get("service").textValue());
         }
 
         /**
@@ -3760,9 +3749,9 @@ public class BindingsTests {
           final var response = wsServer.listWorkspaceContents(headers, workspaceId);
           assertEquals(401, response.status());
           final var body = getBody(response);
-          assertEquals("UNAUTHORIZED", body.getString("type"));
-          assertEquals("Provided active role is not in the set of permitted roles.", body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+          assertEquals("UNAUTHORIZED", body.get("type").textValue());
+          assertEquals("Provided active role is not in the set of permitted roles.", body.get("message").textValue());
+          assertEquals("aerie_workspace", body.get("service").textValue());
         }
 
         /**
@@ -3788,9 +3777,9 @@ public class BindingsTests {
                                                     WorkspaceRequests.RequestType.PUT);
           assertEquals(403, response.status());
           final var body = getBody(response);
-          assertEquals("FORBIDDEN", body.getString("type"));
-          assertEquals("Role 'viewer' is not allowed to perform action 'write_file_directory'", body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+          assertEquals("FORBIDDEN", body.get("type").textValue());
+          assertEquals("Role 'viewer' is not allowed to perform action 'write_file_directory'", body.get("message").textValue());
+          assertEquals("aerie_workspace", body.get("service").textValue());
         }
 
         /**
@@ -3808,9 +3797,9 @@ public class BindingsTests {
           final var response = wsServer.listWorkspaceContents(headers, workspaceId);
           assertEquals(401, response.status());
           final var body = getBody(response);
-          assertEquals("UNAUTHORIZED", body.getString("type"));
-          assertEquals("Invalid Hasura admin secret", body.getString("message"));
-          assertEquals("aerie_workspace", body.getString("service"));
+          assertEquals("UNAUTHORIZED", body.get("type").textValue());
+          assertEquals("Invalid Hasura admin secret", body.get("message").textValue());
+          assertEquals("aerie_workspace", body.get("service").textValue());
         }
       }
     }

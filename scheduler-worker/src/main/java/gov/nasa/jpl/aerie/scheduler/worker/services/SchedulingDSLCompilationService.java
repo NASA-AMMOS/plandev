@@ -1,5 +1,8 @@
 package gov.nasa.jpl.aerie.scheduler.worker.services;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import gov.nasa.jpl.aerie.json.JsonParser;
 import gov.nasa.jpl.aerie.scheduler.server.http.InvalidEntityException;
 import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonException;
@@ -12,12 +15,8 @@ import gov.nasa.jpl.aerie.scheduler.server.services.MerlinDatabaseService;
 import gov.nasa.jpl.aerie.scheduler.server.services.MerlinServiceException;
 import gov.nasa.jpl.aerie.scheduler.server.services.TypescriptCodeGenerationService;
 
-import javax.json.Json;
-import javax.json.JsonObject;
-import javax.json.stream.JsonParsingException;
 import java.io.File;
 import java.io.IOException;
-import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -25,6 +24,7 @@ import java.util.Objects;
 
 public class SchedulingDSLCompilationService {
 
+  private static final ObjectMapper mapper = new ObjectMapper();
   private final Process nodeProcess;
 
   public SchedulingDSLCompilationService()
@@ -101,12 +101,11 @@ public class SchedulingDSLCompilationService {
     final var constraintsGeneratedCode = gov.nasa.jpl.aerie.constraints.TypescriptCodeGenerationService.generateTypescriptTypes(
         ConstraintsTypescriptCodeGenerationHelper.activityTypes(missionModelTypes),
         ConstraintsTypescriptCodeGenerationHelper.resources(missionModelTypes));
-    final JsonObject messageJson = Json.createObjectBuilder()
-        .add("goalCode", goalTypescript)
-        .add("schedulerGeneratedCode", schedulerGeneratedCode)
-        .add("constraintsGeneratedCode", constraintsGeneratedCode)
-        .add("expectedReturnType", expectedReturnType)
-        .build();
+    final var messageJson = JsonNodeFactory.instance.objectNode();
+    messageJson.put("goalCode", goalTypescript);
+    messageJson.put("schedulerGeneratedCode", schedulerGeneratedCode);
+    messageJson.put("constraintsGeneratedCode", constraintsGeneratedCode);
+    messageJson.put("expectedReturnType", expectedReturnType);
 
     /*
     * PROTOCOL:
@@ -156,11 +155,11 @@ public class SchedulingDSLCompilationService {
   private static <T> T parseJson(final String jsonStr, final JsonParser<T> parser)
   throws InvalidJsonException, InvalidEntityException
   {
-    try (final var reader = Json.createReader(new StringReader(jsonStr))) {
-      final var requestJson = reader.readValue();
+    try {
+      final var requestJson = mapper.readTree(jsonStr);
       final var result = parser.parse(requestJson);
       return result.getSuccessOrThrow(reason -> new InvalidEntityException(List.of(reason)));
-    } catch (JsonParsingException e) {
+    } catch (JsonProcessingException e) {
       throw new InvalidJsonException(e);
     }
   }

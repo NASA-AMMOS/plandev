@@ -2,7 +2,8 @@ package gov.nasa.jpl.aerie.constraints.model;
 
 import gov.nasa.jpl.aerie.constraints.time.Interval;
 
-import javax.json.JsonObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -88,7 +89,7 @@ public final class EDSLConstraintResult implements ConstraintResult {
   }
 
   @Override
-  public JsonObject toJSON() {
-    return edslConstraintResultP.unparse(this).asJsonObject();
+  public ObjectNode toJSON() {
+    return (ObjectNode) edslConstraintResultP.unparse(this);
   }
 }

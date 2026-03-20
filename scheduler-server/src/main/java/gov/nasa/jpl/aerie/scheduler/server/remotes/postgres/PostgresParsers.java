@@ -1,5 +1,8 @@
 package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import gov.nasa.jpl.aerie.json.JsonParseResult;
 import gov.nasa.jpl.aerie.json.JsonParser;
 import gov.nasa.jpl.aerie.json.SchemaCache;
@@ -7,9 +10,6 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.scheduler.server.services.UnexpectedSubtypeError;
 import gov.nasa.jpl.aerie.types.Timestamp;
 
-import javax.json.Json;
-import javax.json.JsonObject;
-import javax.json.JsonValue;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -32,15 +32,15 @@ public final class PostgresParsers {
             .toFormatter();
 
     @Override
-    public JsonObject getSchema(final SchemaCache anchors) {
-      return Json
-          .createObjectBuilder(stringP.getSchema())
-          .add("format", "date-time")
-          .build();
+    public ObjectNode getSchema(final SchemaCache anchors) {
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.setAll(stringP.getSchema());
+      node.put("format", "date-time");
+      return node;
     }
 
     @Override
-    public JsonParseResult<Timestamp> parse(final JsonValue json) {
+    public JsonParseResult<Timestamp> parse(final JsonNode json) {
       final var result = stringP.parse(json);
       if (result instanceof final JsonParseResult.Success<String> s) {
         try {
@@ -57,7 +57,7 @@ public final class PostgresParsers {
     }
 
     @Override
-    public JsonValue unparse(final Timestamp value) {
+    public JsonNode unparse(final Timestamp value) {
       final var s = format.format(value.toInstant().atZone(ZoneOffset.UTC));
       return stringP.unparse(s);
     }

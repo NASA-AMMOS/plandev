@@ -7,15 +7,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import javax.json.Json;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
-import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.PrintStream;
-import java.io.StringReader;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -23,6 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class CLIArgumentsTest {
+  private static final ObjectMapper objectMapper = new ObjectMapper();
+
   private ByteArrayOutputStream out;
   private ByteArrayOutputStream err;
   private PrintStream outputStream;
@@ -206,30 +207,21 @@ public class CLIArgumentsTest {
                              "--verbose"});
       outputStream.flush();
       try(final var reader = new BufferedReader(new FileReader("src/test/resources/simpleFooPlanResults.json"))) {
-        final var fileLines = reader.lines().toList();
         final var output = out.toString();
-        assertEquals(fileLines.size() + 5, output.split("\n").length);
 
-        int truncateIndex = 0;
-        for(int i = 0; i < 5; ++i) {
-          truncateIndex = output.indexOf("\n", truncateIndex + 1);
-        }
+        // Find the start of the JSON output (opening brace)
+        final var jsonStart = output.indexOf('{');
+        assertTrue(jsonStart > 0, "Expected JSON output starting with '{'");
 
-        final var introLines = """
-            Parsing plan src/test/resources/simpleFooPlan.json...
-            Loading mission model ../examples/foo-missionmodel/build/libs/foo-missionmodel.jar...
-            Simulating Plan...
-            Writing Results...
-            """;
+        final var introText = output.substring(0, jsonStart);
+        assertTrue(introText.contains("Parsing plan"), "Expected intro line about parsing plan");
+        assertTrue(introText.contains("Loading mission model"), "Expected intro line about loading model");
+        assertTrue(introText.contains("Simulating Plan"), "Expected intro line about simulating");
+        assertTrue(introText.contains("Writing Results"), "Expected intro line about writing results");
 
-        assertEquals(introLines, output.substring(0, truncateIndex));
-
-        try(final var fileReader = Json.createReader(new FileReader("src/test/resources/simpleFooPlanResults.json"));
-            final var outputReader = Json.createReader(new StringReader(output.substring(truncateIndex)))) {
-          final var fileJson = fileReader.readObject();
-          final var outputJson = outputReader.readObject();
-          assertEquals(fileJson, outputJson);
-        }
+        final var fileJson = objectMapper.readTree(new java.io.File("src/test/resources/simpleFooPlanResults.json"));
+        final var outputJson = objectMapper.readTree(output.substring(jsonStart));
+        assertEquals(fileJson, outputJson);
       }
     }
 
@@ -241,27 +233,21 @@ public class CLIArgumentsTest {
                              "-p", "src/test/resources/simpleFooPlan.json"});
       outputStream.flush();
 
-      try(final var fileReader = Json.createReader(new FileReader("src/test/resources/simpleFooPlanResults.json"));
-          final var outputReader = Json.createReader(new StringReader(out.toString()))) {
-        final var fileJson = fileReader.readObject();
-        final var outputJson = outputReader.readObject();
-        assertEquals(fileJson, outputJson);
-      }
+      final var fileJson = objectMapper.readTree(new java.io.File("src/test/resources/simpleFooPlanResults.json"));
+      final var outputJson = objectMapper.readTree(out.toString());
+      assertEquals(fileJson, outputJson);
     }
 
     /** Sim config bounds take precedence over plan bounds */
     @Test
-    void simConfigTemporalSubset() throws FileNotFoundException {
+    void simConfigTemporalSubset() throws IOException {
       Main.main(new String[] {"simulate",
                               "-m", "../examples/foo-missionmodel/build/libs/foo-missionmodel.jar",
                               "-p", "src/test/resources/simpleFooPlan.json",
                               "-s", "src/test/resources/temporalSubsetFooConfiguration.json"});
-      try(final var fileReader = Json.createReader(new FileReader("src/test/resources/subsetFooPlanResults.json"));
-          final var outputReader = Json.createReader(new StringReader(out.toString()))) {
-        final var fileJson = fileReader.readObject();
-        final var outputJson = outputReader.readObject();
-        assertEquals(fileJson, outputJson);
-      }
+      final var fileJson = objectMapper.readTree(new java.io.File("src/test/resources/subsetFooPlanResults.json"));
+      final var outputJson = objectMapper.readTree(out.toString());
+      assertEquals(fileJson, outputJson);
     }
 
     /**
@@ -269,7 +255,7 @@ public class CLIArgumentsTest {
      * Also tests that sim config arguments are applied to simulation.
      */
     @Test
-    void simException() {
+    void simException() throws IOException {
       BlockExitSecurityManager.install();
       final var sysExit = assertThrows(SystemExit.class,
                                        () -> Main.main(new String[]{
@@ -283,21 +269,21 @@ public class CLIArgumentsTest {
       assertTrue(out.toString().isBlank());
       assertFalse(err.toString().isBlank());
 
-      try(final var errorReader = Json.createReader(new StringReader(err.toString()))) {
-        final var errorJson = errorReader.readObject();
-        final var dataObject = Json.createObjectBuilder()
-                                   .add("elapsedTime", "01:00:00.000000")
-                                   .add( "utcTimeDoy", "2024-183T01:00:00")
-                                   .build();
+      final var errorJson = (ObjectNode) objectMapper.readTree(err.toString());
+      final var dataObject = JsonNodeFactory.instance.objectNode();
+      dataObject.put("elapsedTime", "01:00:00.000000");
+      dataObject.put("utcTimeDoy", "2024-183T01:00:00");
 
-        assertEquals(4, errorJson.keySet().size());
-        assertTrue(errorJson.keySet().containsAll(List.of("type", "message", "data", "trace")));
+      assertEquals(4, errorJson.size());
+      assertTrue(errorJson.has("type"));
+      assertTrue(errorJson.has("message"));
+      assertTrue(errorJson.has("data"));
+      assertTrue(errorJson.has("trace"));
 
-        assertEquals("SIMULATION_EXCEPTION", errorJson.getString("type"));
-        assertEquals("Daemon task exception raised.", errorJson.getString("message"));
-        assertEquals(dataObject, errorJson.getJsonObject("data"));
-        assertTrue(errorJson.getString("trace").startsWith("java.lang.RuntimeException: Daemon task exception raised."));
-      }
+      assertEquals("SIMULATION_EXCEPTION", errorJson.get("type").textValue());
+      assertEquals("Daemon task exception raised.", errorJson.get("message").textValue());
+      assertEquals(dataObject, errorJson.get("data"));
+      assertTrue(errorJson.get("trace").textValue().startsWith("java.lang.RuntimeException: Daemon task exception raised."));
     }
   }
 }

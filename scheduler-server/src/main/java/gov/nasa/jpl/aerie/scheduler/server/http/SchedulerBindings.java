@@ -1,9 +1,9 @@
 package gov.nasa.jpl.aerie.scheduler.server.http;
 
-import javax.json.Json;
-import javax.json.stream.JsonParsingException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import java.io.IOException;
-import java.io.StringReader;
 import java.util.List;
 import java.util.Objects;
 
@@ -130,25 +130,22 @@ public record SchedulerBindings(
       final var response = this.generateSchedulingLibAction.run(missionModelId, planId);
       final String resultString;
       if (response instanceof GenerateSchedulingLibAction.Response.Success r) {
-        var files = Json.createArrayBuilder();
+        var files = JsonNodeFactory.instance.arrayNode();
         for (final var entry : r.files().entrySet()) {
-          files = files.add(
-              Json.createObjectBuilder()
-                  .add("filePath", entry.getKey())
-                  .add("content", entry.getValue())
-                  .build());
+          final var fileNode = JsonNodeFactory.instance.objectNode();
+          fileNode.put("filePath", entry.getKey());
+          fileNode.put("content", entry.getValue());
+          files.add(fileNode);
         }
-        resultString = Json
-            .createObjectBuilder()
-            .add("status", "success")
-            .add("typescriptFiles", files)
-            .build().toString();
+        final var resultNode = JsonNodeFactory.instance.objectNode();
+        resultNode.put("status", "success");
+        resultNode.set("typescriptFiles", files);
+        resultString = resultNode.toString();
       } else if (response instanceof GenerateSchedulingLibAction.Response.Failure r) {
-        resultString = Json
-            .createObjectBuilder()
-            .add("status", "failure")
-            .add("reason", r.reason())
-            .build().toString();
+        final var resultNode = JsonNodeFactory.instance.objectNode();
+        resultNode.put("status", "failure");
+        resultNode.put("reason", r.reason());
+        resultString = resultNode.toString();
       } else {
         throw new Error("Unhandled variant of Response: " + response);
       }
@@ -210,10 +207,11 @@ public record SchedulerBindings(
   throws InvalidJsonException, InvalidEntityException
   {
     try {
-      final var requestJson = Json.createReader(new StringReader(jsonStr)).readValue();
+      final var mapper = new ObjectMapper();
+      final var requestJson = mapper.readTree(jsonStr);
       final var result = parser.parse(requestJson);
       return result.getSuccessOrThrow(reason -> new InvalidEntityException(List.of(reason)));
-    } catch (JsonParsingException e) {
+    } catch (JsonProcessingException e) {
       throw new InvalidJsonException(e);
     }
   }

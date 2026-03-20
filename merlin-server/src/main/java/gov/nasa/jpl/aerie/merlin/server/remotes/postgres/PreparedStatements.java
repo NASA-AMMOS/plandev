@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationFailure;
 import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.Parameter;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
@@ -9,9 +10,7 @@ import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService;
 import gov.nasa.jpl.aerie.types.Timestamp;
 import org.intellij.lang.annotations.Language;
 
-import javax.json.Json;
-import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -24,6 +23,8 @@ import java.util.Optional;
 
 public final class PreparedStatements {
   private PreparedStatements() {}
+
+  private static final ObjectMapper objectMapper = new ObjectMapper();
 
   private static final DateTimeFormatter TIMESTAMP_FORMAT =
       new DateTimeFormatterBuilder()
@@ -109,8 +110,11 @@ public final class PreparedStatements {
   }
 
   private static SimulationFailure deserializeScheduleFailure(final String failureJson) {
-    try (final var reader = Json.createReader(new ByteArrayInputStream(failureJson.getBytes(StandardCharsets.UTF_8)))) {
-      return MerlinParsers.simulationFailureP.parse(reader.readValue()).getSuccessOrThrow();
+    try {
+      final var jsonNode = objectMapper.readTree(failureJson);
+      return MerlinParsers.simulationFailureP.parse(jsonNode).getSuccessOrThrow();
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to parse simulation failure JSON", e);
     }
   }
 }

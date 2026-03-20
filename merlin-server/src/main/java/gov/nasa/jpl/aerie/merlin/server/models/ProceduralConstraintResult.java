@@ -1,9 +1,9 @@
 package gov.nasa.jpl.aerie.merlin.server.models;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
 import gov.nasa.jpl.aerie.constraints.model.Violation;
 
-import javax.json.JsonObject;
 import java.util.List;
 
 import static gov.nasa.jpl.aerie.merlin.server.http.ConstraintParsers.proceduralConstraintResultP;
@@ -26,7 +26,7 @@ public record ProceduralConstraintResult(
   }
 
   @Override
-  public JsonObject toJSON() {
-    return proceduralConstraintResultP.unparse(this).asJsonObject();
+  public ObjectNode toJSON() {
+    return (ObjectNode) proceduralConstraintResultP.unparse(this);
   }
 }

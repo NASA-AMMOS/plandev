@@ -1,5 +1,8 @@
 package gov.nasa.jpl.aerie.e2e;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.BooleanNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.microsoft.playwright.Playwright;
 import gov.nasa.jpl.aerie.e2e.types.SimulationDataset;
 import gov.nasa.jpl.aerie.e2e.types.SimulationDataset.SimulatedActivity;
@@ -13,8 +16,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import javax.json.Json;
-import javax.json.JsonValue;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -87,7 +88,7 @@ public class SimulationTests {
    */
   @Test
   void simulationMicrosecondResolution() throws IOException {
-    final var activityArgs = Json.createObjectBuilder().add("duration", 1).build();
+    final var activityArgs = JsonNodeFactory.instance.objectNode().put("duration", 1);
     hasura.insertActivityDirective(planId, "ControllableDurationActivity", "1h", activityArgs);
     assertDoesNotThrow(() -> hasura.awaitSimulation(planId));
   }
@@ -97,8 +98,8 @@ public class SimulationTests {
    */
   @Test
   void incompleteParentIdsPosted() throws IOException {
-    hasura.insertActivityDirective(planId, "parent", "0h", JsonValue.EMPTY_JSON_OBJECT);
-    hasura.insertActivityDirective(planId, "DecomposingSpawnParent", "0h", JsonValue.EMPTY_JSON_OBJECT);
+    hasura.insertActivityDirective(planId, "parent", "0h", JsonNodeFactory.instance.objectNode());
+    hasura.insertActivityDirective(planId, "DecomposingSpawnParent", "0h", JsonNodeFactory.instance.objectNode());
     final var simulatedActivities = hasura.getSimulationDataset(hasura.awaitSimulation(planId).simDatasetId())
                                           .activities();
 
@@ -154,17 +155,17 @@ public class SimulationTests {
           planId,
           "ControllableDurationActivity",
           "1hr",
-          Json.createObjectBuilder().add("duration", 3600000000L).build()); //1hr duration
+          JsonNodeFactory.instance.objectNode().put("duration", 3600000000L)); //1hr duration
       midpointActivityId = hasura.insertActivityDirective(
           planId,
           "ControllableDurationActivity",
           "12hr",
-          Json.createObjectBuilder().add("duration", 7200000000L).build()); //2hr duration
+          JsonNodeFactory.instance.objectNode().put("duration", 7200000000L)); //2hr duration
       secondHalfActivityId = hasura.insertActivityDirective(
           planId,
           "ControllableDurationActivity",
           "14hr",
-          Json.createObjectBuilder().add("duration", 10800000000L).build()); //3hr duration
+          JsonNodeFactory.instance.objectNode().put("duration", 10800000000L)); //3hr duration
     }
 
     // No AfterEach in the nested class, as SimulationTests' AfterEach will perform the necessary cleanup
@@ -320,10 +321,10 @@ public class SimulationTests {
       // Add a ControllableDurationActivity every hour
       for(int i = 0; i < 1760; ++i) {
         final var startOffset = (i<10 ? "0"+i : i) + ":00:00";
-        final var growArgs = Json.createObjectBuilder()
-                                 .add("duration", Json.createObjectBuilder()
-                                                      .add("amountInMicroseconds", 60000000*60L))  // 1 hour
-                                 .build();
+        final var growArgs = JsonNodeFactory.instance.objectNode()
+                                 .set("duration", JsonNodeFactory.instance.objectNode()
+                                                      .set("amountInMicroseconds", 60000000*60L))  // 1 hour
+                                 ;
         hasura.insertActivityDirective(fooPlan, "ControllableDurationActivity", startOffset, growArgs);
       }
     }
@@ -355,12 +356,12 @@ public class SimulationTests {
       // Assert the data in the reason
       final var reasonData = reason.data();
       assertEquals(2, reasonData.size());
-      assertTrue(reasonData.containsKey("utcTimeDoy"));
-      assertTrue(reasonData.containsKey("elapsedTime"));
+      assertTrue(reasonData.has("utcTimeDoy"));
+      assertTrue(reasonData.has("elapsedTime"));
 
-      assertNotEquals(planEndTimestamp, reasonData.getString("utcTimeDoy"));
+      assertNotEquals(planEndTimestamp, reasonData.get("utcTimeDoy").textValue());
 
-      final var elapsedHours = reasonData.getString("elapsedTime").split(":")[0];
+      final var elapsedHours = reasonData.get("elapsedTime").textValue().split(":")[0];
       final int startedActivities = Integer.parseInt(elapsedHours) + 1; // Hours + 1 (Accounts for 0 index)
 
       // There should be as many activities that began simulation as hours into time elapsed
@@ -455,7 +456,7 @@ public class SimulationTests {
           fooPlan,
           "DaemonCheckerActivity",
           "01:00:00",
-          Json.createObjectBuilder().add("minutesElapsed", 1).build());
+          JsonNodeFactory.instance.objectNode().put("minutesElapsed", 1));
 
       final var simDatasetId = hasura.awaitFailingSimulation(fooPlan).simDatasetId();
       final var simDataset = hasura.getSimulationDataset(simDatasetId);
@@ -470,20 +471,20 @@ public class SimulationTests {
 
       // The error includes the directive id that was executing
       // and the executing activity type and stack trace
-      assertTrue(exception.containsKey("executingDirectiveId"));
-      assertTrue(exception.containsKey("executingActivityType"));
-      assertEquals(dirId, exception.getInt("executingDirectiveId"));
-      assertEquals("DaemonCheckerActivity", exception.getString("executingActivityType"));
-      assertTrue(exception.containsKey("activityStackTrace"));
-      assertEquals("DaemonCheckerActivity", exception.getString("activityStackTrace"));
+      assertTrue(exception.has("executingDirectiveId"));
+      assertTrue(exception.has("executingActivityType"));
+      assertEquals(dirId, exception.get("executingDirectiveId").intValue());
+      assertEquals("DaemonCheckerActivity", exception.get("executingActivityType").textValue());
+      assertTrue(exception.has("activityStackTrace"));
+      assertEquals("DaemonCheckerActivity", exception.get("activityStackTrace").textValue());
 
       // The error message is correct
       assertEquals("Minutes elapsed is incorrect. TimeTrackerDaemon may have stopped.\n\tExpected: 1 Actual: 59",
                    reason.message());
 
       // The error was thrown at the correct time
-      assertTrue(exception.containsKey("utcTimeDoy"));
-      assertEquals("2023-001T01:00:00", exception.getString("utcTimeDoy"));
+      assertTrue(exception.has("utcTimeDoy"));
+      assertEquals("2023-001T01:00:00", exception.get("utcTimeDoy").textValue());
 
       // The trace starts at the original exception and doesn't include the intermediary SpanException and SimulationException
       final var expectedStart = """
@@ -503,7 +504,7 @@ public class SimulationTests {
           fooPlan,
           "DaemonTaskActivity",
           "01:00:00",
-          Json.createObjectBuilder().add("minutesElapsed", 1).add("spawnDelay", 1).build());
+          JsonNodeFactory.instance.objectNode().put("minutesElapsed", 1).put("spawnDelay", 1));
 
       final var simDatasetId = hasura.awaitFailingSimulation(fooPlan).simDatasetId();
       final var simDataset = hasura.getSimulationDataset(simDatasetId);
@@ -518,23 +519,23 @@ public class SimulationTests {
 
       // The error includes the directive id that was executing
       // and the executing activity type and stack trace
-      assertTrue(exception.containsKey("executingDirectiveId"));
-      assertEquals(dirId, exception.getInt("executingDirectiveId"));
-      assertTrue(exception.containsKey("executingActivityType"));
-      assertEquals(dirId, exception.getInt("executingDirectiveId"));
-      assertEquals("DaemonTaskActivity", exception.getString("executingActivityType"));
-      assertTrue(exception.containsKey("activityStackTrace"));
+      assertTrue(exception.has("executingDirectiveId"));
+      assertEquals(dirId, exception.get("executingDirectiveId").intValue());
+      assertTrue(exception.has("executingActivityType"));
+      assertEquals(dirId, exception.get("executingDirectiveId").intValue());
+      assertEquals("DaemonTaskActivity", exception.get("executingActivityType").textValue());
+      assertTrue(exception.has("activityStackTrace"));
       assertEquals("DaemonTaskActivity\n"
                    + "|-DaemonCheckerSpawner\n"
-                   + "|--DaemonCheckerActivity", exception.getString("activityStackTrace"));
+                   + "|--DaemonCheckerActivity", exception.get("activityStackTrace").textValue());
 
       // The error message is correct
       assertEquals("Minutes elapsed is incorrect. TimeTrackerDaemon may have stopped.\n\tExpected: 1 Actual: 61",
                    reason.message());
 
       // The error was thrown at the correct time
-      assertTrue(exception.containsKey("utcTimeDoy"));
-      assertEquals("2023-001T01:02:00", exception.getString("utcTimeDoy"));
+      assertTrue(exception.has("utcTimeDoy"));
+      assertEquals("2023-001T01:02:00", exception.get("utcTimeDoy").textValue());
 
       // The trace starts at the original exception and doesn't include the intermediary SpanException and SimulationException
       final var expectedStart = """
@@ -551,7 +552,7 @@ public class SimulationTests {
     @Test
     void noDirectiveIdOnDaemon() throws IOException {
       // Set up: Update the config to force an exception 1hr into the plan
-      hasura.updateSimArguments(fooPlan, Json.createObjectBuilder().add("raiseException", JsonValue.TRUE).build());
+      hasura.updateSimArguments(fooPlan, JsonNodeFactory.instance.objectNode().set("raiseException", BooleanNode.TRUE));
 
       final var simDatasetId = hasura.awaitFailingSimulation(fooPlan).simDatasetId();
       final var simDataset = hasura.getSimulationDataset(simDatasetId);
@@ -566,16 +567,16 @@ public class SimulationTests {
 
       // The error does not include any directive ids,
       // executingActivityType, and activityStackTrace
-      assertFalse(exception.containsKey("executingDirectiveId"));
-      assertFalse(exception.containsKey("executingActivityType"));
-      assertFalse(exception.containsKey("activityStackTrace"));
+      assertFalse(exception.has("executingDirectiveId"));
+      assertFalse(exception.has("executingActivityType"));
+      assertFalse(exception.has("activityStackTrace"));
 
       // The error message is correct
       assertEquals("Daemon task exception raised.", reason.message());
 
       // The error was thrown at the correct time
-      assertTrue(exception.containsKey("utcTimeDoy"));
-      assertEquals("2023-001T01:00:00", exception.getString("utcTimeDoy"));
+      assertTrue(exception.has("utcTimeDoy"));
+      assertEquals("2023-001T01:00:00", exception.get("utcTimeDoy").textValue());
 
       // The trace starts at the original exception and doesn't include the intermediary SimulationException
       final var expectedStart = """
@@ -592,12 +593,12 @@ public class SimulationTests {
     void noDirectiveIdDaemonMidDirective() throws IOException {
       // Set up: Update the config to force an exception 1hr into the plan
       // and add an activity that will be executing at that time
-      hasura.updateSimArguments(fooPlan, Json.createObjectBuilder().add("raiseException", JsonValue.TRUE).build());
+      hasura.updateSimArguments(fooPlan, JsonNodeFactory.instance.objectNode().set("raiseException", BooleanNode.TRUE));
       hasura.insertActivityDirective(
           fooPlan,
           "DaemonCheckerSpawner",
           "00:59:00",
-          Json.createObjectBuilder().add("minutesElapsed", 1).add("spawnDelay", 5).build());
+          JsonNodeFactory.instance.objectNode().put("minutesElapsed", 1).put("spawnDelay", 5));
 
       final var simDatasetId = hasura.awaitFailingSimulation(fooPlan).simDatasetId();
       final var simDataset = hasura.getSimulationDataset(simDatasetId);
@@ -612,16 +613,16 @@ public class SimulationTests {
 
       // The error does not include any directive ids,
       // executingActivityType, and activityStackTrace
-      assertFalse(exception.containsKey("executingDirectiveId"));
-      assertFalse(exception.containsKey("executingActivityType"));
-      assertFalse(exception.containsKey("activityStackTrace"));
+      assertFalse(exception.has("executingDirectiveId"));
+      assertFalse(exception.has("executingActivityType"));
+      assertFalse(exception.has("activityStackTrace"));
 
       // The error message is correct
       assertEquals("Daemon task exception raised.", reason.message());
 
       // The error was thrown at the correct time
-      assertTrue(exception.containsKey("utcTimeDoy"));
-      assertEquals("2023-001T01:00:00", exception.getString("utcTimeDoy"));
+      assertTrue(exception.has("utcTimeDoy"));
+      assertEquals("2023-001T01:00:00", exception.get("utcTimeDoy").textValue());
     }
   }
 }

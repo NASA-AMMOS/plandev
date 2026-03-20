@@ -1,5 +1,10 @@
 package gov.nasa.jpl.aerie.e2e.utils;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.microsoft.playwright.APIRequest;
 import com.microsoft.playwright.APIRequestContext;
 import com.microsoft.playwright.Playwright;
@@ -8,14 +13,7 @@ import com.microsoft.playwright.options.RequestOptions;
 import gov.nasa.jpl.aerie.e2e.types.*;
 import org.apache.commons.lang3.tuple.Pair;
 
-import javax.json.Json;
-import javax.json.JsonArray;
-import javax.json.JsonArrayBuilder;
-import javax.json.JsonObjectBuilder;
-import javax.json.JsonValue;
-import javax.json.JsonObject;
 import java.io.IOException;
-import java.io.StringReader;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +22,7 @@ import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
+import java.util.stream.StreamSupport;
 
 /**
  * Hasura API request functions
@@ -48,11 +47,11 @@ public class HasuraRequests implements AutoCloseable {
   /**
    * Make a request to Hasura as the `Aerie Legacy` user using the role `aerie_admin`
    * @param query the GQL query or mutation to be executed
-   * @param variables a JsonObject containing the query variables for the query
-   * @return a JsonObject containing the response from Hasura
+   * @param variables a ObjectNode containing the query variables for the query
+   * @return a ObjectNode containing the response from Hasura
    * @throws IOException if the response status is not 200
    */
-  private JsonObject makeRequest(GQL query, JsonObject variables)
+  private ObjectNode makeRequest(GQL query, ObjectNode variables)
   throws IOException {
     return makeRequest( query, variables, defaultHeaders);
   }
@@ -60,21 +59,21 @@ public class HasuraRequests implements AutoCloseable {
   /**
    * Make a request to Hasura using custom headers
    * @param query the GQL query or mutation to be executed
-   * @param variables a JsonObject containing the query variables for the query
+   * @param variables a ObjectNode containing the query variables for the query
    * @param headers a Map containing the custom headers
-   * @return a JsonObject containing the response from Hasura
+   * @return a ObjectNode containing the response from Hasura
    * @throws IOException if the response status is not 200
    */
-  private JsonObject makeRequest(
+  private ObjectNode makeRequest(
       GQL query,
-      JsonObject variables,
+      ObjectNode variables,
       Map<String, String> headers
   ) throws IOException {
     // Build Payload
-    final String data = Json.createObjectBuilder()
-                            .add("query", query.query)
-                            .add("variables", variables)
-                            .build()
+    final String data = JsonNodeFactory.instance.objectNode()
+                            .put("query", query.query)
+                            .set("variables", variables)
+                            
                             .toString(); // Payloads must be JSON Strings and not JSON Objects
 
     // Set Up Request
@@ -90,33 +89,31 @@ public class HasuraRequests implements AutoCloseable {
       throw new IOException(response.statusText());
     }
 
-    try(final var reader = Json.createReader(new StringReader(response.text()))){
-      final JsonObject bodyJson = reader.readObject();
-      if(bodyJson.containsKey("errors")){
-        System.err.println("Errors in response: \n" + bodyJson.get("errors"));
-        throw new RuntimeException(bodyJson.toString());
-      }
-      return bodyJson.getJsonObject("data");
+    final ObjectNode bodyJson = (ObjectNode) new ObjectMapper().readTree(response.text());
+    if(bodyJson.has("errors")){
+      System.err.println("Errors in response: \n" + bodyJson.get("errors"));
+      throw new RuntimeException(bodyJson.toString());
     }
+    return (ObjectNode) bodyJson.get("data");
   }
 
   //region Records
-  public record ExternalEvent(String key, String event_type_name, String source_key, String derivation_group_name, String start_time, String duration, JsonObject attributes) {}
-  public record ExternalSource(String key, String source_type_name, String derivation_group_name, String valid_at, String start_time, String end_time, String created_at, JsonObject attributes){}
+  public record ExternalEvent(String key, String event_type_name, String source_key, String derivation_group_name, String start_time, String duration, ObjectNode attributes) {}
+  public record ExternalSource(String key, String source_type_name, String derivation_group_name, String valid_at, String start_time, String end_time, String created_at, ObjectNode attributes){}
   //endregion Records
 
   //region Mission Model
   public int createMissionModel(int jarId, String name, String mission, String version)
   throws IOException, InterruptedException
   {
-    final var insertModelBuilder = Json.createObjectBuilder()
-                                     .add("jar_id", jarId)
-                                     .add("name", name)
-                                     .add("mission", mission)
-                                     .add("version", version);
-    final var variables = Json.createObjectBuilder().add("model", insertModelBuilder).build();
-    final var data = makeRequest(GQL.CREATE_MISSION_MODEL, variables).getJsonObject("insert_mission_model_one");
-    final int modelId = data.getInt("id");
+    final var insertModelBuilder = JsonNodeFactory.instance.objectNode()
+                                     .put("jar_id", jarId)
+                                     .put("name", name)
+                                     .put("mission", mission)
+                                     .put("version", version);
+    final var variables = JsonNodeFactory.instance.objectNode().set("model", insertModelBuilder);
+    final var data = makeRequest(GQL.CREATE_MISSION_MODEL, variables).get("insert_mission_model_one");
+    final int modelId = data.get("id").intValue();
 
     // Wait for all events associated with model upload to finish
     // Necessary for TS compilation
@@ -125,32 +122,32 @@ public class HasuraRequests implements AutoCloseable {
   }
 
   public void deleteMissionModel(int id) throws IOException {
-    makeRequest(GQL.DELETE_MISSION_MODEL, Json.createObjectBuilder().add("id", id).build());
+    makeRequest(GQL.DELETE_MISSION_MODEL, JsonNodeFactory.instance.objectNode().put("id", id));
   }
 
   public EffectiveModelArguments getEffectiveModelArguments(
       int modelId,
-      JsonObject modelArgs
+      ObjectNode modelArgs
   ) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("modelId", modelId)
-                              .add("modelArgs", modelArgs)
-                              .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("modelId", modelId)
+                              .set("modelArgs", modelArgs)
+                              ;
     final var results = makeRequest(GQL.GET_EFFECTIVE_MODEL_ARGUMENTS, variables)
-        .getJsonObject("getModelEffectiveArguments");
-    return EffectiveModelArguments.fromJSON(results);
+        .get("getModelEffectiveArguments");
+    return EffectiveModelArguments.fromJSON((ObjectNode) results);
   }
 
   public List<ResourceType> getResourceTypes(int missionModelId) throws IOException {
-    final var variables = Json.createObjectBuilder().add("missionModelId", missionModelId).build();
+    final var variables = JsonNodeFactory.instance.objectNode().put("missionModelId", missionModelId);
     final var data = makeRequest(GQL.GET_RESOURCE_TYPES, variables);
-    return data.getJsonArray("resource_type").getValuesAs(ResourceType::fromJSON);
+    return StreamSupport.stream(data.get("resource_type").spliterator(), false).map(e -> ResourceType.fromJSON((ObjectNode) e)).toList();
   }
 
   public List<ActivityType> getActivityTypes(int missionModelId) throws IOException {
-    final var variables = Json.createObjectBuilder().add("missionModelId", missionModelId).build();
+    final var variables = JsonNodeFactory.instance.objectNode().put("missionModelId", missionModelId);
     final var data = makeRequest(GQL.GET_ACTIVITY_TYPES, variables);
-    return data.getJsonArray("activity_type").getValuesAs(ActivityType::fromJSON);
+    return StreamSupport.stream(data.get("activity_type").spliterator(), false).map(e -> ActivityType.fromJSON((ObjectNode) e)).toList();
   }
 
   /**
@@ -167,11 +164,10 @@ public class HasuraRequests implements AutoCloseable {
    * @param timeout the amount of time to wait for at least one log of each type
    */
   public ModelEventLogs awaitModelEventLogs(int modelId, int timeout) throws IOException {
-    final var variables = Json.createObjectBuilder().add("modelId", modelId).build();
+    final var variables = JsonNodeFactory.instance.objectNode().put("modelId", modelId);
 
     for(int i = 0; i < timeout; ++i){
-      final var logs = ModelEventLogs.fromJSON(makeRequest(GQL.GET_MODEL_EVENT_LOGS, variables)
-                                                   .getJsonObject("mission_model"));
+      final var logs = ModelEventLogs.fromJSON((ObjectNode) makeRequest(GQL.GET_MODEL_EVENT_LOGS, variables).get("mission_model"));
 
       if(logs.refreshActivityTypesLogs().getLast().pending() ||
          logs.refreshModelParamsLogs().getLast().pending() ||
@@ -201,154 +197,152 @@ public class HasuraRequests implements AutoCloseable {
       String startTime,
       Map<String, String> headers)
   throws IOException {
-    final var insertPlanBuilder = Json.createObjectBuilder()
-            .add("model_id", modelId)
-            .add("name", name)
-            .add("duration", duration)
-            .add("start_time", startTime);
-    final var variables = Json.createObjectBuilder().add("plan", insertPlanBuilder).build();
-    return makeRequest(GQL.CREATE_PLAN, variables, headers).getJsonObject("insert_plan_one").getInt("id");
+    final var insertPlanBuilder = JsonNodeFactory.instance.objectNode()
+            .put("model_id", modelId)
+            .put("name", name)
+            .put("duration", duration)
+            .put("start_time", startTime);
+    final var variables = JsonNodeFactory.instance.objectNode().set("plan", insertPlanBuilder);
+    return makeRequest(GQL.CREATE_PLAN, variables, headers).get("insert_plan_one").get("id").intValue();
   }
 
   public Plan getPlan(int planId) throws IOException {
-    final var variables = Json.createObjectBuilder().add("id", planId).build();
-    final var plan = makeRequest(GQL.GET_PLAN, variables).getJsonObject("plan");
-    return Plan.fromJSON(plan);
+    final var variables = JsonNodeFactory.instance.objectNode().put("id", planId);
+    final var plan = makeRequest(GQL.GET_PLAN, variables).get("plan");
+    return Plan.fromJSON((ObjectNode) plan);
   }
 
   public int getPlanRevision(int planId) throws IOException {
-    final var variables = Json.createObjectBuilder().add("id", planId).build();
-    return makeRequest(GQL.GET_PLAN_REVISION, variables).getJsonObject("plan").getInt("revision");
+    final var variables = JsonNodeFactory.instance.objectNode().put("id", planId);
+    return makeRequest(GQL.GET_PLAN_REVISION, variables).get("plan").get("revision").intValue();
   }
 
   public void deletePlan(int planId) throws IOException {
-    final var variables = Json.createObjectBuilder().add("id", planId).build();
+    final var variables = JsonNodeFactory.instance.objectNode().put("id", planId);
     makeRequest(GQL.DELETE_PLAN, variables);
   }
 
-  public int insertActivityDirective(int planId, String type, String startOffset, JsonObject arguments, JsonObjectBuilder ...extraArgs) throws IOException {
-    final var insertActivityBuilder = Json.createObjectBuilder()
-                                          .add("plan_id", planId)
-                                          .add("type", type)
-                                          .add("start_offset", startOffset)
-                                          .add("arguments", arguments);
+  public int insertActivityDirective(int planId, String type, String startOffset, ObjectNode arguments, ObjectNode ...extraArgs) throws IOException {
+    final var insertActivityBuilder = JsonNodeFactory.instance.objectNode()
+                                          .put("plan_id", planId)
+                                          .put("type", type)
+                                          .put("start_offset", startOffset)
+                                          .set("arguments", arguments);
     for (final var extraArg : extraArgs) {
-      insertActivityBuilder.addAll(extraArg);
+      insertActivityBuilder.setAll(extraArg);
     }
-    final var variables = Json.createObjectBuilder().add("activityDirectiveInsertInput", insertActivityBuilder).build();
-    return makeRequest(GQL.CREATE_ACTIVITY_DIRECTIVE, variables).getJsonObject("createActivityDirective").getInt("id");
+    final var variables = JsonNodeFactory.instance.objectNode().set("activityDirectiveInsertInput", insertActivityBuilder);
+    return makeRequest(GQL.CREATE_ACTIVITY_DIRECTIVE, variables).get("createActivityDirective").get("id").intValue();
   }
 
-  public void insertActivityInstance(int datasetId, int directiveId, String type, String startOffset, String duration, JsonObject arguments) throws IOException {
+  public void insertActivityInstance(int datasetId, int directiveId, String type, String startOffset, String duration, ObjectNode arguments) throws IOException {
     final var hasuraAdminHeader = Map.of("x-hasura-role", "admin");
 
-    final var insertActivityBuilder = Json.createObjectBuilder()
-        .add("span_id", directiveId)
-        .add("dataset_id", datasetId)
-        .add("type", type)
-        .add("start_offset", startOffset)
-        .add("duration", duration)
+    final var insertActivityBuilder = JsonNodeFactory.instance.objectNode()
+        .put("span_id", directiveId)
+        .put("dataset_id", datasetId)
+        .put("type", type)
+        .put("start_offset", startOffset)
+        .put("duration", duration)
         .add(
             "attributes",
-            Json.createObjectBuilder()
-                .add("arguments", arguments)
-                .add("directiveId", directiveId)
-                .add("computedAttributes", Json.createObjectBuilder())
+            JsonNodeFactory.instance.objectNode()
+                .set("arguments", arguments)
+                .put("directiveId", directiveId)
+                .set("computedAttributes", JsonNodeFactory.instance.objectNode())
         );
-    final var variables = Json.createObjectBuilder().add("span", insertActivityBuilder).build();
+    final var variables = JsonNodeFactory.instance.objectNode().set("span", insertActivityBuilder);
     makeRequest(GQL.INSERT_SPAN, variables, hasuraAdminHeader);
   }
 
-  public void updateActivityDirectiveArguments(int planId, int activityId, JsonObject arguments) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("plan_id", planId)
-                              .add("id", activityId)
-                              .add("arguments", arguments)
-                              .build();
+  public void updateActivityDirectiveArguments(int planId, int activityId, ObjectNode arguments) throws IOException {
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("plan_id", planId)
+                              .put("id", activityId)
+                              .set("arguments", arguments)
+                              ;
 
     makeRequest(GQL.UPDATE_ACTIVITY_DIRECTIVE_ARGUMENTS, variables);
   }
 
   public void deleteActivity(int planId, int activityId) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("plan_id", planId)
-                              .add("id", activityId)
-                              .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("plan_id", planId)
+                              .put("id", activityId)
+                              ;
     makeRequest(GQL.DELETE_ACTIVITY_DIRECTIVE, variables);
   }
 
   public EffectiveActivityArguments getEffectiveActivityArguments(
       int modelId,
       String activityType,
-      JsonObject activityArguments
+      ObjectNode activityArguments
   ) throws IOException {
     final var effectiveArgs =  getEffectiveActivityArgumentsBulk(modelId, List.of(Pair.of(activityType, activityArguments)));
     assert(effectiveArgs.size() == 1);
     return effectiveArgs.get(0);
   }
 
-
   public List<EffectiveProceduralArguments> getEffectiveProceduralGoalsArgumentsBulk(
-      List<Pair<Integer, JsonObject>> proceduralGoalIds
+      List<Pair<Integer, ObjectNode>> proceduralGoalIds
   ) throws IOException {
-    final var proceduresBuilder = Json.createArrayBuilder();
-    proceduralGoalIds.forEach(goal -> proceduresBuilder.add(Json.createObjectBuilder()
-                                                         .add("id", goal.getLeft())
-                                                         .add("revision", 0)
-                                                         .add("arguments", goal.getRight())));
-    final var variables = Json.createObjectBuilder()
-                              .add("arguments", proceduresBuilder.build())
-                              .build();
+    final var proceduresBuilder = JsonNodeFactory.instance.arrayNode();
+    proceduralGoalIds.forEach(goal -> proceduresBuilder.add(JsonNodeFactory.instance.objectNode()
+                                                         .set("id", goal.getLeft())
+                                                         .put("revision", 0)
+                                                         .set("arguments", goal.getRight())));
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .set("arguments", proceduresBuilder)
+                              ;
     return makeRequest(GQL.GET_EFFECTIVE_PROCEDURAL_GOALS_ARGUMENTS_BULK, variables)
-        .getJsonArray("getSchedulingProcedureEffectiveArgumentsBulk")
-        .getValuesAs(EffectiveProceduralArguments::fromJSON);
+        .get("getSchedulingProcedureEffectiveArgumentsBulk")
+StreamSupport.stream(        .spliterator(), false).map(e -> EffectiveProceduralArguments.fromJSON((ObjectNode) e)).toList();
   }
 
-
   public List<EffectiveProceduralArguments> getEffectiveProceduralConstraintsArgumentsBulk(
-      List<Pair<Integer, JsonObject>> proceduralGoalIds
+      List<Pair<Integer, ObjectNode>> proceduralGoalIds
   ) throws IOException {
-    final var proceduresBuilder = Json.createArrayBuilder();
-    proceduralGoalIds.forEach(goal -> proceduresBuilder.add(Json.createObjectBuilder()
-                                                                .add("id", goal.getLeft())
-                                                                .add("revision", 0)
-                                                                .add("arguments", goal.getRight())));
-    final var variables = Json.createObjectBuilder()
-                              .add("arguments", proceduresBuilder.build())
-                              .build();
+    final var proceduresBuilder = JsonNodeFactory.instance.arrayNode();
+    proceduralGoalIds.forEach(goal -> proceduresBuilder.add(JsonNodeFactory.instance.objectNode()
+                                                                .set("id", goal.getLeft())
+                                                                .put("revision", 0)
+                                                                .set("arguments", goal.getRight())));
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .set("arguments", proceduresBuilder)
+                              ;
     return makeRequest(GQL.GET_EFFECTIVE_PROCEDURAL_CONSTRAINTS_ARGUMENTS_BULK, variables)
-        .getJsonArray("getConstraintProcedureEffectiveArgumentsBulk")
-        .getValuesAs(EffectiveProceduralArguments::fromJSON);
+        .get("getConstraintProcedureEffectiveArgumentsBulk")
+StreamSupport.stream(        .spliterator(), false).map(e -> EffectiveProceduralArguments.fromJSON((ObjectNode) e)).toList();
   }
 
   public List<EffectiveActivityArguments> getEffectiveActivityArgumentsBulk(
       int modelId,
-      List<Pair<String, JsonObject>> activities
+      List<Pair<String, ObjectNode>> activities
   ) throws IOException {
-    final var activitiesBuilder = Json.createArrayBuilder();
-    activities.forEach(pair -> activitiesBuilder.add(Json.createObjectBuilder()
-                                                            .add("activityTypeName", pair.getLeft())
-                                                            .add("activityArguments", pair.getRight())));
-    final var variables = Json.createObjectBuilder()
-                              .add("modelId", modelId)
-                              .add("activities", activitiesBuilder)
-                              .build();
+    final var activitiesBuilder = JsonNodeFactory.instance.arrayNode();
+    activities.forEach(pair -> activitiesBuilder.add(JsonNodeFactory.instance.objectNode()
+                                                            .set("activityTypeName", pair.getLeft())
+                                                            .set("activityArguments", pair.getRight())));
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("modelId", modelId)
+                              .set("activities", activitiesBuilder)
+                              ;
     return makeRequest(GQL.GET_EFFECTIVE_ACTIVITY_ARGUMENTS_BULK, variables)
-        .getJsonArray("getActivityEffectiveArgumentsBulk")
-        .getValuesAs(EffectiveActivityArguments::fromJSON);
+        .get("getActivityEffectiveArgumentsBulk")
+StreamSupport.stream(        .spliterator(), false).map(e -> EffectiveActivityArguments.fromJSON((ObjectNode) e)).toList();
   }
 
   public Map<Long, ActivityValidation> getActivityValidations(final int planId) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("planId", planId)
-                              .build();
-    final JsonArray response = makeRequest(GQL.GET_ACTIVITY_VALIDATIONS, variables)
-        .getJsonArray("activity_directive_validations");
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("planId", planId)
+                              ;
+    final ArrayNode response = makeRequest(GQL.GET_ACTIVITY_VALIDATIONS, variables)
+        .get("activity_directive_validations");
     final var res = new HashMap<Long, ActivityValidation>();
     for (final var object : response) {
       res.put(
-          (long) object.asJsonObject().getInt("directive_id"),
-          ActivityValidation.fromJSON(object.asJsonObject()));
+          (long) (ObjectNode) object.get("directive_id").intValue(),
+          ActivityValidation.fromJSON((ObjectNode) object));
     }
     return res;
   }
@@ -356,22 +350,22 @@ public class HasuraRequests implements AutoCloseable {
 
   //region Simulation
   private SimulationResponse simulate(int planId) throws IOException {
-    final var variables = Json.createObjectBuilder().add("plan_id", planId).build();
-    return SimulationResponse.fromJSON(makeRequest(GQL.SIMULATE, variables).getJsonObject("simulate"));
+    final var variables = JsonNodeFactory.instance.objectNode().put("plan_id", planId);
+    return SimulationResponse.fromJSON((ObjectNode) makeRequest(GQL.SIMULATE, variables).get("simulate"));
   }
 
   private SimulationResponse simulateForce(int planId, Boolean force) throws IOException {
-    final var variables = Json.createObjectBuilder().add("plan_id", planId);
+    final var variables = JsonNodeFactory.instance.objectNode().put("plan_id", planId);
     if (force == null) {
-      variables.add("force", JsonValue.NULL);
+      variables.set("force", NullNode.getInstance());
     } else {
-      variables.add("force", force);
+      variables.put("force", force);
     }
-    return SimulationResponse.fromJSON(makeRequest(GQL.SIMULATE_FORCE, variables.build()).getJsonObject("simulate"));
+    return SimulationResponse.fromJSON((ObjectNode) makeRequest(GQL.SIMULATE_FORCE, variables).get("simulate"));
   }
 
   private SimulationDataset cancelSimulation(int simDatasetId, int timeout) throws IOException {
-    final var variables = Json.createObjectBuilder().add("id", simDatasetId).build();
+    final var variables = JsonNodeFactory.instance.objectNode().put("id", simDatasetId);
     makeRequest(GQL.CANCEL_SIMULATION, variables);
     for(int i = 0; i < timeout; ++i){
       try {
@@ -533,71 +527,71 @@ public class HasuraRequests implements AutoCloseable {
   }
 
   public int getSimulationId(int planId) throws IOException {
-    final var variables = Json.createObjectBuilder().add("plan_id", planId).build();
-    return makeRequest(GQL.GET_SIMULATION_ID, variables).getJsonArray("simulation").getJsonObject(0).getInt("id");
+    final var variables = JsonNodeFactory.instance.objectNode().put("plan_id", planId);
+    return makeRequest(GQL.GET_SIMULATION_ID, variables).get("simulation").get(0).get("id").intValue();
   }
 
   public SimulationConfiguration getSimConfig(int planId) throws IOException {
-    final var variables = Json.createObjectBuilder().add("planId", planId).build();
-    final var simConfig = makeRequest(GQL.GET_SIMULATION_CONFIGURATION, variables).getJsonArray("sim_config");
+    final var variables = JsonNodeFactory.instance.objectNode().put("planId", planId);
+    final var simConfig = makeRequest(GQL.GET_SIMULATION_CONFIGURATION, variables).get("sim_config");
     assertEquals(1, simConfig.size());
-    return SimulationConfiguration.fromJSON(simConfig.getJsonObject(0));
+    return SimulationConfiguration.fromJSON((ObjectNode) simConfig.get(0));
   }
 
-  public int insertAndAssociateSimTemplate(int modelId, String description, JsonObject arguments, int simConfigId)
+  public int insertAndAssociateSimTemplate(int modelId, String description, ObjectNode arguments, int simConfigId)
   throws IOException
   {
-    final var insertSimTemplateBuilder = Json.createObjectBuilder()
-                                             .add("model_id", modelId)
-                                             .add("description", description)
-                                             .add("arguments", arguments);
-    final var insertVariables = Json.createObjectBuilder().add("simulationTemplate", insertSimTemplateBuilder).build();
+    final var insertSimTemplateBuilder = JsonNodeFactory.instance.objectNode()
+                                             .put("model_id", modelId)
+                                             .put("description", description)
+                                             .set("arguments", arguments);
+    final var insertVariables = JsonNodeFactory.instance.objectNode().set("simulationTemplate", insertSimTemplateBuilder);
     final var templateId = makeRequest(GQL.INSERT_SIMULATION_TEMPLATE, insertVariables)
-        .getJsonObject("template")
-        .getInt("id");
+        .get("template")
+        .get("id").intValue();
 
-    final var assignVariables = Json.createObjectBuilder()
-                                    .add("simulation_id", simConfigId)
-                                    .add("simulation_template_id", templateId)
-                                    .build();
+    final var assignVariables = JsonNodeFactory.instance.objectNode()
+                                    .put("simulation_id", simConfigId)
+                                    .put("simulation_template_id", templateId)
+                                    ;
     makeRequest(GQL.ASSIGN_TEMPLATE_TO_SIMULATION, assignVariables);
     return templateId;
   }
 
   public void deleteSimTemplate(int templateId) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("templateId", templateId)
-                              .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("templateId", templateId)
+                              ;
     makeRequest(GQL.DELETE_SIMULATION_PRESET, variables);
   }
 
-  public void updateSimArguments(int planId, JsonObject arguments) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("plan_id", planId)
-                              .add("arguments", arguments)
-                              .build();
+  public void updateSimArguments(int planId, ObjectNode arguments) throws IOException {
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("plan_id", planId)
+                              .set("arguments", arguments)
+                              ;
     makeRequest(GQL.UPDATE_SIMULATION_ARGUMENTS, variables);
   }
 
   public void updateSimBounds(int planId, String simStartTime, String simEndTime) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("plan_id", planId)
-                              .add("simulation_start_time", simStartTime)
-                              .add("simulation_end_time", simEndTime)
-                              .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("plan_id", planId)
+                              .put("simulation_start_time", simStartTime)
+                              .put("simulation_end_time", simEndTime)
+                              ;
     makeRequest(GQL.UPDATE_SIMULATION_BOUNDS, variables);
   }
   //endregion
 
   //region Scheduling
   private SchedulingResponse schedule(int schedulingSpecId) throws IOException {
-    final var variables = Json.createObjectBuilder().add("specificationId", schedulingSpecId).build();
-    final var data = makeRequest(GQL.SCHEDULE, variables).getJsonObject("schedule");
-    return SchedulingResponse.fromJSON(data);
+    final var variables = JsonNodeFactory.instance.objectNode().put("specificationId", schedulingSpecId);
+    final var data = makeRequest(GQL.SCHEDULE, variables).get("schedule");
+    return SchedulingResponse.fromJSON((ObjectNode) data);
   }
 
   private SchedulingRequest cancelSchedulingRun(int analysisId, int timeout) throws IOException {
-    final var variables = Json.createObjectBuilder().add("analysis_id", analysisId).build();
+    final var variables = JsonNodeFactory.instance.objectNode().put("analysis_id", analysisId);
     makeRequest(GQL.CANCEL_SCHEDULING, variables);
     for(int i = 0; i <timeout; ++i) {
       try {
@@ -612,13 +606,12 @@ public class HasuraRequests implements AutoCloseable {
   }
 
   private SchedulingRequest getSchedulingRequest(int analysisId) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("analysisId", analysisId)
-                              .build();
-    final var data = makeRequest(GQL.GET_SCHEDULING_REQUEST, variables).getJsonObject("scheduling_request_by_pk");
-    return SchedulingRequest.fromJSON(data);
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("analysisId", analysisId)
+                              ;
+    final var data = makeRequest(GQL.GET_SCHEDULING_REQUEST, variables).get("scheduling_request_by_pk");
+    return SchedulingRequest.fromJSON((ObjectNode) data);
   }
-
 
   /**
    * Run scheduling on the specified scheduling specification with a timeout of 30 seconds
@@ -719,31 +712,31 @@ public class HasuraRequests implements AutoCloseable {
   }
 
   public void deleteSchedulingGoal(int goalId) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("goalId", goalId)
-                              .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("goalId", goalId)
+                              ;
     makeRequest(GQL.DELETE_SCHEDULING_GOAL, variables);
   }
 
   public int getSchedulingSpecId(int planId) throws IOException {
-    final var variables = Json.createObjectBuilder().add("planId", planId).build();
-    final var spec = makeRequest(GQL.GET_SCHEDULING_SPECIFICATION_ID, variables).getJsonArray("scheduling_spec");
+    final var variables = JsonNodeFactory.instance.objectNode().put("planId", planId);
+    final var spec = makeRequest(GQL.GET_SCHEDULING_SPECIFICATION_ID, variables).get("scheduling_spec");
     assertEquals(1, spec.size());
-    return spec.getJsonObject(0).getInt("id");
+    return spec.get(0).get("id").intValue();
   }
 
   public List<Integer> getSchedulingSpecGoalIds(int specId) throws IOException {
-    final var vars = Json.createObjectBuilder().add("specId", specId).build();
-    final var goals = makeRequest(GQL.GET_SCHEDULING_SPECIFICATION_GOALS, vars).getJsonArray("goals");
+    final var vars = JsonNodeFactory.instance.objectNode().put("specId", specId);
+    final var goals = makeRequest(GQL.GET_SCHEDULING_SPECIFICATION_GOALS, vars).get("goals");
 
-    return goals.stream().map(e -> e.asJsonObject().getInt("goal_id")).toList();
+    return StreamSupport.stream(goals.spliterator(), false).map(e -> e.get("goal_id").intValue()).toList();
   }
 
   public void updatePlanRevisionSchedulingSpec(int planId) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("planId", planId)
-                              .add("planRev", getPlanRevision(planId))
-                              .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("planId", planId)
+                              .put("planRev", getPlanRevision(planId))
+                              ;
     makeRequest(GQL.UPDATE_SCHEDULING_SPECIFICATION_PLAN_REVISION, variables);
   }
 
@@ -761,28 +754,24 @@ public class HasuraRequests implements AutoCloseable {
       int jarId,
       int planId
   ) throws IOException {
-    final var specGoalBuilder = Json.createObjectBuilder()
-                                    .add("constraint_metadata",
-                                         Json.createObjectBuilder()
-                                             .add("data",
-                                                  Json.createObjectBuilder()
-                                                      .add("name", name)
-                                                      .add("description", "")
-                                                      .add("versions",
-                                                           Json.createObjectBuilder()
-                                                               .add("data",
-                                                                    Json.createArrayBuilder()
-                                                                        .add(Json.createObjectBuilder()
-                                                                                 .add("type", "JAR")
-                                                                                 .add("uploaded_jar_id", jarId)
+    final var specGoalBuilder = JsonNodeFactory.instance.objectNode()
+                                    .set("constraint_metadata", JsonNodeFactory.instance.objectNode()
+                                             .set("data", JsonNodeFactory.instance.objectNode()
+                                                      .put("name", name)
+                                                      .put("description", "")
+                                                      .set("versions", JsonNodeFactory.instance.objectNode()
+                                                               .set("data", JsonNodeFactory.instance.arrayNode()
+                                                                        .add(JsonNodeFactory.instance.objectNode()
+                                                                                 .put("type", "JAR")
+                                                                                 .put("uploaded_jar_id", jarId)
                                                                         )))))
-                                    .add("plan_id", planId);
-    final var variables = Json.createObjectBuilder().add("constraint", specGoalBuilder).build();
+                                    .put("plan_id", planId);
+    final var variables = JsonNodeFactory.instance.objectNode().set("constraint", specGoalBuilder);
     final var resp =  makeRequest(GQL.INSERT_PLAN_SPEC_CONSTRAINT, variables)
-        .getJsonObject("constraint");
+        .get("constraint");
     return new ConstraintInvocationId(
-        resp.getInt("constraint_id"),
-        resp.getInt("invocation_id")
+        resp.get("constraint_id").intValue(),
+        resp.get("invocation_id").intValue()
     );
   }
 
@@ -793,41 +782,37 @@ public class HasuraRequests implements AutoCloseable {
       int priority,
       boolean simulateAfter
   ) throws IOException {
-    final var specGoalBuilder = Json.createObjectBuilder()
-                                    .add("goal_metadata",
-                                         Json.createObjectBuilder()
-                                             .add("data",
-                                                  Json.createObjectBuilder()
-                                                      .add("name", name)
-                                                      .add("description", "")
-                                                      .add("versions",
-                                                           Json.createObjectBuilder()
-                                                               .add("data",
-                                                                    Json.createArrayBuilder()
-                                                                        .add(Json.createObjectBuilder()
-                                                                                 .add("type", "JAR")
-                                                                                 .add("uploaded_jar_id", jarId)
+    final var specGoalBuilder = JsonNodeFactory.instance.objectNode()
+                                    .set("goal_metadata", JsonNodeFactory.instance.objectNode()
+                                             .set("data", JsonNodeFactory.instance.objectNode()
+                                                      .put("name", name)
+                                                      .put("description", "")
+                                                      .set("versions", JsonNodeFactory.instance.objectNode()
+                                                               .set("data", JsonNodeFactory.instance.arrayNode()
+                                                                        .add(JsonNodeFactory.instance.objectNode()
+                                                                                 .put("type", "JAR")
+                                                                                 .put("uploaded_jar_id", jarId)
                                                                         )))))
-                                    .add("specification_id", specificationId)
-                                    .add("priority", priority)
-                                    .add("simulate_after", simulateAfter);
-    final var variables = Json.createObjectBuilder().add("spec_goal", specGoalBuilder).build();
+                                    .put("specification_id", specificationId)
+                                    .put("priority", priority)
+                                    .put("simulate_after", simulateAfter);
+    final var variables = JsonNodeFactory.instance.objectNode().set("spec_goal", specGoalBuilder);
     final var resp =  makeRequest(GQL.CREATE_SCHEDULING_SPEC_GOAL, variables)
-        .getJsonObject("insert_scheduling_specification_goals_one");
+        .get("insert_scheduling_specification_goals_one");
 
-    return GoalInvocationId.fromJSON(resp);
+    return GoalInvocationId.fromJSON((ObjectNode) resp);
   }
 
   public GoalInvocationId insertGoalInvocation(int goalId, int specificationId) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                                    .add("goal_id", goalId)
-                                    .add("specification_id", specificationId)
-                                    .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                                    .put("goal_id", goalId)
+                                    .put("specification_id", specificationId)
+                                    ;
 
     final var resp = makeRequest(GQL.CREATE_SCHEDULING_SPEC_GOAL_INVOCATION, variables)
-        .getJsonObject("insert_scheduling_specification_goals_one");
+        .get("insert_scheduling_specification_goals_one");
 
-    return GoalInvocationId.fromJSON(resp);
+    return GoalInvocationId.fromJSON((ObjectNode) resp);
   }
 
   public GoalInvocationId createSchedulingSpecGoal(
@@ -858,119 +843,113 @@ public class HasuraRequests implements AutoCloseable {
       int priority,
       boolean simulateAfter
   ) throws IOException {
-    final var specGoalBuilder = Json.createObjectBuilder()
-                                    .add("goal_metadata",
-                                         Json.createObjectBuilder()
-                                             .add("data",
-                                                  Json.createObjectBuilder()
-                                                      .add("name", name)
-                                                      .add("description", description)
-                                                      .add("versions",
-                                                           Json.createObjectBuilder()
-                                                               .add("data",
-                                                                    Json.createArrayBuilder()
-                                                                        .add(Json.createObjectBuilder()
-                                                                                 .add("definition", definition))))))
-                                    .add("specification_id", specificationId)
-                                    .add("simulate_after", simulateAfter)
-                                    .add("priority", priority);
-    final var variables = Json.createObjectBuilder().add("spec_goal", specGoalBuilder).build();
+    final var specGoalBuilder = JsonNodeFactory.instance.objectNode()
+                                    .set("goal_metadata", JsonNodeFactory.instance.objectNode()
+                                             .set("data", JsonNodeFactory.instance.objectNode()
+                                                      .put("name", name)
+                                                      .put("description", description)
+                                                      .set("versions", JsonNodeFactory.instance.objectNode()
+                                                               .set("data", JsonNodeFactory.instance.arrayNode()
+                                                                        .add(JsonNodeFactory.instance.objectNode()
+                                                                                 .put("definition", definition))))))
+                                    .put("specification_id", specificationId)
+                                    .put("simulate_after", simulateAfter)
+                                    .put("priority", priority);
+    final var variables = JsonNodeFactory.instance.objectNode().set("spec_goal", specGoalBuilder);
     final var resp =  makeRequest(GQL.CREATE_SCHEDULING_SPEC_GOAL, variables)
-            .getJsonObject("insert_scheduling_specification_goals_one");
+            .get("insert_scheduling_specification_goals_one");
 
-    return GoalInvocationId.fromJSON(resp);
+    return GoalInvocationId.fromJSON((ObjectNode) resp);
   }
 
   public int updateGoalDefinition(int goalId, String definition) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("goal_id", goalId)
-                              .add("definition", definition)
-                              .build();
-    return makeRequest(GQL.UPDATE_GOAL_DEFINITION, variables).getJsonObject("definition").getInt("revision");
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("goal_id", goalId)
+                              .put("definition", definition)
+                              ;
+    return makeRequest(GQL.UPDATE_GOAL_DEFINITION, variables).get("definition").get("revision").intValue();
   }
 
-  public void updateConstraintArguments(int constraintId, JsonObject arguments) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("constraint_id", constraintId)
-                              .add("arguments", arguments)
-                              .build();
+  public void updateConstraintArguments(int constraintId, ObjectNode arguments) throws IOException {
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("constraint_id", constraintId)
+                              .set("arguments", arguments)
+                              ;
     makeRequest(GQL.UPDATE_CONSTRAINT_ARGUMENTS, variables);
   }
 
-  public void updateSchedulingSpecGoalArguments(int invocationId, JsonObject arguments) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("goal_invocation_id", invocationId)
-                              .add("arguments", arguments)
-                              .build();
+  public void updateSchedulingSpecGoalArguments(int invocationId, ObjectNode arguments) throws IOException {
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("goal_invocation_id", invocationId)
+                              .set("arguments", arguments)
+                              ;
     makeRequest(GQL.UPDATE_SCHEDULING_SPEC_GOALS_ARGUMENTS, variables);
   }
 
   public void updateSchedulingSpecEnabled(int invocationId, boolean enabled) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("goal_invocation_id", invocationId)
-                              .add("enabled", enabled)
-                              .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("goal_invocation_id", invocationId)
+                              .put("enabled", enabled)
+                              ;
     makeRequest(GQL.UPDATE_SCHEDULING_SPEC_GOALS_ENABLED, variables);
   }
 
   public void updateSchedulingSpecVersion(int invocationId, int version) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("goal_invocation_id", invocationId)
-                              .add("goal_revision", version)
-                              .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("goal_invocation_id", invocationId)
+                              .put("goal_revision", version)
+                              ;
     makeRequest(GQL.UPDATE_SCHEDULING_SPEC_GOALS_VERSION, variables);
   }
 
   public SchedulingDSLTypesResponse getSchedulingDslTypeScript(int missionModelId) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("missionModelId", missionModelId)
-                              .build();
-    return SchedulingDSLTypesResponse.fromJSON(makeRequest(GQL.GET_SCHEDULING_DSL_TYPESCRIPT, variables)
-                                                   .getJsonObject("schedulingDslTypescript"));
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("missionModelId", missionModelId)
+                              ;
+    return SchedulingDSLTypesResponse.fromJSON((ObjectNode) makeRequest(GQL.GET_SCHEDULING_DSL_TYPESCRIPT, variables).get("schedulingDslTypescript"));
   }
 
   public SchedulingDSLTypesResponse getSchedulingDslTypeScript(int missionModelId, int planId) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("missionModelId", missionModelId)
-                              .add("planId", planId)
-                              .build();
-    return SchedulingDSLTypesResponse.fromJSON(makeRequest(GQL.GET_SCHEDULING_DSL_TYPESCRIPT, variables)
-                                                   .getJsonObject("schedulingDslTypescript"));
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("missionModelId", missionModelId)
+                              .put("planId", planId)
+                              ;
+    return SchedulingDSLTypesResponse.fromJSON((ObjectNode) makeRequest(GQL.GET_SCHEDULING_DSL_TYPESCRIPT, variables).get("schedulingDslTypescript"));
   }
   //endregion
 
   //region Simulation Datasets
   public SimulationDataset getSimulationDataset(int simDatasetId) throws IOException {
-    final var data = makeRequest(GQL.GET_SIMULATION_DATASET, Json.createObjectBuilder().add("id", simDatasetId).build())
-            .getJsonObject("simulationDataset");
-    return SimulationDataset.fromJSON(data);
+    final var data = makeRequest(GQL.GET_SIMULATION_DATASET, JsonNodeFactory.instance.objectNode().put("id", simDatasetId))
+            .get("simulationDataset");
+    return SimulationDataset.fromJSON((ObjectNode) data);
   }
   public SimulationDataset getSimulationDatasetByDatasetId(int datasetId) throws IOException {
     final var data = makeRequest(
             GQL.GET_SIMULATION_DATASET_BY_DATASET_ID,
-            Json.createObjectBuilder().add("id", datasetId).build())
-            .getJsonArray("simulation_dataset");
+            JsonNodeFactory.instance.objectNode().put("id", datasetId))
+            .get("simulation_dataset");
     assert(data.size() == 1);
-    return SimulationDataset.fromJSON(data.getJsonObject(0));
+    return SimulationDataset.fromJSON((ObjectNode) data.get(0));
   }
   public Map<String, List<ProfileSegment>> getProfiles(int datasetId) throws IOException {
-    final var variables = Json.createObjectBuilder().add("datasetId", datasetId).build();
-    final var profiles = makeRequest(GQL.GET_PROFILES, variables).getJsonArray("profile");
+    final var variables = JsonNodeFactory.instance.objectNode().put("datasetId", datasetId);
+    final var profiles = makeRequest(GQL.GET_PROFILES, variables).get("profile");
 
     // Process Profile Map
     final var map = new HashMap<String, List<ProfileSegment>>();
     for(final var entry : profiles) {
-      final JsonObject e = entry.asJsonObject();
-      final String name = e.getString("name");
-      map.put(name, e.getJsonArray("profile_segments").getValuesAs(ProfileSegment::fromJSON));
+      final ObjectNode e = (ObjectNode) entry;
+      final String name = e.get("name").textValue();
+      map.put(name, StreamSupport.stream(e.get("profile_segments").spliterator(), false).map(seg -> ProfileSegment.fromJSON((ObjectNode) seg)).toList());
     }
     return map;
   }
 
   public Map<String, Topic> getTopicsEvents(int datasetId) throws IOException {
-    final var variables = Json.createObjectBuilder().add("datasetId", datasetId).build();
-    final var topics = makeRequest(GQL.GET_TOPIC_EVENTS, variables).getJsonArray("topic");
-    final var topicList = topics.getValuesAs(Topic::fromJSON);
+    final var variables = JsonNodeFactory.instance.objectNode().put("datasetId", datasetId);
+    final var topics = makeRequest(GQL.GET_TOPIC_EVENTS, variables).get("topic");
+    final var topicList = StreamSupport.stream(topics.spliterator(), false).map(e -> Topic.fromJSON((ObjectNode) e)).toList();
     // Collect into map for ease of use
     return topicList.stream().collect(Collectors.toMap(Topic::name, Function.identity()));
   }
@@ -980,49 +959,49 @@ public class HasuraRequests implements AutoCloseable {
       String simStartTime,
       String simEndTime,
       String status,
-      JsonObject simArguments,
+      ObjectNode simArguments,
       int planRevision
   ) throws IOException {
-    final var insertSimDatasetBuilder = Json.createObjectBuilder()
-                                          .add("simulation_id", simId)
-                                          .add("simulation_start_time", simStartTime)
-                                          .add("simulation_end_time", simEndTime)
-                                          .add("status", status)
-                                          .add("arguments", simArguments)
-                                          .add("plan_revision", planRevision);
-    final var variables = Json.createObjectBuilder().add("simulationDataset", insertSimDatasetBuilder).build();
+    final var insertSimDatasetBuilder = JsonNodeFactory.instance.objectNode()
+                                          .put("simulation_id", simId)
+                                          .put("simulation_start_time", simStartTime)
+                                          .put("simulation_end_time", simEndTime)
+                                          .put("status", status)
+                                          .set("arguments", simArguments)
+                                          .put("plan_revision", planRevision);
+    final var variables = JsonNodeFactory.instance.objectNode().set("simulationDataset", insertSimDatasetBuilder);
     // Only the Hasura Admin role may insert into this table
     return makeRequest(GQL.INSERT_SIMULATION_DATASET, variables, Map.of("x-hasura-role", "admin"))
-        .getJsonObject("simulation_dataset")
-        .getInt("dataset_id");
+        .get("simulation_dataset")
+        .get("dataset_id").intValue();
   }
 
   public void insertProfile(
       int datasetId,
       String name,
       String duration,
-      JsonObject type,
+      ObjectNode type,
       List<ProfileSegment> segments
   ) throws IOException
   {
     final var hasuraAdminHeader = Map.of("x-hasura-role", "admin");
     // Insert Profile
-    final var profileVariables = Json.createObjectBuilder()
-                                     .add("datasetId", datasetId)
-                                     .add("duration", duration)
-                                     .add("name", name)
-                                     .add("type", type)
-                                     .build();
+    final var profileVariables = JsonNodeFactory.instance.objectNode()
+                                     .put("datasetId", datasetId)
+                                     .put("duration", duration)
+                                     .put("name", name)
+                                     .put("type", type)
+                                     ;
     final int profileId = makeRequest(GQL.INSERT_PROFILE, profileVariables, hasuraAdminHeader)
-        .getJsonObject("insert_profile_one")
-        .getInt("id");
+        .get("insert_profile_one")
+        .get("id").intValue();
 
     // Insert Profile Segments
-    final var segmentsBuilder = Json.createArrayBuilder();
+    final var segmentsBuilder = JsonNodeFactory.instance.arrayNode();
     segments.forEach(s -> segmentsBuilder.add(s.toJSON(datasetId, profileId)));
-    final var segmentVariables = Json.createObjectBuilder()
-                                     .add("segments", segmentsBuilder)
-                                     .build();
+    final var segmentVariables = JsonNodeFactory.instance.objectNode()
+                                     .set("segments", segmentsBuilder)
+                                     ;
     makeRequest(GQL.INSERT_PROFILE_SEGMENTS, segmentVariables, hasuraAdminHeader);
   }
   //endregion
@@ -1033,17 +1012,17 @@ public class HasuraRequests implements AutoCloseable {
       String datasetStartTimestamp,
       List<ExternalDataset.ProfileInput> profileSet
   ) throws IOException {
-    final var profileSetBuilder = Json.createObjectBuilder();
-    profileSet.forEach(e -> profileSetBuilder.add(e.name(), e.toJSON()));
-    final var variables = Json.createObjectBuilder()
-                              .add("plan_id", planId)
-                              .add("simulation_dataset_id", JsonValue.NULL)
-                              .add("dataset_start", datasetStartTimestamp)
-                              .add("profile_set",profileSetBuilder)
-                              .build();
+    final var profileSetBuilder = JsonNodeFactory.instance.objectNode();
+    profileSet.forEach(e -> profileSetBuilder.set(e.name(), e.toJSON()));
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("plan_id", planId)
+                              .set("simulation_dataset_id", NullNode.getInstance())
+                              .put("dataset_start", datasetStartTimestamp)
+                              .set("profile_set", profileSetBuilder)
+                              ;
     return makeRequest(GQL.ADD_EXTERNAL_DATASET, variables)
-        .getJsonObject("addExternalDataset")
-        .getInt("datasetId");
+        .get("addExternalDataset")
+        .get("datasetId").intValue();
   }
 
   public int insertExternalDataset(
@@ -1051,43 +1030,43 @@ public class HasuraRequests implements AutoCloseable {
       int simulationDatasetId,
       String datasetStartTimestamp,
       List<ExternalDataset.ProfileInput> profileSet) throws IOException {
-        final var profileSetBuilder = Json.createObjectBuilder();
-    profileSet.forEach(e -> profileSetBuilder.add(e.name(), e.toJSON()));
-    final var variables = Json.createObjectBuilder()
-                              .add("plan_id", planId)
-                              .add("simulation_dataset_id", simulationDatasetId)
-                              .add("dataset_start", datasetStartTimestamp)
-                              .add("profile_set",profileSetBuilder)
-                              .build();
+        final var profileSetBuilder = JsonNodeFactory.instance.objectNode();
+    profileSet.forEach(e -> profileSetBuilder.set(e.name(), e.toJSON()));
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("plan_id", planId)
+                              .put("simulation_dataset_id", simulationDatasetId)
+                              .put("dataset_start", datasetStartTimestamp)
+                              .set("profile_set", profileSetBuilder)
+                              ;
     return makeRequest(GQL.ADD_EXTERNAL_DATASET, variables)
-        .getJsonObject("addExternalDataset")
-        .getInt("datasetId");
+        .get("addExternalDataset")
+        .get("datasetId").intValue();
   }
 
   public void extendExternalDataset(int datasetId, List<ExternalDataset.ProfileInput> profileSet) throws IOException {
-    final var profileSetBuilder = Json.createObjectBuilder();
-    profileSet.forEach(e -> profileSetBuilder.add(e.name(), e.toJSON()));
-    final var variables = Json.createObjectBuilder()
-                              .add("dataset_id", datasetId)
-                              .add("profile_set", profileSetBuilder)
-                              .build();
+    final var profileSetBuilder = JsonNodeFactory.instance.objectNode();
+    profileSet.forEach(e -> profileSetBuilder.set(e.name(), e.toJSON()));
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("dataset_id", datasetId)
+                              .set("profile_set", profileSetBuilder)
+                              ;
     makeRequest(GQL.EXTEND_EXTERNAL_DATASET, variables);
   }
 
   public ExternalDataset getExternalDataset(int planId, int datasetId) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("plan_id", planId)
-                              .add("dataset_id", datasetId)
-                              .build();
-    final var dataset = makeRequest(GQL.GET_EXTERNAL_DATASET, variables).getJsonObject("externalDataset");
-    return ExternalDataset.fromJSON(dataset);
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("plan_id", planId)
+                              .put("dataset_id", datasetId)
+                              ;
+    final var dataset = makeRequest(GQL.GET_EXTERNAL_DATASET, variables).get("externalDataset");
+    return ExternalDataset.fromJSON((ObjectNode) dataset);
   }
 
   public void deleteExternalDataset(int planId, int datasetId) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("plan_id", planId)
-                              .add("dataset_id", datasetId)
-                              .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("plan_id", planId)
+                              .put("dataset_id", datasetId)
+                              ;
     makeRequest(GQL.DELETE_EXTERNAL_DATASET, variables);
   }
   //endregion
@@ -1097,186 +1076,186 @@ public class HasuraRequests implements AutoCloseable {
       String name,
       String attributeSchema
   ) throws IOException {
-    final var insertExternalSourceTypeBuilder = Json.createObjectBuilder()
-                              .add("name", name)
-                              .add("attribute_schema", attributeSchema)
-                              .build();
-    final var variables = Json.createObjectBuilder().add("sourceType", insertExternalSourceTypeBuilder).build();
+    final var insertExternalSourceTypeBuilder = JsonNodeFactory.instance.objectNode()
+                              .put("name", name)
+                              .put("attribute_schema", attributeSchema)
+                              ;
+    final var variables = JsonNodeFactory.instance.objectNode().set("sourceType", insertExternalSourceTypeBuilder);
     return makeRequest(GQL.CREATE_EXTERNAL_SOURCE_TYPE, variables)
-        .getJsonObject("createExternalSourceType")
-        .getString("name");
+        .get("createExternalSourceType")
+        .get("name").textValue();
   }
   public String insertExternalEventType(
       String name,
       String attributeSchema
   ) throws IOException {
-    final var insertExternalSourceTypeBuilder = Json.createObjectBuilder()
-                                                    .add("name", name)
-                                                    .add("attribute_schema", attributeSchema)
-                                                    .build();
-    final var variables = Json.createObjectBuilder().add("eventType", insertExternalSourceTypeBuilder).build();
+    final var insertExternalSourceTypeBuilder = JsonNodeFactory.instance.objectNode()
+                                                    .put("name", name)
+                                                    .put("attribute_schema", attributeSchema)
+                                                    ;
+    final var variables = JsonNodeFactory.instance.objectNode().set("eventType", insertExternalSourceTypeBuilder);
     return makeRequest(GQL.CREATE_EXTERNAL_EVENT_TYPE, variables)
-        .getJsonObject("createExternalEventType")
-        .getString("name");
+        .get("createExternalEventType")
+        .get("name").textValue();
   }
   public String insertDerivationGroup(
       String name,
       String sourceTypeName
   ) throws IOException {
-    final var insertDerivationGroupBuilder = Json.createObjectBuilder()
-                                                    .add("name", name)
-                                                    .add("source_type_name", sourceTypeName)
-                                                    .build();
-    final var variables = Json.createObjectBuilder().add("derivationGroup", insertDerivationGroupBuilder).build();
+    final var insertDerivationGroupBuilder = JsonNodeFactory.instance.objectNode()
+                                                    .put("name", name)
+                                                    .put("source_type_name", sourceTypeName)
+                                                    ;
+    final var variables = JsonNodeFactory.instance.objectNode().set("derivationGroup", insertDerivationGroupBuilder);
     return makeRequest(GQL.CREATE_DERIVATION_GROUP, variables)
-        .getJsonObject("createDerivationGroup")
-        .getString("name");
+        .get("createDerivationGroup")
+        .get("name").textValue();
   }
   public String insertExternalSource(
     ExternalSource externalSource
   ) throws IOException {
-    final var insertExternalSourceBuilder = Json.createObjectBuilder()
-        .add("key", externalSource.key())
-        .add("source_type_name", externalSource.source_type_name())
-        .add("derivation_group_name", externalSource.derivation_group_name())
-        .add("valid_at", externalSource.valid_at())
-        .add("start_time", externalSource.start_time())
-        .add("end_time", externalSource.end_time())
-        .add("created_at", externalSource.created_at())
-        .add("attributes", externalSource.attributes())
-        .build();
-    final var variables = Json.createObjectBuilder().add("object", insertExternalSourceBuilder).build();
+    final var insertExternalSourceBuilder = JsonNodeFactory.instance.objectNode()
+        .put("key", externalSource.key())
+        .put("source_type_name", externalSource.source_type_name())
+        .put("derivation_group_name", externalSource.derivation_group_name())
+        .put("valid_at", externalSource.valid_at())
+        .put("start_time", externalSource.start_time())
+        .put("end_time", externalSource.end_time())
+        .put("created_at", externalSource.created_at())
+        .set("attributes", externalSource.attributes())
+        ;
+    final var variables = JsonNodeFactory.instance.objectNode().set("object", insertExternalSourceBuilder);
     return makeRequest(GQL.CREATE_EXTERNAL_SOURCE, variables)
-        .getJsonObject("insertExternalSource")
-        .getString("key");
+        .get("insertExternalSource")
+        .get("key").textValue();
   }
-  public JsonArray insertExternalEvents(
+  public ArrayNode insertExternalEvents(
     List<ExternalEvent> externalEvents
   ) throws IOException {
-    JsonArrayBuilder formattedEvents = Json.createArrayBuilder();
+    ArrayNode formattedEvents = JsonNodeFactory.instance.arrayNode();
     for (ExternalEvent e : externalEvents) {
       formattedEvents.add(
-          Json.createObjectBuilder()
-              .add("key", e.key())
-              .add("event_type_name", e.event_type_name())
-              .add("source_key", e.source_key())
-              .add("derivation_group_name", e.derivation_group_name())
-              .add("start_time", e.start_time())
-              .add("duration", e.duration())
-              .add("attributes", e.attributes())
-              .build()
+          JsonNodeFactory.instance.objectNode()
+              .put("key", e.key())
+              .put("event_type_name", e.event_type_name())
+              .put("source_key", e.source_key())
+              .put("derivation_group_name", e.derivation_group_name())
+              .put("start_time", e.start_time())
+              .put("duration", e.duration())
+              .set("attributes", e.attributes())
+              
       );
     }
-    final var variables = Json.createObjectBuilder()
-                              .add("objects", formattedEvents.build())
-                              .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .set("objects", formattedEvents)
+                              ;
     return makeRequest(GQL.CREATE_EXTERNAL_EVENTS, variables)
-        .getJsonObject("insertExternalEvents")
-        .getJsonArray("returning");
+        .get("insertExternalEvents")
+        .get("returning");
   }
   public String insertPlanDerivationGroupAssociation(
       int planId,
       String derivationGroupName
   ) throws IOException {
-    final var insertPlanDerivationGroupBuilder = Json.createObjectBuilder()
-                                                 .add("plan_id", planId)
-                                                 .add("derivation_group_name", derivationGroupName)
-                                                 .build();
-    final var variables = Json.createObjectBuilder().add("source", insertPlanDerivationGroupBuilder).build();
+    final var insertPlanDerivationGroupBuilder = JsonNodeFactory.instance.objectNode()
+                                                 .put("plan_id", planId)
+                                                 .put("derivation_group_name", derivationGroupName)
+                                                 ;
+    final var variables = JsonNodeFactory.instance.objectNode().set("source", insertPlanDerivationGroupBuilder);
     return makeRequest(GQL.CREATE_PLAN_DERIVATION_GROUP, variables)
-        .getJsonObject("planExternalSourceLink")
-        .getString("derivation_group_name");
+        .get("planExternalSourceLink")
+        .get("derivation_group_name").textValue();
   }
 
   public String deleteExternalSourceType(
     String name
   ) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                                  .add("name", name)
-                                  .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                                  .put("name", name)
+                                  ;
     return makeRequest(GQL.DELETE_EXTERNAL_SOURCE_TYPE, variables)
-        .getJsonObject("deleteExternalSourceType")
-        .getString("name");
+        .get("deleteExternalSourceType")
+        .get("name").textValue();
   }
   public String deleteExternalEventType(
       String name
   ) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("name", name)
-                              .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("name", name)
+                              ;
     return makeRequest(GQL.DELETE_EXTERNAL_EVENT_TYPE, variables)
-        .getJsonObject("deleteExternalEventType")
-        .getString("name");
+        .get("deleteExternalEventType")
+        .get("name").textValue();
   }
-  public JsonArray deleteDerivationGroup(
+  public ArrayNode deleteDerivationGroup(
       String name
   ) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("name", name)
-                              .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("name", name)
+                              ;
     return makeRequest(GQL.DELETE_DERIVATION_GROUP, variables)
-        .getJsonObject("deleteDerivationGroup")
-        .getJsonArray("returning");
+        .get("deleteDerivationGroup")
+        .get("returning");
   }
 
   public String deleteExternalSource(
       String sourceKey,
       String derivationGroupName
   ) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("sourceKey", sourceKey)
-                              .add("derivationGroupName", derivationGroupName)
-                              .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("sourceKey", sourceKey)
+                              .put("derivationGroupName", derivationGroupName)
+                              ;
     // NOTE: this deletes external events as well, as deletions of sources cascade to their contained events.
     var result = makeRequest(GQL.DELETE_EXTERNAL_SOURCE, variables);
 
     // some test runs won't successfully add a source, so the result is just null.
-    if (!result.containsKey("deleteExteralSource")) {
+    if (!result.has("deleteExteralSource")) {
       return "No source found.";
     }
     return result
-        .getJsonObject("deleteExternalSource")
-        .getString("key");
+        .get("deleteExternalSource")
+        .get("key").textValue();
   }
 
-  public JsonArray deleteEventsBySource(
+  public ArrayNode deleteEventsBySource(
       String sourceKey,
       String derivationGroupName
   ) throws IOException
   {
-    final var variables = Json.createObjectBuilder()
-                              .add("externalSourceKey", sourceKey)
-                              .add("derivationGroupName", derivationGroupName)
-                              .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("externalSourceKey", sourceKey)
+                              .put("derivationGroupName", derivationGroupName)
+                              ;
     // NOTE: this deletes external events as well, as deletions of sources cascade to their contained events.
     return makeRequest(GQL.DELETE_EXTERNAL_EVENTS_BY_SOURCE, variables)
-        .getJsonObject("deleteExternalEventsBySource")
-        .getJsonArray("returning");
+        .get("deleteExternalEventsBySource")
+        .get("returning");
   }
 
   public String deleteExternalSource(
       ExternalSource externalSource
   ) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("sourceKey", externalSource.key())
-                              .add("derivationGroupName", externalSource.derivation_group_name())
-                              .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("sourceKey", externalSource.key())
+                              .put("derivationGroupName", externalSource.derivation_group_name())
+                              ;
     // NOTE: this deletes external events as well, as deletions of sources cascade to their contained events.
     return makeRequest(GQL.DELETE_EXTERNAL_SOURCE, variables)
-        .getJsonObject("deleteExternalSource")
-        .getString("key");
+        .get("deleteExternalSource")
+        .get("key").textValue();
   }
   public String deletePlanDerivationGroupAssociation(
       int planId,
       String derivationGroupName
   ) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("planId", planId)
-                              .add("derivationGroupName", derivationGroupName)
-                              .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("planId", planId)
+                              .put("derivationGroupName", derivationGroupName)
+                              ;
     return makeRequest(GQL.DELETE_PLAN_DERIVATION_GROUP, variables)
-        .getJsonObject("planDerivationGroupLink")
-        .getString("derivation_group_name");
+        .get("planDerivationGroupLink")
+        .get("derivation_group_name").textValue();
   }
   // endregion
 
@@ -1296,121 +1275,117 @@ public class HasuraRequests implements AutoCloseable {
   }
 
   public ConstraintActionResponse checkConstraints(int planID) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("planId", planID)
-                              .add("simulationDatasetId", JsonValue.NULL)
-                              .build();
-    final var constraintResults = makeRequest(GQL.CHECK_CONSTRAINTS, variables).getJsonObject("constraintViolations");
-    return ConstraintActionResponse.fromJson(constraintResults);
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("planId", planID)
+                              .set("simulationDatasetId", NullNode.getInstance())
+                              ;
+    final var constraintResults = makeRequest(GQL.CHECK_CONSTRAINTS, variables).get("constraintViolations");
+    return ConstraintActionResponse.fromJson((ObjectNode) constraintResults);
   }
 
   public ConstraintActionResponse checkConstraints(int planID, int simulationDatasetID) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("planId", planID)
-                              .add("simulationDatasetId", simulationDatasetID)
-                              .build();
-    final var constraintResults = makeRequest(GQL.CHECK_CONSTRAINTS, variables).getJsonObject("constraintViolations");
-    return ConstraintActionResponse.fromJson(constraintResults);
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("planId", planID)
+                              .put("simulationDatasetId", simulationDatasetID)
+                              ;
+    final var constraintResults = makeRequest(GQL.CHECK_CONSTRAINTS, variables).get("constraintViolations");
+    return ConstraintActionResponse.fromJson((ObjectNode) constraintResults);
   }
 
   public ConstraintRequest getConstraintRequest(int requestId) throws IOException {
-    final var variables = Json.createObjectBuilder().add("request_id", requestId).build();
-    final var constraintRequest = makeRequest(GQL.GET_CONSTRAINT_REQUEST, variables).getJsonObject("constraint_request");
-    return ConstraintRequest.fromJSON(constraintRequest);
+    final var variables = JsonNodeFactory.instance.objectNode().put("request_id", requestId);
+    final var constraintRequest = makeRequest(GQL.GET_CONSTRAINT_REQUEST, variables).get("constraint_request");
+    return ConstraintRequest.fromJSON((ObjectNode) constraintRequest);
   }
 
   public ConstraintInvocationId insertPlanConstraint(String name, int planId, String definition, String description) throws IOException {
-    final var constraintInsertBuilder = Json.createObjectBuilder()
-                                            .add("plan_id", planId)
-                                            .add("constraint_metadata",
-                                                 Json.createObjectBuilder()
-                                                     .add("data",
-                                                          Json.createObjectBuilder()
-                                                              .add("name", name)
-                                                              .add("description", description)
-                                                              .add("versions",
-                                                                   Json.createObjectBuilder()
-                                                                       .add("data",
-                                                                            Json.createObjectBuilder()
-                                                                                .add("definition", definition)))));
-    final var variables = Json.createObjectBuilder().add("constraint", constraintInsertBuilder).build();
-    final var resp = makeRequest(GQL.INSERT_PLAN_SPEC_CONSTRAINT, variables).getJsonObject("constraint");
+    final var constraintInsertBuilder = JsonNodeFactory.instance.objectNode()
+                                            .put("plan_id", planId)
+                                            .set("constraint_metadata", JsonNodeFactory.instance.objectNode()
+                                                     .set("data", JsonNodeFactory.instance.objectNode()
+                                                              .put("name", name)
+                                                              .put("description", description)
+                                                              .set("versions", JsonNodeFactory.instance.objectNode()
+                                                                       .set("data", JsonNodeFactory.instance.objectNode()
+                                                                                .put("definition", definition)))));
+    final var variables = JsonNodeFactory.instance.objectNode().set("constraint", constraintInsertBuilder);
+    final var resp = makeRequest(GQL.INSERT_PLAN_SPEC_CONSTRAINT, variables).get("constraint");
     return new ConstraintInvocationId(
-      resp.getInt("constraint_id"),
-      resp.getInt("invocation_id")
+      resp.get("constraint_id").intValue(),
+      resp.get("invocation_id").intValue()
     );
   }
 
   public void updatePlanConstraintSpecVersion(int invocationId, int constraintRevision) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("invocation_id", invocationId)
-                              .add("constraint_revision", constraintRevision)
-                              .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("invocation_id", invocationId)
+                              .put("constraint_revision", constraintRevision)
+                              ;
     makeRequest(GQL.UPDATE_CONSTRAINT_SPEC_VERSION, variables);
   }
 
   public void updatePlanConstraintSpecEnabled(int invocationId, boolean enabled) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("invocation_id", invocationId)
-                              .add("enabled", enabled)
-                              .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("invocation_id", invocationId)
+                              .put("enabled", enabled)
+                              ;
     makeRequest(GQL.UPDATE_CONSTRAINT_SPEC_ENABLED, variables);
   }
 
   public int updateConstraintDefinition(int constraintId, String definition) throws IOException{
-    final var variables = Json.createObjectBuilder()
-                              .add("constraintId", constraintId)
-                              .add("constraintDefinition", definition)
-                              .build();
-    return makeRequest(GQL.UPDATE_CONSTRAINT, variables).getJsonObject("constraint").getInt("revision");
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("constraintId", constraintId)
+                              .put("constraintDefinition", definition)
+                              ;
+    return makeRequest(GQL.UPDATE_CONSTRAINT, variables).get("constraint").get("revision").intValue();
   }
 
   public void deleteConstraint(int constraintId) throws IOException {
-    final var variables = Json.createObjectBuilder().add("id", constraintId).build();
+    final var variables = JsonNodeFactory.instance.objectNode().put("id", constraintId);
     makeRequest(GQL.DELETE_CONSTRAINT, variables);
   }
   //endregion
 
   //region User and Roles
   public void createUser(User user) throws IOException {
-    final var userInsertBuilder = Json.createObjectBuilder()
-                                      .add("username", user.name())
-                                      .add("default_role", user.defaultRole());
-    final var allowedRolesBuilder = Json.createObjectBuilder();
+    final var userInsertBuilder = JsonNodeFactory.instance.objectNode()
+                                      .put("username", user.name())
+                                      .put("default_role", user.defaultRole());
+    final var allowedRolesBuilder = JsonNodeFactory.instance.objectNode();
     for(final var role : user.allowedRoles()) {
-      allowedRolesBuilder.add("username", user.name());
-      allowedRolesBuilder.add("allowed_role", role);
+      allowedRolesBuilder.put("username", user.name());
+      allowedRolesBuilder.put("allowed_role", role);
     }
 
-    final var variables = Json.createObjectBuilder()
-                              .add("user", userInsertBuilder)
-                              .add("allowed_roles", allowedRolesBuilder)
-                              .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .set("user", userInsertBuilder)
+                              .set("allowed_roles", allowedRolesBuilder)
+                              ;
     makeRequest(GQL.CREATE_USER, variables);
   }
 
   public void deleteUser(User user) throws IOException {
-    final var variables = Json.createObjectBuilder().add("username", user.name()).build();
+    final var variables = JsonNodeFactory.instance.objectNode().put("username", user.name());
     makeRequest(GQL.DELETE_USER, variables);
   }
 
   public void addPlanCollaborator(User user, int planId) throws IOException {
-    final var planCollabBuilder = Json.createObjectBuilder().add("planId", planId).add("collaborator", user.name());
-    final var variables = Json.createObjectBuilder().add("planCollaboratorInsertInput", planCollabBuilder).build();
+    final var planCollabBuilder = JsonNodeFactory.instance.objectNode().put("planId", planId).put("collaborator", user.name());
+    final var variables = JsonNodeFactory.instance.objectNode().set("planCollaboratorInsertInput", planCollabBuilder);
     makeRequest(GQL.ADD_PLAN_COLLABORATOR, variables);
   }
 
   public ActionPermissionsSet getActionPermissionsForRole(String role) throws IOException {
-    final var variables = Json.createObjectBuilder().add("role", role).build();
-    final var permissions = makeRequest(GQL.GET_ROLE_ACTION_PERMISSIONS, variables).getJsonObject("permissions");
-    return ActionPermissionsSet.fromJSON(permissions.getJsonObject("action_permissions"));
+    final var variables = JsonNodeFactory.instance.objectNode().put("role", role);
+    final var permissions = makeRequest(GQL.GET_ROLE_ACTION_PERMISSIONS, variables).get("permissions");
+    return ActionPermissionsSet.fromJSON((ObjectNode) permissions.get("action_permissions"));
   }
 
   public void updateActionPermissionsForRole(String role, ActionPermissionsSet permissions) throws IOException{
-    final var variables = Json.createObjectBuilder()
-                              .add("role", role)
-                              .add("action_permissions", permissions.toJSON())
-                              .build();
+    final var variables = JsonNodeFactory.instance.objectNode()
+                              .put("role", role)
+                              .set("action_permissions", permissions.toJSON())
+                              ;
     makeRequest(GQL.UPDATE_ROLE_ACTION_PERMISSIONS, variables);
   }
   //endregion
@@ -1422,16 +1397,16 @@ public class HasuraRequests implements AutoCloseable {
    * @return the dictionary's database id
    */
   public int createMockCommandDictionary(String mission, String version) throws IOException {
-    final var insertCommandDictionaryBuilder = Json.createObjectBuilder()
-                                          .add("dictionary_path", "mock_path")
-                                          .add("mission", mission)
-                                          .add("version", version);
+    final var insertCommandDictionaryBuilder = JsonNodeFactory.instance.objectNode()
+                                          .put("dictionary_path", "mock_path")
+                                          .put("mission", mission)
+                                          .put("version", version);
 
-    final var variables = Json.createObjectBuilder().add("cdict", insertCommandDictionaryBuilder).build();
+    final var variables = JsonNodeFactory.instance.objectNode().set("cdict", insertCommandDictionaryBuilder);
     // Only the Hasura Admin role may insert into this table
     return makeRequest(GQL.CREATE_MOCK_COMMAND_DICTIONARY, variables, Map.of("x-hasura-role", "admin"))
-        .getJsonObject("dictionary")
-        .getInt("id");
+        .get("dictionary")
+        .get("id").intValue();
   }
 
   /**
@@ -1440,41 +1415,40 @@ public class HasuraRequests implements AutoCloseable {
    * @return the parcel's database id
    */
   public int createMockParcel(String parcelName, int cdictId) throws IOException {
-    final var insertMockParcelBuilder = Json.createObjectBuilder()
-                                            .add("name", parcelName)
-                                            .add("command_dictionary_id", cdictId);
+    final var insertMockParcelBuilder = JsonNodeFactory.instance.objectNode()
+                                            .put("name", parcelName)
+                                            .put("command_dictionary_id", cdictId);
 
-    final var variables = Json.createObjectBuilder().add("parcel", insertMockParcelBuilder).build();
+    final var variables = JsonNodeFactory.instance.objectNode().set("parcel", insertMockParcelBuilder);
 
     return makeRequest(GQL.CREATE_PARCEL, variables)
-        .getJsonObject("parcel")
-        .getInt("id");
+        .get("parcel")
+        .get("id").intValue();
   }
 
   /**
    * Delete a mocked command dictionary.
    */
   public void deleteMockCommandDictionary(int cdictId) throws IOException {
-    makeRequest(GQL.DELETE_MOCK_COMMAND_DICTIONARY, Json.createObjectBuilder().add("id", cdictId).build());
+    makeRequest(GQL.DELETE_MOCK_COMMAND_DICTIONARY, JsonNodeFactory.instance.objectNode().put("id", cdictId));
   }
 
   /**
    * Delete a mocked parcel.
    */
   public void deleteMockParcel(int parcelId) throws IOException {
-    makeRequest(GQL.DELETE_PARCEL, Json.createObjectBuilder().add("id", parcelId).build());
+    makeRequest(GQL.DELETE_PARCEL, JsonNodeFactory.instance.objectNode().put("id", parcelId));
   }
 
   /**
    * Change the workspace's owner to another user
    */
   public void changeOwner(int workspaceId, User newOwner) throws IOException {
-    makeRequest(GQL.CHANGE_WS_OWNER, Json.createObjectBuilder()
-                                         .add("id", workspaceId)
-                                         .add("newOwner", newOwner.name())
-                                         .build());
+    makeRequest(GQL.CHANGE_WS_OWNER, JsonNodeFactory.instance.objectNode()
+                                         .put("id", workspaceId)
+                                         .put("newOwner", newOwner.name())
+                                         );
   }
   //endregion
 }
-
 

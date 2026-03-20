@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.merlin.driver;
 
-import javax.json.JsonValue;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.time.Instant;
@@ -8,7 +9,7 @@ import java.time.Instant;
 public record SimulationFailure(
     String type,
     String message,
-    JsonValue data,
+    JsonNode data,
     String trace,
     Instant timestamp
 ) {
@@ -16,7 +17,7 @@ public record SimulationFailure(
     private String type = "";
     private String message = "";
     private String trace = "";
-    private JsonValue data = JsonValue.EMPTY_JSON_OBJECT;
+    private JsonNode data = JsonNodeFactory.instance.objectNode();
 
     public Builder type(final String type) {
       this.type = type;
@@ -35,7 +36,7 @@ public record SimulationFailure(
       return this;
     }
 
-    public Builder data(final JsonValue data) {
+    public Builder data(final JsonNode data) {
       this.data = data;
       return this;
     }

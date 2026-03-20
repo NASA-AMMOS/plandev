@@ -38,7 +38,7 @@ dependencies {
   implementation project(':parsing-utilities')
 
   api project(':merlin-sdk')
-  api 'org.glassfish:javax.json:1.1.4'
+  api 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
   implementation project(':type-utils')
   implementation 'it.unimi.dsi:fastutil:8.5.12'
   implementation 'org.slf4j:slf4j-simple:2.0.7'

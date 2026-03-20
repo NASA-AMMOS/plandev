@@ -6,7 +6,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import javax.json.Json;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
@@ -40,10 +39,10 @@ public class DeletionTests extends ProceduralSchedulingSetup {
   void createsThreeActivities() throws IOException {
     final var args = Json
         .createObjectBuilder()
-        .add("whichToDelete", -1)
-        .add("anchorStrategy", "Error")
-        .add("rollback", false)
-        .build();
+        .put("whichToDelete", -1)
+        .put("anchorStrategy", "Error")
+        .put("rollback", false)
+        ;
 
     hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
 
@@ -81,10 +80,10 @@ public class DeletionTests extends ProceduralSchedulingSetup {
   void deletesLast() throws IOException {
     final var args = Json
         .createObjectBuilder()
-        .add("whichToDelete", 2)
-        .add("anchorStrategy", "Error")
-        .add("rollback", false)
-        .build();
+        .put("whichToDelete", 2)
+        .put("anchorStrategy", "Error")
+        .put("rollback", false)
+        ;
 
     hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
 
@@ -113,10 +112,10 @@ public class DeletionTests extends ProceduralSchedulingSetup {
   void deletesMiddleCascade() throws IOException {
     final var args = Json
         .createObjectBuilder()
-        .add("whichToDelete", 1)
-        .add("anchorStrategy", "Cascade")
-        .add("rollback", false)
-        .build();
+        .put("whichToDelete", 1)
+        .put("anchorStrategy", "Cascade")
+        .put("rollback", false)
+        ;
 
     hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
 
@@ -136,10 +135,10 @@ public class DeletionTests extends ProceduralSchedulingSetup {
   void deletesMiddleAnchorToParent() throws IOException {
     final var args = Json
         .createObjectBuilder()
-        .add("whichToDelete", 1)
-        .add("anchorStrategy", "PreserveTree")
-        .add("rollback", false)
-        .build();
+        .put("whichToDelete", 1)
+        .put("anchorStrategy", "PreserveTree")
+        .put("rollback", false)
+        ;
 
     hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
 
@@ -170,10 +169,10 @@ public class DeletionTests extends ProceduralSchedulingSetup {
   void deletesFirstCascade() throws IOException {
     final var args = Json
         .createObjectBuilder()
-        .add("whichToDelete", 0)
-        .add("anchorStrategy", "Cascade")
-        .add("rollback", false)
-        .build();
+        .put("whichToDelete", 0)
+        .put("anchorStrategy", "Cascade")
+        .put("rollback", false)
+        ;
 
     hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
 
@@ -189,10 +188,10 @@ public class DeletionTests extends ProceduralSchedulingSetup {
   void deletesFirstReAnchorToPlan() throws IOException {
     final var args = Json
         .createObjectBuilder()
-        .add("whichToDelete", 0)
-        .add("anchorStrategy", "PreserveTree")
-        .add("rollback", false)
-        .build();
+        .put("whichToDelete", 0)
+        .put("anchorStrategy", "PreserveTree")
+        .put("rollback", false)
+        ;
 
     hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
 
@@ -223,10 +222,10 @@ public class DeletionTests extends ProceduralSchedulingSetup {
   void anchorResetOnRollback() throws IOException {
     final var args = Json
         .createObjectBuilder()
-        .add("whichToDelete", 1)
-        .add("anchorStrategy", "PreserveTree")
-        .add("rollback", true)
-        .build();
+        .put("whichToDelete", 1)
+        .put("anchorStrategy", "PreserveTree")
+        .put("rollback", true)
+        ;
 
     hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
 

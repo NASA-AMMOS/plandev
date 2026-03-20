@@ -1,8 +1,9 @@
 package gov.nasa.jpl.aerie.e2e.types;
 
-import javax.json.JsonObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.StreamSupport;
 
 public record ConstraintRequest(
     int requestId,
@@ -15,20 +16,20 @@ public record ConstraintRequest(
       int constraintId,
       int constraintRevision,
       int simulationDatasetId,
-      JsonObject arguments,
+      ObjectNode arguments,
       Optional<ConstraintResult> results,
       Optional<ConstraintError> error
   )
   {
-    public static CachedConstraintResult fromJSON(JsonObject json) {
+    public static CachedConstraintResult fromJSON(ObjectNode json) {
       return new CachedConstraintResult(
-          json.getInt("id"),
-          json.getInt("constraint_id"),
-          json.getInt("constraint_revision"),
-          json.getInt("simulation_dataset_id"),
-          json.getJsonObject("arguments"),
-          json.getJsonObject("results").isEmpty() ? Optional.empty() : Optional.of(ConstraintResult.fromJSON(json.getJsonObject("results"))),
-          json.getJsonObject("errors").isEmpty() ? Optional.empty() : Optional.of(ConstraintError.fromJSON(json.getJsonObject("errors")))
+          json.get("id").intValue(),
+          json.get("constraint_id").intValue(),
+          json.get("constraint_revision").intValue(),
+          json.get("simulation_dataset_id").intValue(),
+          (ObjectNode) json.get("arguments"),
+          json.get("results").isEmpty() ? Optional.empty() : Optional.of(ConstraintResult.fromJSON((ObjectNode) json.get("results"))),
+          json.get("errors").isEmpty() ? Optional.empty() : Optional.of(ConstraintError.fromJSON((ObjectNode) json.get("errors")))
       );
     }
   }
@@ -38,21 +39,21 @@ public record ConstraintRequest(
       int priority,
       CachedConstraintResult results
   ) {
-    public static ConstraintRun fromJSON(JsonObject json) {
+    public static ConstraintRun fromJSON(ObjectNode json) {
       return new ConstraintRun(
-          json.getInt("constraint_invocation_id"),
-          json.getInt("order"),
-          CachedConstraintResult.fromJSON(json.getJsonObject("results"))
+          json.get("constraint_invocation_id").intValue(),
+          json.get("order").intValue(),
+          CachedConstraintResult.fromJSON((ObjectNode) json.get("results"))
       );
     }
   }
 
-  public static ConstraintRequest fromJSON(JsonObject json) {
+  public static ConstraintRequest fromJSON(ObjectNode json) {
     return new ConstraintRequest(
-        json.getInt("id"),
-        json.getInt("plan_id"),
-        json.getInt("simulation_dataset_id"),
-        json.getJsonArray("constraints_run").getValuesAs(c -> ConstraintRun.fromJSON(c.asJsonObject()))
+        json.get("id").intValue(),
+        json.get("plan_id").intValue(),
+        json.get("simulation_dataset_id").intValue(),
+        StreamSupport.stream(json.get("constraints_run").spliterator(), false).map(c -> ConstraintRun.fromJSON((ObjectNode) c)).toList()
     );
   }
 }

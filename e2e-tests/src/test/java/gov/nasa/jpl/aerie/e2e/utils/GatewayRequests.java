@@ -1,5 +1,8 @@
 package gov.nasa.jpl.aerie.e2e.utils;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.microsoft.playwright.APIRequest;
 import com.microsoft.playwright.APIRequestContext;
 import com.microsoft.playwright.Playwright;
@@ -8,8 +11,6 @@ import com.microsoft.playwright.options.FormData;
 import com.microsoft.playwright.options.RequestOptions;
 import gov.nasa.jpl.aerie.e2e.types.User;
 
-import javax.json.Json;
-import javax.json.JsonObject;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,6 +26,8 @@ public class GatewayRequests implements AutoCloseable {
     login();
   }
 
+  private static final ObjectMapper mapper = new ObjectMapper();
+
   /**
    * Auto-login the AerieE2eTests user, whose token is used to upload mission model JARs
    */
@@ -32,23 +35,20 @@ public class GatewayRequests implements AutoCloseable {
     if(token != null) return;
     final var response = request.post("/auth/login", RequestOptions.create()
                                                                    .setHeader("Content-Type", "application/json")
-                                                                   .setData(Json.createObjectBuilder()
-                                                                                .add("username", "AerieE2eTests")
-                                                                                .add("password", "password")
-                                                                                .build()
+                                                                   .setData(JsonNodeFactory.instance.objectNode()
+                                                                                .put("username", "AerieE2eTests")
+                                                                                .put("password", "password")
                                                                                 .toString()));
     // Process Response
     if(!response.ok()){
       throw new IOException(response.statusText());
     }
-    try(final var reader = Json.createReader(new StringReader(response.text()))){
-      final JsonObject bodyJson = reader.readObject();
-      if(!bodyJson.getBoolean("success")){
-        System.err.println("Login failed");
-        throw new RuntimeException(bodyJson.toString());
-      }
-      token = bodyJson.getString("token");
+    final ObjectNode bodyJson = (ObjectNode) mapper.readTree(response.text());
+    if(!bodyJson.get("success").booleanValue()){
+      System.err.println("Login failed");
+      throw new RuntimeException(bodyJson.toString());
     }
+    token = bodyJson.get("token").textValue();
   }
 
   /**
@@ -59,23 +59,20 @@ public class GatewayRequests implements AutoCloseable {
   public String login(User user) throws IOException {
     final var response = request.post("/auth/login", RequestOptions.create()
                                                                    .setHeader("Content-Type", "application/json")
-                                                                   .setData(Json.createObjectBuilder()
-                                                                                .add("username", user.name())
-                                                                                .add("password", "password")
-                                                                                .build()
+                                                                   .setData(JsonNodeFactory.instance.objectNode()
+                                                                                .put("username", user.name())
+                                                                                .put("password", "password")
                                                                                 .toString()));
     // Process Response
     if (!response.ok()) {
       throw new IOException(response.statusText());
     }
-    try (final var reader = Json.createReader(new StringReader(response.text()))) {
-      final JsonObject bodyJson = reader.readObject();
-      if (!bodyJson.getBoolean("success")) {
-        System.err.println("Login failed");
-        throw new RuntimeException(bodyJson.toString());
-      }
-      return bodyJson.getString("token");
+    final ObjectNode bodyJson = (ObjectNode) mapper.readTree(response.text());
+    if (!bodyJson.get("success").booleanValue()) {
+      System.err.println("Login failed");
+      throw new RuntimeException(bodyJson.toString());
     }
+    return bodyJson.get("token").textValue();
   }
 
   @Override
@@ -118,29 +115,29 @@ public class GatewayRequests implements AutoCloseable {
     if(!response.ok()){
       throw new IOException(response.statusText());
     }
-    try(final var reader = Json.createReader(new StringReader(response.text()))){
-      final JsonObject bodyJson = reader.readObject();
-      if(bodyJson.containsKey("errors")){
-        System.err.println("Errors in response: \n" + bodyJson.get("errors"));
-        throw new RuntimeException(bodyJson.toString());
-      }
-      return bodyJson.getInt("id");
+    final ObjectNode bodyJson = (ObjectNode) mapper.readTree(response.text());
+    if(bodyJson.has("errors")){
+      System.err.println("Errors in response: \n" + bodyJson.get("errors"));
+      throw new RuntimeException(bodyJson.toString());
     }
+    return bodyJson.get("id").intValue();
   }
 
 
-  public void uploadExternalSourceEventTypes(JsonObject schema) throws RuntimeException {
+  public void uploadExternalSourceEventTypes(ObjectNode schema) throws RuntimeException {
     final var response = request.post("/uploadExternalSourceEventTypes", RequestOptions.create()
                                                                                        .setHeader("Authorization", "Bearer "+token)
                                                                                  .setHeader("Content-Type", "application/json")
                                                                                  .setData(schema.toString()));
     // Process Response
-    try(final var reader = Json.createReader(new StringReader(response.text()))){
-      final JsonObject bodyJson = reader.readObject();
-      if(!(bodyJson.containsKey("createExternalEventTypes") && bodyJson.containsKey("createExternalSourceTypes"))){
+    try {
+      final ObjectNode bodyJson = (ObjectNode) mapper.readTree(response.text());
+      if(!(bodyJson.has("createExternalEventTypes") && bodyJson.has("createExternalSourceTypes"))){
         System.err.println("Upload failed");
         throw new RuntimeException(bodyJson.toString());
       }
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
   }
 
@@ -164,12 +161,10 @@ public class GatewayRequests implements AutoCloseable {
                                                                                                )
                                                                              )
     );
-    try (final var reader = Json.createReader(new StringReader(response.text()))) {
-      final JsonObject bodyJson = reader.readObject();
-      if (!bodyJson.containsKey("createExternalSource")) {
-        System.err.println("Upload failed");
-        throw new RuntimeException(bodyJson.toString());
-      }
+    final ObjectNode bodyJson = (ObjectNode) mapper.readTree(response.text());
+    if (!bodyJson.has("createExternalSource")) {
+      System.err.println("Upload failed");
+      throw new RuntimeException(bodyJson.toString());
     }
   }
 }

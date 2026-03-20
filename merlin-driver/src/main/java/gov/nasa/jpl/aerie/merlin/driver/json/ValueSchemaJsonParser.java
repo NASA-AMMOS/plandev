@@ -1,5 +1,9 @@
 package gov.nasa.jpl.aerie.merlin.driver.json;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import gov.nasa.jpl.aerie.json.JsonParseResult;
 import gov.nasa.jpl.aerie.json.JsonParser;
 import gov.nasa.jpl.aerie.json.SchemaCache;
@@ -7,9 +11,6 @@ import gov.nasa.jpl.aerie.json.Unit;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 
-import javax.json.Json;
-import javax.json.JsonObject;
-import javax.json.JsonValue;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,52 +29,55 @@ public final class ValueSchemaJsonParser implements JsonParser<ValueSchema> {
   public static final JsonParser<ValueSchema> valueSchemaP = new ValueSchemaJsonParser();
 
   @Override
-  public JsonObject getSchema(final SchemaCache anchors) {
+  public ObjectNode getSchema(final SchemaCache anchors) {
     // TODO: Figure out what this should be
-    return Json.createObjectBuilder().add("type", "any").build();
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("type", "any");
+    return node;
   }
 
   @Override
-  public JsonParseResult<ValueSchema> parse(final JsonValue json) {
-    if (!json.getValueType().equals(JsonValue.ValueType.OBJECT)) return JsonParseResult.failure("Expected object");
-    final var obj = json.asJsonObject();
-    if (!obj.containsKey("type")) return JsonParseResult.failure("Expected field \"type\"");
-    final var type = obj.get("type");
-    if (!type.getValueType().equals(JsonValue.ValueType.STRING)) return JsonParseResult.failure("\"type\" field must be a string");
+  public JsonParseResult<ValueSchema> parse(final JsonNode json) {
+    if (!json.isObject()) return JsonParseResult.failure("Expected object");
+    if (!json.has("type")) return JsonParseResult.failure("Expected field \"type\"");
+    final var type = json.get("type");
+    if (!type.isTextual()) return JsonParseResult.failure("\"type\" field must be a string");
 
-    JsonParseResult<ValueSchema> result = switch (obj.getString("type")) {
+    JsonParseResult<ValueSchema> result = switch (type.textValue()) {
       case "real" -> JsonParseResult.success(ValueSchema.REAL);
       case "int" -> JsonParseResult.success(ValueSchema.INT);
       case "boolean" -> JsonParseResult.success(ValueSchema.BOOLEAN);
       case "string" -> JsonParseResult.success(ValueSchema.STRING);
       case "duration" -> JsonParseResult.success(ValueSchema.DURATION);
       case "path" -> JsonParseResult.success(ValueSchema.PATH);
-      case "series" -> parseSeries(obj);
-      case "struct" -> parseStruct(obj);
-      case "variant" -> parseVariant(obj);
+      case "series" -> parseSeries(json);
+      case "struct" -> parseStruct(json);
+      case "variant" -> parseVariant(json);
       default -> JsonParseResult.failure("Unrecognized value schema type");
     };
 
-    if (obj.containsKey("metadata")) {
-      final var metadata = mapP(serializedValueP).parse(obj.getJsonObject("metadata"));
+    if (json.has("metadata")) {
+      final var metadata = mapP(serializedValueP).parse(json.get("metadata"));
       return result.mapSuccess($ -> new ValueSchema.MetaSchema(metadata.getSuccessOrThrow(), $));
     }
 
     return result;
   }
 
-  private JsonParseResult<ValueSchema> parseSeries(final JsonObject obj) {
-    if (!obj.containsKey("items")) return JsonParseResult.failure("\"series\" value schema requires field \"items\"");
+  private JsonParseResult<ValueSchema> parseSeries(final JsonNode obj) {
+    if (!obj.has("items")) return JsonParseResult.failure("\"series\" value schema requires field \"items\"");
     return parse(obj.get("items")).mapSuccess(ValueSchema::ofSeries);
   }
 
-  private JsonParseResult<ValueSchema> parseStruct(final JsonObject obj) {
-    if (!obj.containsKey("items")) return JsonParseResult.failure("\"struct\" value schema requires field \"items\"");
+  private JsonParseResult<ValueSchema> parseStruct(final JsonNode obj) {
+    if (!obj.has("items")) return JsonParseResult.failure("\"struct\" value schema requires field \"items\"");
     final var items = obj.get("items");
-    if (!items.getValueType().equals(JsonValue.ValueType.OBJECT)) return JsonParseResult.failure("\"items\" field of \"struct\" must be an object");
+    if (!items.isObject()) return JsonParseResult.failure("\"items\" field of \"struct\" must be an object");
 
     final var itemSchemas = new HashMap<String, ValueSchema>();
-    for (final var entry : items.asJsonObject().entrySet()) {
+    final var fields = items.fields();
+    while (fields.hasNext()) {
+      final var entry = fields.next();
       final var schema$ = parse(entry.getValue());
       if (schema$.isFailure()) return schema$;
       itemSchemas.put(entry.getKey(), schema$.getSuccessOrThrow());
@@ -82,7 +86,7 @@ public final class ValueSchemaJsonParser implements JsonParser<ValueSchema> {
     return JsonParseResult.success(ValueSchema.ofStruct(itemSchemas));
   }
 
-  private JsonParseResult<ValueSchema> parseVariant(final JsonObject obj) {
+  private JsonParseResult<ValueSchema> parseVariant(final JsonNode obj) {
     final JsonParser<ValueSchema.Variant> variantP =
         productP
             .field("key", stringP)
@@ -103,115 +107,107 @@ public final class ValueSchemaJsonParser implements JsonParser<ValueSchema> {
   }
 
   @Override
-  public JsonValue unparse(final ValueSchema schema) {
-    if (schema == null) return JsonValue.NULL;
+  public JsonNode unparse(final ValueSchema schema) {
+    if (schema == null) return NullNode.getInstance();
 
     return schema.match(new ValueSchema.Visitor<>() {
       @Override
-      public JsonValue onReal() {
-        return Json
-            .createObjectBuilder()
-            .add("type", "real")
-            .build();
+      public JsonNode onReal() {
+        final var node = JsonNodeFactory.instance.objectNode();
+        node.put("type", "real");
+        return node;
       }
 
       @Override
-      public JsonValue onInt() {
-        return Json
-            .createObjectBuilder()
-            .add("type", "int")
-            .build();
+      public JsonNode onInt() {
+        final var node = JsonNodeFactory.instance.objectNode();
+        node.put("type", "int");
+        return node;
       }
 
       @Override
-      public JsonValue onBoolean() {
-        return Json
-            .createObjectBuilder()
-            .add("type", "boolean")
-            .build();
+      public JsonNode onBoolean() {
+        final var node = JsonNodeFactory.instance.objectNode();
+        node.put("type", "boolean");
+        return node;
       }
 
       @Override
-      public JsonValue onString() {
-        return Json
-            .createObjectBuilder()
-            .add("type", "string")
-            .build();
+      public JsonNode onString() {
+        final var node = JsonNodeFactory.instance.objectNode();
+        node.put("type", "string");
+        return node;
       }
 
       @Override
-      public JsonValue onDuration() {
-        return Json
-            .createObjectBuilder()
-            .add("type", "duration")
-            .build();
+      public JsonNode onDuration() {
+        final var node = JsonNodeFactory.instance.objectNode();
+        node.put("type", "duration");
+        return node;
       }
 
       @Override
-      public JsonValue onPath() {
-        return Json
-            .createObjectBuilder()
-            .add("type", "path")
-            .build();
+      public JsonNode onPath() {
+        final var node = JsonNodeFactory.instance.objectNode();
+        node.put("type", "path");
+        return node;
       }
 
       @Override
-      public JsonValue onSeries(final ValueSchema itemSchema) {
-        return Json
-            .createObjectBuilder()
-            .add("type", "series")
-            .add("items", itemSchema.match(this))
-            .build();
+      public JsonNode onSeries(final ValueSchema itemSchema) {
+        final var node = JsonNodeFactory.instance.objectNode();
+        node.put("type", "series");
+        node.set("items", itemSchema.match(this));
+        return node;
       }
 
       @Override
-      public JsonValue onStruct(final Map<String, ValueSchema> parameterSchemas) {
-        return Json
-            .createObjectBuilder()
-            .add("type", "struct")
-            .add("items", serializeMap(x -> x.match(this), parameterSchemas))
-            .build();
+      public JsonNode onStruct(final Map<String, ValueSchema> parameterSchemas) {
+        final var node = JsonNodeFactory.instance.objectNode();
+        node.put("type", "struct");
+        node.set("items", serializeMap(x -> x.match(this), parameterSchemas));
+        return node;
       }
 
       @Override
-      public JsonValue onVariant(final List<ValueSchema.Variant> variants) {
-        return Json
-            .createObjectBuilder()
-            .add("type", "variant")
-            .add("variants", serializeIterable(
-                v -> Json
-                    .createObjectBuilder()
-                    .add("key", v.key())
-                    .add("label", v.label())
-                    .build(),
-                variants))
-            .build();
+      public JsonNode onVariant(final List<ValueSchema.Variant> variants) {
+        final var arr = JsonNodeFactory.instance.arrayNode();
+        for (final var v : variants) {
+          final var variantNode = JsonNodeFactory.instance.objectNode();
+          variantNode.put("key", v.key());
+          variantNode.put("label", v.label());
+          arr.add(variantNode);
+        }
+
+        final var node = JsonNodeFactory.instance.objectNode();
+        node.put("type", "variant");
+        node.set("variants", arr);
+        return node;
       }
 
       @Override
-      public JsonValue onMeta(final Map<String, SerializedValue> metadata, final ValueSchema target) {
-        return Json
-            .createObjectBuilder(target.match(this).asJsonObject())
-            .add("metadata", mapP(new SerializedValueJsonParser()).unparse(metadata))
-            .build();
+      public JsonNode onMeta(final Map<String, SerializedValue> metadata, final ValueSchema target) {
+        final var targetNode = (ObjectNode) target.match(this);
+        targetNode.set("metadata", mapP(new SerializedValueJsonParser()).unparse(metadata));
+        return targetNode;
       }
     });
   }
 
-  public static <T> JsonValue
-  serializeIterable(final Function<T, JsonValue> elementSerializer, final Iterable<T> elements) {
-    if (elements == null) return JsonValue.NULL;
+  public static <T> JsonNode
+  serializeIterable(final Function<T, JsonNode> elementSerializer, final Iterable<T> elements) {
+    if (elements == null) return NullNode.getInstance();
 
-    final var builder = Json.createArrayBuilder();
-    for (final var element : elements) builder.add(elementSerializer.apply(element));
-    return builder.build();
+    final var arr = JsonNodeFactory.instance.arrayNode();
+    for (final var element : elements) arr.add(elementSerializer.apply(element));
+    return arr;
   }
 
-  public static <T> JsonValue serializeMap(final Function<T, JsonValue> fieldSerializer, final Map<String, T> fields) {
-    if (fields == null) return JsonValue.NULL;
+  public static <T> JsonNode serializeMap(final Function<T, JsonNode> fieldSerializer, final Map<String, T> fields) {
+    if (fields == null) return NullNode.getInstance();
 
-    final var builder = Json.createObjectBuilder();
-    for (final var entry : fields.entrySet()) builder.add(entry.getKey(), fieldSerializer.apply(entry.getValue()));
-    return builder.build();
+    final var obj = JsonNodeFactory.instance.objectNode();
+    for (final var entry : fields.entrySet()) obj.set(entry.getKey(), fieldSerializer.apply(entry.getValue()));
+    return obj;
   }
 }

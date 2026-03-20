@@ -1,5 +1,9 @@
 package gov.nasa.jpl.aerie.merlin.server.http;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import gov.nasa.jpl.aerie.json.JsonParseResult;
 import gov.nasa.jpl.aerie.json.JsonParser;
 import gov.nasa.jpl.aerie.json.SchemaCache;
@@ -14,11 +18,6 @@ import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import gov.nasa.jpl.aerie.types.Timestamp;
 
-import javax.json.Json;
-import javax.json.JsonObject;
-import javax.json.JsonValue;
-import javax.json.stream.JsonParsingException;
-import java.io.StringReader;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Optional;
@@ -32,15 +31,14 @@ public abstract class MerlinParsers {
 
   public static final JsonParser<Timestamp> timestampP = new JsonParser<>() {
     @Override
-    public JsonObject getSchema(final SchemaCache anchors) {
-      return Json
-          .createObjectBuilder(stringP.getSchema())
-          .add("format", "date-time")
-          .build();
+    public ObjectNode getSchema(final SchemaCache anchors) {
+      final var schema = stringP.getSchema(anchors);
+      schema.put("format", "date-time");
+      return schema;
     }
 
     @Override
-    public JsonParseResult<Timestamp> parse(final JsonValue json) {
+    public JsonParseResult<Timestamp> parse(final JsonNode json) {
       final var result = stringP.parse(json);
       if (result instanceof JsonParseResult.Success<String> s) {
         try {
@@ -56,7 +54,7 @@ public abstract class MerlinParsers {
     }
 
     @Override
-    public JsonValue unparse(final Timestamp value) {
+    public JsonNode unparse(final Timestamp value) {
       return stringP.unparse(value.toString());
     }
   };
@@ -122,10 +120,11 @@ public abstract class MerlinParsers {
   throws InvalidJsonException, InvalidEntityException
   {
     try {
-      final var requestJson = Json.createReader(new StringReader(subject)).readValue();
+      final var mapper = new ObjectMapper();
+      final var requestJson = mapper.readTree(subject);
       final var result = parser.parse(requestJson);
       return result.getSuccessOrThrow($ -> new InvalidEntityException(List.of($)));
-    } catch (JsonParsingException e) {
+    } catch (JsonProcessingException e) {
       throw new InvalidJsonException(e);
     }
   }

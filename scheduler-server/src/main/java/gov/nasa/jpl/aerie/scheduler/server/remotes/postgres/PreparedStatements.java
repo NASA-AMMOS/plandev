@@ -1,11 +1,10 @@
 package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
 
-import javax.json.Json;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers;
 import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleFailure;
 
-import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
+import java.io.IOException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -32,8 +31,12 @@ public final class PreparedStatements {
   }
 
   private static ScheduleFailure deserializeScheduleFailure(final String failureJson) {
-    try (final var reader = Json.createReader(new ByteArrayInputStream(failureJson.getBytes(StandardCharsets.UTF_8)))) {
-      return SchedulerParsers.scheduleFailureP.parse(reader.readValue()).getSuccessOrThrow();
+    try {
+      final var mapper = new ObjectMapper();
+      final var jsonNode = mapper.readTree(failureJson);
+      return SchedulerParsers.scheduleFailureP.parse(jsonNode).getSuccessOrThrow();
+    } catch (final IOException e) {
+      throw new RuntimeException("Failed to parse schedule failure JSON", e);
     }
   }
 

@@ -68,11 +68,11 @@ public final class MapValueMapper<K, V> implements ValueMapper<Map<K, V>> {
   public SerializedValue serializeValue(final Map<K, V> fields) {
     final List<SerializedValue> elementSpecs = new ArrayList<>(fields.size());
     for (final var entry : fields.entrySet()) {
-      elementSpecs.add(SerializedValue.of(
+      elementSpecs.add(SerializedValue.ofTrusted(
           Map.of(
               "key", keyMapper.serializeValue(entry.getKey()),
               "value", elementMapper.serializeValue(entry.getValue()))));
     }
-    return SerializedValue.of(elementSpecs);
+    return SerializedValue.ofTrusted(elementSpecs);
   }
 }

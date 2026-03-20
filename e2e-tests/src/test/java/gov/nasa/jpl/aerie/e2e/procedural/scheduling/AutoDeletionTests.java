@@ -6,7 +6,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import javax.json.Json;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -76,8 +75,8 @@ public class AutoDeletionTests extends ProceduralSchedulingSetup {
   void createsOneActivityIfRunOnce() throws IOException {
     final var args = Json
         .createObjectBuilder()
-        .add("deleteAtBeginning", false)
-        .build();
+        .put("deleteAtBeginning", false)
+        ;
 
     hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
 
@@ -101,8 +100,8 @@ public class AutoDeletionTests extends ProceduralSchedulingSetup {
   void createsTwoActivitiesSteadyState_JustBefore() throws IOException {
     final var args = Json
         .createObjectBuilder()
-        .add("deleteAtBeginning", false)
-        .build();
+        .put("deleteAtBeginning", false)
+        ;
 
     hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
 
@@ -166,8 +165,8 @@ public class AutoDeletionTests extends ProceduralSchedulingSetup {
   void createsOneActivitySteadyState_AtBeginning() throws IOException {
     final var args = Json
         .createObjectBuilder()
-        .add("deleteAtBeginning", true)
-        .build();
+        .put("deleteAtBeginning", true)
+        ;
 
     hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
 

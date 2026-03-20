@@ -1,9 +1,9 @@
 package gov.nasa.jpl.aerie.e2e.types;
 
-import javax.json.JsonNumber;
-import javax.json.JsonObject;
-import javax.json.JsonString;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.List;
+import java.util.stream.StreamSupport;
 
 public record ConstraintResult(
     List<String> resourceIds,
@@ -12,25 +12,27 @@ public record ConstraintResult(
 ) {
   public record ConstraintViolation(List<Integer> activityInstanceIds, List<Interval> windows) {
 
-    public static ConstraintViolation fromJSON(JsonObject json) {
+    public static ConstraintViolation fromJSON(ObjectNode json) {
       return new ConstraintViolation(
-          json.getJsonArray("activityInstanceIds")
-              .getValuesAs(JsonNumber::intValue),
-          json.getJsonArray("windows")
-              .getValuesAs(Interval::fromJSON));
+          StreamSupport.stream(json.get("activityInstanceIds").spliterator(), false)
+              .map(JsonNode::intValue)
+              .toList(),
+          StreamSupport.stream(json.get("windows").spliterator(), false)
+              .map(e -> Interval.fromJSON((ObjectNode) e))
+              .toList());
     }
   }
 
   public record Interval(long start, long end) {
-    public static Interval fromJSON(JsonObject json) {
-      return new Interval(json.getJsonNumber("start").longValue(), json.getJsonNumber("end").longValue());
+    public static Interval fromJSON(ObjectNode json) {
+      return new Interval(json.get("start").longValue(), json.get("end").longValue());
     }
   }
 
-  public static ConstraintResult fromJSON(JsonObject json) {
-    final var resourceIds = json.getJsonArray("resourceIds").getValuesAs(JsonString::getString);
-    final var gaps = json.getJsonArray("gaps").getValuesAs(Interval::fromJSON);
-    final var violations = json.getJsonArray("violations").getValuesAs(ConstraintViolation::fromJSON);
+  public static ConstraintResult fromJSON(ObjectNode json) {
+    final var resourceIds = StreamSupport.stream(json.get("resourceIds").spliterator(), false).map(JsonNode::textValue).toList();
+    final var gaps = StreamSupport.stream(json.get("gaps").spliterator(), false).map(e -> Interval.fromJSON((ObjectNode) e)).toList();
+    final var violations = StreamSupport.stream(json.get("violations").spliterator(), false).map(e -> ConstraintViolation.fromJSON((ObjectNode) e)).toList();
 
     return new ConstraintResult(
         resourceIds,
@@ -38,4 +40,4 @@ public record ConstraintResult(
         gaps
     );
   }
-};
+}

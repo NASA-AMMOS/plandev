@@ -1,7 +1,7 @@
 package gov.nasa.jpl.aerie.json;
 
-import javax.json.Json;
-import javax.json.JsonObject;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -9,23 +9,25 @@ import java.util.UUID;
 public final class SchemaCache {
   private final Map<JsonParser<?>, String> anchors = new HashMap<>();
 
-  public JsonObject lookup(final JsonParser<?> parser) {
+  public ObjectNode lookup(final JsonParser<?> parser) {
     if (this.anchors.containsKey(parser)) {
-      return Json.createObjectBuilder().add("$ref", "#" + this.anchors.get(parser)).build();
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("$ref", "#" + this.anchors.get(parser));
+      return node;
     } else {
       final var anchor = this.add(parser);
-
-      return Json
-          .createObjectBuilder()
-          .add("$anchor", anchor)
-          .addAll(Json.createObjectBuilder(parser.getSchema(this)))
-          .build();
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("$anchor", anchor);
+      node.setAll(parser.getSchema(this));
+      return node;
     }
   }
 
-  public JsonObject lookupUncached(final JsonParser<?> parser) {
+  public ObjectNode lookupUncached(final JsonParser<?> parser) {
     if (this.anchors.containsKey(parser)) {
-      return Json.createObjectBuilder().add("$ref", "#" + this.anchors.get(parser)).build();
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("$ref", "#" + this.anchors.get(parser));
+      return node;
     } else {
       return parser.getSchema();
     }

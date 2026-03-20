@@ -1,6 +1,6 @@
 package gov.nasa.jpl.aerie.workspace.server.config;
 
-import javax.json.JsonObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.Objects;
@@ -9,7 +9,7 @@ public record AppConfiguration (
     int httpPort,
     boolean enableJavalinDevLogging,
     Path workspaceFileStore,
-    JsonObject jwtSecret,
+    ObjectNode jwtSecret,
     URI hasuraGraphqlURI,
     String hasuraAdminSecret,
     Store store

@@ -1,7 +1,6 @@
 package gov.nasa.jpl.aerie.workspace.server.types;
 
-import javax.json.JsonException;
-import javax.json.JsonObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.nio.file.Path;
 import java.util.Optional;
 
@@ -12,34 +11,36 @@ public record BulkPutItem(
     boolean overwrite
 ) {
 
-  public static BulkPutItem fromJson(JsonObject item) throws JsonException {
+  public static BulkPutItem fromJson(ObjectNode item) {
     final Path path;
     final ItemType type;
     final Optional<String> inputFileName;
     final boolean overwrite;
 
-    if(!item.containsKey("path")) {
-      throw new JsonException("Missing required parameter for input object: path");
+    if(!item.has("path")) {
+      throw new IllegalArgumentException("Missing required parameter for input object: path");
     }
-    path = Path.of(item.getString("path"));
+    path = Path.of(item.get("path").textValue());
 
-    if(!item.containsKey("type")) {
-      throw new JsonException("Missing required parameter for input object: type");
+    if(!item.has("type")) {
+      throw new IllegalArgumentException("Missing required parameter for input object: type");
     }
-    type = ItemType.of(item.getString("type"));
+    type = ItemType.of(item.get("type").textValue());
 
     if(type == ItemType.directory) {
-      if(item.containsKey("input_file_name")) {
-        throw new JsonException("Unsupported key 'input_file_name' provided in 'directory'-type upload");
+      if(item.has("input_file_name")) {
+        throw new IllegalArgumentException("Unsupported key 'input_file_name' provided in 'directory'-type upload");
       }
-      if(item.containsKey("overwrite")) {
-        throw new JsonException("Unsupported key 'overwrite' provided in 'directory'-type upload");
+      if(item.has("overwrite")) {
+        throw new IllegalArgumentException("Unsupported key 'overwrite' provided in 'directory'-type upload");
       }
       return new BulkPutItem(path, type, Optional.empty(), false);
     }
 
-    inputFileName = Optional.ofNullable(item.getString("input_file_name", null));
-    overwrite = item.getBoolean("overwrite", false);
+    inputFileName = item.has("input_file_name") && !item.get("input_file_name").isNull()
+        ? Optional.of(item.get("input_file_name").textValue())
+        : Optional.empty();
+    overwrite = item.has("overwrite") && item.get("overwrite").asBoolean(false);
 
     return new BulkPutItem(path, type, inputFileName, overwrite);
   }

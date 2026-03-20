@@ -15,7 +15,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Benchmark test using Jackson for JSON serialization (vs javax.json).
+ * Benchmark test using Jackson for JSON serialization.
  *
  * Run with: ./gradlew :serialization-benchmark:test --tests JacksonSerializationBenchmarkTest
  */

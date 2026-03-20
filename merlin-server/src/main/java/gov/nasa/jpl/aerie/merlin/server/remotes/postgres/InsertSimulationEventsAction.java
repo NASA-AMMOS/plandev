@@ -14,7 +14,7 @@ import java.sql.Types;
 import java.util.List;
 import java.util.Map;
 
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import gov.nasa.jpl.aerie.merlin.driver.json.JsonEncoding;
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MICROSECONDS;
 import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PreparedStatements.setTimestamp;
 
@@ -65,7 +65,7 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PreparedStatemen
       statement.setInt(4, transactionIndex);
       statement.setString(5, causalTime);
       statement.setInt(6, event.topicId());
-      statement.setString(7, serializedValueP.unparse(event.value()).toString());
+      statement.setString(7, JsonEncoding.encode(event.value()).toString());
       statement.setObject(8, event.spanId().orElse(null), Types.INTEGER);
       statement.addBatch();
     }

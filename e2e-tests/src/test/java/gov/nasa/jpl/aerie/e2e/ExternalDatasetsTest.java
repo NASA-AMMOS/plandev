@@ -1,5 +1,7 @@
 package gov.nasa.jpl.aerie.e2e;
 
+import com.fasterxml.jackson.databind.node.BooleanNode;
+import com.fasterxml.jackson.databind.node.NullNode;
 import com.microsoft.playwright.Playwright;
 import gov.nasa.jpl.aerie.e2e.types.ExternalDataset.ProfileInput;
 import gov.nasa.jpl.aerie.e2e.types.ExternalDataset.ProfileInput.ProfileSegmentInput;
@@ -9,7 +11,6 @@ import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
 import org.junit.jupiter.api.*;
 
-import javax.json.JsonValue;
 import java.io.IOException;
 import java.util.List;
 
@@ -35,11 +36,11 @@ public class ExternalDatasetsTest {
           ValueSchema.VALUE_SCHEMA_BOOLEAN,
           List.of(
               // 3600000000L is 1hr in microseconds
-              new ProfileSegmentInput(3600000000L, JsonValue.FALSE),
-              new ProfileSegmentInput(3600000000L, JsonValue.NULL),
-              new ProfileSegmentInput(3600000000L, JsonValue.TRUE),
-              new ProfileSegmentInput(3600000000L, JsonValue.NULL),
-              new ProfileSegmentInput(3600000000L, JsonValue.FALSE)));
+              new ProfileSegmentInput(3600000000L, BooleanNode.FALSE),
+              new ProfileSegmentInput(3600000000L, NullNode.getInstance()),
+              new ProfileSegmentInput(3600000000L, BooleanNode.TRUE),
+              new ProfileSegmentInput(3600000000L, NullNode.getInstance()),
+              new ProfileSegmentInput(3600000000L, BooleanNode.FALSE)));
 
   @BeforeAll
   void beforeAll() {
@@ -94,17 +95,17 @@ public class ExternalDatasetsTest {
     assertTrue(externalDataset.simulationDatasetId().isEmpty());
     assertEquals(datasetOffset, externalDataset.startOffset());
     assertEquals(1, externalDataset.profiles().size());
-    assertTrue(externalDataset.profiles().containsKey(myBooleanProfile.name()));
+    assertTrue(externalDataset.profiles().has(myBooleanProfile.name()));
 
     // Check Profile Segments
     final var profile = externalDataset.profiles().get(myBooleanProfile.name());
     assertEquals(5, profile.size());
     final var expectedSegments = List.of(
-        new ProfileSegment("00:00:00", false, JsonValue.FALSE),
-        new ProfileSegment("01:00:00", true, JsonValue.NULL),
-        new ProfileSegment("02:00:00", false, JsonValue.TRUE),
-        new ProfileSegment("03:00:00", true, JsonValue.NULL),
-        new ProfileSegment("04:00:00", false, JsonValue.FALSE));
+        new ProfileSegment("00:00:00", false, BooleanNode.FALSE),
+        new ProfileSegment("01:00:00", true, NullNode.getInstance()),
+        new ProfileSegment("02:00:00", false, BooleanNode.TRUE),
+        new ProfileSegment("03:00:00", true, NullNode.getInstance()),
+        new ProfileSegment("04:00:00", false, BooleanNode.FALSE));
     assertEquals(expectedSegments, profile);
   }
 
@@ -116,8 +117,8 @@ public class ExternalDatasetsTest {
             "discrete",
             ValueSchema.VALUE_SCHEMA_BOOLEAN,
             List.of(
-                new ProfileSegmentInput(1800000000L, JsonValue.FALSE),
-                new ProfileSegmentInput(1800000000L, JsonValue.TRUE)));
+                new ProfileSegmentInput(1800000000L, BooleanNode.FALSE),
+                new ProfileSegmentInput(1800000000L, BooleanNode.TRUE)));
 
     final ProfileInput newProfile =
         new ProfileInput(
@@ -125,10 +126,10 @@ public class ExternalDatasetsTest {
             "discrete",
             ValueSchema.VALUE_SCHEMA_BOOLEAN,
             List.of(
-                new ProfileSegmentInput(1800000000L, JsonValue.TRUE),
-                new ProfileSegmentInput(1800000000L, JsonValue.FALSE),
-                new ProfileSegmentInput(1800000000L, JsonValue.NULL),
-                new ProfileSegmentInput(1800000000L, JsonValue.TRUE)));
+                new ProfileSegmentInput(1800000000L, BooleanNode.TRUE),
+                new ProfileSegmentInput(1800000000L, BooleanNode.FALSE),
+                new ProfileSegmentInput(1800000000L, NullNode.getInstance()),
+                new ProfileSegmentInput(1800000000L, BooleanNode.TRUE)));
 
     @Test
     void extendExistingProfile() throws IOException {
@@ -139,19 +140,19 @@ public class ExternalDatasetsTest {
       assertTrue(externalDataset.simulationDatasetId().isEmpty());
       assertEquals(datasetOffset, externalDataset.startOffset());
       assertEquals(1, externalDataset.profiles().size());
-      assertTrue(externalDataset.profiles().containsKey(myBooleanExtension.name()));
+      assertTrue(externalDataset.profiles().has(myBooleanExtension.name()));
 
       // Check Profile Segments
       final var mbProfile = externalDataset.profiles().get(myBooleanExtension.name());
       assertEquals(7, mbProfile.size());
       final var expectedMBSegments = List.of(
-          new ProfileSegment("00:00:00", false, JsonValue.FALSE),
-          new ProfileSegment("01:00:00", true, JsonValue.NULL),
-          new ProfileSegment("02:00:00", false, JsonValue.TRUE),
-          new ProfileSegment("03:00:00", true, JsonValue.NULL),
-          new ProfileSegment("04:00:00", false, JsonValue.FALSE),
-          new ProfileSegment("05:00:00", false, JsonValue.FALSE),
-          new ProfileSegment("05:30:00", false, JsonValue.TRUE));
+          new ProfileSegment("00:00:00", false, BooleanNode.FALSE),
+          new ProfileSegment("01:00:00", true, NullNode.getInstance()),
+          new ProfileSegment("02:00:00", false, BooleanNode.TRUE),
+          new ProfileSegment("03:00:00", true, NullNode.getInstance()),
+          new ProfileSegment("04:00:00", false, BooleanNode.FALSE),
+          new ProfileSegment("05:00:00", false, BooleanNode.FALSE),
+          new ProfileSegment("05:30:00", false, BooleanNode.TRUE));
       assertEquals(expectedMBSegments, mbProfile);
     }
 
@@ -164,27 +165,27 @@ public class ExternalDatasetsTest {
       assertTrue(externalDataset.simulationDatasetId().isEmpty());
       assertEquals(datasetOffset, externalDataset.startOffset());
       assertEquals(2, externalDataset.profiles().size());
-      assertTrue(externalDataset.profiles().containsKey(myBooleanExtension.name()));
-      assertTrue(externalDataset.profiles().containsKey(newProfile.name()));
+      assertTrue(externalDataset.profiles().has(myBooleanExtension.name()));
+      assertTrue(externalDataset.profiles().has(newProfile.name()));
 
       // Check Profile Segments
       final var mbProfile = externalDataset.profiles().get(myBooleanExtension.name());
       assertEquals(5, mbProfile.size());
       final var expectedMBSegments = List.of(
-          new ProfileSegment("00:00:00", false, JsonValue.FALSE),
-          new ProfileSegment("01:00:00", true, JsonValue.NULL),
-          new ProfileSegment("02:00:00", false, JsonValue.TRUE),
-          new ProfileSegment("03:00:00", true, JsonValue.NULL),
-          new ProfileSegment("04:00:00", false, JsonValue.FALSE));
+          new ProfileSegment("00:00:00", false, BooleanNode.FALSE),
+          new ProfileSegment("01:00:00", true, NullNode.getInstance()),
+          new ProfileSegment("02:00:00", false, BooleanNode.TRUE),
+          new ProfileSegment("03:00:00", true, NullNode.getInstance()),
+          new ProfileSegment("04:00:00", false, BooleanNode.FALSE));
       assertEquals(expectedMBSegments, mbProfile);
 
       final var nProfiles = externalDataset.profiles().get(newProfile.name());
       assertEquals(4, nProfiles.size());
       final var expectedNSegments = List.of(
-          new ProfileSegment("00:00:00", false, JsonValue.TRUE),
-          new ProfileSegment("00:30:00", false, JsonValue.FALSE),
-          new ProfileSegment("01:00:00", true, JsonValue.NULL),
-          new ProfileSegment("01:30:00", false, JsonValue.TRUE));
+          new ProfileSegment("00:00:00", false, BooleanNode.TRUE),
+          new ProfileSegment("00:30:00", false, BooleanNode.FALSE),
+          new ProfileSegment("01:00:00", true, NullNode.getInstance()),
+          new ProfileSegment("01:30:00", false, BooleanNode.TRUE));
       assertEquals(expectedNSegments, nProfiles);
     }
 
@@ -197,29 +198,29 @@ public class ExternalDatasetsTest {
       assertTrue(externalDataset.simulationDatasetId().isEmpty());
       assertEquals(datasetOffset, externalDataset.startOffset());
       assertEquals(2, externalDataset.profiles().size());
-      assertTrue(externalDataset.profiles().containsKey(myBooleanExtension.name()));
-      assertTrue(externalDataset.profiles().containsKey(newProfile.name()));
+      assertTrue(externalDataset.profiles().has(myBooleanExtension.name()));
+      assertTrue(externalDataset.profiles().has(newProfile.name()));
 
       // Check Profile Segments
       final var mbProfile = externalDataset.profiles().get(myBooleanExtension.name());
       assertEquals(7, mbProfile.size());
       final var expectedMBSegments = List.of(
-          new ProfileSegment("00:00:00", false, JsonValue.FALSE),
-          new ProfileSegment("01:00:00", true, JsonValue.NULL),
-          new ProfileSegment("02:00:00", false, JsonValue.TRUE),
-          new ProfileSegment("03:00:00", true, JsonValue.NULL),
-          new ProfileSegment("04:00:00", false, JsonValue.FALSE),
-          new ProfileSegment("05:00:00", false, JsonValue.FALSE),
-          new ProfileSegment("05:30:00", false, JsonValue.TRUE));
+          new ProfileSegment("00:00:00", false, BooleanNode.FALSE),
+          new ProfileSegment("01:00:00", true, NullNode.getInstance()),
+          new ProfileSegment("02:00:00", false, BooleanNode.TRUE),
+          new ProfileSegment("03:00:00", true, NullNode.getInstance()),
+          new ProfileSegment("04:00:00", false, BooleanNode.FALSE),
+          new ProfileSegment("05:00:00", false, BooleanNode.FALSE),
+          new ProfileSegment("05:30:00", false, BooleanNode.TRUE));
       assertEquals(expectedMBSegments, mbProfile);
 
       final var nProfiles = externalDataset.profiles().get(newProfile.name());
       assertEquals(4, nProfiles.size());
       final var expectedNSegments = List.of(
-          new ProfileSegment("00:00:00", false, JsonValue.TRUE),
-          new ProfileSegment("00:30:00", false, JsonValue.FALSE),
-          new ProfileSegment("01:00:00", true, JsonValue.NULL),
-          new ProfileSegment("01:30:00", false, JsonValue.TRUE));
+          new ProfileSegment("00:00:00", false, BooleanNode.TRUE),
+          new ProfileSegment("00:30:00", false, BooleanNode.FALSE),
+          new ProfileSegment("01:00:00", true, NullNode.getInstance()),
+          new ProfileSegment("01:30:00", false, BooleanNode.TRUE));
       assertEquals(expectedNSegments, nProfiles);
     }
   }

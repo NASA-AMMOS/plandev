@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import gov.nasa.jpl.aerie.types.ActivityInstance;
 import gov.nasa.jpl.aerie.types.ActivityInstanceId;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationException;
@@ -26,7 +27,6 @@ import org.apache.commons.lang3.tuple.Triple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.json.Json;
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -595,12 +595,12 @@ public final class PostgresResultsCellRepository implements ResultsCellRepositor
     public void reportIncompleteResults(final SimulationResults results) {
       try (final var connection = dataSource.getConnection();
            final var transactionContext = new TransactionContext(connection)) {
+        final var dataNode = JsonNodeFactory.instance.objectNode();
+        dataNode.put("elapsedTime", SimulationException.formatDuration(results.duration));
+        dataNode.put("utcTimeDoy", SimulationException.formatInstant(Duration.addToInstant(results.startTime, results.duration)));
         final var reason = new SimulationFailure.Builder()
             .type("SIMULATION_CANCELED")
-            .data(Json.createObjectBuilder()
-                    .add("elapsedTime", SimulationException.formatDuration(results.duration))
-                    .add("utcTimeDoy", SimulationException.formatInstant(Duration.addToInstant(results.startTime, results.duration)))
-                    .build())
+            .data(dataNode)
             .message("Simulation run was canceled")
             .build();
         postSimulationResults(connection, datasetId, results, SimulationStateRecord.incomplete(reason));

@@ -1,5 +1,7 @@
 package gov.nasa.jpl.aerie.merlin.server.http;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import gov.nasa.jpl.aerie.constraints.InputMismatchException;
 import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
@@ -22,8 +24,6 @@ import io.javalin.Javalin;
 import io.javalin.http.Context;
 import io.javalin.plugin.Plugin;
 
-import javax.json.Json;
-import javax.json.stream.JsonParsingException;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -113,7 +113,7 @@ public final class MerlinBindings implements Plugin {
     });
 
     // This exception is expected when the request body entity is not a legal JsonValue.
-    javalin.exception(JsonParsingException.class, (ex, ctx) -> ctx
+    javalin.exception(JsonProcessingException.class, (ex, ctx) -> ctx
         .status(400)
         .result(ResponseSerializers.serializeJsonParsingException(ex).toString())
         .contentType("application/json"));
@@ -494,11 +494,9 @@ public final class MerlinBindings implements Plugin {
       final var profileSet = body.input().profileSet();
       this.planService.extendExternalDataset(datasetId, profileSet);
 
-      ctx.status(200).result(
-          Json
-              .createObjectBuilder()
-              .add("datasetId", datasetId.id())
-              .build().toString());
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("datasetId", datasetId.id());
+      ctx.status(200).result(node.toString());
     } catch (final NoSuchPlanDatasetException ex) {
       ctx.status(404).result(ResponseSerializers.serializeNoSuchPlanDatasetException(ex).toString());
     } catch (final InvalidJsonException ex) {
@@ -522,25 +520,22 @@ public final class MerlinBindings implements Plugin {
       final var response = this.generateConstraintsLibAction.run(missionModelId, planId);
       final String resultString;
       if (response instanceof GenerateConstraintsLibAction.Response.Success r) {
-        var files = Json.createArrayBuilder();
+        var files = JsonNodeFactory.instance.arrayNode();
         for (final var entry : r.files().entrySet()) {
-          files = files.add(
-              Json.createObjectBuilder()
-                  .add("filePath", entry.getKey())
-                  .add("content", entry.getValue())
-                  .build());
+          final var fileEntry = JsonNodeFactory.instance.objectNode();
+          fileEntry.put("filePath", entry.getKey());
+          fileEntry.put("content", entry.getValue());
+          files.add(fileEntry);
         }
-        resultString = Json
-            .createObjectBuilder()
-            .add("status", "success")
-            .add("typescriptFiles", files)
-            .build().toString();
+        final var resultNode = JsonNodeFactory.instance.objectNode();
+        resultNode.put("status", "success");
+        resultNode.set("typescriptFiles", files);
+        resultString = resultNode.toString();
       } else if (response instanceof GenerateConstraintsLibAction.Response.Failure r) {
-        resultString = Json
-            .createObjectBuilder()
-            .add("status", "failure")
-            .add("reason", r.reason())
-            .build().toString();
+        final var resultNode = JsonNodeFactory.instance.objectNode();
+        resultNode.put("status", "failure");
+        resultNode.put("reason", r.reason());
+        resultString = resultNode.toString();
       } else {
         throw new Error("Unhandled variant of Response: " + response);
       }

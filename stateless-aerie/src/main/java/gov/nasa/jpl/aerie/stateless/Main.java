@@ -9,8 +9,8 @@ import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationException;
 
+import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 
@@ -18,8 +18,8 @@ import gov.nasa.jpl.aerie.orchestration.simulation.SimulationUtility;
 import gov.nasa.jpl.aerie.types.Plan;
 import org.apache.commons.cli.*;
 
-import javax.json.Json;
-import javax.json.stream.JsonGenerator;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 public class Main {
   private static final String VERSION = "v4.1.1";
@@ -173,9 +173,12 @@ public class Main {
     } catch (ExecutionException e) {
       if (e.getCause() instanceof SimulationException se) {
         // Write Formatted Sim Exception to std.err
-        final Map<String,String> config = Map.of(JsonGenerator.PRETTY_PRINTING, "");
-        try(final var jsonWriter = Json.createWriterFactory(config).createWriter(System.err)) {
-          jsonWriter.writeObject(SimulationUtility.formatSimulationException(se));
+        try {
+          final var mapper = new ObjectMapper();
+          mapper.enable(SerializationFeature.INDENT_OUTPUT);
+          mapper.writeValue(System.err, SimulationUtility.formatSimulationException(se));
+        } catch (IOException ioe) {
+          throw new RuntimeException("Failed to write simulation exception", ioe);
         }
         System.exit(1);
       }

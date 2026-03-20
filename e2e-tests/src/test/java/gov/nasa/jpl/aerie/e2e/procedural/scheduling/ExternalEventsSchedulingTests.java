@@ -1,5 +1,8 @@
 package gov.nasa.jpl.aerie.e2e.procedural.scheduling;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import gov.nasa.jpl.aerie.e2e.types.GoalInvocationId;
 import gov.nasa.jpl.aerie.e2e.types.Plan;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
@@ -8,8 +11,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import javax.json.Json;
-import javax.json.JsonObject;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Comparator;
@@ -81,16 +82,15 @@ public class ExternalEventsSchedulingTests extends ProceduralSchedulingSetup {
         }
         """.formatted(SOURCE_TYPE);
 
-    final JsonObject schema = Json.createObjectBuilder()
-                                  .add("event_types", event_types)
-                                  .add("source_types", source_types)
-                                  .build();
+    final ObjectNode schema = JsonNodeFactory.instance.objectNode()
+                                  .put("event_types", event_types)
+                                  .put("source_types", source_types)
+                                  ;
 
     try (final var gateway = new GatewayRequests(playwright)) {
       gateway.uploadExternalSourceEventTypes(schema);
     }
   }
-
 
   void uploadExternalSources() throws IOException {
     try (final var gateway = new GatewayRequests(playwright)) {
@@ -368,7 +368,6 @@ public class ExternalEventsSchedulingTests extends ProceduralSchedulingSetup {
       "2023-01-01T05:00:00Z",
       "2023-01-02T01:00:00Z"
     );
-
 
     // compare arrays
     assertEquals(expected.size(), activities.size());

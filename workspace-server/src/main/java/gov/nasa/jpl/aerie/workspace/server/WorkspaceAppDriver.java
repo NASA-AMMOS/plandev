@@ -1,5 +1,8 @@
 package gov.nasa.jpl.aerie.workspace.server;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import gov.nasa.jpl.aerie.permissions.PermissionsService;
@@ -22,9 +25,7 @@ import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.json.Json;
-import javax.json.JsonObject;
-import java.io.StringReader;
+import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Path;
 
@@ -114,12 +115,14 @@ public final class WorkspaceAppDriver {
   private static AppConfiguration loadConfiguration() {
     final var logger = LoggerFactory.getLogger(WorkspaceAppDriver.class);
     final var secretString = getEnv("HASURA_GRAPHQL_JWT_SECRET", "");
-    final JsonObject jwtSecret;
+    final ObjectNode jwtSecret;
     if (secretString.isBlank()) {
-      jwtSecret = JsonObject.EMPTY_JSON_OBJECT;
+      jwtSecret = JsonNodeFactory.instance.objectNode();
     } else {
-      try(final var reader = Json.createReader(new StringReader(secretString))) {
-        jwtSecret = reader.readObject();
+      try {
+        jwtSecret = (ObjectNode) new ObjectMapper().readTree(secretString);
+      } catch (IOException e) {
+        throw new RuntimeException("Failed to parse JWT secret JSON", e);
       }
     }
 

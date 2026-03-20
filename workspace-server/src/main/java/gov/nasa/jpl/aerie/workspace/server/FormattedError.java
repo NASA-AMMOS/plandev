@@ -4,15 +4,14 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import io.javalin.http.UnauthorizedResponse;
 import io.javalin.validation.ValidationException;
 
-import javax.json.Json;
-import javax.json.JsonException;
-import javax.json.JsonObject;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -35,7 +34,7 @@ final class FormattedError {
   private final static String service = "aerie_workspace";
   private Optional<String> cause = Optional.empty();
   private Optional<String> trace = Optional.empty();
-  private Optional<JsonObject> data = Optional.empty();
+  private Optional<ObjectNode> data = Optional.empty();
 
   /**
    * For use in the event of an endpoint failing without throwing an exception.
@@ -137,9 +136,9 @@ final class FormattedError {
     this.message = ue.getMessage() != null ? ue.getMessage() : "Unauthorized";
     // Include additional details, if present
     if(!ue.getDetails().isEmpty()) {
-      final var dataBuilder = Json.createObjectBuilder();
-      ue.getDetails().forEach(dataBuilder::add);
-      this.data = Optional.of(dataBuilder.build());
+      final var dataNode = JsonNodeFactory.instance.objectNode();
+      ue.getDetails().forEach(dataNode::put);
+      this.data = Optional.of(dataNode);
     }
   }
 
@@ -159,7 +158,7 @@ final class FormattedError {
   }
 
   // JSONException
-  public FormattedError(JsonException je, String message){
+  public FormattedError(com.fasterxml.jackson.core.JsonProcessingException je, String message){
     this("JSON_PARSING_EXCEPTION", message, je);
   }
 
@@ -193,22 +192,22 @@ final class FormattedError {
   }
 
   /**
-   * Export this object to a JsonObject.
+   * Export this object to an ObjectNode.
    */
-  public JsonObject toJson() {
+  public ObjectNode toJson() {
     // Include all mandatory fields
-    final var builder = Json.createObjectBuilder()
-                            .add("type", type)
-                            .add("message", message)
-                            .add("timestamp", timestamp)
-                            .add("service", service); // Not mandatory on spec, but always known
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("type", type);
+    node.put("message", message);
+    node.put("timestamp", timestamp);
+    node.put("service", service); // Not mandatory on spec, but always known
 
     // Include optional fields, if present
-    cause.ifPresent((c) -> builder.add("cause", c));
-    trace.ifPresent((t) -> builder.add("trace", t));
-    data.ifPresent((d) -> builder.add("data", d));
+    cause.ifPresent((c) -> node.put("cause", c));
+    trace.ifPresent((t) -> node.put("trace", t));
+    data.ifPresent((d) -> node.set("data", d));
 
-    return builder.build();
+    return node;
   }
 
   @Override

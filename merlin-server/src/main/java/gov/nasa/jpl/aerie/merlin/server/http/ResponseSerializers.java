@@ -1,5 +1,14 @@
 package gov.nasa.jpl.aerie.merlin.server.http;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.BooleanNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.LongNode;
+import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import gov.nasa.jpl.aerie.constraints.InputMismatchException;
 import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
 import gov.nasa.jpl.aerie.json.JsonParseResult.FailureReason;
@@ -28,10 +37,6 @@ import gov.nasa.jpl.aerie.merlin.server.services.UnexpectedSubtypeError;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import org.apache.commons.lang3.tuple.Pair;
 
-import javax.json.Json;
-import javax.json.JsonObjectBuilder;
-import javax.json.JsonValue;
-import javax.json.stream.JsonParsingException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -39,522 +44,534 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import gov.nasa.jpl.aerie.merlin.driver.json.JsonEncoding;
 
 public final class ResponseSerializers {
-  public static <T> JsonValue
-  serializeIterable(final Function<T, JsonValue> elementSerializer, final Iterable<T> elements) {
-    if (elements == null) return JsonValue.NULL;
+  public static <T> JsonNode
+  serializeIterable(final Function<T, JsonNode> elementSerializer, final Iterable<T> elements) {
+    if (elements == null) return NullNode.getInstance();
 
-    final var builder = Json.createArrayBuilder();
+    final var builder = JsonNodeFactory.instance.arrayNode();
     for (final var element : elements) builder.add(elementSerializer.apply(element));
-    return builder.build();
+    return builder;
   }
 
-  public static <T> JsonValue serializeMap(final Function<T, JsonValue> fieldSerializer, final Map<String, T> fields) {
-    if (fields == null) return JsonValue.NULL;
+  public static <T> JsonNode serializeMap(final Function<T, JsonNode> fieldSerializer, final Map<String, T> fields) {
+    if (fields == null) return NullNode.getInstance();
 
-    final var builder = Json.createObjectBuilder();
-    for (final var entry : fields.entrySet()) builder.add(entry.getKey(), fieldSerializer.apply(entry.getValue()));
-    return builder.build();
+    final var builder = JsonNodeFactory.instance.objectNode();
+    for (final var entry : fields.entrySet()) builder.set(entry.getKey(), fieldSerializer.apply(entry.getValue()));
+    return builder;
   }
 
-  public static JsonValue serializeValueSchema(final ValueSchema schema) {
-    if (schema == null) return JsonValue.NULL;
+  public static JsonNode serializeValueSchema(final ValueSchema schema) {
+    if (schema == null) return NullNode.getInstance();
 
     return new ValueSchemaJsonParser().unparse(schema);
   }
 
-  public static JsonValue serializeParameters(final List<Parameter> parameters) {
+  public static JsonNode serializeParameters(final List<Parameter> parameters) {
     final var parameterMap = IntStream.range(0, parameters.size()).boxed()
         .collect(Collectors.toMap(i -> parameters.get(i).name(), i -> Pair.of(i, parameters.get(i))));
 
-    return serializeMap(pair -> Json.createObjectBuilder()
-              .add("schema", new ValueSchemaJsonParser().unparse(pair.getRight().schema()))
-              .add("order", pair.getLeft())
-              .build(),
+    return serializeMap(pair -> {
+              final var node = JsonNodeFactory.instance.objectNode();
+              node.set("schema", new ValueSchemaJsonParser().unparse(pair.getRight().schema()));
+              node.put("order", pair.getLeft());
+              return node;
+            },
             parameterMap);
   }
 
-  public static JsonValue serializeValueSchemas(final Map<String, ValueSchema> schemas) {
-    if (schemas == null) return JsonValue.NULL;
+  public static JsonNode serializeValueSchemas(final Map<String, ValueSchema> schemas) {
+    if (schemas == null) return NullNode.getInstance();
 
-    final var builder = Json.createArrayBuilder();
-    schemas.forEach((k, v) -> builder.add(Json.createObjectBuilder()
-      .add("name", k)
-      .add("schema", serializeValueSchema(v))));
-    return builder.build();
+    final var builder = JsonNodeFactory.instance.arrayNode();
+    schemas.forEach((k, v) -> {
+      final var entry = JsonNodeFactory.instance.objectNode();
+      entry.put("name", k);
+      entry.set("schema", serializeValueSchema(v));
+      builder.add(entry);
+    });
+    return builder;
   }
 
-  public static JsonValue serializeSample(final Pair<Duration, SerializedValue> element) {
-    if (element == null) return JsonValue.NULL;
-    return Json
-        .createObjectBuilder()
-        .add("x", serializeDuration(element.getLeft()))
-        .add("y", serializeArgument(element.getRight()))
-        .build();
+  public static JsonNode serializeSample(final Pair<Duration, SerializedValue> element) {
+    if (element == null) return NullNode.getInstance();
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.set("x", serializeDuration(element.getLeft()));
+    node.set("y", serializeArgument(element.getRight()));
+    return node;
   }
 
-  public static JsonValue serializeString(final String value) {
-    if (value == null) return JsonValue.NULL;
-    return Json.createValue(value);
+  public static JsonNode serializeString(final String value) {
+    if (value == null) return NullNode.getInstance();
+    return TextNode.valueOf(value);
   }
 
-  public static JsonValue serializeStringList(final List<String> elements) {
+  public static JsonNode serializeStringList(final List<String> elements) {
     return serializeIterable(ResponseSerializers::serializeString, elements);
   }
 
-  public static JsonValue serializeArgument(final SerializedValue parameter) {
-    if (parameter == null) return JsonValue.NULL;
-    return serializedValueP.unparse(parameter);
+  public static JsonNode serializeArgument(final SerializedValue parameter) {
+    if (parameter == null) return NullNode.getInstance();
+    return JsonEncoding.encode(parameter);
   }
 
-  public static JsonValue serializeEffectiveArgumentMap(final Map<String, SerializedValue> fields) {
-    return Json.createObjectBuilder()
-       .add("success", JsonValue.TRUE)
-       .add("arguments", serializeMap(ResponseSerializers::serializeArgument, fields))
-       .build();
+  public static JsonNode serializeEffectiveArgumentMap(final Map<String, SerializedValue> fields) {
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("success", true);
+    node.set("arguments", serializeMap(ResponseSerializers::serializeArgument, fields));
+    return node;
   }
 
-  public static JsonValue serializeBulkEffectiveArgumentResponseList(final List<BulkEffectiveArgumentResponse> responses) {
+  public static JsonNode serializeBulkEffectiveArgumentResponseList(final List<BulkEffectiveArgumentResponse> responses) {
     return serializeIterable(ResponseSerializers::serializeBulkEffectiveArgumentResponse, responses);
   }
 
-  public static JsonValue serializeConstraintBulkEffectiveArgumentResponse(BulkConstraintEffectiveArgumentResponse response) {
+  public static JsonNode serializeConstraintBulkEffectiveArgumentResponse(BulkConstraintEffectiveArgumentResponse response) {
     if (response instanceof BulkConstraintEffectiveArgumentResponse.Success(
         ConstraintId constraintId, Map<String, SerializedValue> effectiveArguments)) {
-      return Json.createObjectBuilder()
-                 .add("id", constraintId.id())
-                 .add("revision", constraintId.revision())
-                 .add("success", JsonValue.TRUE)
-                 .add("arguments",
-                     serializeMap(
-                         ResponseSerializers::serializeArgument,
-                         effectiveArguments))
-                 .build();
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("id", constraintId.id());
+      node.put("revision", constraintId.revision());
+      node.put("success", true);
+      node.set("arguments",
+          serializeMap(
+              ResponseSerializers::serializeArgument,
+              effectiveArguments));
+      return node;
     } else if (response instanceof BulkConstraintEffectiveArgumentResponse.TypeFailure(ConstraintId constraintId)) {
-      return Json.createObjectBuilder()
-                 .add("id", constraintId.id())
-                 .add("revision", constraintId.revision())
-                 .add("success", JsonValue.FALSE)
-                 .add("errors", "Constraint is not procedural")
-                 .build();
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("id", constraintId.id());
+      node.put("revision", constraintId.revision());
+      node.put("success", false);
+      node.put("errors", "Constraint is not procedural");
+      return node;
     } else if (response instanceof BulkConstraintEffectiveArgumentResponse.InstantiationFailure(
         ConstraintId constraintId,
         InstantiationException ex)) {
-      return Json.createObjectBuilder(
-          serializeInstantiationException(ex).asJsonObject())
-          .add("success", JsonValue.FALSE)
-          .add("id", constraintId.id())
-          .add("revision", constraintId.revision())
-                 .build();
+      final var base = (ObjectNode) serializeInstantiationException(ex);
+      base.put("success", false);
+      base.put("id", constraintId.id());
+      base.put("revision", constraintId.revision());
+      return base;
     } else if (response instanceof BulkConstraintEffectiveArgumentResponse.NoConstraintFailure(ConstraintId constraintId)) {
-      return Json.createObjectBuilder()
-                 .add("success", JsonValue.FALSE)
-                 .add("id", constraintId.id())
-                 .add("revision", constraintId.revision())
-                 .add("errors", "There is no constraint with this id")
-                 .build();
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("success", false);
+      node.put("id", constraintId.id());
+      node.put("revision", constraintId.revision());
+      node.put("errors", "There is no constraint with this id");
+      return node;
     } else if (response instanceof BulkConstraintEffectiveArgumentResponse.ProcedureLoadFailure(
         ConstraintId constraintId, ProcedureLoader.ProcedureLoadException ex)) {
-      return Json.createObjectBuilder()
-                 .add("success", JsonValue.FALSE)
-                 .add("id", constraintId.id())
-                 .add("revision", constraintId.revision())
-                 .add("errors", "Error when loading the procedure jar")
-                 .build();
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("success", false);
+      node.put("id", constraintId.id());
+      node.put("revision", constraintId.revision());
+      node.put("errors", "Error when loading the procedure jar");
+      return node;
     }
-    return Json.createObjectBuilder()
-               .add("success", JsonValue.FALSE)
-               .add("errors", String.format("Internal error: %s", response))
-               .build();
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("success", false);
+    node.put("errors", String.format("Internal error: %s", response));
+    return node;
   }
 
-  public static JsonValue serializeBulkEffectiveArgumentResponse(BulkEffectiveArgumentResponse response) {
+  public static JsonNode serializeBulkEffectiveArgumentResponse(BulkEffectiveArgumentResponse response) {
     // TODO use pattern matching in switch statement with JDK 21
     if (response instanceof BulkEffectiveArgumentResponse.Success s) {
-      return Json.createObjectBuilder()
-          .add("typeName",
-               s.activity().getTypeName())
-          .add("success", JsonValue.TRUE)
-          .add("arguments",
-               serializeMap(
-                   ResponseSerializers::serializeArgument,
-                   s.activity().getArguments()))
-          .build();
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("typeName", s.activity().getTypeName());
+      node.put("success", true);
+      node.set("arguments",
+          serializeMap(
+              ResponseSerializers::serializeArgument,
+              s.activity().getArguments()));
+      return node;
     } else if (response instanceof BulkEffectiveArgumentResponse.TypeFailure f) {
-      return Json.createObjectBuilder()
-          .add("typeName", f.ex().activityTypeId)
-          .add("success", JsonValue.FALSE)
-          .add("errors", "No such activity type")
-          .build();
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("typeName", f.ex().activityTypeId);
+      node.put("success", false);
+      node.put("errors", "No such activity type");
+      return node;
     } else if (response instanceof BulkEffectiveArgumentResponse.InstantiationFailure f) {
-      return Json.createObjectBuilder(serializeInstantiationException(f.ex()).asJsonObject())
-          .add("typeName", f.ex().containerName)
-          .build();
+      final var base = (ObjectNode) serializeInstantiationException(f.ex());
+      base.put("typeName", f.ex().containerName);
+      return base;
     }
-    return Json.createObjectBuilder()
-        .add("success", JsonValue.FALSE)
-        .add("errors", String.format("Internal error: %s", response))
-        .build();
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("success", false);
+    node.put("errors", String.format("Internal error: %s", response));
+    return node;
   }
 
-  public static JsonValue serializeBulkArgumentValidationResponse(BulkArgumentValidationResponse response) {
+  public static JsonNode serializeBulkArgumentValidationResponse(BulkArgumentValidationResponse response) {
     // TODO use pattern matching in switch statement with JDK 21
     if (response instanceof BulkArgumentValidationResponse.Success) {
-      return Json.createObjectBuilder()
-                 .add("success", JsonValue.TRUE)
-                 .build();
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("success", true);
+      return node;
     } else if (response instanceof BulkArgumentValidationResponse.Validation v) {
-      return Json.createObjectBuilder()
-                 .add("success", JsonValue.FALSE)
-                 .add("type", "VALIDATION_NOTICES")
-                 .add("errors", Json.createObjectBuilder()
-                     .add("validationNotices", serializeIterable(ResponseSerializers::serializeValidationNotice, v.notices()))
-                     .build())
-                 .build();
+      final var errors = JsonNodeFactory.instance.objectNode();
+      errors.set("validationNotices", serializeIterable(ResponseSerializers::serializeValidationNotice, v.notices()));
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("success", false);
+      node.put("type", "VALIDATION_NOTICES");
+      node.set("errors", errors);
+      return node;
     } else if (response instanceof BulkArgumentValidationResponse.NoSuchActivityError e) {
-      return Json.createObjectBuilder()
-                 .add("success", JsonValue.FALSE)
-                 .add("type", "NO_SUCH_ACTIVITY_TYPE")
-                 .add("errors", Json.createObjectBuilder()
-                     .add("noSuchActivityError", serializeNoSuchActivityTypeException(e.ex()))
-                     .build())
-                 .build();
+      final var errors = JsonNodeFactory.instance.objectNode();
+      errors.set("noSuchActivityError", serializeNoSuchActivityTypeException(e.ex()));
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("success", false);
+      node.put("type", "NO_SUCH_ACTIVITY_TYPE");
+      node.set("errors", errors);
+      return node;
     } else if (response instanceof BulkArgumentValidationResponse.InstantiationError f) {
-      return Json.createObjectBuilder(serializeInstantiationException(f.ex()).asJsonObject())
-          .add("type", "INSTANTIATION_ERRORS")
-          .build();
+      final var base = (ObjectNode) serializeInstantiationException(f.ex());
+      base.put("type", "INSTANTIATION_ERRORS");
+      return base;
     } else if (response instanceof BulkArgumentValidationResponse.NoSuchMissionModelError m) {
-      return Json.createObjectBuilder()
-                 .add("success", JsonValue.FALSE)
-                 .add("type", "NO_SUCH_MISSION_MODEL")
-                 .add("errors", Json.createObjectBuilder()
-                     .add("noSuchMissionModelError", serializeNoSuchMissionModelException(m.ex()))
-                     .build())
-                 .build();
+      final var errors = JsonNodeFactory.instance.objectNode();
+      errors.set("noSuchMissionModelError", serializeNoSuchMissionModelException(m.ex()));
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("success", false);
+      node.put("type", "NO_SUCH_MISSION_MODEL");
+      node.set("errors", errors);
+      return node;
     }
 
     // This should never happen, but we don't have exhaustive pattern matching
-    return Json.createObjectBuilder()
-               .add("success", JsonValue.FALSE)
-               .add("errors", String.format("Internal error: %s", response))
-               .build();
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("success", false);
+    node.put("errors", String.format("Internal error: %s", response));
+    return node;
   }
 
-  public static JsonValue serializeCreatedDatasetId(final long datasetId) {
-    return Json.createObjectBuilder()
-        .add("datasetId", datasetId)
-        .build();
+  public static JsonNode serializeCreatedDatasetId(final long datasetId) {
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("datasetId", datasetId);
+    return node;
   }
 
-  private static JsonValue serializeUnconstructableActivityFailure(final MissionModelService.ActivityInstantiationFailure reason) {
+  private static JsonNode serializeUnconstructableActivityFailure(final MissionModelService.ActivityInstantiationFailure reason) {
     // TODO use pattern-matching switch expression here when available with LTS
-    final var builder = Json.createObjectBuilder();
+    final var builder = JsonNodeFactory.instance.objectNode();
     if (reason instanceof final MissionModelService.ActivityInstantiationFailure.InstantiationFailure r) {
-      return builder.add("reason", serializeInstantiationException(r.ex())).build();
+      builder.set("reason", serializeInstantiationException(r.ex()));
+      return builder;
     }
     else if (reason instanceof final MissionModelService.ActivityInstantiationFailure.NoSuchActivityType r) {
-      return builder.add("reason", serializeNoSuchActivityTypeException(r.ex())).build();
+      builder.set("reason", serializeNoSuchActivityTypeException(r.ex()));
+      return builder;
     }
     throw new UnexpectedSubtypeError(MissionModelService.ActivityInstantiationFailure.class, reason);
   }
 
-  public static JsonValue serializeUnconstructableActivityFailures(final Map<ActivityDirectiveId, MissionModelService.ActivityInstantiationFailure> failures) {
+  public static JsonNode serializeUnconstructableActivityFailures(final Map<ActivityDirectiveId, MissionModelService.ActivityInstantiationFailure> failures) {
     if (failures.isEmpty()) {
-      return Json.createObjectBuilder()
-        .add("success", JsonValue.TRUE)
-        .build();
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("success", true);
+      return node;
     }
-    return Json.createObjectBuilder()
-        .add("success", JsonValue.FALSE)
-        .add("errors", serializeMap(
-           ResponseSerializers::serializeUnconstructableActivityFailure,
-               failures
-                   .entrySet()
-                   .stream()
-                   .collect(
-                       Collectors.toMap(e -> Long.toString(e.getKey().id()), Map.Entry::getValue))))
-        .build();
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("success", false);
+    node.set("errors", serializeMap(
+       ResponseSerializers::serializeUnconstructableActivityFailure,
+           failures
+               .entrySet()
+               .stream()
+               .collect(
+                   Collectors.toMap(e -> Long.toString(e.getKey().id()), Map.Entry::getValue))));
+    return node;
   }
 
-  public static JsonValue serializeResourceSamples(final Map<String, List<Pair<Duration, SerializedValue>>> resourceSamples) {
-    return Json
-        .createObjectBuilder()
-        .add("resourceSamples", serializeMap(
-            elements -> serializeIterable(ResponseSerializers::serializeSample, elements),
-            resourceSamples))
-        .build();
+  public static JsonNode serializeResourceSamples(final Map<String, List<Pair<Duration, SerializedValue>>> resourceSamples) {
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.set("resourceSamples", serializeMap(
+        elements -> serializeIterable(ResponseSerializers::serializeSample, elements),
+        resourceSamples));
+    return node;
   }
 
-  public static JsonValue serializeConstraintResults(final int requestId, final Map<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>> resultMap) {
+  public static JsonNode serializeConstraintResults(final int requestId, final Map<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>> resultMap) {
     var results = resultMap.entrySet().stream().map(entry -> {
 
       final var constraint = entry.getKey();
       final var fallible = entry.getValue();
 
       if (fallible.isFailure()) {
-        return Json.createObjectBuilder()
-                   .add("success", JsonValue.FALSE)
-                   .add("constraintId", constraint.constraintId())
-                   .add("constraintInvocationId", constraint.invocationId())
-                   .add("constraintName", constraint.name())
-                   .add("constraintRevision", constraint.revision())
-                   .add("errors", serializeConstraintErrors(fallible.getFailureOptional().orElse(List.of())))
-                   .add("results", JsonValue.EMPTY_JSON_OBJECT)
-                   .build();
+        final var node = JsonNodeFactory.instance.objectNode();
+        node.put("success", false);
+        node.put("constraintId", constraint.constraintId());
+        node.put("constraintInvocationId", constraint.invocationId());
+        node.put("constraintName", constraint.name());
+        node.put("constraintRevision", constraint.revision());
+        node.set("errors", serializeConstraintErrors(fallible.getFailureOptional().orElse(List.of())));
+        node.set("results", JsonNodeFactory.instance.objectNode());
+        return (JsonNode) node;
       }
 
       // The Constraint didn't fail, but somehow has no value.
       if (fallible.getOptional().isEmpty()) {
-        return Json.createObjectBuilder()
-                   .add("success", JsonValue.FALSE)
-                   .add("constraintId", constraint.constraintId())
-                   .add("constraintInvocationId", constraint.invocationId())
-                   .add("constraintName", constraint.name())
-                   .add("constraintRevision", constraint.revision())
-                   .add("errors", Json.createArrayBuilder().add(
-                       Json.createObjectBuilder()
-                           .add("message", "Internal error processing a constraint")
-                           .add("stack", "")
-                           .add("location", JsonValue.EMPTY_JSON_OBJECT)).build())
-                   .add("results", JsonValue.EMPTY_JSON_OBJECT)
-                   .build();
+        final var errorEntry = JsonNodeFactory.instance.objectNode();
+        errorEntry.put("message", "Internal error processing a constraint");
+        errorEntry.put("stack", "");
+        errorEntry.set("location", JsonNodeFactory.instance.objectNode());
+        final var errorsArray = JsonNodeFactory.instance.arrayNode();
+        errorsArray.add(errorEntry);
+        final var node = JsonNodeFactory.instance.objectNode();
+        node.put("success", false);
+        node.put("constraintId", constraint.constraintId());
+        node.put("constraintInvocationId", constraint.invocationId());
+        node.put("constraintName", constraint.name());
+        node.put("constraintRevision", constraint.revision());
+        node.set("errors", errorsArray);
+        node.set("results", JsonNodeFactory.instance.objectNode());
+        return (JsonNode) node;
       }
 
       // successful runs
       var constraintResult = (ConstraintResult) fallible.getOptional().get();
-      return Json.createObjectBuilder()
-                 .add("success", JsonValue.TRUE)
-                 .add("constraintId", constraint.constraintId())
-                 .add("constraintInvocationId", constraint.invocationId())
-                 .add("constraintName", constraint.name())
-                 .add("constraintRevision", constraint.revision())
-                 .add("errors", JsonValue.EMPTY_JSON_ARRAY)
-                 .add("results", constraintResult.toJSON())
-                 .build();
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("success", true);
+      node.put("constraintId", constraint.constraintId());
+      node.put("constraintInvocationId", constraint.invocationId());
+      node.put("constraintName", constraint.name());
+      node.put("constraintRevision", constraint.revision());
+      node.set("errors", JsonNodeFactory.instance.arrayNode());
+      node.set("results", constraintResult.toJSON());
+      return (JsonNode) node;
 
     }).toList();
 
-    final var resultsArrayBuilder = Json.createArrayBuilder();
-    results.forEach(resultsArrayBuilder::add);
+    final var resultsArray = JsonNodeFactory.instance.arrayNode();
+    results.forEach(resultsArray::add);
 
-    return Json.createObjectBuilder()
-               .add("success", JsonValue.TRUE)
-               .add("requestId", requestId)
-               .add("constraintsRun", resultsArrayBuilder)
-               .build();
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("success", true);
+    node.put("requestId", requestId);
+    node.set("constraintsRun", resultsArray);
+    return node;
   }
 
-  public static JsonValue serializeSimulationResultsResponse(final GetSimulationResultsAction.Response response) {
+  public static JsonNode serializeSimulationResultsResponse(final GetSimulationResultsAction.Response response) {
       return switch (response) {
-          case GetSimulationResultsAction.Response.Pending r -> Json
-                  .createObjectBuilder()
-                  .add("status", "pending")
-                  .add("simulationDatasetId", r.simulationDatasetId())
-                  .build();
-          case GetSimulationResultsAction.Response.Incomplete r -> Json
-                  .createObjectBuilder()
-                  .add("status", "incomplete")
-                  .add("simulationDatasetId", r.simulationDatasetId())
-                  .build();
-          case GetSimulationResultsAction.Response.Failed r -> Json
-                  .createObjectBuilder()
-                  .add("status", "failed")
-                  .add("simulationDatasetId", r.simulationDatasetId())
-                  .add("reason", MerlinParsers.simulationFailureP.unparse(r.reason()))
-                  .build();
-          case GetSimulationResultsAction.Response.Complete r -> Json
-                  .createObjectBuilder()
-                  .add("status", "complete")
-                  .add("simulationDatasetId", r.simulationDatasetId())
-                  .build();
+          case GetSimulationResultsAction.Response.Pending r -> {
+              final var node = JsonNodeFactory.instance.objectNode();
+              node.put("status", "pending");
+              node.put("simulationDatasetId", r.simulationDatasetId());
+              yield node;
+          }
+          case GetSimulationResultsAction.Response.Incomplete r -> {
+              final var node = JsonNodeFactory.instance.objectNode();
+              node.put("status", "incomplete");
+              node.put("simulationDatasetId", r.simulationDatasetId());
+              yield node;
+          }
+          case GetSimulationResultsAction.Response.Failed r -> {
+              final var node = JsonNodeFactory.instance.objectNode();
+              node.put("status", "failed");
+              node.put("simulationDatasetId", r.simulationDatasetId());
+              node.set("reason", MerlinParsers.simulationFailureP.unparse(r.reason()));
+              yield node;
+          }
+          case GetSimulationResultsAction.Response.Complete r -> {
+              final var node = JsonNodeFactory.instance.objectNode();
+              node.put("status", "complete");
+              node.put("simulationDatasetId", r.simulationDatasetId());
+              yield node;
+          }
           case null -> throw new IllegalArgumentException("simulation results action response was null");
       };
   }
 
-  public static JsonValue serializeDuration(final Duration timestamp) {
-    return Json.createValue(timestamp.in(Duration.MICROSECONDS));
+  public static JsonNode serializeDuration(final Duration timestamp) {
+    return LongNode.valueOf(timestamp.in(Duration.MICROSECONDS));
   }
 
-  public static JsonValue serializeFailures(final List<String> failures) {
+  public static JsonNode serializeFailures(final List<String> failures) {
     if (!failures.isEmpty()) {
-      return Json.createObjectBuilder()
-                 .add("success", JsonValue.FALSE)
-                 .add("errors", Json.createArrayBuilder(failures))
-                 .build();
+      final var failuresArray = JsonNodeFactory.instance.arrayNode();
+      for (final var f : failures) failuresArray.add(f);
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("success", false);
+      node.set("errors", failuresArray);
+      return node;
     } else {
-      return Json.createObjectBuilder()
-                 .add("success", JsonValue.TRUE)
-                 .build();
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("success", true);
+      return node;
     }
   }
 
-  public static JsonValue serializeValidationNotices(final List<ValidationNotice> notices) {
+  public static JsonNode serializeValidationNotices(final List<ValidationNotice> notices) {
     if (!notices.isEmpty()) {
-      return Json.createObjectBuilder()
-          .add("success", JsonValue.FALSE)
-          .add("errors", serializeIterable(ResponseSerializers::serializeValidationNotice, notices))
-          .build();
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("success", false);
+      node.set("errors", serializeIterable(ResponseSerializers::serializeValidationNotice, notices));
+      return node;
     } else {
-      return Json.createObjectBuilder()
-          .add("success", JsonValue.TRUE)
-          .build();
-}
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("success", true);
+      return node;
+    }
   }
 
-  private static JsonValue serializeValidationNotice(final ValidationNotice notice) {
-    return Json.createObjectBuilder()
-        .add("subjects", serializeStringList(notice.subjects()))
-        .add("message", notice.message())
-        .build();
+  private static JsonNode serializeValidationNotice(final ValidationNotice notice) {
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.set("subjects", serializeStringList(notice.subjects()));
+    node.put("message", notice.message());
+    return node;
   }
 
-  public static JsonValue serializeInstantiationException(final InstantiationException ex) {
-    return Json.createObjectBuilder()
-        .add("success", JsonValue.FALSE)
-        .add("errors", Json.createObjectBuilder()
-            .add("extraneousArguments", serializeStringList(ex.extraneousArguments.stream().map(a -> a.parameterName()).toList()))
-            .add("unconstructableArguments", serializeIterable(ResponseSerializers::serializeUnconstructableArgument, ex.unconstructableArguments))
-            .add("missingArguments", serializeStringList(ex.missingArguments.stream().map(a -> a.parameterName()).toList()))
-            .build())
-        .add("arguments", serializeMap(ResponseSerializers::serializeArgument, ex.validArguments.stream().collect(Collectors.toMap(
-             InstantiationException.ValidArgument::parameterName,
-             InstantiationException.ValidArgument::serializedValue))))
-        .build();
+  public static JsonNode serializeInstantiationException(final InstantiationException ex) {
+    final var errors = JsonNodeFactory.instance.objectNode();
+    errors.set("extraneousArguments", serializeStringList(ex.extraneousArguments.stream().map(a -> a.parameterName()).toList()));
+    errors.set("unconstructableArguments", serializeIterable(ResponseSerializers::serializeUnconstructableArgument, ex.unconstructableArguments));
+    errors.set("missingArguments", serializeStringList(ex.missingArguments.stream().map(a -> a.parameterName()).toList()));
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("success", false);
+    node.set("errors", errors);
+    node.set("arguments", serializeMap(ResponseSerializers::serializeArgument, ex.validArguments.stream().collect(Collectors.toMap(
+         InstantiationException.ValidArgument::parameterName,
+         InstantiationException.ValidArgument::serializedValue))));
+    return node;
   }
 
-  private static JsonValue serializeUnconstructableArgument(
+  private static JsonNode serializeUnconstructableArgument(
       final InstantiationException.UnconstructableArgument argument)
   {
-    return Json.createObjectBuilder()
-       .add("name", argument.parameterName())
-       .add("failure", argument.failure())
-       .build();
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("name", argument.parameterName());
+    node.put("failure", argument.failure());
+    return node;
   }
 
-  public static JsonValue serializeJsonParsingException(final JsonParsingException ex) {
+  public static JsonNode serializeJsonParsingException(final JsonProcessingException ex) {
     // TODO: Improve diagnostic information
-    return Json.createObjectBuilder()
-        .add("message", "invalid json")
-        .build();
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("message", "invalid json");
+    return node;
   }
 
-  public static JsonValue serializeInvalidJsonException(final InvalidJsonException ex) {
-    return Json.createObjectBuilder()
-               .add("kind", "invalid-entity")
-               .add("message", "invalid json")
-               .build();
+  public static JsonNode serializeInvalidJsonException(final InvalidJsonException ex) {
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("kind", "invalid-entity");
+    node.put("message", "invalid json");
+    return node;
   }
 
-  public static JsonValue serializeConstraintErrors(final List<? extends Exception> errors) {
-    final var failureArrayBuilder = Json.createArrayBuilder();
+  public static JsonNode serializeConstraintErrors(final List<? extends Exception> errors) {
+    final var failureArray = JsonNodeFactory.instance.arrayNode();
     for (final var e : errors) {
-      final JsonObjectBuilder errorBuilder = Json.createObjectBuilder();
+      final var errorNode = JsonNodeFactory.instance.objectNode();
       // failure was a compilation error
       if (e instanceof ConstraintsCompilationError compilationError) {
-        errorBuilder.add("stack", compilationError.getStack())
-                    .add("message", compilationError.getMessage())
-                    .add("location", Json.createObjectBuilder()
-                                         .add("line", compilationError.getLocation().line())
-                                         .add("column", compilationError.getLocation().column()));
+        final var locationNode = JsonNodeFactory.instance.objectNode();
+        locationNode.put("line", compilationError.getLocation().line());
+        locationNode.put("column", compilationError.getLocation().column());
+        errorNode.put("stack", compilationError.getStack());
+        errorNode.put("message", compilationError.getMessage());
+        errorNode.set("location", locationNode);
       }
       // failure was a captured runtime exception
       else {
-        errorBuilder.add("message", e.getMessage())
-                    .add("stack", Arrays.toString(e.getStackTrace()))
-                    .add("location", JsonValue.EMPTY_JSON_OBJECT);
+        errorNode.put("message", e.getMessage());
+        errorNode.put("stack", Arrays.toString(e.getStackTrace()));
+        errorNode.set("location", JsonNodeFactory.instance.objectNode());
       }
-      failureArrayBuilder.add(errorBuilder);
+      failureArray.add(errorNode);
     }
-    return failureArrayBuilder.build();
+    return failureArray;
   }
 
-  public static JsonValue serializeInvalidEntityException(final InvalidEntityException ex) {
-    return Json.createObjectBuilder()
-               .add("kind", "invalid-entity")
-               .add("failures", serializeIterable(ResponseSerializers::serializeFailureReason, ex.failures))
-               .build();
+  public static JsonNode serializeInvalidEntityException(final InvalidEntityException ex) {
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("kind", "invalid-entity");
+    node.set("failures", serializeIterable(ResponseSerializers::serializeFailureReason, ex.failures));
+    return node;
   }
 
-  public static JsonValue serializeMissionModelLoadException(
+  public static JsonNode serializeMissionModelLoadException(
       final LocalMissionModelService.MissionModelLoadException ex)
   {
     // TODO: Improve diagnostic information?
-    return Json.createObjectBuilder()
-               .add("message", ex.getMessage())
-               .add("type", "Mission Model Load Failure")
-               .build();
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("message", ex.getMessage());
+    node.put("type", "Mission Model Load Failure");
+    return node;
   }
 
-  public static JsonValue serializeMissionModelAccessException(final MissionModelAccessException ex) {
+  public static JsonNode serializeMissionModelAccessException(final MissionModelAccessException ex) {
     // TODO: Improve diagnostic information?
-    return Json.createObjectBuilder()
-               .add("message", ex.getMessage())
-               .build();
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("message", ex.getMessage());
+    return node;
   }
 
-  public static JsonValue serializeFailureReason(final FailureReason failure) {
-    return Json.createObjectBuilder()
-               .add("breadcrumbs", serializeIterable(ResponseSerializers::serializeParseFailureBreadcrumb, failure.breadcrumbs()))
-               .add("message", failure.reason())
-               .build();
+  public static JsonNode serializeFailureReason(final FailureReason failure) {
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.set("breadcrumbs", serializeIterable(ResponseSerializers::serializeParseFailureBreadcrumb, failure.breadcrumbs()));
+    node.put("message", failure.reason());
+    return node;
   }
 
-  public static JsonValue serializeParseFailureBreadcrumb(final gov.nasa.jpl.aerie.json.Breadcrumb breadcrumb) {
+  public static JsonNode serializeParseFailureBreadcrumb(final gov.nasa.jpl.aerie.json.Breadcrumb breadcrumb) {
     return breadcrumb.visit(new gov.nasa.jpl.aerie.json.Breadcrumb.BreadcrumbVisitor<>() {
       @Override
-      public JsonValue onString(final String s) {
-        return Json.createValue(s);
+      public JsonNode onString(final String s) {
+        return TextNode.valueOf(s);
       }
 
       @Override
-      public JsonValue onInteger(final Integer i) {
-        return Json.createValue(i);
+      public JsonNode onInteger(final Integer i) {
+        return com.fasterxml.jackson.databind.node.IntNode.valueOf(i);
       }
     });
   }
 
-  public static JsonValue serializeNoSuchPlanException(final NoSuchPlanException ex) {
-    return Json.createObjectBuilder()
-        .add("message", "no such plan")
-        .add("plan_id", ex.id.id())
-        .build();
+  public static JsonNode serializeNoSuchPlanException(final NoSuchPlanException ex) {
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("message", "no such plan");
+    node.put("plan_id", ex.id.id());
+    return node;
   }
 
-  public static JsonValue serializeNoSuchPlanDatasetException(final NoSuchPlanDatasetException ex) {
-    return Json.createObjectBuilder()
-               .add("message", "no such plan dataset")
-               .add("plan_id", ex.id.id())
-               .build();
+  public static JsonNode serializeNoSuchPlanDatasetException(final NoSuchPlanDatasetException ex) {
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("message", "no such plan dataset");
+    node.put("plan_id", ex.id.id());
+    return node;
   }
 
-  public static JsonValue serializeNoSuchMissionModelException(final MissionModelService.NoSuchMissionModelException ex) {
-    return Json.createObjectBuilder()
-        .add("message", "no such mission model")
-        .add("mission_model_id", ex.missionModelId.id())
-        .build();
+  public static JsonNode serializeNoSuchMissionModelException(final MissionModelService.NoSuchMissionModelException ex) {
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("message", "no such mission model");
+    node.put("mission_model_id", ex.missionModelId.id());
+    return node;
   }
 
-  public static JsonValue serializeNoSuchActivityTypeException(final MissionModelService.NoSuchActivityTypeException ex) {
-    return Json.createObjectBuilder()
-        .add("message", "no such activity type")
-        .add("activity_type", ex.activityTypeId)
-        .build();
+  public static JsonNode serializeNoSuchActivityTypeException(final MissionModelService.NoSuchActivityTypeException ex) {
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("message", "no such activity type");
+    node.put("activity_type", ex.activityTypeId);
+    return node;
   }
 
-  public static JsonValue serializeInputMismatchException(final InputMismatchException ex) {
-    return Json.createObjectBuilder()
-               .add("message", "input mismatch exception")
-               .add("extensions", serializeCauseAsExtension(ex.getMessage()))
-               .build();
+  public static JsonNode serializeInputMismatchException(final InputMismatchException ex) {
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("message", "input mismatch exception");
+    node.set("extensions", serializeCauseAsExtension(ex.getMessage()));
+    return node;
   }
 
-  public static JsonValue serializeSimulationDatasetMismatchException(final SimulationDatasetMismatchException ex){
-     return Json.createObjectBuilder()
-               .add("message", "simulation dataset mismatch exception")
-               .add("extensions", serializeCauseAsExtension(ex.getMessage()))
-               .build();
+  public static JsonNode serializeSimulationDatasetMismatchException(final SimulationDatasetMismatchException ex){
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("message", "simulation dataset mismatch exception");
+    node.set("extensions", serializeCauseAsExtension(ex.getMessage()));
+    return node;
   }
 
   /**
@@ -563,9 +580,11 @@ public final class ResponseSerializers {
    * <a href="https://hasura.io/docs/2.0/actions/action-handlers/#returning-an-error-response">Reference</a>
    *
    * @param message
-   * @return An object builder that sets "cause" to the message.
+   * @return An ObjectNode that sets "cause" to the message.
    */
-  public static JsonObjectBuilder serializeCauseAsExtension(String message) {
-    return Json.createObjectBuilder().add("cause", message);
+  public static ObjectNode serializeCauseAsExtension(String message) {
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("cause", message);
+    return node;
   }
 }

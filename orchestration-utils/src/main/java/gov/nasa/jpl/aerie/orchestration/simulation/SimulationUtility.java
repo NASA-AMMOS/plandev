@@ -15,8 +15,8 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.types.Plan;
 
-import javax.json.Json;
-import javax.json.JsonObject;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.file.Path;
@@ -156,24 +156,24 @@ public class SimulationUtility implements AutoCloseable {
   /**
    * Format a SimulationException into a JSON object.
    */
-  public static JsonObject formatSimulationException(SimulationException ex) {
-     final var dataBuilder = Json.createObjectBuilder()
-                                 .add("elapsedTime", SimulationException.formatDuration(ex.elapsedTime))
-                                 .add("utcTimeDoy", SimulationException.formatInstant(ex.instant));
-      ex.directiveId.ifPresent(directiveId -> dataBuilder.add("executingDirectiveId", directiveId.id()));
-      ex.activityType.ifPresent(activityType -> dataBuilder.add("executingActivityType", activityType));
-      ex.activityStackTrace.ifPresent(activityStackTrace -> dataBuilder.add("activityStackTrace", activityStackTrace));
+  public static ObjectNode formatSimulationException(SimulationException ex) {
+     final var dataNode = JsonNodeFactory.instance.objectNode();
+     dataNode.put("elapsedTime", SimulationException.formatDuration(ex.elapsedTime));
+     dataNode.put("utcTimeDoy", SimulationException.formatInstant(ex.instant));
+     ex.directiveId.ifPresent(directiveId -> dataNode.put("executingDirectiveId", directiveId.id()));
+     ex.activityType.ifPresent(activityType -> dataNode.put("executingActivityType", activityType));
+     ex.activityStackTrace.ifPresent(activityStackTrace -> dataNode.put("activityStackTrace", activityStackTrace));
 
       final var sw = new StringWriter();
       ex.cause.printStackTrace(new PrintWriter(sw, true));
       final var stackTrace = sw.toString();
 
-      return Json.createObjectBuilder()
-                 .add("type", "SIMULATION_EXCEPTION")
-                 .add("message", ex.cause.getMessage())
-                 .add("data", dataBuilder)
-                 .add("trace", stackTrace)
-                 .build();
+      final var resultNode = JsonNodeFactory.instance.objectNode();
+      resultNode.put("type", "SIMULATION_EXCEPTION");
+      resultNode.put("message", ex.cause.getMessage());
+      resultNode.set("data", dataNode);
+      resultNode.put("trace", stackTrace);
+      return resultNode;
   }
 
   @Override

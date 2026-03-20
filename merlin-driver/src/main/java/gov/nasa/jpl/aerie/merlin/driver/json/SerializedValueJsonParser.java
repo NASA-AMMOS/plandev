@@ -1,16 +1,18 @@
 package gov.nasa.jpl.aerie.merlin.driver.json;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.BooleanNode;
+import com.fasterxml.jackson.databind.node.DecimalNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import gov.nasa.jpl.aerie.json.JsonParseResult;
 import gov.nasa.jpl.aerie.json.JsonParser;
 import gov.nasa.jpl.aerie.json.SchemaCache;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 
-import javax.json.Json;
-import javax.json.JsonArray;
-import javax.json.JsonNumber;
-import javax.json.JsonObject;
-import javax.json.JsonString;
-import javax.json.JsonValue;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -21,74 +23,78 @@ public final class SerializedValueJsonParser implements JsonParser<SerializedVal
   public static final JsonParser<SerializedValue> serializedValueP = new SerializedValueJsonParser();
 
   @Override
-  public JsonObject getSchema(final SchemaCache anchors) {
-    return Json.createObjectBuilder().add("type", "any").build();
+  public ObjectNode getSchema(final SchemaCache anchors) {
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("type", "any");
+    return node;
   }
 
   @Override
-  public JsonParseResult<SerializedValue> parse(final JsonValue json) {
+  public JsonParseResult<SerializedValue> parse(final JsonNode json) {
     return JsonParseResult.success(this.parseInfallible(json));
   }
 
-  private SerializedValue parseInfallible(final JsonValue value) {
-    return switch (value.getValueType()) {
-      case NULL -> SerializedValue.NULL;
-      case TRUE -> SerializedValue.of(true);
-      case FALSE -> SerializedValue.of(false);
-      case STRING -> SerializedValue.of(((JsonString) value).getString());
-      case NUMBER -> SerializedValue.of(((JsonNumber) value).bigDecimalValue());
-      case ARRAY -> {
-        final var arr = (JsonArray) value;
-        final var list = new ArrayList<SerializedValue>(arr.size());
-        for (final var element : arr) list.add(this.parseInfallible(element));
-        yield SerializedValue.of(list);
+  private SerializedValue parseInfallible(final JsonNode node) {
+    if (node.isNull()) {
+      return SerializedValue.NULL;
+    } else if (node.isBoolean()) {
+      return SerializedValue.of(node.booleanValue());
+    } else if (node.isTextual()) {
+      return SerializedValue.of(node.textValue());
+    } else if (node.isNumber()) {
+      return SerializedValue.of(node.decimalValue());
+    } else if (node.isArray()) {
+      final var list = new ArrayList<SerializedValue>(node.size());
+      for (final var element : node) list.add(this.parseInfallible(element));
+      return SerializedValue.of(list);
+    } else if (node.isObject()) {
+      final var map = new HashMap<String, SerializedValue>(node.size());
+      final var fields = node.fields();
+      while (fields.hasNext()) {
+        final var entry = fields.next();
+        map.put(entry.getKey(), this.parseInfallible(entry.getValue()));
       }
-      case OBJECT -> {
-        final var obj = (JsonObject) value;
-        final var map = new HashMap<String, SerializedValue>(obj.size());
-        for (final var entry : obj.entrySet()) map.put(entry.getKey(), this.parseInfallible(entry.getValue()));
-        yield SerializedValue.of(map);
-      }
-    };
+      return SerializedValue.of(map);
+    } else {
+      throw new IllegalArgumentException("Unknown JsonNode type: " + node.getNodeType());
+    }
   }
 
   @Override
-  public JsonValue unparse(final SerializedValue value) {
+  public JsonNode unparse(final SerializedValue value) {
     return value.match(new SerializedValue.Visitor<>() {
       @Override
-      public JsonValue onNull() {
-        return JsonValue.NULL;
+      public JsonNode onNull() {
+        return NullNode.getInstance();
       }
 
       @Override
-      public JsonValue onBoolean(final boolean value) {
-        return (value) ? JsonValue.TRUE : JsonValue.FALSE;
+      public JsonNode onBoolean(final boolean value) {
+        return BooleanNode.valueOf(value);
       }
 
       @Override
-      public JsonValue onNumeric(final BigDecimal value) {
-        return Json.createValue(value);
+      public JsonNode onNumeric(final BigDecimal value) {
+        return DecimalNode.valueOf(value);
       }
 
       @Override
-      public JsonValue onString(final String value) {
-        return Json.createValue(value);
+      public JsonNode onString(final String value) {
+        return TextNode.valueOf(value);
       }
 
       @Override
-      public JsonValue onList(final List<SerializedValue> elements) {
-        final var builder = Json.createArrayBuilder();
-        for (final var element : elements) builder.add(element.match(this));
-
-        return builder.build();
+      public JsonNode onList(final List<SerializedValue> elements) {
+        final var arr = JsonNodeFactory.instance.arrayNode(elements.size());
+        for (final var element : elements) arr.add(element.match(this));
+        return arr;
       }
 
       @Override
-      public JsonValue onMap(final Map<String, SerializedValue> fields) {
-        final var builder = Json.createObjectBuilder();
-        for (final var entry : fields.entrySet()) builder.add(entry.getKey(), entry.getValue().match(this));
-
-        return builder.build();
+      public JsonNode onMap(final Map<String, SerializedValue> fields) {
+        final var obj = JsonNodeFactory.instance.objectNode();
+        for (final var entry : fields.entrySet()) obj.set(entry.getKey(), entry.getValue().match(this));
+        return obj;
       }
     });
   }

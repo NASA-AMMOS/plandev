@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import gov.nasa.jpl.aerie.merlin.driver.engine.EventRecord;
 import gov.nasa.jpl.aerie.merlin.driver.timeline.EventGraph;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
@@ -7,8 +8,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import org.apache.commons.lang3.tuple.Pair;
 import org.intellij.lang.annotations.Language;
 
-import javax.json.Json;
-import java.io.StringReader;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -37,6 +37,8 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
         where
           e.dataset_id = ?
       """;
+
+  private static final ObjectMapper objectMapper = new ObjectMapper();
 
   private final PreparedStatement statement;
 
@@ -96,15 +98,14 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
   }
 
   private static SerializedValue parseSerializedValue(final String value) {
-    final SerializedValue serializedValue;
-    try (
-        final var serializedValueReader = Json.createReader(new StringReader(value))
-    ) {
-      serializedValue = serializedValueP
-          .parse(serializedValueReader.readValue())
+    try {
+      final var jsonNode = objectMapper.readTree(value);
+      return serializedValueP
+          .parse(jsonNode)
           .getSuccessOrThrow();
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to parse serialized value JSON", e);
     }
-    return serializedValue;
   }
 
   @Override

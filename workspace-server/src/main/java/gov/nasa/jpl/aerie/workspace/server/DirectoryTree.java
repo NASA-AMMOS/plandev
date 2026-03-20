@@ -1,10 +1,10 @@
 package gov.nasa.jpl.aerie.workspace.server;
 
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import gov.nasa.jpl.aerie.workspace.server.postgres.RenderType;
 
-import javax.json.Json;
-import javax.json.JsonArray;
-import javax.json.JsonObjectBuilder;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -55,10 +55,11 @@ public class DirectoryTree {
       this.name = path.getFileName().toString();
     }
 
-    JsonObjectBuilder toJsonBuilder() {
-      return Json.createObjectBuilder()
-                 .add("name", name)
-                 .add("type", renderType.name());
+    ObjectNode toJsonNode() {
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("name", name);
+      node.put("type", renderType.name());
+      return node;
     }
   }
 
@@ -91,22 +92,23 @@ public class DirectoryTree {
     }
 
     @Override
-    JsonObjectBuilder toJsonBuilder() {
-      final var contentsArray = Json.createArrayBuilder();
-      children.forEach((key, child) -> contentsArray.add(child.toJsonBuilder()));
-      return Json.createObjectBuilder()
-                 .add("name", name)
-                 .add("type", renderType.name())
-                 .add("contents", contentsArray);
+    ObjectNode toJsonNode() {
+      final var contentsArray = JsonNodeFactory.instance.arrayNode();
+      children.forEach((key, child) -> contentsArray.add(child.toJsonNode()));
+      final var node = JsonNodeFactory.instance.objectNode();
+      node.put("name", name);
+      node.put("type", renderType.name());
+      node.set("contents", contentsArray);
+      return node;
     }
   }
 
   /**
-   * Build a JsonArray representing the contents of this DirectoryTree
+   * Build an ArrayNode representing the contents of this DirectoryTree
    */
-  public JsonArray toJson() {
-    final var contentsArray = Json.createArrayBuilder();
-    root.children.forEach((key, child) -> contentsArray.add(child.toJsonBuilder()));
-    return contentsArray.build();
+  public ArrayNode toJson() {
+    final var contentsArray = JsonNodeFactory.instance.arrayNode();
+    root.children.forEach((key, child) -> contentsArray.add(child.toJsonNode()));
+    return contentsArray;
   }
 }

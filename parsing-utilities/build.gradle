@@ -25,7 +25,7 @@ jacocoTestReport {
 }
 
 dependencies {
-  api 'org.glassfish:javax.json:1.1.4'
+  api 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
   api 'org.apache.commons:commons-lang3:3.13.0'
 
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:6.0.1'

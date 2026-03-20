@@ -1,7 +1,8 @@
 package gov.nasa.jpl.aerie.e2e.types;
 
-import javax.json.JsonObject;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.List;
+import java.util.stream.StreamSupport;
 public record Topic(
     String name,
     ValueSchema schema,
@@ -12,24 +13,24 @@ public record Topic(
       int transactionIndex,
       String causalTime,
       String realTime,
-      JsonObject value
+      ObjectNode value
   ) {
-    public static Event fromJSON(JsonObject json){
+    public static Event fromJSON(ObjectNode json){
       return new Event(
-          json.getInt("topic_index"),
-          json.getInt("transaction_index"),
-          json.getString("causal_time"),
-          json.getString("real_time"),
-          json.getJsonObject("value")
+          json.get("topic_index").intValue(),
+          json.get("transaction_index").intValue(),
+          json.get("causal_time").textValue(),
+          json.get("real_time").textValue(),
+          json.get("value")
       );
     }
   }
 
-  public static Topic fromJSON(JsonObject json){
-    final var schema = ValueSchema.fromJSON(json.getJsonObject("value_schema"));
-    final var events = json.getJsonArray("events").getValuesAs(Event::fromJSON);
+  public static Topic fromJSON(ObjectNode json){
+    final var schema = ValueSchema.fromJSON(json.get("value_schema"));
+    final var events = StreamSupport.stream(json.get("events").spliterator(), false).map(e -> Event.fromJSON((ObjectNode) e)).toList();
     return new Topic(
-        json.getString("name"),
+        json.get("name").textValue(),
         schema,
         events
     );

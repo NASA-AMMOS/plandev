@@ -1,25 +1,24 @@
 package gov.nasa.jpl.aerie.e2e.types;
 
-import javax.json.Json;
-import javax.json.JsonObject;
-import javax.json.JsonValue;
-
-public record ProfileSegment(String startOffset, boolean isGap, JsonValue dynamics) {
-  public static ProfileSegment fromJSON(JsonObject json) {
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+public record ProfileSegment(String startOffset, boolean isGap, JsonNode dynamics) {
+  public static ProfileSegment fromJSON(ObjectNode json) {
     return new ProfileSegment(
-        json.getString("start_offset"),
-        json.getBoolean("is_gap"),
+        json.get("start_offset").textValue(),
+        json.get("is_gap").booleanValue(),
         json.get("dynamics")
     );
   }
 
-  public JsonObject toJSON(final int datasetId, final int profileId) {
-    return Json.createObjectBuilder()
-               .add("dataset_id", datasetId)
-               .add("profile_id", profileId)
-               .add("start_offset", startOffset)
-               .add("is_gap", isGap)
-               .add("dynamics", dynamics)
-               .build();
+  public ObjectNode toJSON(final int datasetId, final int profileId) {
+    return JsonNodeFactory.instance.objectNode()
+               .put("dataset_id", datasetId)
+               .put("profile_id", profileId)
+               .put("start_offset", startOffset)
+               .put("is_gap", isGap)
+               .set("dynamics", dynamics)
+               ;
   }
 }

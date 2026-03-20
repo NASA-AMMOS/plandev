@@ -1,10 +1,10 @@
 package gov.nasa.jpl.aerie.e2e.types.workspaces;
 
-
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.microsoft.playwright.options.FilePayload;
 
-import javax.json.Json;
-import javax.json.JsonObject;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -14,7 +14,7 @@ import java.util.Optional;
  * If testing malformed inputs, generate the request in the test itself.
  */
 public sealed interface BulkPutItem {
-  JsonObject toJson();
+  ObjectNode toJson();
   Path getPath();
 
   /**
@@ -60,15 +60,15 @@ public sealed interface BulkPutItem {
       );
     }
 
-    public JsonObject toJson() {
-      final var obj = Json.createObjectBuilder()
-                          .add("path", filePath.toString())
-                          .add("type", "file");
+    public ObjectNode toJson() {
+      final var obj = JsonNodeFactory.instance.objectNode()
+                          .set("path", filePath.toString())
+                          .put("type", "file");
 
-      inputFileName.ifPresent(i -> obj.add("input_file_name", i));
-      overwrite.ifPresent(o -> obj.add("overwrite", o));
+      inputFileName.ifPresent(i -> obj.set("input_file_name", i));
+      overwrite.ifPresent(o -> obj.set("overwrite", o));
 
-      return obj.build();
+      return obj;
     }
 
     public Path getPath() {return filePath;}
@@ -88,17 +88,17 @@ public sealed interface BulkPutItem {
       this(Path.of(dirPath), false);
     }
 
-    public JsonObject toJson() {
-      final var obj = Json.createObjectBuilder()
-                          .add("path", dirPath.toString());
+    public ObjectNode toJson() {
+      final var obj = JsonNodeFactory.instance.objectNode()
+                          .set("path", dirPath.toString());
 
       if(useFolder) {
-        obj.add("type", "folder");
+        obj.put("type", "folder");
       } else {
-        obj.add("type", "directory");
+        obj.put("type", "directory");
       }
 
-      return obj.build();
+      return obj;
     }
 
     public Path getPath() {return dirPath;}

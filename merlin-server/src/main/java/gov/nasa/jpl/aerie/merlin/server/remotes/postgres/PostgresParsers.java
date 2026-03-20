@@ -1,5 +1,8 @@
 package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import gov.nasa.jpl.aerie.json.JsonParseResult;
 import gov.nasa.jpl.aerie.json.JsonParser;
 import gov.nasa.jpl.aerie.json.SchemaCache;
@@ -12,9 +15,7 @@ import gov.nasa.jpl.aerie.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 import org.postgresql.util.PGInterval;
 
-import javax.json.Json;
-import javax.json.JsonObject;
-import javax.json.JsonValue;
+import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -33,6 +34,8 @@ import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueS
 
 public final class PostgresParsers {
 
+  private static final ObjectMapper objectMapper = new ObjectMapper();
+
   public static final JsonParser<Timestamp> pgTimestampP = new JsonParser<>() {
     private static final DateTimeFormatter format =
         new DateTimeFormatterBuilder()
@@ -41,15 +44,14 @@ public final class PostgresParsers {
             .toFormatter();
 
     @Override
-    public JsonObject getSchema(final SchemaCache anchors) {
-      return Json
-          .createObjectBuilder(stringP.getSchema())
-          .add("format", "date-time")
-          .build();
+    public ObjectNode getSchema(final SchemaCache anchors) {
+      final var schema = stringP.getSchema(anchors);
+      schema.put("format", "date-time");
+      return schema;
     }
 
     @Override
-    public JsonParseResult<Timestamp> parse(final JsonValue json) {
+    public JsonParseResult<Timestamp> parse(final JsonNode json) {
       final var result = stringP.parse(json);
       if (result instanceof final JsonParseResult.Success<String> s) {
         try {
@@ -66,7 +68,7 @@ public final class PostgresParsers {
     }
 
     @Override
-    public JsonValue unparse(final Timestamp value) {
+    public JsonNode unparse(final Timestamp value) {
       final var s = format.format(value.toInstant().atZone(ZoneOffset.UTC));
       return stringP.unparse(s);
     }
@@ -137,8 +139,11 @@ public final class PostgresParsers {
 
   public static <V> JsonParseResult<V>
   getJsonColumn(final ResultSet results, final String column, final JsonParser<V> parser) throws SQLException {
-    try (final var reader = Json.createReader(results.getCharacterStream(column))) {
-      return parser.parse(reader.readValue());
+    try {
+      final var jsonNode = objectMapper.readTree(results.getCharacterStream(column));
+      return parser.parse(jsonNode);
+    } catch (IOException e) {
+      throw new SQLException("Failed to parse JSON column: " + column, e);
     }
   }
 }

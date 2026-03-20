@@ -85,11 +85,12 @@ public final class RecordValueMapper<R extends Record> implements ValueMapper<R>
 
   @Override
   public SerializedValue serializeValue(final R value) {
-    final var map = new HashMap<String, SerializedValue>();
+    final var map = new HashMap<String, SerializedValue>(components.size());
     for (final var component : components) {
         map.put(component.name, serializeHelper(value, component));
     }
-    return SerializedValue.of(map);
+    // Use ofTrusted since the map was just created and won't be modified after this.
+    return SerializedValue.ofTrusted(map);
   }
 
   private <T> SerializedValue serializeHelper(final R value, final Component<R, T> component) {

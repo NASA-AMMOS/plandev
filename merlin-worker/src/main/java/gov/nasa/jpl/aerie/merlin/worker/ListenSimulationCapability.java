@@ -8,9 +8,9 @@ import org.postgresql.PGConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.json.Json;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import javax.sql.DataSource;
-import java.io.StringReader;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.concurrent.BlockingQueue;
 
@@ -18,6 +18,7 @@ import static gov.nasa.jpl.aerie.merlin.worker.postgres.PostgresNotificationJson
 
 public class ListenSimulationCapability {
   private static final Logger logger = LoggerFactory.getLogger(ListenSimulationCapability.class);
+  private static final ObjectMapper objectMapper = new ObjectMapper();
 
   private final DataSource dataSource;
   private final BlockingQueue<PostgresSimulationNotificationPayload> notificationQueue;
@@ -52,8 +53,8 @@ public class ListenSimulationCapability {
               if (channelName.equals("simulation_cancel")) {
                 canceledListener.receiveSignal(new DatasetId(Long.parseLong(payload)));
               } else {
-                try (final var reader = Json.createReader(new StringReader(payload))) {
-                  final var jsonValue = reader.readValue();
+                try {
+                  final var jsonValue = objectMapper.readTree(payload);
                   final var notificationPayload = postgresSimulationNotificationP
                       .parse(jsonValue)
                       .getSuccessOrThrow();
@@ -64,6 +65,8 @@ public class ListenSimulationCapability {
                     logger.info("Listener has been interrupted");
                     return;
                   }
+                } catch (IOException e) {
+                  throw new RuntimeException("Failed to parse notification payload as JSON", e);
                 }
               }
             }

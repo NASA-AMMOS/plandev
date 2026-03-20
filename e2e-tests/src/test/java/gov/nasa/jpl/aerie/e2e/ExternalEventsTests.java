@@ -1,5 +1,8 @@
 package gov.nasa.jpl.aerie.e2e;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.microsoft.playwright.Playwright;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
@@ -9,9 +12,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import javax.json.Json;
-import javax.json.JsonObject;
-import javax.json.JsonObjectBuilder;
 import java.io.IOException;
 
 import static java.lang.System.exit;
@@ -79,10 +79,10 @@ public class ExternalEventsTests {
         }
         """;
 
-    final JsonObject schema = Json.createObjectBuilder()
-        .add("event_types", event_types)
-        .add("source_types", source_types)
-        .build();
+    final ObjectNode schema = JsonNodeFactory.instance.objectNode()
+        .put("event_types", event_types)
+        .put("source_types", source_types)
+        ;
 
     try (final var gateway = new GatewayRequests(playwright)) {
       gateway.uploadExternalSourceEventTypes(schema);
@@ -118,7 +118,6 @@ public class ExternalEventsTests {
       gateway.uploadExternalSource("correct_source_and_event_attributes.json", "TestDerivationGroup");
     }
   }
-
 
   // test that a source fails missing an attribute
   @Test

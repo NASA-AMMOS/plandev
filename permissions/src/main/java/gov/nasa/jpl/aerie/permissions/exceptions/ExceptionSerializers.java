@@ -1,40 +1,43 @@
 package gov.nasa.jpl.aerie.permissions.exceptions;
 
-import javax.json.Json;
-import javax.json.JsonValue;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+
 import java.io.IOException;
 
 
 public class ExceptionSerializers {
-  public static JsonValue serializeNoSuchPlanException(final NoSuchPlanException ex) {
-    return Json.createObjectBuilder()
-               .add("message", "no such plan")
-               .add("plan_id", ex.id.id())
-               .build();
+  public static JsonNode serializeNoSuchPlanException(final NoSuchPlanException ex) {
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("message", "no such plan");
+    node.put("plan_id", ex.id.id());
+    return node;
   }
 
-  public static JsonValue serializeNoSuchSchedulingSpecificationException(final NoSuchSchedulingSpecificationException ex) {
-    return Json.createObjectBuilder()
-               .add("message", "no such scheduling specification")
-               .add("plan_id", ex.id.id())
-               .build();
+  public static JsonNode serializeNoSuchSchedulingSpecificationException(final NoSuchSchedulingSpecificationException ex) {
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("message", "no such scheduling specification");
+    node.put("plan_id", ex.id.id());
+    return node;
   }
 
-  public static JsonValue serializePermissionsServiceException(final PermissionsServiceException ex) {
-    return Json.createObjectBuilder()
-               .add("message", "error in response")
-               .add("errors", ex.errors)
-               .build();
+  public static JsonNode serializePermissionsServiceException(final PermissionsServiceException ex) {
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("message", "error in response");
+    node.set("errors", ex.errors);
+    return node;
   }
 
-  public static JsonValue serializeForbiddenException(final Forbidden ex) {
-    return Json.createObjectBuilder().add("message", ex.getMessage()).build();
+  public static JsonNode serializeForbiddenException(final Forbidden ex) {
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("message", ex.getMessage());
+    return node;
   }
 
-  public static JsonValue serializeIOException(final IOException ex) {
-    return Json.createObjectBuilder()
-               .add("message", "error fetching permissions data")
-               .add("cause", ex.getMessage())
-               .build();
+  public static JsonNode serializeIOException(final IOException ex) {
+    final var node = JsonNodeFactory.instance.objectNode();
+    node.put("message", "error fetching permissions data");
+    node.put("cause", ex.getMessage());
+    return node;
   }
 }

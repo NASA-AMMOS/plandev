@@ -71,7 +71,7 @@ dependencies {
 
   testImplementation 'com.microsoft.playwright:playwright:1.55.0'
 
-  testImplementation 'org.glassfish:javax.json:1.1.4'
+  testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.18.+'
   testImplementation 'org.apache.commons:commons-lang3:3.13.0'
 
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:6.0.1'

@@ -1,5 +1,10 @@
 package gov.nasa.jpl.aerie.merlin.server.http;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.DecimalNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.NullNode;
 import gov.nasa.jpl.aerie.json.JsonParser;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.server.models.HasuraAction;
@@ -7,15 +12,15 @@ import gov.nasa.jpl.aerie.merlin.server.models.HasuraMissionModelEvent;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import org.junit.jupiter.api.Test;
 
-import javax.json.Json;
-import javax.json.JsonValue;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
 
 import static gov.nasa.jpl.aerie.json.BasicParsers.listP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.longP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.recursiveP;
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import gov.nasa.jpl.aerie.merlin.driver.json.JsonEncoding;
+
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.*;
 import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsersTest.NestedLists.nestedList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,19 +45,13 @@ public final class MerlinParsersTest {
     final var listsP =
         recursiveP((JsonParser<NestedLists> self) -> listP(self).map(NestedLists::new, $ -> $.lists));
 
-    final var foo = Json
-        . createArrayBuilder()
-        . add(Json
-            . createArrayBuilder()
-            . add(Json.createArrayBuilder().build())
-            . build())
-        . add(Json
-            . createArrayBuilder()
-            . add(Json.createArrayBuilder().build())
-            . add(Json.createArrayBuilder().build())
-            . add(Json.createArrayBuilder().build())
-            . build())
-        . build();
+    final var foo = JsonNodeFactory.instance.arrayNode()
+        .add(JsonNodeFactory.instance.arrayNode()
+            .add(JsonNodeFactory.instance.arrayNode()))
+        .add(JsonNodeFactory.instance.arrayNode()
+            .add(JsonNodeFactory.instance.arrayNode())
+            .add(JsonNodeFactory.instance.arrayNode())
+            .add(JsonNodeFactory.instance.arrayNode()));
 
     final var expected = nestedList(
             nestedList(nestedList()),
@@ -63,35 +62,33 @@ public final class MerlinParsersTest {
   @Test
   public void testSerializedReal() {
     final var expected = SerializedValue.of(3.14);
-    final var actual = serializedValueP.parse(Json.createValue(3.14)).getSuccessOrThrow();
+    final var actual = JsonEncoding.decode(DecimalNode.valueOf(new BigDecimal("3.14")));
 
     assertEquals(expected, actual);
   }
 
   @Test
   public void testRealIsNotALong() {
-    assertTrue(longP.parse(Json.createValue(3.14)).isFailure());
+    assertTrue(longP.parse(DecimalNode.valueOf(new BigDecimal("3.14"))).isFailure());
   }
 
   @Test
   public void testHasuraActionParsers() {
     {
-      final var json = Json
-          .createObjectBuilder()
-          .add("action", Json
-              .createObjectBuilder()
-              .add("name", "testAction")
-              .build())
-          .add("input", Json
-              .createObjectBuilder()
-              .add("missionModelId", 1)
-              .build())
-          .add("session_variables", Json
-              .createObjectBuilder()
-              .add("x-hasura-role", "aerie_admin")
-              .build())
-          .add("request_query", "query { someValue }")
-          .build();
+      final var inputNode = JsonNodeFactory.instance.objectNode();
+      inputNode.put("missionModelId", 1);
+
+      final var actionNode = JsonNodeFactory.instance.objectNode();
+      actionNode.put("name", "testAction");
+
+      final var sessionNode = JsonNodeFactory.instance.objectNode();
+      sessionNode.put("x-hasura-role", "aerie_admin");
+
+      final var json = JsonNodeFactory.instance.objectNode();
+      json.set("action", actionNode);
+      json.set("input", inputNode);
+      json.set("session_variables", sessionNode);
+      json.put("request_query", "query { someValue }");
 
       final var expected = new HasuraAction<>(
           "testAction",
@@ -102,23 +99,21 @@ public final class MerlinParsersTest {
     }
 
     {
-      final var json = Json
-          .createObjectBuilder()
-          .add("action", Json
-              .createObjectBuilder()
-              .add("name", "testAction")
-              .build())
-          .add("input", Json
-              .createObjectBuilder()
-              .add("missionModelId", 1)
-              .build())
-          .add("session_variables", Json
-              .createObjectBuilder()
-              .add("x-hasura-role", "aerie_admin")
-              .add("x-hasura-user-id", "userId")
-              .build())
-          .add("request_query", "query { someValue }")
-          .build();
+      final var inputNode = JsonNodeFactory.instance.objectNode();
+      inputNode.put("missionModelId", 1);
+
+      final var actionNode = JsonNodeFactory.instance.objectNode();
+      actionNode.put("name", "testAction");
+
+      final var sessionNode = JsonNodeFactory.instance.objectNode();
+      sessionNode.put("x-hasura-role", "aerie_admin");
+      sessionNode.put("x-hasura-user-id", "userId");
+
+      final var json = JsonNodeFactory.instance.objectNode();
+      json.set("action", actionNode);
+      json.set("input", inputNode);
+      json.set("session_variables", sessionNode);
+      json.put("request_query", "query { someValue }");
 
       final var expected = new HasuraAction<>(
           "testAction",
@@ -131,22 +126,20 @@ public final class MerlinParsersTest {
 
   @Test
   public void testHasuraMissionModelEventParser() {
-    final var json = Json
-        .createObjectBuilder()
-        .add("event", Json
-            .createObjectBuilder()
-            .add("data", Json
-            .createObjectBuilder()
-                .add("new", Json
-                    .createObjectBuilder()
-                    .add("id", 1)
-                    .build())
-                .add("old", JsonValue.NULL)
-                .build())
-            .add("op", "INSERT")
-            .build())
-        .add("id", "8907a407-28a5-440a-8de6-240b80c58a8b")
-        .build();
+    final var newNode = JsonNodeFactory.instance.objectNode();
+    newNode.put("id", 1);
+
+    final var dataNode = JsonNodeFactory.instance.objectNode();
+    dataNode.set("new", newNode);
+    dataNode.set("old", NullNode.getInstance());
+
+    final var eventNode = JsonNodeFactory.instance.objectNode();
+    eventNode.set("data", dataNode);
+    eventNode.put("op", "INSERT");
+
+    final var json = JsonNodeFactory.instance.objectNode();
+    json.set("event", eventNode);
+    json.put("id", "8907a407-28a5-440a-8de6-240b80c58a8b");
 
     final var expected = new HasuraMissionModelEvent(new MissionModelId(1L));
 

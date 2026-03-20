@@ -1,20 +1,20 @@
 package gov.nasa.jpl.aerie.e2e.types;
 
-import javax.json.JsonObject;
-import javax.json.JsonValue;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.util.Optional;
 
 public record EffectiveActivityArguments(
       String activityType,
       boolean success,
-      Optional<JsonObject> arguments,
-      Optional<JsonValue> errors)
+      Optional<ObjectNode> arguments,
+      Optional<JsonNode> errors)
 {
-  public static EffectiveActivityArguments fromJSON(JsonObject json) {
+  public static EffectiveActivityArguments fromJSON(ObjectNode json) {
     return new EffectiveActivityArguments(
-        json.getString("typeName"),
-        json.getBoolean("success"),
-        json.containsKey("arguments") ? Optional.of(json.getJsonObject("arguments")) : Optional.empty(),
-        json.containsKey("errors") ? Optional.of(json.get("errors")) : Optional.empty());
+        json.get("typeName").textValue(),
+        json.get("success").booleanValue(),
+        json.has("arguments") ? Optional.of(json.get("arguments")) : Optional.empty(),
+        json.has("errors") ? Optional.of(json.get("errors")) : Optional.empty());
   }
 }

@@ -63,9 +63,15 @@ from actions.action_definition;
 alter table actions.action_definition
   add column archived boolean not null default false;
 
--- 5. Add action_definition_revision to action_run, backfill with revision 0
+-- 5. Add action_definition_revision to action_run backfill existing runs to 0
+--   no default - future inserts w/o explicit revision are auto-set before insert by action_run_set_default_revision
 alter table actions.action_run
-  add column action_definition_revision integer not null default 0;
+  add column action_definition_revision integer;
+
+update actions.action_run set action_definition_revision = 0;
+
+alter table actions.action_run
+  alter column action_definition_revision set not null;
 
 -- 6. Move notify_action_definition_inserted trigger to version table
 drop trigger if exists notify_action_definition_inserted on actions.action_definition;

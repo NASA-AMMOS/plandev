@@ -175,9 +175,17 @@ final class FormattedError {
     this("NULL_POINTER_EXCEPTION", message, ne);
   }
 
-  //Security Exception
+  // Security Exception
   public FormattedError(SecurityException se) {
     this("SECURITY_EXCEPTION", se.getMessage(), se);
+  }
+
+  // Malformed Request
+  public FormattedError(MalformedRequest mr) {
+    this.type = "MALFORMED_REQUEST";
+    this.message = mr.getMessage();
+    this.cause = mr.getDetails();
+    this.trace = Optional.of(generateTrace(mr));
   }
   //endregion
 

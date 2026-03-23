@@ -203,12 +203,12 @@ public class WorkspaceBindings implements Plugin {
       return false;
     } catch (IOException ioe) {
       final var fe = new FormattedError(ioe, "Could not check permissions.");
-      logger.warn("IO Exception: {}", fe);
+      logger.warn("PERMISSIONS SERVICE: IO Exception: {}", fe);
       context.status(500).json(fe);
       return false;
     } catch (PermissionsServiceException pse) {
       final var fe = new FormattedError(pse, "Could not check permissions.");
-      logger.warn("Permissions Service Exception: {}", fe);
+      logger.warn("PERMISSIONS SERVICE: Permissions Service Exception: {}", fe);
       context.status(500).json(new FormattedError(pse, "Could not check permissions."));
       return false;
     } catch (gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException nsw) {
@@ -229,7 +229,7 @@ public class WorkspaceBindings implements Plugin {
       return;
     } catch (IOException ioe) {
       final var fe = new FormattedError(ioe, "Could not create workspace.");
-      logger.warn("IO Exception: {}", fe);
+      logger.warn("CREATE WORKSPACE: IO Exception: {}", fe);
       context.status(500).json(fe);
       return;
     } catch (PermissionsServiceException pse) {
@@ -335,7 +335,7 @@ public class WorkspaceBindings implements Plugin {
       context.status(404).json(new FormattedError(ex, errorMsg));
     } catch (SQLException e) {
       final var fe = new FormattedError(e, errorMsg);
-      logger.warn("SQL Exception: {}", fe);
+      logger.warn("DELETE WORKSPACE: SQL Exception: {}", fe);
       context.status(500).json(fe);
     }
   }
@@ -375,11 +375,11 @@ public class WorkspaceBindings implements Plugin {
       context.status(200).json(fileTree.toJson().toString());
     } catch (IOException ioe) {
       final var fe = new FormattedError(ioe);
-      logger.warn("IO Exception: {}", fe);
+      logger.warn("LIST CONTENTS: IO Exception: {}", fe);
       context.status(500).json(fe);
     } catch (SQLException se) {
       final var fe = new FormattedError(se);
-      logger.warn("SQL Exception: {}", fe);
+      logger.warn("LIST CONTENTS: SQL Exception: {}", fe);
       context.status(500).json(fe);
     } catch (NoSuchWorkspaceException ex) {
       context.status(404).json(new FormattedError(ex));
@@ -410,11 +410,11 @@ public class WorkspaceBindings implements Plugin {
         context.status(200).result(inputStream);
       } catch (IOException ioe) {
         final var fe = new FormattedError(ioe, "Could not load file " + pathInfo.fileName());
-        logger.warn("IO Exception: {}", fe);
+        logger.warn("GET FILE: IO Exception: {}", fe);
         context.status(500).json(fe);
       } catch (SQLException se) {
         final var fe = new FormattedError(se, "Could not load file " + pathInfo.fileName());
-        logger.warn("SQL Exception: {}", fe);
+        logger.warn("GET FILE: SQL Exception: {}", fe);
         context.status(500).json(fe);
       }
     }
@@ -608,16 +608,16 @@ public class WorkspaceBindings implements Plugin {
             200,
             Json.createValue("File " + uploadPath.getFileName() + " uploaded to " + uploadPath));
       } else {
-        logger.warn("UPLOAD: Save File failed for path {}", uploadPath);
+        logger.warn("UPLOAD FILE: Save File failed for path {}", uploadPath);
         return new HandlerResult(500, new FormattedError("Could not save file."));
       }
     } catch (IOException ioe) {
       final var fe = new FormattedError(ioe, "Could not save file.");
-      logger.warn("UPLOAD: IOException: {}", fe);
+      logger.warn("UPLOAD FILE: IOException: {}", fe);
       return new HandlerResult(500, fe);
     } catch (WorkspaceFileOpException wfe) {
       final var fe = new FormattedError(wfe, "Could not save file.");
-      logger.warn("UPLOAD: WorkspaceFileOpException: {}", fe);
+      logger.warn("UPLOAD FILE: WorkspaceFileOpException: {}", fe);
       return new HandlerResult(500, fe);
     } catch (NoSuchWorkspaceException nsw) {
       return new HandlerResult(404, new FormattedError(nsw, "Could not create directory."));
@@ -629,14 +629,14 @@ public class WorkspaceBindings implements Plugin {
       if (workspaceService.createDirectory(workspaceId, destinationPath)) {
         return new HandlerResult(200, Json.createValue("Directory created."));
       } else {
-        logger.warn("UPLOAD: Create Directory failed for path {}", destinationPath);
+        logger.warn("CREATE DIRECTORY: Create Directory failed for path {}", destinationPath);
         return new HandlerResult(500, new FormattedError("Could not create directory."));
       }
     } catch (IOException ioe) {
-      logger.warn("UPLOAD: IOException: {}", destinationPath);
+      logger.warn("CREATE DIRECTORY: IOException: {}", destinationPath);
       return new HandlerResult(500, new FormattedError(ioe, "Could not create directory."));
     } catch (WorkspaceFileOpException wfe) {
-      logger.warn("UPLOAD: WorkspaceFileOpException: {}", destinationPath);
+      logger.warn("CREATE DIRECTORY: WorkspaceFileOpException: {}", destinationPath);
       return new HandlerResult(500, new FormattedError(wfe, "Could not create directory."));
     } catch (NoSuchWorkspaceException nsw) {
       return new HandlerResult(404, new FormattedError(nsw, "Could not create directory."));

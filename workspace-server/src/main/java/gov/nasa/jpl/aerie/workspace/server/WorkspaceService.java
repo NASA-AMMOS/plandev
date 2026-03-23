@@ -4,11 +4,13 @@ import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.RenderType;
 import io.javalin.http.UploadedFile;
 
+import javax.json.JsonException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * An interface that defines how the Aerie system can interact with the Workspaces backend.
@@ -110,4 +112,60 @@ public interface WorkspaceService {
 
 
   boolean deleteDirectory(final int workspaceId, final Path directoryPath) throws IOException, NoSuchWorkspaceException;
+
+  /**
+   * Check if the specified file is a Metadata-type file
+   */
+  boolean isMetadataFile(final Path filePath) throws SQLException;
+
+  /**
+   * Retrieve the associated metadata file for the given file.
+   * Returns an JSON file with only "version" specified in the event said file does not exist.
+   * @param workspaceId the id of the workspace the file lives in
+   * @param filePath the path to the file to get the metadata of
+   */
+  FileStream loadMetadataFile(final int workspaceId, final Path filePath)
+  throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException;
+
+  /**
+   * Update the specified metadata keys on a file's metadata. If a `user` update is specified, its contents will
+   * be deep-merged with the current contents of the `user` key.
+   * @param workspaceId the id of the workspace the file lives in
+   * @param filePath the path to the file whose metadata will be updated
+   * @param updates the set of updates to be applied
+   * @return true if the update was applied, false otherwise
+   * @throws NoSuchWorkspaceException If the specified workspace does not exist
+   * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory, or if the metadata file for "filePath" is a directory
+   * @throws IOException If the metadata file cannot be opened for reasons other than nonexistence
+   * @throws JsonException If the file's metadata is currently malformed
+   */
+  boolean updateMetadataKeys(final int workspaceId, final Path filePath, MetadataUpdates updates)
+  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException, JsonException;
+
+  /**
+   * Unset the specified set of keys in a file's metadata.
+   * Subobjects within the "user" object can be specified by following using a "dot-path" syntax, i.e. "user.status"
+   * @param workspaceId the id of the workspace the file lives in
+   * @param filePath the path to the file whose metadata will be updated
+   * @param keysToUnset the set of keys to unset
+   * @param userId the userId of the user making the change
+   * @return true if the update was applied, false otherwise
+   * @throws NoSuchWorkspaceException If the specified workspace does not exist
+   * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory, or if the metadata file for "filePath" is a directory
+   * @throws IOException If the metadata file cannot be opened for reasons other than nonexistence
+   * @throws JsonException If the file's metadata is currently malformed
+   */
+  boolean unsetMetadataKeys(final int workspaceId, final Path filePath, Set<String> keysToUnset, String userId)
+  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException, JsonException;
+
+  /**
+   * Delete the PlanDev metadata file for the specified file
+   * @param workspaceId the id of the workspace the file lives in
+   * @param filePath the path to the file whose metadata will be deleted
+   * @return true if the metadata file was deleted or does not exist, false otherwise
+   * @throws NoSuchWorkspaceException If the specified workspace does not exist
+   * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory, or if the metadata file for "filePath" is a directory
+   */
+  boolean deleteMetadataFile(final int workspaceId, final Path filePath)
+  throws NoSuchWorkspaceException, WorkspaceFileOpException;
 }

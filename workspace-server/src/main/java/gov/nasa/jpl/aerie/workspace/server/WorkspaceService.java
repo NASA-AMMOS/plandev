@@ -113,11 +113,6 @@ public interface WorkspaceService {
   boolean deleteDirectory(final int workspaceId, final Path directoryPath) throws NoSuchWorkspaceException;
 
   /**
-   * Check if the specified file is a Metadata-type file
-   */
-  boolean isMetadataFile(final Path filePath) throws SQLException;
-
-  /**
    * Retrieve the associated metadata file for the given file.
    * Returns an JSON file with only "version" specified in the event said file does not exist.
    * @param workspaceId the id of the workspace the file lives in

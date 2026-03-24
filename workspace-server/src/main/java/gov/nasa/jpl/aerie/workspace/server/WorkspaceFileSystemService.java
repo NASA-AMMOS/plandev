@@ -118,14 +118,9 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       throw new WorkspaceFileOpException("Cannot resolve metadata file path: %s is a directory.".formatted(baseFilePath.getFileName()));
     }
 
-    try {
-      if (isMetadataFile(baseFilePath)) {
-        throw new WorkspaceFileOpException("Cannot resolve metadata file path: %s is already a metadata file.".formatted(
-            baseFilePath.getFileName()));
-      }
-    }
-    catch (SQLException se) {
-      throw new WorkspaceFileOpException("Cannot resolve metadata file path: Unable to validate metadata file extensions", se);
+    if (RenderType.isAerieMetadataFile(baseFilePath.getFileName().toString())) {
+      throw new WorkspaceFileOpException("Cannot resolve metadata file path: %s is already a metadata file.".formatted(
+          baseFilePath.getFileName()));
     }
 
     // Convert base file path to metadata file path
@@ -271,11 +266,6 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   public RenderType getFileType(final Path filePath) throws SQLException {
     final var fileName = filePath.getFileName().toString();
     return RenderType.getRenderType(fileName, postgresRepository.getExtensionMapping());
-  }
-
-  @Override
-  public boolean isMetadataFile(final Path filePath) throws SQLException {
-    return getFileType(filePath) == RenderType.METADATA;
   }
 
   //region Workspace Operations

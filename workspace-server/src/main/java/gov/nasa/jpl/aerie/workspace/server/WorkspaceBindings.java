@@ -128,9 +128,7 @@ public class WorkspaceBindings implements Plugin {
 
       // Unset Metadata key
       // Placed before CRUD operations to avoid accidentally matching on the general POST pattern
-      path("/metadata/unset/{workspaceId}/<path>", () -> {
-        ApiBuilder.post(this::unsetMetadataKeys);
-      });
+      path("/metadata/unset/{workspaceId}/<path>", () -> ApiBuilder.post(this::unsetMetadataKeys));
       // CRUD Operations for File Metadata
       path("/metadata/{workspaceId}/<path>", () -> {
         ApiBuilder.get(this::getMetadataFile);
@@ -485,7 +483,8 @@ public class WorkspaceBindings implements Plugin {
           pathInfo.workspaceId,
           pathInfo.filePath,
           file,
-          overwrite.orElse(false));
+          overwrite.orElse(false),
+          authorize(context).userId());
 
     } else if (type == ItemType.directory) {
       // Reject the request if the "overwrite" flag is supplied
@@ -619,8 +618,8 @@ public class WorkspaceBindings implements Plugin {
       int workspaceId,
       Path uploadPath,
       UploadedFile file,
-      boolean overwrite
-  ) {
+      boolean overwrite,
+      final String userId) {
     try {
       // Report a "Conflict" status if the file already exists and "overwrite" is false
       // "overwrite" defaults to "false" if unspecified
@@ -628,7 +627,7 @@ public class WorkspaceBindings implements Plugin {
         return new HandlerResult(409, new FormattedError(uploadPath + " already exists."));
       }
 
-      if (workspaceService.saveFile(workspaceId, uploadPath, file)) {
+      if (workspaceService.saveFile(workspaceId, uploadPath, file, userId)) {
         return new HandlerResult(
             200,
             Json.createValue("File " + uploadPath.getFileName() + " uploaded to " + uploadPath));
@@ -706,8 +705,6 @@ public class WorkspaceBindings implements Plugin {
           return new HandlerResult(500, new FormattedError(errorMsg).toJson());
         }
       }
-    } catch (SQLException se) {
-      return new HandlerResult(500, new FormattedError(se, errorMsg).toJson());
     } catch (IOException ioe) {
       return new HandlerResult(500, new FormattedError(ioe, errorMsg).toJson());
     } catch (WorkspaceFileOpException wfe) {
@@ -753,10 +750,10 @@ public class WorkspaceBindings implements Plugin {
           return new HandlerResult(500, new FormattedError(errorMsg).toJson());
         }
       }
-    } catch (SQLException se) {
-      return new HandlerResult(500, new FormattedError(se, errorMsg).toJson());
     } catch (WorkspaceFileOpException wfe) {
       return new HandlerResult(500, new FormattedError(wfe, errorMsg).toJson());
+    } catch (IOException ioe) {
+      return new HandlerResult(500, new FormattedError(ioe, errorMsg).toJson());
     }
   }
 
@@ -783,16 +780,12 @@ public class WorkspaceBindings implements Plugin {
           return new HandlerResult(500, new FormattedError(errorMsg));
         }
       }
-    } catch (IOException io) {
-      final var fe = new FormattedError(io);
-      logger.warn("DELETE: IOException: {}", fe);
-      return new HandlerResult(500, fe);
-    } catch (SQLException se) {
-      final var fe = new FormattedError(se);
-      logger.warn("DELETE: SQL Exception: {}", fe);
-      return new HandlerResult(500, fe);
     } catch (NoSuchWorkspaceException nsw) {
       return new HandlerResult(404, new FormattedError(nsw));
+    } catch (WorkspaceFileOpException wfe) {
+      final var fe = new FormattedError(wfe);
+      logger.warn("DELETE: WORKSPACE FILE OP EXCEPTION: {}", fe);
+      return new HandlerResult(500, fe);
     }
   }
   // endregion
@@ -899,13 +892,14 @@ public class WorkspaceBindings implements Plugin {
     }
 
     // Create all specified objects
-    context.status(207).json(handleBulkUpload(toUpload, fileMap, workspaceId).toString());
+    context.status(207).json(handleBulkUpload(toUpload, fileMap, workspaceId, authorize(context).userId()).toString());
   }
 
   private JsonArray handleBulkUpload(
       List<BulkPutItem> toUpload,
       Map<String, UploadedFile> fileMap,
-      int workspaceId
+      int workspaceId,
+      String userId
   ) {
     final var responseArray = Json.createArrayBuilder();
 
@@ -934,7 +928,8 @@ public class WorkspaceBindings implements Plugin {
             workspaceId,
             item.path(),
             file,
-            item.overwrite()
+            item.overwrite(),
+            userId
         );
         response.add("status", uploadResults.status)
                 .add("response", uploadResults.response);

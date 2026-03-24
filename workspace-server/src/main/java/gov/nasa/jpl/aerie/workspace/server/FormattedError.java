@@ -122,6 +122,9 @@ final class FormattedError {
   }
 
   // WorkspaceFileOpException
+  public FormattedError(WorkspaceFileOpException wfe) {
+    this("FILE_OPERATION_EXCEPTION", wfe);
+  }
   public FormattedError(WorkspaceFileOpException wfe, String message) {
     this("FILE_OPERATION_EXCEPTION", message, wfe);
   }

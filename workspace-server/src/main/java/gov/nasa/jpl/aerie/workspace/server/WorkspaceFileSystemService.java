@@ -101,15 +101,12 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   /**
    * Fetches, resolves, and validates a relative path against a workspace root, then resolves and validates the path to
    *  that file's metadata file.
-   * @param workspaceId the workspace the file lives in
+   * @param rootPath the workspace's root path
    * @param filePath the untrusted path to the file
    * @return the path to the metadata file for the specified file
-   *
    */
-  private Path resolveMetadataPath(final int workspaceId, final Path filePath)
-  throws WorkspaceFileOpException, NoSuchWorkspaceException
-  {
-    final var baseFilePath = resolveWritingPath(postgresRepository.workspaceRootPath(workspaceId), filePath);
+  private Path resolveMetadataPath(final Path rootPath, final Path filePath) throws WorkspaceFileOpException {
+    final var baseFilePath = resolveWritingPath(rootPath, filePath);
 
     // Check that the given filepath is not a directory or a metadata file, both of which are not allowed to have associated metadata files
     if(baseFilePath.toFile().isDirectory()) {
@@ -135,6 +132,19 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     }
 
     return metadataFilePath;
+  }
+
+  /**
+   * Fetches, resolves, and validates a relative path against a workspace root, then resolves and validates the path to
+   *  that file's metadata file.
+   * @param workspaceId the workspace the file lives in
+   * @param filePath the untrusted path to the file
+   * @return the path to the metadata file for the specified file
+   */
+  private Path resolveMetadataPath(final int workspaceId, final Path filePath)
+  throws WorkspaceFileOpException, NoSuchWorkspaceException
+  {
+    return resolveMetadataPath(postgresRepository.workspaceRootPath(workspaceId), filePath);
   }
 
   /**
@@ -301,74 +311,72 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
-  public boolean saveFile(final int workspaceId, final Path filePath, final UploadedFile file)
-  throws NoSuchWorkspaceException, WorkspaceFileOpException {
+  public boolean saveFile(final int workspaceId, final Path filePath, final UploadedFile file, final String userId)
+  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException
+  {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
     final var path = resolveWritingPath(repoPath, filePath);
+    final var metadataFilePath = resolveMetadataPath(repoPath, filePath);
 
     if(path.toFile().isDirectory()) return false;
 
     FileUtil.streamToFile(file.content(), path.toString());
+    writeMetadataFile(new MetadataUpdates.Builder(userId).build(), metadataFilePath.toFile());
     return true;
   }
 
   @Override
   public boolean moveFile(final int oldWorkspaceId, final Path oldFilePath, final int newWorkspaceId, final Path newFilePath)
-  throws NoSuchWorkspaceException, SQLException, WorkspaceFileOpException
+  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException
   {
     final var oldRepoPath = postgresRepository.workspaceRootPath(oldWorkspaceId);
     final var oldPath = resolveReadingPath(oldRepoPath, oldFilePath);
+    final var oldMetadataPath = resolveMetadataPath(oldRepoPath, oldFilePath);
+
     final var newRepoPath = (oldWorkspaceId == newWorkspaceId) ? oldRepoPath : postgresRepository.workspaceRootPath(newWorkspaceId);
     final var newPath = resolveWritingPath(newRepoPath, newFilePath);
-    boolean success = true;
+    final var newMetadataPath = resolveMetadataPath(newRepoPath, newFilePath);
 
     // Find hidden metadata files, if they exist, and move them
-    final var metadataExtensions = postgresRepository.getMetadataExtensions();
-    for(final var extension : metadataExtensions) {
-      final File oldFile = oldPath.resolveSibling(oldPath.getFileName() + extension).toFile();
-      if(oldFile.exists()) {
-        final var newFile = newPath.resolveSibling(newPath.getFileName() + extension).toFile();
-        success = oldFile.renameTo(newFile) && success; // Do not fast-fail
-      }
+    if(Files.exists(oldMetadataPath)) {
+      Files.move(oldMetadataPath, newMetadataPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     }
 
-    return oldPath.toFile().renameTo(newPath.toFile()) && success;
+    Files.move(oldPath, newPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+    return true;
   }
 
   @Override
   public boolean copyFile(final int sourceWorkspaceId, final Path sourceFilePath, final int destWorkspaceId, final Path destFilePath)
-  throws NoSuchWorkspaceException, SQLException, WorkspaceFileOpException
+  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException
   {
     final var sourceRepoPath = postgresRepository.workspaceRootPath(sourceWorkspaceId);
     final var sourcePath = resolveReadingPath(sourceRepoPath, sourceFilePath);
-    final var destRepoPath = (sourceWorkspaceId == destWorkspaceId) ? sourceRepoPath : postgresRepository.workspaceRootPath(destWorkspaceId);
+    final var sourceMetadataPath = resolveMetadataPath(sourceWorkspaceId, sourceFilePath);
+
+    final var destRepoPath = (sourceWorkspaceId == destWorkspaceId)
+        ? sourceRepoPath
+        : postgresRepository.workspaceRootPath(destWorkspaceId);
     final var destPath = resolveWritingPath(destRepoPath, destFilePath);
+    final var destMetadataPath = resolveMetadataPath(destWorkspaceId, destFilePath);
 
-    try {
-      // Do not copy the file if the source file does not exist
-      if(!sourcePath.toFile().exists()) throw new WorkspaceFileOpException("Source file \"%s\" in workspace %d does not exist.".formatted(sourceFilePath, sourceWorkspaceId));
-
-      // Create any parent directories that don't already exist
-      Files.createDirectories(destPath.getParent());
-
-      // Copy the main file
-      Files.copy(sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING);
-
-      // Find and copy hidden metadata files
-      final var metadataExtensions = postgresRepository.getMetadataExtensions();
-      for (final var extension : metadataExtensions) {
-        final var oldMetaPath = sourcePath.resolveSibling(sourcePath.getFileName() + extension);
-        final var newMetaPath = destPath.resolveSibling(destPath.getFileName() + extension);
-        if (Files.exists(oldMetaPath)) {
-          Files.copy(oldMetaPath, newMetaPath);
-        }
-      }
-
-      return true;
-    } catch (IOException e) {
-      logger.error("Error copying file", e);
-      return false;
+    // Do not copy the file if the source file does not exist
+    if (!Files.exists(sourcePath)) {
+      throw new WorkspaceFileOpException("Source file \"%s\" in workspace %d does not exist.".formatted(
+          sourceFilePath,
+          sourceWorkspaceId));
     }
+    // Create any parent directories that don't already exist
+    Files.createDirectories(destPath.getParent());
+
+    // Copy hidden metadata file if it exists
+    if (Files.exists(sourceMetadataPath)) {
+      Files.copy(sourceMetadataPath, destMetadataPath, StandardCopyOption.REPLACE_EXISTING);
+    }
+
+    // Copy the main file
+    Files.copy(sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING);
+    return true;
   }
 
 
@@ -418,22 +426,22 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
 
   @Override
-  public boolean deleteFile(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException, SQLException {
-    final var path = resolveReadingPath(workspaceId, filePath);
+  public boolean deleteFile(final int workspaceId, final Path filePath)
+  throws NoSuchWorkspaceException, WorkspaceFileOpException
+  {
+    final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
+    final var path = resolveReadingPath(repoPath, filePath);
     final var file = path.toFile();
+    final var metadataFile = resolveMetadataPath(repoPath, filePath).toFile();
 
-    boolean success = true;
-
-    // Find hidden metadata files, if they exist, and delete them
-    final var metadataExtensions = postgresRepository.getMetadataExtensions();
-    for(final var extension : metadataExtensions) {
-      final File oldFile = path.resolveSibling(path.getFileName() + extension).toFile();
-      if(oldFile.exists()) {
-        success = rm(file) && success; // Do not fast-fail
+    // Delete the metadata file if it exists
+    if(metadataFile.exists()) {
+      if(!rm(metadataFile)){
+        return false;
       }
     }
 
-    return rm(file) && success;
+    return rm(file);
   }
 
   @Override

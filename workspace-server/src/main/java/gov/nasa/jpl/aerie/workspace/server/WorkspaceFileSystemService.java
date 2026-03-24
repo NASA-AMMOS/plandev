@@ -129,7 +129,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     }
 
     // Convert base file path to metadata file path
-    final var metadataFileName = "."+baseFilePath.getFileName()+".meta.seqdev";
+    final var metadataFileName = RenderType.toMetadataFileName(baseFilePath.getFileName().toString());
     final var metadataFilePath = baseFilePath.resolveSibling(metadataFileName); // Metadata files are hidden sibling files
 
     if(metadataFilePath.toFile().isDirectory()) {
@@ -406,20 +406,20 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   //region Directory Operations
   @Override
-  public DirectoryTree listFiles(final int workspaceId, final Optional<Path> directoryPath, final int depth)
+  public DirectoryTree listFiles(final int workspaceId, final Path directoryPath, final int depth, final boolean withMetadata)
   throws SQLException, NoSuchWorkspaceException, IOException {
-    final var path = resolveReadingPath(workspaceId, directoryPath.orElse(Path.of("")));
+    final var path = resolveReadingPath(workspaceId, directoryPath);
 
     if(!path.toFile().isDirectory()) {
       return null;
     }
 
-    // Converting our API to the Files API
+    // Convert to our API from the Files API
     final var walkDepth = depth == -1 ? Integer.MAX_VALUE : depth + 1;
     try(final Stream<Path> walkOutput = Files.walk(path, walkDepth)) {
       final var walkList = new ArrayList<>(walkOutput.toList());
       walkList.removeFirst(); // remove the initial path
-      return new DirectoryTree(path, walkList, postgresRepository.getExtensionMapping());
+      return new DirectoryTree(path, walkList, postgresRepository.getExtensionMapping(), withMetadata);
     }
   }
 

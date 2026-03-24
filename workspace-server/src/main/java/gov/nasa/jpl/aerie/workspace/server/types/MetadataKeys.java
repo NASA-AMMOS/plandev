@@ -11,5 +11,14 @@ public enum MetadataKeys {
   readOnly,
   user;
 
-  public static final Set<String> whitelist = Set.of("readOnly", "user");
+  public static final Set<String> whitelist = Set.of(readOnly.name(), user.name());
+  public static final Set<String> keySet = Set.of(
+      version.name(),
+      createdBy.name(), createdAt.name(),
+      lastEditedBy.name(), lastEditedAt.name(),
+      readOnly.name(), user.name());
+  public static final Set<String> mandatoryKeys = Set.of(version.name(),
+                                                         createdBy.name(), createdAt.name(),
+                                                         lastEditedBy.name(), lastEditedAt.name());
+
 }

@@ -80,7 +80,7 @@ public class WorkspaceBindings implements Plugin {
     }
 
     String metadataFileName() {
-      return "."+fileName()+".meta.seqdev";
+      return RenderType.toMetadataFileName(fileName());
     }
   }
 
@@ -378,19 +378,17 @@ public class WorkspaceBindings implements Plugin {
   private void listContents(Context context) {
     final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
 
-    final Optional<Path> directoryPath;
-    if(context.pathParamMap().containsKey("path")) {
-      directoryPath = Optional.of(Path.of(context.pathParam("path")));
-    } else {
-      directoryPath = Optional.empty();
-    }
+    final var directoryPath = context.pathParamMap().containsKey("path")
+        ? Path.of(context.pathParam("path"))
+        : Path.of("");
 
     // Query params
     final var depthString = context.queryParam("depth");
     final int depth = depthString != null ? Integer.parseInt(depthString) : -1;
+    final boolean withMetadata = Boolean.parseBoolean(context.queryParam("withMetadata"));
 
     try {
-      final var fileTree = workspaceService.listFiles(workspaceId, directoryPath, depth);
+      final var fileTree = workspaceService.listFiles(workspaceId, directoryPath, depth, withMetadata);
       if (fileTree == null) {
         context.status(404).json(new FormattedError("No such directory."));
         return;

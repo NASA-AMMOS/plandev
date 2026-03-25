@@ -1,22 +1,26 @@
 package gov.nasa.jpl.aerie.orchestration.simulation;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
+import gov.nasa.jpl.aerie.merlin.driver.engine.ProfileSegment;
 import gov.nasa.jpl.aerie.merlin.driver.resources.AsyncConsumer;
 import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfiles;
+import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
+import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 
-import javax.json.Json;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.UUID;
-
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
-import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.realDynamicsP;
 
 /**
  * A consumer that writes resource segments to the file system.
  */
 public class ResourceFileStreamer implements AsyncConsumer<ResourceProfiles> {
+  private static final JsonFactory JSON_FACTORY = new JsonFactory();
+
   private final UUID uuid;
   private final HashMap<String, String> fileNames;
 
@@ -56,11 +60,8 @@ public class ResourceFileStreamer implements AsyncConsumer<ResourceProfiles> {
       final var name = getFileName(r.getKey());
       try (final var fileWriter = new FileWriter(name, true)) {
         for(final var segment : r.getValue().segments()) {
-          final var s = Json.createObjectBuilder()
-                            .add("extent", segment.extent().toString())
-                            .add("dynamics", realDynamicsP.unparse(segment.dynamics()))
-                            .build();
-          fileWriter.write(s.toString()+"\n");
+          fileWriter.write(segmentToJsonString(segment, true));
+          fileWriter.write('\n');
         }
         fileWriter.flush();
       } catch (IOException e) {
@@ -72,17 +73,34 @@ public class ResourceFileStreamer implements AsyncConsumer<ResourceProfiles> {
       final var name = getFileName(d.getKey());
       try (final var fileWriter = new FileWriter(name, true)) {
           for(final var segment : d.getValue().segments()) {
-          final var s = Json.createObjectBuilder()
-                            .add("extent", segment.extent().toString())
-                            .add("dynamics", serializedValueP.unparse(segment.dynamics()))
-                            .build();
-          fileWriter.write(s.toString()+"\n");
+          fileWriter.write(segmentToJsonString(segment, false));
+          fileWriter.write('\n');
         }
         fileWriter.flush();
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
     }
+  }
+
+  private static <D> String segmentToJsonString(final ProfileSegment<D> segment, final boolean isReal) throws IOException {
+    final var sw = new StringWriter();
+    try (final var gen = JSON_FACTORY.createGenerator(sw)) {
+      gen.writeStartObject();
+      gen.writeStringField("extent", segment.extent().toString());
+      gen.writeFieldName("dynamics");
+      if (isReal) {
+        final var dynamics = (RealDynamics) segment.dynamics();
+        gen.writeStartObject();
+        gen.writeNumberField("initial", dynamics.initial);
+        gen.writeNumberField("rate", dynamics.rate);
+        gen.writeEndObject();
+      } else {
+        ((SerializedValue) segment.dynamics()).writeTo(gen);
+      }
+      gen.writeEndObject();
+    }
+    return sw.toString();
   }
 
   /**

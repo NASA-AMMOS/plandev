@@ -1,10 +1,12 @@
 package gov.nasa.jpl.aerie.contrib.serialization.mappers;
 
+import com.fasterxml.jackson.core.JsonGenerator;
 import gov.nasa.jpl.aerie.merlin.framework.Result;
 import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
@@ -50,5 +52,14 @@ public final class ListValueMapper<T> implements ValueMapper<List<T>> {
       serializedElements.add(this.elementMapper.serializeValue(element));
     }
     return SerializedValue.of(serializedElements);
+  }
+
+  @Override
+  public void writeJson(final List<T> elements, final JsonGenerator gen) throws IOException {
+    gen.writeStartArray();
+    for (final var element : elements) {
+      this.elementMapper.writeJson(element, gen);
+    }
+    gen.writeEndArray();
   }
 }

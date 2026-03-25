@@ -1,5 +1,9 @@
 package gov.nasa.jpl.aerie.merlin.protocol.types;
 
+import com.fasterxml.jackson.core.JsonGenerator;
+
+import java.io.IOException;
+import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -420,5 +424,80 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
         return Optional.of(value);
       }
     });
+  }
+
+  /**
+   * Writes this value directly to a Jackson {@link JsonGenerator}, bypassing intermediate JsonNode allocations.
+   */
+  default void writeTo(final JsonGenerator gen) throws IOException {
+    try {
+      this.match(new Visitor<Void>() {
+        @Override
+        public Void onNull() {
+          try { gen.writeNull(); } catch (final IOException e) { throw new UncheckedIOException(e); }
+          return null;
+        }
+        @Override
+        public Void onNumeric(final BigDecimal value) {
+          try { gen.writeNumber(value); } catch (final IOException e) { throw new UncheckedIOException(e); }
+          return null;
+        }
+        @Override
+        public Void onBoolean(final boolean value) {
+          try { gen.writeBoolean(value); } catch (final IOException e) { throw new UncheckedIOException(e); }
+          return null;
+        }
+        @Override
+        public Void onString(final String value) {
+          try { gen.writeString(value); } catch (final IOException e) { throw new UncheckedIOException(e); }
+          return null;
+        }
+        @Override
+        public Void onMap(final Map<String, SerializedValue> value) {
+          try {
+            gen.writeStartObject();
+            for (final var entry : value.entrySet()) {
+              gen.writeFieldName(entry.getKey());
+              entry.getValue().writeTo(gen);
+            }
+            gen.writeEndObject();
+          } catch (final IOException e) { throw new UncheckedIOException(e); }
+          return null;
+        }
+        @Override
+        public Void onList(final List<SerializedValue> value) {
+          try {
+            gen.writeStartArray();
+            for (final var element : value) {
+              element.writeTo(gen);
+            }
+            gen.writeEndArray();
+          } catch (final IOException e) { throw new UncheckedIOException(e); }
+          return null;
+        }
+      });
+    } catch (final UncheckedIOException e) {
+      throw e.getCause();
+    }
+  }
+
+  final class UncheckedIOException extends RuntimeException {
+    UncheckedIOException(final IOException cause) { super(cause); }
+    @Override public IOException getCause() { return (IOException) super.getCause(); }
+  }
+
+  /**
+   * Serializes this value to a JSON string using Jackson streaming.
+   */
+  default String toJsonString() throws IOException {
+    try {
+      final var writer = new StringWriter();
+      try (final var gen = new com.fasterxml.jackson.core.JsonFactory().createGenerator(writer)) {
+        this.writeTo(gen);
+      }
+      return writer.toString();
+    } catch (final UncheckedIOException e) {
+      throw e.getCause();
+    }
   }
 }

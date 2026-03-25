@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.merlin.driver.engine;
 
 import gov.nasa.jpl.aerie.merlin.driver.MissionModel.SerializableTopic;
+import gov.nasa.jpl.aerie.merlin.driver.resources.DeferredSerializedValue;
 import gov.nasa.jpl.aerie.types.ActivityInstance;
 import gov.nasa.jpl.aerie.types.ActivityInstanceId;
 import gov.nasa.jpl.aerie.merlin.driver.resources.SimulationResourceManager;
@@ -181,7 +182,7 @@ public final class SimulationEngine implements AutoCloseable {
     record Nominal(
         Duration elapsedTime,
         Map<String, Pair<ValueSchema, RealDynamics>> realResourceUpdates,
-        Map<String, Pair<ValueSchema, SerializedValue>> dynamicResourceUpdates
+        Map<String, Pair<ValueSchema, DeferredSerializedValue>> dynamicResourceUpdates
     ) implements Status {}
   }
 
@@ -217,9 +218,9 @@ public final class SimulationEngine implements AutoCloseable {
       throw results.error.get();
     }
 
-    // Serialize the resources updated in this batch
+    // Collect the resources updated in this batch — discrete values are deferred (not serialized yet)
     final var realResourceUpdates = new HashMap<String, Pair<ValueSchema, RealDynamics>>();
-    final var dynamicResourceUpdates = new HashMap<String, Pair<ValueSchema, SerializedValue>>();
+    final var dynamicResourceUpdates = new HashMap<String, Pair<ValueSchema, DeferredSerializedValue>>();
 
     for (final var update : results.resourceUpdates.updates()) {
       final var name = update.resourceId().id();
@@ -231,7 +232,7 @@ public final class SimulationEngine implements AutoCloseable {
             name,
             Pair.of(
                 schema,
-                SimulationEngine.extractDiscreteDynamics(update)));
+                SimulationEngine.extractDeferredDiscreteDynamics(update)));
       }
     }
 
@@ -249,8 +250,8 @@ public final class SimulationEngine implements AutoCloseable {
     return RealDynamics.linear(initial, rate);
   }
 
-  private static <Dynamics> SerializedValue extractDiscreteDynamics(final ResourceUpdates.ResourceUpdate<Dynamics> update) {
-    return update.resource.getOutputType().serialize(update.update.dynamics());
+  private static <Dynamics> DeferredSerializedValue extractDeferredDiscreteDynamics(final ResourceUpdates.ResourceUpdate<Dynamics> update) {
+    return new DeferredSerializedValue(update.update.dynamics(), update.resource.getOutputType());
   }
 
   /** Schedule a new task to be performed at the given time. */

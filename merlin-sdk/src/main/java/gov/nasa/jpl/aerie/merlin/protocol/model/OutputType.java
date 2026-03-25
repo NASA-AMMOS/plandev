@@ -1,7 +1,10 @@
 package gov.nasa.jpl.aerie.merlin.protocol.model;
 
+import com.fasterxml.jackson.core.JsonGenerator;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+
+import java.io.IOException;
 
 /**
  * A type of data produced as output by a Merlin model.
@@ -24,4 +27,12 @@ public interface OutputType<T> {
 
   /** Extracts a value conforming to this type's {@linkplain #getSchema() schema} from an opaque value of type {@code T}. */
   SerializedValue serialize(T value);
+
+  /**
+   * Writes a value directly to a Jackson {@link JsonGenerator}, bypassing intermediate SerializedValue allocations.
+   * The default implementation falls back to {@link #serialize(T)} followed by streaming write.
+   */
+  default void writeJson(T value, JsonGenerator gen) throws IOException {
+    serialize(value).writeTo(gen);
+  }
 }

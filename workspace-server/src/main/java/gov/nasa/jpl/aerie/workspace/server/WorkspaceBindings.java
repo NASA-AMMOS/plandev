@@ -623,6 +623,16 @@ public class WorkspaceBindings implements Plugin {
       boolean overwrite,
       final String userId) {
     try {
+      // Verify the user isn't attempting to save a metadata file using the main file api
+      if(RenderType.isAerieMetadataFile(uploadPath.getFileName().toString())) {
+        return new HandlerResult(
+            405,
+            new FormattedError(
+                new MalformedRequest("Could not save file.",
+                    "Metadata files may not be uploaded via the file API."
+                    + " Use the metadata API (located at /metadata/{workspaceId}/<basefilepath>) instead.")));
+      }
+
       // Report a "Conflict" status if the file already exists and "overwrite" is false
       // "overwrite" defaults to "false" if unspecified
       if (workspaceService.checkFileExists(workspaceId, uploadPath) && !overwrite) {
@@ -684,6 +694,24 @@ public class WorkspaceBindings implements Plugin {
         "'%s' in Workspace %d moved to '%s' in Workspace %d"
             .formatted(toMove, sourceWorkspaceId, destinationPath, destinationWorkspaceId));
 
+    // Verify the user isn't attempting to move a metadata file using the main file api
+    if(RenderType.isAerieMetadataFile(toMove.getFileName().toString())) {
+      return new HandlerResult(
+          405,
+          new FormattedError(
+              new MalformedRequest(
+                  errorMsg,
+                  "Metadata files may not be directly moved via the file API. Move the main file instead.")));
+    }
+
+    // Verify the user isn't attempting to rename a non-metadata file to a metadata file
+    if(RenderType.isAerieMetadataFile(destinationPath.getFileName().toString())) {
+      return new HandlerResult(
+          405,
+          new FormattedError(
+              new MalformedRequest(errorMsg, "Normal files may not be renamed to metadata files.")));
+    }
+
     if (!workspaceService.checkFileExists(sourceWorkspaceId, toMove)) {
       return new HandlerResult(
           404,
@@ -730,6 +758,24 @@ public class WorkspaceBindings implements Plugin {
         "'%s' in Workspace %d copied to '%s' in Workspace %d"
             .formatted(toCopy, sourceWorkspaceId, destinationPath, destinationWorkspaceId));
 
+    // Verify the user isn't attempting to copy a metadata file using the main file api
+    if(RenderType.isAerieMetadataFile(toCopy.getFileName().toString())) {
+      return new HandlerResult(
+          405,
+          new FormattedError(
+              new MalformedRequest(
+                  errorMsg,
+                  "Metadata files may not be directly copied via the file API. Copy the main file instead.")));
+    }
+
+    // Verify the user isn't attempting to rename a non-metadata file to a metadata file
+    if(RenderType.isAerieMetadataFile(destinationPath.getFileName().toString())) {
+      return new HandlerResult(
+          405,
+          new FormattedError(
+              new MalformedRequest(errorMsg, "Normal files may not be renamed to metadata files.")));
+    }
+
     if (!workspaceService.checkFileExists(sourceWorkspaceId, toCopy)) {
       return new HandlerResult(
           404,
@@ -764,6 +810,18 @@ public class WorkspaceBindings implements Plugin {
   private HandlerResult handleDelete(int workspaceId, Path filePath) {
     try {
       final var errorMsg = "Could not delete %s.".formatted(filePath);
+
+      // Verify the user isn't attempting to delete a metadata file using the main file api
+      if(RenderType.isAerieMetadataFile(filePath.getFileName().toString())) {
+        return new HandlerResult(
+            405,
+            new FormattedError(
+                new MalformedRequest(
+                    errorMsg,
+                    "Metadata files may not be directly deleted via the file API. "
+                    + "Use the metadata API (located at /metadata/{workspaceId}/<basefilepath>) instead.")));
+      }
+
       if (!workspaceService.checkFileExists(workspaceId, filePath)) {
         return new HandlerResult(404, new FormattedError(filePath.getFileName() + " does not exist."));
       }

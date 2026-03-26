@@ -52,14 +52,20 @@ public interface WorkspaceService {
   throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException;
 
   /**
-  * Copy a file within a workspace or between workspaces.
-  * @param sourceWorkspaceId the id of the source workspace
-  * @param sourceFilePath the path, relative to the workspace root, that the file is currently at
-  * @param destWorkspaceId the id of the destination workspace, note that this can be the same as sourceWorkspaceId
-  * @param destFilePath the path of the copied file, relative to the new workspace root
-  * @return true if the file was copied, false otherwise
-  */
-  boolean copyFile(final int sourceWorkspaceId, final Path sourceFilePath, final int destWorkspaceId, final Path destFilePath)
+   * Copy a file within a workspace or between workspaces.
+   * @param sourceWorkspaceId the id of the source workspace
+   * @param sourceFilePath the path, relative to the workspace root, that the file is currently at
+   * @param destWorkspaceId the id of the destination workspace, note that this can be the same as sourceWorkspaceId
+   * @param destFilePath the path of the copied file, relative to the new workspace root
+   * @param userId the userId of the user making the change
+   * @return true if the file was copied, false otherwise
+   */
+  boolean copyFile(
+      final int sourceWorkspaceId,
+      final Path sourceFilePath,
+      final int destWorkspaceId,
+      final Path destFilePath,
+      final String userId)
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException;
 
   /**
@@ -68,9 +74,15 @@ public interface WorkspaceService {
    * @param oldFilePath the path, relative to the source workspace root, that the file is currently at
    * @param newWorkspaceId the id of the target workspace, note that this can be the same as oldWorkspaceId
    * @param newFilePath the new path of the file, relative to the new workspace root
+   * @param userId the userId of the user making the change
    * @return true if the file was moved, false otherwise
    */
-  boolean moveFile(final int oldWorkspaceId, final Path oldFilePath, final int newWorkspaceId, final Path newFilePath)
+  boolean moveFile(
+      final int oldWorkspaceId,
+      final Path oldFilePath,
+      final int newWorkspaceId,
+      final Path newFilePath,
+      final String userId)
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException;
 
   /**

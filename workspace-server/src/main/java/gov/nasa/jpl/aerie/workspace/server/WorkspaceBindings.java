@@ -560,7 +560,9 @@ public class WorkspaceBindings implements Plugin {
             body.destinationPath(),
             sourceWorkspace,
             body.destinationWorkspaceId(),
-            body.overwrite());
+            body.overwrite(),
+            authorize(context).userId()
+        );
         if(moveResults.response.getValueType() == JsonValue.ValueType.STRING) {
           context.status(moveResults.status).result(((JsonString) moveResults.response()).getString());
         } else {
@@ -576,7 +578,9 @@ public class WorkspaceBindings implements Plugin {
               body.destinationPath(),
               sourceWorkspace,
               body.destinationWorkspaceId(),
-              body.overwrite());
+              body.overwrite(),
+              authorize(context).userId()
+          );
           if (copyResults.response.getValueType() == JsonValue.ValueType.STRING) {
             context.status(copyResults.status).result(((JsonString) copyResults.response()).getString());
           } else {
@@ -670,7 +674,8 @@ public class WorkspaceBindings implements Plugin {
       Path destinationPath,
       int sourceWorkspaceId,
       int destinationWorkspaceId,
-      boolean overwrite
+      boolean overwrite,
+      String userId
   ) throws NoSuchWorkspaceException
   {
     final var errorMsg = "Unable to move '%s' in Workspace %d to '%s' in Workspace %d."
@@ -697,7 +702,7 @@ public class WorkspaceBindings implements Plugin {
           return new HandlerResult(500, new FormattedError(errorMsg).toJson());
         }
       } else {
-        if (workspaceService.moveFile(sourceWorkspaceId, toMove, destinationWorkspaceId, destinationPath)) {
+        if (workspaceService.moveFile(sourceWorkspaceId, toMove, destinationWorkspaceId, destinationPath, userId)) {
           return new HandlerResult(200, successMsg);
         } else {
           return new HandlerResult(500, new FormattedError(errorMsg).toJson());
@@ -715,7 +720,8 @@ public class WorkspaceBindings implements Plugin {
       Path destinationPath,
       int sourceWorkspaceId,
       int destinationWorkspaceId,
-      boolean overwrite
+      boolean overwrite,
+      String userId
   ) throws NoSuchWorkspaceException
   {
     final var errorMsg = "Unable to copy '%s' in Workspace %d to '%s' in Workspace %d."
@@ -742,7 +748,7 @@ public class WorkspaceBindings implements Plugin {
           return new HandlerResult(500, new FormattedError(errorMsg).toJson());
         }
       } else {
-        if (workspaceService.copyFile(sourceWorkspaceId, toCopy, destinationWorkspaceId, destinationPath)) {
+        if (workspaceService.copyFile(sourceWorkspaceId, toCopy, destinationWorkspaceId, destinationPath, userId)) {
           return new HandlerResult(200, successMsg);
         } else {
           return new HandlerResult(500, new FormattedError(errorMsg).toJson());
@@ -1054,7 +1060,9 @@ public class WorkspaceBindings implements Plugin {
             items,
             sourceWorkspace,
             body.destinationWorkspaceId(),
-            body.overwrite());
+            body.overwrite(),
+            authorize(context).userId()
+        );
         context.status(207).json(moveResults.toString());
       }
       case PostActions.COPY -> {
@@ -1067,7 +1075,9 @@ public class WorkspaceBindings implements Plugin {
             items,
             sourceWorkspace,
             body.destinationWorkspaceId(),
-            body.overwrite());
+            body.overwrite(),
+            authorize(context).userId()
+        );
         context.status(207).json(copyResults.toString());
       }
       default -> context.status(501).json(new FormattedError("Unsupported post action: " + body.action().name()).toJson());
@@ -1078,7 +1088,8 @@ public class WorkspaceBindings implements Plugin {
       List<BulkPostItem> toMove,
       int sourceWorkspaceId,
       int destinationWorkspaceId,
-      boolean overwrite
+      boolean overwrite,
+      String userId
   ) throws NoSuchWorkspaceException {
     final var responseArray = Json.createArrayBuilder();
     for(final var item : toMove){
@@ -1087,7 +1098,9 @@ public class WorkspaceBindings implements Plugin {
           item.newPath(),
           sourceWorkspaceId,
           destinationWorkspaceId,
-          overwrite);
+          overwrite,
+          userId
+      );
       final var response = Json.createObjectBuilder()
                                .add("item", item.currentLocation().toString())
                                .add("status", results.status)
@@ -1101,7 +1114,8 @@ public class WorkspaceBindings implements Plugin {
       List<BulkPostItem> toCopy,
       int sourceWorkspaceId,
       int destinationWorkspaceId,
-      boolean overwrite
+      boolean overwrite,
+      String userId
   ) throws NoSuchWorkspaceException {
     final var responseArray = Json.createArrayBuilder();
     for(final var item : toCopy) {
@@ -1110,7 +1124,9 @@ public class WorkspaceBindings implements Plugin {
           item.newPath(),
           sourceWorkspaceId,
           destinationWorkspaceId,
-          overwrite);
+          overwrite,
+          userId
+      );
       final var response = Json.createObjectBuilder()
                                .add("item", item.currentLocation().toString())
                                .add("status", results.status)

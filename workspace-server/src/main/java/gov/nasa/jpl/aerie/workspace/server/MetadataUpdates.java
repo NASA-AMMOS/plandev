@@ -11,8 +11,10 @@ public class MetadataUpdates {
   private final Optional<String> version;
   private final Optional<String> createdBy;
   private final Optional<Instant> createdAt;
-  private final String lastEditedBy;
-  private final Instant lastEditedAt;
+  private final Optional<String> lastEditedBy;
+  private final Optional<Instant> lastEditedAt;
+  private final String metadataLastEditedBy;
+  private final Instant metadataLastEditedAt;
   // User-Managed Fields
   private final Optional<Boolean> readOnly;
   private final Optional<JsonObject> user;
@@ -21,21 +23,27 @@ public class MetadataUpdates {
     this.version = Optional.ofNullable(builder.version);
     this.createdBy = Optional.ofNullable(builder.createdBy);
     this.createdAt = Optional.ofNullable(builder.createdAt);
-    this.lastEditedBy = builder.lastEditedBy;
-    this.lastEditedAt = builder.lastEditedAt;
+    this.lastEditedBy = Optional.ofNullable(builder.lastEditedBy);
+    this.lastEditedAt = Optional.ofNullable(builder.lastEditedAt);
+    // Tracked but unwritten fields (currently used for fallbacks)
+    this.metadataLastEditedBy = builder.metadataLastEditedBy;
+    this.metadataLastEditedAt = builder.metadataLastEditedAt;
+
     this.readOnly = Optional.ofNullable(builder.readOnly);
     this.user = Optional.ofNullable(builder.user);
   }
 
   private MetadataUpdates(String userId, Optional<Boolean> readOnly, Optional<JsonObject> user) {
-    this.lastEditedBy = userId;
-    this.lastEditedAt = Instant.now();
+    this.metadataLastEditedBy = userId;
+    this.metadataLastEditedAt = Instant.now();
     this.readOnly = readOnly;
     this.user = user;
 
     this.version = Optional.empty();
     this.createdBy = Optional.empty();
     this.createdAt = Optional.empty();
+    this.lastEditedBy = Optional.empty();
+    this.lastEditedAt = Optional.empty();
   }
 
   // System-managed fields
@@ -51,12 +59,20 @@ public class MetadataUpdates {
     return createdAt;
   }
 
-  public String lastEditedBy() {
+  public Optional<String> lastEditedBy() {
     return lastEditedBy;
   }
 
-  public Instant lastEditedAt() {
+  public Optional<Instant> lastEditedAt() {
     return lastEditedAt;
+  }
+
+  public String metadataLastEditedBy() {
+    return metadataLastEditedBy;
+  }
+
+  public Instant metadataLastEditedAt() {
+    return metadataLastEditedAt;
   }
 
   // User-managed fields
@@ -140,19 +156,22 @@ public class MetadataUpdates {
     private String version;
     private String createdBy;
     private Instant createdAt;
-    private final String lastEditedBy;
-    private final Instant lastEditedAt;
+    private String lastEditedBy;
+    private Instant lastEditedAt;
+    private final String metadataLastEditedBy;
+    private final Instant metadataLastEditedAt;
+
     private Boolean readOnly;
     private JsonObject user;
 
     public Builder(String userId) {
-      this.lastEditedBy = userId;
-      this.lastEditedAt = Instant.now();
+      this.metadataLastEditedBy = userId;
+      this.metadataLastEditedAt = Instant.now();
     }
 
     public Builder(String userId, Instant lastEditedAt) {
-      this.lastEditedBy = userId;
-      this.lastEditedAt = lastEditedAt;
+      this.metadataLastEditedBy = userId;
+      this.metadataLastEditedAt = lastEditedAt;
     }
 
     public Builder version(String version) {
@@ -167,6 +186,16 @@ public class MetadataUpdates {
 
     public Builder createdAt(Instant createdAt) {
       this.createdAt = createdAt;
+      return this;
+    }
+
+    public Builder lastEditedBy(String lastEditedBy) {
+      this.lastEditedBy = lastEditedBy;
+      return this;
+    }
+
+    public Builder lastEditedAt(Instant lastEditedAt) {
+      this.lastEditedAt = lastEditedAt;
       return this;
     }
 

@@ -312,16 +312,25 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
     final var path = resolveWritingPath(repoPath, filePath);
     final var metadataFilePath = resolveMetadataPath(repoPath, filePath);
+    final var metadataUpdates = new MetadataUpdates.Builder(userId)
+        .lastEditedAt(Instant.now())
+        .lastEditedBy(userId)
+        .build();
 
     if(path.toFile().isDirectory()) return false;
 
     FileUtil.streamToFile(file.content(), path.toString());
-    writeMetadataFile(new MetadataUpdates.Builder(userId).build(), metadataFilePath.toFile());
+    updateMetadataKeys(metadataFilePath, metadataUpdates);
     return true;
   }
 
   @Override
-  public boolean moveFile(final int oldWorkspaceId, final Path oldFilePath, final int newWorkspaceId, final Path newFilePath)
+  public boolean moveFile(
+      final int oldWorkspaceId,
+      final Path oldFilePath,
+      final int newWorkspaceId,
+      final Path newFilePath,
+      final String userId)
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException
   {
     final var oldRepoPath = postgresRepository.workspaceRootPath(oldWorkspaceId);
@@ -336,13 +345,24 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     if(Files.exists(oldMetadataPath)) {
       Files.move(oldMetadataPath, newMetadataPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     }
+    // Update the metadata
+    final var metadataUpdates = new MetadataUpdates.Builder(userId)
+        .lastEditedAt(Instant.now())
+        .lastEditedBy(userId)
+        .build();
+    updateMetadataKeys(newMetadataPath, metadataUpdates);
 
     Files.move(oldPath, newPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     return true;
   }
 
   @Override
-  public boolean copyFile(final int sourceWorkspaceId, final Path sourceFilePath, final int destWorkspaceId, final Path destFilePath)
+  public boolean copyFile(
+      final int sourceWorkspaceId,
+      final Path sourceFilePath,
+      final int destWorkspaceId,
+      final Path destFilePath,
+      final String userId)
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException
   {
     final var sourceRepoPath = postgresRepository.workspaceRootPath(sourceWorkspaceId);
@@ -368,6 +388,12 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     if (Files.exists(sourceMetadataPath)) {
       Files.copy(sourceMetadataPath, destMetadataPath, StandardCopyOption.REPLACE_EXISTING);
     }
+    // Update the metadata
+    final var metadataUpdates = new MetadataUpdates.Builder(userId)
+        .lastEditedAt(Instant.now())
+        .lastEditedBy(userId)
+        .build();
+    updateMetadataKeys(destMetadataPath, metadataUpdates);
 
     // Copy the main file
     Files.copy(sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING);
@@ -526,8 +552,11 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   public boolean updateMetadataKeys(final int workspaceId, final Path filePath, MetadataUpdates updates)
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException, JsonException
   {
-    final Path metadataFilePath = resolveMetadataPath(workspaceId, filePath);
-    final var metadataFile = metadataFilePath.toFile();
+    return updateMetadataKeys(resolveMetadataPath(workspaceId, filePath), updates);
+  }
+
+  private boolean updateMetadataKeys(final Path resolvedMetadataPath, MetadataUpdates updates) throws IOException {
+    final var metadataFile = resolvedMetadataPath.toFile();
     JsonObject fileContents;
 
     try(final var reader = Json.createReader(new FileReader(metadataFile))){
@@ -538,7 +567,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       if(!metadataFile.exists() && !metadataFile.isDirectory()) {
         fileContents = JsonValue.EMPTY_JSON_OBJECT;
       } else {
-        throw new IOException("Unable to update metadata file at "+metadataFilePath, fnf);
+        throw new IOException("Unable to update metadata file at "+resolvedMetadataPath, fnf);
       }
     }
 
@@ -563,17 +592,21 @@ public class WorkspaceFileSystemService implements WorkspaceService {
           v -> generator.write("version", v),
           () -> generator.write("version", "1"));
 
-      // Fill in "created" information, using the "lastEdited" information as a fallback
+      // Fill in "created" information, using the "metadataLastEdited" information as a fallback
       contents.createdBy().ifPresentOrElse(
           c -> generator.write("createdBy", c),
-          () -> generator.write("createdBy", contents.lastEditedBy()));
+          () -> generator.write("createdBy", contents.metadataLastEditedBy()));
       contents.createdAt().ifPresentOrElse(
           c -> generator.write("createdAt", c.toString()),
-          () -> generator.write("createdAt", contents.lastEditedAt().toString()));
+          () -> generator.write("createdAt", contents.metadataLastEditedAt().toString()));
 
-      // Fill in "lastEdited" information
-      generator.write("lastEditedBy", contents.lastEditedBy());
-      generator.write("lastEditedAt", contents.lastEditedAt().toString());
+      // Fill in "lastEdited" information, using the "metadataLastEdited" information as a fallback
+      contents.lastEditedBy().ifPresentOrElse(
+          c -> generator.write("lastEditedBy", c),
+          () -> generator.write("lastEditedBy", contents.metadataLastEditedBy()));
+      contents.lastEditedAt().ifPresentOrElse(
+          c -> generator.write("lastEditedAt", c.toString()),
+          () -> generator.write("lastEditedAt", contents.metadataLastEditedAt().toString()));
 
       // Fill in the user-mutable fields, if included
       contents.readOnly().ifPresent(r -> generator.write("readOnly", r));
@@ -591,7 +624,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
    * @throws JsonException If the current contents are malformed.
    */
   private MetadataUpdates.Builder generateUpdatedMetadataFile(final JsonObject currentContents, MetadataUpdates updates) throws JsonException {
-    final var mergedBuilder = new MetadataUpdates.Builder(updates.lastEditedBy(), updates.lastEditedAt());
+    final var mergedBuilder = new MetadataUpdates.Builder(updates.metadataLastEditedBy(), updates.metadataLastEditedAt());
 
     // Upsert the fields, skipping "lastEditedAt" and "lastEditedBy" (as they're already set),
     updates.version().ifPresentOrElse(
@@ -610,7 +643,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
           if(currentContents.containsKey("createdBy")) {
             mergedBuilder.createdBy(currentContents.getString("createdBy"));
           } else {
-            mergedBuilder.createdBy(updates.lastEditedBy()); // Fallback
+            mergedBuilder.createdBy(updates.metadataLastEditedBy()); // Fallback
           }
         }
     );
@@ -620,10 +653,31 @@ public class WorkspaceFileSystemService implements WorkspaceService {
           if(currentContents.containsKey("createdAt")) {
             mergedBuilder.createdAt(Instant.parse(currentContents.getString("createdAt")));
           } else {
-            mergedBuilder.createdAt(updates.lastEditedAt()); // Fallback
+            mergedBuilder.createdAt(updates.metadataLastEditedAt()); // Fallback
           }
         }
     );
+    updates.lastEditedBy().ifPresentOrElse(
+        mergedBuilder::lastEditedBy,
+        () -> {
+          if(currentContents.containsKey("lastEditedBy")) {
+            mergedBuilder.lastEditedBy(currentContents.getString("lastEditedBy"));
+          } else {
+            mergedBuilder.lastEditedBy(updates.metadataLastEditedBy()); // Fallback
+          }
+        }
+    );
+    updates.lastEditedAt().ifPresentOrElse(
+        mergedBuilder::lastEditedAt,
+        () -> {
+          if(currentContents.containsKey("lastEditedAt")) {
+            mergedBuilder.lastEditedAt(Instant.parse(currentContents.getString("lastEditedAt")));
+          } else {
+            mergedBuilder.lastEditedAt(updates.metadataLastEditedAt()); // Fallback
+          }
+        }
+    );
+
     updates.readOnly().ifPresentOrElse(
         mergedBuilder::readOnly,
         () -> {
@@ -731,12 +785,9 @@ public class WorkspaceFileSystemService implements WorkspaceService {
           case readOnly -> fileContentsBuilder.readOnly(null);
           case createdBy -> fileContentsBuilder.createdBy(null);
           case createdAt -> fileContentsBuilder.createdAt(null);
+          case lastEditedAt -> fileContentsBuilder.lastEditedAt(null);
+          case lastEditedBy -> fileContentsBuilder.lastEditedBy(null);
           case version -> fileContentsBuilder.version(null);
-          // These keys can't be unset:
-          // From a "user-logic" perspective, the "old values" would be unset and then immediately set by the act of updating the metadata file.
-          // From a "system-logic" perspective, these two keys must have values in order to write out the metadata file
-          case lastEditedAt, lastEditedBy -> {
-          }
         }
       }
     }

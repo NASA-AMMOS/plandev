@@ -321,6 +321,11 @@ return (<T>makeAllDiscreteProfile(args))
       @Override
       public String onNumeric(final BigDecimal value) {
         return "number";
+      @Override
+      public String onDouble(final double value) {
+        return "number";
+      }
+
       }
 
       @Override

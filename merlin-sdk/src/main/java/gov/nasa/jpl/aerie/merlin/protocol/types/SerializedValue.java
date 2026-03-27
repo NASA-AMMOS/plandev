@@ -61,6 +61,7 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
   interface Visitor<T> {
     T onNull();
     T onNumeric(BigDecimal value);
+    T onDouble(double value);
     T onBoolean(boolean value);
     T onString(String value);
     T onMap(Map<String, SerializedValue> value);
@@ -112,6 +113,29 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
     @Override
     public int hashCode() {
       return this.value.stripTrailingZeros().hashCode();
+    }
+  }
+
+  record DoubleValue(double value) implements SerializedValue {
+    @Override
+    public <T> T match(final Visitor<T> visitor) {
+      return visitor.onDouble(value);
+    }
+
+    @Override
+    public Double getValue() {
+      return value;
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+      if (!(obj instanceof DoubleValue other)) return false;
+      return Double.compare(this.value, other.value) == 0;
+    }
+
+    @Override
+    public int hashCode() {
+      return Double.hashCode(value);
     }
   }
 
@@ -185,7 +209,7 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
    * @return A new {@link SerializedValue} containing a real number.
    */
   static SerializedValue of(final double value) {
-    return new NumericValue(BigDecimal.valueOf(value));
+    return new DoubleValue(value);
   }
 
   /**
@@ -266,6 +290,11 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
     }
 
     @Override
+    public T onDouble(final double value) {
+      return this.onDefault();
+    }
+
+    @Override
     public T onBoolean(final boolean value) {
       return this.onDefault();
     }
@@ -329,6 +358,11 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
       public Optional<BigDecimal> onNumeric(final BigDecimal value) {
         return Optional.of(value);
       }
+
+      @Override
+      public Optional<BigDecimal> onDouble(final double value) {
+        return Optional.of(BigDecimal.valueOf(value));
+      }
     });
   }
 
@@ -343,6 +377,11 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
       @Override
       public Optional<Double> onNumeric(final BigDecimal value) {
         return Optional.of(value.doubleValue());
+      }
+
+      @Override
+      public Optional<Double> onDouble(final double value) {
+        return Optional.of(value);
       }
     });
   }
@@ -362,6 +401,12 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
         } catch (final ArithmeticException ex) {
           return Optional.empty();
         }
+      }
+
+      @Override
+      public Optional<Long> onDouble(final double value) {
+        if (value % 1 == 0) return Optional.of((long) value);
+        return Optional.empty();
       }
     });
   }
@@ -439,6 +484,11 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
         }
         @Override
         public Void onNumeric(final BigDecimal value) {
+          try { gen.writeNumber(value); } catch (final IOException e) { throw new UncheckedIOException(e); }
+          return null;
+        }
+        @Override
+        public Void onDouble(final double value) {
           try { gen.writeNumber(value); } catch (final IOException e) { throw new UncheckedIOException(e); }
           return null;
         }

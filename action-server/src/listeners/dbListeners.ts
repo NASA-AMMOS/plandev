@@ -25,7 +25,7 @@ async function readFileFromStore(fileName: string): Promise<string> {
 async function refreshActionDefinitionSchema(payload: ActionDefinitionInsertedPayload) {
   // read the action file and extract parameter/setting schemas
   const actionJS = await readFileFromStore(payload.action_file_path);
-  const schemas = await extractSchemas(actionJS);
+  const schemas = extractSchemas(actionJS);
 
   const pool = ActionsDbManager.getDb();
   const query = `

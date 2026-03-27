@@ -4,6 +4,7 @@ import {authMiddleware, corsMiddleware, jsonErrorMiddleware} from "./middleware"
 import { ActionRunner } from "./type/actionRunner";
 import { extractCookies } from "./utils/auth";
 import logger from "./utils/logger";
+import {isActionRunRequest} from "./utils/validators";
 
 
 // init express app and middleware
@@ -23,6 +24,10 @@ app.post(
   "/secrets",
   authMiddleware,
   (req, res, next) => {
+    const validationErr = isActionRunRequest(req);
+    if(validationErr) {
+      res.status(500).send({message: validationErr, success: false});
+    }
     const { action_run_id, secrets } = req.body;
     const actionRunId = action_run_id as string;
 

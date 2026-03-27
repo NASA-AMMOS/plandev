@@ -174,12 +174,10 @@ export const jsExecute = async (
 /**
  * Todo correct return type for schemas?
  */
-export const extractSchemas = async (code: string): Promise<any> => {
-  // todo: do we need to pass globals/console for this part?
+export const extractSchemas = (code: string, providedContext?: vm.Context): any => {
+  // todo: do we need to pass console for this part?
 
-  // need to initialize exports for the cjs module to work correctly
-  const aerieGlobal = getGlobals();
-  const context = vm.createContext(aerieGlobal);
+  const context = providedContext || vm.createContext(getGlobals());
 
   try {
     vm.runInContext(code, context);
@@ -196,13 +194,13 @@ export const extractSchemas = async (code: string): Promise<any> => {
       errorResponse = error;
     }
 
-    return Promise.resolve({
+    return {
       results: null,
       errors: {
         stack: errorResponse.stack,
         message: errorResponse.message,
         cause: errorResponse.cause,
       },
-    });
+    };
   }
 };

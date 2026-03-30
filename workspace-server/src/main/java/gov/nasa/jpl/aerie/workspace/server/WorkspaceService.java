@@ -125,6 +125,18 @@ public interface WorkspaceService {
   boolean deleteDirectory(final int workspaceId, final Path directoryPath) throws NoSuchWorkspaceException;
 
   /**
+   * Returns whether the file located at 'filePath' is marked as "readOnly" in its metadata.
+   * @param workspaceId the id of the workspace the file lives in
+   * @param filePath the path to the file whose metadata will be updated
+   * @throws NoSuchWorkspaceException If the specified workspace does not exist
+   * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory, or if the metadata file for "filePath" is a directory
+   * @throws IOException If the metadata file cannot be opened for reasons other than nonexistence
+   * @throws JsonException If the file's metadata is malformed
+   */
+  boolean isReadOnly(final int workspaceId, final Path filePath)
+  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException, JsonException;
+
+  /**
    * Retrieve the associated metadata file for the given file.
    * Returns an JSON file with only "version" specified in the event said file does not exist.
    * @param workspaceId the id of the workspace the file lives in

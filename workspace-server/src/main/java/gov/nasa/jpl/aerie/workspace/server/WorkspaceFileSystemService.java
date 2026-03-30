@@ -35,7 +35,6 @@ import org.slf4j.LoggerFactory;
 import javax.json.Json;
 import javax.json.JsonException;
 import javax.json.JsonObject;
-import javax.json.JsonObjectBuilder;
 import javax.json.JsonValue;
 import javax.json.stream.JsonGenerator;
 
@@ -524,9 +523,41 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var path = resolveReadingPath(workspaceId, directoryPath);
     return rmDirectory(path.toFile());
   }
+
+  @Override
+  public boolean isReadOnly(final int workspaceId, final Path filePath)
+  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException, JsonException
+  {
+    final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
+    final var metadataFile = resolveMetadataPath(repoPath, filePath).toFile();
+    final var metadataFileContents = readMetadataFile(metadataFile);
+    return metadataFileContents.getBoolean("readOnly", false);
+  }
   //endregion
 
   //region Metadata Operations
+
+  /**
+   * Read and return the contents of a metadata file
+   * @param metadataFile the metadata file to be read
+   * @return the contents of the metadata file, if it exists, or else an empty json object
+   * @throws JsonException if the metadata file is malformed
+   * @throws IOException if the metadata file cannot be opened for reading for reasons other than nonexistence
+   */
+  private JsonObject readMetadataFile(final File metadataFile) throws IOException, JsonException {
+    try(final var reader = Json.createReader(new FileReader(metadataFile))){
+      return reader.readObject();
+    } catch (FileNotFoundException fnf) {
+      // If we got this exception, the file probably does not exist, but we need to confirm since new FileReader()
+      //    can throw this exception if the file "cannot be opened for other reasons"
+      if(!metadataFile.exists()) {
+        return JsonValue.EMPTY_JSON_OBJECT;
+      } else {
+        throw new IOException("Unable to update metadata file at "+metadataFile.getPath(), fnf);
+      }
+    }
+  }
+
   @Override
   public FileStream loadMetadataFile(final int workspaceId, final Path filePath)
   throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException
@@ -555,21 +586,9 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     return updateMetadataKeys(resolveMetadataPath(workspaceId, filePath), updates);
   }
 
-  private boolean updateMetadataKeys(final Path resolvedMetadataPath, MetadataUpdates updates) throws IOException {
+  private boolean updateMetadataKeys(final Path resolvedMetadataPath, MetadataUpdates updates) throws IOException, JsonException {
     final var metadataFile = resolvedMetadataPath.toFile();
-    JsonObject fileContents;
-
-    try(final var reader = Json.createReader(new FileReader(metadataFile))){
-      fileContents = reader.readObject();
-    } catch (FileNotFoundException fnf) {
-      // If we got this exception, the file probably does not exist, but we need to confirm since new FileReader()
-      //    can throw this exception if the file "cannot be opened for other reasons"
-      if(!metadataFile.exists() && !metadataFile.isDirectory()) {
-        fileContents = JsonValue.EMPTY_JSON_OBJECT;
-      } else {
-        throw new IOException("Unable to update metadata file at "+resolvedMetadataPath, fnf);
-      }
-    }
+    final var fileContents = readMetadataFile(metadataFile);
 
     // Write the contents of the metadata file
     final var newFileContents = generateUpdatedMetadataFile(fileContents, updates).build();
@@ -748,23 +767,10 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   {
     final Path metadataFilePath = resolveMetadataPath(workspaceId, filePath);
     final var metadataFile = metadataFilePath.toFile();
-    JsonObject fileContents;
-
-    try (final var reader = Json.createReader(new FileReader(metadataFile))) {
-      fileContents = reader.readObject();
-    } catch (FileNotFoundException fnf) {
-      // If we got this exception, the file probably does not exist, but we need to confirm since new FileReader()
-      //    can throw this exception if the file "cannot be opened for other reasons"
-      if (metadataFile.exists() && !metadataFile.isDirectory()) {
-        fileContents = JsonValue.EMPTY_JSON_OBJECT;
-      } else {
-        throw new IOException("Unable to update metadata file at " + metadataFilePath, fnf);
-      }
-    }
 
     // Get the contents of the current metadata file, or the default template if it doesn't exist
     final var fileContentsBuilder = generateUpdatedMetadataFile(
-        fileContents,
+        readMetadataFile(metadataFile),
         new MetadataUpdates.Builder(userId).build());
 
     // Unset the specified keys

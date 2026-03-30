@@ -639,6 +639,11 @@ public class WorkspaceBindings implements Plugin {
         return new HandlerResult(409, new FormattedError(uploadPath + " already exists."));
       }
 
+      // Report a "Locked" status if the file is currently marked as "readOnly"
+      if(workspaceService.isReadOnly(workspaceId, uploadPath)) {
+        return new HandlerResult(423, new FormattedError("Cannot update file at " + uploadPath + ". It is currently marked as read only."));
+      }
+
       if (workspaceService.saveFile(workspaceId, uploadPath, file, userId)) {
         return new HandlerResult(
             200,
@@ -718,7 +723,8 @@ public class WorkspaceBindings implements Plugin {
           new FormattedError(errorMsg, toMove + " does not exist in the source workspace.").toJson());
     }
 
-    if (workspaceService.checkFileExists(destinationWorkspaceId, destinationPath) && !overwrite) {
+    final var destinationFileExists = workspaceService.checkFileExists(destinationWorkspaceId, destinationPath);
+    if (destinationFileExists && !overwrite) {
       return new HandlerResult(409, new FormattedError(errorMsg, destinationPath + " already exists.").toJson());
     }
 
@@ -730,6 +736,11 @@ public class WorkspaceBindings implements Plugin {
           return new HandlerResult(500, new FormattedError(errorMsg).toJson());
         }
       } else {
+        // Report a "Locked" status if either file is currently marked as "readOnly"
+        if(workspaceService.isReadOnly(sourceWorkspaceId, toMove) ||
+           (destinationFileExists && workspaceService.isReadOnly(destinationWorkspaceId, destinationPath))) {
+          return new HandlerResult(423, new FormattedError(errorMsg,  "File is currently marked as read only."));
+        }
         if (workspaceService.moveFile(sourceWorkspaceId, toMove, destinationWorkspaceId, destinationPath, userId)) {
           return new HandlerResult(200, successMsg);
         } else {
@@ -782,7 +793,8 @@ public class WorkspaceBindings implements Plugin {
           new FormattedError(errorMsg, toCopy + " does not exist in the source workspace.").toJson());
     }
 
-    if (workspaceService.checkFileExists(destinationWorkspaceId, destinationPath) && !overwrite) {
+    final var destinationFileExists = workspaceService.checkFileExists(destinationWorkspaceId, destinationPath);
+    if (destinationFileExists && !overwrite) {
       return new HandlerResult(409, new FormattedError(errorMsg, destinationPath + " already exists.").toJson());
     }
 
@@ -794,6 +806,12 @@ public class WorkspaceBindings implements Plugin {
           return new HandlerResult(500, new FormattedError(errorMsg).toJson());
         }
       } else {
+        // Report a "Locked" status if either file is currently marked as "readOnly"
+        if(workspaceService.isReadOnly(sourceWorkspaceId, toCopy) ||
+           (destinationFileExists && workspaceService.isReadOnly(destinationWorkspaceId, destinationPath))) {
+          return new HandlerResult(423, new FormattedError(errorMsg,  "File is currently marked as read only."));
+        }
+
         if (workspaceService.copyFile(sourceWorkspaceId, toCopy, destinationWorkspaceId, destinationPath, userId)) {
           return new HandlerResult(200, successMsg);
         } else {
@@ -834,6 +852,10 @@ public class WorkspaceBindings implements Plugin {
           return new HandlerResult(500, new FormattedError(errorMsg));
         }
       } else {
+        // Report a "Locked" status if the file is currently marked as "readOnly"
+        if(workspaceService.isReadOnly(workspaceId, filePath)) {
+          return new HandlerResult(423, new FormattedError(errorMsg,  "File is currently marked as read only."));
+        }
 
         if (workspaceService.deleteFile(workspaceId, filePath)) {
           return new HandlerResult(200, Json.createValue("File deleted."));
@@ -847,6 +869,10 @@ public class WorkspaceBindings implements Plugin {
     } catch (WorkspaceFileOpException wfe) {
       final var fe = new FormattedError(wfe);
       logger.warn("DELETE: WORKSPACE FILE OP EXCEPTION: {}", fe);
+      return new HandlerResult(500, fe);
+    } catch (IOException ioe) {
+      final var fe = new FormattedError(ioe);
+      logger.warn("DELETE: IO EXCEPTION: {}", fe);
       return new HandlerResult(500, fe);
     }
   }

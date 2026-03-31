@@ -30,7 +30,7 @@ create table actions.action_definition (
 );
 
 comment on table actions.action_definition is e''
-  'User provided Javascript code that will be invoked by Aerie actions and ran on an Aerie server.';
+  'Unversioned user-provided information about a SeqDev action.';
 comment on column actions.action_definition.id is e''
   'The ID of the action.';
 comment on column actions.action_definition.name is e''

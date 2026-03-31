@@ -4,6 +4,8 @@
     - Tables must be loaded before being referenced by foreign keys.
     - Functions must be loaded before they're used in triggers, but can be loaded after any functions that call them.
     - Views must be loaded after all their dependent tables and functions
+    - Data Preloading should be done after all schemas are created
+    - Setting up Database Users should be done LAST
  */
 begin;
   -- Create Non-Public Schemas
@@ -40,15 +42,15 @@ begin;
   -- Tags
   \ir init_tags.sql
 
+  -- Actions
+  \ir init_actions.sql
+
   -- Hasura
   \ir init_hasura.sql
 
-  -- Preload Data
+  -- Preload Data (MUST BE DONE SECOND TO LAST)
   \ir default_user_roles.sql;
 
-  -- Initialize DB User permissions
+  -- Initialize DB User permissions (MUST BE DONE LAST)
   \ir init_db_users.sql
-
-  -- Actions
-  \ir init_actions.sql
 end;

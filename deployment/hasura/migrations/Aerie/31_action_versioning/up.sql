@@ -74,8 +74,8 @@ alter table actions.action_run
   alter column action_definition_revision set not null;
 
 -- 6. Move notify_action_definition_inserted trigger to version table
-drop trigger if exists notify_action_definition_inserted on actions.action_definition;
-drop function if exists actions.notify_action_definition_inserted();
+drop trigger notify_action_definition_inserted on actions.action_definition;
+drop function actions.notify_action_definition_inserted();
 
 create function actions.notify_action_definition_version_inserted()
   returns trigger

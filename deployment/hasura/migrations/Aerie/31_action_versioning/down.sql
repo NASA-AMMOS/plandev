@@ -1,6 +1,6 @@
 -- Drop default revision trigger on action_run
-drop trigger if exists action_run_set_default_revision on actions.action_run;
-drop function if exists actions.action_run_set_default_revision();
+drop trigger action_run_set_default_revision on actions.action_run;
+drop function actions.action_run_set_default_revision();
 
 -- Restore columns on action_definition
 alter table actions.action_definition
@@ -14,9 +14,11 @@ set action_file_id = v.action_file_id,
     parameter_schema = v.parameter_schema,
     settings_schema = v.settings_schema
 from (
-  select distinct on (action_definition_id) *
-  from actions.action_definition_version
-  order by action_definition_id, revision desc
+  select def.revision, def.action_definition_id, def.action_file_id, def.parameter_schema, def.settings_schema
+  from actions.action_definition_version def
+  where def.action_definition_id = ad.id
+  order by def.revision desc
+  limit 1
 ) v
 where ad.id = v.action_definition_id;
 
@@ -39,8 +41,8 @@ alter table actions.action_run drop column action_definition_revision;
 alter table actions.action_definition drop column archived;
 
 -- Restore original notification triggers
-drop trigger if exists notify_action_definition_version_inserted on actions.action_definition_version;
-drop function if exists actions.notify_action_definition_version_inserted();
+drop trigger notify_action_definition_version_inserted on actions.action_definition_version;
+drop function actions.notify_action_definition_version_inserted();
 
 create function actions.notify_action_definition_inserted()
   returns trigger
@@ -99,7 +101,7 @@ begin
 end$$;
 
 -- Drop version table and its trigger function
-drop table if exists actions.action_definition_version;
-drop function if exists actions.action_definition_version_set_revision();
+drop table actions.action_definition_version;
+drop function actions.action_definition_version_set_revision();
 
 call migrations.mark_migration_rolled_back(31);

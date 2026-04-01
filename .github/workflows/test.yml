@@ -142,6 +142,11 @@ jobs:
         if: ${{ contains(env.PR_BODY, '___REQUIRES_GATEWAY_PR___=') }}
         run: |
           echo "GATEWAY_IMAGE_TAG=pr-$(echo $PR_BODY | sed -n 's/.*___REQUIRES_GATEWAY_PR___=\"\([0-9]\+\)\".*/\1/p')" >> $GITHUB_ENV
+      # Start Hasura and Postgres ahead of assembling the Java code, as the Java code takes a few minutes to compile.
+      # This means Hasura will have time to complete its start-up tasks without needing an extra "sleep 30" command.
+      - name: Start Hasura and Postgres
+        run: |
+            docker compose -f ./e2e-tests/docker-compose-test.yml up -d postgres hasura
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -153,15 +158,12 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
       - name: Assemble
         run: ./gradlew assemble --parallel
-      - name: Start Services
+      - name: Start Remaining Services
         run: |
           echo "GATEWAY_IMAGE_TAG: $GATEWAY_IMAGE_TAG"
           docker compose -f ./e2e-tests/docker-compose-test.yml up -d --build --quiet-pull
           docker images
           docker ps -a --no-trunc
-      - name: Sleep for 30 Seconds
-        run: sleep 30s
-        shell: bash
       - name: Run Sequencing E2E Tests
         run: ./gradlew sequencing-server:e2eTest
       - name: Upload Sequencing E2E Test Results
@@ -196,15 +198,16 @@ jobs:
         if: ${{ contains(env.PR_BODY, '___REQUIRES_GATEWAY_PR___=') }}
         run: |
           echo "GATEWAY_IMAGE_TAG=pr-$(echo $PR_BODY | sed -n 's/.*___REQUIRES_GATEWAY_PR___=\"\([0-9]\+\)\".*/\1/p')" >> $GITHUB_ENV
+      # Start Hasura and Postgres ahead of assembling the Java code, as the Java code takes a few minutes to compile.
+      # This means Hasura will have time to complete its start-up tasks without needing an extra "sleep 30" command
+      - name: Start Hasura and Postgres
+        run: |
+          docker compose -f ./e2e-tests/docker-compose-test.yml up -d postgres hasura
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: "temurin"
           java-version: "21"
-      - name: Setup Postgres Client (psql)
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes postgresql-client
       - name: Validate Gradle Wrapper
         uses: gradle/wrapper-validation-action@v2
       - name: Setup Gradle
@@ -219,9 +222,6 @@ jobs:
           docker compose -f ./e2e-tests/docker-compose-test.yml up -d --build --quiet-pull
           docker images
           docker ps -a --no-trunc
-      - name: Sleep for 30 Seconds
-        run: sleep 30s
-        shell: bash
       - name: Run E2E Tests
         run: ./gradlew e2e-tests:e2eTest
       - name: Upload E2E Test Results

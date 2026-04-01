@@ -28,7 +28,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
@@ -36,17 +36,20 @@ jobs:
           queries: +security-extended
           tools: latest
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: "temurin"
           java-version: "21"
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
+          cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
       - name: Build
         run: |
           ./gradlew testClasses
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
       - name: NASA Scrub
         run: |
           python3 -m pip install nasa-scrub
@@ -64,7 +67,7 @@ jobs:
 
           echo "RESULTS_DIR=$results_dir" >> $GITHUB_ENV
       - name: Upload Security Scan Results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Security Scan Results - ${{ matrix.language }}
           path: ${{ env.RESULTS_DIR }}

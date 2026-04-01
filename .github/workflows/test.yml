@@ -37,25 +37,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: "temurin"
           java-version: "21"
-      - name: Validate Gradle Wrapper
-        uses: gradle/wrapper-validation-action@v2
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v5
         with:
-          cache-read-only: false #${{ github.ref != 'refs/heads/develop' }} # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
+          # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
+          cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
       - name: Assemble
         run: ./gradlew assemble --parallel
       - name: Run Unit Tests
         run: ./gradlew test --parallel
       - name: Upload Test Results as XML and HTML
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Unit Test Results
           path: |
@@ -67,16 +66,17 @@ jobs:
     environment: e2e-test
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v4
-      - name: Validate Gradle Wrapper
-        uses: gradle/wrapper-validation-action@v2
+        uses: actions/checkout@v6
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
+          cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
       - name: Run Action Server Unit Tests
         run: ./gradlew action-server:e2eTest
       - name: Upload Test Results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Action Server Test Results
           path: |
@@ -87,9 +87,9 @@ jobs:
     environment: e2e-test
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: "temurin"
           java-version: "21"
@@ -97,13 +97,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes postgresql-client
-      - name: Validate Gradle Wrapper
-        uses: gradle/wrapper-validation-action@v2
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
+          cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
       - name: Start Services
         run: |
-          echo "GATEWAY_IMAGE_TAG: $GATEWAY_IMAGE_TAG"
           docker compose -f ./e2e-tests/docker-compose-test.yml up postgres -d --build --quiet-pull
           docker images
           docker ps -a --no-trunc
@@ -114,7 +114,7 @@ jobs:
         run: ./gradlew db-tests:e2eTest
       - name: Upload DB Test Results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: DB Test Results
           path: |
@@ -137,7 +137,7 @@ jobs:
     environment: e2e-test
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Extract PlanDev gateway docker tag from PR body
         # look in the PR body for the string ___REQUIRES_GATEWAY_PR___=9999, extract the number if so & save to env var
         # if gateway PR is labeled correctly, it will publish a docker tag called 'pr-9999' to use in tests
@@ -150,14 +150,15 @@ jobs:
         run: |
             docker compose -f ./e2e-tests/docker-compose-test.yml up -d postgres hasura
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: "temurin"
           java-version: "21"
-      - name: Validate Gradle Wrapper
-        uses: gradle/wrapper-validation-action@v2
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
+          cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
       - name: Assemble
         run: ./gradlew assemble --parallel
       - name: Start Remaining Services
@@ -170,7 +171,7 @@ jobs:
         run: ./gradlew sequencing-server:e2eTest
       - name: Upload Sequencing E2E Test Results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Sequencing E2E Test Results
           path: |
@@ -193,7 +194,7 @@ jobs:
     environment: e2e-test
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Extract PlanDev gateway docker tag from PR body
         # look in the PR body for the string ___REQUIRES_GATEWAY_PR___=9999, extract the number if so & save to env var
         # if gateway PR is labeled correctly, it will publish a docker tag called 'pr-9999' to use in tests
@@ -206,14 +207,15 @@ jobs:
         run: |
           docker compose -f ./e2e-tests/docker-compose-test.yml up -d postgres hasura
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: "temurin"
           java-version: "21"
-      - name: Validate Gradle Wrapper
-        uses: gradle/wrapper-validation-action@v2
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
+          cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
       - name: Assemble
         run: ./gradlew assemble --parallel
       - name: Build scheduling procedure jars for testing
@@ -228,7 +230,7 @@ jobs:
         run: ./gradlew e2e-tests:e2eTest
       - name: Upload E2E Test Results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: E2E Test Results
           path: |

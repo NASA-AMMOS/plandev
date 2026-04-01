@@ -46,7 +46,9 @@ jobs:
       - name: Validate Gradle Wrapper
         uses: gradle/wrapper-validation-action@v2
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-read-only: false #${{ github.ref != 'refs/heads/develop' }} # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
       - name: Assemble
         run: ./gradlew assemble --parallel
       - name: Run Unit Tests

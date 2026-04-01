@@ -29,26 +29,26 @@ public class GatewayRequests implements AutoCloseable {
    * Auto-login the AerieE2eTests user, whose token is used to upload mission model JARs
    */
   private void login() throws IOException {
-    if(token != null) return;
-    final var response = request.post("/auth/login", RequestOptions.create()
-                                                                   .setHeader("Content-Type", "application/json")
-                                                                   .setData(Json.createObjectBuilder()
-                                                                                .add("username", "AerieE2eTests")
-                                                                                .add("password", "password")
-                                                                                .build()
-                                                                                .toString()));
+    if (token != null) return;
+    final var response = request.post(
+        "/auth/login", RequestOptions.create()
+                                     .setHeader("Content-Type", "application/json")
+                                     .setData(Json.createObjectBuilder()
+                                                  .add("username", "AerieE2eTests")
+                                                  .add("password", "password")
+                                                  .build()
+                                                  .toString()));
     // Process Response
-    if(!response.ok()){
+    if (!response.ok()) {
       throw new IOException(response.statusText());
     }
-    try(final var reader = Json.createReader(new StringReader(response.text()))){
-      final JsonObject bodyJson = reader.readObject();
-      if(!bodyJson.getBoolean("success")){
-        System.err.println("Login failed");
-        throw new RuntimeException(bodyJson.toString());
-      }
-      token = bodyJson.getString("token");
+
+    final var bodyJson = RequestBodyHelper.getBody(response);
+    if (!bodyJson.getBoolean("success")) {
+      System.err.println("Login failed");
+      throw new RuntimeException(bodyJson.toString());
     }
+    token = bodyJson.getString("token");
   }
 
   /**
@@ -110,40 +110,37 @@ public class GatewayRequests implements AutoCloseable {
         "application/java-archive",
         buffer);
 
-    final var response = request.post("/file", RequestOptions.create()
-                                                             .setHeader("Authorization", "Bearer "+token)
-                                                             .setMultipart(FormData.create().set("file", payload)));
+    final var response = request.post(
+        "/file", RequestOptions.create()
+                               .setHeader("Authorization", "Bearer " + token)
+                               .setMultipart(FormData.create().set("file", payload)));
 
     // Process Response
-    if(!response.ok()){
+    if (!response.ok()) {
       throw new IOException(response.statusText());
     }
-    try(final var reader = Json.createReader(new StringReader(response.text()))){
-      final JsonObject bodyJson = reader.readObject();
-      if(bodyJson.containsKey("errors")){
-        System.err.println("Errors in response: \n" + bodyJson.get("errors"));
-        throw new RuntimeException(bodyJson.toString());
-      }
-      return bodyJson.getInt("id");
-    }
-  }
 
+    final JsonObject bodyJson = RequestBodyHelper.getBody(response);
+    if (bodyJson.containsKey("errors")) {
+      System.err.println("Errors in response: \n" + bodyJson.get("errors"));
+      throw new RuntimeException(bodyJson.toString());
+    }
+    return bodyJson.getInt("id");
+  }
 
   public void uploadExternalSourceEventTypes(JsonObject schema) throws RuntimeException {
-    final var response = request.post("/uploadExternalSourceEventTypes", RequestOptions.create()
-                                                                                       .setHeader("Authorization", "Bearer "+token)
-                                                                                 .setHeader("Content-Type", "application/json")
-                                                                                 .setData(schema.toString()));
+    final var response = request.post("/uploadExternalSourceEventTypes",
+                                      RequestOptions.create()
+                                                    .setHeader("Authorization", "Bearer " + token)
+                                                    .setHeader("Content-Type", "application/json")
+                                                    .setData(schema.toString()));
     // Process Response
-    try(final var reader = Json.createReader(new StringReader(response.text()))){
-      final JsonObject bodyJson = reader.readObject();
-      if(!(bodyJson.containsKey("createExternalEventTypes") && bodyJson.containsKey("createExternalSourceTypes"))){
-        System.err.println("Upload failed");
-        throw new RuntimeException(bodyJson.toString());
-      }
+    final var bodyJson = RequestBodyHelper.getBody(response);
+    if (!(bodyJson.containsKey("createExternalEventTypes") && bodyJson.containsKey("createExternalSourceTypes"))) {
+      System.err.println("Upload failed");
+      throw new RuntimeException(bodyJson.toString());
     }
   }
-
   public void uploadExternalSource(String externalSourcePath, String derivationGroupName) throws RuntimeException, IOException {
     byte[] buffer = Files.readAllBytes(Path.of("src/test/resources/" + externalSourcePath));
     FilePayload filePayload = new FilePayload(externalSourcePath, "application/json", buffer);

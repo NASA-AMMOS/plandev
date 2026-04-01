@@ -25,7 +25,8 @@ public class WorkspaceRequests implements AutoCloseable {
 
   public WorkspaceRequests(Playwright playwright){
     request = playwright.request().newContext(new APIRequest.NewContextOptions()
-                                                  .setBaseURL(BaseURL.WORKSPACE_SERVER.url));
+                                                  .setBaseURL(BaseURL.WORKSPACE_SERVER.url)
+                                                  .setTimeout(0));
   }
 
   /**
@@ -51,7 +52,7 @@ public class WorkspaceRequests implements AutoCloseable {
   }
 
   /**
-   * Helper method to create an empty workspace. Parses out the workspaceId from the response.
+   * Helper method to create an empty workspace owned by "Aerie Legacy". Parses out the workspaceId from the response.
    * @param workspaceLocation the name of the folder to be created
    * @param parcelId the parcel id to use for the workspace
    * @return the created workspace's id
@@ -76,6 +77,22 @@ public class WorkspaceRequests implements AutoCloseable {
   }
 
   /**
+   * Helper method to create an empty workspace owned by a particular user. Parses out the workspaceId from the response
+   * @param userToken the JWT token to use
+   * @param workspaceLocation where to place the workspace
+   * @param parcelId the parcel to use
+   * @return the workspace server's response
+   */
+  public int createWorkspace(String userToken, String workspaceLocation, int parcelId) throws IOException {
+    final var response = createWorkspace(userToken, workspaceLocation, Optional.empty(), parcelId);
+
+    if(!response.ok()){
+      throw new IOException(response.statusText());
+    }
+    return Integer.parseInt(response.text());
+  }
+
+  /**
    * Call the workspace creation endpoint using JWT authorization
    * @param userToken the JWT token to use
    * @param workspaceLocation where to place the workspace
@@ -85,8 +102,8 @@ public class WorkspaceRequests implements AutoCloseable {
    */
   public APIResponse createWorkspace(String userToken, String workspaceLocation, Optional<String> workspaceName, int parcelId) {
     final var body = Json.createObjectBuilder()
-                            .add("workspaceLocation", workspaceLocation)
-                            .add("parcelId", parcelId);
+                         .add("workspaceLocation", workspaceLocation)
+                         .add("parcelId", parcelId);
     workspaceName.ifPresent(n -> body.add("workspaceName", n));
 
     final var options = RequestOptions.create()
@@ -94,7 +111,6 @@ public class WorkspaceRequests implements AutoCloseable {
                                       .setData(body.build().toString());
     return request.post("/ws/create", options);
   }
-
 
   /**
    * Call the 'put file' endpoint in the Workspace server. Does not pass the "overwrite" flag.

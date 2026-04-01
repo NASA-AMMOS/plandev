@@ -15,7 +15,6 @@ import javax.json.JsonObjectBuilder;
 import javax.json.JsonValue;
 import javax.json.JsonObject;
 import java.io.IOException;
-import java.io.StringReader;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -69,7 +68,8 @@ public class HasuraRequests implements AutoCloseable {
       GQL query,
       JsonObject variables,
       Map<String, String> headers
-  ) throws IOException {
+  ) throws IOException
+  {
     // Build Payload
     final String data = Json.createObjectBuilder()
                             .add("query", query.query)
@@ -79,25 +79,23 @@ public class HasuraRequests implements AutoCloseable {
 
     // Set Up Request
     final RequestOptions options = RequestOptions.create()
-            .setData(data)
-            .setHeader("x-hasura-admin-secret", hasuraAdminSecret);
+                                                 .setData(data)
+                                                 .setHeader("x-hasura-admin-secret", hasuraAdminSecret);
     headers.forEach(options::setHeader);
 
     final var response = request.post("/v1/graphql", options);
 
     // Process Response
-    if(!response.ok()){
+    if (!response.ok()) {
       throw new IOException(response.statusText());
     }
 
-    try(final var reader = Json.createReader(new StringReader(response.text()))){
-      final JsonObject bodyJson = reader.readObject();
-      if(bodyJson.containsKey("errors")){
-        System.err.println("Errors in response: \n" + bodyJson.get("errors"));
-        throw new RuntimeException(bodyJson.toString());
-      }
-      return bodyJson.getJsonObject("data");
+    final var bodyJson = RequestBodyHelper.getBody(response);
+    if (bodyJson.containsKey("errors")) {
+      System.err.println("Errors in response: \n" + bodyJson.get("errors"));
+      throw new RuntimeException(bodyJson.toString());
     }
+    return bodyJson.getJsonObject("data");
   }
 
   //region Records

@@ -1,0 +1,43 @@
+package gov.nasa.jpl.aerie.e2e.utils;
+
+import com.microsoft.playwright.Playwright;
+import org.jspecify.annotations.NonNull;
+
+import java.io.IOException;
+
+import static gov.nasa.jpl.aerie.e2e.types.User.admin;
+import static gov.nasa.jpl.aerie.e2e.types.User.nonOwner;
+import static gov.nasa.jpl.aerie.e2e.types.User.owner;
+import static gov.nasa.jpl.aerie.e2e.types.User.viewer;
+
+import org.junit.platform.launcher.LauncherSession;
+import org.junit.platform.launcher.LauncherSessionListener;
+import org.junit.platform.launcher.TestExecutionListener;
+import org.junit.platform.launcher.TestPlan;
+
+/**
+ * A class that creates all the users shared across E2E Tests prior to any test,
+ * then cleans up those users after the tests
+ */
+public class UserSetup implements LauncherSessionListener {
+  @Override
+  public void launcherSessionOpened(LauncherSession session) {
+    // Avoid setup for test discovery by delaying it until tests are about to be executed
+    session.getLauncher().registerTestExecutionListeners(new TestExecutionListener() {
+      @Override
+      public void testPlanExecutionStarted(@NonNull TestPlan testPlan) {
+        try (final var playwright = Playwright.create();
+             final var hasura = new HasuraRequests(playwright)
+        ) {
+          // Insert the Users
+          hasura.createUser(admin);
+          hasura.createUser(owner);
+          hasura.createUser(nonOwner);
+          hasura.createUser(viewer);
+        } catch (IOException ioe) {
+          throw new RuntimeException(ioe);
+        }
+      }
+    });
+  }
+}

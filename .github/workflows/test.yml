@@ -60,6 +60,26 @@ jobs:
             **/build/test-results/test
             **/build/reports/tests/test
 
+  action-unit-tests:
+    runs-on: ubuntu-latest
+    environment: e2e-test
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+      - name: Validate Gradle Wrapper
+        uses: gradle/wrapper-validation-action@v2
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+      - name: Run Action Server Unit Tests
+        run: ./gradlew action-server:e2eTest
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Action Server Test Results
+          path: |
+            **/action-server/action-server-test-report.log
+
   db-tests:
     runs-on: ubuntu-latest
     environment: e2e-test
@@ -151,60 +171,6 @@ jobs:
           name: Sequencing E2E Test Results
           path: |
             **/sequencing-server/test-report.*
-      - name: Print Logs for Services
-        if: always()
-        run: docker compose -f ./e2e-tests/docker-compose-test.yml logs -t
-      - name: Stop Services
-        if: always()
-        run: |
-          docker ps -a
-          docker compose -f ./e2e-tests/docker-compose-test.yml down
-          docker ps -a
-      - name: Prune Volumes
-        if: always()
-        run: docker volume prune --force
-
-  action-e2e-tests:
-    runs-on: ubuntu-latest
-    environment: e2e-test
-    steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v4
-      - name: Extract PlanDev gateway docker tag from PR body
-        # look in the PR body for the string ___REQUIRES_GATEWAY_PR___=9999, extract the number if so & save to env var
-        # if gateway PR is labeled correctly, it will publish a docker tag called 'pr-9999' to use in tests
-        if: ${{ contains(env.PR_BODY, '___REQUIRES_GATEWAY_PR___=') }}
-        run: |
-          echo "GATEWAY_IMAGE_TAG=pr-$(echo $PR_BODY | sed -n 's/.*___REQUIRES_GATEWAY_PR___=\"\([0-9]\+\)\".*/\1/p')" >> $GITHUB_ENV
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: "temurin"
-          java-version: "21"
-      - name: Validate Gradle Wrapper
-        uses: gradle/wrapper-validation-action@v2
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-      - name: Assemble
-        run: ./gradlew assemble --parallel
-      - name: Start Services
-        run: |
-          echo "GATEWAY_IMAGE_TAG: $GATEWAY_IMAGE_TAG"
-          docker compose -f ./e2e-tests/docker-compose-test.yml up -d --build --quiet-pull
-          docker images
-          docker ps -a --no-trunc
-      - name: Sleep for 30 Seconds
-        run: sleep 30s
-        shell: bash
-      - name: Run Action Server E2E Tests
-        run: ./gradlew action-server:e2eTest
-      - name: Upload Test Results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: Action Server E2E Test Results
-          path: |
-            **/action-server/action-server-test-report.log
       - name: Print Logs for Services
         if: always()
         run: docker compose -f ./e2e-tests/docker-compose-test.yml logs -t

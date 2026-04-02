@@ -38,6 +38,18 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v6
+
+      - name: Cache Sequencing NPM Packages
+        uses: actions/cache@v5
+        with:
+          path: ./sequencing-server/node_modules
+          key: sequencing-${{ runner.os }}-${{ hashFiles('./sequencing-server/package-lock.json') }}
+      - name: Cache Action NPM Packages
+        uses: actions/cache@v5
+        with:
+          path: ./action-server/node_modules
+          key: action-${{ runner.os }}-${{ hashFiles('./action-server/package-lock.json') }}
+
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
@@ -98,10 +110,12 @@ jobs:
           node-version-file: ./action-server/.nvmrc
           cache: npm
           cache-dependency-path: ./action-server/package-lock.json
+      - name: Install Dependencies
+        run: npm i
+        working-directory: ./action-server
       - name: Run Action Server Unit Tests
-        run: |
-          cd ./action-server
-          npm i && npm --silent run test
+        run: npm --silent run test
+        working-directory: ./action-server
       - name: Upload Test Results
         if: always()
         uses: actions/upload-artifact@v7

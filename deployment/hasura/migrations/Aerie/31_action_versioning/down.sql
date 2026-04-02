@@ -14,11 +14,13 @@ set action_file_id = v.action_file_id,
     parameter_schema = v.parameter_schema,
     settings_schema = v.settings_schema
 from (
-  select def.revision, def.action_definition_id, def.action_file_id, def.parameter_schema, def.settings_schema
+  select distinct on (def.action_definition_id)
+    def.action_definition_id,
+    def.action_file_id,
+    def.parameter_schema,
+    def.settings_schema
   from actions.action_definition_version def
-  where def.action_definition_id = ad.id
-  order by def.revision desc
-  limit 1
+  order by def.action_definition_id, def.revision desc
 ) v
 where ad.id = v.action_definition_id;
 

@@ -116,13 +116,14 @@ public class ActionDefinitionVersionTests {
 
   private int insertFileUpload() throws SQLException {
     try (final var statement = connection.createStatement()) {
+      final var uuid = UUID.randomUUID().toString();
       final var res = statement.executeQuery(
           //language=sql
           """
           INSERT INTO merlin.uploaded_file (path, name)
-          VALUES ('test-action-path-%s', 'test-action-file')
+          VALUES ('test-action-path-%s', 'test-action-file-%s')
           RETURNING id;
-          """.formatted(UUID.randomUUID().toString()));
+          """.formatted(uuid, uuid));
       res.next();
       return res.getInt("id");
     }

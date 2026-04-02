@@ -61,7 +61,8 @@ jobs:
           # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
           cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
       - name: Assemble
-        run: ./gradlew assemble --parallel --daemon --profile
+        # Don't generate docs for tests
+        run: ./gradlew assemble -x javadoc -x javadocJar -x generateDocumentation --parallel --profile
       - name: Upload Profile
         if: always()
         uses: actions/upload-artifact@v7
@@ -86,7 +87,8 @@ jobs:
           # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
           cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
       - name: Assemble
-        run: ./gradlew assemble --parallel
+        # Don't generate docs for tests
+        run: ./gradlew assemble -x javadoc -x javadocJar -x generateDocumentation --parallel
       - name: Run Unit Tests
         run: ./gradlew test --parallel
       - name: Upload Test Results as XML and HTML
@@ -202,7 +204,8 @@ jobs:
           # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
           cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
       - name: Assemble
-        run: ./gradlew assemble --parallel
+        # Don't generate docs for tests
+        run: ./gradlew assemble -x javadoc -x javadocJar -x generateDocumentation --parallel
       - name: Start Remaining Services
         run: |
           echo "GATEWAY_IMAGE_TAG: $GATEWAY_IMAGE_TAG"
@@ -259,7 +262,8 @@ jobs:
           # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
           cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
       - name: Assemble
-        run: ./gradlew assemble --parallel
+        # Don't generate docs for tests
+        run: ./gradlew assemble -x javadoc -x javadocJar -x generateDocumentation --parallel
       - name: Build scheduling procedure jars for testing
         run: ./gradlew e2e-tests:buildAllProcedureJars
       - name: Start Services

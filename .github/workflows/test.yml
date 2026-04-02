@@ -76,6 +76,18 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v6
+
+      - name: Cache Sequencing NPM Packages
+        uses: actions/cache@v5
+        with:
+          path: ./sequencing-server/node_modules
+          key: sequencing-${{ runner.os }}-${{ hashFiles('./sequencing-server/package-lock.json') }}
+      - name: Cache Action NPM Packages
+        uses: actions/cache@v5
+        with:
+          path: ./action-server/node_modules
+          key: action-${{ runner.os }}-${{ hashFiles('./action-server/package-lock.json') }}
+
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
@@ -86,6 +98,7 @@ jobs:
         with:
           # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
           cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
+
       - name: Assemble
         # Don't generate docs for tests
         run: ./gradlew assemble -x javadoc -x javadocJar -x generateDocumentation --parallel
@@ -188,6 +201,18 @@ jobs:
         if: ${{ contains(env.PR_BODY, '___REQUIRES_GATEWAY_PR___=') }}
         run: |
           echo "GATEWAY_IMAGE_TAG=pr-$(echo $PR_BODY | sed -n 's/.*___REQUIRES_GATEWAY_PR___=\"\([0-9]\+\)\".*/\1/p')" >> $GITHUB_ENV
+
+      - name: Cache Sequencing NPM Packages
+        uses: actions/cache@v5
+        with:
+          path: ./sequencing-server/node_modules
+          key: sequencing-${{ runner.os }}-${{ hashFiles('./sequencing-server/package-lock.json') }}
+      - name: Cache Action NPM Packages
+        uses: actions/cache@v5
+        with:
+          path: ./action-server/node_modules
+          key: action-${{ runner.os }}-${{ hashFiles('./action-server/package-lock.json') }}
+
       # Start Hasura and Postgres ahead of assembling the Java code, as the Java code takes a few minutes to compile.
       # This means Hasura will have time to complete its start-up tasks without needing an extra "sleep 30" command.
       - name: Start Hasura and Postgres
@@ -240,6 +265,16 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v6
+      - name: Cache Sequencing NPM Packages
+        uses: actions/cache@v5
+        with:
+          path: ./sequencing-server/node_modules
+          key: sequencing-${{ runner.os }}-${{ hashFiles('./sequencing-server/package-lock.json') }}
+      - name: Cache Action NPM Packages
+        uses: actions/cache@v5
+        with:
+          path: ./action-server/node_modules
+          key: action-${{ runner.os }}-${{ hashFiles('./action-server/package-lock.json') }}
       - name: Extract PlanDev gateway docker tag from PR body
         # look in the PR body for the string ___REQUIRES_GATEWAY_PR___=9999, extract the number if so & save to env var
         # if gateway PR is labeled correctly, it will publish a docker tag called 'pr-9999' to use in tests

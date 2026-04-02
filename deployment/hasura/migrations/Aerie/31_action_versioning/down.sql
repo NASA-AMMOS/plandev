@@ -22,6 +22,9 @@ from (
 ) v
 where ad.id = v.action_definition_id;
 
+comment on table actions.action_definition is e''
+  'User provided Javascript code that will be invoked by Aerie actions and ran on an Aerie server.';
+
 -- Make action_file_id not null
 alter table actions.action_definition
   alter column action_file_id set not null;

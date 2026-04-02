@@ -59,9 +59,12 @@ insert into actions.action_definition_version (action_definition_id, action_file
 select id, action_file_id, parameter_schema, settings_schema, owner
 from actions.action_definition;
 
--- 4. Add archived column to action_definition
+-- 4. Add archived column to action_definition & update description
 alter table actions.action_definition
   add column archived boolean not null default false;
+
+comment on table actions.action_definition is e''
+  'Unversioned user-provided information about a SeqDev action.';
 
 -- 5. Add action_definition_revision to action_run backfill existing runs to 0
 --   no default - future inserts w/o explicit revision are auto-set before insert by action_run_set_default_revision

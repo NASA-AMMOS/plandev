@@ -72,4 +72,4 @@ docker-compose down
 ## Troubleshooting
 
 - Make sure you are starting all the Docker containers in a clean environment. This means before starting the services make sure all containers are removed, all images are removed, and all volumes are removed.
-- If you are having trouble and cannot find the answer here, please contact someone from the PlanDev team via the [#mpsa-aerie-users](https://app.slack.com/client/T024LMMEZ/C0163E42UBF) Slack channel.
+- If you are having trouble and cannot find the answer here, please contact someone from the PlanDev team via the [#mpsa-plandev-users](https://app.slack.com/client/T024LMMEZ/C0163E42UBF) Slack channel.

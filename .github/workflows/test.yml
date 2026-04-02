@@ -92,13 +92,16 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v6
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
+      - name: Setup NPM
+        uses: actions/setup-node@v6
         with:
-          # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
-          cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
+          node-version-file: ./action-server/.nvmrc
+          cache: npm
+          cache-dependency-path: ./action-server/package-lock.json
       - name: Run Action Server Unit Tests
-        run: ./gradlew action-server:e2eTest
+        run: |
+          cd ./action-server
+          npm i && npm --silent run test
       - name: Upload Test Results
         if: always()
         uses: actions/upload-artifact@v7

@@ -539,6 +539,12 @@ public record ActivityExpression(
       }
 
       @Override
+      public Boolean onDouble(final double value) {
+        final var argumentsAsReal = superset.asReal();
+        return argumentsAsReal.map(realValue -> realValue.equals(value)).orElse(false);
+      }
+
+      @Override
       public Boolean onBoolean(final boolean value) {
         final var argumentsAsBoolean = superset.asBoolean();
         return argumentsAsBoolean.map(boolValue -> boolValue.equals(value)).orElse(false);

@@ -87,12 +87,17 @@ public class SimulationResultsComparisonUtils {
       }
 
       @Override
-      public SerializedValue onNumeric(final BigDecimal value) {
+      public SerializedValue onNumeric(BigDecimal value) {
         return SerializedValue.of(value);
       }
 
       @Override
-      public SerializedValue onBoolean(final boolean value) {
+      public SerializedValue onDouble(double value) {
+        return SerializedValue.of(value);
+      }
+
+      @Override
+      public SerializedValue onBoolean(boolean value) {
         return SerializedValue.of(value);
       }
 

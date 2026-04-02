@@ -1,10 +1,12 @@
 package gov.nasa.jpl.aerie.contrib.serialization.mappers;
 
+import com.fasterxml.jackson.core.JsonGenerator;
 import gov.nasa.jpl.aerie.merlin.framework.Result;
 import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 
+import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.RecordComponent;
@@ -84,6 +86,20 @@ public final class RecordValueMapper<R extends Record> implements ValueMapper<R>
         map.put(component.name, serializeHelper(value, component));
     }
     return SerializedValue.of(map);
+  }
+
+  @Override
+  public void writeJson(final R value, final JsonGenerator gen) throws IOException {
+    gen.writeStartObject();
+    for (final var component : components) {
+      gen.writeFieldName(component.name);
+      writeJsonHelper(value, component, gen);
+    }
+    gen.writeEndObject();
+  }
+
+  private <T> void writeJsonHelper(final R value, final Component<R, T> component, final JsonGenerator gen) throws IOException {
+    component.mapper.writeJson(component.projection.apply(value), gen);
   }
 
   private <T> SerializedValue serializeHelper(final R value, final Component<R, T> component) {

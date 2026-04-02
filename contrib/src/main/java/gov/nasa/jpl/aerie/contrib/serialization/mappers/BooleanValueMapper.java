@@ -1,10 +1,12 @@
 package gov.nasa.jpl.aerie.contrib.serialization.mappers;
 
+import com.fasterxml.jackson.core.JsonGenerator;
 import gov.nasa.jpl.aerie.merlin.framework.Result;
 import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 
+import java.io.IOException;
 import java.util.function.Function;
 
 public final class BooleanValueMapper implements ValueMapper<Boolean> {
@@ -24,5 +26,10 @@ public final class BooleanValueMapper implements ValueMapper<Boolean> {
   @Override
   public SerializedValue serializeValue(final Boolean value) {
     return SerializedValue.of(value);
+  }
+
+  @Override
+  public void writeJson(final Boolean value, final JsonGenerator gen) throws IOException {
+    gen.writeBoolean(value);
   }
 }

@@ -707,6 +707,34 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
         .build();
   }
 
+  /**
+   * Build a static initializer block for the directiveTypes field that uses HashMap.put() calls
+   * instead of Map.ofEntries(). This avoids a Java compiler type inference limitation that
+   * causes compilation failures when there are many (700+) activity types.
+   */
+  private static CodeBlock buildDirectiveTypesStaticInit(final MissionModelRecord missionModel) {
+    final var builder = CodeBlock.builder()
+        .addStatement(
+            "final var _map = new $T<$T, $T<$T, ?, ?>>()",
+            ClassName.get(java.util.HashMap.class),
+            ClassName.get(String.class),
+            ClassName.get(gov.nasa.jpl.aerie.merlin.framework.ActivityMapper.class),
+            ClassName.get(missionModel.topLevelModel()));
+
+    for (final var activityType : missionModel.activityTypes()) {
+      builder.addStatement(
+          "_map.put($S, $L)",
+          activityType.name(),
+          activityType.inputType().mapper().name.canonicalName().replace(".", "_"));
+    }
+
+    builder.addStatement(
+        "directiveTypes = $T.unmodifiableMap(_map)",
+        ClassName.get(java.util.Collections.class));
+
+    return builder.build();
+  }
+
   private record ComputedAttributesCodeBlocks(TypeName typeName, FieldSpec fieldDef) {}
 
   /** Generate an `InputType` implementation. */

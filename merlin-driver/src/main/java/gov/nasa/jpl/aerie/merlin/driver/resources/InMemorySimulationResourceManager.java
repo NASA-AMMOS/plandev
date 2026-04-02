@@ -18,7 +18,7 @@ import java.util.Set;
  */
 public class InMemorySimulationResourceManager implements SimulationResourceManager {
   private final HashMap<String, ResourceSegments<RealDynamics>> realResourceSegments;
-  private final HashMap<String, ResourceSegments<SerializedValue>> discreteResourceSegments;
+  private final HashMap<String, ResourceSegments<DeferredSerializedValue>> discreteResourceSegments;
 
   private Duration lastReceivedTime;
 
@@ -95,7 +95,7 @@ public class InMemorySimulationResourceManager implements SimulationResourceMana
       profile.add(new ProfileSegment<>(elapsedDuration.minus(finalSegment.startOffset()), finalSegment.dynamics()));
     }
 
-    // Compute Discrete Profiles
+    // Compute Discrete Profiles — materialize DeferredSerializedValue to SerializedValue
     for(final var resource : discreteResourceSegments.entrySet()) {
       final var name = resource.getKey();
       final var schema = resource.getValue().valueSchema();
@@ -109,12 +109,16 @@ public class InMemorySimulationResourceManager implements SimulationResourceMana
       for(int i = 0; i < segments.size()-1; i++) {
         final var segment = segments.get(i);
         final var nextSegment = segments.get(i+1);
-        profile.add(new ProfileSegment<>(nextSegment.startOffset().minus(segment.startOffset()), segment.dynamics()));
+        profile.add(new ProfileSegment<>(
+            nextSegment.startOffset().minus(segment.startOffset()),
+            segment.dynamics().toSerializedValue()));
       }
 
       // Process final segment
       final var finalSegment = segments.getLast();
-      profile.add(new ProfileSegment<>(elapsedDuration.minus(finalSegment.startOffset()), finalSegment.dynamics()));
+      profile.add(new ProfileSegment<>(
+          elapsedDuration.minus(finalSegment.startOffset()),
+          finalSegment.dynamics().toSerializedValue()));
     }
 
     return profiles;
@@ -130,7 +134,7 @@ public class InMemorySimulationResourceManager implements SimulationResourceMana
   public void acceptUpdates(
       final Duration elapsedTime,
       final Map<String, Pair<ValueSchema, RealDynamics>> realResourceUpdates,
-      final Map<String, Pair<ValueSchema, SerializedValue>> discreteResourceUpdates
+      final Map<String, Pair<ValueSchema, DeferredSerializedValue>> discreteResourceUpdates
   ) {
     if(elapsedTime.shorterThan(lastReceivedTime)) {
       throw new IllegalArgumentException(("elapsedTime must be monotonically increasing between calls.\n"

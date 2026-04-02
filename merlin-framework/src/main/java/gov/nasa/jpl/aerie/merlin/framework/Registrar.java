@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.framework;
 
+import com.fasterxml.jackson.core.JsonGenerator;
 import gov.nasa.jpl.aerie.merlin.protocol.driver.Initializer;
 import gov.nasa.jpl.aerie.merlin.protocol.driver.Querier;
 import gov.nasa.jpl.aerie.merlin.protocol.model.OutputType;
@@ -7,6 +8,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
@@ -24,11 +26,11 @@ public final class Registrar {
   }
 
   public <Value> void discrete(final String name, final Resource<Value> resource, final ValueMapper<Value> mapper) {
-    this.builder.resource(name, makeResource("discrete", resource, mapper.getValueSchema(), mapper::serializeValue, null));
+    this.builder.resource(name, makeResource("discrete", resource, mapper.getValueSchema(), mapper::serializeValue, mapper::writeJson, null));
   }
 
   public <Value> void discrete(final String name, final Resource<Value> resource, final ValueMapper<Value> mapper, final String description) {
-    this.builder.resource(name, makeResource("discrete", resource, mapper.getValueSchema(), mapper::serializeValue, description));
+    this.builder.resource(name, makeResource("discrete", resource, mapper.getValueSchema(), mapper::serializeValue, mapper::writeJson, description));
   }
 
   public void real(final String name, final Resource<RealDynamics> resource) {
@@ -47,6 +49,13 @@ public final class Registrar {
     real(name, resource, $ -> ValueSchema.withMeta(key, metadataValueMapper.serializeValue(metadata), $), description);
   }
 
+  private static final JsonWriter<RealDynamics> REAL_DYNAMICS_JSON_WRITER = (dynamics, gen) -> {
+    gen.writeStartObject();
+    gen.writeNumberField("initial", dynamics.initial);
+    gen.writeNumberField("rate", dynamics.rate);
+    gen.writeEndObject();
+  };
+
   private void real(final String name, final Resource<RealDynamics> resource, UnaryOperator<ValueSchema> schemaModifier) {
     this.builder.resource(
         name,
@@ -59,6 +68,7 @@ public final class Registrar {
             dynamics -> SerializedValue.of(Map.of(
                 "initial", SerializedValue.of(dynamics.initial),
                 "rate", SerializedValue.of(dynamics.rate))),
+            REAL_DYNAMICS_JSON_WRITER,
             null
         ));
   }
@@ -75,8 +85,14 @@ public final class Registrar {
             dynamics -> SerializedValue.of(Map.of(
                 "initial", SerializedValue.of(dynamics.initial),
                 "rate", SerializedValue.of(dynamics.rate))),
+            REAL_DYNAMICS_JSON_WRITER,
             description
             ));
+  }
+
+  @FunctionalInterface
+  private interface JsonWriter<T> {
+    void write(T value, JsonGenerator gen) throws IOException;
   }
 
   private static <Value> gov.nasa.jpl.aerie.merlin.protocol.model.Resource<Value> makeResource(
@@ -84,6 +100,7 @@ public final class Registrar {
       final Resource<Value> resource,
       final ValueSchema valueSchema,
       final Function<Value, SerializedValue> serializer,
+      final JsonWriter<Value> jsonWriter,
       final String description
   ) {
     return new gov.nasa.jpl.aerie.merlin.protocol.model.Resource<>() {
@@ -106,6 +123,11 @@ public final class Registrar {
           @Override
           public SerializedValue serialize(final Value value) {
             return serializer.apply(value);
+          }
+
+          @Override
+          public void writeJson(final Value value, final JsonGenerator gen) throws IOException {
+            jsonWriter.write(value, gen);
           }
         };
       }
@@ -131,6 +153,11 @@ public final class Registrar {
       @Override
       public SerializedValue serialize(final Event value) {
         return mapper.serializeValue(value);
+      }
+
+      @Override
+      public void writeJson(final Event value, final JsonGenerator gen) throws IOException {
+        mapper.writeJson(value, gen);
       }
     });
   }

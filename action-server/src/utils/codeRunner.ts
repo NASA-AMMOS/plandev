@@ -2,7 +2,7 @@
 import * as vm from "node:vm";
 import type { PoolClient } from "pg";
 import { createLogger, format, transports } from "winston";
-import { ActionsAPI } from "@nasa-jpl/aerie-actions";
+import { ActionsAPI, ActionParameterDefinitions, ActionSettingDefinitions } from "@nasa-jpl/aerie-actions";
 import { configuration } from "../config";
 import type { ActionConfig, ActionResponse } from "../type/types";
 
@@ -131,6 +131,15 @@ export const jsExecute = async (
       USER_ROLE: userRole,
       WORKSPACE_BASE_URL: WORKSPACE_BASE_URL
     };
+    // validate parameters
+    const { parameterDefinitions, settingDefinitions } = context.exports;
+    // walk through all the parameterDefinitions & setting definitions
+    // if definition is required, make sure it's in settings/params
+    // if definition is enum-typed, make sure value (if provided) is in valid enum list
+    // if not, return fake/empty results with validation errors in `errors` (singular)
+    // construct strings for combined validation errors
+    // call custom validate funcs if they exist
+
     const actionsAPI = new ActionsAPI(client, workspaceId, actionConfig);
     const results = await context.main(parameters, settings, actionsAPI);
 
@@ -170,6 +179,37 @@ export const jsExecute = async (
     });
   }
 };
+
+function validateParameters(
+    parameters: Record<string, any>,
+    parameterDefinitions: ActionParameterDefinitions | ActionSettingDefinitions
+): null | string {
+  // walk through all the parameterDefinitions & setting definitions
+  // if definition is required, make sure it's in settings/params
+  // if definition is enum-typed, make sure value (if provided) is in valid enum list
+  let errors: string[] = [];
+  if(!parameterDefinitions) {
+    errors.push("Parameter definitions must be provided");
+  } else {
+    for (const paramDefKey in parameterDefinitions) {
+      const hasParamValue = (paramDefKey in parameters) && parameters[paramDefKey] === undefined;
+      const paramDefinition = parameterDefinitions[paramDefKey];
+      if(paramDefinition.required === true && !hasParamValue) {
+        errors.push(`Missing value for required parameter "${paramDefKey}"}`);
+      }
+      if(paramDefinition.type === "variant") {
+        const allowedValues = paramDefinition.variants;
+        if(allowedValues !== undefined && allowedValues.length) {
+          // todo rename key to value??
+          // todo what about required variants
+          const paramValue = parameters[paramDefKey];
+          if(allowedValues.find(({key}) => key == ))
+        }
+      }
+    }
+  }
+  return errors.length ? errors.join("\n") : null;
+}
 
 /**
  * Todo correct return type for schemas?

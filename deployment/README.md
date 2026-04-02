@@ -50,7 +50,7 @@ does not exceed the host's remaining available cores (considering other processe
 
 ## Starting the Services
 
-Download and unzip the latest [Deployment.zip](https://github.com/NASA-AMMOS/aerie/releases) file onto your local machine, then do:
+Download and unzip the latest [Deployment.zip](https://github.com/NASA-AMMOS/plandev/releases) file onto your local machine, then do:
 
 ```sh
 cd deployment
@@ -72,4 +72,4 @@ docker-compose down
 ## Troubleshooting
 
 - Make sure you are starting all the Docker containers in a clean environment. This means before starting the services make sure all containers are removed, all images are removed, and all volumes are removed.
-- If you are having trouble and cannot find the answer here, please contact someone from the PlanDev team via the [#mpsa-aerie-users](https://app.slack.com/client/T024LMMEZ/C0163E42UBF) Slack channel.
+- If you are having trouble and cannot find the answer here, please contact someone from the PlanDev team via the [#mpsa-plandev-users](https://app.slack.com/client/T024LMMEZ/C0163E42UBF) Slack channel.

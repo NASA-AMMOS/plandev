@@ -88,5 +88,5 @@ The scripts and documentation in this project are released under the [MIT Licens
 [deployment]: ./deployment
 [dev]: ./docs/DEVELOPER.md
 [fast-track]: https://nasa-ammos.github.io/plandev-docs/introduction/#fast-track
-[ui-repo]: https://github.com/NASA-AMMOS/aerie-ui
+[ui-repo]: https://github.com/NASA-AMMOS/plandev-ui
 

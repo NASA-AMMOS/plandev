@@ -12,7 +12,7 @@ Anyone who has downloaded, deployed, or operated the PlanDev system to meet a sp
 
 ### Contributor
 
-Contributors include anyone that provides input to the project. This includes code, issues, documentation, graphics, designs, or anything else that tangibly improves the project. We encourage you to start contributing right away by joining our [Discussions](https://github.com/NASA-AMMOS/aerie/discussions) or submitting an [Issue](https://github.com/NASA-AMMOS/aerie/issues). 
+Contributors include anyone that provides input to the project. This includes code, issues, documentation, graphics, designs, or anything else that tangibly improves the project. We encourage you to start contributing right away by joining our [Discussions](https://github.com/NASA-AMMOS/plandev/discussions) or submitting an [Issue](https://github.com/NASA-AMMOS/plandev/issues). 
 
 ### Triager
 
@@ -61,8 +61,8 @@ A subset of the collaborators forms the Technical Steering Committee (TSC). The 
 
 The TSC is primarily responsible for the PlanDev core and UI projects:
 
-- https://github.com/NASA-AMMOS/aerie
-- https://github.com/NASA-AMMOS/aerie-ui
+- https://github.com/NASA-AMMOS/plandev
+- https://github.com/NASA-AMMOS/plandev-ui
 
 However, the TSC also has responsibility over some projects, which are dependencies of the core projects:
 

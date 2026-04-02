@@ -13,7 +13,7 @@ This document provides detailed information about environment variables for each
 
 ## PlanDev Gateway
 
-See the [environment variables document](https://github.com/NASA-AMMOS/aerie-gateway/blob/develop/docs/ENVIRONMENT.md) in the PlanDev Gateway repository.
+See the [environment variables document](https://github.com/NASA-AMMOS/plandev-gateway/blob/develop/docs/ENVIRONMENT.md) in the PlanDev Gateway repository.
 
 ## PlanDev Merlin
 
@@ -105,7 +105,7 @@ See the [environment variables document](https://github.com/NASA-AMMOS/aerie-gat
 
 ## PlanDev UI
 
-See the [environment variables document](https://github.com/NASA-AMMOS/aerie-ui/blob/develop/docs/ENVIRONMENT.md) in the PlanDev UI repository.
+See the [environment variables document](https://github.com/NASA-AMMOS/plandev-ui/blob/develop/docs/ENVIRONMENT.md) in the PlanDev UI repository.
 
 ## Hasura
 

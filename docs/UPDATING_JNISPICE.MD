@@ -22,7 +22,7 @@ If you have already set up your machine for PlanDev development then all of thes
 
 This step has been entirely automated.
 
-1. Navigate to the ["Create x86 JNISpice Artifacts"](https://github.com/NASA-AMMOS/aerie/actions/workflows/create_jnispice.yml) Action on the PlanDev GitHub.
+1. Navigate to the ["Create x86 JNISpice Artifacts"](https://github.com/NASA-AMMOS/plandev/actions/workflows/create_jnispice.yml) Action on the PlanDev GitHub.
 2. Click "Run Workflow" and run the Workflow against `develop`.
 3. When the workflow has finished, navigate to the run's "Summary" page. Download everything under "Artifacts".
 4. Extract all the downloaded Artifacts.

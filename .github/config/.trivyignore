@@ -5,7 +5,7 @@
 # which is installed by the postgres docker container and does not use the entirety of the Go stdlib
 # for details see:
 # - https://github.com/tianon/gosu/blob/master/SECURITY.md
-# - https://github.com/NASA-AMMOS/aerie/pull/1546
+# - https://github.com/NASA-AMMOS/plandev/pull/1546
 # - https://github.com/tianon/gosu/pull/173#issuecomment-3936440684
 CVE-2023-24538
 CVE-2023-24540

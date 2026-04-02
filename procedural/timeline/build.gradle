@@ -60,7 +60,7 @@ dokkaHtmlPartial.configure {
       sourceLink {
         localDirectory.set(file("timeline/src/main/kotlin"))
         remoteUrl.set(new URL(
-            "https://github.com/NASA-AMMOS/aerie/blob/feat/java-timeline-library/timeline/src/main/kotlin/"
+            "https://github.com/NASA-AMMOS/plandev/blob/feat/java-timeline-library/timeline/src/main/kotlin/"
         ))
         remoteLineSuffix.set("#L")
       }

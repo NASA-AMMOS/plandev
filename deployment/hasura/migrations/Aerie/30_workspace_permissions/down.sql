@@ -145,7 +145,7 @@ drop function permissions.validate_action_permissions_json(_action_permissions j
 -- Drop new column and reset table comment
 comment on table permissions.user_role_permission is e''
   'Permissions for a role that cannot be expressed in Hasura. Permissions take the form {KEY:PERMISSION}.'
-  'A list of valid KEYs and PERMISSIONs can be found at https://github.com/NASA-AMMOS/aerie/discussions/983#discussioncomment-6257146';
+  'A list of valid KEYs and PERMISSIONs can be found at https://github.com/NASA-AMMOS/plandev/discussions/983#discussioncomment-6257146';
 
 alter table permissions.user_role_permission
   drop column workspace_permissions;

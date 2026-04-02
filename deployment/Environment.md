@@ -105,7 +105,7 @@ See the [environment variables document](https://github.com/NASA-AMMOS/aerie-gat
 
 ## PlanDev UI
 
-See the [environment variables document](https://github.com/NASA-AMMOS/aerie-ui/blob/develop/docs/ENVIRONMENT.md) in the PlanDev UI repository.
+See the [environment variables document](https://github.com/NASA-AMMOS/plandev-ui/blob/develop/docs/ENVIRONMENT.md) in the PlanDev UI repository.
 
 ## Hasura
 

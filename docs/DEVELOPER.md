@@ -51,21 +51,21 @@ If you use [IntelliJ IDEA](https://www.jetbrains.com/idea/), you can import the 
 [Clone](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/cloning-a-repository) the PlanDev repository:
 
 ```shell
-git clone https://github.com/NASA-AMMOS/aerie.git
-cd aerie
+git clone https://github.com/NASA-AMMOS/plandev.git
+cd plandev
 ```
 
 ## Building
 
 ```sh
-cd aerie
+cd plandev
 ./gradlew assemble
 ```
 
 ## Testing
 
 ```sh
-cd aerie
+cd plandev
 ./gradlew test
 ```
 
@@ -74,7 +74,7 @@ cd aerie
 Use the following task to print a report of the dependencies that have updates available.
 
 ```sh
-cd aerie
+cd plandev
 ./gradlew dependencyUpdates
 ```
 
@@ -83,7 +83,7 @@ cd aerie
 To run the PlanDev services you need to first set the proper environment variables. First copy the template:
 
 ```sh
-cd aerie
+cd plandev
 cp .env.template .env
 ```
 
@@ -103,16 +103,16 @@ POSTGRES_USER=postgres
 The [docker-compose.yml](../docker-compose.yml) in the root directory deploys PlanDev locally, creating containers using the artifacts from the build step above.
 
 ```sh
-cd aerie
+cd plandev
 docker-compose up --build --detach
 ```
 
-Once PlanDev is started you can visit [http://localhost](http://localhost) to view the [PlanDev UI](https://github.com/NASA-AMMOS/aerie-ui). You can visit [http://localhost:8080](http://localhost:8080) to view the [Hasura Console](https://hasura.io/).
+Once PlanDev is started you can visit [http://localhost](http://localhost) to view the [PlanDev UI](https://github.com/NASA-AMMOS/plandev-ui). You can visit [http://localhost:8080](http://localhost:8080) to view the [Hasura Console](https://hasura.io/).
 
 ## Stop PlanDev
 
 ```sh
-cd aerie
+cd plandev
 docker compose down
 ```
 

@@ -50,7 +50,7 @@ does not exceed the host's remaining available cores (considering other processe
 
 ## Starting the Services
 
-Download and unzip the latest [Deployment.zip](https://github.com/NASA-AMMOS/aerie/releases) file onto your local machine, then do:
+Download and unzip the latest [Deployment.zip](https://github.com/NASA-AMMOS/plandev/releases) file onto your local machine, then do:
 
 ```sh
 cd deployment

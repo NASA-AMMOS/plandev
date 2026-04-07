@@ -2,6 +2,7 @@ package gov.nasa.jpl.aerie.workspace.server;
 
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.RenderType;
+import gov.nasa.jpl.aerie.workspace.server.types.MetadataMergeBehavior;
 import io.javalin.http.UploadedFile;
 
 import javax.json.JsonException;
@@ -147,17 +148,18 @@ public interface WorkspaceService {
 
   /**
    * Update the specified metadata keys on a file's metadata. If a `user` update is specified, its contents will
-   * be deep-merged with the current contents of the `user` key.
+   * be merged with the current contents of the `user` key according to the behavior specified by "mergeBehavior"
    * @param workspaceId the id of the workspace the file lives in
    * @param filePath the path to the file whose metadata will be updated
    * @param updates the set of updates to be applied
+   * @param mergeBehavior how to merge the `user` object, if provided
    * @return true if the update was applied, false otherwise
    * @throws NoSuchWorkspaceException If the specified workspace does not exist
    * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory, or if the metadata file for "filePath" is a directory
    * @throws IOException If the metadata file cannot be opened for reasons other than nonexistence
    * @throws JsonException If the file's metadata is currently malformed
    */
-  boolean updateMetadataKeys(final int workspaceId, final Path filePath, MetadataUpdates updates)
+  boolean updateMetadataKeys(final int workspaceId, final Path filePath, MetadataUpdates updates, MetadataMergeBehavior mergeBehavior)
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException, JsonException;
 
   /**

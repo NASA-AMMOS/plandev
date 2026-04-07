@@ -10,6 +10,7 @@ import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.RenderType;
 import gov.nasa.jpl.aerie.workspace.server.types.BulkPutItem;
 import gov.nasa.jpl.aerie.workspace.server.types.MetadataKeys;
+import gov.nasa.jpl.aerie.workspace.server.types.MetadataMergeBehavior;
 import gov.nasa.jpl.aerie.workspace.server.types.PostActions;
 import gov.nasa.jpl.aerie.workspace.server.types.ItemType;
 import gov.nasa.jpl.aerie.workspace.server.types.PostBody;
@@ -1334,11 +1335,31 @@ public class WorkspaceBindings implements Plugin {
    *
    * If the metadata files contents are malformed, returns a 500 error response
    * If the user passes a malformed set of keys (including non-existent top-level keys or a non-json object "user" field), returns a 400 error.
+   *
+   * Also takes in a query param "mergeBehavior", which can be one of "deep", "shallow", and "overwrite". Behavior is as follows:
+   *  - "deep": deep merge JSON Object params (combine nested properties)
+   *  - "shallow": shallow merge of JSON Object params (combine only top-level properties)
+   *  - "overwrite": replace JSON Object params with the new value, if provided
+   * Defaults to "deep" if not provided
    */
   public void setMetadataKeys(final Context context) throws NoSuchWorkspaceException {
     // Permissions Check
     final var pathInfo = PathInformation.of(context);
     if (!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.write_file_directory)) {
+      return;
+    }
+
+    final MetadataMergeBehavior mergeBehavior;
+
+    // Validate the query param
+    try {
+      final var mergeBehaviorParam = context.queryParamAsClass("mergeBehavior", String.class).getOrDefault("deep");
+      mergeBehavior = MetadataMergeBehavior.of(mergeBehaviorParam);
+    } catch (ValidationException ve) {
+      context.status(400).json(new FormattedError(ve));
+      return;
+    } catch (IllegalArgumentException iae) {
+      context.status(400).json(new FormattedError(iae));
       return;
     }
 
@@ -1379,7 +1400,7 @@ public class WorkspaceBindings implements Plugin {
 
     // Update the metadata
     try {
-      if(workspaceService.updateMetadataKeys(pathInfo.workspaceId, pathInfo.filePath, updates)) {
+      if(workspaceService.updateMetadataKeys(pathInfo.workspaceId, pathInfo.filePath, updates, mergeBehavior)) {
         context.status(200).result("Metadata for file %s updated successfully.".formatted(pathInfo.filePath));
       } else {
         context.status(500).json(new FormattedError("Unable to update metadata for file %s".formatted(pathInfo.filePath)));

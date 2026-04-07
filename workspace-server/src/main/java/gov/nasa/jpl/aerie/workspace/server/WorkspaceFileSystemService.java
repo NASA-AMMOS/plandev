@@ -4,6 +4,7 @@ import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.RenderType;
 import gov.nasa.jpl.aerie.workspace.server.postgres.WorkspacePostgresRepository;
 import gov.nasa.jpl.aerie.workspace.server.types.MetadataKeys;
+import gov.nasa.jpl.aerie.workspace.server.types.MetadataMergeBehavior;
 import io.javalin.http.UploadedFile;
 import io.javalin.util.FileUtil;
 
@@ -319,7 +320,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     if(path.toFile().isDirectory()) return false;
 
     FileUtil.streamToFile(file.content(), path.toString());
-    updateMetadataKeys(metadataFilePath, metadataUpdates);
+    updateMetadataKeys(metadataFilePath, metadataUpdates, MetadataMergeBehavior.deepMerge);
     return true;
   }
 
@@ -349,7 +350,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         .lastEditedAt(Instant.now())
         .lastEditedBy(userId)
         .build();
-    updateMetadataKeys(newMetadataPath, metadataUpdates);
+    updateMetadataKeys(newMetadataPath, metadataUpdates, MetadataMergeBehavior.deepMerge);
 
     Files.move(oldPath, newPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     return true;
@@ -392,7 +393,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         .lastEditedAt(Instant.now())
         .lastEditedBy(userId)
         .build();
-    updateMetadataKeys(destMetadataPath, metadataUpdates);
+    updateMetadataKeys(destMetadataPath, metadataUpdates, MetadataMergeBehavior.deepMerge);
 
     // Copy the main file
     Files.copy(sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING);
@@ -580,18 +581,18 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
-  public boolean updateMetadataKeys(final int workspaceId, final Path filePath, MetadataUpdates updates)
+  public boolean updateMetadataKeys(final int workspaceId, final Path filePath, MetadataUpdates updates, MetadataMergeBehavior mergeBehavior)
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException, JsonException
   {
-    return updateMetadataKeys(resolveMetadataPath(workspaceId, filePath), updates);
+    return updateMetadataKeys(resolveMetadataPath(workspaceId, filePath), updates, mergeBehavior);
   }
 
-  private boolean updateMetadataKeys(final Path resolvedMetadataPath, MetadataUpdates updates) throws IOException, JsonException {
+  private boolean updateMetadataKeys(final Path resolvedMetadataPath, MetadataUpdates updates, MetadataMergeBehavior mergeBehavior) throws IOException, JsonException {
     final var metadataFile = resolvedMetadataPath.toFile();
     final var fileContents = readMetadataFile(metadataFile);
 
     // Write the contents of the metadata file
-    final var newFileContents = generateUpdatedMetadataFile(fileContents, updates).build();
+    final var newFileContents = generateUpdatedMetadataFile(fileContents, updates, mergeBehavior).build();
     writeMetadataFile(newFileContents, metadataFile);
     return true;
   }
@@ -639,10 +640,15 @@ public class WorkspaceFileSystemService implements WorkspaceService {
    * Merge the requested MetadataUpdates with the current contents of the metadata file. Returns the builder for the merged object.
    * @param currentContents The current contents of the metadata file, represented as a JsonObject.
    * @param updates The requested updates to be applied.
+   * @param mergeBehavior How to merge the `user` object
    * @return The new contents of the metadata file, expressed as a MetadataUpdates object
    * @throws JsonException If the current contents are malformed.
    */
-  private MetadataUpdates.Builder generateUpdatedMetadataFile(final JsonObject currentContents, MetadataUpdates updates) throws JsonException {
+  private MetadataUpdates.Builder generateUpdatedMetadataFile(
+      final JsonObject currentContents,
+      MetadataUpdates updates,
+      MetadataMergeBehavior mergeBehavior
+  ) throws JsonException {
     final var mergedBuilder = new MetadataUpdates.Builder(updates.metadataLastEditedBy(), updates.metadataLastEditedAt());
 
     // Upsert the fields, skipping "lastEditedAt" and "lastEditedBy" (as they're already set),
@@ -709,7 +715,11 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         newUser -> {
           // Merge "user" object, if needed
           if(currentContents.containsKey("user")) {
-            mergedBuilder.user(deepMergeJsonObjects(currentContents.getJsonObject("user"), newUser));
+            switch (mergeBehavior) {
+              case overwrite -> mergedBuilder.user(newUser);
+              case deepMerge -> mergedBuilder.user(deepMergeJsonObjects(currentContents.getJsonObject("user"), newUser));
+              case shallowMerge -> mergedBuilder.user(shallowMergeJsonObjects(currentContents.getJsonObject("user"), newUser));
+            }
           } else {
             mergedBuilder.user(newUser);
           }
@@ -757,6 +767,28 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     return mergedObjectBuilder.build();
   }
 
+  /**
+   * Performs a shallow merge of two JsonObjects.
+   * @param oldObject the initial object
+   * @param newObject the new object. Keys in this object have priority.
+   * @return the merged JsonObject
+   */
+  private JsonObject shallowMergeJsonObjects(final JsonObject oldObject, final JsonObject newObject) {
+    final var mergedObjectBuilder = Json.createObjectBuilder(oldObject);
+
+    // Add the values of the newObject, overwriting keys if necessary
+    for (final var entry : newObject.entrySet()) {
+      final var key = entry.getKey();
+      final var val = entry.getValue();
+      if(val == null) {
+        mergedObjectBuilder.addNull(key);
+      } else {
+        mergedObjectBuilder.add(key, val);
+      }
+    }
+    return mergedObjectBuilder.build();
+  }
+
   @Override
   public boolean unsetMetadataKeys(
       final int workspaceId,
@@ -771,7 +803,8 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     // Get the contents of the current metadata file, or the default template if it doesn't exist
     final var fileContentsBuilder = generateUpdatedMetadataFile(
         readMetadataFile(metadataFile),
-        new MetadataUpdates.Builder(userId).build());
+        new MetadataUpdates.Builder(userId).build(),
+        MetadataMergeBehavior.deepMerge);
 
     // Unset the specified keys
     for (final var key : keysToUnset) {

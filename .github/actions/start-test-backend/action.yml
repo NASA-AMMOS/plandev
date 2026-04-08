@@ -17,7 +17,7 @@ runs:
     - name: Start Hasura and Postgres
       shell: bash
       run: |
-        docker compose -f ./e2e-tests/docker-compose-test.yml up -d postgres hasura
+        docker compose -f ./e2e-tests/docker-compose-test.yml up -d postgres hasura --quiet-pull
     - name: Assemble
       # Don't generate docs for tests
       shell: bash

@@ -112,9 +112,7 @@ jobs:
           cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
       - name: Start Services
         run: |
-          docker compose -f ./e2e-tests/docker-compose-test.yml up postgres -d --build --quiet-pull
-          docker images
-          docker ps -a --no-trunc
+          docker compose -f ./e2e-tests/docker-compose-test.yml up postgres -d --quiet-pull
       - name: Sleep for 5 Seconds
         run: sleep 5s
         shell: bash

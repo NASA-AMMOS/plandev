@@ -1,0 +1,33 @@
+name: Profile Compilation
+
+on:
+  workflow_dispatch:
+
+jobs:
+  compile-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+      - name: Load NPM Cache
+        uses: ./.github/actions/load-node-cache
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: "temurin"
+          java-version: "21"
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
+          cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
+      - name: Assemble
+        # Don't generate docs for tests
+        run: ./gradlew assemble -x javadoc -x javadocJar -x generateDocumentation --parallel --profile
+      - name: Upload Profile
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ProfileResults
+          path: |
+            /home/runner/work/aerie/aerie/build/reports/profile/profile*

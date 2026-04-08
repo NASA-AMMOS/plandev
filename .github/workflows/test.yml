@@ -33,61 +33,13 @@ env:
   PR_BODY: "${{github.event.pull_request.body}}"
 
 jobs:
-  compile-check:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v6
-
-      - name: Cache Sequencing NPM Packages
-        uses: actions/cache@v5
-        with:
-          path: ./sequencing-server/node_modules
-          key: sequencing-${{ runner.os }}-${{ hashFiles('./sequencing-server/package-lock.json') }}
-      - name: Cache Action NPM Packages
-        uses: actions/cache@v5
-        with:
-          path: ./action-server/node_modules
-          key: action-${{ runner.os }}-${{ hashFiles('./action-server/package-lock.json') }}
-
-      - name: Setup Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: "temurin"
-          java-version: "21"
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-        with:
-          # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
-          cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
-      - name: Assemble
-        # Don't generate docs for tests
-        run: ./gradlew assemble -x javadoc -x javadocJar -x generateDocumentation --parallel --profile
-      - name: Upload Profile
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: ProfileResults
-          path: |
-            /home/runner/work/aerie/aerie/build/reports/profile/profile*
-
   unit-test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v6
-
-      - name: Cache Sequencing NPM Packages
-        uses: actions/cache@v5
-        with:
-          path: ./sequencing-server/node_modules
-          key: sequencing-${{ runner.os }}-${{ hashFiles('./sequencing-server/package-lock.json') }}
-      - name: Cache Action NPM Packages
-        uses: actions/cache@v5
-        with:
-          path: ./action-server/node_modules
-          key: action-${{ runner.os }}-${{ hashFiles('./action-server/package-lock.json') }}
-
+      - name: Load NPM Cache
+        uses: ./.github/actions/load-node-cache
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
@@ -98,7 +50,6 @@ jobs:
         with:
           # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
           cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
-
       - name: Assemble
         # Don't generate docs for tests
         run: ./gradlew assemble -x javadoc -x javadocJar -x generateDocumentation --parallel
@@ -145,15 +96,15 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v6
+      - name: Setup Postgres Client (psql)
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
           distribution: "temurin"
           java-version: "21"
-      - name: Setup Postgres Client (psql)
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes postgresql-client
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v5
         with:
@@ -176,18 +127,8 @@ jobs:
           name: DB Test Results
           path: |
             **/db-tests/build/reports/tests/e2eTest
-      - name: Print Logs for Services
-        if: always()
-        run: docker compose -f ./e2e-tests/docker-compose-test.yml logs -t
-      - name: Stop Services
-        if: always()
-        run: |
-          docker ps -a
-          docker compose -f ./e2e-tests/docker-compose-test.yml down
-          docker ps -a
-      - name: Prune Volumes
-        if: always()
-        run: docker volume prune --force
+      - name: Shutdown Backend
+        uses: ./.github/actions/shutdown-test-backend
 
   sequencing-e2e-tests:
     runs-on: ubuntu-latest
@@ -195,29 +136,6 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v6
-      - name: Extract PlanDev gateway docker tag from PR body
-        # look in the PR body for the string ___REQUIRES_GATEWAY_PR___=9999, extract the number if so & save to env var
-        # if gateway PR is labeled correctly, it will publish a docker tag called 'pr-9999' to use in tests
-        if: ${{ contains(env.PR_BODY, '___REQUIRES_GATEWAY_PR___=') }}
-        run: |
-          echo "GATEWAY_IMAGE_TAG=pr-$(echo $PR_BODY | sed -n 's/.*___REQUIRES_GATEWAY_PR___=\"\([0-9]\+\)\".*/\1/p')" >> $GITHUB_ENV
-
-      - name: Cache Sequencing NPM Packages
-        uses: actions/cache@v5
-        with:
-          path: ./sequencing-server/node_modules
-          key: sequencing-${{ runner.os }}-${{ hashFiles('./sequencing-server/package-lock.json') }}
-      - name: Cache Action NPM Packages
-        uses: actions/cache@v5
-        with:
-          path: ./action-server/node_modules
-          key: action-${{ runner.os }}-${{ hashFiles('./action-server/package-lock.json') }}
-
-      # Start Hasura and Postgres ahead of assembling the Java code, as the Java code takes a few minutes to compile.
-      # This means Hasura will have time to complete its start-up tasks without needing an extra "sleep 30" command.
-      - name: Start Hasura and Postgres
-        run: |
-            docker compose -f ./e2e-tests/docker-compose-test.yml up -d postgres hasura
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
@@ -228,15 +146,8 @@ jobs:
         with:
           # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
           cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
-      - name: Assemble
-        # Don't generate docs for tests
-        run: ./gradlew assemble -x javadoc -x javadocJar -x generateDocumentation --parallel
-      - name: Start Remaining Services
-        run: |
-          echo "GATEWAY_IMAGE_TAG: $GATEWAY_IMAGE_TAG"
-          docker compose -f ./e2e-tests/docker-compose-test.yml up -d --build --quiet-pull
-          docker images
-          docker ps -a --no-trunc
+      - name: Start E2E Test Backend
+        uses: ./.github/actions/start-test-backend
       - name: Run Sequencing E2E Tests
         run: ./gradlew sequencing-server:e2eTest
       - name: Upload Sequencing E2E Test Results
@@ -246,18 +157,8 @@ jobs:
           name: Sequencing E2E Test Results
           path: |
             **/sequencing-server/test-report.*
-      - name: Print Logs for Services
-        if: always()
-        run: docker compose -f ./e2e-tests/docker-compose-test.yml logs -t
-      - name: Stop Services
-        if: always()
-        run: |
-          docker ps -a
-          docker compose -f ./e2e-tests/docker-compose-test.yml down
-          docker ps -a
-      - name: Prune Volumes
-        if: always()
-        run: docker volume prune --force
+      - name: Shutdown E2E Test Backend
+        uses: ./.github/actions/shutdown-test-backend
 
   java-e2e-test:
     runs-on: ubuntu-latest
@@ -265,27 +166,6 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v6
-      - name: Cache Sequencing NPM Packages
-        uses: actions/cache@v5
-        with:
-          path: ./sequencing-server/node_modules
-          key: sequencing-${{ runner.os }}-${{ hashFiles('./sequencing-server/package-lock.json') }}
-      - name: Cache Action NPM Packages
-        uses: actions/cache@v5
-        with:
-          path: ./action-server/node_modules
-          key: action-${{ runner.os }}-${{ hashFiles('./action-server/package-lock.json') }}
-      - name: Extract PlanDev gateway docker tag from PR body
-        # look in the PR body for the string ___REQUIRES_GATEWAY_PR___=9999, extract the number if so & save to env var
-        # if gateway PR is labeled correctly, it will publish a docker tag called 'pr-9999' to use in tests
-        if: ${{ contains(env.PR_BODY, '___REQUIRES_GATEWAY_PR___=') }}
-        run: |
-          echo "GATEWAY_IMAGE_TAG=pr-$(echo $PR_BODY | sed -n 's/.*___REQUIRES_GATEWAY_PR___=\"\([0-9]\+\)\".*/\1/p')" >> $GITHUB_ENV
-      # Start Hasura and Postgres ahead of assembling the Java code, as the Java code takes a few minutes to compile.
-      # This means Hasura will have time to complete its start-up tasks without needing an extra "sleep 30" command
-      - name: Start Hasura and Postgres
-        run: |
-          docker compose -f ./e2e-tests/docker-compose-test.yml up -d postgres hasura
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
@@ -296,17 +176,10 @@ jobs:
         with:
           # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
           cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
-      - name: Assemble
-        # Don't generate docs for tests
-        run: ./gradlew assemble -x javadoc -x javadocJar -x generateDocumentation --parallel
+      - name: Start E2E Test Backend
+        uses: ./.github/actions/start-test-backend
       - name: Build scheduling procedure jars for testing
         run: ./gradlew e2e-tests:buildAllProcedureJars
-      - name: Start Services
-        run: |
-          echo "GATEWAY_IMAGE_TAG: $GATEWAY_IMAGE_TAG"
-          docker compose -f ./e2e-tests/docker-compose-test.yml up -d --build --quiet-pull
-          docker images
-          docker ps -a --no-trunc
       - name: Run E2E Tests
         run: ./gradlew e2e-tests:e2eTest
       - name: Upload E2E Test Results
@@ -316,15 +189,5 @@ jobs:
           name: E2E Test Results
           path: |
             **/e2e-tests/build/reports/tests/e2eTest
-      - name: Print Logs for Services
-        if: always()
-        run: docker compose -f ./e2e-tests/docker-compose-test.yml logs -t
-      - name: Stop Services
-        if: always()
-        run: |
-          docker ps -a
-          docker compose -f ./e2e-tests/docker-compose-test.yml down
-          docker ps -a
-      - name: Prune Volumes
-        if: always()
-        run: docker volume prune --force
+      - name: Shutdown Backend
+        uses: ./.github/actions/shutdown-test-backend

@@ -21,8 +21,6 @@ PlanDev is a software framework for modeling spacecraft. Its main features inclu
 
 As new mission communities have joined PlanDev, we've evolved our product focus and naming. What you need to know:
 
-What to know:
-
 * The planning tool is now named PlanDev and the sequencing tool is now named SeqDev
 * Most repositories have been renamed, and the rest will be renamed soon. The repository code structure has not changed
 * Published code packages (NPM, Java, and Docker images) still retain their **old** names but will be renamed in a future version

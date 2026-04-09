@@ -17,17 +17,16 @@ PlanDev is a software framework for modeling spacecraft. Its main features inclu
 - A [GraphQL API](https://nasa-ammos.github.io/plandev-docs/api/introduction)
 - A web-based [client application][ui-repo]
 
-## Aerie -> PlanDev Rebrand
+## PlanDev & SeqDev Naming
 
-This product was **formerly known as Aerie and is now named PlanDev**. While we've updated most documentation and external references, some legacy mentions of the old product name may remain as we complete the transition.
+As new mission communities have joined PlanDev, we've evolved our product focus and naming. What you need to know:
 
 What to know:
 
-* The planning product, including modeling, simulation, scheduling and constraint-checking, is now named PlanDev
-* The sequencing product, including the sequence editor, workspaces, and actions, is now named SeqDev
-* All features and functionality remain the same
-* Currently, repository names, package names and other internal code references will retain their existing names, and deployment/migration procedures have not changed
-* In a future release, our repository and/or package names may change. If so, this will be communicated to users via release notes and normal communication channels
+* The planning tool is now named PlanDev and the sequencing tool is now named SeqDev
+* Most repositories have been renamed, and the rest will be renamed soon. The repository code structure has not changed
+* Published code packages (NPM, Java, and Docker images) still retain their **old** names but will be renamed in a future version
+* Changes affecting your code will be announced in advance with upgrade guidance
 
 For the latest documentation, visit: [PlanDev Documentation](https://nasa-ammos.github.io/plandev-docs/)
 

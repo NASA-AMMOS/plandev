@@ -105,6 +105,14 @@ final class FormattedError {
     this("NO_SUCH_WORKSPACE", message, nse);
   }
 
+  // NoSuchFile
+  public FormattedError(NoSuchFileException nsf) {
+    this("NO_SUCH_FILE", nsf.getMessage(), nsf);
+  }
+  public FormattedError(NoSuchFileException nsf, String message) {
+    this("NO_SUCH_FILE", message, nsf);
+  }
+
   // IOException
   public FormattedError(IOException nse) {
     this("IO_EXCEPTION", nse);

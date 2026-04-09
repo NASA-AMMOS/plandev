@@ -141,6 +141,8 @@ public class WorkspaceBindings implements Plugin {
     // Default exception handlers for common endpoint exceptions
     javalin.exception(NoSuchWorkspaceException.class,
                       (ex, ctx) -> ctx.status(404).json(new FormattedError(ex)));
+    javalin.exception(NoSuchFileException.class, (ex, ctx) -> ctx.status(404).json(new FormattedError(ex)));
+    javalin.exception(MalformedRequest.class, (ex, ctx) -> ctx.status(400).json(new FormattedError(ex)));
     javalin.exception(IOException.class, (ex, ctx) -> {
       final var fe = new FormattedError(ex);
       logger.warn("IO Exception: {}", fe);
@@ -419,7 +421,7 @@ public class WorkspaceBindings implements Plugin {
       listContents(context);
     } else {
       if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
-        context.status(404).json(new FormattedError("No such file exists in the workspace: " + pathInfo.filePath));
+        context.status(404).json(new FormattedError(new NoSuchFileException(pathInfo.workspaceId, pathInfo.filePath)));
         return;
       }
 
@@ -721,7 +723,9 @@ public class WorkspaceBindings implements Plugin {
     if (!workspaceService.checkFileExists(sourceWorkspaceId, toMove)) {
       return new HandlerResult(
           404,
-          new FormattedError(errorMsg, toMove + " does not exist in the source workspace.").toJson());
+          new FormattedError(
+              new NoSuchFileException(sourceWorkspaceId, toMove),
+              errorMsg).toJson());
     }
 
     final var destinationFileExists = workspaceService.checkFileExists(destinationWorkspaceId, destinationPath);
@@ -791,7 +795,7 @@ public class WorkspaceBindings implements Plugin {
     if (!workspaceService.checkFileExists(sourceWorkspaceId, toCopy)) {
       return new HandlerResult(
           404,
-          new FormattedError(errorMsg, toCopy + " does not exist in the source workspace.").toJson());
+          new FormattedError(new NoSuchFileException(sourceWorkspaceId, toCopy), errorMsg).toJson());
     }
 
     final var destinationFileExists = workspaceService.checkFileExists(destinationWorkspaceId, destinationPath);
@@ -841,7 +845,7 @@ public class WorkspaceBindings implements Plugin {
       }
 
       if (!workspaceService.checkFileExists(workspaceId, filePath)) {
-        return new HandlerResult(404, new FormattedError(filePath.getFileName() + " does not exist."));
+        return new HandlerResult(404, new FormattedError(new NoSuchFileException(workspaceId, filePath)));
       }
 
       if (workspaceService.isDirectory(workspaceId, filePath)) {
@@ -1297,7 +1301,7 @@ public class WorkspaceBindings implements Plugin {
 
     // Check that the underlying file exists
     if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
-      context.status(404).json(new FormattedError("No such file exists in the workspace: " + pathInfo.filePath));
+      context.status(404).json(new FormattedError(new NoSuchFileException(pathInfo.workspaceId, pathInfo.filePath)));
       return;
     }
 
@@ -1393,7 +1397,7 @@ public class WorkspaceBindings implements Plugin {
 
     // Check that the underlying file exists
     if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
-      context.status(404).json(new FormattedError("No such file exists in the workspace: " + pathInfo.filePath));
+      context.status(404).json(new FormattedError(new NoSuchFileException(pathInfo.workspaceId, pathInfo.filePath)));
       return;
     }
 
@@ -1474,7 +1478,7 @@ public class WorkspaceBindings implements Plugin {
 
     // Check that the underlying file exists
     if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
-      context.status(404).json(new FormattedError("No such file exists in the workspace: " + pathInfo.filePath));
+      context.status(404).json(new FormattedError(new NoSuchFileException(pathInfo.workspaceId, pathInfo.filePath)));
       return;
     }
 
@@ -1514,7 +1518,7 @@ public class WorkspaceBindings implements Plugin {
 
     // Check that the underlying file exists
     if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
-      context.status(404).json(new FormattedError("No such file exists in the workspace: " + pathInfo.filePath));
+      context.status(404).json(new FormattedError(new NoSuchFileException(pathInfo.workspaceId, pathInfo.filePath)));
       return;
     }
 

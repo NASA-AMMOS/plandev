@@ -1352,7 +1352,7 @@ public class WorkspaceBindings implements Plugin {
 
     // Validate the query param
     try {
-      final var mergeBehaviorParam = context.queryParamAsClass("mergeBehavior", String.class).getOrDefault("deep");
+      final var mergeBehaviorParam = context.queryParamAsClass("mergeBehavior", String.class).getOrDefault("shallow");
       mergeBehavior = MetadataMergeBehavior.of(mergeBehaviorParam);
     } catch (ValidationException ve) {
       context.status(400).json(new FormattedError(ve));

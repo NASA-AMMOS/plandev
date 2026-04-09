@@ -389,9 +389,13 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       Files.copy(sourceMetadataPath, destMetadataPath, StandardCopyOption.REPLACE_EXISTING);
     }
     // Update the metadata
+    final var now = Instant.now();
     final var metadataUpdates = new MetadataUpdates.Builder(userId)
-        .lastEditedAt(Instant.now())
+        .createdAt(now)
+        .createdBy(userId)
+        .lastEditedAt(now)
         .lastEditedBy(userId)
+        .readOnly(false)
         .build();
     updateMetadataKeys(destMetadataPath, metadataUpdates, MetadataMergeBehavior.deepMerge);
 

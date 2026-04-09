@@ -807,9 +807,8 @@ public class WorkspaceBindings implements Plugin {
           return new HandlerResult(500, new FormattedError(errorMsg).toJson());
         }
       } else {
-        // Report a "Locked" status if either file is currently marked as "readOnly"
-        if(workspaceService.isReadOnly(sourceWorkspaceId, toCopy) ||
-           (destinationFileExists && workspaceService.isReadOnly(destinationWorkspaceId, destinationPath))) {
+        // Report a "Locked" status if the destination file is currently marked as "readOnly"
+        if(destinationFileExists && workspaceService.isReadOnly(destinationWorkspaceId, destinationPath)) {
           return new HandlerResult(423, new FormattedError(errorMsg,  "File is currently marked as read only."));
         }
 

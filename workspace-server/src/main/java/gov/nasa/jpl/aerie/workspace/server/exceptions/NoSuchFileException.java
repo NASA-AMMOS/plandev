@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.workspace.server;
+package gov.nasa.jpl.aerie.workspace.server.exceptions;
 
 import java.nio.file.Path;
 

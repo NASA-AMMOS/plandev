@@ -6,6 +6,10 @@ import gov.nasa.jpl.aerie.permissions.WorkspaceAction;
 import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
 import gov.nasa.jpl.aerie.permissions.gql.WorkspaceId;
+import gov.nasa.jpl.aerie.workspace.server.exceptions.FileLockedException;
+import gov.nasa.jpl.aerie.workspace.server.exceptions.MalformedRequest;
+import gov.nasa.jpl.aerie.workspace.server.exceptions.NoSuchFileException;
+import gov.nasa.jpl.aerie.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.RenderType;
 import gov.nasa.jpl.aerie.workspace.server.types.BulkPutItem;
@@ -143,6 +147,7 @@ public class WorkspaceBindings implements Plugin {
                       (ex, ctx) -> ctx.status(404).json(new FormattedError(ex)));
     javalin.exception(NoSuchFileException.class, (ex, ctx) -> ctx.status(404).json(new FormattedError(ex)));
     javalin.exception(MalformedRequest.class, (ex, ctx) -> ctx.status(400).json(new FormattedError(ex)));
+    javalin.exception(FileLockedException.class, (ex, ctx) -> ctx.status(423).json(new FormattedError(ex)));
     javalin.exception(IOException.class, (ex, ctx) -> {
       final var fe = new FormattedError(ex);
       logger.warn("IO Exception: {}", fe);
@@ -644,7 +649,7 @@ public class WorkspaceBindings implements Plugin {
 
       // Report a "Locked" status if the file is currently marked as "readOnly"
       if(workspaceService.isReadOnly(workspaceId, uploadPath)) {
-        return new HandlerResult(423, new FormattedError("Cannot update file at " + uploadPath + ". It is currently marked as read only."));
+        return new HandlerResult(423, new FormattedError(new FileLockedException(uploadPath), "Cannot update file at " + uploadPath));
       }
 
       if (workspaceService.saveFile(workspaceId, uploadPath, file, userId)) {
@@ -742,10 +747,13 @@ public class WorkspaceBindings implements Plugin {
         }
       } else {
         // Report a "Locked" status if either file is currently marked as "readOnly"
-        if(workspaceService.isReadOnly(sourceWorkspaceId, toMove) ||
-           (destinationFileExists && workspaceService.isReadOnly(destinationWorkspaceId, destinationPath))) {
-          return new HandlerResult(423, new FormattedError(errorMsg,  "File is currently marked as read only."));
+        if(workspaceService.isReadOnly(sourceWorkspaceId, toMove)) {
+          return new HandlerResult(423, new FormattedError(new FileLockedException(toMove), errorMsg));
         }
+        if (destinationFileExists && workspaceService.isReadOnly(destinationWorkspaceId, destinationPath)) {
+          return new HandlerResult(423, new FormattedError(new FileLockedException(destinationPath), errorMsg));
+        }
+
         if (workspaceService.moveFile(sourceWorkspaceId, toMove, destinationWorkspaceId, destinationPath, userId)) {
           return new HandlerResult(200, successMsg);
         } else {
@@ -813,7 +821,7 @@ public class WorkspaceBindings implements Plugin {
       } else {
         // Report a "Locked" status if the destination file is currently marked as "readOnly"
         if(destinationFileExists && workspaceService.isReadOnly(destinationWorkspaceId, destinationPath)) {
-          return new HandlerResult(423, new FormattedError(errorMsg,  "File is currently marked as read only."));
+          return new HandlerResult(423, new FormattedError(new FileLockedException(destinationPath), errorMsg));
         }
 
         if (workspaceService.copyFile(sourceWorkspaceId, toCopy, destinationWorkspaceId, destinationPath, userId)) {
@@ -858,7 +866,7 @@ public class WorkspaceBindings implements Plugin {
       } else {
         // Report a "Locked" status if the file is currently marked as "readOnly"
         if(workspaceService.isReadOnly(workspaceId, filePath)) {
-          return new HandlerResult(423, new FormattedError(errorMsg,  "File is currently marked as read only."));
+          return new HandlerResult(423, new FormattedError(new FileLockedException(filePath), errorMsg));
         }
 
         if (workspaceService.deleteFile(workspaceId, filePath)) {

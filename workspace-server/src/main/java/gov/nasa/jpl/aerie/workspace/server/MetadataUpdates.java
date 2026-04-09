@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.workspace.server;
 
+import gov.nasa.jpl.aerie.workspace.server.exceptions.MalformedRequest;
 import gov.nasa.jpl.aerie.workspace.server.types.MetadataKeys;
 
 import javax.json.JsonObject;

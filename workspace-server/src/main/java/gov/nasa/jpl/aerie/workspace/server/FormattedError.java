@@ -6,6 +6,10 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
+import gov.nasa.jpl.aerie.workspace.server.exceptions.FileLockedException;
+import gov.nasa.jpl.aerie.workspace.server.exceptions.MalformedRequest;
+import gov.nasa.jpl.aerie.workspace.server.exceptions.NoSuchFileException;
+import gov.nasa.jpl.aerie.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import io.javalin.http.UnauthorizedResponse;
 import io.javalin.validation.ValidationException;
@@ -197,6 +201,15 @@ final class FormattedError {
     this.message = mr.getMessage();
     this.cause = mr.getDetails();
     this.trace = Optional.of(generateTrace(mr));
+  }
+
+  // Locked File
+  public FormattedError(FileLockedException fle) {
+    this("FILE_LOCKED", fle);
+  }
+
+  public FormattedError(FileLockedException fle, String message) {
+    this("FILE_LOCKED", message, fle);
   }
   //endregion
 

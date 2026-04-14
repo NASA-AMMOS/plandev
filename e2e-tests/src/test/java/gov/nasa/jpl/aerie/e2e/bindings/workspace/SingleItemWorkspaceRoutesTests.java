@@ -29,6 +29,11 @@ public class SingleItemWorkspaceRoutesTests {
     }
 
     @Test
+    void metadataNotPermitted() {
+      // TODO: returns a 405 METHOD NOT ALLOWED if a metadata file is passed to the endpoint
+    }
+
+    @Test
     void getFile() {
       // TODO: Returns the file's contents
     }
@@ -73,6 +78,11 @@ public class SingleItemWorkspaceRoutesTests {
     @Test
     void noSuchWorkspace() {
       // TODO: Expected 404
+    }
+
+    @Test
+    void metadataNotPermitted() {
+      // TODO: returns a 405 METHOD NOT ALLOWED if a metadata file is passed to the endpoint
     }
 
     @Test
@@ -158,6 +168,11 @@ public class SingleItemWorkspaceRoutesTests {
     void fileAttachedWrongName() {
       // TODO: File is attached, but under the wrong name. Expected 400
     }
+
+    @Test
+    void metadataCreatedOnFileCreation() {
+      // TODO: metadata file is automatically created on file creation
+    }
   }
 
   @Nested
@@ -175,6 +190,11 @@ public class SingleItemWorkspaceRoutesTests {
     @Test
     void noSuchWorkspace() {
       // TODO: Expected 404
+    }
+
+    @Test
+    void metadataNotPermitted() {
+      // TODO: returns a 405 METHOD NOT ALLOWED if a metadata file is passed to the endpoint
     }
 
     @Test
@@ -308,6 +328,16 @@ public class SingleItemWorkspaceRoutesTests {
       }
 
       @Test
+      void metadataNotPermittedSource() {
+        // TODO: returns a 405 METHOD NOT ALLOWED if a metadata file is passed as the entity to move
+      }
+
+      @Test
+      void metadataNotPermittedTarget() {
+        // TODO: returns a 405 METHOD NOT ALLOWED if a metadata file is passed as the destination location
+      }
+
+      @Test
       void moveIncludesContents() {
         // TODO: All contents of a directory, including subdirectories, are moved as well
       }
@@ -398,6 +428,16 @@ public class SingleItemWorkspaceRoutesTests {
       @Test
       void cannotCopyRecursive() {
         // TODO: A directory cannot be copied within itself
+      }
+
+      @Test
+      void metadataNotPermittedSource() {
+        // TODO: returns a 405 METHOD NOT ALLOWED if a metadata file is passed as the entity to copy
+      }
+
+      @Test
+      void metadataNotPermittedTarget() {
+        // TODO: returns a 405 METHOD NOT ALLOWED if a metadata file is passed as the destination location
       }
 
       @Test

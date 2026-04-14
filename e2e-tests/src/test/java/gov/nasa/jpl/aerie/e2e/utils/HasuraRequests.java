@@ -1392,9 +1392,11 @@ public class HasuraRequests implements AutoCloseable {
     makeRequest(GQL.DELETE_USER, variables);
   }
 
-  public void addPlanCollaborator(User user, int planId) throws IOException {
-    final var planCollabBuilder = Json.createObjectBuilder().add("planId", planId).add("collaborator", user.name());
-    final var variables = Json.createObjectBuilder().add("planCollaboratorInsertInput", planCollabBuilder).build();
+  public void addPlanCollaborator(User collaborator, int planId) throws IOException {
+    final var planCollabBuilder = Json.createObjectBuilder()
+                                      .add("plan_id", planId)
+                                      .add("collaborator", collaborator.name());
+    final var variables = Json.createObjectBuilder().add("collaborator", planCollabBuilder).build();
     makeRequest(GQL.ADD_PLAN_COLLABORATOR, variables);
   }
 
@@ -1466,11 +1468,22 @@ public class HasuraRequests implements AutoCloseable {
   /**
    * Change the workspace's owner to another user
    */
-  public void changeOwner(int workspaceId, User newOwner) throws IOException {
+  public void changeWorkspaceOwner(int workspaceId, User newOwner) throws IOException {
     makeRequest(GQL.CHANGE_WS_OWNER, Json.createObjectBuilder()
                                          .add("id", workspaceId)
                                          .add("newOwner", newOwner.name())
                                          .build());
+  }
+
+  /**
+   * Add a workspace collaborator
+   */
+  public void addWorkspaceCollaborator(User collaborator, int workspaceId) throws IOException {
+    final var wsCollabBuilder = Json.createObjectBuilder()
+                                    .add("workspace_id", workspaceId)
+                                    .add("collaborator", collaborator.name());
+    final var variables = Json.createObjectBuilder().add("collaborator", wsCollabBuilder).build();
+    makeRequest(GQL.ADD_WORKSPACE_COLLABORATOR, variables);
   }
   //endregion
 }

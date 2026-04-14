@@ -10,6 +10,7 @@ create table actions.action_run (
   has_secrets boolean not null default false,
 
   action_definition_id integer not null,
+  action_definition_revision integer not null,
 
   requested_by text,
   requested_at timestamptz not null default now(),
@@ -45,6 +46,8 @@ comment on column actions.action_run.status is e''
   'The status of the action run.';
 comment on column actions.action_run.action_definition_id is e''
   'The ID of the definition of the action.';
+comment on column actions.action_run.action_definition_revision is e''
+  'The revision of the action definition version used for this run.';
 comment on column actions.action_run.requested_by is e''
   'The username of the requester of the action run.';
 comment on column actions.action_run.requested_at is e''
@@ -56,6 +59,7 @@ comment on column actions.action_run.canceled is e''
 comment on column actions.action_run.has_secrets is e''
   'A flag that is set to true if the run has secrets, otherwise false.';
 
+-- Notify action server when a new run is inserted
 create function actions.notify_action_run_inserted()
   returns trigger
   security definer
@@ -66,6 +70,7 @@ begin
                  settings,
                  parameters,
                  action_definition_id,
+                 action_definition_revision,
                  has_secrets,
                  workspace_id,
                  action_file_path) as
@@ -74,11 +79,15 @@ begin
                     NEW.settings,
                     NEW.parameters,
                     NEW.action_definition_id,
+                    NEW.action_definition_revision,
                     NEW.has_secrets,
                     ad.workspace_id,
                     encode(uf.path, 'escape') as path
              from actions.action_definition ad
-                    left join merlin.uploaded_file uf on uf.id = ad.action_file_id
+                    left join actions.action_definition_version adv
+                      on adv.action_definition_id = ad.id
+                      and adv.revision = NEW.action_definition_revision
+                    left join merlin.uploaded_file uf on uf.id = adv.action_file_id
                     where ad.id = NEW.action_definition_id
            )
     select pg_notify('action_run_inserted', json_strip_nulls(row_to_json(payload))::text)
@@ -112,3 +121,26 @@ create trigger notify_action_run_cancel_requested
     and OLD.canceled is distinct from NEW.canceled
   )
 execute function actions.notify_action_run_cancel_requested();
+
+-- Auto-populate action_definition_revision with latest if not provided
+create function actions.action_run_set_default_revision()
+returns trigger
+volatile
+language plpgsql as $$
+begin
+  if new.action_definition_revision is null then
+    select coalesce(
+      (select revision from actions.action_definition_version
+       where action_definition_id = new.action_definition_id
+       order by revision desc limit 1),
+      0
+    ) into new.action_definition_revision;
+  end if;
+  return new;
+end
+$$;
+
+create trigger action_run_set_default_revision
+  before insert on actions.action_run
+  for each row
+  execute function actions.action_run_set_default_revision();

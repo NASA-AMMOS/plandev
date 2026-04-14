@@ -13,6 +13,7 @@ import gov.nasa.jpl.aerie.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.RenderType;
 import gov.nasa.jpl.aerie.workspace.server.types.BulkPutItem;
+import gov.nasa.jpl.aerie.workspace.server.types.HandlerResult;
 import gov.nasa.jpl.aerie.workspace.server.types.MetadataKeys;
 import gov.nasa.jpl.aerie.workspace.server.types.MetadataMergeBehavior;
 import gov.nasa.jpl.aerie.workspace.server.types.PostActions;
@@ -34,7 +35,6 @@ import javax.json.Json;
 import javax.json.JsonArray;
 import javax.json.JsonException;
 import javax.json.JsonString;
-import javax.json.JsonValue;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Path;
@@ -504,10 +504,9 @@ public class WorkspaceBindings implements Plugin {
       return;
     }
 
-    if(uploadResults.response.getValueType() == JsonValue.ValueType.STRING) {
-      context.status(uploadResults.status).result(((JsonString) uploadResults.response()).getString());
-    } else {
-      context.status(uploadResults.status).json(uploadResults.response);
+    switch (uploadResults){
+      case HandlerResult.Success success -> context.status(success.status()).result(success.response());
+      case HandlerResult.Failure failure -> context.status(failure.status()).json(failure.error());
     }
   }
 
@@ -571,10 +570,9 @@ public class WorkspaceBindings implements Plugin {
             body.overwrite(),
             authorize(context).userId()
         );
-        if(moveResults.response.getValueType() == JsonValue.ValueType.STRING) {
-          context.status(moveResults.status).result(((JsonString) moveResults.response()).getString());
-        } else {
-          context.status(moveResults.status).json(moveResults.response);
+        switch (moveResults){
+          case HandlerResult.Success success -> context.status(success.status()).result(success.response());
+          case HandlerResult.Failure failure -> context.status(failure.status()).json(failure.error());
         }
       }
       case PostActions.COPY -> {
@@ -589,10 +587,9 @@ public class WorkspaceBindings implements Plugin {
               body.overwrite(),
               authorize(context).userId()
           );
-          if (copyResults.response.getValueType() == JsonValue.ValueType.STRING) {
-            context.status(copyResults.status).result(((JsonString) copyResults.response()).getString());
-          } else {
-            context.status(copyResults.status).json(copyResults.response);
+          switch (copyResults) {
+            case HandlerResult.Success success -> context.status(success.status()).result(success.response());
+            case HandlerResult.Failure failure -> context.status(failure.status()).json(failure.error());
           }
         }
       }
@@ -609,21 +606,14 @@ public class WorkspaceBindings implements Plugin {
 
     final var deleteResults = handleDelete(pathInfo.workspaceId, pathInfo.filePath);
 
-    if(deleteResults.response.getValueType() == JsonValue.ValueType.STRING) {
-      context.status(deleteResults.status).result(((JsonString) deleteResults.response()).getString());
-    } else {
-      context.status(deleteResults.status).json(deleteResults.response);
+    switch (deleteResults){
+      case HandlerResult.Success success -> context.status(success.status()).result(success.response());
+      case HandlerResult.Failure failure -> context.status(failure.status()).json(failure.error());
     }
   }
   // endregion
 
   // region Single Item Action Handlers
-  private record HandlerResult(int status, JsonValue response){
-    HandlerResult(int status, FormattedError fe) {
-      this(status, fe.toJson());
-    }
-  }
-
   private HandlerResult handleFileUpload(
       int workspaceId,
       Path uploadPath,
@@ -633,7 +623,7 @@ public class WorkspaceBindings implements Plugin {
     try {
       // Verify the user isn't attempting to save a metadata file using the main file api
       if(RenderType.isAerieMetadataFile(uploadPath.getFileName().toString())) {
-        return new HandlerResult(
+        return new HandlerResult.Failure(
             405,
             new FormattedError(
                 new MalformedRequest("Could not save file.",
@@ -644,51 +634,51 @@ public class WorkspaceBindings implements Plugin {
       // Report a "Conflict" status if the file already exists and "overwrite" is false
       // "overwrite" defaults to "false" if unspecified
       if (workspaceService.checkFileExists(workspaceId, uploadPath) && !overwrite) {
-        return new HandlerResult(409, new FormattedError(uploadPath + " already exists."));
+        return new HandlerResult.Failure(409, new FormattedError(uploadPath + " already exists."));
       }
 
       // Report a "Locked" status if the file is currently marked as "readOnly"
       if(workspaceService.isReadOnly(workspaceId, uploadPath)) {
-        return new HandlerResult(423, new FormattedError(new FileLockedException(uploadPath), "Cannot update file at " + uploadPath));
+        return new HandlerResult.Failure(423, new FormattedError(new FileLockedException(uploadPath), "Cannot update file at " + uploadPath));
       }
 
       if (workspaceService.saveFile(workspaceId, uploadPath, file, userId)) {
-        return new HandlerResult(
+        return new HandlerResult.Success(
             200,
-            Json.createValue("File " + uploadPath.getFileName() + " uploaded to " + uploadPath));
+            "File " + uploadPath.getFileName() + " uploaded to " + uploadPath);
       } else {
         logger.warn("UPLOAD FILE: Save File failed for path {}", uploadPath);
-        return new HandlerResult(500, new FormattedError("Could not save file."));
+        return new HandlerResult.Failure(500, new FormattedError("Could not save file."));
       }
     } catch (IOException ioe) {
       final var fe = new FormattedError(ioe, "Could not save file.");
       logger.warn("UPLOAD FILE: IOException: {}", fe);
-      return new HandlerResult(500, fe);
+      return new HandlerResult.Failure(500, fe);
     } catch (WorkspaceFileOpException wfe) {
       final var fe = new FormattedError(wfe, "Could not save file.");
       logger.warn("UPLOAD FILE: WorkspaceFileOpException: {}", fe);
-      return new HandlerResult(500, fe);
+      return new HandlerResult.Failure(500, fe);
     } catch (NoSuchWorkspaceException nsw) {
-      return new HandlerResult(404, new FormattedError(nsw, "Could not create directory."));
+      return new HandlerResult.Failure(404, new FormattedError(nsw, "Could not create directory."));
     }
   }
 
   private HandlerResult handleCreateDirectory(int workspaceId, Path destinationPath) {
     try {
       if (workspaceService.createDirectory(workspaceId, destinationPath)) {
-        return new HandlerResult(200, Json.createValue("Directory created."));
+        return new HandlerResult.Success(200, "Directory created.");
       } else {
         logger.warn("CREATE DIRECTORY: Create Directory failed for path {}", destinationPath);
-        return new HandlerResult(500, new FormattedError("Could not create directory."));
+        return new HandlerResult.Failure(500, new FormattedError("Could not create directory."));
       }
     } catch (IOException ioe) {
       logger.warn("CREATE DIRECTORY: IOException: {}", destinationPath);
-      return new HandlerResult(500, new FormattedError(ioe, "Could not create directory."));
+      return new HandlerResult.Failure(500, new FormattedError(ioe, "Could not create directory."));
     } catch (WorkspaceFileOpException wfe) {
       logger.warn("CREATE DIRECTORY: WorkspaceFileOpException: {}", destinationPath);
-      return new HandlerResult(500, new FormattedError(wfe, "Could not create directory."));
+      return new HandlerResult.Failure(500, new FormattedError(wfe, "Could not create directory."));
     } catch (NoSuchWorkspaceException nsw) {
-      return new HandlerResult(404, new FormattedError(nsw, "Could not create directory."));
+      return new HandlerResult.Failure(404, new FormattedError(nsw, "Could not create directory."));
     }
   }
 
@@ -703,13 +693,12 @@ public class WorkspaceBindings implements Plugin {
   {
     final var errorMsg = "Unable to move '%s' in Workspace %d to '%s' in Workspace %d."
             .formatted(toMove, sourceWorkspaceId, destinationPath, destinationWorkspaceId);
-    final var successMsg = Json.createValue(
-        "'%s' in Workspace %d moved to '%s' in Workspace %d"
-            .formatted(toMove, sourceWorkspaceId, destinationPath, destinationWorkspaceId));
+    final var successMsg = "'%s' in Workspace %d moved to '%s' in Workspace %d"
+            .formatted(toMove, sourceWorkspaceId, destinationPath, destinationWorkspaceId);
 
     // Verify the user isn't attempting to move a metadata file using the main file api
     if(RenderType.isAerieMetadataFile(toMove.getFileName().toString())) {
-      return new HandlerResult(
+      return new HandlerResult.Failure(
           405,
           new FormattedError(
               new MalformedRequest(
@@ -719,51 +708,51 @@ public class WorkspaceBindings implements Plugin {
 
     // Verify the user isn't attempting to rename a non-metadata file to a metadata file
     if(RenderType.isAerieMetadataFile(destinationPath.getFileName().toString())) {
-      return new HandlerResult(
+      return new HandlerResult.Failure(
           405,
           new FormattedError(
               new MalformedRequest(errorMsg, "Normal files may not be renamed to metadata files.")));
     }
 
     if (!workspaceService.checkFileExists(sourceWorkspaceId, toMove)) {
-      return new HandlerResult(
+      return new HandlerResult.Failure(
           404,
           new FormattedError(
               new NoSuchFileException(sourceWorkspaceId, toMove),
-              errorMsg).toJson());
+              errorMsg));
     }
 
     final var destinationFileExists = workspaceService.checkFileExists(destinationWorkspaceId, destinationPath);
     if (destinationFileExists && !overwrite) {
-      return new HandlerResult(409, new FormattedError(errorMsg, destinationPath + " already exists.").toJson());
+      return new HandlerResult.Failure(409, new FormattedError(errorMsg, destinationPath + " already exists."));
     }
 
     try {
       if (workspaceService.isDirectory(sourceWorkspaceId, toMove)) {
         if (workspaceService.moveDirectory(sourceWorkspaceId, toMove, destinationWorkspaceId, destinationPath)) {
-          return new HandlerResult(200, successMsg);
+          return new HandlerResult.Success(200, successMsg);
         } else {
-          return new HandlerResult(500, new FormattedError(errorMsg).toJson());
+          return new HandlerResult.Failure(500, new FormattedError(errorMsg));
         }
       } else {
         // Report a "Locked" status if either file is currently marked as "readOnly"
         if(workspaceService.isReadOnly(sourceWorkspaceId, toMove)) {
-          return new HandlerResult(423, new FormattedError(new FileLockedException(toMove), errorMsg));
+          return new HandlerResult.Failure(423, new FormattedError(new FileLockedException(toMove), errorMsg));
         }
         if (destinationFileExists && workspaceService.isReadOnly(destinationWorkspaceId, destinationPath)) {
-          return new HandlerResult(423, new FormattedError(new FileLockedException(destinationPath), errorMsg));
+          return new HandlerResult.Failure(423, new FormattedError(new FileLockedException(destinationPath), errorMsg));
         }
 
         if (workspaceService.moveFile(sourceWorkspaceId, toMove, destinationWorkspaceId, destinationPath, userId)) {
-          return new HandlerResult(200, successMsg);
+          return new HandlerResult.Success(200, successMsg);
         } else {
-          return new HandlerResult(500, new FormattedError(errorMsg).toJson());
+          return new HandlerResult.Failure(500, new FormattedError(errorMsg));
         }
       }
     } catch (IOException ioe) {
-      return new HandlerResult(500, new FormattedError(ioe, errorMsg).toJson());
+      return new HandlerResult.Failure(500, new FormattedError(ioe, errorMsg));
     } catch (WorkspaceFileOpException wfe) {
-      return new HandlerResult(500, new FormattedError(wfe, errorMsg).toJson());
+      return new HandlerResult.Failure(500, new FormattedError(wfe, errorMsg));
     }
   }
 
@@ -778,13 +767,12 @@ public class WorkspaceBindings implements Plugin {
   {
     final var errorMsg = "Unable to copy '%s' in Workspace %d to '%s' in Workspace %d."
         .formatted(toCopy, sourceWorkspaceId, destinationPath, destinationWorkspaceId);
-    final var successMsg = Json.createValue(
-        "'%s' in Workspace %d copied to '%s' in Workspace %d"
-            .formatted(toCopy, sourceWorkspaceId, destinationPath, destinationWorkspaceId));
+    final var successMsg = "'%s' in Workspace %d copied to '%s' in Workspace %d"
+            .formatted(toCopy, sourceWorkspaceId, destinationPath, destinationWorkspaceId);
 
     // Verify the user isn't attempting to copy a metadata file using the main file api
     if(RenderType.isAerieMetadataFile(toCopy.getFileName().toString())) {
-      return new HandlerResult(
+      return new HandlerResult.Failure(
           405,
           new FormattedError(
               new MalformedRequest(
@@ -794,46 +782,46 @@ public class WorkspaceBindings implements Plugin {
 
     // Verify the user isn't attempting to rename a non-metadata file to a metadata file
     if(RenderType.isAerieMetadataFile(destinationPath.getFileName().toString())) {
-      return new HandlerResult(
+      return new HandlerResult.Failure(
           405,
           new FormattedError(
               new MalformedRequest(errorMsg, "Normal files may not be renamed to metadata files.")));
     }
 
     if (!workspaceService.checkFileExists(sourceWorkspaceId, toCopy)) {
-      return new HandlerResult(
+      return new HandlerResult.Failure(
           404,
-          new FormattedError(new NoSuchFileException(sourceWorkspaceId, toCopy), errorMsg).toJson());
+          new FormattedError(new NoSuchFileException(sourceWorkspaceId, toCopy), errorMsg));
     }
 
     final var destinationFileExists = workspaceService.checkFileExists(destinationWorkspaceId, destinationPath);
     if (destinationFileExists && !overwrite) {
-      return new HandlerResult(409, new FormattedError(errorMsg, destinationPath + " already exists.").toJson());
+      return new HandlerResult.Failure(409, new FormattedError(errorMsg, destinationPath + " already exists."));
     }
 
     try {
       if (workspaceService.isDirectory(sourceWorkspaceId, toCopy)) {
         if (workspaceService.copyDirectory(sourceWorkspaceId, toCopy, destinationWorkspaceId, destinationPath)) {
-          return new HandlerResult(200, successMsg);
+          return new HandlerResult.Success(200, successMsg);
         } else {
-          return new HandlerResult(500, new FormattedError(errorMsg).toJson());
+          return new HandlerResult.Failure(500, new FormattedError(errorMsg));
         }
       } else {
         // Report a "Locked" status if the destination file is currently marked as "readOnly"
         if(destinationFileExists && workspaceService.isReadOnly(destinationWorkspaceId, destinationPath)) {
-          return new HandlerResult(423, new FormattedError(new FileLockedException(destinationPath), errorMsg));
+          return new HandlerResult.Failure(423, new FormattedError(new FileLockedException(destinationPath), errorMsg));
         }
 
         if (workspaceService.copyFile(sourceWorkspaceId, toCopy, destinationWorkspaceId, destinationPath, userId)) {
-          return new HandlerResult(200, successMsg);
+          return new HandlerResult.Success(200, successMsg);
         } else {
-          return new HandlerResult(500, new FormattedError(errorMsg).toJson());
+          return new HandlerResult.Failure(500, new FormattedError(errorMsg));
         }
       }
     } catch (WorkspaceFileOpException wfe) {
-      return new HandlerResult(500, new FormattedError(wfe, errorMsg).toJson());
+      return new HandlerResult.Failure(500, new FormattedError(wfe, errorMsg));
     } catch (IOException ioe) {
-      return new HandlerResult(500, new FormattedError(ioe, errorMsg).toJson());
+      return new HandlerResult.Failure(500, new FormattedError(ioe, errorMsg));
     }
   }
 
@@ -843,7 +831,7 @@ public class WorkspaceBindings implements Plugin {
 
       // Verify the user isn't attempting to delete a metadata file using the main file api
       if(RenderType.isAerieMetadataFile(filePath.getFileName().toString())) {
-        return new HandlerResult(
+        return new HandlerResult.Failure(
             405,
             new FormattedError(
                 new MalformedRequest(
@@ -853,39 +841,39 @@ public class WorkspaceBindings implements Plugin {
       }
 
       if (!workspaceService.checkFileExists(workspaceId, filePath)) {
-        return new HandlerResult(404, new FormattedError(new NoSuchFileException(workspaceId, filePath)));
+        return new HandlerResult.Failure(404, new FormattedError(new NoSuchFileException(workspaceId, filePath)));
       }
 
       if (workspaceService.isDirectory(workspaceId, filePath)) {
         if (workspaceService.deleteDirectory(workspaceId, filePath)) {
-          return new HandlerResult(200, Json.createValue("Directory deleted."));
+          return new HandlerResult.Success(200, "Directory deleted.");
         } else {
           logger.warn("DELETE: Delete Directory failed for path {}", filePath);
-          return new HandlerResult(500, new FormattedError(errorMsg));
+          return new HandlerResult.Failure(500, new FormattedError(errorMsg));
         }
       } else {
         // Report a "Locked" status if the file is currently marked as "readOnly"
         if(workspaceService.isReadOnly(workspaceId, filePath)) {
-          return new HandlerResult(423, new FormattedError(new FileLockedException(filePath), errorMsg));
+          return new HandlerResult.Failure(423, new FormattedError(new FileLockedException(filePath), errorMsg));
         }
 
         if (workspaceService.deleteFile(workspaceId, filePath)) {
-          return new HandlerResult(200, Json.createValue("File deleted."));
+          return new HandlerResult.Success(200, "File deleted.");
         } else {
           logger.warn("DELETE: Delete File failed for path {}", filePath);
-          return new HandlerResult(500, new FormattedError(errorMsg));
+          return new HandlerResult.Failure(500, new FormattedError(errorMsg));
         }
       }
     } catch (NoSuchWorkspaceException nsw) {
-      return new HandlerResult(404, new FormattedError(nsw));
+      return new HandlerResult.Failure(404, new FormattedError(nsw));
     } catch (WorkspaceFileOpException wfe) {
       final var fe = new FormattedError(wfe);
       logger.warn("DELETE: WORKSPACE FILE OP EXCEPTION: {}", fe);
-      return new HandlerResult(500, fe);
+      return new HandlerResult.Failure(500, fe);
     } catch (IOException ioe) {
       final var fe = new FormattedError(ioe);
       logger.warn("DELETE: IO EXCEPTION: {}", fe);
-      return new HandlerResult(500, fe);
+      return new HandlerResult.Failure(500, fe);
     }
   }
   // endregion
@@ -1031,13 +1019,13 @@ public class WorkspaceBindings implements Plugin {
             item.overwrite(),
             userId
         );
-        response.add("status", uploadResults.status)
-                .add("response", uploadResults.response);
+        response.add("status", uploadResults.status())
+                .add("response", uploadResults.jsonResponse());
       }
       else if (item.uploadType() == ItemType.directory) {
         uploadResults = handleCreateDirectory(workspaceId, item.path());
-        response.add("status", uploadResults.status)
-                .add("response", uploadResults.response);
+        response.add("status", uploadResults.status())
+                .add("response", uploadResults.jsonResponse());
       } else {
         logger.debug("BULK UPLOAD: Unsupported item upload type: {}", item.uploadType());
         response.add("status", 501)
@@ -1199,8 +1187,8 @@ public class WorkspaceBindings implements Plugin {
       );
       final var response = Json.createObjectBuilder()
                                .add("item", item.currentLocation().toString())
-                               .add("status", results.status)
-                               .add("response", results.response);
+                               .add("status", results.status())
+                               .add("response", results.jsonResponse());
       responseArray.add(response);
     }
     return responseArray.build();
@@ -1225,8 +1213,8 @@ public class WorkspaceBindings implements Plugin {
       );
       final var response = Json.createObjectBuilder()
                                .add("item", item.currentLocation().toString())
-                               .add("status", results.status)
-                               .add("response", results.response);
+                               .add("status", results.status())
+                               .add("response", results.jsonResponse());
       responseArray.add(response);
     }
     return responseArray.build();
@@ -1283,8 +1271,8 @@ public class WorkspaceBindings implements Plugin {
       final var results = handleDelete(workspaceId, Path.of(item));
       final var response = Json.createObjectBuilder()
                                .add("item", item)
-                               .add("status", results.status)
-                               .add("response", results.response);
+                               .add("status", results.status())
+                               .add("response", results.jsonResponse());
       responseArray.add(response);
     }
 

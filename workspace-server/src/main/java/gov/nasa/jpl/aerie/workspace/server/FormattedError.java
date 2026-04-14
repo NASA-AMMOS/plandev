@@ -32,7 +32,7 @@ import java.util.Optional;
  * Relevant ticket going over said format: https://github.com/NASA-AMMOS/plandev/issues/1732
  */
 @JsonSerialize(using = FormattedError.FormattedErrorSerializer.class)
-final class FormattedError {
+public final class FormattedError {
   private final String type;
   private final String message;
   private final String timestamp = ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT);

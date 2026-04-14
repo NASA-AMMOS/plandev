@@ -579,18 +579,19 @@ public class WorkspaceBindings implements Plugin {
         // Copying between workspaces requires "readFile" on Workspace 1 and "writeFile" on Workspace 2
         if (!(checkPermissions(context, sourceWorkspace, WorkspaceAction.read_file_directory)
               && checkPermissions(context, body.destinationWorkspaceId(), WorkspaceAction.write_file_directory))) {
-          final var copyResults = handleCopy(
-              pathInfo.filePath,
-              body.destinationPath(),
-              sourceWorkspace,
-              body.destinationWorkspaceId(),
-              body.overwrite(),
-              authorize(context).userId()
-          );
-          switch (copyResults) {
-            case HandlerResult.Success success -> context.status(success.status()).result(success.response());
-            case HandlerResult.Failure failure -> context.status(failure.status()).json(failure.error());
-          }
+          return;
+        }
+        final var copyResults = handleCopy(
+            pathInfo.filePath,
+            body.destinationPath(),
+            sourceWorkspace,
+            body.destinationWorkspaceId(),
+            body.overwrite(),
+            authorize(context).userId()
+        );
+        switch (copyResults) {
+          case HandlerResult.Success success -> context.status(success.status()).result(success.response());
+          case HandlerResult.Failure failure -> context.status(failure.status()).json(failure.error());
         }
       }
       default -> context.status(501).json(new FormattedError("Unsupported post action: " + body.action().name()).toJson());

@@ -7,7 +7,9 @@ import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
 import gov.nasa.jpl.aerie.permissions.gql.WorkspaceId;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
+import gov.nasa.jpl.aerie.workspace.server.postgres.RenderType;
 import gov.nasa.jpl.aerie.workspace.server.types.BulkPutItem;
+import gov.nasa.jpl.aerie.workspace.server.types.MetadataKeys;
 import gov.nasa.jpl.aerie.workspace.server.types.PostActions;
 import gov.nasa.jpl.aerie.workspace.server.types.ItemType;
 import gov.nasa.jpl.aerie.workspace.server.types.PostBody;
@@ -33,10 +35,12 @@ import java.io.StringReader;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -74,6 +78,10 @@ public class WorkspaceBindings implements Plugin {
     String fileName() {
       return filePath.getFileName().toString();
     }
+
+    String metadataFileName() {
+      return "."+fileName()+".meta.seqdev";
+    }
   }
 
   @Override
@@ -83,6 +91,11 @@ public class WorkspaceBindings implements Plugin {
         // don't force auth on health check
         // skip auth for browser preflight (OPTIONS) requests
         if (ctx.method() != HandlerType.OPTIONS) {
+          authorize(ctx);
+        }
+      });
+      before("/metadata/*", ctx -> {
+        if(ctx.method() != HandlerType.OPTIONS) {
           authorize(ctx);
         }
       });
@@ -112,6 +125,18 @@ public class WorkspaceBindings implements Plugin {
         ApiBuilder.delete(this::deleteWorkspace);
       });
       path("/ws/create", () -> ApiBuilder.post(this::createWorkspace));
+
+      // Unset Metadata key
+      // Placed before CRUD operations to avoid accidentally matching on the general POST pattern
+      path("/metadata/unset/{workspaceId}/<path>", () -> {
+        ApiBuilder.post(this::unsetMetadataKeys);
+      });
+      // CRUD Operations for File Metadata
+      path("/metadata/{workspaceId}/<path>", () -> {
+        ApiBuilder.get(this::getMetadataFile);
+        ApiBuilder.post(this::setMetadataKeys);
+        ApiBuilder.delete(this::deleteMetadata);
+      });
     });
 
     // Default exception handlers for common endpoint exceptions
@@ -1159,6 +1184,241 @@ public class WorkspaceBindings implements Plugin {
     }
 
     return responseArray.build();
+  }
+  //endregion
+
+  //region Metadata
+  /**
+   * Get the metadata file for the file located at filepath.
+   *
+   * Returns {version: '1'} if no metadata file exists.
+   * Returns 404 if the underlying file doesn't exist.
+   * Returns 400 if the requested file is a directory or a metadata file itself
+   */
+  public void getMetadataFile(final Context context) throws NoSuchWorkspaceException {
+    // Permissions Check
+    final var pathInfo = PathInformation.of(context);
+    if (!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.read_file_directory)) {
+      return;
+    }
+
+    // Check that the underlying file exists
+    if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
+      context.status(404).json(new FormattedError("No such file exists in the workspace: " + pathInfo.filePath));
+      return;
+    }
+
+    try {
+      final var fileStream = workspaceService.loadMetadataFile(pathInfo.workspaceId, pathInfo.filePath());
+      final var inputStream = fileStream.readingStream();
+
+      // Set up headers for file response
+      context.header("x-render-type", RenderType.METADATA.name());
+      context.contentType(ContentType.OCTET_STREAM);
+      context.header("Content-Disposition", "attachment; filename=\"" + pathInfo.metadataFileName() + "\"");
+      context.status(200).result(inputStream);
+    } catch (WorkspaceFileOpException wfe) {
+      final var fe = new FormattedError(wfe, "Could not retrieve metadata file for file "+pathInfo.fileName());
+      context.status(400).json(fe);
+    }
+    catch (IOException ioe) {
+      final var fe = new FormattedError(ioe, "Could not retrieve metadata file for file " + pathInfo.fileName());
+      logger.warn("GET METADATA: IO Exception: {}", fe);
+      context.status(500).json(fe);
+    }
+  }
+
+  /**
+   * Set multiple keys in a file's metadata file using a deep-merge. Creates metadata file if it is not present.
+   *
+   * Example Input Syntax:
+   * {
+   *   "readOnly": false
+   *   "user": {
+   *     "status": "draft"
+   *   }
+   * }
+   *
+   * If the metadata files contents are malformed, returns a 500 error response
+   * If the user passes a malformed set of keys (including non-existent top-level keys or a non-json object "user" field), returns a 400 error.
+   */
+  public void setMetadataKeys(final Context context) throws NoSuchWorkspaceException {
+    // Permissions Check
+    final var pathInfo = PathInformation.of(context);
+    if (!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.write_file_directory)) {
+      return;
+    }
+
+    // Get body
+    if(!ContentType.JSON.equals(context.contentType())) {
+      context.status(400).json(new FormattedError(
+          "MALFORMED_REQUEST",
+          "Body must be type "+ContentType.JSON,
+          Optional.empty()));
+      return;
+    }
+
+    final MetadataUpdates updates;
+    try(final var bodyReader = Json.createReader(new StringReader(context.body()))){
+      final var jsonBody = bodyReader.readObject();
+      updates = MetadataUpdates.fromEndpointBodyJson(authorize(context).userId(), jsonBody);
+    } catch (JsonException je) {
+      context.status(400).json(new FormattedError(
+          je,
+          "Invalid body format. Expected body format is a JSON object with the set of keys to be updated."));
+      return;
+    } catch (MalformedRequest mr) {
+      context.status(400).json(new FormattedError(mr));
+      return;
+    }
+
+    // Ensure that the user has specified at least one key to alter
+    if(updates.noUserUpdates()) {
+      context.status(400).json(new FormattedError(new MalformedRequest("Cannot process request: at least one key must be specified.")));
+      return;
+    }
+
+    // Check that the underlying file exists
+    if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
+      context.status(404).json(new FormattedError("No such file exists in the workspace: " + pathInfo.filePath));
+      return;
+    }
+
+    // Update the metadata
+    try {
+      if(workspaceService.updateMetadataKeys(pathInfo.workspaceId, pathInfo.filePath, updates)) {
+        context.status(200).result("Metadata for file %s updated successfully.".formatted(pathInfo.filePath));
+      } else {
+        context.status(500).json(new FormattedError("Unable to update metadata for file %s".formatted(pathInfo.filePath)));
+      }
+    } catch (NoSuchWorkspaceException nsw) {
+      context.status(404).json(new FormattedError(nsw));
+    } catch (IOException ioe) {
+      final var fe = new FormattedError(ioe);
+      logger.warn("SET METADATA: IO Exception: {}", fe);
+      context.status(500).json(fe);
+    } catch (WorkspaceFileOpException wfe) {
+      final var fe = new FormattedError(wfe, "Could not update metadata.");
+      logger.warn("SET METADATA: WorkspaceFileOpException: {}", fe);
+      context.status(500).json(fe);
+    } catch (JsonException je) {
+      final var fe = new FormattedError(je, "Metadata for file %s is malformed.".formatted(pathInfo.filePath));
+      logger.warn("SET METADATA: JsonException: {}", fe);
+      context.status(500).json(fe);
+    }
+  }
+
+  /**
+   * Unset multiple keys in file's metadata file. Creates metadata file if it is not present.
+   * Subobjects within the "user" object can be specified by following using a "dot-path" syntax, i.e. "user.status"
+   *
+   * Example Input Syntax:
+   * [ "readOnly", "user.status", "user.info.name" ]
+   */
+  public void unsetMetadataKeys(final Context context) throws NoSuchWorkspaceException {
+    // Permissions Check
+    final var pathInfo = PathInformation.of(context);
+    if (!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.write_file_directory)) {
+      return;
+    }
+
+    // Get body
+    if(!ContentType.JSON.equals(context.contentType())) {
+      context.status(400).json(new FormattedError(new MalformedRequest("Body must be type "+ContentType.JSON)));
+      return;
+    }
+
+    final Set<String> toUnset;
+    try(final var bodyReader = Json.createReader(new StringReader(context.body()))){
+      final var unsetList = bodyReader.readArray().getValuesAs(JsonString::getString);
+      for(final var key : unsetList) {
+        // Check that top-level keys, if provided are on the whitelist
+        if(!key.startsWith("user.")) {
+          if(!MetadataKeys.whitelist.contains(key)) {
+            context.status(400).json(
+                new FormattedError(
+                    new MalformedRequest("Request body contains unpermitted keys. "
+                                         + "Only the following keys may be updated: "
+                                         + String.join(", ", MetadataKeys.whitelist))));
+            return;
+          }
+        }
+      }
+
+      toUnset = new HashSet<>(unsetList);
+    } catch (JsonException je) {
+      context.status(400).json(new FormattedError(
+          je,
+          "Invalid body format. Expected body format is a JSON array with the set of keys to be removed."));
+      return;
+    }
+
+    // Ensure that the user has specified at least one key to alter
+    if(toUnset.isEmpty()) {
+      context.status(400).json(new FormattedError(new MalformedRequest("Cannot process request: at least one key must be specified.")));
+      return;
+    }
+
+    // Check that the underlying file exists
+    if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
+      context.status(404).json(new FormattedError("No such file exists in the workspace: " + pathInfo.filePath));
+      return;
+    }
+
+    // Unset Metadata Keys
+    try {
+      if(workspaceService.unsetMetadataKeys(pathInfo.workspaceId, pathInfo.filePath, toUnset, authorize(context).userId())) {
+        context.status(200).result("Metadata for file %s updated successfully.".formatted(pathInfo.filePath));
+      } else {
+        context.status(500).json(new FormattedError("Unable to update metadata for file %s".formatted(pathInfo.filePath)));
+      }
+    } catch (NoSuchWorkspaceException nsw) {
+      context.status(404).json(new FormattedError(nsw));
+    } catch (IOException ioe) {
+      final var fe = new FormattedError(ioe);
+      logger.warn("UNSET METADATA: IO Exception: {}", fe);
+      context.status(500).json(fe);
+    } catch (WorkspaceFileOpException wfe) {
+      final var fe = new FormattedError(wfe, "Could not update metadata.");
+      logger.warn("UNSET METADATA: WorkspaceFileOpException: {}", fe);
+      context.status(500).json(fe);
+    } catch (JsonException je) {
+      final var fe = new FormattedError(je, "Metadata for file %s is malformed.".formatted(pathInfo.filePath));
+      logger.warn("UNSET METADATA: JsonException: {}", fe);
+      context.status(500).json(fe);
+    }
+  }
+
+  /**
+   * Deletes all metadata files associated with a file.
+   */
+  public void deleteMetadata(final Context context) throws NoSuchWorkspaceException {
+    // Permissions Check
+    final var pathInfo = PathInformation.of(context);
+    if (!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.delete_file_directory)) {
+      return;
+    }
+
+    // Check that the underlying file exists
+    if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
+      context.status(404).json(new FormattedError("No such file exists in the workspace: " + pathInfo.filePath));
+      return;
+    }
+
+    // Delete Metadata File
+    try {
+      if(workspaceService.deleteMetadataFile(pathInfo.workspaceId, pathInfo.filePath)) {
+        context.status(200).result("Metadata for file %s deleted.".formatted(pathInfo.filePath));
+      } else {
+        context.status(500).json(new FormattedError("Unable to delete metadata for file %s".formatted(pathInfo.filePath)));
+      }
+    } catch (NoSuchWorkspaceException nsw) {
+      context.status(404).json(new FormattedError(nsw));
+    } catch (WorkspaceFileOpException wfe) {
+      final var fe = new FormattedError(wfe, "Could not delete metadata.");
+      logger.warn("DELETE METADATA: WorkspaceFileOpException: {}", fe);
+      context.status(500).json(fe);
+    }
   }
   //endregion
 }

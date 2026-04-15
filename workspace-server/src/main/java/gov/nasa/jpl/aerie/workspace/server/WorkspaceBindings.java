@@ -683,6 +683,25 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
+  /**
+   * Helper method to determine if a given "moveTo" command corresponds to a proper move or just a rename
+   */
+  private boolean isMove(Path sourcePath, Path destinationPath, int sourceWorkspaceId, int destinationWorkspaceId) {
+    // If the workspace differs, it must be a move
+    if(sourceWorkspaceId != destinationWorkspaceId) return true;
+    // Normalize the paths
+    final var normalizedSourcePath = sourcePath.normalize();
+    final var normalizedDestPath = destinationPath.normalize();
+    // If the paths have different lengths, it must be a move
+    if(normalizedSourcePath.getNameCount() != normalizedDestPath.getNameCount()) return true;
+    // If both paths are just a file name, it must be a rename
+    if(normalizedSourcePath.getNameCount() == 1) return false;
+    // Else, it depends on if the paths match
+    // If they do, it's a rename
+    // If they don't, it's a move
+    return !normalizedSourcePath.getParent().equals(normalizedDestPath.getParent());
+  }
+
   private HandlerResult handleMove(
       Path toMove,
       Path destinationPath,
@@ -730,6 +749,17 @@ public class WorkspaceBindings implements Plugin {
 
     try {
       if (workspaceService.isDirectory(sourceWorkspaceId, toMove)) {
+        // Check whether it's a move or rename
+        if(isMove(toMove, destinationPath, sourceWorkspaceId, destinationWorkspaceId)) {
+          // Report a "Locked" status if there is a locked file within the source directory
+          // The destination does not need to be checked, because even if there is already a folder with the same name
+          // at the destination, the source will only overwrite that folder if it is empty (meaning it cannot contain a locked file)
+          final var readOnlyFiles = workspaceService.getReadOnlyFiles(sourceWorkspaceId, toMove);
+          if(!readOnlyFiles.isEmpty()){
+            return new HandlerResult.Failure(423, new FormattedError(new FileLockedException(toMove, readOnlyFiles), errorMsg));
+          }
+        }
+
         if (workspaceService.moveDirectory(sourceWorkspaceId, toMove, destinationWorkspaceId, destinationPath)) {
           return new HandlerResult.Success(200, successMsg);
         } else {
@@ -757,6 +787,10 @@ public class WorkspaceBindings implements Plugin {
     } catch (WorkspaceFileOpException wfe) {
       final var fe = new FormattedError(wfe, errorMsg);
       logger.warn("MOVE: WORKSPACE FILE OP EXCEPTION: {}", fe);
+      return new HandlerResult.Failure(500, fe);
+    } catch (SQLException se) {
+      final var fe = new FormattedError(se);
+      logger.warn("MOVE: SQL EXCEPTION: {}", fe);
       return new HandlerResult.Failure(500, fe);
     }
   }

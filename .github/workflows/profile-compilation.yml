@@ -30,4 +30,4 @@ jobs:
         with:
           name: ProfileResults
           path: |
-            /home/runner/work/aerie/aerie/build/reports/profile/profile*
+            /home/runner/work/plandev/plandev/build/reports/profile/profile*

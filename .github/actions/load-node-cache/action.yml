@@ -1,15 +1,12 @@
-name: Load NPM Caches
-description: Load cached NPM modules for Sequencing Server and Action Server
+name: Load NPM Cache
+description: Load cached npm package data into the global npm cache
 runs:
   using: composite
   steps:
-    - name: Cache Sequencing NPM Packages
+    - name: Cache global ~/.npm cache
       uses: actions/cache@v5
       with:
-        path: ./sequencing-server/node_modules
-        key: sequencing-${{ runner.os }}-${{ hashFiles('./sequencing-server/package-lock.json') }} }}
-    - name: Cache Action NPM Packages
-      uses: actions/cache@v5
-      with:
-        path: ./action-server/node_modules
-        key: action-${{ runner.os }}-${{ hashFiles('./action-server/package-lock.json') }} }}
+        path: ~/.npm
+        key: npm-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          npm-${{ runner.os }}-

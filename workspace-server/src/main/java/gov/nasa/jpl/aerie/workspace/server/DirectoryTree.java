@@ -13,6 +13,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -60,6 +61,8 @@ public class DirectoryTree {
 
     final Optional<JsonObject> metadata;
     final Optional<MetadataStatus> metadataStatus;
+
+    private boolean readOnly = false;
 
     private enum MetadataStatus {
       ok, // Metadata file exists and is valid
@@ -120,7 +123,7 @@ public class DirectoryTree {
       this.metadataStatus = Optional.of(MetadataStatus.ok);
     }
 
-    private static boolean validateMetadataFile(JsonObject metadata) throws JsonException {
+    private boolean validateMetadataFile(JsonObject metadata) throws JsonException {
       // Check that there's the right amount of keys
       if(metadata.size() > MetadataKeys.values().length || metadata.size() < MetadataKeys.mandatoryKeys.size()) {
         return false;
@@ -151,7 +154,7 @@ public class DirectoryTree {
 
         // Validate that the optional keys have the correct type, if they're present
         if (metadata.containsKey("readOnly")) {
-          metadata.getBoolean("readOnly");
+          readOnly = metadata.getBoolean("readOnly");
         }
         if(metadata.containsKey("user")) {
           metadata.getJsonObject("user");
@@ -160,6 +163,10 @@ public class DirectoryTree {
         return false;
       }
       return true;
+    }
+
+    boolean isReadOnly() {
+      return readOnly;
     }
 
     JsonObjectBuilder toJsonBuilder() {
@@ -208,6 +215,25 @@ public class DirectoryTree {
       }
     }
 
+    private List<Path> readOnlyNodes() {
+      final var nodeList = new ArrayList<Path>();
+      children.forEach((key, child) -> {
+        if(child instanceof DirectoryNode subDir) {
+          for(final Path subPath : subDir.readOnlyNodes()) {
+            nodeList.add(this.path.resolve(subPath));
+          }
+        } else {
+          // Skip Metadata files
+          if(!RenderType.isAerieMetadataFile(child.name)) {
+            if(child.isReadOnly()) {
+              nodeList.add(path.resolve(child.path));
+            }
+          }
+        }
+      });
+      return nodeList;
+    }
+
     @Override
     JsonObjectBuilder toJsonBuilder() {
       final var contentsArray = Json.createArrayBuilder();
@@ -222,6 +248,10 @@ public class DirectoryTree {
                  .add("type", renderType.name())
                  .add("contents", contentsArray);
     }
+  }
+
+  public List<Path> readOnlyNodes() {
+    return root.readOnlyNodes();
   }
 
   /**

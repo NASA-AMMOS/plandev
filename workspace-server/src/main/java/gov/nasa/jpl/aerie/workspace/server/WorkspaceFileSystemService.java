@@ -430,17 +430,36 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   public DirectoryTree listFiles(final int workspaceId, final Path directoryPath, final int depth, final boolean withMetadata)
   throws SQLException, NoSuchWorkspaceException, IOException {
     final var path = resolveReadingPath(workspaceId, directoryPath);
-
     if(!path.toFile().isDirectory()) {
       return null;
     }
+    return listFiles(path, depth, withMetadata);
+  }
 
+  /**
+   * Override of listFiles that takes in a resolved, tested directory path.
+   *
+   * @param resolvedDirectoryPath the resolved path to the directory to list the contents of
+   * @param depth how many levels deep into the directory's subfolders to traverse.
+   *              use -1 to traverse the whole tree.
+   *              use 0 to just list the contents of the root directory
+   * @param withMetadata whether to fetch metadata information for non-metadata files in the directory
+   *
+   * @throws IllegalArgumentException if resolvedDirectoryPath is not a path to a directory
+   * @throws SQLException if there is a database communication failure while getting the current extension mappings
+   * @throws IOException if an IO Error occurs while accessing resolvedDirectoryPath
+   *
+   * @return A DirectoryTree representing the contents of the directory
+   */
+  private DirectoryTree listFiles(final Path resolvedDirectoryPath, final int depth, final boolean withMetadata)
+  throws SQLException, IOException, IllegalArgumentException
+  {
     // Convert to our API from the Files API
     final var walkDepth = depth == -1 ? Integer.MAX_VALUE : depth + 1;
-    try(final Stream<Path> walkOutput = Files.walk(path, walkDepth)) {
+    try(final Stream<Path> walkOutput = Files.walk(resolvedDirectoryPath, walkDepth)) {
       final var walkList = new ArrayList<>(walkOutput.toList());
       walkList.removeFirst(); // remove the initial path
-      return new DirectoryTree(path, walkList, postgresRepository.getExtensionMapping(), withMetadata);
+      return new DirectoryTree(resolvedDirectoryPath, walkList, postgresRepository.getExtensionMapping(), withMetadata);
     }
   }
 
@@ -538,6 +557,31 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var metadataFile = resolveMetadataPath(repoPath, filePath).toFile();
     final var metadataFileContents = readMetadataFile(metadataFile);
     return metadataFileContents.getBoolean("readOnly", false);
+  }
+
+  private boolean isReadOnly(final Path repoPath, final Path filePath)
+  throws WorkspaceFileOpException, IOException, JsonException
+  {
+    final var metadataFile = resolveMetadataPath(repoPath, filePath).toFile();
+    final var metadataFileContents = readMetadataFile(metadataFile);
+    return metadataFileContents.getBoolean("readOnly", false);
+  }
+
+  @Override
+  public List<Path> getReadOnlyFiles(final int workspaceId, final Path dirPath)
+  throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException, JsonException, SQLException
+  {
+    final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
+    final var directoryPath = resolveReadingPath(repoPath, dirPath);
+
+    if(!directoryPath.toFile().isDirectory()) {
+      if(isReadOnly(repoPath, dirPath)) {
+        return List.of(directoryPath);
+      }
+      return List.of();
+    }
+
+    return listFiles(directoryPath, -1, true).readOnlyNodes();
   }
   //endregion
 

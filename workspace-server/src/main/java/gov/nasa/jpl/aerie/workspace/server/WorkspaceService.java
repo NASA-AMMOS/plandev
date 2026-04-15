@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
@@ -137,6 +138,19 @@ public interface WorkspaceService {
    */
   boolean isReadOnly(final int workspaceId, final Path filePath)
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException, JsonException;
+
+  /**
+   * Get the list of readOnly files contained in the folder.
+   * @param workspaceId the id of the workspace the file lives in
+   * @param directoryPath the path to the directory to check the files
+   * @throws NoSuchWorkspaceException If the specified workspace does not exist
+   * @throws IOException If a metadata file within the directory cannot be opened for reasons other than nonexistence
+   * @throws WorkspaceFileOpException If a metadata file is passed to this method
+   * @throws JsonException If a metadata file within the directory is malformed
+   * @throws SQLException If there is a database communication failure while getting the list of extension mappings
+   */
+  List<Path> getReadOnlyFiles(int workspaceId, Path directoryPath)
+  throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException, JsonException, SQLException;
 
   /**
    * Retrieve the associated metadata file for the given file.

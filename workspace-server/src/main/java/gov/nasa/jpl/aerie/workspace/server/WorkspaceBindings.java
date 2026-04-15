@@ -751,9 +751,13 @@ public class WorkspaceBindings implements Plugin {
         }
       }
     } catch (IOException ioe) {
-      return new HandlerResult.Failure(500, new FormattedError(ioe, errorMsg));
+      final var fe = new FormattedError(ioe, errorMsg);
+      logger.warn("MOVE: IO EXCEPTION: {}", fe);
+      return new HandlerResult.Failure(500, fe);
     } catch (WorkspaceFileOpException wfe) {
-      return new HandlerResult.Failure(500, new FormattedError(wfe, errorMsg));
+      final var fe = new FormattedError(wfe, errorMsg);
+      logger.warn("MOVE: WORKSPACE FILE OP EXCEPTION: {}", fe);
+      return new HandlerResult.Failure(500, fe);
     }
   }
 
@@ -820,9 +824,13 @@ public class WorkspaceBindings implements Plugin {
         }
       }
     } catch (WorkspaceFileOpException wfe) {
-      return new HandlerResult.Failure(500, new FormattedError(wfe, errorMsg));
+      final var fe = new FormattedError(wfe, errorMsg);
+      logger.warn("COPY: WORKSPACE FILE OP EXCEPTION: {}", fe);
+      return new HandlerResult.Failure(500, fe);
     } catch (IOException ioe) {
-      return new HandlerResult.Failure(500, new FormattedError(ioe, errorMsg));
+      final var fe = new FormattedError(ioe, errorMsg);
+      logger.warn("COPY: IO EXCEPTION: {}", fe);
+      return new HandlerResult.Failure(500, fe);
     }
   }
 
@@ -846,6 +854,12 @@ public class WorkspaceBindings implements Plugin {
       }
 
       if (workspaceService.isDirectory(workspaceId, filePath)) {
+        // Report a "Locked" status if there is a locked file within the directory
+        final var readOnlyFiles = workspaceService.getReadOnlyFiles(workspaceId, filePath);
+        if(!readOnlyFiles.isEmpty()){
+          return new HandlerResult.Failure(423, new FormattedError(new FileLockedException(filePath, readOnlyFiles), errorMsg));
+        }
+
         if (workspaceService.deleteDirectory(workspaceId, filePath)) {
           return new HandlerResult.Success(200, "Directory deleted.");
         } else {
@@ -874,6 +888,10 @@ public class WorkspaceBindings implements Plugin {
     } catch (IOException ioe) {
       final var fe = new FormattedError(ioe);
       logger.warn("DELETE: IO EXCEPTION: {}", fe);
+      return new HandlerResult.Failure(500, fe);
+    } catch (SQLException se) {
+      final var fe = new FormattedError(se);
+      logger.warn("DELETE: SQL EXCEPTION: {}", fe);
       return new HandlerResult.Failure(500, fe);
     }
   }

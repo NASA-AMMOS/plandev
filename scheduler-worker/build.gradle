@@ -19,6 +19,7 @@ node {
   nodeProjectDir = file("${project.projectDir.toPath().resolve("scheduling-dsl-compiler")}")
   version = '20.12.1'
   download = true
+  npmInstallCommand = System.getenv("CI") ? 'ci' : 'install'
 }
 
 task deleteConstraintsTypescript(type: Delete) {

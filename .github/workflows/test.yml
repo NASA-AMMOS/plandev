@@ -77,7 +77,7 @@ jobs:
           cache: npm
           cache-dependency-path: ./action-server/package-lock.json
       - name: Install Dependencies
-        run: npm i
+        run: npm ci
         working-directory: ./action-server
       - name: Run Action Server Unit Tests
         run: npm --silent run test

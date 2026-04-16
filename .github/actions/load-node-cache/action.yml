@@ -1,0 +1,12 @@
+name: Load NPM Cache
+description: Load cached npm package data into the global npm cache
+runs:
+  using: composite
+  steps:
+    - name: Cache global ~/.npm cache
+      uses: actions/cache@v5
+      with:
+        path: ~/.npm
+        key: npm-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          npm-${{ runner.os }}-

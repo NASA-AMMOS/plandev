@@ -1,0 +1,20 @@
+name: Shutdown Test Backend
+description: Shuts down and prints logs for the E2E Test Backend
+runs:
+  using: composite
+  steps:
+    - name: Print Logs for Services
+      if: always()
+      shell: bash
+      run: docker compose -f ./e2e-tests/docker-compose-test.yml logs -t
+    - name: Stop Services
+      if: always()
+      shell: bash
+      run: |
+        docker ps -a
+        docker compose -f ./e2e-tests/docker-compose-test.yml down
+        docker ps -a
+    - name: Prune Volumes
+      if: always()
+      shell: bash
+      run: docker volume prune --force

@@ -37,88 +37,155 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+      - name: Load NPM Cache
+        uses: ./.github/actions/load-node-cache
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: "temurin"
           java-version: "21"
-      - name: Validate Gradle Wrapper
-        uses: gradle/wrapper-validation-action@v2
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
+          cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
       - name: Assemble
-        run: ./gradlew assemble --parallel
+        # Don't generate docs for tests
+        run: ./gradlew assemble -x javadoc -x javadocJar -x generateDocumentation --parallel
       - name: Run Unit Tests
         run: ./gradlew test --parallel
       - name: Upload Test Results as XML and HTML
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Unit Test Results
           path: |
             **/build/test-results/test
             **/build/reports/tests/test
 
-  e2e-test:
+  action-unit-tests:
     runs-on: ubuntu-latest
     environment: e2e-test
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v4
-      - name: Extract PlanDev gateway docker tag from PR body
-        # look in the PR body for the string ___REQUIRES_GATEWAY_PR___=9999, extract the number if so & save to env var
-        # if gateway PR is labeled correctly, it will publish a docker tag called 'pr-9999' to use in tests
-        if: ${{ contains(env.PR_BODY, '___REQUIRES_GATEWAY_PR___=') }}
-        run: |
-          echo "GATEWAY_IMAGE_TAG=pr-$(echo $PR_BODY | sed -n 's/.*___REQUIRES_GATEWAY_PR___=\"\([0-9]\+\)\".*/\1/p')" >> $GITHUB_ENV
-      - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/checkout@v6
+      - name: Setup NPM
+        uses: actions/setup-node@v6
         with:
-          distribution: "temurin"
-          java-version: "21"
+          node-version-file: ./action-server/.nvmrc
+          cache: npm
+          cache-dependency-path: ./action-server/package-lock.json
+      - name: Install Dependencies
+        run: npm ci
+        working-directory: ./action-server
+      - name: Run Action Server Unit Tests
+        run: npm --silent run test
+        working-directory: ./action-server
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Action Server Test Results
+          path: |
+            **/action-server/action-server-test-report.log
+
+  db-tests:
+    runs-on: ubuntu-latest
+    environment: e2e-test
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v6
       - name: Setup Postgres Client (psql)
         run: |
           sudo apt-get update
           sudo apt-get install --yes postgresql-client
-      - name: Validate Gradle Wrapper
-        uses: gradle/wrapper-validation-action@v2
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: "temurin"
+          java-version: "21"
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-      - name: Assemble
-        run: ./gradlew assemble --parallel
-      - name: Build scheduling procedure jars for testing
-        run: ./gradlew e2e-tests:buildAllProcedureJars
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
+          cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
       - name: Start Services
         run: |
-          echo "GATEWAY_IMAGE_TAG: $GATEWAY_IMAGE_TAG"
-          docker compose -f ./e2e-tests/docker-compose-test.yml up -d --build --quiet-pull
-          docker images
-          docker ps -a --no-trunc
-      - name: Sleep for 30 Seconds
-        run: sleep 30s
+          docker compose -f ./e2e-tests/docker-compose-test.yml up postgres -d --quiet-pull
+      - name: Sleep for 5 Seconds
+        run: sleep 5s
         shell: bash
+      - name: Run DB Tests
+        run: ./gradlew db-tests:e2eTest
+      - name: Upload DB Test Results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: DB Test Results
+          path: |
+            **/db-tests/build/reports/tests/e2eTest
+      - name: Shutdown Backend
+        uses: ./.github/actions/shutdown-test-backend
+
+  sequencing-e2e-tests:
+    runs-on: ubuntu-latest
+    environment: e2e-test
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: "temurin"
+          java-version: "21"
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
+          cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
+      - name: Start E2E Test Backend
+        uses: ./.github/actions/start-test-backend
+      - name: Run Sequencing E2E Tests
+        run: ./gradlew sequencing-server:e2eTest
+      - name: Upload Sequencing E2E Test Results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Sequencing E2E Test Results
+          path: |
+            **/sequencing-server/test-report.*
+      - name: Shutdown E2E Test Backend
+        uses: ./.github/actions/shutdown-test-backend
+
+  java-e2e-test:
+    runs-on: ubuntu-latest
+    environment: e2e-test
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: "temurin"
+          java-version: "21"
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
+          cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
+      - name: Start E2E Test Backend
+        uses: ./.github/actions/start-test-backend
+      - name: Build scheduling procedure jars for testing
+        run: ./gradlew e2e-tests:buildAllProcedureJars
       - name: Run E2E Tests
-        run: ./gradlew e2eTest
+        run: ./gradlew e2e-tests:e2eTest
       - name: Upload E2E Test Results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: E2E Test Results
           path: |
             **/e2e-tests/build/reports/tests/e2eTest
-            **/db-tests/build/reports/tests/e2eTest
-            **/sequencing-server/test-report.*
-            **/action-server/action-server-test-report.log
-      - name: Print Logs for Services
-        if: always()
-        run: docker compose -f ./e2e-tests/docker-compose-test.yml logs -t
-      - name: Stop Services
-        if: always()
-        run: |
-          docker ps -a
-          docker compose -f ./e2e-tests/docker-compose-test.yml down
-          docker ps -a
-      - name: Prune Volumes
-        if: always()
-        run: docker volume prune --force
+      - name: Shutdown Backend
+        uses: ./.github/actions/shutdown-test-backend

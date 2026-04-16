@@ -16,6 +16,7 @@ node {
   nodeProjectDir = file("${project.projectDir.toPath().resolve("constraints-dsl-compiler")}")
   version = '20.12.1'
   download = true
+  npmInstallCommand = System.getenv("CI") ? 'ci' : 'install'
 }
 
 task assembleConstraintsDSLCompiler(type: NpmTask) {

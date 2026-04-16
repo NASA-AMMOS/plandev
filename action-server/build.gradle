@@ -5,6 +5,7 @@ plugins {
 node {
   version = '22.13.1'
   download = true
+  npmInstallCommand = System.getenv("CI") ? 'ci' : 'install'
 }
 
 task assemble(type: NpmTask) {

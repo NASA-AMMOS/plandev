@@ -553,10 +553,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   public boolean isReadOnly(final int workspaceId, final Path filePath)
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException, JsonException
   {
-    final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
-    final var metadataFile = resolveMetadataPath(repoPath, filePath).toFile();
-    final var metadataFileContents = readMetadataFile(metadataFile);
-    return metadataFileContents.getBoolean("readOnly", false);
+    return isReadOnly(postgresRepository.workspaceRootPath(workspaceId), filePath);
   }
 
   private boolean isReadOnly(final Path repoPath, final Path filePath)

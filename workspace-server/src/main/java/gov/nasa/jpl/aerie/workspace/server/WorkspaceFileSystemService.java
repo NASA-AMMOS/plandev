@@ -716,7 +716,11 @@ public class WorkspaceFileSystemService implements WorkspaceService {
           if(currentContents.containsKey("createdBy")) {
             mergedBuilder.createdBy(currentContents.getString("createdBy"));
           } else {
-            mergedBuilder.createdBy(updates.metadataLastEditedBy()); // Fallback
+            // Fallback, trying to use last file edit before the current metadata edits
+            updates.lastEditedBy().ifPresentOrElse(
+                mergedBuilder::createdBy,
+                () -> mergedBuilder.createdBy(updates.metadataLastEditedBy())
+            );
           }
         }
     );
@@ -726,7 +730,11 @@ public class WorkspaceFileSystemService implements WorkspaceService {
           if(currentContents.containsKey("createdAt")) {
             mergedBuilder.createdAt(Instant.parse(currentContents.getString("createdAt")));
           } else {
-            mergedBuilder.createdAt(updates.metadataLastEditedAt()); // Fallback
+            // Fallback, trying to use last file edit before the current metadata edits
+            updates.lastEditedAt().ifPresentOrElse(
+                mergedBuilder::createdAt,
+                () -> mergedBuilder.createdAt(updates.metadataLastEditedAt())
+            );
           }
         }
     );

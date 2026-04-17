@@ -417,6 +417,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     // Delete the metadata file if it exists
     if(metadataFile.exists()) {
       if(!rm(metadataFile)){
+        logger.warn("DELETE FILE: Unable to delete metadata file {}", metadataFile);
         return false;
       }
     }

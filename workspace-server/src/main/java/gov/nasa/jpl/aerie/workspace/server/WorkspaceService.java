@@ -19,9 +19,31 @@ import java.util.Set;
  * An interface that defines how the Aerie system can interact with the Workspaces backend.
  */
 public interface WorkspaceService {
+  /**
+   * A record containing a File ready to be streamed over the network
+   * @param readingStream a stream of the file's contents
+   * @param fileName the file's name, for the purpose of the "filename" header
+   * @param fileSize the file's length, for the purpose of the "content-length" header
+   */
   record FileStream(InputStream readingStream, String fileName, long fileSize){}
 
+  /**
+   * Create a new workspace
+   * @param workspaceLocation the name of the root folder for the workspace
+   * @param workspaceName the name of the workspace in the database
+   * @param username the user who is creating the workspace
+   * @param parcelId the parcel the workspace should load when reading sequencing files
+   * @return an Optional containing the id of the new workspace if it was created, otherwise an empty Optional
+   */
   Optional<Integer> createWorkspace(Path workspaceLocation, String workspaceName, String username, int parcelId);
+
+  /**
+   * Delete an existing workspace
+   * @param workspaceId the id of the workspace to be deleted
+   * @return true if the workspace was deleted, otherwise false
+   * @throws NoSuchWorkspaceException if the specified workspace does not exist
+   * @throws SQLException if the database entry for the workspace is unable to be deleted
+   */
   boolean deleteWorkspace(int workspaceId) throws NoSuchWorkspaceException, SQLException;
 
   /**
@@ -38,8 +60,23 @@ public interface WorkspaceService {
    */
   boolean isDirectory(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException;
 
+  /**
+   * Determine a given file's RenderType based on its file name
+   * @param filePath the file to get the render type of
+   * @return the file's RenderType
+   * @throws SQLException If there is a database communication failure while getting the list of extension mappings
+   */
   RenderType getFileType(final Path filePath) throws SQLException;
 
+  /**
+   * Load a file to send over a multipart HTTP response
+   * @param workspaceId the id of the workspace the file lives in
+   * @param filePath the path to the file, relative to the workspace's root
+   * @return a FileStream with a handler to the file's contents,
+   *         as well as the values to fill in for the "filename" and "content-length" headers
+   * @throws IOException if an I/O error occurs while attempting to open the file
+   * @throws NoSuchWorkspaceException if the specified workspace does not exist
+   */
   FileStream loadFile(final int workspaceId, final Path filePath) throws IOException, NoSuchWorkspaceException;
 
   /**
@@ -97,11 +134,33 @@ public interface WorkspaceService {
   boolean deleteFile(final int workspaceId, final Path filePath)
   throws NoSuchWorkspaceException, WorkspaceFileOpException;
 
+  /**
+   * Get a DirectoryTree representing the contents of the directory down to the specified depth
+   * @param workspaceId the workspace the directory lives in
+   * @param directoryPath the path to the directory, relative to the workspace root
+   * @param depth how many levels deep into the directory's subfolders to traverse.
+   *              use -1 to traverse the whole tree.
+   *              use 0 to just list the contents at the root of `directoryPath`
+   * @param withMetadata whether to get the metadata of files within the workspace
+   * @throws SQLException if there is a database communication failure while getting the list of extension mappings
+   * @throws NoSuchWorkspaceException if the specified workspace does not exist
+   * @throws IOException if an I/O error occurs while opening 'directoryPath'
+   */
   DirectoryTree listFiles(final int workspaceId, final Path directoryPath, final int depth, final boolean withMetadata)
   throws SQLException, NoSuchWorkspaceException, IOException;
 
+  /**
+   * Create a new directory within a workspace
+   * @param workspaceId the workspace to create the directory in
+   * @param directoryPath the path to the new directory, relative to the workspace root
+   * @return true if the directory was created, false otherwise
+   * @throws IOException if an I/O error occurs while creating the directory
+   * @throws NoSuchWorkspaceException if the specified workspace does not exist
+   * @throws WorkspaceFileOpException if `directoryPath` is invalid (ie contains illegal characters)
+   */
   boolean createDirectory(final int workspaceId, final Path directoryPath)
   throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException;
+
   /**
    * Move a directory within a workspace or between workspaces.
    * @param oldWorkspaceId the id of the source workspace
@@ -124,7 +183,13 @@ public interface WorkspaceService {
   boolean copyDirectory(final int sourceWorkspaceId, final Path sourceFilePath, final int destWorkspaceId, final Path destFilePath)
   throws NoSuchWorkspaceException, WorkspaceFileOpException;
 
-
+  /**
+   * Delete a directory within a workspace.
+   * @param workspaceId the workspace the directory lives in
+   * @param directoryPath the path to the directory
+   * @return true if the directory was deleted, false otherwise
+   * @throws NoSuchWorkspaceException if the specified workspace does not exist
+   */
   boolean deleteDirectory(final int workspaceId, final Path directoryPath) throws NoSuchWorkspaceException;
 
   /**
@@ -140,7 +205,7 @@ public interface WorkspaceService {
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException, JsonException;
 
   /**
-   * Get the list of readOnly files contained in the folder.
+   * Get the complete list of readOnly files contained at any level in the folder.
    * @param workspaceId the id of the workspace the file lives in
    * @param directoryPath the path to the directory to check the files
    * @throws NoSuchWorkspaceException If the specified workspace does not exist
@@ -179,7 +244,7 @@ public interface WorkspaceService {
 
   /**
    * Unset the specified set of keys in a file's metadata.
-   * Subobjects within the "user" object can be specified by following using a "dot-path" syntax, i.e. "user.status"
+   * Subobjects within the "user" object can be specified by following using a "dot-path" syntax, i.e. "user.status" or "user.info.name"
    * @param workspaceId the id of the workspace the file lives in
    * @param filePath the path to the file whose metadata will be updated
    * @param keysToUnset the set of keys to unset

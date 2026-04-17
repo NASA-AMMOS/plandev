@@ -18,6 +18,9 @@ import org.junit.platform.launcher.TestPlan;
 /**
  * A class that creates all the users shared across E2E Tests prior to any test,
  * then cleans up those users after the tests
+ *
+ * It is loaded via e2e-tests/src/test/resources/META-INF/services/org.junit.platform.launcher.LauncherSessionListener
+ * For more information, see https://docs.junit.org/6.0.3/advanced-topics/launcher-api.html#launcher-session-listeners-custom
  */
 public class UserSetup implements LauncherSessionListener {
   @Override

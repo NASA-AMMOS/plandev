@@ -696,9 +696,10 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       MetadataUpdates updates,
       MetadataMergeBehavior mergeBehavior
   ) throws JsonException {
+    // Create the combined builder, initializing "metadataLastEditedAt" and "metadataLastEditedBy" to the value in the `updates` parameter
     final var mergedBuilder = new MetadataUpdates.Builder(updates.metadataLastEditedBy(), updates.metadataLastEditedAt());
 
-    // Upsert the fields, skipping "lastEditedAt" and "lastEditedBy" (as they're already set),
+    // Upsert the rest of the fields
     updates.version().ifPresentOrElse(
         mergedBuilder::version,
         () -> {
@@ -859,6 +860,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         final var userObject = fileContentsBuilder.getUser();
         if (userObject == null) continue;
 
+        // Get the entire path to the nested key
         final var path = new ArrayList<>(Arrays.asList(key.split("\\.")));
         // Remove index 0 ("user")
         path.removeFirst();
@@ -884,7 +886,9 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   /**
-   * Helper method to remove a key from a nested JSON Object
+   * Helper method to remove a key n-levels deep within a JSON Object
+   * @param object the original JSON Object
+   * @param path the path to the key
    * @return A new JSON Object with the key removed
    */
   private JsonObject removeKey(JsonObject object, List<String> path) {

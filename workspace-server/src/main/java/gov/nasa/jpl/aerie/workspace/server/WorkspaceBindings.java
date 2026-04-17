@@ -1389,10 +1389,10 @@ public class WorkspaceBindings implements Plugin {
    * If the user passes a malformed set of keys (including non-existent top-level keys or a non-json object "user" field), returns a 400 error.
    *
    * Also takes in a query param "mergeBehavior", which can be one of "deep", "shallow", and "overwrite". Behavior is as follows:
-   *  - "deep": deep merge JSON Object params (combine nested properties)
-   *  - "shallow": shallow merge of JSON Object params (combine only top-level properties)
-   *  - "overwrite": replace JSON Object params with the new value, if provided
-   * Defaults to "deep" if not provided
+   *  - "deep": deep merge the existing "user" field with the new value, if provided (combine nested properties)
+   *  - "shallow": shallow merge the existing "user" field with the new value, if provided (combine only top-level properties)
+   *  - "overwrite": replace the "user" field with the new value, if provided
+   * Defaults to "shallow" if "mergeBehavior" is not specified
    */
   public void setMetadataKeys(final Context context) throws NoSuchWorkspaceException {
     // Permissions Check

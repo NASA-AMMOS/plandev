@@ -14,6 +14,8 @@ public class MetadataUpdates {
   private final Optional<Instant> createdAt;
   private final Optional<String> lastEditedBy;
   private final Optional<Instant> lastEditedAt;
+  // Fallback values. Non-optional as we know when the most recent edit to the metadata is:
+  // it's when the edits represented by this Update object are applied.
   private final String metadataLastEditedBy;
   private final Instant metadataLastEditedAt;
   // User-Managed Fields

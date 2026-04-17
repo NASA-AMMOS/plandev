@@ -62,7 +62,7 @@ public class DirectoryTree {
     final Optional<JsonObject> metadata;
     final Optional<MetadataStatus> metadataStatus;
 
-    private boolean readOnly = false;
+    final boolean readOnly;
 
     private enum MetadataStatus {
       ok, // Metadata file exists and is valid
@@ -76,6 +76,7 @@ public class DirectoryTree {
       this.name = path.getFileName().toString();
       this.metadata = Optional.empty();
       this.metadataStatus = Optional.empty();
+      this.readOnly = false;
     }
 
     FileNode(Path path, RenderType renderType, boolean getMetadata) {
@@ -87,6 +88,7 @@ public class DirectoryTree {
       if (!getMetadata || renderType == RenderType.METADATA) {
         this.metadata = Optional.empty();
         this.metadataStatus = Optional.empty();
+        this.readOnly = false;
         return;
       }
 
@@ -95,6 +97,7 @@ public class DirectoryTree {
       if (!metadataFile.exists() || metadataFile.isDirectory()) {
         this.metadata = Optional.empty();
         this.metadataStatus = Optional.of(MetadataStatus.missing);
+        this.readOnly = false;
         return;
       }
 
@@ -105,10 +108,12 @@ public class DirectoryTree {
       } catch (FileNotFoundException fnf) {
         this.metadata = Optional.empty();
         this.metadataStatus = Optional.of(MetadataStatus.missing);
+        this.readOnly = false;
         return;
       } catch (JsonException je) {
         this.metadata = Optional.empty();
         this.metadataStatus = Optional.of(MetadataStatus.malformed);
+        this.readOnly = false;
         return;
       }
 
@@ -116,11 +121,15 @@ public class DirectoryTree {
       if(!validateMetadataFile(fileContents)) {
         this.metadata = Optional.empty();
         this.metadataStatus = Optional.of(MetadataStatus.malformed);
+        this.readOnly = false;
         return;
       }
 
       this.metadata = Optional.of(fileContents);
       this.metadataStatus = Optional.of(MetadataStatus.ok);
+
+      // Set "readOnly", if it's present in the metadata
+      readOnly = fileContents.getBoolean("readOnly", false);
     }
 
     private boolean validateMetadataFile(JsonObject metadata) throws JsonException {
@@ -154,7 +163,7 @@ public class DirectoryTree {
 
         // Validate that the optional keys have the correct type, if they're present
         if (metadata.containsKey("readOnly")) {
-          readOnly = metadata.getBoolean("readOnly");
+          metadata.getBoolean("readOnly");
         }
         if(metadata.containsKey("user")) {
           metadata.getJsonObject("user");

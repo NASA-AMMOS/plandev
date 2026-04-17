@@ -1557,17 +1557,12 @@ public class WorkspaceBindings implements Plugin {
 
   /**
    * Deletes all metadata files associated with a file.
+   * It does not check if the specified file exists, to permit cleaning up "orphaned" metadata files
    */
-  public void deleteMetadata(final Context context) throws NoSuchWorkspaceException {
+  public void deleteMetadata(final Context context) {
     // Permissions Check
     final var pathInfo = PathInformation.of(context);
     if (!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.delete_file_directory)) {
-      return;
-    }
-
-    // Check that the underlying file exists
-    if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
-      context.status(404).json(new FormattedError(new NoSuchFileException(pathInfo.workspaceId, pathInfo.filePath)));
       return;
     }
 

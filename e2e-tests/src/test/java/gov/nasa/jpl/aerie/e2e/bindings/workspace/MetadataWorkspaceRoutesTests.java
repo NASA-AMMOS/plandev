@@ -1131,15 +1131,13 @@ public class MetadataWorkspaceRoutesTests {
     }
 
     /**
-     * If the file doesn't exist, the server returns a "404 NO_SUCH_FILE" response
+     * If the underlying file doesn't exist, the server returns a "200 OK" response
      */
     @Test
     void noSuchFile() {
       final var resp = wsServer.deleteMetadata(ownerToken, workspaceId, fakeFile);
-      assertEquals(404, resp.status());
-      final var body = getBody(resp);
-      assertEquals("NO_SUCH_FILE", body.getString("type"));
-      assertEquals("No such file exists in workspace "+ workspaceId +": "+fakeFile, body.getString("message"));
+      assertEquals(200, resp.status());
+      assertEquals("Metadata for file %s deleted.".formatted(fakeFile.toString()), resp.text());
     }
 
     /**

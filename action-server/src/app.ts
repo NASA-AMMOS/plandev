@@ -24,10 +24,6 @@ app.post(
   "/secrets",
   authMiddleware,
   (req, res, next) => {
-    const validationErr = isActionRunRequest(req);
-    if(validationErr) {
-      res.status(500).send({message: validationErr, success: false});
-    }
     const { action_run_id, secrets } = req.body;
     const actionRunId = action_run_id as string;
 

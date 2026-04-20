@@ -1,5 +1,5 @@
-import { Pool } from "pg";
 import { MessagePort } from "worker_threads";
+import { ActionMain, ActionParameterDefinitions, ActionSettingDefinitions } from "@nasa-jpl/aerie-actions";
 
 export type ActionRunRequest = {
   actionJS: string;
@@ -63,6 +63,12 @@ export type ActionRunCancellationRequestPayload = {
   action_run_id: string;
   canceled: boolean;
 };
+
+export interface ActionExports {
+  main: ActionMain,
+  parameterDefinitions: ActionParameterDefinitions;
+  settingDefinitions: ActionSettingDefinitions;
+}
 
 export type ActionResponse =
   | {

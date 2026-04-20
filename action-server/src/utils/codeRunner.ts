@@ -4,7 +4,7 @@ import type { PoolClient } from "pg";
 import { createLogger, format, transports } from "winston";
 import { ActionsAPI, ActionParameterDefinitions, ActionSettingDefinitions } from "@nasa-jpl/aerie-actions";
 import { configuration } from "../config";
-import type { ActionConfig, ActionResponse } from "../type/types";
+import type { ActionConfig, ActionExports, ActionResponse } from "../type/types";
 
 const { ACTION_LOCAL_STORE, SEQUENCING_LOCAL_STORE, WORKSPACE_BASE_URL } = configuration();
 
@@ -131,14 +131,18 @@ export const jsExecute = async (
       USER_ROLE: userRole,
       WORKSPACE_BASE_URL: WORKSPACE_BASE_URL
     };
-    // validate parameters
-    const { parameterDefinitions, settingDefinitions } = context.exports;
-    // walk through all the parameterDefinitions & setting definitions
-    // if definition is required, make sure it's in settings/params
-    // if definition is enum-typed, make sure value (if provided) is in valid enum list
-    // if not, return fake/empty results with validation errors in `errors` (singular)
-    // construct strings for combined validation errors
-    // call custom validate funcs if they exist
+
+
+    // todo: add some handling/validation/error checking here to make sure exports are not malformed
+    const {parameterDefinitions, settingDefinitions} = context.exports as ActionExports;
+    // validate param & setting values to make sure enums are valid and required params are included
+    const paramValidateErrors = validateParameters(parameters, parameterDefinitions, "parameter");
+    const settingValidateErrors = validateParameters(settings, settingDefinitions, "setting");
+    const combinedValidationErrors = (paramValidateErrors || settingValidateErrors) ?
+      [paramValidateErrors || "", settingValidateErrors || ""].filter(Boolean).join("\n") :
+      null
+
+    if(combinedValidationErrors) { throw new Error(combinedValidationErrors); }
 
     const actionsAPI = new ActionsAPI(client, workspaceId, actionConfig);
     const results = await context.main(parameters, settings, actionsAPI);
@@ -148,6 +152,7 @@ export const jsExecute = async (
     const cleanResults = results ? JSON.parse(JSON.stringify(results)) : results;
 
     return { results: cleanResults, console: logBuffer, errors: null };
+
   } catch (error: any) {
     // wrap `throw 10` into a `new throw(10)`
     let errorResponse: Error;
@@ -182,32 +187,43 @@ export const jsExecute = async (
 
 function validateParameters(
     parameters: Record<string, any>,
-    parameterDefinitions: ActionParameterDefinitions | ActionSettingDefinitions
+    parameterDefinitions: ActionParameterDefinitions | ActionSettingDefinitions,
+    typeStr: string
 ): null | string {
   // walk through all the parameterDefinitions & setting definitions
   // if definition is required, make sure it's in settings/params
   // if definition is enum-typed, make sure value (if provided) is in valid enum list
   let errors: string[] = [];
-  if(!parameterDefinitions) {
-    errors.push("Parameter definitions must be provided");
-  } else {
-    for (const paramDefKey in parameterDefinitions) {
-      const hasParamValue = (paramDefKey in parameters) && parameters[paramDefKey] === undefined;
-      const paramDefinition = parameterDefinitions[paramDefKey];
-      if(paramDefinition.required === true && !hasParamValue) {
-        errors.push(`Missing value for required parameter "${paramDefKey}"}`);
-      }
-      if(paramDefinition.type === "variant") {
-        const allowedValues = paramDefinition.variants;
-        if(allowedValues !== undefined && allowedValues.length) {
-          // todo rename key to value??
-          // todo what about required variants
-          const paramValue = parameters[paramDefKey];
-          if(allowedValues.find(({key}) => key == ))
+  if (!parameterDefinitions) {
+    return `${typeStr} definitions must be exported from your action as \`parameterDefinitions\``;
+  }
+
+  for (const paramDefKey in parameterDefinitions) {
+    const hasParamValue = paramDefKey in parameters && parameters[paramDefKey] !== undefined && parameters[paramDefKey] !== "";
+    const paramDefinition = parameterDefinitions[paramDefKey];
+    if (paramDefinition.required === true && !hasParamValue) {
+      errors.push(`Missing value for required ${typeStr} "${paramDefKey}"`);
+    }
+
+    if (paramDefinition.type === "variant") {
+      const allowedValues = paramDefinition.variants;
+
+      if (allowedValues !== undefined && allowedValues.length > 0) {
+        const paramValue = parameters[paramDefKey];
+
+        if (!allowedValues.some(({ key }) => key === paramValue)) {
+          const allowedStr = allowedValues.map(({ key }) => key).join(", ");
+
+          errors.push(`${paramValue} is not a valid value for ${typeStr} ${paramDefKey}, must be one of: ${allowedStr}`);
         }
+      } else {
+        errors.push(`${typeStr} definition for ${paramDefKey} is a variant type, but has no allowed variants (values).`);
       }
     }
   }
+
+  // future: pass context & call custom param validate funcs if they exist
+  // construct strings for combined validation errors
   return errors.length ? errors.join("\n") : null;
 }
 

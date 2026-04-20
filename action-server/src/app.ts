@@ -4,7 +4,6 @@ import {authMiddleware, corsMiddleware, jsonErrorMiddleware} from "./middleware"
 import { ActionRunner } from "./type/actionRunner";
 import { extractCookies } from "./utils/auth";
 import logger from "./utils/logger";
-import {isActionRunRequest} from "./utils/validators";
 
 
 // init express app and middleware

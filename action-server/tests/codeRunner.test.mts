@@ -5,9 +5,13 @@ const { jsExecute } = codeRunner;
 import { PoolClient } from "pg";
 import type { ActionResponse } from '../src/type/types.ts';
 
+const stubDefs = `exports = { parameterDefinitions: {}, settingDefinitions: {} };\n`;
+
 test("Code Runner jsRunner Tests", async () => {
   await test("capture console output", async () => {
-    const code = `function main(actionParameters, actionSettings, ActionAPI) {
+    const code = `
+    ${stubDefs}
+    function main(actionParameters, actionSettings, ActionAPI) {
       console.log('Hello World');
       console.debug('Debug message');
       console.info('Info message');
@@ -26,7 +30,9 @@ test("Code Runner jsRunner Tests", async () => {
   });
 
   await test("run basic action", async () => {
-    const code = `function main(actionParameters, actionSettings, ActionAPI) {
+    const code = `
+    ${stubDefs}
+    function main(actionParameters, actionSettings, ActionAPI) {
       let x = 10;
       x += 5;
       return x;
@@ -41,7 +47,9 @@ test("Code Runner jsRunner Tests", async () => {
   });
 
   await test("run basic action with secrets", async () => {
-    const code = `function main(actionParameters, actionSettings, actionsAPI) {
+    const code = `
+    ${stubDefs}
+    function main(actionParameters, actionSettings, actionsAPI) {
       console.log(JSON.stringify(actionsAPI.config.SECRETS));
     }`;
 
@@ -55,7 +63,9 @@ test("Code Runner jsRunner Tests", async () => {
   });
 
   await test("run basic parameter", async () => {
-    const code = `function main(actionParameters, actionSettings, ActionAPI) {
+    const code = `
+    ${stubDefs}
+    function main(actionParameters, actionSettings, ActionAPI) {
       return "sequenceId: "+actionParameters.sequenceId + ", boolean:" + actionParameters.myBool;
     }`;
 
@@ -74,7 +84,9 @@ test("Code Runner jsRunner Tests", async () => {
   });
 
   await test("run basic settings", async () => {
-    const code = `function main(actionParameters, actionSettings, ActionAPI) {
+    const code = `
+    ${stubDefs}
+    function main(actionParameters, actionSettings, ActionAPI) {
       return "externalUrl: "+actionSettings.externalUrl + ", retries:" + actionSettings.retries;
     }`;
 
@@ -92,7 +104,9 @@ test("Code Runner jsRunner Tests", async () => {
   });
 
   await test("run async JS code and function calling", async () => {
-    const code = `async function main(actionParameters, actionSettings, ActionAPI) {
+    const code = `
+    ${stubDefs}
+    async function main(actionParameters, actionSettings, ActionAPI) {
       return await delayAndReturn("hello world delay", 2000);
     }
 
@@ -113,7 +127,9 @@ test("Code Runner jsRunner Tests", async () => {
   });
 
   await test("run url fetching", async () => {
-    const code = `async function main(actionParameters, actionSettings, ActionAPI) {
+    const code = `
+    ${stubDefs}
+    async function main(actionParameters, actionSettings, ActionAPI) {
       const startTime = performance.now();
         const result = await fetch(actionSettings.externalUrl, {
           method: "get",
@@ -140,7 +156,9 @@ test("Code Runner jsRunner Tests", async () => {
   });
 
   await test("syntax error reporting", async () => {
-    const code = `async function main(actionParameters, actionSettings, ActionAPI) {
+    const code = `
+    ${stubDefs}
+    async function main(actionParameters, actionSettings, ActionAPI) {
       let x = z;
     }`;
 
@@ -163,7 +181,9 @@ test("Code Runner jsRunner Tests", async () => {
   });
 
   await test("throw errors object", async () => {
-    const code = `async function main(actionParameters, actionSettings, ActionAPI) {
+    const code = `
+    ${stubDefs}
+    async function main(actionParameters, actionSettings, ActionAPI) {
       throw new Error("this is a error");
     }`;
 
@@ -181,7 +201,9 @@ test("Code Runner jsRunner Tests", async () => {
   });
 
   await test("throw errors", async () => {
-    const code = `async function main(actionParameters, actionSettings, ActionAPI) {
+    const code = `
+    ${stubDefs}
+    async function main(actionParameters, actionSettings, ActionAPI) {
       throw "this is an error string";
     }`;
 

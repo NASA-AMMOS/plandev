@@ -195,7 +195,7 @@ function validateParameters(
   // if definition is enum-typed, make sure value (if provided) is in valid enum list
   let errors: string[] = [];
   if (!parameterDefinitions) {
-    return `${typeStr} definitions must be exported from your action as \`parameterDefinitions\``;
+    return `${typeStr} definitions must be exported from your action as \`${typeStr}Definitions\``;
   }
 
   for (const paramDefKey in parameterDefinitions) {

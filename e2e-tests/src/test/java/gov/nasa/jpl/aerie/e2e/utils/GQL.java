@@ -19,6 +19,13 @@ public enum GQL {
         plan_id
       }
     }"""),
+  ADD_WORKSPACE_COLLABORATOR("""
+    mutation addWorkspaceCollaborator($collaborator: workspace_collaborators_insert_input!) {
+      insert_workspace_collaborators_one(object: $collaborator) {
+        collaborator
+        workspace_id
+      }
+    }"""),
   ASSIGN_TEMPLATE_TO_SIMULATION("""
     mutation AssignTemplateToSimulation($simulation_id: Int!, $simulation_template_id: Int!) {
       update_simulation_by_pk(pk_columns: {id: $simulation_id}, _set: {simulation_template_id: $simulation_template_id}) {

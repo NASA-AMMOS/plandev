@@ -57,4 +57,18 @@ public enum RenderType {
 
     return RenderType.UNKNOWN;
   }
+
+  // Helpers for SeqDev Metadata Files
+  public static final String aerieMetadataExtension = ".meta.seqdev";
+  public static boolean isAerieMetadataFile(String fileName) {
+    return getRenderType(fileName, Map.of(aerieMetadataExtension, METADATA)) == METADATA;
+  }
+
+  /**
+   * Convert a fileName to the naming pattern of a PlanDev metadata file.
+   * @param fileName The base file's filename
+   */
+  public static String toMetadataFileName(String fileName) {
+    return "." + fileName + aerieMetadataExtension;
+  }
 }

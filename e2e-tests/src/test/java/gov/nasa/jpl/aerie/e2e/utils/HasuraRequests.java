@@ -15,7 +15,6 @@ import javax.json.JsonObjectBuilder;
 import javax.json.JsonValue;
 import javax.json.JsonObject;
 import java.io.IOException;
-import java.io.StringReader;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -69,7 +68,8 @@ public class HasuraRequests implements AutoCloseable {
       GQL query,
       JsonObject variables,
       Map<String, String> headers
-  ) throws IOException {
+  ) throws IOException
+  {
     // Build Payload
     final String data = Json.createObjectBuilder()
                             .add("query", query.query)
@@ -79,25 +79,23 @@ public class HasuraRequests implements AutoCloseable {
 
     // Set Up Request
     final RequestOptions options = RequestOptions.create()
-            .setData(data)
-            .setHeader("x-hasura-admin-secret", hasuraAdminSecret);
+                                                 .setData(data)
+                                                 .setHeader("x-hasura-admin-secret", hasuraAdminSecret);
     headers.forEach(options::setHeader);
 
     final var response = request.post("/v1/graphql", options);
 
     // Process Response
-    if(!response.ok()){
+    if (!response.ok()) {
       throw new IOException(response.statusText());
     }
 
-    try(final var reader = Json.createReader(new StringReader(response.text()))){
-      final JsonObject bodyJson = reader.readObject();
-      if(bodyJson.containsKey("errors")){
-        System.err.println("Errors in response: \n" + bodyJson.get("errors"));
-        throw new RuntimeException(bodyJson.toString());
-      }
-      return bodyJson.getJsonObject("data");
+    final var bodyJson = RequestBodyHelper.getBody(response);
+    if (bodyJson.containsKey("errors")) {
+      System.err.println("Errors in response: \n" + bodyJson.get("errors"));
+      throw new RuntimeException(bodyJson.toString());
     }
+    return bodyJson.getJsonObject("data");
   }
 
   //region Records
@@ -1394,9 +1392,11 @@ public class HasuraRequests implements AutoCloseable {
     makeRequest(GQL.DELETE_USER, variables);
   }
 
-  public void addPlanCollaborator(User user, int planId) throws IOException {
-    final var planCollabBuilder = Json.createObjectBuilder().add("planId", planId).add("collaborator", user.name());
-    final var variables = Json.createObjectBuilder().add("planCollaboratorInsertInput", planCollabBuilder).build();
+  public void addPlanCollaborator(User collaborator, int planId) throws IOException {
+    final var planCollabBuilder = Json.createObjectBuilder()
+                                      .add("plan_id", planId)
+                                      .add("collaborator", collaborator.name());
+    final var variables = Json.createObjectBuilder().add("collaborator", planCollabBuilder).build();
     makeRequest(GQL.ADD_PLAN_COLLABORATOR, variables);
   }
 
@@ -1468,11 +1468,22 @@ public class HasuraRequests implements AutoCloseable {
   /**
    * Change the workspace's owner to another user
    */
-  public void changeOwner(int workspaceId, User newOwner) throws IOException {
+  public void changeWorkspaceOwner(int workspaceId, User newOwner) throws IOException {
     makeRequest(GQL.CHANGE_WS_OWNER, Json.createObjectBuilder()
                                          .add("id", workspaceId)
                                          .add("newOwner", newOwner.name())
                                          .build());
+  }
+
+  /**
+   * Add a workspace collaborator
+   */
+  public void addWorkspaceCollaborator(User collaborator, int workspaceId) throws IOException {
+    final var wsCollabBuilder = Json.createObjectBuilder()
+                                    .add("workspace_id", workspaceId)
+                                    .add("collaborator", collaborator.name());
+    final var variables = Json.createObjectBuilder().add("collaborator", wsCollabBuilder).build();
+    makeRequest(GQL.ADD_WORKSPACE_COLLABORATOR, variables);
   }
   //endregion
 }

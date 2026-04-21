@@ -6,6 +6,10 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
+import gov.nasa.jpl.aerie.workspace.server.exceptions.FileLockedException;
+import gov.nasa.jpl.aerie.workspace.server.exceptions.MalformedRequest;
+import gov.nasa.jpl.aerie.workspace.server.exceptions.NoSuchFileException;
+import gov.nasa.jpl.aerie.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import io.javalin.http.UnauthorizedResponse;
 import io.javalin.validation.ValidationException;
@@ -28,7 +32,7 @@ import java.util.Optional;
  * Relevant ticket going over said format: https://github.com/NASA-AMMOS/plandev/issues/1732
  */
 @JsonSerialize(using = FormattedError.FormattedErrorSerializer.class)
-final class FormattedError {
+public final class FormattedError {
   private final String type;
   private final String message;
   private final String timestamp = ZonedDateTime.now(ZoneOffset.UTC).format(DateTimeFormatter.ISO_INSTANT);
@@ -105,6 +109,14 @@ final class FormattedError {
     this("NO_SUCH_WORKSPACE", message, nse);
   }
 
+  // NoSuchFile
+  public FormattedError(NoSuchFileException nsf) {
+    this("NO_SUCH_FILE", nsf.getMessage(), nsf);
+  }
+  public FormattedError(NoSuchFileException nsf, String message) {
+    this("NO_SUCH_FILE", message, nsf);
+  }
+
   // IOException
   public FormattedError(IOException nse) {
     this("IO_EXCEPTION", nse);
@@ -122,6 +134,9 @@ final class FormattedError {
   }
 
   // WorkspaceFileOpException
+  public FormattedError(WorkspaceFileOpException wfe) {
+    this("FILE_OPERATION_EXCEPTION", wfe);
+  }
   public FormattedError(WorkspaceFileOpException wfe, String message) {
     this("FILE_OPERATION_EXCEPTION", message, wfe);
   }
@@ -175,9 +190,26 @@ final class FormattedError {
     this("NULL_POINTER_EXCEPTION", message, ne);
   }
 
-  //Security Exception
+  // Security Exception
   public FormattedError(SecurityException se) {
     this("SECURITY_EXCEPTION", se.getMessage(), se);
+  }
+
+  // Malformed Request
+  public FormattedError(MalformedRequest mr) {
+    this.type = "MALFORMED_REQUEST";
+    this.message = mr.getMessage();
+    this.cause = mr.getDetails();
+    this.trace = Optional.of(generateTrace(mr));
+  }
+
+  // Locked File
+  public FormattedError(FileLockedException fle) {
+    this("FILE_LOCKED", fle);
+  }
+
+  public FormattedError(FileLockedException fle, String message) {
+    this("FILE_LOCKED", message, fle);
   }
   //endregion
 

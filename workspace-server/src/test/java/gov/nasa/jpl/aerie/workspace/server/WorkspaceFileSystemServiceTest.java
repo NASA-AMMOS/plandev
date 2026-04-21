@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.workspace.server;
 
+import gov.nasa.jpl.aerie.workspace.server.exceptions.WorkspaceFileOpException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

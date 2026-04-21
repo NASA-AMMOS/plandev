@@ -7,9 +7,11 @@ import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.options.FilePayload;
 import com.microsoft.playwright.options.FormData;
 import com.microsoft.playwright.options.RequestOptions;
+import gov.nasa.jpl.aerie.e2e.types.User;
 import gov.nasa.jpl.aerie.e2e.types.workspaces.BulkPutItem;
 
 import javax.json.Json;
+import javax.json.JsonObject;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -20,8 +22,17 @@ import java.util.Optional;
 public class WorkspaceRequests implements AutoCloseable {
   private final APIRequestContext request;
   private static final String hasuraAdminSecret = System.getenv("HASURA_GRAPHQL_ADMIN_SECRET");
-  private static final Map<String, String> defaultHeaders = Map.of("x-hasura-role", "aerie_admin", "x-hasura-user-id", "Aerie Legacy");
+  private static final Map<String, String> defaultHeaders = User.admin.session();
   public enum RequestType {GET, PUT, POST, DELETE}
+  public enum MetadataMergeBehavior {deep, deepMerge, shallow, shallowMerge, overwrite}
+
+  // Workspace URLS
+  public static final String CREATE_WS_URL = "/ws/create";
+  public static final String WS_URL = "/ws/%d";
+  public static final String SINGLE_ITEM_URL = "/ws/%d/%s";
+  public static final String BULK_URL = "/ws/bulk/%d";
+  public static final String METADATA_URL = "/metadata/%d/%s";
+  public static final String UNSET_METADATA_URL = "/metadata/unset/%d/%s";
 
   public WorkspaceRequests(Playwright playwright){
     request = playwright.request().newContext(new APIRequest.NewContextOptions()
@@ -51,7 +62,7 @@ public class WorkspaceRequests implements AutoCloseable {
   }
 
   /**
-   * Helper method to create an empty workspace. Parses out the workspaceId from the response.
+   * Helper method to create an empty workspace owned by "Aerie Legacy". Parses out the workspaceId from the response.
    * @param workspaceLocation the name of the folder to be created
    * @param parcelId the parcel id to use for the workspace
    * @return the created workspace's id
@@ -66,12 +77,28 @@ public class WorkspaceRequests implements AutoCloseable {
                                       .setHeader("x-hasura-admin-secret", hasuraAdminSecret);
     defaultHeaders.forEach(options::setHeader);
     options.setData(body);
-    final var response = request.post("/ws/create", options);
+    final var response = request.post(CREATE_WS_URL, options);
 
     if(!response.ok()){
       throw new IOException(response.statusText());
     }
 
+    return Integer.parseInt(response.text());
+  }
+
+  /**
+   * Helper method to create an empty workspace owned by a particular user. Parses out the workspaceId from the response
+   * @param userToken the JWT token to use
+   * @param workspaceLocation where to place the workspace
+   * @param parcelId the parcel to use
+   * @return the workspace server's response
+   */
+  public int createWorkspace(String userToken, String workspaceLocation, int parcelId) throws IOException {
+    final var response = createWorkspace(userToken, workspaceLocation, Optional.empty(), parcelId);
+
+    if(!response.ok()){
+      throw new IOException(response.statusText());
+    }
     return Integer.parseInt(response.text());
   }
 
@@ -85,22 +112,21 @@ public class WorkspaceRequests implements AutoCloseable {
    */
   public APIResponse createWorkspace(String userToken, String workspaceLocation, Optional<String> workspaceName, int parcelId) {
     final var body = Json.createObjectBuilder()
-                            .add("workspaceLocation", workspaceLocation)
-                            .add("parcelId", parcelId);
+                         .add("workspaceLocation", workspaceLocation)
+                         .add("parcelId", parcelId);
     workspaceName.ifPresent(n -> body.add("workspaceName", n));
 
     final var options = RequestOptions.create()
                                       .setHeader("Authorization", "Bearer "+userToken)
                                       .setData(body.build().toString());
-    return request.post("/ws/create", options);
+    return request.post(CREATE_WS_URL, options);
   }
-
 
   /**
    * Call the 'put file' endpoint in the Workspace server. Does not pass the "overwrite" flag.
    * @param token The JWT token for the user making the request
    * @param workspaceId The workspace to insert the file into
-   * @param fileLocation Where to place the plan
+   * @param fileLocation Where to place the file
    * @param fileContents The contents of the file to be inserted
    * @return The APIResponse from the server
    */
@@ -114,14 +140,14 @@ public class WorkspaceRequests implements AutoCloseable {
         .setQueryParam("type", "file")
         .setHeader("Authorization", "Bearer "+token)
         .setMultipart(FormData.create().set("file", filePayload));
-    return request.put("/ws/%d/%s".formatted(workspaceId, fileLocation), options);
+    return request.put(SINGLE_ITEM_URL.formatted(workspaceId, fileLocation), options);
   }
 
   /**
-   * Call the 'put file' endpoint in the Workspace server. Passes the overwrite flag
+   * Call the 'File PUT' endpoint in the Workspace server. Passes the overwrite flag
    * @param token The JWT token for the user making the request
    * @param workspaceId The workspace to insert the file into
-   * @param fileLocation Where to place the plan
+   * @param fileLocation Where to place the file
    * @param fileContents The contents of the file to be inserted
    * @param overwrite whether to overwrite the file should it exist
    * @return The APIResponse from the server
@@ -137,7 +163,74 @@ public class WorkspaceRequests implements AutoCloseable {
         .setQueryParam("overwrite", overwrite)
         .setHeader("Authorization", "Bearer "+token)
         .setMultipart(FormData.create().set("file", filePayload));
-    return request.put("/ws/%d/%s".formatted(workspaceId, fileLocation), options);
+    return request.put(SINGLE_ITEM_URL.formatted(workspaceId, fileLocation), options);
+  }
+
+  /**
+   * Call the 'Directory PUT' endpoint in the Workspace Server.
+   * @param token The JWT token for the user making the request
+   * @param workspaceId The workspace to insert the file into
+   * @param folderLocation Where to place the folder
+   * @return The APIResponse from the server
+   */
+  public APIResponse putDirectory(String token, int workspaceId, Path folderLocation) {
+    final var options = RequestOptions
+        .create()
+        .setQueryParam("type", "folder")
+        .setHeader("Authorization", "Bearer "+token);
+    return request.put(SINGLE_ITEM_URL.formatted(workspaceId, folderLocation), options);
+  }
+
+  /**
+   * Call the 'File DELETE' endpoint in the Workspace server.
+   * @param token The JWT token for the user making the request
+   * @param workspaceId The workspace to insert the file into
+   * @param itemLocation The Path to the item to be deleted
+   * @return The APIResponse from the server
+   */
+  public APIResponse deleteFileDirectory(String token, int workspaceId, Path itemLocation) {
+    final var options = RequestOptions.create().setHeader("Authorization", "Bearer "+token);
+    return request.delete(SINGLE_ITEM_URL.formatted(workspaceId, itemLocation), options);
+  }
+
+  /**
+   * Calls the 'File POST' endpoint to move a file within a workspace. Passes the 'overwrite' flag
+   * @param token The JWT token for the user making the request
+   * @param workspaceId The workspace to insert the file into
+   * @param itemLocation The Path to the item to be moved
+   * @param destination Where to move the file to
+   * @param overwrite If a file with the same name exists at the destination, whether to overwrite it
+   * @return The APIResponse from the server
+   */
+  public APIResponse moveFileDirectory(String token, int workspaceId, Path itemLocation, Path destination, boolean overwrite) {
+    final var body = Json.createObjectBuilder()
+                         .add("moveTo", destination.toString())
+                         .add("overwrite", overwrite)
+                         .build();
+    final var options = RequestOptions.create()
+                                      .setHeader("Authorization", "Bearer "+token)
+                                      .setData(body.toString());
+    return request.post(SINGLE_ITEM_URL.formatted(workspaceId, itemLocation), options);
+  }
+
+  /**
+   * Calls the 'File POST' endpoint to copy a file within a workspace. Passes the 'overwrite' flag
+   * @param token The JWT token for the user making the request
+   * @param workspaceId The workspace to insert the file into
+   * @param itemLocation The Path to the item to be copied
+   * @param destination Where to copy the file to
+   * @param overwrite If a file with the same name exists at the destination, whether to overwrite it
+   * @return The APIResponse from the server
+   */
+  public APIResponse copyFileDirectory(String token, int workspaceId, Path itemLocation, Path destination, boolean overwrite) {
+    final var body = Json.createObjectBuilder()
+                         .add("copyTo", destination.toString())
+                         .add("overwrite", overwrite)
+                         .build();
+    final var options = RequestOptions.create()
+                                      .setHeader("Authorization", "Bearer "+token)
+                                      .setData(body.toString());
+    return request.post(SINGLE_ITEM_URL.formatted(workspaceId, itemLocation), options);
   }
 
   /**
@@ -148,7 +241,7 @@ public class WorkspaceRequests implements AutoCloseable {
    */
   public APIResponse listWorkspaceContents(String token, int workspaceId) {
     final var options = RequestOptions.create().setHeader("Authorization ", "Bearer " +token);
-    return request.get("/ws/%d".formatted(workspaceId), options);
+    return request.get(WS_URL.formatted(workspaceId), options);
   }
 
   /**
@@ -161,7 +254,7 @@ public class WorkspaceRequests implements AutoCloseable {
   public APIResponse listWorkspaceContents(Map<String, String> headers, int workspaceId) {
     final var options = RequestOptions.create();
     headers.forEach(options::setHeader);
-    return request.get("/ws/%d".formatted(workspaceId), options);
+    return request.get(WS_URL.formatted(workspaceId), options);
   }
 
   /**
@@ -173,7 +266,7 @@ public class WorkspaceRequests implements AutoCloseable {
     final var options = RequestOptions.create()
                                       .setHeader("x-hasura-admin-secret", hasuraAdminSecret);
     defaultHeaders.forEach(options::setHeader);
-    final var response = request.delete("/ws/%d".formatted(workspaceId), options);
+    final var response = request.delete(WS_URL.formatted(workspaceId), options);
 
     if(!response.ok()){
       throw new IOException(response.statusText());
@@ -188,9 +281,8 @@ public class WorkspaceRequests implements AutoCloseable {
   */
   public APIResponse deleteWorkspace(String authToken, int workspaceId) {
     final var options = RequestOptions.create().setHeader("Authorization", "Bearer "+authToken);
-    return request.delete("/ws/%d".formatted(workspaceId), options);
+    return request.delete(WS_URL.formatted(workspaceId), options);
   }
-
 
   /**
    * Call the GET endpoint in the Workspace Server
@@ -201,7 +293,7 @@ public class WorkspaceRequests implements AutoCloseable {
    */
   public APIResponse get(String token, int workspaceId, Path itemPath) {
     final var options = RequestOptions.create().setHeader("Authorization", "Bearer " + token);
-    return request.get("/ws/%d/%s".formatted(workspaceId, itemPath.toString()), options);
+    return request.get(SINGLE_ITEM_URL.formatted(workspaceId, itemPath.toString()), options);
   }
 
   /**
@@ -230,7 +322,7 @@ public class WorkspaceRequests implements AutoCloseable {
         .setHeader("Authorization", "Bearer "+token)
         .setMultipart(formData.set("body", bodyArray.build().toString()));
 
-    return request.put("/ws/bulk/%d".formatted(workspaceId), options);
+    return request.put(BULK_URL.formatted(workspaceId), options);
   }
 
   /**
@@ -270,7 +362,7 @@ public class WorkspaceRequests implements AutoCloseable {
         .setHeader("Content-type", "application/json")
         .setData(body.build().toString());
 
-    return request.post("/ws/bulk/%d".formatted(workspaceId), options);
+    return request.post(BULK_URL.formatted(workspaceId), options);
   }
 
   /**
@@ -309,7 +401,7 @@ public class WorkspaceRequests implements AutoCloseable {
         .setHeader("Content-type", "application/json")
         .setData(body.build().toString());
 
-    return request.post("/ws/bulk/%d".formatted(workspaceId), options);
+    return request.post(BULK_URL.formatted(workspaceId), options);
   }
 
 
@@ -332,7 +424,177 @@ public class WorkspaceRequests implements AutoCloseable {
         .setHeader("Content-type", "application/json")
         .setData(body.build().toString());
 
-    return request.delete("/ws/bulk/%d".formatted(workspaceId), options);
+    return request.delete(BULK_URL.formatted(workspaceId), options);
+  }
+
+  /**
+   * Call the "Metadata GET" endpoint in the Workspace server.
+   * @param token The JWT token for the user making the request
+   * @param workspaceId The source workspace
+   * @param filePath The path to the base file (NOT the metadata file)
+   * @return The APIResponse from the server
+   */
+  public APIResponse getMetadata(String token, int workspaceId, Path filePath) {
+    // Generate request
+    final var options = RequestOptions
+        .create()
+        .setHeader("Authorization", "Bearer "+token)
+        .setHeader("Content-type", "application/json");
+
+    return request.get(METADATA_URL.formatted(workspaceId, filePath.toString()), options);
+  }
+
+  /**
+   * Call the "Metadata POST" (aka "setMetadataKeys") endpoint in the Workspace Server,
+   * using the specified merge strategy for the "user" object
+   * @param token The JWT token for the user making the request
+   * @param workspaceId The source workspace
+   * @param filePath The path to the base file (NOT the metadata file)
+   * @param readOnly If provided, the new value of "readOnly"
+   * @param user If provided, the new value of "user"
+   * @param mergeBehavior The merge strategy to be used to update "user"
+   * @return The APIResponse from the server
+   */
+  public APIResponse setMetadata(
+      String token,
+      int workspaceId,
+      Path filePath,
+      Optional<Boolean> readOnly,
+      Optional<JsonObject> user,
+      MetadataMergeBehavior mergeBehavior
+  ) {
+    final var body = Json.createObjectBuilder();
+    readOnly.ifPresent(ro -> body.add("readOnly", ro));
+    user.ifPresent(u -> body.add("user", u));
+
+    // Generate request
+    final var options = RequestOptions
+        .create()
+        .setHeader("Authorization", "Bearer "+token)
+        .setHeader("Content-type", "application/json")
+        .setQueryParam("mergeBehavior", mergeBehavior.name())
+        .setData(body.build().toString());
+
+    final var url = METADATA_URL.formatted(workspaceId, filePath.toString());
+    return request.post(url, options);
+  }
+
+  /**
+   * Call the "Metadata POST" (aka "setMetadataKeys") endpoint in the Workspace Server,
+   * using the default merge strategy for the "user" object
+   * @param token The JWT token for the user making the request
+   * @param workspaceId The source workspace
+   * @param filePath The path to the base file (NOT the metadata file)
+   * @param readOnly If provided, the new value of "readOnly"
+   * @param user If provided, the new value of "user"
+   * @return The APIResponse from the server
+   */
+  public APIResponse setMetadata(
+      String token,
+      int workspaceId,
+      Path filePath,
+      Optional<Boolean> readOnly,
+      Optional<JsonObject> user
+  ) {
+    final var body = Json.createObjectBuilder();
+    readOnly.ifPresent(ro -> body.add("readOnly", ro));
+    user.ifPresent(u -> body.add("user", u));
+
+    // Generate request
+    final var options = RequestOptions
+        .create()
+        .setHeader("Authorization", "Bearer "+token)
+        .setHeader("Content-type", "application/json")
+        .setData(body.build().toString());
+
+    final var url = METADATA_URL.formatted(workspaceId, filePath.toString());
+    return request.post(url, options);
+  }
+
+  /**
+   * Set the "readOnly" metadata property of a file to the specified value
+   * @param token The JWT token for the user making the request
+   * @param workspaceId The source workspace
+   * @param filePath The path to the base file (NOT the metadata file)
+   * @param readOnly The new value of "readOnly"
+   * @return The APIResponse from the server
+   */
+  public APIResponse setReadOnly(
+      String token,
+      int workspaceId,
+      Path filePath,
+      boolean readOnly
+  ) {
+    return setMetadata(token, workspaceId, filePath, Optional.of(readOnly), Optional.empty());
+  }
+
+  /**
+   * Set the "user" metadata property of the file to the specified value, using the default merge strategy
+   * @param token The JWT token for the user making the request
+   * @param workspaceId The source workspace
+   * @param filePath The path to the base file (NOT the metadata file)
+   * @param user The new value of "user"
+   * @return The APIResponse from the server
+   */
+  public APIResponse setUserMetadata(
+      String token,
+      int workspaceId,
+      Path filePath,
+      JsonObject user
+  ) {
+    return setMetadata(token, workspaceId, filePath, Optional.empty(), Optional.of(user));
+  }
+
+  /**
+   * Set the "user" metadata property of the file to the specified value, using the specified merge strategy
+   * @param token The JWT token for the user making the request
+   * @param workspaceId The source workspace
+   * @param filePath The path to the base file (NOT the metadata file)
+   * @param user The new value of "user"
+   * @param mergeBehavior The merge strategy the server should use
+   * @return The APIResponse from the server
+   */
+  public APIResponse setUserMetadata(
+      String token,
+      int workspaceId,
+      Path filePath,
+      JsonObject user,
+      MetadataMergeBehavior mergeBehavior
+  ) {
+    return setMetadata(token, workspaceId, filePath, Optional.empty(), Optional.of(user), mergeBehavior);
+  }
+
+  /**
+   * Call the "Unset Metadata POST" (aka "unset metadata keys) endpoint in the Workspace Server
+   * @param token The JWT token for the user making the request
+   * @param workspaceId The source workspace
+   * @param filePath The path to the base file (NOT the metadata file)
+   * @param unsetKeys The set of keys to unset
+   * @return The APIResponse from the server
+   */
+  public APIResponse unsetMetadata(String token, int workspaceId, Path filePath, List<String> unsetKeys) {
+    final var body = Json.createArrayBuilder(unsetKeys);
+
+    // Generate request
+    final var options = RequestOptions
+        .create()
+        .setHeader("Authorization", "Bearer "+token)
+        .setHeader("Content-type", "application/json")
+        .setData(body.build().toString());
+
+    return request.post(UNSET_METADATA_URL.formatted(workspaceId, filePath.toString()), options);
+  }
+
+  /**
+   * Call the "Metadata DELETE" endpoint in the Workspace Server
+   * @param token The JWT token for the user making the request
+   * @param workspaceId The source workspace
+   * @param filePath The path to the base file (NOT the metadata file)
+   * @return The APIResponse from the server
+   */
+  public APIResponse deleteMetadata(String token, int workspaceId, Path filePath) {
+    final var options = RequestOptions.create().setHeader("Authorization", "Bearer "+token);
+    return request.delete(METADATA_URL.formatted(workspaceId, filePath.toString()), options);
   }
 
   @Override

@@ -128,6 +128,11 @@ public class ExternalEventsSchedulingTests extends ProceduralTestingSetup {
   void testExternalEventSimple() throws IOException {
     // first, run the goal
     try (final var gateway = new GatewayRequests(playwright)) {
+      // TODO: difficulties were encountered when trying to use a build/libs/scheduling/....jar path owing to a weird
+      //          gradle issue.
+      //       As such, these tests have constraints and scheduling goals in the same folder, but ideally, the
+      //          constraints would go in a constraint subfolder and goals in a scheduling folder
+      //          (i.e. build/libs/scheduling and build/libs/constraints).
       int procedureJarId = gateway.uploadJarFile("build/libs/ExternalEventsSimpleGoal.jar");
       // Add Scheduling Procedure
       procedureId = hasura.createSchedulingSpecProcedure(

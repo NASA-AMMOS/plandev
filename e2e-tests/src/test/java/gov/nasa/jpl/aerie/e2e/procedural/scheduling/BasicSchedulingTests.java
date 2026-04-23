@@ -10,14 +10,13 @@ import org.junit.jupiter.api.Test;
 
 import javax.json.Json;
 import java.io.IOException;
-import java.util.Comparator;
 import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class BasicSchedulingTests extends ProceduralSchedulingSetup {
+public class BasicSchedulingTests extends ProceduralTestingSetup {
   private int dumbRecurrenceGoalJarId;
   private int decompositionGoalJarId;
   private GoalInvocationId dumbRecurrenceGoalId;

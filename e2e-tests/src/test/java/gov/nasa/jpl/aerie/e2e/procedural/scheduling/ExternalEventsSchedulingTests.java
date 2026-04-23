@@ -17,7 +17,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class ExternalEventsSchedulingTests extends ProceduralSchedulingSetup {
+public class ExternalEventsSchedulingTests extends ProceduralTestingSetup {
   private GoalInvocationId procedureId;
   private final static String SOURCE_TYPE = "TestType";
   private final static String EVENT_TYPE = "TestType";

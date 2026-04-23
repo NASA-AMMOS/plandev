@@ -1,6 +1,6 @@
 package gov.nasa.jpl.aerie.e2e.procedural.constraints;
 
-import gov.nasa.jpl.aerie.e2e.procedural.scheduling.ProceduralSchedulingSetup;
+import gov.nasa.jpl.aerie.e2e.procedural.scheduling.ProceduralTestingSetup;
 import gov.nasa.jpl.aerie.e2e.types.ConstraintInvocationId;
 import gov.nasa.jpl.aerie.e2e.types.ConstraintResult;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
@@ -17,7 +17,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class BasicConstraintTests extends ProceduralSchedulingSetup {
+public class BasicConstraintTests extends ProceduralTestingSetup {
   private ConstraintInvocationId fruitTresholdConstraintId;
 
   @BeforeEach

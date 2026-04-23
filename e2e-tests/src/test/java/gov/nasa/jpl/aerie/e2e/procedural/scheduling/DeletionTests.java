@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class DeletionTests extends ProceduralSchedulingSetup {
+public class DeletionTests extends ProceduralTestingSetup {
   private GoalInvocationId procedureId;
 
   @BeforeEach

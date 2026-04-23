@@ -12,7 +12,7 @@ import org.junit.jupiter.api.TestInstance;
 import java.io.IOException;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public abstract class ProceduralSchedulingSetup {
+public abstract class ProceduralTestingSetup {
 
   // Requests
   protected Playwright playwright;

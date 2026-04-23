@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class DatabaseDeletionTests extends ProceduralSchedulingSetup {
+public class DatabaseDeletionTests extends ProceduralTestingSetup {
   private GoalInvocationId procedureId;
 
   @BeforeEach

@@ -14,7 +14,7 @@ import java.util.Objects;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class ExternalProfilesTests extends ProceduralSchedulingSetup {
+public class ExternalProfilesTests extends ProceduralTestingSetup {
   private GoalInvocationId procedureId;
   private int datasetId;
 

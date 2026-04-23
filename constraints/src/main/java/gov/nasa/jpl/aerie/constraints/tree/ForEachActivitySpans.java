@@ -35,7 +35,8 @@ public record ForEachActivitySpans(
             environment.spansInstances(),
             environment.intervals(),
             environment.realExternalProfiles(),
-            environment.discreteExternalProfiles()
+            environment.discreteExternalProfiles(),
+            environment.externalEventsByDerivationGroup()
         );
         newEnvironment.activityInstances().put(this.alias, activity);
 

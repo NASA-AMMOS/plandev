@@ -10,13 +10,12 @@ import javax.json.Json;
 import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class AutoDeletionTests extends ProceduralSchedulingSetup {
+public class AutoDeletionTests extends ProceduralTestingSetup {
   private GoalInvocationId edslId;
   private GoalInvocationId procedureId;
 

@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-public class TemplateParametersTest extends ProceduralSchedulingSetup {
+public class TemplateParametersTest extends ProceduralTestingSetup {
   private GoalInvocationId dumbRecurrenceWithTemplateDefaultsGoalId;
   private GoalInvocationId dumbRecurrenceGoalId;
 

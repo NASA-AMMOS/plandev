@@ -913,7 +913,7 @@ public class PrioritySolver implements Solver {
     final var resources = new HashSet<String>();
     goal.extractResources(resources);
     final var simulationResults = this.getLatestSimResultsUpTo(this.problem.getPlanningHorizon().getEndAerie(), resources);
-    final var evaluationEnvironment = new EvaluationEnvironment(this.problem.getRealExternalProfiles(), this.problem.getDiscreteExternalProfiles());
+    final var evaluationEnvironment = new EvaluationEnvironment(this.problem.getRealExternalProfiles(), this.problem.getDiscreteExternalProfiles(), this.problem.getEventsByDerivationGroup());
     final var rawConflicts = goal.getConflicts(
         plan,
         simulationResults.constraintsResults(),
@@ -1096,7 +1096,7 @@ public class PrioritySolver implements Solver {
     final var latestSimulationResults = this.getLatestSimResultsUpTo(totalDomain.end, resourceNames);
     //iteratively narrow the windows from each constraint
     //REVIEW: could be some optimization in constraint ordering (smallest domain first to fail fast)
-    final var evaluationEnvironment = new EvaluationEnvironment(this.problem.getRealExternalProfiles(), this.problem.getDiscreteExternalProfiles());
+    final var evaluationEnvironment = new EvaluationEnvironment(this.problem.getRealExternalProfiles(), this.problem.getDiscreteExternalProfiles(), this.problem.getEventsByDerivationGroup());
     for (final var constraint : constraints) {
       //REVIEW: loop through windows more efficient than enveloppe(windows) ?
       final var validity = constraint.evaluate(latestSimulationResults.constraintsResults(), totalDomain, evaluationEnvironment);

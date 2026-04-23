@@ -13,7 +13,7 @@ import java.util.Objects;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class TemplateDefaultsTests extends ProceduralSchedulingSetup {
+public class TemplateDefaultsTests extends ProceduralTestingSetup {
   private int procedureJarId;
   private GoalInvocationId procedureId;
 

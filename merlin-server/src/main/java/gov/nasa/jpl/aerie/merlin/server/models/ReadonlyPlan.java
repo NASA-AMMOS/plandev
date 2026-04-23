@@ -4,6 +4,7 @@ import gov.nasa.ammos.aerie.procedural.timeline.Interval;
 import gov.nasa.ammos.aerie.procedural.timeline.collections.Directives;
 import gov.nasa.ammos.aerie.procedural.timeline.collections.ExternalEvents;
 import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps;
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive;
@@ -14,7 +15,6 @@ import gov.nasa.jpl.aerie.constraints.model.EvaluationEnvironment;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.types.Timestamp;
-import kotlin.NotImplementedError;
 import kotlin.jvm.functions.Function1;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -157,7 +157,35 @@ public final class ReadonlyPlan implements Plan {
   @NotNull
   @Override
   public ExternalEvents events(@NotNull final EventQuery query) {
-    throw new NotImplementedError("Procedural Constraints does not currently support External Events");
+    var events = environment.externalEventsByDerivationGroup();
+    List<ExternalEvent> result = events.values().stream().reduce(List.of(), (curr, acc) -> {
+      acc.addAll(curr);
+      return acc;
+    });
+
+    // filter by dg
+    if (query.getDerivationGroups() != null) {
+      result = result.stream()
+                     .filter(e -> query.getDerivationGroups().contains(e.source.derivationGroup))
+                     .toList();
+    }
+
+    // filter by types
+    if (query.getEventTypes() != null) {
+      result = result.stream()
+                     .filter(e -> query.getEventTypes().contains(e.type))
+                     .toList();
+    }
+
+    // filter by sources
+    if (query.getSources() != null) {
+      result = result.stream()
+                     .filter(e -> query.getSources()
+                                       .contains(new EventQuery.SourceQuery(e.source))
+                     ).toList();
+    }
+
+    return new ExternalEvents(result);
   }
 
   /** Get all external events across all derivation groups associated with this plan. */

@@ -1,10 +1,10 @@
 package gov.nasa.jpl.aerie.merlin.server.services;
 
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
-import gov.nasa.jpl.aerie.merlin.server.models.ConstraintId;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.server.models.DatasetId;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
@@ -15,6 +15,7 @@ import gov.nasa.jpl.aerie.types.Plan;
 import gov.nasa.jpl.aerie.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -72,6 +73,13 @@ public final class LocalPlanService implements PlanService {
       final SimulationDatasetId simulationDatasetId) throws NoSuchPlanException
   {
     return this.planRepository.getExternalDatasets(planId, simulationDatasetId);
+  }
+
+  @Override
+  public Map<String, List<ExternalEvent>> getExternalEvents(
+      final PlanId planId,
+      final Instant horizonStart) throws NoSuchPlanException {
+    return this.planRepository.getExternalEvents(planId, horizonStart);
   }
 
   @Override

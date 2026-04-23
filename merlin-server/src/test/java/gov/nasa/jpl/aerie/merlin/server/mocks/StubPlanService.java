@@ -1,10 +1,10 @@
 package gov.nasa.jpl.aerie.merlin.server.mocks;
 
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
-import gov.nasa.jpl.aerie.merlin.server.models.ConstraintId;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.server.models.DatasetId;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
@@ -106,6 +106,14 @@ public final class StubPlanService implements PlanService {
       ) throws NoSuchPlanException
   {
     return List.of();
+  }
+
+  @Override
+  public Map<String, List<ExternalEvent>> getExternalEvents(
+      final PlanId planId,
+      final Instant horizonStart
+      ) throws NoSuchPlanException {
+    return Map.of();
   }
 
   @Override

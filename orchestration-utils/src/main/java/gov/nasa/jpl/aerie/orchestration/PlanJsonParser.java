@@ -2,9 +2,9 @@ package gov.nasa.jpl.aerie.orchestration;
 
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.activityArgumentsP;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.pgTimestampP;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.simulationArgumentsP;
+import static gov.nasa.jpl.aerie.merlin.driver.json.Parsers.activityArgumentsP;
+import static gov.nasa.jpl.aerie.merlin.driver.json.Parsers.pgTimestampP;
+import static gov.nasa.jpl.aerie.merlin.driver.json.Parsers.simulationArgumentsP;
 
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 

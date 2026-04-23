@@ -34,7 +34,6 @@ jacocoTestReport {
 
 
 dependencies {
-  implementation project(':merlin-server')
   implementation project(':merlin-driver')
   implementation project(':parsing-utilities')
   implementation project(':type-utils')

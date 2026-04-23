@@ -19,7 +19,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
-import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.realDynamicsP;
+import static gov.nasa.jpl.aerie.merlin.driver.json.Parsers.realDynamicsP;
 
 /*package-local*/ final class ProfileRepository {
   static ProfileSet getProfiles(

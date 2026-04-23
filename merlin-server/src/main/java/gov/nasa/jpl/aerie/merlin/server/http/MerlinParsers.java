@@ -25,7 +25,7 @@ import java.util.Optional;
 import static gov.nasa.jpl.aerie.json.BasicParsers.*;
 import static gov.nasa.jpl.aerie.json.Uncurry.tuple;
 import static gov.nasa.jpl.aerie.json.Uncurry.untuple;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.pgTimestampP;
+import static gov.nasa.jpl.aerie.merlin.driver.json.Parsers.pgTimestampP;
 
 public abstract class MerlinParsers {
   private MerlinParsers() {}

@@ -15,26 +15,18 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static gov.nasa.jpl.aerie.json.BasicParsers.chooseP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.doubleP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.listP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.literalP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.mapP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.productP;
 import static gov.nasa.jpl.aerie.json.Uncurry.tuple;
 import static gov.nasa.jpl.aerie.json.Uncurry.untuple;
+import static gov.nasa.jpl.aerie.merlin.driver.json.Parsers.realDynamicsP;
 import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
 import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
 import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.durationP;
 
 public final class ProfileParsers {
-  public static final JsonParser<RealDynamics> realDynamicsP
-      = productP
-      . field("initial", doubleP)
-      . field("rate", doubleP)
-      . map(
-          untuple(RealDynamics::linear),
-          $ -> tuple($.initial, $.rate));
-
   public static final JsonParser<ProfileSegment<Optional<RealDynamics>>> realProfileSegmentP
       = productP
       . field("duration", durationP)

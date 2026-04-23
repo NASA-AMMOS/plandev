@@ -1119,7 +1119,7 @@ public class TestApplyWhen {
       logger.debug(a.startOffset().toString() + ", " + a.duration().toString());
     }
     final var emptySimulationResults = new SimulationResults(null, null, List.of(), Map.of(), Map.of());
-    final var startOfActivity =   cond.evaluate(emptySimulationResults, Interval.FOREVER, new EvaluationEnvironment(externalRealProfiles, externalDiscreteProfiles)).iterateEqualTo(true).iterator().next().start;
+    final var startOfActivity =   cond.evaluate(emptySimulationResults, Interval.FOREVER, new EvaluationEnvironment(externalRealProfiles, externalDiscreteProfiles, Map.of())).iterateEqualTo(true).iterator().next().start;
     assertEquals(1, plan.get().getActivitiesByTime().size());
     final var act = plan.get().getActivitiesByTime().get(0);
     assertEquals(act.duration(), Duration.of(r3Value.get("amountInMicroseconds").asInt().get(), Duration.MICROSECONDS));

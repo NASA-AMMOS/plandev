@@ -134,6 +134,7 @@ public class ConstraintAction {
     // If the lengths don't match we need check the left-over constraints.
     if (!constraints.isEmpty()) {
       final var externalDatasets = this.planService.getExternalDatasets(planId, simDatasetId);
+      final var externalEventsByDerivationGroup = this.planService.getExternalEvents(planId, plan.planStartInstant());
       final var realExternalProfiles = new HashMap<String, LinearProfile>();
       final var discreteExternalProfiles = new HashMap<String, DiscreteProfile>();
 
@@ -191,7 +192,7 @@ public class ConstraintAction {
       //    a procedural constraint will access
       final var merlinSimResults = resultsHandle.getSimulationResults();
       final var edslSimResults = new SimulationResults(merlinSimResults);
-      final var environment = new EvaluationEnvironment(realExternalProfiles, discreteExternalProfiles);
+      final var environment = new EvaluationEnvironment(realExternalProfiles, discreteExternalProfiles, externalEventsByDerivationGroup);
 
       final var timelinePlan = new ReadonlyPlan(plan, environment);
       final var timelineSimResults = new ReadonlyProceduralSimResults(merlinSimResults, timelinePlan);

@@ -349,7 +349,8 @@ public class CoexistenceGoal extends ActivityTemplateGoal {
           existingEnvironment.spansInstances(),
           existingEnvironment.intervals(),
           existingEnvironment.realExternalProfiles(),
-          existingEnvironment.discreteExternalProfiles()
+          existingEnvironment.discreteExternalProfiles(),
+          existingEnvironment.externalEventsByDerivationGroup()
       );
     } else{
       assert this.alias != null;
@@ -360,7 +361,8 @@ public class CoexistenceGoal extends ActivityTemplateGoal {
           existingEnvironment.spansInstances(),
           intervals,
           existingEnvironment.realExternalProfiles(),
-          existingEnvironment.discreteExternalProfiles()
+          existingEnvironment.discreteExternalProfiles(),
+          existingEnvironment.externalEventsByDerivationGroup()
       );
     }
   }

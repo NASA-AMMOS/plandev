@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.mocks;
 
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
@@ -15,6 +16,7 @@ import gov.nasa.jpl.aerie.types.Plan;
 import gov.nasa.jpl.aerie.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -142,6 +144,13 @@ public final class InMemoryPlanRepository implements PlanRepository {
       final SimulationDatasetId simulationDatasetId)
   {
     return List.of();
+  }
+
+  @Override
+  public Map<String, List<ExternalEvent>> getExternalEvents(
+      final PlanId planId,
+      final Instant horizonStart) {
+    return Map.of();
   }
 
   @Override

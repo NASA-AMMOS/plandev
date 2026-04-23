@@ -1,10 +1,12 @@
 package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
+import gov.nasa.jpl.aerie.merlin.server.http.InvalidEntityException;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.server.models.DatasetId;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
@@ -22,6 +24,7 @@ import javax.sql.DataSource;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -268,6 +271,22 @@ public final class PostgresPlanRepository implements PlanRepository {
     } catch (final SQLException ex) {
       throw new DatabaseException(
           "Failed to get external datasets for plan with id `%s`".formatted(planId), ex);
+    }
+  }
+
+  @Override
+  public Map<String, List<ExternalEvent>> getExternalEvents(
+      final PlanId planId,
+      final Instant horizonStart) {
+    try (final var connection = this.dataSource.getConnection()) {
+        return ExternalEventRepository.getExternalEvents(connection, planId, horizonStart);
+    } catch (final SQLException ex) {
+      throw new DatabaseException(
+          "Failed to get external events for plan with id `%s`".formatted(planId), ex);
+    } catch (final InvalidEntityException in) {
+      throw new RuntimeException(
+          ("Failed to get external events for plan with id `%s; "
+           + "failed to parse jsonb for external event/source attributes`").formatted(planId), in);
     }
   }
 

@@ -43,7 +43,7 @@ services:
       PUBLIC_GATEWAY_CLIENT_URL: https://${AERIE_HOST}:9000
       PUBLIC_HASURA_CLIENT_URL: https://${AERIE_HOST}:8080/v1/graphql
       PUBLIC_HASURA_WEB_SOCKET_URL: wss://${AERIE_HOST}:8080/v1/graphql
-      PUBLIC_WORKSPACE_CLIENT_URL: https://{AERIE_HOST}:28000
+      PUBLIC_WORKSPACE_CLIENT_URL: https://${AERIE_HOST}:28000
   hasura:
     ports: !reset []
   postgres:

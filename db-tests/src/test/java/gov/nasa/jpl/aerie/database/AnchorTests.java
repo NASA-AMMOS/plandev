@@ -606,6 +606,37 @@ public class AnchorTests {
       assertTrue(refresh(unrelatedStatus).reasonInvalid.isEmpty());
     }
 
+    /**
+     * Activities further down the chain are flagged if their total start offset relative to plan start is negative.
+     */
+    @Test
+    void negativeToPlanStartWithPositiveChild() throws SQLException {
+      final PGInterval minusTenMinutes = new PGInterval("-10 minutes");
+      final PGInterval nineMinutes = new PGInterval("9 minutes");
+      final PGInterval elevenMinutes = new PGInterval("11 minutes");
+
+      final int planId = merlinHelper.insertPlan(missionModelId);
+
+      final int unrelatedActId = merlinHelper.insertActivity(planId);
+      final int parentId = merlinHelper.insertActivity(planId, minusTenMinutes.toString());
+      final int childId = insertActivityWithAnchor(planId, nineMinutes, parentId, true);
+
+      // Only the unrelated activity is valid, as parent has a net start offset of "-10 mins",
+      // and childhas a net start offset of "-1 minute"
+      final AnchorValidationStatus unrelatedStatus = getValidationStatus(planId, unrelatedActId);
+      final AnchorValidationStatus parentStatus = getValidationStatus(planId, parentId);
+      final AnchorValidationStatus childStatus = getValidationStatus(planId, childId);
+      assertTrue(unrelatedStatus.reasonInvalid.isEmpty());
+      assertEquals("Activity Directive " +parentId +" has a net negative offset relative to Plan Start.", parentStatus.reasonInvalid);
+      assertEquals("Activity Directive " +childId +" has a net negative offset relative to Plan Start.", childStatus.reasonInvalid);
+
+      // After updating the child's start offset to "11 minutes", its net offset relative to plan start becomes "1 minute",
+      // making it now valid. parent is unaffected.
+      updateOffsetFromAnchor(elevenMinutes, childId, planId);
+      assertEquals("Activity Directive " +parentId +" has a net negative offset relative to Plan Start.", parentStatus.reasonInvalid);
+      assertTrue(refresh(childStatus).reasonInvalid.isEmpty());
+    }
+
     @Test
     void negativeToPlanStartDownChain() throws SQLException {
       final PGInterval minusTenMinutes = new PGInterval("-10 minutes");

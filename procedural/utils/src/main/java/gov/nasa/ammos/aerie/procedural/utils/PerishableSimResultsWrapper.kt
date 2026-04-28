@@ -8,7 +8,8 @@ import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults
  * [PerishableSimResultsWrapper]. Used by [TypeUtilsEditablePlanAdapter] internally.
  */
 class PerishableSimResultsWrapper(
-  private val simulationResults: SimulationResults,
+  /** The wrapped [SimulationResults]; exposed so callers can unwrap and re-adapt. */
+  val simulationResults: SimulationResults,
   private var stale: Boolean = false
 ): PerishableSimulationResults, SimulationResults by simulationResults {
   override fun setStale(stale: Boolean) {

@@ -16,16 +16,16 @@ import gov.nasa.jpl.aerie.types.ActivityInstanceId
 import java.time.Instant
 import kotlin.jvm.optionals.getOrNull
 
-class MerlinToProcedureSimulationResultsAdapter(
-    private val results: gov.nasa.jpl.aerie.merlin.driver.SimulationResults,
+open class MerlinToProcedureSimulationResultsAdapter(
+    val results: gov.nasa.jpl.aerie.merlin.driver.SimulationResults,
 
     /** A copy of the plan that will not be mutated after creation. */
-    private val plan: Plan
+    val plan: Plan
 ): PerishableSimulationResults {
 
-  private var stale = false;
+  private var stale = false
   override fun setStale(stale: Boolean) {
-    this.stale = stale;
+    this.stale = stale
   }
 
   override fun isStale() = stale
@@ -53,16 +53,33 @@ class MerlinToProcedureSimulationResultsAdapter(
 
   override fun <V: Any, TL: SerialSegmentOps<V, TL>> resource(name: String, deserializer: (List<Segment<SerializedValue>>) -> TL): TL {
     val profile =
-        if (results.discreteProfiles.containsKey(name)) convertProfileWithoutGaps(results.discreteProfiles[name]!!.segments) { it }
-        else if (results.realProfiles.containsKey(name)) convertProfileWithoutGaps(results.realProfiles[name]!!.segments) {
-          SerializedValue.of(mapOf(
-              "initial" to SerializedValue.of(it.initial),
-              "rate" to SerializedValue.of(it.rate)
-          ))
-        }
+        if (results.discreteProfiles.containsKey(name)) discreteProfileSegments(name)
+        else if (results.realProfiles.containsKey(name)) realProfileSegments(name)
         else throw IllegalArgumentException("No such resource $name")
     return deserializer.invoke(profile)
   }
+
+  override fun resourceNames(): Set<String> =
+      results.discreteProfiles.keys + results.realProfiles.keys
+
+  override fun rawResources(): Map<String, List<Segment<SerializedValue>>> {
+    val out = HashMap<String, List<Segment<SerializedValue>>>(
+        results.discreteProfiles.size + results.realProfiles.size)
+    for (name in results.discreteProfiles.keys) out[name] = discreteProfileSegments(name)
+    for (name in results.realProfiles.keys)     out[name] = realProfileSegments(name)
+    return out
+  }
+
+  private fun discreteProfileSegments(name: String): List<Segment<SerializedValue>> =
+      convertProfileWithoutGaps(results.discreteProfiles[name]!!.segments) { it }
+
+  private fun realProfileSegments(name: String): List<Segment<SerializedValue>> =
+      convertProfileWithoutGaps(results.realProfiles[name]!!.segments) {
+        SerializedValue.of(mapOf(
+            "initial" to SerializedValue.of(it.initial),
+            "rate" to SerializedValue.of(it.rate)
+        ))
+      }
 
   private data class FinishedActivityAttributes(val duration: Duration, val computedAttributes: SerializedValue)
   private data class CommonActivity(

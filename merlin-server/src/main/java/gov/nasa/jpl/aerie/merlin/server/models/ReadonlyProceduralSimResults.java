@@ -16,8 +16,11 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class ReadonlyProceduralSimResults implements SimulationResults {
   private final gov.nasa.jpl.aerie.merlin.driver.SimulationResults merlinResults;
@@ -122,6 +125,11 @@ public class ReadonlyProceduralSimResults implements SimulationResults {
       @NotNull final String name,
       @NotNull final Function1<? super List<Segment<SerializedValue>>, ? extends TL> deserializer)
   {
+    return deserializer.invoke(rawResource(name));
+  }
+
+  /** Build the raw segments list for a single resource (real or discrete). */
+  private List<Segment<SerializedValue>> rawResource(final String name) {
     final List<Segment<SerializedValue>> segments = new ArrayList<>();
     if (merlinResults.realProfiles.containsKey(name)) {
       final var s = merlinResults.realProfiles
@@ -162,7 +170,28 @@ public class ReadonlyProceduralSimResults implements SimulationResults {
     } else {
       throw new IllegalArgumentException("No such resource: " + name);
     }
-    return deserializer.invoke(segments);
+    return segments;
+  }
+
+  /** Names of all resources (real and discrete) in this simulation dataset. */
+  @NotNull
+  @Override
+  public Set<String> resourceNames() {
+    final var names = new HashSet<String>();
+    names.addAll(merlinResults.realProfiles.keySet());
+    names.addAll(merlinResults.discreteProfiles.keySet());
+    return names;
+  }
+
+  /** All resource profiles as raw serialized segments, keyed by resource name. */
+  @NotNull
+  @Override
+  public Map<String, List<Segment<SerializedValue>>> rawResources() {
+    final var out = new HashMap<String, List<Segment<SerializedValue>>>();
+    for (final var name : resourceNames()) {
+      out.put(name, rawResource(name));
+    }
+    return out;
   }
 
   /** Bounds on which the plan was most recently simulated. */

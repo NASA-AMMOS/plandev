@@ -1078,19 +1078,19 @@ public final class SimulationEngine implements AutoCloseable {
 
     final var activityResults = computeActivitySimulationResults(startTime, spanInfo);
 
-    final List<Triple<Integer, String, ValueSchema>> topics = new ArrayList<>();
-    final var serializableTopicToId = new HashMap<SerializableTopic<?>, Integer>();
-    for (final var serializableTopic : serializableTopics) {
-      serializableTopicToId.put(serializableTopic, topics.size());
-      topics.add(Triple.of(topics.size(), serializableTopic.name(), serializableTopic.outputType().getSchema()));
-    }
+//    final List<Triple<Integer, String, ValueSchema>> topics = new ArrayList<>();
+//    final var serializableTopicToId = new HashMap<SerializableTopic<?>, Integer>();
+//    for (final var serializableTopic : serializableTopics) {
+//      serializableTopicToId.put(serializableTopic, topics.size());
+//      topics.add(Triple.of(topics.size(), serializableTopic.name(), serializableTopic.outputType().getSchema()));
+//    }
 
-    final var serializedTimeline = createSerializedTimeline(
-        combinedTimeline,
-        serializableTopics,
-        spanToSimulatedActivities(spanInfo),
-        serializableTopicToId
-    );
+//    final var serializedTimeline = createSerializedTimeline(
+//        combinedTimeline,
+//        serializableTopics,
+//        spanToSimulatedActivities(spanInfo),
+//        serializableTopicToId
+//    );
 
     return new SimulationResults(
         realProfiles,
@@ -1099,8 +1099,8 @@ public final class SimulationEngine implements AutoCloseable {
         activityResults.unfinishedActivities,
         startTime,
         elapsedTime,
-        topics,
-        serializedTimeline);
+        List.of(),
+        new TreeMap<>());
   }
 
   public SimulationResults computeResults(

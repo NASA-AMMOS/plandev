@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -38,7 +39,7 @@ public final class RecordValueMapper<R extends Record> implements ValueMapper<R>
 
   @Override
   public ValueSchema getValueSchema() {
-    final var valueSchemas = new HashMap<String, ValueSchema>();
+    final var valueSchemas = new LinkedHashMap<String, ValueSchema>();
     final var metadata = new ArrayList<SerializedValue>();
     for (final var component : this.components) {
       metadata.add(SerializedValue.of(component.name));
@@ -81,7 +82,7 @@ public final class RecordValueMapper<R extends Record> implements ValueMapper<R>
 
   @Override
   public SerializedValue serializeValue(final R value) {
-    final var map = new HashMap<String, SerializedValue>();
+    final var map = new LinkedHashMap<String, SerializedValue>();
     for (final var component : components) {
         map.put(component.name, serializeHelper(value, component));
     }

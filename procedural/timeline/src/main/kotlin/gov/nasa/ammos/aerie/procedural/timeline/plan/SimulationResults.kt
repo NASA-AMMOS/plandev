@@ -26,6 +26,31 @@ interface SimulationResults {
   fun <V: Any, TL: SerialSegmentOps<V, TL>> resource(name: String, deserializer: (List<Segment<SerializedValue>>) -> TL): TL
 
   /**
+   * The names of all resources available in this simulation dataset.
+   *
+   * Implementations that do not support enumerating resources should throw
+   * [UnsupportedOperationException] (the default behavior).
+   */
+  fun resourceNames(): Set<String> =
+    throw UnsupportedOperationException("This SimulationResults implementation does not support enumerating resource names.")
+
+  /**
+   * Query all resource profiles from this simulation dataset as raw serialized segments,
+   * keyed by resource name.
+   *
+   * This is a type-agnostic accessor: each profile is returned as its raw
+   * `List<Segment<SerializedValue>>`, leaving deserialization (and the choice of
+   * timeline type — `Real`, `Discrete<T>`, etc.) up to the caller. Useful when
+   * resources have heterogeneous value types and a single deserializer can't
+   * handle them all.
+   *
+   * Implementations that do not support enumerating resources should throw
+   * [UnsupportedOperationException] (the default behavior).
+   */
+  fun rawResources(): Map<String, List<Segment<SerializedValue>>> =
+    throw UnsupportedOperationException("This SimulationResults implementation does not support enumerating resources.")
+
+  /**
    * Query activity instances.
    *
    * @param type Activity type name to filter by; queries all activities if null.

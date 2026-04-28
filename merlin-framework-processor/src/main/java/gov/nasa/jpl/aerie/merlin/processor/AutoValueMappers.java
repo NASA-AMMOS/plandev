@@ -31,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -212,7 +213,7 @@ public class AutoValueMappers {
                                        .methodBuilder("getValueSchema")
                                        .addModifiers(Modifier.PUBLIC)
                                        .returns(ValueSchema.class)
-                                       .addStatement("final var schema = new $T<$T, $T>()", HashMap.class, String.class, ValueSchema.class)
+                                       .addStatement("final var schema = new $T<$T, $T>()", LinkedHashMap.class, String.class, ValueSchema.class)
                                        .addCode(
                                            properties
                                                .stream()
@@ -272,17 +273,14 @@ public class AutoValueMappers {
                                        .addModifiers(Modifier.PUBLIC)
                                        .addParameter(ClassName.get(annotation.asType()), "value")
                                        .returns(SerializedValue.class)
-                                       .addStatement(
-                                           "return $T.of($T.of($L))",
-                                           SerializedValue.class,
-                                           Map.class,
-                                           String.join(
-                                               ",",
-                                               properties
-                                                   .stream()
-                                                   .map($ -> CodeBlock.of("$S, $L.serializeValue($L.$L())", $.name, $.mapperName, "value", $.name).toString())
-                                                   .toList())
-                                           )
+                                       .addStatement("final var map = new $T<$T, $T>()", LinkedHashMap.class, String.class, SerializedValue.class)
+                                       .addCode(
+                                           properties
+                                               .stream()
+                                               .map($ -> CodeBlock.builder().addStatement("map.put($S, $L.serializeValue($L.$L()))", $.name, $.mapperName, "value", $.name).build())
+                                               .reduce((x, y) -> CodeBlock.builder().add(x).add(y).build())
+                                               .orElse(CodeBlock.builder().build()))
+                                       .addStatement("return $T.of(map)", SerializedValue.class)
                                        .build())
                                .build())
                       .build())

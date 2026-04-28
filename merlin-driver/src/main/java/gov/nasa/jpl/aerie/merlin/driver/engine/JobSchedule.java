@@ -5,6 +5,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -23,7 +24,7 @@ public final class JobSchedule<JobRef, TimeRef extends SchedulingInstant> {
 
     if (oldTime != null) removeJobFromQueue(oldTime, job);
 
-    this.queue.computeIfAbsent(time, $ -> new HashSet<>()).add(job);
+    this.queue.computeIfAbsent(time, $ -> new LinkedHashSet<>()).add(job);
   }
 
   public void unschedule(final JobRef job) {

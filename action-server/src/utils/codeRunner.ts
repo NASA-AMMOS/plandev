@@ -209,6 +209,8 @@ function validateParameters(
       const allowedValues = paramDefinition.variants;
 
       if (allowedValues !== undefined && allowedValues.length > 0) {
+        // `undefined` is also a valid value for non-required variants
+        allowedValues.push({key: undefined, label: "undefined"});
         const paramValue = parameters[paramDefKey];
 
         if (!allowedValues.some(({ key }) => key === paramValue)) {

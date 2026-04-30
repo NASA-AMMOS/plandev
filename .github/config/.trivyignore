@@ -28,3 +28,10 @@ CVE-2025-49794
 
 # CVE-2025-49796: libxml2 sax/entity handling vuln; aerie-postgres does not parse untrusted xml, no viable exploit path
 CVE-2025-49796
+
+# inherited from official postgres:16.12-bookworm; fixed debian packages exist but upstream image has not yet refreshed.
+# very low risk: cve-2026-31789 affects 32-bit platforms only when openssl converts/prints crafted
+# x.509 certificate octet-string extensions to hex. plandev deployments are expected to run on 64-bit
+# systems and this container not expected to accept untrusted client certs or log/print their extensions through openssl.
+# avoid release-day base-image churn; remove once upstream postgres includes openssl/libssl3 >= 3.0.19-1~deb12u2.
+CVE-2026-31789

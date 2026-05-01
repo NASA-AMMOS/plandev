@@ -1,7 +1,7 @@
 create table sequencing.parcel (
   id integer generated always as identity,
 
-  name text not null,
+  name text not null unique,
 
   command_dictionary_id integer not null,
   channel_dictionary_id integer default null,

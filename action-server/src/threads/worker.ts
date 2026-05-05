@@ -20,7 +20,7 @@ function getDbPool() {
 
   dbPool = new pg.Pool({
     host: AERIE_DB_HOST,
-    port: parseInt(AERIE_DB_PORT, 10),
+    port: parseInt(AERIE_DB_PORT),
     database: AERIE_DB,
     user: ACTION_DB_USER,
     password: ACTION_DB_PASSWORD,

@@ -10,6 +10,15 @@ object_relationships:
 - name: derivation_group
   using:
     foreign_key_constraint_on: derivation_group_name
+array_relationships:
+  - name: external_events
+    using:
+      manual_configuration:
+        remote_table:
+          name: external_event
+          schema: merlin
+        column_mapping:
+          derivation_group_name: derivation_group_name
 select_permissions:
   - role: aerie_admin
     permission:

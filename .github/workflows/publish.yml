@@ -140,7 +140,7 @@ jobs:
 
   scan:
     runs-on: ubuntu-latest
-    needs: containers
+    needs: [init, containers]
     if: needs.init.outputs.SHOULD_PUBLISH_IMAGES == 'true'
     strategy:
       matrix:
@@ -159,6 +159,12 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Extract metadata for ${{ matrix.image }}
+        id: metadata-step
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.image }}
+
       - name: Scan ${{ matrix.image }} for vulnerabilities
         # pinned to commit for release https://github.com/aquasecurity/trivy-action/releases/tag/v0.24.0
         uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8
@@ -166,7 +172,7 @@ jobs:
           TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db
           TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.image }}:develop
+          image-ref: ${{ env.REGISTRY }}/${{ env.OWNER }}/${{ matrix.image }}:${{ steps.metadata-step.outputs.version }}
           ignore-unfixed: true
           exit-code: "1"
           severity: "CRITICAL"

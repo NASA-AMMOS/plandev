@@ -49,11 +49,12 @@ class LinearizingSimulationResultsAdapter @JvmOverloads constructor(
     // Only synthesize if the name isn't already a real or discrete profile.
     if (!results.realProfiles.containsKey(name)
         && !results.discreteProfiles.containsKey(name)) {
-      // Arrayed/keyed resources serialize as `<base>["KEY"]` (or similar bracketed
+      // Arrayed/keyed resources serialize as `<base>["KEY"]*` (or similar bracketed
       // suffix). The "Linear" marker, if present, is on `<base>`, not at the end of
       // the full name. Split the name into a prefix and an optional trailing
       // bracketed segment so we can match the suffix on the prefix.
-      val bracketStart = findTrailingBracketStart(name)
+      val bracketStart = name.indexOf('[');
+
       val prefix = if (bracketStart >= 0) name.substring(0, bracketStart) else name
       val bracketTail = if (bracketStart >= 0) name.substring(bracketStart) else ""
       if (prefix.length > suffix.length && prefix.endsWith(suffix)) {
@@ -76,27 +77,6 @@ class LinearizingSimulationResultsAdapter @JvmOverloads constructor(
   companion object {
     private fun isNumericDiscreteProfile(segs: List<ProfileSegment<SerializedValue>>): Boolean =
         segs.isEmpty() || segs.first().dynamics.asReal().isPresent
-
-    /**
-     * If [name] ends with a balanced `[...]` bracketed segment (as produced for
-     * arrayed/keyed resources, e.g. `Foo["EUROPA"]`), return the index of the
-     * opening `[` of the *outermost* trailing bracket. Returns -1 if [name] does
-     * not end with `]` or the brackets are unbalanced.
-     */
-    private fun findTrailingBracketStart(name: String): Int {
-      if (!name.endsWith("]")) return -1
-      var depth = 0
-      for (i in name.indices.reversed()) {
-        when (name[i]) {
-          ']' -> depth++
-          '[' -> {
-            depth--
-            if (depth == 0) return i
-          }
-        }
-      }
-      return -1
-    }
 
     private fun toLinearSegments(
         old: List<ProfileSegment<SerializedValue>>

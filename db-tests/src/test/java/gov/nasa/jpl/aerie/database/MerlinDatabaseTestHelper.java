@@ -1,5 +1,7 @@
 package gov.nasa.jpl.aerie.database;
 
+import org.postgresql.util.PGInterval;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.UUID;
@@ -128,6 +130,10 @@ final class MerlinDatabaseTestHelper {
 
   int insertActivity(final int planId) throws SQLException {
     return insertActivity(planId, "00:00:00");
+  }
+
+  int insertActivity(final int planId, PGInterval startOffset) throws SQLException {
+    return insertActivity(planId, startOffset.toString());
   }
 
   int insertActivity(final int planId, final String startOffset) throws SQLException {

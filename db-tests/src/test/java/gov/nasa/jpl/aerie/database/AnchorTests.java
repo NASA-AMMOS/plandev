@@ -492,7 +492,7 @@ public class AnchorTests {
       final var baseValidation = getValidationStatus(planId, baseActId).reasonInvalid;
       final var childValidation = getValidationStatus(planId, childActId).reasonInvalid;
 
-      // Only Base should both have a warning message
+      // Only Base should have a warning message
       assertTrue(unrelatedValidation.isEmpty());
       assertTrue(parentValidation.isEmpty());
       assertEquals("Activity Directive " +baseActId +" has a net negative offset "
@@ -601,7 +601,7 @@ public class AnchorTests {
       assertTrue(unrelatedStatus.reasonInvalid.isEmpty());
       assertEquals("Activity Directive " +activityId +" has a net negative offset relative to Plan Start.", activityStatus.reasonInvalid);
 
-      // Update activity to have a positive offset relative to the end time of parent, making it valid
+      // Update activity to have a positive offset relative to the plan start, making it valid
       updateOffsetFromAnchor(tenMinutes, activityId, planId);
 
       // The warning message has been cleared
@@ -651,6 +651,36 @@ public class AnchorTests {
       assertTrue(unrelatedStatus.isEmpty());
       assertEquals("Activity Directive " +parentId +" has a net negative offset relative to Plan Start.", parentStatus);
       assertEquals("Activity Directive " +childId +" has a net negative offset relative to Plan Start.", childStatus);
+    }
+
+    /**
+     * Case:
+     *  Activity A has a negative start offset relative to plan start.
+     *  Activity B and Activity C each have positive start offsets, but not enough to put the chain back within plan bounds.
+     * Result:
+     *  Activity A, B, and C are all invalid.
+     */
+    @Test
+    void recursivelyInvalidPositiveOffsetDescendant() throws SQLException {
+      final PGInterval minusTenMinutes = new PGInterval("-10 minutes");
+      final PGInterval fiveMinutes = new PGInterval("5 minutes");
+      final PGInterval fourMinutes = new PGInterval("4 minutes");
+
+      final int parentId = merlinHelper.insertActivity(planId, minusTenMinutes);
+      final int childId = insertActivityWithAnchor(planId, fiveMinutes, parentId, true);
+      final int grandchildId = insertActivityWithAnchor(planId, fourMinutes, childId, true);
+
+      // Get a handle on their validation statuses
+      final var unrelatedStatus = getValidationStatus(planId, unrelatedActId).reasonInvalid;
+      final var parentStatus = getValidationStatus(planId, parentId).reasonInvalid;
+      final var childStatus = getValidationStatus(planId, childId).reasonInvalid;
+      final var grandchildStatus = getValidationStatus(planId, grandchildId).reasonInvalid;
+
+      // Only the unrelated activity is valid, as the net start offsets are "-10 minutes", "-5 minutes", and "-1 minute"
+      assertTrue(unrelatedStatus.isEmpty());
+      assertEquals("Activity Directive " +parentId +" has a net negative offset relative to Plan Start.", parentStatus);
+      assertEquals("Activity Directive " +childId +" has a net negative offset relative to Plan Start.", childStatus);
+      assertEquals("Activity Directive " +grandchildId +" has a net negative offset relative to Plan Start.", grandchildStatus);
     }
 
     /**

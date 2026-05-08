@@ -23,6 +23,7 @@
 **/target/*
 .*.swp
 .tags
+.codex
 
 ### Build ###
 .m2

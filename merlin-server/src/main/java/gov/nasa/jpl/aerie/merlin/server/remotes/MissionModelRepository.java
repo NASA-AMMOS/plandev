@@ -20,7 +20,7 @@ public interface MissionModelRepository {
 
     // Mutations
     void updateModelParameters(MissionModelId missionModelId, final List<Parameter> modelParameters) throws NoSuchMissionModelException;
-    void updateActivityTypes(MissionModelId missionModelId, final Map<String, ActivityType> activityTypes) throws NoSuchMissionModelException;
+    void updateActivityTypes(MissionModelId missionModelId, final Map<String, ActivityType> activityTypes, final List<String> subsystems) throws NoSuchMissionModelException;
     void updateResourceTypes(MissionModelId missionModelId, final Map<String, Resource<?>> resourceTypes) throws NoSuchMissionModelException;
     Map<MissionModelId, List<ActivityDirectiveForValidation>> getUnvalidatedDirectives();
     void updateDirectiveValidations(List<Pair<ActivityDirectiveForValidation, BulkArgumentValidationResponse>> updates);

@@ -1,6 +1,6 @@
 # Developer
 
-This document describes how to set up your development environment to build and develop Aerie.
+This document describes how to set up your development environment to build and develop PlanDev.
 
 - [Prerequisite Software](#prerequisite-software)
 - [Code Editor](#code-editor)
@@ -9,8 +9,8 @@ This document describes how to set up your development environment to build and 
 - [Testing](#testing)
 - [Dependency Updates](#dependency-updates)
 - [Environment](#environment)
-- [Start Aerie](#start-aerie)
-- [Stop Aerie](#stop-aerie)
+- [Start PlanDev](#start-plandev)
+- [Stop PlanDev](#stop-plandev)
 - [Remove Docker Images](#remove-docker-images)
 - [Remove Docker Volumes](#remove-docker-volumes)
 - [Entering a Docker Container](#entering-a-docker-container)
@@ -18,16 +18,16 @@ This document describes how to set up your development environment to build and 
 
 ## Prerequisite Software
 
-Before you can run Aerie you must install and configure the following products on your development machine:
+Before you can run PlanDev you must install and configure the following products on your development machine:
 
 - [Git](http://git-scm.com) and/or the [GitHub app](https://desktop.github.com/); [GitHub's Guide to Installing Git](https://help.github.com/articles/set-up-git) is a good source of information.
 
-- [Docker](https://www.docker.com/) which is used to run the Aerie services.
+- [Docker](https://www.docker.com/) which is used to run the PlanDev services.
 
-- [OpenJDK Temurin LTS](https://adoptium.net/temurin/) which is used to build the Java-based Aerie services. If you're on OSX you can use [brew](https://brew.sh/):
+- [OpenJDK Temurin LTS](https://adoptium.net/temurin/) which is used to build the Java-based PlanDev services. If you're on OSX you can use [brew](https://brew.sh/). Note PlanDev is currently compatible with Java temurin V21, which can be installed with brew using:
 
   ```sh
-  brew install --cask temurin
+  brew install --cask temurin@21
   ```
 
   Make sure you update your `JAVA_HOME` environment variable. For example with [Zsh](https://www.zsh.org/) you can set your `.zshrc` to:
@@ -36,7 +36,7 @@ Before you can run Aerie you must install and configure the following products o
   export JAVA_HOME="/Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home"
   ```
 
-- [PostgreSQL](https://www.postgresql.org) which is used for testing the database. You do not need this normally since Aerie runs Postgres in a Docker container for development, and you only need it for the [psql](https://www.postgresql.org/docs/current/app-psql.html) command-line tool. **Do not run the Postgres service locally** or it will clash with the Aerie Postgres Docker container. If you're on OSX you can use brew:
+- [PostgreSQL](https://www.postgresql.org) which is used for testing the database. You do not need this normally since PlanDev runs Postgres in a Docker container for development, and you only need it for the [psql](https://www.postgresql.org/docs/current/app-psql.html) command-line tool. **Do not run the Postgres service locally** or it will clash with the PlanDev Postgres Docker container. If you're on OSX you can use brew:
 
   ```sh
   brew install postgresql
@@ -44,28 +44,28 @@ Before you can run Aerie you must install and configure the following products o
 
 ## Code Editor
 
-If you use [IntelliJ IDEA](https://www.jetbrains.com/idea/), you can import the Aerie repository into IntelliJ as a Gradle project. No additional configuration is required.
+If you use [IntelliJ IDEA](https://www.jetbrains.com/idea/), you can import the PlanDev repository into IntelliJ as a Gradle project. No additional configuration is required.
 
 ## Getting the Sources
 
-[Clone](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/cloning-a-repository) the Aerie repository:
+[Clone](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/cloning-a-repository) the PlanDev repository:
 
 ```shell
-git clone https://github.com/NASA-AMMOS/aerie.git
-cd aerie
+git clone https://github.com/NASA-AMMOS/plandev.git
+cd plandev
 ```
 
 ## Building
 
 ```sh
-cd aerie
+cd plandev
 ./gradlew assemble
 ```
 
 ## Testing
 
 ```sh
-cd aerie
+cd plandev
 ./gradlew test
 ```
 
@@ -74,16 +74,16 @@ cd aerie
 Use the following task to print a report of the dependencies that have updates available.
 
 ```sh
-cd aerie
+cd plandev
 ./gradlew dependencyUpdates
 ```
 
 ## Environment
 
-To run the Aerie services you need to first set the proper environment variables. First copy the template:
+To run the PlanDev services you need to first set the proper environment variables. First copy the template:
 
 ```sh
-cd aerie
+cd plandev
 cp .env.template .env
 ```
 
@@ -98,21 +98,21 @@ POSTGRES_PASSWORD=postgres
 POSTGRES_USER=postgres
 ```
 
-## Start Aerie
+## Start PlanDev
 
-The [docker-compose.yml](../docker-compose.yml) in the root directory deploys Aerie locally, creating containers using the artifacts from the build step above.
+The [docker-compose.yml](../docker-compose.yml) in the root directory deploys PlanDev locally, creating containers using the artifacts from the build step above.
 
 ```sh
-cd aerie
+cd plandev
 docker-compose up --build --detach
 ```
 
-Once Aerie is started you can visit [http://localhost](http://localhost) to view the [Aerie UI](https://github.com/NASA-AMMOS/aerie-ui). You can visit [http://localhost:8080](http://localhost:8080) to view the [Hasura Console](https://hasura.io/).
+Once PlanDev is started you can visit [http://localhost](http://localhost) to view the [PlanDev UI](https://github.com/NASA-AMMOS/plandev-ui). You can visit [http://localhost:8080](http://localhost:8080) to view the [Hasura Console](https://hasura.io/).
 
-## Stop Aerie
+## Stop PlanDev
 
 ```sh
-cd aerie
+cd plandev
 docker compose down
 ```
 
@@ -126,11 +126,11 @@ docker rmi [image name or image id]
 
 ## Remove Docker Volumes
 
-Sometimes it's necessary to clear the contents of file system volumes mounted by Docker. For Aerie this could be needing
+Sometimes it's necessary to clear the contents of file system volumes mounted by Docker. For PlanDev this could be needing
 to start with a clean install and wanting to delete the database contents, mission model jars, and mission simulation
 data files.
 
-First ensure [all containers are down](#stop-aerie). Only once containers are down you can run volume
+First ensure [all containers are down](#stop-plandev). Only once containers are down you can run volume
 pruning operation:
 
 ```sh

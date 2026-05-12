@@ -6,19 +6,21 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.util.List;
 import java.util.Objects;
+
 import static gov.nasa.jpl.aerie.scheduler.server.http.ResponseSerializers.*;
+import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.hasuraBulkProcedureArgumentsP;
 import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.hasuraSchedulingDSLTypescriptActionP;
 import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.hasuraSchedulingGoalEventTriggerP;
 import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.hasuraSpecificationActionP;
 import static io.javalin.apibuilder.ApiBuilder.*;
 import gov.nasa.jpl.aerie.json.JsonParser;
-import gov.nasa.jpl.aerie.permissions.Action;
+import gov.nasa.jpl.aerie.permissions.HasuraAction;
 import gov.nasa.jpl.aerie.permissions.PermissionsService;
 import gov.nasa.jpl.aerie.permissions.exceptions.ExceptionSerializers;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchSchedulingSpecificationException;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
-import gov.nasa.jpl.aerie.permissions.exceptions.Unauthorized;
+import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
 import gov.nasa.jpl.aerie.permissions.gql.SchedulingSpecificationId;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSpecificationException;
 import gov.nasa.jpl.aerie.scheduler.server.services.GenerateSchedulingLibAction;
@@ -69,6 +71,7 @@ public record SchedulerBindings(
       path("health", () -> get(ctx -> ctx.status(200)));
       path("schedulingDslTypescript", () -> post(this::getSchedulingDslTypescript));
       path("refreshSchedulingProcedureParameterTypes", () -> post(this::refreshSchedulingProcedureParameterTypes));
+      path("getSchedulingProcedureEffectiveArgumentsBulk", () -> post(this::getSchedulingProcedureEffectiveArgumentsBulk));
     });
   }
 
@@ -86,7 +89,7 @@ public record SchedulerBindings(
       final var session = body.session();
       final var permissionsSpecId = new SchedulingSpecificationId(specificationId.id());
       try {
-        permissionsService.check(Action.schedule, session.hasuraRole(), session.hasuraUserId(), permissionsSpecId);
+        permissionsService.check(HasuraAction.schedule, session.hasuraRole(), session.hasuraUserId(), permissionsSpecId);
       } catch (final IOException ex) {
         // this IOException is caught here so that it isn't mistaken for an IOException during scheduling
         ctx.status(500).result(ExceptionSerializers.serializeIOException(ex).toString());
@@ -109,8 +112,8 @@ public record SchedulerBindings(
       ctx.status(404).result(ExceptionSerializers.serializeNoSuchSchedulingSpecificationException(ex).toString());
     } catch (final PermissionsServiceException ex) {
       ctx.status(503).result(ExceptionSerializers.serializePermissionsServiceException(ex).toString());
-    } catch (final Unauthorized ex) {
-      ctx.status(403).result(ExceptionSerializers.serializeUnauthorizedException(ex).toString());
+    } catch (final Forbidden ex) {
+      ctx.status(403).result(ExceptionSerializers.serializeForbiddenException(ex).toString());
     }
   }
 
@@ -175,6 +178,19 @@ public record SchedulerBindings(
       ctx.status(400).result(serializeInvalidEntityException(ex).toString());
     } catch (final InvalidJsonException ex) {
       ctx.status(400).result(serializeInvalidJsonException(ex).toString());
+    }
+  }
+
+  private void getSchedulingProcedureEffectiveArgumentsBulk(final Context ctx) {
+    try {
+      final var input = parseJson(ctx.body(), hasuraBulkProcedureArgumentsP());
+
+      final var responses = this.specificationService.getSchedulingProcedureEffectiveArguments(input.input().items());
+      ctx.result(ResponseSerializers.serializeBulkEffectiveArgumentResponseList(responses).toString());
+    } catch (final InvalidJsonException ex) {
+      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
+    } catch (final InvalidEntityException ex) {
+      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
     }
   }
 

@@ -1,6 +1,6 @@
 # Network File System (NFS)
 
-This document describes how to deploy and use a [Network File System](https://en.wikipedia.org/wiki/Network_File_System) with Aerie.
+This document describes how to deploy and use a [Network File System](https://en.wikipedia.org/wiki/Network_File_System) with PlanDev.
 
 ## Server
 
@@ -71,7 +71,7 @@ $ docker exec -it 2724af1ec4d2 /bin/bash
 root@2724af1ec4d2:/# touch data/from_server.txt
 ```
 
-Start the default Aerie services with `docker-compose up` and get the container ID with:
+Start the default PlanDev services with `docker-compose up` and get the container ID with:
 
 ```sh
 $ docker container ls | grep aerie_gateway_1 | cut -d " " -f1

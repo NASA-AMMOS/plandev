@@ -1,11 +1,11 @@
 name: "Feature Request"
-description: Request a new Aerie feature.
+description: Request a new PlanDev feature.
 labels: ["feature"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time to request this feature! If your feature request is complex or substantial enough to warrant in-depth discussion, maintainers may close the issue and ask you to open a [Discussion](https://github.com/NASA-AMMOS/aerie/discussions).
+        Thanks for taking the time to request this feature! If your feature request is complex or substantial enough to warrant in-depth discussion, maintainers may close the issue and ask you to open a [Discussion](https://github.com/NASA-AMMOS/plandev/discussions).
   - type: dropdown
     id: checked-for-duplicates
     attributes:

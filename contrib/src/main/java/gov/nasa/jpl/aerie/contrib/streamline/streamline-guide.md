@@ -39,12 +39,12 @@ The `modeling` package is then divided by resource dynamics. These are the major
   For example, one might describe forces in a kinematic simulation using discrete resources, then integrate to get
   velocity and position described by polynomials.
 - `linear` -
-  A strictly-linear polynomial, used for compatibility with the native Aerie registrar.
+  A strictly-linear polynomial, used for compatibility with the native PlanDev registrar.
   Support for this type is limited, though the `asPolynomial` and `assumeLinear` functions allow you to go back and forth
   between linear and polynomial types with minimal overhead.
 - `clocks` -
-  A special-purpose resource type which directly uses Aerie's Duration type to represent time.
-  Because they use the integral Duration class to represent time exactly the same way as the Aerie simulation engine,
+  A special-purpose resource type which directly uses PlanDev's Duration type to represent time.
+  Because they use the integral Duration class to represent time exactly the same way as the PlanDev simulation engine,
   these clocks do not suffer precision issues the way a polynomial eventually would.
   Especially useful is the `VariableClock` type, which can be used to implement stopwatches and timers.
 - `black_box` -
@@ -81,7 +81,7 @@ Within each package, there are a few kinds of classes / interfaces:
 ### Creating a new resource
 
 We use a resource to track the state of a simulation.
-Any state that can change over time should probably be in a resource, so Aerie can keep it synchronized with the rest
+Any state that can change over time should probably be in a resource, so PlanDev can keep it synchronized with the rest
 of the simulation (simulations can have parallel branches, so trying to manage state without a resource is likely to
 hard-to-debug and pervasive errors).
 
@@ -131,7 +131,7 @@ The following types of dynamics are currently built-in to the streamline library
   especially if integration is needed.
 
 - `clock` -
-  Resources whose value is a `Duration`, the native time type in Aerie.
+  Resources whose value is a `Duration`, the native time type in PlanDev.
   These clocks can move precisely in step with the simulation time.
   Over long periods of time, trying to track time with a `polynomial` may lose precision, but a `clock` will always be exact.
 
@@ -141,7 +141,7 @@ The following types of dynamics are currently built-in to the streamline library
 
 - `linear` -
   Resources whose value is a degree-1 polynomial.
-  This type has limited support, mostly for compatibility with Aerie's `real` registrar method.
+  This type has limited support, mostly for compatibility with PlanDev's `real` registrar method.
   We generally prefer to model things as polynomials, and use `assumeLinear` or approximations just to register them.
 
 - `black_box` -
@@ -388,7 +388,7 @@ class LinearAttitudeEffects {
 
 Suppose you want something in a simulation that you can get and set like a variable in most programming languages.
 Since the value will change over time in the simulation, we should use a resource.
-Resources are managed by Aerie to stay synchronized with simulation time, even across parallel branches of the simulation.
+Resources are managed by PlanDev to stay synchronized with simulation time, even across parallel branches of the simulation.
 (Don't worry if you don't understand why that's important yet.)
 
 For this use case, the simplest thing we can use is a mutable discrete resource.
@@ -512,7 +512,7 @@ This ability to change over time without emitting effects separates discrete res
 
 In our case, we know because the integrand is discrete that the integral will be linear.
 There is a dynamics type called `Linear`, but we generally favor `Polyomial`.
-`Linear` exists primarily for compatibility with the Aerie registrar.
+`Linear` exists primarily for compatibility with the PlanDev registrar.
 To get from `Linear` to `Polynomial`, we can use `asPolynomial$`.
 To go the other way, we can use `assumeLinear` if we know that the `Polynomial` will be linear in practice,
 like in the example above.
@@ -630,7 +630,7 @@ There are a few derivation methods that are generic to all resources, in the `Re
   that particular kind of resource.
 - `eraseExpiry` returns a resource identical to this one, except it never expires.
   This is a specialized method useful primarily when building complex derived resource structures with feedback loops.
-- `signalling` is a highly specialized method used to convert expiry information into effects, legible by Aerie.
+- `signalling` is a highly specialized method used to convert expiry information into effects, legible by PlanDev.
   This is needed when a resource derivation might inject an "early" expiration, and is rarely needed in model code directly.
   Rather, it's used in library methods like `PolynomialResources.greaterThan`.
 
@@ -963,7 +963,7 @@ class Model {
 ```
 
 Note that effects are something done _to_ a resource, and not inherently part of the resource.
-That means that modeling a consumable or nonconsumable in Aerie is a matter of convention, and there's nothing strictly
+That means that modeling a consumable or nonconsumable in PlanDev is a matter of convention, and there's nothing strictly
 preventing you from applying nonconsumable effects to a "consumable" resource, or vice versa.
 This was an intentional choice to keep the number of types down and keep modeler flexibility up.
 It also means that modelers can use effects that weren't imagined when a resource was first implemented, without needing
@@ -1172,7 +1172,7 @@ Most resources comprise 4 levels of wrapping, each adding a different concept to
 * Dynamics, which describe the evolution of a resource value over time.
 
 Starting at the bottom is "dynamics" or "dynamics data", realized by the `Dynamics` interface.
-This wraps a value with it's autonomous evolution over time (as opposed to changes induced by effects).
+This wraps a value with its autonomous evolution over time (as opposed to changes induced by effects).
 For example, `Discrete` applies no autonomous evolution, and can wrap any kind of value.
 For another example, `Polynomial` evolves a `double` according to a polynomial in time.
 

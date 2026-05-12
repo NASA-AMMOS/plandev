@@ -1,12 +1,15 @@
 package gov.nasa.jpl.aerie.permissions.gql;
 
-import gov.nasa.jpl.aerie.permissions.Action;
-import gov.nasa.jpl.aerie.permissions.PermissionType;
-import gov.nasa.jpl.aerie.permissions.PlanOwnerOrCollaborator;
+import gov.nasa.jpl.aerie.permissions.HasuraAction;
+import gov.nasa.jpl.aerie.permissions.PlanPermissionType;
+import gov.nasa.jpl.aerie.permissions.OwnerOrCollaborator;
+import gov.nasa.jpl.aerie.permissions.WorkspaceAction;
+import gov.nasa.jpl.aerie.permissions.WorkspacePermissionType;
+import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchSchedulingSpecificationException;
+import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
-import gov.nasa.jpl.aerie.permissions.exceptions.Unauthorized;
 
 import javax.json.Json;
 import javax.json.JsonException;
@@ -76,7 +79,8 @@ public record GraphQLPermissionsService(
     }
   }
 
-  public PermissionType getActionPermission(final Action action, final String role) throws IOException, Unauthorized, PermissionsServiceException {
+  public PlanPermissionType getActionPermission(final HasuraAction action, final String role)
+  throws IOException, Forbidden, PermissionsServiceException {
     final var query = """
         query getActionPermission($role: user_roles_enum!, $action: String!) {
           check: user_role_permission_by_pk(role: $role) {
@@ -89,12 +93,33 @@ public record GraphQLPermissionsService(
                               .add("role", role)
                               .build();
 
-    final var response = postRequest(query, variables).orElseThrow(() -> new Unauthorized(role, action));
-    final String permission = response.getJsonObject("data").getJsonObject("check").getString("permission");
-    return PermissionType.valueOf(permission);
+    final var response = postRequest(query, variables).orElseThrow(() -> new Forbidden(role, action));
+    final var check = response.getJsonObject("data").getJsonObject("check");
+    if (check.isNull("permission")) { throw new Forbidden(role, action); }
+    return PlanPermissionType.valueOf(check.getString("permission"));
   }
 
-  public PlanOwnerOrCollaborator checkPlanOwnerCollaborator(final PlanId planId, final String username) throws IOException, NoSuchPlanException, PermissionsServiceException {
+  public WorkspacePermissionType getWorkspaceActionPermission(final WorkspaceAction action, final String role)
+  throws IOException, Forbidden, PermissionsServiceException {
+    final var query = """
+        query getWorkspaceActionPermission($role: user_roles_enum!, $action: String!) {
+          check: user_role_permission_by_pk(role: $role) {
+            permission: workspace_permissions(path: $action)
+          }
+        }
+        """;
+    final var variables = Json.createObjectBuilder()
+                              .add("action", action.toString())
+                              .add("role", role)
+                              .build();
+
+    final var response = postRequest(query, variables).orElseThrow(() -> new Forbidden(role, action));
+    final var check = response.getJsonObject("data").getJsonObject("check");
+    if (check.isNull("permission")) { throw new Forbidden(role, action); }
+    return WorkspacePermissionType.valueOf(check.getString("permission"));
+  }
+
+  public OwnerOrCollaborator checkPlanOwnerCollaborator(final PlanId planId, final String username) throws IOException, NoSuchPlanException, PermissionsServiceException {
     final var query = """
         query getPlanOwnerCollaborators($id: Int!, $username: String!) {
           plan: plan_by_pk(id: $id) {
@@ -116,15 +141,47 @@ public record GraphQLPermissionsService(
 
     if (response.isNull("plan")) throw new NoSuchPlanException(planId);
 
-    final var plan = response.getJsonObject("plan");
+    return getOwnerCollaboratorStatus(response.getJsonObject("plan"), username);
+  }
 
-    final boolean isOwner = username.equals(plan.getString("owner"));
-    final boolean isCollaborator = !plan.getJsonArray("collaborators").isEmpty();
+  public OwnerOrCollaborator checkWorkspaceOwnerCollaborator(final WorkspaceId workspaceId, final String username)
+  throws IOException, NoSuchWorkspaceException, PermissionsServiceException {
+    final var query = """
+        query getWorkspaceOwnerCollaborators($id: Int!, $username: String!) {
+          workspace: workspace_by_pk(id: $id) {
+            owner
+            collaborators(where: {collaborator: {_eq: $username}}) {
+              collaborator
+            }
+          }
+        }
+        """;
+    final var variables = Json.createObjectBuilder()
+                              .add("id", workspaceId.id())
+                              .add("username", username)
+                              .build();
 
-    if (isOwner && isCollaborator) return PlanOwnerOrCollaborator.OWNER_AND_COLLABORATOR;
-    if (isOwner) return PlanOwnerOrCollaborator.ONLY_OWNER;
-    if (isCollaborator) return PlanOwnerOrCollaborator.ONLY_COLLABORATOR;
-    return PlanOwnerOrCollaborator.NEITHER;
+    final var response = postRequest(query, variables)
+        .orElseThrow(() -> new NoSuchWorkspaceException(workspaceId))
+        .getJsonObject("data");
+
+    if (response.isNull("workspace")) throw new NoSuchWorkspaceException(workspaceId);
+
+    return getOwnerCollaboratorStatus(response.getJsonObject("workspace"), username);
+  }
+
+  /**
+   * Extract from the "owner-collaborator" json object
+   * whether the given user is the owner, a collaborator, both, or neither
+   */
+  private OwnerOrCollaborator getOwnerCollaboratorStatus(JsonObject ownerCollaborators, String username){
+    final boolean isOwner = username.equals(ownerCollaborators.getString("owner"));
+    final boolean isCollaborator = !ownerCollaborators.getJsonArray("collaborators").isEmpty();
+
+    if (isOwner && isCollaborator) return OwnerOrCollaborator.OWNER_AND_COLLABORATOR;
+    if (isOwner) return OwnerOrCollaborator.ONLY_OWNER;
+    if (isCollaborator) return OwnerOrCollaborator.ONLY_COLLABORATOR;
+    return OwnerOrCollaborator.NEITHER;
   }
 
   public boolean checkMissionModelOwner(final PlanId planId, final String username)

@@ -8,17 +8,23 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@SuppressWarnings("SqlSourceToSinkFlow")
 public class PermissionsTest {
   private static final String testRole = "testRole";
   private enum FunctionPermissionKey {
@@ -52,6 +58,7 @@ public class PermissionsTest {
     PLAN_OWNER_SOURCE, PLAN_COLLABORATOR_SOURCE, PLAN_OWNER_COLLABORATOR_SOURCE,
     PLAN_OWNER_TARGET, PLAN_COLLABORATOR_TARGET, PLAN_OWNER_COLLABORATOR_TARGET
   }
+  private enum WorkspacePermission { NO_CHECK, OWNER, COLLABORATOR, OWNER_COLLABORATOR }
 
   private DatabaseTestHelper helper;
   private MerlinDatabaseTestHelper merlinHelper;
@@ -161,38 +168,18 @@ public class PermissionsTest {
 
   private void updateUserRolePermissions(
       String role,
-      String actionPermissionsJson,
-      String functionPermissionsJson)
+      Optional<String> actionPermissionsJson,
+      Optional<String> functionPermissionsJson,
+      Optional<String> workspacePermissionsJson)
   throws SQLException {
     try(final var statement = connection.createStatement()){
-      if(actionPermissionsJson == null){
-        statement.execute(
-        //language=sql
-        """
-        update permissions.user_role_permission
-        set function_permissions = '%s'::jsonb
-        where role = '%s';
-        """.formatted(functionPermissionsJson, role));
-      } else if (functionPermissionsJson == null) {
-        statement.execute(
-        //language=sql
-        """
-        update permissions.user_role_permission
-        set action_permissions = '%s'::jsonb
-        where role = '%s';
-        """.formatted(actionPermissionsJson, role));
-      }
-      else {
-        statement.execute(
-        //language=sql
-        """
-        update permissions.user_role_permission
-        set action_permissions = '%s'::jsonb,
-            function_permissions = '%s'::jsonb
-        where role = '%s';
-        """.formatted(actionPermissionsJson, functionPermissionsJson, role));
-      }
-
+      final var sqlBuilder = new StringBuilder("update permissions.user_role_permission\n set ");
+      actionPermissionsJson.ifPresent(s -> sqlBuilder.append("action_permissions = '%s'::jsonb, ".formatted(s)));
+      functionPermissionsJson.ifPresent(s -> sqlBuilder.append("function_permissions = '%s'::jsonb, ".formatted(s)));
+      workspacePermissionsJson.ifPresent(s -> sqlBuilder.append("workspace_permissions = '%s'::jsonb, ".formatted(s)));
+      sqlBuilder.deleteCharAt(sqlBuilder.length()-2); // remove trailing ','
+      sqlBuilder.append("\nwhere role = '%s';".formatted(role));
+      statement.execute(sqlBuilder.toString());
     }
   }
   //endregion
@@ -791,237 +778,359 @@ public class PermissionsTest {
   }
 
   @Nested
-  class UserRolePermissionsValidation{
+  class UserRolePermissionsValidation {
     private final String invalidJsonTextErrCode = "22032";
-    @Test
-    void emptyIsValid() {
-      // Action
-      assertDoesNotThrow(() -> updateUserRolePermissions(testRole, "{}", null));
-      // Function
-      assertDoesNotThrow(() -> updateUserRolePermissions(testRole, null, "{}"));
-      // Both
-      assertDoesNotThrow(() -> updateUserRolePermissions(testRole, "{}", "{}"));
+
+    /**
+     * Checks that:
+     *  - An empty JSON array is permitted for the permissions json (emptyIsValidProvider)
+     *  - Permission Keys are allowed be excluded from the permissions jsons (incompleteIsValidProvider)
+     *  - The permissions json is allowed to contain a complete set of permission keys (completeIsValidProvider)
+     */
+    @ParameterizedTest
+    @MethodSource({"emptyIsValidProvider", "incompleteIsValidProvider", "completeIsValidProvider"})
+    void validCases(String actionPermissions, String functionPermissions, String workspacePermissions) {
+      assertDoesNotThrow(() -> updateUserRolePermissions(
+          testRole,
+          Optional.ofNullable(actionPermissions),
+          Optional.ofNullable(functionPermissions),
+          Optional.ofNullable(workspacePermissions)));
     }
 
-    @Test
-    void nonsenseKeys() throws SQLException {
-      // Nonsense Values for Keys are caught
+    /**
+     * Checks that:
+     *  - Nonsense values for keys are not permitted (nonsenseKeyProvider)
+     *  - Nonsense values for permissions are not permitted (nonsensePermissionsProvider)
+     *  - Plan merge permissions are not permitted on non-plan merge keys (invalidPlanMergePermissionsProvider)
+     */
+    @ParameterizedTest
+    @MethodSource({"nonsenseKeyProvider", "nonsensePermissionsProvider", "invalidPlanMergePermissionsProvider"})
+    void invalidCases(
+        String actionPermissions,
+        String functionPermissions,
+        String workspacePermissions,
+        String expectedExceptionMessage
+    ) throws SQLException {
+      final var exception = assertThrows(
+          SQLException.class,
+          () -> updateUserRolePermissions(
+              testRole,
+              Optional.ofNullable(actionPermissions),
+              Optional.ofNullable(functionPermissions),
+              Optional.ofNullable(workspacePermissions)));
+      if (!exception.getMessage().contains(expectedExceptionMessage)
+          || !exception.getSQLState().equals(invalidJsonTextErrCode)) {
+        throw exception;
+      }
+    }
+
+    @ParameterizedTest
+    @EnumSource(WorkspacePermission.class)
+    void createWorkspaceCoarseGrained(WorkspacePermission permission) throws SQLException {
+      // Check that create_workspace only permits "NO_CHECK"
+      final String workspacePermissions = "{\"create_workspace\": \"%s\"}".formatted(permission.toString());
+      if (permission.equals(WorkspacePermission.NO_CHECK)) {
+        assertDoesNotThrow(() -> updateUserRolePermissions(
+            testRole,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.of(workspacePermissions)));
+      } else {
+        final String exMsg =
+            """
+                ERROR: invalid permissions in supplied row
+                  Detail: The following workspace keys have invalid permissions: {create_workspace: %s}
+                  Hint:
+                """.formatted(permission.toString()).trim();
+        final var ex = assertThrows(
+            SQLException.class,
+            () -> updateUserRolePermissions(
+                testRole,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(workspacePermissions)));
+        if (!ex.getMessage().contains(exMsg)
+            || !ex.getSQLState().equals(invalidJsonTextErrCode)) {
+          throw ex;
+        }
+      }
+    }
+
+
+    // region ArgumentGeneration
+    /**
+     * Generate an argument stream for a parametrized test from the three input strings
+     */
+    private static Stream<Arguments> generateArgumentStream(
+        String actionPermissions,
+        String functionPermissions,
+        String workspacePermissions
+    )
+    {
+      return Stream.of(
+          // Action
+          arguments(actionPermissions, null, null),
+          // Function
+          arguments(null, functionPermissions, null),
+          // Workspace
+          arguments(null, null, workspacePermissions),
+          // Action and Function
+          arguments(actionPermissions, functionPermissions, null),
+          // Action and Workspace
+          arguments(actionPermissions, null, workspacePermissions),
+          // Function and Workspace
+          arguments(null, functionPermissions, workspacePermissions),
+          // All
+          arguments(actionPermissions, functionPermissions, workspacePermissions)
+      );
+    }
+
+    /**
+     * Generate an argument stream for a parametrized test, where each input is expected to raise an exception
+     * Exceptions messages are generated from a formatted template
+     *
+     * @param actionExceptionMsg the action related part of the exception message
+     * @param functionExceptionMsg the function related part of the exception message
+     * @param workspaceExceptionMsg the workspace related part of the exception message
+     */
+    private static Stream<Arguments> generateArgumentStream(
+        String actionPermissions,
+        String functionPermissions,
+        String workspacePermissions,
+        String exceptionTemplate,
+        String actionExceptionMsg,
+        String functionExceptionMsg,
+        String workspaceExceptionMsg
+    )
+    {
+      // Trim the template to avoid tests failing on a leading/trailing newline
+      final String exTemplate = exceptionTemplate.trim();
+
+      return Stream.of(
+          // Action
+          arguments(actionPermissions, null, null, exTemplate.formatted(actionExceptionMsg)),
+          // Function
+          arguments(null, functionPermissions, null, exTemplate.formatted(functionExceptionMsg)),
+          // Workspace
+          arguments(null, null, workspacePermissions, exTemplate.formatted(workspaceExceptionMsg)),
+          // Action and Function
+          arguments(actionPermissions, functionPermissions, null,
+                    exTemplate.formatted(actionExceptionMsg + "\n" + functionExceptionMsg)),
+          // Action and Workspace
+          arguments(actionPermissions, null, workspacePermissions,
+                    exTemplate.formatted(actionExceptionMsg + "\n" + workspaceExceptionMsg)),
+          // Function and Workspace
+          arguments(null, functionPermissions, workspacePermissions,
+                    exTemplate.formatted(functionExceptionMsg + "\n" + workspaceExceptionMsg)),
+          // All
+          arguments(actionPermissions, functionPermissions, workspacePermissions,
+                    exTemplate.formatted(actionExceptionMsg
+                                         + "\n"
+                                         + functionExceptionMsg
+                                         + "\n"
+                                         + workspaceExceptionMsg))
+      );
+    }
+
+
+    /**
+     * Nonsense values for keys are not permitted
+     */
+    static Stream<Arguments> nonsenseKeyProvider() {
       final String actionPermissions = "{\"fake_action_key\": \"NO_CHECK\"}";
       final String functionPermissions = "{\"fake_function_key\": \"NO_CHECK\"}";
-      // Action
-      final String actionExceptionMsg =
-          """
-          ERROR: invalid keys in supplied row
-            Detail: The following action keys are not valid: fake_action_key
-            Hint:
-          """.trim();
-      final var actionException = assertThrows(SQLException.class,
-                                               () -> updateUserRolePermissions(testRole, actionPermissions, null));
-      if( !actionException.getMessage().contains(actionExceptionMsg)
-         || !actionException.getSQLState().equals(invalidJsonTextErrCode)){
-        throw actionException;
-      }
+      final String workspacePermissions = "{\"fake_workspace_key\": \"NO_CHECK\"}";
 
-      // Function
-      final String fnExceptionMsg =
+      final String actionExceptionMsg = "The following action keys are not valid: fake_action_key";
+      final String fnExceptionMsg = "The following function keys are not valid: fake_function_key";
+      final String wsExceptionMsg = "The following workspace keys are not valid: fake_workspace_key";
+
+      final String exceptionTemplate =
           """
-          ERROR: invalid keys in supplied row
-            Detail: The following function keys are not valid: fake_function_key
-            Hint:
-          """.trim();
-      final var fnException = assertThrows(SQLException.class,
-                                           () -> updateUserRolePermissions(testRole, null, functionPermissions));
-      if(!fnException.getMessage().contains(fnExceptionMsg)
-         || !fnException.getSQLState().equals(invalidJsonTextErrCode)){
-        throw fnException;
-      }
-      // Both
-      final String bothExceptionMsg =
-          """
-          ERROR: invalid keys in supplied row
-            Detail: The following action keys are not valid: fake_action_key
-          The following function keys are not valid: fake_function_key
-            Hint:
-          """.trim();
-      final var bothException = assertThrows(SQLException.class,
-                                             () -> updateUserRolePermissions(testRole, actionPermissions, functionPermissions));
-      if(!bothException.getMessage().contains(bothExceptionMsg)
-         || !bothException.getSQLState().equals(invalidJsonTextErrCode)){
-        throw bothException;
-      }
+              ERROR: invalid keys in supplied row
+                Detail: %s
+                Hint:
+              """.trim();
+
+      return generateArgumentStream(
+          actionPermissions,
+          functionPermissions,
+          workspacePermissions,
+          exceptionTemplate,
+          actionExceptionMsg,
+          fnExceptionMsg,
+          wsExceptionMsg);
     }
 
-    @Test
-    void nonsensePermissions() throws SQLException {
-      // Nonsense Values for Permissions are caught
+    /**
+     * Nonsense values for permissions are not permitted.
+     */
+    static Stream<Arguments> nonsensePermissionsProvider() {
       final String actionPermissions = "{\"simulate\": \"NONSENSE_PERMISSION\"}";
       final String functionPermissions = "{\"begin_merge\": \"NONSENSE_PERMISSION\"}";
-      // Action
-      final String actionExceptionMsg =
-          """
-          ERROR: invalid permissions in supplied row
-            Detail: The following action keys have invalid permissions: {simulate: NONSENSE_PERMISSION}
-            Hint:
-          """.trim();
-      final var actionException = assertThrows(SQLException.class,
-                                               () -> updateUserRolePermissions(testRole, actionPermissions, null));
-      if( !actionException.getMessage().contains(actionExceptionMsg)
-         || !actionException.getSQLState().equals(invalidJsonTextErrCode)){
-        throw actionException;
-      }
+      final String workspacePermissions = "{\"read_file_directory\": \"NONSENSE_PERMISSION\"}";
 
-      // Function
+      final String actionExceptionMsg =
+          "The following action keys have invalid permissions: {simulate: NONSENSE_PERMISSION}";
       final String fnExceptionMsg =
-          """
+          "The following function keys have invalid permissions: {begin_merge: NONSENSE_PERMISSION}";
+      final String wsExceptionMsg =
+          "The following workspace keys have invalid permissions: {read_file_directory: NONSENSE_PERMISSION}";
+
+      final String exceptionTemplate = """
           ERROR: invalid permissions in supplied row
-            Detail: The following function keys have invalid permissions: {begin_merge: NONSENSE_PERMISSION}
+            Detail: %s
             Hint:
-          """.trim();
-      final var fnException = assertThrows(SQLException.class,
-                                           () -> updateUserRolePermissions(testRole, null, functionPermissions));
-      if(!fnException.getMessage().contains(fnExceptionMsg)
-         || !fnException.getSQLState().equals(invalidJsonTextErrCode)){
-        throw fnException;
-      }
-      // Both
-      final String bothExceptionMsg =
-          """
-          ERROR: invalid permissions in supplied row
-            Detail: The following action keys have invalid permissions: {simulate: NONSENSE_PERMISSION}
-          The following function keys have invalid permissions: {begin_merge: NONSENSE_PERMISSION}
-            Hint:
-          """.trim();
-      final var bothException = assertThrows(SQLException.class,
-                                             () -> updateUserRolePermissions(testRole, actionPermissions, functionPermissions));
-      if(!bothException.getMessage().contains(bothExceptionMsg)
-         || !bothException.getSQLState().equals(invalidJsonTextErrCode)){
-        throw bothException;
-      }
+          """;
+
+      return generateArgumentStream(
+          actionPermissions,
+          functionPermissions,
+          workspacePermissions,
+          exceptionTemplate,
+          actionExceptionMsg,
+          fnExceptionMsg,
+          wsExceptionMsg);
     }
 
-    @Test
-    void invalidPermissions() throws SQLException {
+    /**
+     * Improperly applied Plan Merge Permissions are not permitted
+     */
+    static Stream<Arguments> invalidPlanMergePermissionsProvider() {
       // Improperly applied Plan Merge Permissions are caught
       final String actionPermissions = "{\"simulate\": \"PLAN_OWNER_SOURCE\"}";
       final String functionPermissions = "{\"apply_preset\": \"PLAN_OWNER_TARGET\"}";
-      // Action
+      final String workspacePermissions = "{\"read_file_directory\": \"PLAN_OWNER_TARGET\"}";
+
       final String actionExceptionMsg =
-          """
-          ERROR: invalid permissions in supplied row
-            Detail: The following action keys may not take plan merge permissions: {simulate: PLAN_OWNER_SOURCE}
-            Hint:
-          """.trim();
-      final var actionException = assertThrows(SQLException.class,
-                                               () -> updateUserRolePermissions(testRole, actionPermissions, null));
-      if( !actionException.getMessage().contains(actionExceptionMsg)
-         || !actionException.getSQLState().equals(invalidJsonTextErrCode)){
-        throw actionException;
-      }
-
-      // Function
+          "The following action keys may not take plan merge permissions: {simulate: PLAN_OWNER_SOURCE}";
       final String fnExceptionMsg =
-          """
+          "The following function keys may not take plan merge permissions: {apply_preset: PLAN_OWNER_TARGET}";
+      // Workspace keys can't accept plan merge permissions, so it throws an invalid permission error
+      final String wsExceptionMsg =
+          "The following workspace keys have invalid permissions: {read_file_directory: PLAN_OWNER_TARGET}";
+
+      final String exceptionTemplate = """
           ERROR: invalid permissions in supplied row
-            Detail: The following function keys may not take plan merge permissions: {apply_preset: PLAN_OWNER_TARGET}
+            Detail: %s
             Hint:
           """.trim();
-      final var fnException = assertThrows(SQLException.class,
-                                           () -> updateUserRolePermissions(testRole, null, functionPermissions));
-      if(!fnException.getMessage().contains(fnExceptionMsg)
-         || !fnException.getSQLState().equals(invalidJsonTextErrCode)){
-        throw fnException;
-      }
-      // Both
-      final String bothExceptionMsg =
-          """
-          ERROR: invalid permissions in supplied row
-            Detail: The following action keys may not take plan merge permissions: {simulate: PLAN_OWNER_SOURCE}
-          The following function keys may not take plan merge permissions: {apply_preset: PLAN_OWNER_TARGET}
-            Hint:
-          """.trim();
-      final var bothException = assertThrows(SQLException.class,
-                                             () -> updateUserRolePermissions(testRole, actionPermissions, functionPermissions));
-      if(!bothException.getMessage().contains(bothExceptionMsg)
-         || !bothException.getSQLState().equals(invalidJsonTextErrCode)){
-        throw bothException;
-      }
+
+      return Stream.of(
+          // Action
+          arguments(actionPermissions, null, null, exceptionTemplate.formatted(actionExceptionMsg)),
+          // Function
+          arguments(null, functionPermissions, null, exceptionTemplate.formatted(fnExceptionMsg)),
+          // Workspace
+          arguments(null, null, workspacePermissions, exceptionTemplate.formatted(wsExceptionMsg)),
+          // Action and Function
+          arguments(actionPermissions, functionPermissions, null,
+                    exceptionTemplate.formatted(actionExceptionMsg + "\n" + fnExceptionMsg)),
+          // Cases that include workspaces
+          // invalid permission value errors take priority over improper use of plan merge permissions, so the
+          // ws error will be the only one returned
+          // Action and Workspace
+          arguments(actionPermissions, null, workspacePermissions, exceptionTemplate.formatted(wsExceptionMsg)),
+          // Function and Workspace
+          arguments(null, functionPermissions, workspacePermissions, exceptionTemplate.formatted(wsExceptionMsg)),
+          // All
+          arguments(actionPermissions, functionPermissions, workspacePermissions, exceptionTemplate.formatted(wsExceptionMsg)));
     }
 
-    @Test
-    void incompleteIsValid() {
-      // Updates Viewer Role Permissions, which is an incomplete set
-      final String actionPermissions = """
-      {
-        "sequence_seq_json_bulk": "NO_CHECK",
-        "resource_samples": "NO_CHECK"
-      }
-      """;
-      final String functionPermissions = """
-      {
-        "get_conflicting_activities": "NO_CHECK",
-        "get_non_conflicting_activities": "NO_CHECK",
-        "get_plan_history": "NO_CHECK"
-      }
-      """;
-      // Action
-      assertDoesNotThrow(() -> updateUserRolePermissions(testRole, actionPermissions, null));
-      // Function
-      assertDoesNotThrow(() -> updateUserRolePermissions(testRole, null, functionPermissions));
-      // Both
-      assertDoesNotThrow(() -> updateUserRolePermissions(testRole, actionPermissions, functionPermissions));
+    /**
+     * An empty JSON array is permitted for the permissions json
+     */
+    static Stream<Arguments> emptyIsValidProvider() {
+      return generateArgumentStream("{}", "{}", "{}");
     }
 
-    @Test
-    void completeIsValid() {
-      // Uses User Role Permissions to check that a complete set is valid
-      // and that plan merge permissions on plan merge functions is valid
+    /**
+     * Permission Keys are allowed be excluded from the permissions jsons
+     */
+    static Stream<Arguments> incompleteIsValidProvider() {
       final String actionPermissions = """
           {
-            "check_constraints": "PLAN_OWNER_COLLABORATOR",
-            "create_expansion_rule": "NO_CHECK",
-            "create_expansion_set": "NO_CHECK",
-            "expand_all_activities": "NO_CHECK",
-            "expand_all_templates": "NO_CHECK",
-            "assign_activities_by_filter": "NO_CHECK",
-            "insert_ext_dataset": "PLAN_OWNER",
-            "resource_samples": "NO_CHECK",
-            "schedule":"PLAN_OWNER_COLLABORATOR",
             "sequence_seq_json_bulk": "NO_CHECK",
-            "simulate":"PLAN_OWNER_COLLABORATOR"
+            "resource_samples": "NO_CHECK"
           }
           """;
       final String functionPermissions = """
           {
-            "apply_preset": "PLAN_OWNER_COLLABORATOR",
-            "begin_merge": "PLAN_OWNER_TARGET",
-            "branch_plan": "NO_CHECK",
-            "cancel_merge": "PLAN_OWNER_TARGET",
-            "commit_merge": "PLAN_OWNER_TARGET",
-            "create_merge_rq": "PLAN_OWNER_SOURCE",
-            "create_snapshot": "PLAN_OWNER_COLLABORATOR",
-            "delete_activity_reanchor": "PLAN_OWNER_COLLABORATOR",
-            "delete_activity_reanchor_bulk": "PLAN_OWNER_COLLABORATOR",
-            "delete_activity_reanchor_plan": "PLAN_OWNER_COLLABORATOR",
-            "delete_activity_reanchor_plan_bulk": "PLAN_OWNER_COLLABORATOR",
-            "delete_activity_subtree": "PLAN_OWNER_COLLABORATOR",
-            "delete_activity_subtree_bulk": "PLAN_OWNER_COLLABORATOR",
-            "deny_merge": "PLAN_OWNER_TARGET",
             "get_conflicting_activities": "NO_CHECK",
             "get_non_conflicting_activities": "NO_CHECK",
-            "get_plan_history": "NO_CHECK",
-            "restore_activity_changelog": "PLAN_OWNER_COLLABORATOR",
-            "restore_snapshot": "PLAN_OWNER_COLLABORATOR",
-            "set_resolution": "PLAN_OWNER_TARGET",
-            "set_resolution_bulk": "PLAN_OWNER_TARGET",
-            "withdraw_merge_rq": "PLAN_OWNER_SOURCE"
+            "get_plan_history": "NO_CHECK"
           }
           """;
-      // Action
-      assertDoesNotThrow(() -> updateUserRolePermissions(testRole, actionPermissions, null));
-      // Function
-      assertDoesNotThrow(() -> updateUserRolePermissions(testRole, null, functionPermissions));
-      // Both
-      assertDoesNotThrow(() -> updateUserRolePermissions(testRole, actionPermissions, functionPermissions));
+      final String workspacePermissions = """
+          {
+            "list_workspace_contents": "NO_CHECK",
+            "read_file_directory": "NO_CHECK"
+          }
+          """;
+      return generateArgumentStream(actionPermissions, functionPermissions, workspacePermissions);
     }
+
+    /**
+     * The permissions json is allowed to contain a complete set of permission keys
+     */
+    static Stream<Arguments> completeIsValidProvider() {
+      final String actionPermissions =
+          """
+              {
+                "check_constraints": "PLAN_OWNER_COLLABORATOR",
+                "create_expansion_rule": "NO_CHECK",
+                "create_expansion_set": "NO_CHECK",
+                "expand_all_activities": "NO_CHECK",
+                "expand_all_templates": "NO_CHECK",
+                "assign_activities_by_filter": "NO_CHECK",
+                "insert_ext_dataset": "PLAN_OWNER",
+                "resource_samples": "NO_CHECK",
+                "schedule":"PLAN_OWNER_COLLABORATOR",
+                "sequence_seq_json_bulk": "NO_CHECK",
+                "simulate":"PLAN_OWNER_COLLABORATOR"
+              }
+              """;
+      final String functionPermissions =
+          """
+              {
+                "apply_preset": "PLAN_OWNER_COLLABORATOR",
+                "begin_merge": "PLAN_OWNER_TARGET",
+                "branch_plan": "NO_CHECK",
+                "cancel_merge": "PLAN_OWNER_TARGET",
+                "commit_merge": "PLAN_OWNER_TARGET",
+                "create_merge_rq": "PLAN_OWNER_SOURCE",
+                "create_snapshot": "PLAN_OWNER_COLLABORATOR",
+                "delete_activity_reanchor": "PLAN_OWNER_COLLABORATOR",
+                "delete_activity_reanchor_bulk": "PLAN_OWNER_COLLABORATOR",
+                "delete_activity_reanchor_plan": "PLAN_OWNER_COLLABORATOR",
+                "delete_activity_reanchor_plan_bulk": "PLAN_OWNER_COLLABORATOR",
+                "delete_activity_subtree": "PLAN_OWNER_COLLABORATOR",
+                "delete_activity_subtree_bulk": "PLAN_OWNER_COLLABORATOR",
+                "deny_merge": "PLAN_OWNER_TARGET",
+                "get_conflicting_activities": "NO_CHECK",
+                "get_non_conflicting_activities": "NO_CHECK",
+                "get_plan_history": "NO_CHECK",
+                "restore_activity_changelog": "PLAN_OWNER_COLLABORATOR",
+                "restore_snapshot": "PLAN_OWNER_COLLABORATOR",
+                "set_resolution": "PLAN_OWNER_TARGET",
+                "set_resolution_bulk": "PLAN_OWNER_TARGET",
+                "withdraw_merge_rq": "PLAN_OWNER_SOURCE"
+              }
+              """;
+      final String workspacePermissions =
+          """
+              {
+                "create_workspace": "NO_CHECK",
+                "delete_workspace": "OWNER",
+                "list_workspace_contents": "OWNER_COLLABORATOR",
+                "read_file_directory": "NO_CHECK",
+                "write_file_directory": "OWNER_COLLABORATOR",
+                "delete_file_directory": "OWNER_COLLABORATOR"
+              }
+              """;
+
+      return generateArgumentStream(actionPermissions, functionPermissions, workspacePermissions);
+    }
+    //endregion
   }
 }

@@ -1,4 +1,4 @@
-## Aerie ##
+## PlanDev ##
 /mission_model_files/
 
 ## Cache ##
@@ -23,6 +23,7 @@
 **/target/*
 .*.swp
 .tags
+.codex
 
 ### Build ###
 .m2

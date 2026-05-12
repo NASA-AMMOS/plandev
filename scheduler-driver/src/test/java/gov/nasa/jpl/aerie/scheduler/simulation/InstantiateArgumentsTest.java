@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.HOUR;
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MICROSECONDS;
@@ -55,6 +56,7 @@ public class InstantiateArgumentsTest {
 
     final EvaluationEnvironment environment = new EvaluationEnvironment(
         Map.of("Faux", activityInstance),
+        Map.of(),
         Map.of(),
         Map.of(),
         Map.of(),
@@ -138,6 +140,11 @@ public class InstantiateArgumentsTest {
     @Override
     public OutputType<Object> getOutputType() {
       return testModelOutputType;
+    }
+
+    @Override
+    public Optional<String> getSubsystem() {
+      return Optional.empty();
     }
 
     @Override

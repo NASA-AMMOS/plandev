@@ -188,10 +188,12 @@
 ############
 - "!include ui/extension_roles.yaml"
 - "!include ui/extensions.yaml"
+- "!include ui/file_extension_content_type.yaml"
 - "!include ui/view.yaml"
 
 #################
 #### Actions ####
 #################
 - "!include actions/action_definition.yaml"
+- "!include actions/action_definition_version.yaml"
 - "!include actions/action_run.yaml"

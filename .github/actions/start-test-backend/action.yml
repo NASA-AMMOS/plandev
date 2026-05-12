@@ -1,0 +1,31 @@
+name: Start Test Backend
+description: Compile and start up the backend for E2E Tests
+runs:
+  using: composite
+  steps:
+    - name: Extract PlanDev gateway docker tag from PR body
+      # look in the PR body for the string ___REQUIRES_GATEWAY_PR___=9999, extract the number if so & save to env var
+      # if gateway PR is labeled correctly, it will publish a docker tag called 'pr-9999' to use in tests
+      if: ${{ contains(env.PR_BODY, '___REQUIRES_GATEWAY_PR___=') }}
+      shell: bash
+      run: |
+        echo "GATEWAY_IMAGE_TAG=pr-$(echo $PR_BODY | sed -n 's/.*___REQUIRES_GATEWAY_PR___=\"\([0-9]\+\)\".*/\1/p')" >> $GITHUB_ENV
+    - name: Load NPM Cache
+      uses: ./.github/actions/load-node-cache
+    # Start Hasura and Postgres ahead of assembling the Java code, as the Java code takes a few minutes to compile.
+    # This means Hasura will have time to complete its start-up tasks without needing an extra "sleep 30" command.
+    - name: Start Hasura and Postgres
+      shell: bash
+      run: |
+        docker compose -f ./e2e-tests/docker-compose-test.yml up -d postgres hasura --quiet-pull
+    - name: Assemble
+      # Don't generate docs for tests
+      shell: bash
+      run: ./gradlew assemble -x javadoc -x javadocJar -x generateDocumentation --parallel
+    - name: Start Remaining Services
+      shell: bash
+      run: |
+        echo "GATEWAY_IMAGE_TAG: $GATEWAY_IMAGE_TAG"
+        docker compose -f ./e2e-tests/docker-compose-test.yml up -d --build --quiet-pull
+        docker images
+        docker ps -a --no-trunc

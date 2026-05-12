@@ -60,6 +60,7 @@ dependencies {
   annotationProcessor project(':procedural:processor')
 
   implementation project(":procedural:scheduling")
+  implementation project(":procedural:constraints")
   implementation project(":procedural:timeline")
   implementation project(':merlin-sdk')
   implementation project(':type-utils')
@@ -68,13 +69,16 @@ dependencies {
   testImplementation "com.zaxxer:HikariCP:5.1.0"
   testImplementation("org.postgresql:postgresql:42.6.0")
 
-  testImplementation 'com.microsoft.playwright:playwright:1.37.0'
+  testImplementation 'com.microsoft.playwright:playwright:1.55.0'
 
   testImplementation 'org.glassfish:javax.json:1.1.4'
   testImplementation 'org.apache.commons:commons-lang3:3.13.0'
 
-  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
-  testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.0'
+  testImplementation 'org.junit.jupiter:junit-jupiter-engine:6.0.1'
+  testImplementation 'org.junit.jupiter:junit-jupiter-params:6.0.1'
+
+  testRuntimeOnly 'org.junit.platform:junit-platform-engine:6.0.1'
+  testImplementation 'org.junit.platform:junit-platform-launcher:6.0.1'
 }
 
 tasks.register('buildAllProcedureJars') {

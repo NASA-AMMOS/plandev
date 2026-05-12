@@ -13,7 +13,8 @@ public record MissionModelRecord(
     boolean expectsPlanStart,
     Optional<InputTypeRecord> modelConfigurationType,
     List<TypeRule> typeRules,
-    List<ActivityTypeRecord> activityTypes) {
+    List<ActivityTypeRecord> activityTypes,
+    List<String> subsystems) {
 
   public ClassName getMerlinPluginName() {
     return ClassName.get(this.$package.getQualifiedName() + ".generated", "GeneratedMerlinPlugin");

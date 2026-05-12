@@ -1,24 +1,23 @@
 package gov.nasa.jpl.aerie.merlin.server.http;
 
 import gov.nasa.jpl.aerie.constraints.InputMismatchException;
+import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.SimulationDatasetMismatchException;
 import gov.nasa.jpl.aerie.merlin.server.services.ConstraintAction;
-import gov.nasa.jpl.aerie.merlin.server.models.HasuraAction;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
 import gov.nasa.jpl.aerie.merlin.server.services.GenerateConstraintsLibAction;
 import gov.nasa.jpl.aerie.merlin.server.services.GetSimulationResultsAction;
 import gov.nasa.jpl.aerie.merlin.server.services.LocalMissionModelService;
 import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService;
 import gov.nasa.jpl.aerie.merlin.server.services.PlanService;
-import gov.nasa.jpl.aerie.permissions.Action;
+import gov.nasa.jpl.aerie.permissions.HasuraAction;
 import gov.nasa.jpl.aerie.permissions.PermissionsService;
 import gov.nasa.jpl.aerie.permissions.exceptions.ExceptionSerializers;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
-import gov.nasa.jpl.aerie.permissions.exceptions.Unauthorized;
 import io.javalin.Javalin;
 import io.javalin.http.Context;
 import io.javalin.plugin.Plugin;
@@ -30,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.constraintArgumentsP;
 import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.parseJson;
 
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraActivityActionP;
@@ -108,6 +108,7 @@ public final class MerlinBindings implements Plugin {
       path("extendExternalDataset", () -> post(this::extendExternalDataset));
       path("constraintsDslTypescript", () -> post(this::getConstraintsDslTypescript));
       path("refreshConstraintProcedureParameterTypes", () -> post(this::refreshConstrainProcedureParameterTypes));
+      path("getConstraintProcedureEffectiveArgumentsBulk", () -> post(this::getConstraintProcedureEffectiveArgumentsBulk));
       path("health", () -> get(ctx -> ctx.status(200)));
     });
 
@@ -212,7 +213,7 @@ public final class MerlinBindings implements Plugin {
       final var planId = body.input().planId();
       final var force = body.input().force().orElse(false);
 
-      this.checkPermissions(Action.simulate, body.session(), planId);
+      this.checkPermissions(HasuraAction.simulate, body.session(), planId);
 
       final var response = this.simulationAction.run(planId, force, body.session());
       ctx.result(ResponseSerializers.serializeSimulationResultsResponse(response).toString());
@@ -228,8 +229,8 @@ public final class MerlinBindings implements Plugin {
       ctx.status(404).result(ExceptionSerializers.serializeNoSuchPlanException(ex).toString());
     } catch (final PermissionsServiceException ex) {
       ctx.status(503).result(ExceptionSerializers.serializePermissionsServiceException(ex).toString());
-    } catch (final Unauthorized ex) {
-      ctx.status(403).result(ExceptionSerializers.serializeUnauthorizedException(ex).toString());
+    } catch (final Forbidden ex) {
+      ctx.status(403).result(ExceptionSerializers.serializeForbiddenException(ex).toString());
     } catch (final IOException ex) {
       ctx.status(500).result(ExceptionSerializers.serializeIOException(ex).toString());
     }
@@ -240,7 +241,7 @@ public final class MerlinBindings implements Plugin {
       final var body = parseJson(ctx.body(), hasuraPlanActionP);
       final var planId = body.input().planId();
 
-      this.checkPermissions(Action.resource_samples, body.session(), planId);
+      this.checkPermissions(HasuraAction.resource_samples, body.session(), planId);
 
       final var resourceSamples = this.simulationAction.getResourceSamples(planId);
       ctx.result(ResponseSerializers.serializeResourceSamples(resourceSamples).toString());
@@ -254,8 +255,8 @@ public final class MerlinBindings implements Plugin {
       ctx.status(404).result(ExceptionSerializers.serializeNoSuchPlanException(ex).toString());
     } catch (final PermissionsServiceException ex) {
       ctx.status(503).result(ExceptionSerializers.serializePermissionsServiceException(ex).toString());
-    } catch (final Unauthorized ex) {
-      ctx.status(403).result(ExceptionSerializers.serializeUnauthorizedException(ex).toString());
+    } catch (final Forbidden ex) {
+      ctx.status(403).result(ExceptionSerializers.serializeForbiddenException(ex).toString());
     } catch (final IOException ex) {
       ctx.status(500).result(ExceptionSerializers.serializeIOException(ex).toString());
     }
@@ -266,7 +267,7 @@ public final class MerlinBindings implements Plugin {
       final var input = body.input();
       final var planId = input.planId();
 
-      this.checkPermissions(Action.check_constraints, body.session(), planId);
+      this.checkPermissions(HasuraAction.check_constraints, body.session(), planId);
 
       final var simulationDatasetId = input.simulationDatasetId();
       final var force = input.force().orElse(false);
@@ -290,8 +291,8 @@ public final class MerlinBindings implements Plugin {
       ctx.status(404).result(ResponseSerializers.serializeSimulationDatasetMismatchException(ex).toString());
     } catch (final PermissionsServiceException ex) {
       ctx.status(503).result(ExceptionSerializers.serializePermissionsServiceException(ex).toString());
-    } catch (final Unauthorized ex) {
-      ctx.status(403).result(ExceptionSerializers.serializeUnauthorizedException(ex).toString());
+    } catch (final Forbidden ex) {
+      ctx.status(403).result(ExceptionSerializers.serializeForbiddenException(ex).toString());
     } catch (final IOException ex) {
       ctx.status(500).result(ExceptionSerializers.serializeIOException(ex).toString());
     }
@@ -439,13 +440,27 @@ public final class MerlinBindings implements Plugin {
     }
   }
 
+  private void getConstraintProcedureEffectiveArgumentsBulk(final Context ctx) {
+    try {
+      final var input = parseJson(ctx.body(), constraintArgumentsP());
+      final var responses = this.constraintAction.getConstraintProcedureEffectiveArgumentsBulk(input.input());
+      ctx.result(ResponseSerializers.serializeIterable(
+          ResponseSerializers::serializeConstraintBulkEffectiveArgumentResponse, responses).toString());
+    } catch (final InvalidJsonException ex) {
+      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
+    } catch (final InvalidEntityException ex) {
+      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
+    }
+  }
+
+
   private void addExternalDataset(final Context ctx) {
     try {
       final var body = parseJson(ctx.body(), hasuraUploadExternalDatasetActionP);
       final var input = body.input();
 
       final var planId = input.planId();
-      this.checkPermissions(Action.insert_ext_dataset, body.session(), planId);
+      this.checkPermissions(HasuraAction.insert_ext_dataset, body.session(), planId);
 
       final var simulationDatasetId = input.simulationDatasetId();
       final var datasetStart = input.datasetStart();
@@ -464,8 +479,8 @@ public final class MerlinBindings implements Plugin {
       ctx.status(404).result(ExceptionSerializers.serializeNoSuchPlanException(ex).toString());
     } catch (final PermissionsServiceException ex) {
       ctx.status(503).result(ExceptionSerializers.serializePermissionsServiceException(ex).toString());
-    } catch (final Unauthorized ex) {
-      ctx.status(403).result(ExceptionSerializers.serializeUnauthorizedException(ex).toString());
+    } catch (final Forbidden ex) {
+      ctx.status(403).result(ExceptionSerializers.serializeForbiddenException(ex).toString());
     } catch (final IOException ex) {
       ctx.status(500).result(ExceptionSerializers.serializeIOException(ex).toString());
     }
@@ -538,10 +553,10 @@ public final class MerlinBindings implements Plugin {
   }
 
   private void checkPermissions(
-      final Action action,
-      final HasuraAction.Session session,
+      final HasuraAction action,
+      final gov.nasa.jpl.aerie.merlin.server.models.HasuraAction.Session session,
       final PlanId planId
-  ) throws gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException, Unauthorized, IOException, PermissionsServiceException
+  ) throws gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException, Forbidden, IOException, PermissionsServiceException
   {
     final var permissionsPlanId = new gov.nasa.jpl.aerie.permissions.gql.PlanId(planId.id());
     permissionsService.check(action, session.hasuraRole(), session.hasuraUserId(), permissionsPlanId);

@@ -26,7 +26,6 @@ import gov.nasa.jpl.aerie.contrib.serialization.mappers.StringValueMapper;
 import gov.nasa.jpl.aerie.contrib.serialization.mappers.UnitValueMapper;
 import gov.nasa.jpl.aerie.merlin.framework.Result;
 import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.MissionModel.WithMetadata;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
@@ -162,6 +161,35 @@ public final class BasicValueMappers {
 
       @Override
       public SerializedValue serializeValue(final gov.nasa.jpl.aerie.contrib.metadata.Unit value) {
+        return SerializedValue.of(Map.of("value", SerializedValue.of(value.value())));
+      }
+    };
+  }
+
+  public static ValueMapper<gov.nasa.jpl.aerie.merlin.framework.annotations.Description> gov_nasa_jpl_aerie_merlin_framework_annotations_Description() {
+    return new ValueMapper<>() {
+      @Override
+      public ValueSchema getValueSchema() {
+        return ValueSchema.ofStruct(Map.of("value", ValueSchema.STRING));
+      }
+
+      @Override
+      public Result<gov.nasa.jpl.aerie.merlin.framework.annotations.Description, String> deserializeValue(final SerializedValue serializedValue) {
+        return serializedValue.asMap().flatMap($ -> $.get("value").asString()).map($ -> Result.<gov.nasa.jpl.aerie.merlin.framework.annotations.Description, String>success(new gov.nasa.jpl.aerie.merlin.framework.annotations.Description() {
+          @Override
+          public Class<? extends Annotation> annotationType() {
+            return gov.nasa.jpl.aerie.merlin.framework.annotations.Description.class;
+          }
+
+          @Override
+          public String value() {
+            return $;
+          }
+        })).orElse(Result.failure("Could not deserialize Description"));
+      }
+
+      @Override
+      public SerializedValue serializeValue(final gov.nasa.jpl.aerie.merlin.framework.annotations.Description value) {
         return SerializedValue.of(Map.of("value", SerializedValue.of(value.value())));
       }
     };

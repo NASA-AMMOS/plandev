@@ -1,12 +1,12 @@
-# Aerie Load Testing
+# PlanDev Load Testing
 
-This directory contains code and configuration for load testing Aerie deployments.
+This directory contains code and configuration for load testing PlanDev deployments.
 
 Load tests are written and run using the [k6](https://k6.io/open-source/) tool.
 
 ## Goals of load testing
 
-Load testing of Aerie aims to accomplish three main things:
+Load testing of PlanDev aims to accomplish three main things:
  - Validation that the system can in fact handle the number of users we advertise.
  - Gathering of "trending" data, e.g. over the last 6 months of development, have simulations gotten faster?
  - Experimental stress testing, e.g. can we induce this deadlock by requesting 100 simulations at once.
@@ -17,7 +17,7 @@ The main test scenarios are defined in `src/load-test.ts`, and can be run using 
 
 The script will download `k6` along with an extension [`xk6-dashboard`](https://github.com/grafana/xk6-dashboard) that we use to visualize the test results, as well as install dependencies for webpack that we use to transpile TypeScript tests into pure JavaScript tests that `k6` can run.
 
-The example load tests in `load-test.ts` depend on a few shared definitions from the `../e2e-test` folder (GQL queries, URLs, etc), so running these tests requires a full copy of the Aerie repo locally. Additionally, the tests upload the example `banananation` mission model, so you must generate this build artifact with e.g. `./gradlew assemble --parallel` in the root of Aerie before running load tests.
+The example load tests in `load-test.ts` depend on a few shared definitions from the `../e2e-test` folder (GQL queries, URLs, etc), so running these tests requires a full copy of the PlanDev repo locally. Additionally, the tests upload the example `banananation` mission model, so you must generate this build artifact with e.g. `./gradlew assemble --parallel` in the root of PlanDev before running load tests.
 
 At the beginning of the load test typescript file, we define configuration options for the tests defined in that file. Here, you can change the number of virtual users / iterations as desired. The current values are set fairly low, in order to run within the resource limited Github Actions runner.
 

@@ -8,5 +8,6 @@
 begin;
   -- Tables
   \ir tables/actions/action_definition.sql
+  \ir tables/actions/action_definition_version.sql
   \ir tables/actions/action_run.sql
 end;

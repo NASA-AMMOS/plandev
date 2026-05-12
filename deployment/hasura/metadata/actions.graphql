@@ -102,6 +102,18 @@ type Query {
 }
 
 type Query {
+  getConstraintProcedureEffectiveArgumentsBulk(
+    arguments: [ProcedureEffectiveArgumentsInput!]!
+  ): [ProcedureEffectiveArgumentsResponse!]!
+}
+
+type Query {
+  getSchedulingProcedureEffectiveArgumentsBulk(
+    arguments: [ProcedureEffectiveArgumentsInput!]!
+  ): [ProcedureEffectiveArgumentsResponse!]!
+}
+
+type Query {
   getActivityTypeScript(missionModelId: Int!, activityTypeName: String!): DslTypescriptResponse
 }
 
@@ -211,6 +223,20 @@ type EffectiveArgumentsResponse {
   arguments: ActivityArguments
   errors: [String!]
   typeName: String
+}
+
+input ProcedureEffectiveArgumentsInput {
+  id: Int!
+  revision: Int!
+  arguments: ProcedureArguments!
+}
+
+type ProcedureEffectiveArgumentsResponse {
+  success: Boolean!
+  arguments: ProcedureArguments!
+  errors: [String!]
+  id: Int!
+  revision: Int!
 }
 
 type AddExternalDatasetResponse {
@@ -340,6 +366,8 @@ scalar MerlinSimulationFailureReason
 scalar ModelArguments
 
 scalar ActivityArguments
+
+scalar ProcedureArguments
 
 scalar ProfileSet
 

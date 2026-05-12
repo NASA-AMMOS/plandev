@@ -548,17 +548,17 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     catch (e) {
       if (e instanceof Error) {
         throw new Error(
-          `POST /command-expansion/expand-all-sequence-templates: Databse insertion failed with "${e.message}"`
+          `POST /command-expansion/expand-all-sequence-templates: Database insertion failed with "${e.message}"`
         )
       }
       else if (e instanceof String) {
         throw new Error(
-          `POST /command-expansion/expand-all-sequence-templates: Databse insertion failed with "${e}"`
+          `POST /command-expansion/expand-all-sequence-templates: Database insertion failed with "${e}"`
         )
       }
       else {
         throw new Error(
-          `POST /command-expansion/expand-all-sequence-templates: Databse insertion failed with "${JSON.stringify(e)}"`
+          `POST /command-expansion/expand-all-sequence-templates: Database insertion failed with "${JSON.stringify(e)}"`
         )
       }
     }

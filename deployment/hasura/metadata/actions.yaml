@@ -98,6 +98,15 @@ actions:
       - role: aerie_admin
       - role: user
       - role: viewer
+  - name: getConstraintProcedureEffectiveArgumentsBulk
+    definition:
+      kind: ""
+      handler: "{{AERIE_MERLIN_URL}}/getConstraintProcedureEffectiveArgumentsBulk"
+      timeout: 300
+    permissions:
+      - role: aerie_admin
+      - role: user
+      - role: viewer
   - name: getActivityTypeScript
     definition:
       kind: ""
@@ -157,6 +166,15 @@ actions:
     permissions:
       - role: aerie_admin
       - role: user
+  - name: getSchedulingProcedureEffectiveArgumentsBulk
+    definition:
+      kind: ""
+      handler: "{{AERIE_SCHEDULER_URL}}/getSchedulingProcedureEffectiveArgumentsBulk"
+      timeout: 300
+    permissions:
+      - role: aerie_admin
+      - role: user
+      - role: viewer
   - name: constraintsDslTypescript
     definition:
       kind: ""

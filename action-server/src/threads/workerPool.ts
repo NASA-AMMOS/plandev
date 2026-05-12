@@ -86,14 +86,13 @@ export class ActionWorkerPool {
       // Case 1. Worker has not yet started -> use abortcontroller to remove from piscina task queue
       logger.info(`Action run ${action_run_id} has not yet started, removing it from the queue`);
       const abortController = this.abortControllerForActionRun.get(action_run_id);
-      if(abortController) {
+      if (abortController) {
         abortController.abort();
       } else {
         logger.warn(`No abort controller found for task ${action_run_id}`);
       }
       this.removeFromMaps(action_run_id);
       return;
-
     } else {
       // Case 2. Worker has started, and is not completed -> ask it to close its database connection
       const port = this.messagePortsForActionRun.get(action_run_id);

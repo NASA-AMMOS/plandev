@@ -1,7 +1,7 @@
 {
   "name": "sequencing-server",
-  "version": "3.6.0",
-  "description": "Aerie sequencing server",
+  "version": "4.2.1",
+  "description": "PlanDev sequencing server",
   "type": "module",
   "license": "MIT",
   "private": true,
@@ -38,7 +38,7 @@
     "dataloader": "~2.2.0",
     "express": "~5.0.0-beta.1",
     "graphql-request": "~5.1.0",
-    "handlebars": "^4.7.8",
+    "handlebars": "4.7.9",
     "jwt-decode": "~3.1.2",
     "pg": "~8.9.0",
     "pg-format": "~1.0.4",

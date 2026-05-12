@@ -1,4 +1,4 @@
-# This compose file is used for end-to-end testing the Aerie services.
+# This compose file is used for end-to-end testing the PlanDev services.
 # See .github/workflows/test.yml for how this file is utilized.
 
 version: '3.7'
@@ -10,12 +10,14 @@ services:
     container_name: aerie_action
     depends_on: [ "postgres" ]
     environment:
-      HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
+      HASURA_GRAPHQL_JWT_SECRET: "${HASURA_GRAPHQL_JWT_SECRET}"
       LOG_FILE: console
       LOG_LEVEL: debug
       MERLIN_GRAPHQL_URL: http://hasura:8080/v1/graphql
       AERIE_DB_HOST: postgres
       AERIE_DB_PORT: 5432
+      ACTION_COOKIE_NAMES: "${ACTION_COOKIE_NAMES:-}"
+      ACTION_CORS_ALLOWED_ORIGIN: "${ACTION_CORS_ALLOWED_ORIGIN:-}"
       ACTION_DB_USER: "${SEQUENCING_USERNAME}"
       ACTION_DB_PASSWORD: "${SEQUENCING_PASSWORD}"
       ACTION_LOCAL_STORE: /usr/src/app/action_file_store
@@ -137,6 +139,7 @@ services:
       WORKSPACE_PORT: 28000
       HASURA_GRAPHQL_JWT_SECRET: "${HASURA_GRAPHQL_JWT_SECRET}"
       HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
+      HASURA_GRAPHQL_URL: http://hasura:8080/v1/graphql
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
         -Dorg.slf4j.simpleLogger.defaultLogLevel=INFO
@@ -154,11 +157,14 @@ services:
       NODE_TLS_REJECT_UNAUTHORIZED: '0'
       ORIGIN: http://localhost
       PUBLIC_AERIE_FILE_STORE_PREFIX: "/usr/src/app/merlin_file_store/"
+      PUBLIC_ACTION_CLIENT_URL: http://localhost:27186
+      PUBLIC_ACTION_INCLUDE_CREDENTIALS: "false"
       PUBLIC_GATEWAY_CLIENT_URL: http://localhost:9000
       PUBLIC_GATEWAY_SERVER_URL: http://aerie_gateway:9000
       PUBLIC_HASURA_CLIENT_URL: http://localhost:8080/v1/graphql
       PUBLIC_HASURA_SERVER_URL: http://hasura:8080/v1/graphql
       PUBLIC_HASURA_WEB_SOCKET_URL: ws://localhost:8080/v1/graphql
+      PUBLIC_WORKSPACE_CLIENT_URL: http://localhost:28000
     image: 'ghcr.io/nasa-ammos/aerie-ui:develop'
     ports: ['80:80']
     restart: always
@@ -261,7 +267,7 @@ services:
     container_name: hasura
     depends_on: ['postgres']
     environment:
-      AERIE_DATABASE_URL: "postgres://${AERIE_USERNAME}:${AERIE_PASSWORD}@postgres:5432/aerie?options=-c%20search_path%3Dutil_functions%2Chasura%2Cpermissions%2Ctags%2Cmerlin%2Cscheduler%2Csequencing%2Cactions%2Cpublic"
+      AERIE_DATABASE_URL: "postgres://${AERIE_USERNAME}:${AERIE_PASSWORD}@postgres:5432/aerie?options=-c%20search_path%3Dutil_functions%2Chasura%2Cpermissions%2Ctags%2Cmerlin%2Cscheduler%2Csequencing%2Cactions%2Cui%2Cpublic"
       AERIE_MERLIN_URL: "http://aerie_merlin:27183"
       AERIE_SCHEDULER_URL: "http://aerie_scheduler:27185"
       AERIE_SEQUENCING_URL: "http://aerie_sequencing:27184"
@@ -294,7 +300,7 @@ services:
       SCHEDULER_DB_PASSWORD: "${SCHEDULER_PASSWORD}"
       SEQUENCING_DB_USER: "${SEQUENCING_USERNAME}"
       SEQUENCING_DB_PASSWORD: "${SEQUENCING_PASSWORD}"
-    image: postgres:16.4
+    image: postgres:16.12-bookworm
     ports: ['5432:5432']
     restart: always
     volumes:

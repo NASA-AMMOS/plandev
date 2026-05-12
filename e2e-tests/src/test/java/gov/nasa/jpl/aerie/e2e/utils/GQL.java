@@ -19,6 +19,13 @@ public enum GQL {
         plan_id
       }
     }"""),
+  ADD_WORKSPACE_COLLABORATOR("""
+    mutation addWorkspaceCollaborator($collaborator: workspace_collaborators_insert_input!) {
+      insert_workspace_collaborators_one(object: $collaborator) {
+        collaborator
+        workspace_id
+      }
+    }"""),
   ASSIGN_TEMPLATE_TO_SIMULATION("""
     mutation AssignTemplateToSimulation($simulation_id: Int!, $simulation_template_id: Int!) {
       update_simulation_by_pk(pk_columns: {id: $simulation_id}, _set: {simulation_template_id: $simulation_template_id}) {
@@ -43,6 +50,12 @@ public enum GQL {
         canceled
         reason
         status
+      }
+    }"""),
+  CHANGE_WS_OWNER("""
+    mutation changeWsOwner($id:Int!, $newOwner: String! ) {
+      update_workspace_by_pk(pk_columns: {id:$id}, _set: {owner: $newOwner}) {
+        owner
       }
     }"""),
   CHECK_CONSTRAINTS("""
@@ -121,6 +134,18 @@ public enum GQL {
   CREATE_MISSION_MODEL("""
     mutation CreateMissionModel($model: mission_model_insert_input!) {
       insert_mission_model_one(object: $model) {
+        id
+      }
+    }"""),
+  CREATE_MOCK_COMMAND_DICTIONARY("""
+    mutation CreateMockCommandDictionary($cdict: command_dictionary_insert_input!) {
+      dictionary: insert_command_dictionary_one(object: $cdict) {
+        id
+      }
+    }"""),
+  CREATE_PARCEL("""
+    mutation CreateParcel($parcel: parcel_insert_input!) {
+      parcel: insert_parcel_one(object: $parcel) {
         id
       }
     }"""),
@@ -228,6 +253,18 @@ public enum GQL {
         id
       }
     }"""),
+  DELETE_MOCK_COMMAND_DICTIONARY("""
+    mutation DeleteMockCommandDictionary($id: Int!) {
+      delete_command_dictionary_by_pk(id: $id) {
+        id
+      }
+    }"""),
+  DELETE_PARCEL("""
+    mutation DeleteParcel($id: Int!) {
+      delete_parcel_by_pk(id: $id) {
+        id
+      }
+    }"""),
   DELETE_PLAN("""
     mutation DeletePlan($id: Int!) {
       deletePlan: delete_plan_by_pk(id: $id) {
@@ -293,6 +330,10 @@ public enum GQL {
         name
         parameters
         computed_attributes_value_schema
+        subsystem:subsystem_tag {
+          name
+        }
+        description
       }
     }"""),
   GET_CONSTRAINT_REQUEST("""
@@ -326,6 +367,28 @@ public enum GQL {
         arguments
         errors
         success
+      }
+    }"""),
+  GET_EFFECTIVE_PROCEDURAL_GOALS_ARGUMENTS_BULK("""
+    query GetSchedulingProcedureEffectiveArgumentsBulk($arguments: [ProcedureEffectiveArgumentsInput!]!) {
+      getSchedulingProcedureEffectiveArgumentsBulk(
+        arguments: $arguments
+      ) {
+        success
+        arguments
+        errors
+        id
+      }
+    }"""),
+  GET_EFFECTIVE_PROCEDURAL_CONSTRAINTS_ARGUMENTS_BULK("""
+    query GetConstraintProcedureEffectiveArgumentsBulk($arguments: [ProcedureEffectiveArgumentsInput!]!) {
+      getConstraintProcedureEffectiveArgumentsBulk(
+        arguments: $arguments
+      ) {
+        success
+        arguments
+        errors
+        id
       }
     }"""),
   GET_ACTIVITY_VALIDATIONS("""
@@ -728,6 +791,15 @@ public enum GQL {
 				arguments
 			}
 		}"""),
+  UPDATE_CONSTRAINT_ARGUMENTS("""
+  mutation updateConstraintArguments($constraint_id: Int!, $arguments: jsonb!) {
+    update_constraint_specification(where: {constraint_id: {_eq: $constraint_id}}, _set: {arguments: $arguments}){
+      returning {
+        arguments
+      }
+    }
+  }
+  """),
   UPDATE_SCHEDULING_SPEC_GOALS_ENABLED("""
 		mutation updateSchedulingSpecGoalVersion($goal_invocation_id: Int!, $enabled: Boolean!) {
 			update_scheduling_specification_goals_by_pk(

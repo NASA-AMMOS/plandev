@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.e2e.procedural.scheduling.procedures;
 
+import gov.nasa.ammos.aerie.procedural.scheduling.annotations.WithDefaults;
 import gov.nasa.ammos.aerie.procedural.scheduling.plan.EditablePlan;
 import gov.nasa.ammos.aerie.procedural.scheduling.Goal;
 import gov.nasa.ammos.aerie.procedural.scheduling.annotations.SchedulingProcedure;
@@ -17,7 +18,7 @@ import java.util.Map;
  * one every 6hrs.
  */
 @SchedulingProcedure
-public record DumbRecurrenceGoal(int quantity) implements Goal {
+public record DumbRecurrenceGoal(int quantity, int biteSize) implements Goal {
   @Override
   public void run(@NotNull final EditablePlan plan) {
     final var firstTime = Duration.hours(24);
@@ -27,14 +28,22 @@ public record DumbRecurrenceGoal(int quantity) implements Goal {
     for (var i = 0; i < quantity; i++) {
       plan.create(
           new NewDirective(
-              new AnyDirective(Map.of("biteSize", SerializedValue.of(1))),
+              new AnyDirective(Map.of("biteSize", SerializedValue.of(biteSize))),
               "It's a bite banana activity",
               "BiteBanana",
               new DirectiveStart.Absolute(currentTime)
           )
       );
       currentTime = currentTime.plus(step);
+      if (currentTime.longerThan(plan.duration())) break;
     }
     plan.commit();
+  }
+
+  /**
+   * Default parameters. Quantity is provided but biteSize is not so it is required.
+   */
+  public static @WithDefaults class Defaults {
+    public int quantity = 360;
   }
 }

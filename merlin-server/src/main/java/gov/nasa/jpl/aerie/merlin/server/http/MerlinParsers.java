@@ -5,6 +5,7 @@ import gov.nasa.jpl.aerie.json.JsonParser;
 import gov.nasa.jpl.aerie.json.SchemaCache;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationFailure;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.jpl.aerie.merlin.server.models.ConstraintId;
 import gov.nasa.jpl.aerie.merlin.server.models.DatasetId;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
 import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
@@ -106,6 +107,16 @@ public abstract class MerlinParsers {
           untuple((type, message, data, trace, timestamp) -> new SimulationFailure(type, message, data, trace.orElse(""), timestamp.toInstant())),
           failure -> tuple(failure.type(), failure.message(), failure.data(), Optional.ofNullable(failure.trace()), new Timestamp(failure.timestamp()))
       );
+
+  public static JsonParser<ConstraintId> constraintIdP() {
+    return productP
+        .field("constraint_id", longP)
+        .field("revision", longP)
+        .map(
+            untuple(ConstraintId::new),
+            constraintArguments -> tuple(constraintArguments.id(), constraintArguments.revision()));
+  }
+
 
   public static <T> T parseJson(final String subject, final JsonParser<T> parser)
   throws InvalidJsonException, InvalidEntityException

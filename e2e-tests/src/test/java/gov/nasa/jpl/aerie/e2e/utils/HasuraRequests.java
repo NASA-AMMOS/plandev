@@ -15,7 +15,6 @@ import javax.json.JsonObjectBuilder;
 import javax.json.JsonValue;
 import javax.json.JsonObject;
 import java.io.IOException;
-import java.io.StringReader;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -69,7 +68,8 @@ public class HasuraRequests implements AutoCloseable {
       GQL query,
       JsonObject variables,
       Map<String, String> headers
-  ) throws IOException {
+  ) throws IOException
+  {
     // Build Payload
     final String data = Json.createObjectBuilder()
                             .add("query", query.query)
@@ -79,25 +79,23 @@ public class HasuraRequests implements AutoCloseable {
 
     // Set Up Request
     final RequestOptions options = RequestOptions.create()
-            .setData(data)
-            .setHeader("x-hasura-admin-secret", hasuraAdminSecret);
+                                                 .setData(data)
+                                                 .setHeader("x-hasura-admin-secret", hasuraAdminSecret);
     headers.forEach(options::setHeader);
 
     final var response = request.post("/v1/graphql", options);
 
     // Process Response
-    if(!response.ok()){
+    if (!response.ok()) {
       throw new IOException(response.statusText());
     }
 
-    try(final var reader = Json.createReader(new StringReader(response.text()))){
-      final JsonObject bodyJson = reader.readObject();
-      if(bodyJson.containsKey("errors")){
-        System.err.println("Errors in response: \n" + bodyJson.get("errors"));
-        throw new RuntimeException(bodyJson.toString());
-      }
-      return bodyJson.getJsonObject("data");
+    final var bodyJson = RequestBodyHelper.getBody(response);
+    if (bodyJson.containsKey("errors")) {
+      System.err.println("Errors in response: \n" + bodyJson.get("errors"));
+      throw new RuntimeException(bodyJson.toString());
     }
+    return bodyJson.getJsonObject("data");
   }
 
   //region Records
@@ -287,6 +285,40 @@ public class HasuraRequests implements AutoCloseable {
     return effectiveArgs.get(0);
   }
 
+
+  public List<EffectiveProceduralArguments> getEffectiveProceduralGoalsArgumentsBulk(
+      List<Pair<Integer, JsonObject>> proceduralGoalIds
+  ) throws IOException {
+    final var proceduresBuilder = Json.createArrayBuilder();
+    proceduralGoalIds.forEach(goal -> proceduresBuilder.add(Json.createObjectBuilder()
+                                                         .add("id", goal.getLeft())
+                                                         .add("revision", 0)
+                                                         .add("arguments", goal.getRight())));
+    final var variables = Json.createObjectBuilder()
+                              .add("arguments", proceduresBuilder.build())
+                              .build();
+    return makeRequest(GQL.GET_EFFECTIVE_PROCEDURAL_GOALS_ARGUMENTS_BULK, variables)
+        .getJsonArray("getSchedulingProcedureEffectiveArgumentsBulk")
+        .getValuesAs(EffectiveProceduralArguments::fromJSON);
+  }
+
+
+  public List<EffectiveProceduralArguments> getEffectiveProceduralConstraintsArgumentsBulk(
+      List<Pair<Integer, JsonObject>> proceduralGoalIds
+  ) throws IOException {
+    final var proceduresBuilder = Json.createArrayBuilder();
+    proceduralGoalIds.forEach(goal -> proceduresBuilder.add(Json.createObjectBuilder()
+                                                                .add("id", goal.getLeft())
+                                                                .add("revision", 0)
+                                                                .add("arguments", goal.getRight())));
+    final var variables = Json.createObjectBuilder()
+                              .add("arguments", proceduresBuilder.build())
+                              .build();
+    return makeRequest(GQL.GET_EFFECTIVE_PROCEDURAL_CONSTRAINTS_ARGUMENTS_BULK, variables)
+        .getJsonArray("getConstraintProcedureEffectiveArgumentsBulk")
+        .getValuesAs(EffectiveProceduralArguments::fromJSON);
+  }
+
   public List<EffectiveActivityArguments> getEffectiveActivityArgumentsBulk(
       int modelId,
       List<Pair<String, JsonObject>> activities
@@ -318,7 +350,6 @@ public class HasuraRequests implements AutoCloseable {
     }
     return res;
   }
-
   //endregion
 
   //region Simulation
@@ -723,6 +754,35 @@ public class HasuraRequests implements AutoCloseable {
     return createSchedulingSpecProcedure(name, jarId, specificationId, priority, true);
   }
 
+  public ConstraintInvocationId createConstraintSpecProcedure(
+      String name,
+      int jarId,
+      int planId
+  ) throws IOException {
+    final var specGoalBuilder = Json.createObjectBuilder()
+                                    .add("constraint_metadata",
+                                         Json.createObjectBuilder()
+                                             .add("data",
+                                                  Json.createObjectBuilder()
+                                                      .add("name", name)
+                                                      .add("description", "")
+                                                      .add("versions",
+                                                           Json.createObjectBuilder()
+                                                               .add("data",
+                                                                    Json.createArrayBuilder()
+                                                                        .add(Json.createObjectBuilder()
+                                                                                 .add("type", "JAR")
+                                                                                 .add("uploaded_jar_id", jarId)
+                                                                        )))))
+                                    .add("plan_id", planId);
+    final var variables = Json.createObjectBuilder().add("constraint", specGoalBuilder).build();
+    final var resp =  makeRequest(GQL.INSERT_PLAN_SPEC_CONSTRAINT, variables)
+        .getJsonObject("constraint");
+    return new ConstraintInvocationId(
+        resp.getInt("constraint_id"),
+        resp.getInt("invocation_id")
+    );
+  }
 
   public GoalInvocationId createSchedulingSpecProcedure(
       String name,
@@ -825,6 +885,14 @@ public class HasuraRequests implements AutoCloseable {
                               .add("definition", definition)
                               .build();
     return makeRequest(GQL.UPDATE_GOAL_DEFINITION, variables).getJsonObject("definition").getInt("revision");
+  }
+
+  public void updateConstraintArguments(int constraintId, JsonObject arguments) throws IOException {
+    final var variables = Json.createObjectBuilder()
+                              .add("constraint_id", constraintId)
+                              .add("arguments", arguments)
+                              .build();
+    makeRequest(GQL.UPDATE_CONSTRAINT_ARGUMENTS, variables);
   }
 
   public void updateSchedulingSpecGoalArguments(int invocationId, JsonObject arguments) throws IOException {
@@ -1208,7 +1276,6 @@ public class HasuraRequests implements AutoCloseable {
         .getJsonObject("planDerivationGroupLink")
         .getString("derivation_group_name");
   }
-
   // endregion
 
   //region Constraints
@@ -1325,9 +1392,11 @@ public class HasuraRequests implements AutoCloseable {
     makeRequest(GQL.DELETE_USER, variables);
   }
 
-  public void addPlanCollaborator(User user, int planId) throws IOException {
-    final var planCollabBuilder = Json.createObjectBuilder().add("planId", planId).add("collaborator", user.name());
-    final var variables = Json.createObjectBuilder().add("planCollaboratorInsertInput", planCollabBuilder).build();
+  public void addPlanCollaborator(User collaborator, int planId) throws IOException {
+    final var planCollabBuilder = Json.createObjectBuilder()
+                                      .add("plan_id", planId)
+                                      .add("collaborator", collaborator.name());
+    final var variables = Json.createObjectBuilder().add("collaborator", planCollabBuilder).build();
     makeRequest(GQL.ADD_PLAN_COLLABORATOR, variables);
   }
 
@@ -1343,6 +1412,78 @@ public class HasuraRequests implements AutoCloseable {
                               .add("action_permissions", permissions.toJSON())
                               .build();
     makeRequest(GQL.UPDATE_ROLE_ACTION_PERMISSIONS, variables);
+  }
+  //endregion
+
+  //region Workspaces
+  /**
+   * Creates a mocked command dictionary for the sake of creating Workspaces
+   * Create a different method if a non-mocked command dictionary is required for tests.
+   * @return the dictionary's database id
+   */
+  public int createMockCommandDictionary(String mission, String version) throws IOException {
+    final var insertCommandDictionaryBuilder = Json.createObjectBuilder()
+                                          .add("dictionary_path", "mock_path")
+                                          .add("mission", mission)
+                                          .add("version", version);
+
+    final var variables = Json.createObjectBuilder().add("cdict", insertCommandDictionaryBuilder).build();
+    // Only the Hasura Admin role may insert into this table
+    return makeRequest(GQL.CREATE_MOCK_COMMAND_DICTIONARY, variables, Map.of("x-hasura-role", "admin"))
+        .getJsonObject("dictionary")
+        .getInt("id");
+  }
+
+  /**
+   * Creates a mocked parcel for the sake of creating Workspaces
+   * Create a different method if a non-mocked parcel is required for tests.
+   * @return the parcel's database id
+   */
+  public int createMockParcel(String parcelName, int cdictId) throws IOException {
+    final var insertMockParcelBuilder = Json.createObjectBuilder()
+                                            .add("name", parcelName)
+                                            .add("command_dictionary_id", cdictId);
+
+    final var variables = Json.createObjectBuilder().add("parcel", insertMockParcelBuilder).build();
+
+    return makeRequest(GQL.CREATE_PARCEL, variables)
+        .getJsonObject("parcel")
+        .getInt("id");
+  }
+
+  /**
+   * Delete a mocked command dictionary.
+   */
+  public void deleteMockCommandDictionary(int cdictId) throws IOException {
+    makeRequest(GQL.DELETE_MOCK_COMMAND_DICTIONARY, Json.createObjectBuilder().add("id", cdictId).build());
+  }
+
+  /**
+   * Delete a mocked parcel.
+   */
+  public void deleteMockParcel(int parcelId) throws IOException {
+    makeRequest(GQL.DELETE_PARCEL, Json.createObjectBuilder().add("id", parcelId).build());
+  }
+
+  /**
+   * Change the workspace's owner to another user
+   */
+  public void changeWorkspaceOwner(int workspaceId, User newOwner) throws IOException {
+    makeRequest(GQL.CHANGE_WS_OWNER, Json.createObjectBuilder()
+                                         .add("id", workspaceId)
+                                         .add("newOwner", newOwner.name())
+                                         .build());
+  }
+
+  /**
+   * Add a workspace collaborator
+   */
+  public void addWorkspaceCollaborator(User collaborator, int workspaceId) throws IOException {
+    final var wsCollabBuilder = Json.createObjectBuilder()
+                                    .add("workspace_id", workspaceId)
+                                    .add("collaborator", collaborator.name());
+    final var variables = Json.createObjectBuilder().add("collaborator", wsCollabBuilder).build();
+    makeRequest(GQL.ADD_WORKSPACE_COLLABORATOR, variables);
   }
   //endregion
 }

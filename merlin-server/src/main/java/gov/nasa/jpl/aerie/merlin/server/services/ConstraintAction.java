@@ -1,9 +1,11 @@
 package gov.nasa.jpl.aerie.merlin.server.services;
 
+import gov.nasa.ammos.aerie.procedural.constraints.ProcedureMapper;
 import gov.nasa.jpl.aerie.constraints.InputMismatchException;
 import gov.nasa.jpl.aerie.constraints.model.DiscreteProfile;
 import gov.nasa.jpl.aerie.constraints.model.*;
 import gov.nasa.jpl.aerie.constraints.tree.Expression;
+import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.SimulationDatasetMismatchException;
 import gov.nasa.jpl.aerie.merlin.server.http.Fallible;
@@ -11,6 +13,7 @@ import gov.nasa.jpl.aerie.merlin.server.models.*;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.nio.file.Path;
 import java.util.*;
 
 public class ConstraintAction {
@@ -39,6 +42,39 @@ public class ConstraintAction {
   public void refreshConstraintProcedureParameterTypes(long constraintId, long revision) {
     constraintService.refreshConstraintProcedureParameterTypes(constraintId, revision);
   }
+
+  public List<BulkConstraintEffectiveArgumentResponse> getConstraintProcedureEffectiveArgumentsBulk(
+      HasuraAction.ConstraintArguments procedureArgumentsList) {
+    final var responses = new ArrayList<BulkConstraintEffectiveArgumentResponse>();
+    final var constraints = this.constraintService.getConstraintsById(
+        procedureArgumentsList.items().stream().map(
+            p -> new ConstraintId(p.constraintId(), p.revision())).toList());
+     for (final var procedureArguments : procedureArgumentsList.items()) {
+       final var constraintIdRecord = new ConstraintId(procedureArguments.constraintId(), procedureArguments.revision());
+        final var constraint = constraints.get(constraintIdRecord);
+        switch (constraint.type()) {
+          case ConstraintType.EDSL e -> {
+            responses.add(new BulkConstraintEffectiveArgumentResponse.TypeFailure(constraintIdRecord));
+          }
+          case ConstraintType.JAR j -> {
+            final ProcedureMapper<?> procedureMapper;
+            try {
+              procedureMapper = ProcedureLoader.loadProcedure(Path.of("/usr/src/app/merlin_file_store", j.path().toString()));
+
+              responses.add(new BulkConstraintEffectiveArgumentResponse.Success(
+                  constraintIdRecord,
+                  procedureMapper.getInputType().getEffectiveArguments(procedureArguments.arguments())));
+
+            } catch (InstantiationException e) {
+              responses.add(new BulkConstraintEffectiveArgumentResponse.InstantiationFailure(constraintIdRecord, e));
+            } catch (ProcedureLoader.ProcedureLoadException e) {
+              responses.add(new BulkConstraintEffectiveArgumentResponse.ProcedureLoadFailure(constraintIdRecord, e));
+            }
+          }
+        }
+      }
+      return responses;
+    }
 
   /**
    * Check the constraints on a plan's specification for violations.
@@ -98,6 +134,7 @@ public class ConstraintAction {
     // If the lengths don't match we need check the left-over constraints.
     if (!constraints.isEmpty()) {
       final var externalDatasets = this.planService.getExternalDatasets(planId, simDatasetId);
+      final var externalEventsByDerivationGroup = this.planService.getExternalEvents(planId, plan.planStartInstant());
       final var realExternalProfiles = new HashMap<String, LinearProfile>();
       final var discreteExternalProfiles = new HashMap<String, DiscreteProfile>();
 
@@ -155,7 +192,7 @@ public class ConstraintAction {
       //    a procedural constraint will access
       final var merlinSimResults = resultsHandle.getSimulationResults();
       final var edslSimResults = new SimulationResults(merlinSimResults);
-      final var environment = new EvaluationEnvironment(realExternalProfiles, discreteExternalProfiles);
+      final var environment = new EvaluationEnvironment(realExternalProfiles, discreteExternalProfiles, externalEventsByDerivationGroup);
 
       final var timelinePlan = new ReadonlyPlan(plan, environment);
       final var timelineSimResults = new ReadonlyProceduralSimResults(merlinSimResults, timelinePlan);

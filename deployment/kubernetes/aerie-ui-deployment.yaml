@@ -19,6 +19,12 @@ spec:
               value: http://127.0.0.1
             - name: PUBLIC_AERIE_FILE_STORE_PREFIX
               value: /usr/src/app/merlin_file_store/
+            - name: PUBLIC_ACTION_INCLUDE_CREDENTIALS
+              valueFrom:
+                secretKeyRef:
+                  name: dev-env
+                  key: PUBLIC_ACTION_INCLUDE_CREDENTIALS
+                  optional: true
             - name: PUBLIC_GATEWAY_CLIENT_URL
               value: http://localhost:9000
             - name: PUBLIC_GATEWAY_SERVER_URL
@@ -29,6 +35,8 @@ spec:
               value: http://hasura:8080/v1/graphql
             - name: PUBLIC_HASURA_WEB_SOCKET_URL
               value: ws://localhost:8080/v1/graphql
+            - name: PUBLIC_WORKSPACE_CLIENT_URL
+              value: http://localhost:28000
           image: ghcr.io/nasa-ammos/aerie-ui:develop
           name: aerie-ui
           ports:

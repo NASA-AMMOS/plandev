@@ -11,6 +11,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 import static gov.nasa.jpl.aerie.json.BasicParsers.listP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.stringP;
@@ -21,12 +22,16 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
 /*package-local*/ final class GetActivityTypesAction implements AutoCloseable {
   private static final @Language("SQL") String sql = """
     select
-      a.name,
-      a.parameters,
-      a.required_parameters,
-      a.computed_attributes_value_schema
-    from merlin.activity_type as a
-    where a.model_id = ?
+        a.name,
+        a.parameters,
+        a.required_parameters,
+        a.computed_attributes_value_schema,
+        t.name as subsystem,
+        a.description
+      from merlin.activity_type a
+      left join tags.tags t
+          on a.subsystem = t.id
+      where a.model_id = ?
     """;
 
   private final PreparedStatement statement;
@@ -60,7 +65,9 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
                                                   + $.reason())),
             getJsonColumn(results, "computed_attributes_value_schema", valueSchemaP)
                 .getSuccessOrThrow($ -> new Error("Corrupt activity type computed attribute schema cannot be parsed: "
-                                                  + $.reason()))
+                                                  + $.reason())),
+            Optional.ofNullable(results.getString("subsystem")),
+            Optional.ofNullable(results.getString("description"))
         ));
       }
     }

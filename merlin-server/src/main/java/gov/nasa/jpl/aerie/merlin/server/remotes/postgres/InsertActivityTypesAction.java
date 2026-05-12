@@ -9,17 +9,20 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Collection;
+import java.util.Map;
 
 import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
 
 /*package-local*/ final class InsertActivityTypesAction implements AutoCloseable {
   private static final @Language("SQL") String sql = """
-    insert into merlin.activity_type (model_id, name, parameters, required_parameters, computed_attributes_value_schema)
-    values (?, ?, ?::json, ?::json, ?::json)
+    insert into merlin.activity_type (model_id, name, parameters, required_parameters, computed_attributes_value_schema, subsystem, description)
+    values (?, ?, ?::json, ?::json, ?::json, ?, ?)
     on conflict (model_id, name) do update
       set parameters = excluded.parameters,
       required_parameters = excluded.required_parameters,
-      computed_attributes_value_schema = excluded.computed_attributes_value_schema
+      computed_attributes_value_schema = excluded.computed_attributes_value_schema,
+      subsystem = excluded.subsystem,
+      description = excluded.description
     """;
 
   private final PreparedStatement statement;
@@ -28,7 +31,7 @@ import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueS
     this.statement = connection.prepareStatement(sql);
   }
 
-  public void apply(final int modelId, Collection<ActivityType> activityTypes)
+  public void apply(final int modelId, Collection<ActivityType> activityTypes, Map<String, Integer> mapSubsystemsToIds)
   throws SQLException, FailedInsertException
   {
     final var connection = statement.getConnection();
@@ -45,6 +48,23 @@ import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueS
         PreparedStatements.setParameters(statement, 3, activityType.parameters());
         PreparedStatements.setRequiredParameters(this.statement, 4, activityType.requiredParameters());
         this.statement.setString(5, valueSchemaString);
+
+
+        if (activityType.subsystem().isPresent()) {
+          if(!mapSubsystemsToIds.containsKey(activityType.subsystem().get())) {
+            throw new FailedInsertException("Unknown subsystem '" + activityType.subsystem().get() + "' for model_id=" + modelId + " in merlin.activity_type");
+          }
+          int subsystemIndex = mapSubsystemsToIds.get(activityType.subsystem().get());
+          this.statement.setInt(6, subsystemIndex);
+        } else {
+          this.statement.setObject(6, null);
+        }
+
+        if (activityType.description().isPresent()) {
+          this.statement.setString(7, activityType.description().get());
+        } else {
+          this.statement.setString(7, null);
+        }
 
         statement.addBatch();
       }

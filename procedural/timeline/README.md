@@ -1,6 +1,6 @@
 # Timelines
 
-This library provides tools for querying and manipulating "timelines" from an Aerie plan or set of
+This library provides tools for querying and manipulating "timelines" from an PlanDev plan or set of
 simulation results. This includes things like resource profiles, activity instances, and activity directives,
 but can be extended to support more kinds if needed.
 

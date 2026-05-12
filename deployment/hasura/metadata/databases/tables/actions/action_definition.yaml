@@ -7,9 +7,14 @@ object_relationships:
   - name: workspace
     using:
       foreign_key_constraint_on: workspace_id
-  - name: action_file
+array_relationships:
+  - name: versions
     using:
-      foreign_key_constraint_on: action_file_id
+      foreign_key_constraint_on:
+        column: action_definition_id
+        table:
+          name: action_definition_version
+          schema: actions
 select_permissions:
   - role: aerie_admin
     permission:
@@ -29,7 +34,7 @@ select_permissions:
 insert_permissions:
   - role: aerie_admin
     permission:
-      columns: [name, description, action_file_id, workspace_id]
+      columns: [name, description, workspace_id]
       check: {}
       set:
         owner: "x-hasura-user-id"
@@ -37,7 +42,7 @@ insert_permissions:
 update_permissions:
   - role: aerie_admin
     permission:
-      columns: [name, description, action_file_id, parameter_schema, settings_schema, settings, owner, workspace_id]
+      columns: [name, description, archived, settings, owner, workspace_id]
       filter: {}
       set:
         updated_by: "x-hasura-user-id"

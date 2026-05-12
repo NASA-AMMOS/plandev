@@ -1,4 +1,4 @@
-import { GraphQLClient } from 'graphql-request';
+import {GraphQLClient} from 'graphql-request';
 
 export async function waitMs(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));

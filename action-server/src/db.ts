@@ -17,7 +17,7 @@ export class ActionsDbManager {
       logger.info(`Creating PG pool`);
       ActionsDbManager.pool = new pg.Pool({
         host: AERIE_DB_HOST,
-        port: parseInt(AERIE_DB_PORT, 5432),
+        port: parseInt(AERIE_DB_PORT),
         database: AERIE_DB,
         user: ACTION_DB_USER,
         password: ACTION_DB_PASSWORD,

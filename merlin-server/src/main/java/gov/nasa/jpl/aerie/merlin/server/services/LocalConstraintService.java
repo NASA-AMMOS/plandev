@@ -4,6 +4,7 @@ import gov.nasa.ammos.aerie.procedural.constraints.ProcedureMapper;
 import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchConstraintException;
 import gov.nasa.jpl.aerie.merlin.server.http.Fallible;
+import gov.nasa.jpl.aerie.merlin.server.models.ConstraintId;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintType;
 import gov.nasa.jpl.aerie.merlin.server.models.DBConstraintResult;
@@ -58,5 +59,10 @@ public class LocalConstraintService implements ConstraintService {
         constraintRepository.updateConstraintParameterSchema(constraintId, revision, schema);
       }
     }
+  }
+
+  @Override
+  public Map<ConstraintId, ConstraintRecord> getConstraintsById(final List<ConstraintId> constraintIds) {
+    return constraintRepository.getConstraints(constraintIds);
   }
 }

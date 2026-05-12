@@ -3,6 +3,7 @@ package gov.nasa.jpl.aerie.merlin.server.http;
 import gov.nasa.jpl.aerie.constraints.InputMismatchException;
 import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
 import gov.nasa.jpl.aerie.json.JsonParseResult.FailureReason;
+import gov.nasa.jpl.aerie.merlin.server.models.ConstraintId;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser;
 import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.Parameter;
@@ -15,7 +16,9 @@ import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.SimulationDatasetMismatchException;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintsCompilationError;
+import gov.nasa.jpl.aerie.merlin.server.models.ProcedureLoader;
 import gov.nasa.jpl.aerie.merlin.server.remotes.MissionModelAccessException;
+import gov.nasa.jpl.aerie.merlin.server.services.BulkConstraintEffectiveArgumentResponse;
 import gov.nasa.jpl.aerie.merlin.server.services.GetSimulationResultsAction;
 import gov.nasa.jpl.aerie.merlin.server.services.LocalMissionModelService;
 import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService;
@@ -67,10 +70,10 @@ public final class ResponseSerializers {
         .collect(Collectors.toMap(i -> parameters.get(i).name(), i -> Pair.of(i, parameters.get(i))));
 
     return serializeMap(pair -> Json.createObjectBuilder()
-            .add("schema", new ValueSchemaJsonParser().unparse(pair.getRight().schema()))
-            .add("order", pair.getLeft())
-            .build(),
-        parameterMap);
+              .add("schema", new ValueSchemaJsonParser().unparse(pair.getRight().schema()))
+              .add("order", pair.getLeft())
+              .build(),
+            parameterMap);
   }
 
   public static JsonValue serializeValueSchemas(final Map<String, ValueSchema> schemas) {
@@ -115,6 +118,56 @@ public final class ResponseSerializers {
 
   public static JsonValue serializeBulkEffectiveArgumentResponseList(final List<BulkEffectiveArgumentResponse> responses) {
     return serializeIterable(ResponseSerializers::serializeBulkEffectiveArgumentResponse, responses);
+  }
+
+  public static JsonValue serializeConstraintBulkEffectiveArgumentResponse(BulkConstraintEffectiveArgumentResponse response) {
+    if (response instanceof BulkConstraintEffectiveArgumentResponse.Success(
+        ConstraintId constraintId, Map<String, SerializedValue> effectiveArguments)) {
+      return Json.createObjectBuilder()
+                 .add("id", constraintId.id())
+                 .add("revision", constraintId.revision())
+                 .add("success", JsonValue.TRUE)
+                 .add("arguments",
+                     serializeMap(
+                         ResponseSerializers::serializeArgument,
+                         effectiveArguments))
+                 .build();
+    } else if (response instanceof BulkConstraintEffectiveArgumentResponse.TypeFailure(ConstraintId constraintId)) {
+      return Json.createObjectBuilder()
+                 .add("id", constraintId.id())
+                 .add("revision", constraintId.revision())
+                 .add("success", JsonValue.FALSE)
+                 .add("errors", "Constraint is not procedural")
+                 .build();
+    } else if (response instanceof BulkConstraintEffectiveArgumentResponse.InstantiationFailure(
+        ConstraintId constraintId,
+        InstantiationException ex)) {
+      return Json.createObjectBuilder(
+          serializeInstantiationException(ex).asJsonObject())
+          .add("success", JsonValue.FALSE)
+          .add("id", constraintId.id())
+          .add("revision", constraintId.revision())
+                 .build();
+    } else if (response instanceof BulkConstraintEffectiveArgumentResponse.NoConstraintFailure(ConstraintId constraintId)) {
+      return Json.createObjectBuilder()
+                 .add("success", JsonValue.FALSE)
+                 .add("id", constraintId.id())
+                 .add("revision", constraintId.revision())
+                 .add("errors", "There is no constraint with this id")
+                 .build();
+    } else if (response instanceof BulkConstraintEffectiveArgumentResponse.ProcedureLoadFailure(
+        ConstraintId constraintId, ProcedureLoader.ProcedureLoadException ex)) {
+      return Json.createObjectBuilder()
+                 .add("success", JsonValue.FALSE)
+                 .add("id", constraintId.id())
+                 .add("revision", constraintId.revision())
+                 .add("errors", "Error when loading the procedure jar")
+                 .build();
+    }
+    return Json.createObjectBuilder()
+               .add("success", JsonValue.FALSE)
+               .add("errors", String.format("Internal error: %s", response))
+               .build();
   }
 
   public static JsonValue serializeBulkEffectiveArgumentResponse(BulkEffectiveArgumentResponse response) {
@@ -493,14 +546,26 @@ public final class ResponseSerializers {
   public static JsonValue serializeInputMismatchException(final InputMismatchException ex) {
     return Json.createObjectBuilder()
                .add("message", "input mismatch exception")
-               .add("cause", ex.getMessage())
+               .add("extensions", serializeCauseAsExtension(ex.getMessage()))
                .build();
   }
 
   public static JsonValue serializeSimulationDatasetMismatchException(final SimulationDatasetMismatchException ex){
      return Json.createObjectBuilder()
                .add("message", "simulation dataset mismatch exception")
-               .add("cause", ex.getMessage())
+               .add("extensions", serializeCauseAsExtension(ex.getMessage()))
                .build();
+  }
+
+  /**
+   * Any exception that gets sent through a Hasura action needs to be wrapped in an "extensions" object to be
+   * preserved in the response.
+   * <a href="https://hasura.io/docs/2.0/actions/action-handlers/#returning-an-error-response">Reference</a>
+   *
+   * @param message
+   * @return An object builder that sets "cause" to the message.
+   */
+  public static JsonObjectBuilder serializeCauseAsExtension(String message) {
+    return Json.createObjectBuilder().add("cause", message);
   }
 }

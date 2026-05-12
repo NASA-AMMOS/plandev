@@ -19,6 +19,7 @@ node {
   nodeProjectDir = file("${project.projectDir.toPath().resolve("scheduling-dsl-compiler")}")
   version = '20.12.1'
   download = true
+  npmInstallCommand = System.getenv("CI") ? 'ci' : 'install'
 }
 
 task deleteConstraintsTypescript(type: Delete) {
@@ -125,8 +126,8 @@ dependencies {
 
   testImplementation project(':examples:foo-missionmodel')
   testImplementation testFixtures(project(':scheduler-server'))
-  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
-  testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.0'
+  testImplementation 'org.junit.jupiter:junit-jupiter-engine:6.0.1'
+  testImplementation 'org.junit.jupiter:junit-jupiter-params:6.0.1'
 
   testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }

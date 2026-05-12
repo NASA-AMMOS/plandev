@@ -2,16 +2,16 @@
 import * as vm from "node:vm";
 import type { PoolClient } from "pg";
 import { createLogger, format, transports } from "winston";
-import { ActionsAPI } from "@nasa-jpl/aerie-actions";
+import { ActionsAPI, ActionParameterDefinitions, ActionSettingDefinitions } from "@nasa-jpl/aerie-actions";
 import { configuration } from "../config";
-import type { ActionConfig, ActionResponse } from "../type/types";
+import type { ActionConfig, ActionExports, ActionResponse } from "../type/types";
 
-const { ACTION_LOCAL_STORE, SEQUENCING_LOCAL_STORE, WORKSPACE_BASE_URL, HASURA_GRAPHQL_ADMIN_SECRET } = configuration();
+const { ACTION_LOCAL_STORE, SEQUENCING_LOCAL_STORE, WORKSPACE_BASE_URL } = configuration();
 
 function injectLogger(oldConsole: any, logBuffer: string[], secrets?: Record<string, any> | undefined) {
   // secrets may be passed as last argument, to be censored in the logs
-  secrets = secrets || {};
-  secrets['HASURA_GRAPHQL_ADMIN_SECRET'] = HASURA_GRAPHQL_ADMIN_SECRET;
+  const censoredSecrets = { ...(secrets || {}) };
+
   // inject a winston logger to be passed to the action VM, replacing its normal `console`,
   // so we can capture the console outputs and return them with the action results
   const logger = createLogger({
@@ -19,16 +19,17 @@ function injectLogger(oldConsole: any, logBuffer: string[], secrets?: Record<str
     format: format.combine(
       format.timestamp(),
       format.printf(({ level, message, timestamp }) => {
-
         const logLine = `${timestamp} [${level.toUpperCase()}] `;
         let output = message as string;
 
         // If the action has secrets filter them out of the log.
-        if (secrets !== undefined && Object.keys(secrets).length > 0) {
-          const secretValues = Object.values(secrets);
+        if (Object.keys(censoredSecrets).length > 0) {
+          const secretValues = Object.values(censoredSecrets);
 
           for (const secretValue of secretValues) {
-            output = output.replaceAll(secretValue, "*****");
+            if(secretValue.length) {
+              output = output.replaceAll(secretValue, "*****");
+            }
           }
         }
 
@@ -51,23 +52,34 @@ function injectLogger(oldConsole: any, logBuffer: string[], secrets?: Record<str
   };
 }
 
-function getGlobals() {
-  const aerieGlobal = Object.defineProperties({ ...global }, Object.getOwnPropertyDescriptors(global));
-  const permittedEnvironmentVariables: Record<string, string> = {};
+type ActionGlobalContext = Partial<typeof globalThis> & {
+  console: Console;
+  [key: string]: unknown;
+};
 
+function getGlobals() {
   // Look at the global environment variables and only pass the ones with our permitted prefix to the action.
-  Object.keys(global.process.env).forEach((env) => {
-    if (env.startsWith(ActionsAPI.ENVIRONMENT_VARIABLE_PREFIX) && global.process.env[env]) {
-      permittedEnvironmentVariables[env] = global.process.env[env];
+  const permittedEnvironmentVariables: Record<string, string> = {};
+  Object.keys(globalThis.process.env).forEach((env) => {
+    if (env.startsWith(ActionsAPI.ENVIRONMENT_VARIABLE_PREFIX) && globalThis.process.env[env]) {
+      permittedEnvironmentVariables[env] = globalThis.process.env[env];
     }
   });
 
-  aerieGlobal.exports = {};
-  aerieGlobal.require = require;
-  aerieGlobal.__dirname = __dirname;
-  aerieGlobal.process.env = permittedEnvironmentVariables;
+  // create a new context (globals) object to give the action when running
+  // including copies of most global context, except only the permitted subset of env vars
+  const aerieGlobal: ActionGlobalContext  = {
+    console,
+    exports: {},
+    require,
+    __dirname,
+    process: {
+      ...process,
+      env: { ...permittedEnvironmentVariables },
+    },
+  };
+  Object.setPrototypeOf(aerieGlobal, globalThis);
 
-  // todo: pass env variables from the parent process?
   return aerieGlobal;
 }
 
@@ -75,33 +87,72 @@ export const jsExecute = async (
   code: string,
   parameters: Record<string, any>,
   settings: Record<string, any>,
-  authToken: string | undefined,
+  actionRunId: string,
   client: PoolClient,
   workspaceId: number,
+  secrets: Record<string, string> | undefined,
 ): Promise<ActionResponse> => {
-  // create a clone of the global object (including getters/setters/non-enumerable properties)
+  // create a clone of the global object
   // to be passed to the context so it has access to eg. node built-ins
   const aerieGlobal = getGlobals();
+
+  // don't treat role as a secret so we don't censor it
+  let userRole = "";
+  if(secrets && secrets.userRole) {
+    userRole = secrets.userRole;
+    delete secrets.userRole;
+  }
+
   // inject custom logger to capture logs from action run
   const logBuffer: string[] = [];
-
-  aerieGlobal.console = injectLogger(aerieGlobal.console, logBuffer);
+  aerieGlobal.console = injectLogger(aerieGlobal.console, logBuffer, secrets);
 
   const context = vm.createContext(aerieGlobal);
+
+  let username = "";
+  if(secrets && secrets.user) {
+    try {
+      const user = JSON.parse(secrets.user) || {};
+      username = user?.username || "";
+    } catch(e) {
+      aerieGlobal.console.warn("Could not retrieve username from user token");
+    }
+  }
 
   try {
     vm.runInContext(code, context);
     // todo: main runs outside of VM - is that OK?
     const actionConfig: ActionConfig = {
       ACTION_FILE_STORE: ACTION_LOCAL_STORE,
+      ACTION_RUN_ID: actionRunId,
+      SECRETS: secrets,
       SEQUENCING_FILE_STORE: SEQUENCING_LOCAL_STORE,
-      WORKSPACE_BASE_URL: WORKSPACE_BASE_URL,
-      HASURA_GRAPHQL_ADMIN_SECRET: HASURA_GRAPHQL_ADMIN_SECRET
+      USERNAME: username,
+      USER_ROLE: userRole,
+      WORKSPACE_BASE_URL: WORKSPACE_BASE_URL
     };
+
+
+    // todo: add some handling/validation/error checking here to make sure exports are not malformed
+    const {parameterDefinitions, settingDefinitions} = context.exports as ActionExports;
+    // validate param & setting values to make sure enums are valid and required params are included
+    const paramValidateErrors = validateParameters(parameters, parameterDefinitions, "parameter");
+    const settingValidateErrors = validateParameters(settings, settingDefinitions, "setting");
+    const combinedValidationErrors = (paramValidateErrors || settingValidateErrors) ?
+      [paramValidateErrors || "", settingValidateErrors || ""].filter(Boolean).join("\n") :
+      null
+
+    if(combinedValidationErrors) { throw new Error(combinedValidationErrors); }
+
     const actionsAPI = new ActionsAPI(client, workspaceId, actionConfig);
     const results = await context.main(parameters, settings, actionsAPI);
 
-    return { results, console: logBuffer, errors: null };
+    // clone + serialize results returned from action
+    // to sanitize unserializable things in object (todo: investigate more)
+    const cleanResults = results ? JSON.parse(JSON.stringify(results)) : results;
+
+    return { results: cleanResults, console: logBuffer, errors: null };
+
   } catch (error: any) {
     // wrap `throw 10` into a `new throw(10)`
     let errorResponse: Error;
@@ -134,15 +185,57 @@ export const jsExecute = async (
   }
 };
 
+function validateParameters(
+    parameters: Record<string, any>,
+    parameterDefinitions: ActionParameterDefinitions | ActionSettingDefinitions,
+    typeStr: string
+): null | string {
+  // walk through all the parameterDefinitions & setting definitions
+  // if definition is required, make sure it's in settings/params
+  // if definition is enum-typed, make sure value (if provided) is in valid enum list
+  let errors: string[] = [];
+  if (!parameterDefinitions) {
+    return `${typeStr} definitions must be exported from your action as \`${typeStr}Definitions\``;
+  }
+
+  for (const paramDefKey in parameterDefinitions) {
+    const hasParamValue = paramDefKey in parameters && parameters[paramDefKey] !== undefined && parameters[paramDefKey] !== "";
+    const paramDefinition = parameterDefinitions[paramDefKey];
+    if (paramDefinition.required === true && !hasParamValue) {
+      errors.push(`Missing value for required ${typeStr} "${paramDefKey}"`);
+    }
+
+    if (paramDefinition.type === "variant") {
+      const allowedValues = paramDefinition.variants;
+
+      if (allowedValues !== undefined && allowedValues.length > 0) {
+        // `undefined` is also a valid value for non-required variants
+        allowedValues.push({key: undefined, label: "undefined"});
+        const paramValue = parameters[paramDefKey];
+
+        if (!allowedValues.some(({ key }) => key === paramValue)) {
+          const allowedStr = allowedValues.map(({ key }) => key).join(", ");
+
+          errors.push(`${paramValue} is not a valid value for ${typeStr} ${paramDefKey}, must be one of: ${allowedStr}`);
+        }
+      } else {
+        errors.push(`${typeStr} definition for ${paramDefKey} is a variant type, but has no allowed variants (values).`);
+      }
+    }
+  }
+
+  // future: pass context & call custom param validate funcs if they exist
+  // construct strings for combined validation errors
+  return errors.length ? errors.join("\n") : null;
+}
+
 /**
  * Todo correct return type for schemas?
  */
-export const extractSchemas = async (code: string): Promise<any> => {
-  // todo: do we need to pass globals/console for this part?
+export const extractSchemas = (code: string, providedContext?: vm.Context): any => {
+  // todo: do we need to pass console for this part?
 
-  // need to initialize exports for the cjs module to work correctly
-  const aerieGlobal = getGlobals();
-  const context = vm.createContext(aerieGlobal);
+  const context = providedContext || vm.createContext(getGlobals());
 
   try {
     vm.runInContext(code, context);
@@ -159,13 +252,13 @@ export const extractSchemas = async (code: string): Promise<any> => {
       errorResponse = error;
     }
 
-    return Promise.resolve({
+    return {
       results: null,
       errors: {
         stack: errorResponse.stack,
         message: errorResponse.message,
         cause: errorResponse.cause,
       },
-    });
+    };
   }
 };

@@ -35,6 +35,7 @@ import javax.json.stream.JsonParsingException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -287,7 +288,7 @@ public final class ResponseSerializers {
         .build();
   }
 
-  public static JsonValue serializeConstraintResults(final int requestId, final Map<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>> resultMap) {
+  public static JsonValue serializeConstraintResults(final int requestId, final SortedMap<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>> resultMap) {
     var results = resultMap.entrySet().stream().map(entry -> {
 
       final var constraint = entry.getKey();
@@ -323,7 +324,7 @@ public final class ResponseSerializers {
       }
 
       // successful runs
-      var constraintResult = (ConstraintResult) fallible.getOptional().get();
+      var constraintResult = fallible.getOptional().get();
       return Json.createObjectBuilder()
                  .add("success", JsonValue.TRUE)
                  .add("constraintId", constraint.constraintId())

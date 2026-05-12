@@ -7,10 +7,15 @@ import gov.nasa.jpl.aerie.types.ActivityInstanceId;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
-public record Violation(List<Interval> windows, ArrayList<Long> activityInstanceIds) {
+public record Violation(List<Interval> windows, ArrayList<Long> activityInstanceIds, Optional<String> message) {
   public Violation(List<Interval> windows, List<Long> activityInstanceIds) {
-    this(windows, new ArrayList<>(activityInstanceIds));
+    this(windows, new ArrayList<>(activityInstanceIds), Optional.empty());
+  }
+
+  public Violation(List<Interval> windows, List<Long> activityInstanceIds, String message) {
+    this(windows, new ArrayList<>(activityInstanceIds), Optional.ofNullable(message));
   }
 
   public static List<Violation> fromProceduralViolations(Violations violations, gov.nasa.jpl.aerie.merlin.driver.SimulationResults simResults) {
@@ -42,7 +47,10 @@ public record Violation(List<Interval> windows, ArrayList<Long> activityInstance
         }
       }
 
-      constraintViolations.add(new Violation(List.of(Interval.fromProceduralInterval(v.getInterval())), activityInstanceIds));
+      constraintViolations.add(new Violation(
+          List.of(Interval.fromProceduralInterval(v.getInterval())),
+          activityInstanceIds,
+          v.getMessage()));
     }
     return constraintViolations;
   }

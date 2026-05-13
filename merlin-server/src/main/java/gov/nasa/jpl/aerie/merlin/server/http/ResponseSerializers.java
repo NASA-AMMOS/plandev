@@ -3,7 +3,6 @@ package gov.nasa.jpl.aerie.merlin.server.http;
 import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.MerlinFormattedError;
-import gov.nasa.jpl.aerie.merlin.server.models.ConstraintId;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser;
 import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.Parameter;
@@ -12,13 +11,11 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintsCompilationError;
-import gov.nasa.jpl.aerie.merlin.server.models.ProcedureLoader;
 import gov.nasa.jpl.aerie.merlin.server.services.BulkConstraintEffectiveArgumentResponse;
 import gov.nasa.jpl.aerie.merlin.server.services.GetSimulationResultsAction;
 import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService;
 import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService.BulkEffectiveArgumentResponse;
 import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService.BulkArgumentValidationResponse;
-import gov.nasa.jpl.aerie.merlin.server.services.UnexpectedSubtypeError;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -115,82 +112,70 @@ public final class ResponseSerializers {
   }
 
   public static JsonValue serializeConstraintBulkEffectiveArgumentResponse(BulkConstraintEffectiveArgumentResponse response) {
-    if (response instanceof BulkConstraintEffectiveArgumentResponse.Success(
-        ConstraintId constraintId, Map<String, SerializedValue> effectiveArguments)) {
-      return Json.createObjectBuilder()
-                 .add("id", constraintId.id())
-                 .add("revision", constraintId.revision())
-                 .add("success", JsonValue.TRUE)
-                 .add("arguments",
-                     serializeMap(
-                         ResponseSerializers::serializeArgument,
-                         effectiveArguments))
-                 .build();
-    } else if (response instanceof BulkConstraintEffectiveArgumentResponse.TypeFailure(ConstraintId constraintId)) {
-      return Json.createObjectBuilder()
-                 .add("id", constraintId.id())
-                 .add("revision", constraintId.revision())
-                 .add("success", JsonValue.FALSE)
-                 .add("errors", "Constraint is not procedural")
-                 .build();
-    } else if (response instanceof BulkConstraintEffectiveArgumentResponse.InstantiationFailure(
-        ConstraintId constraintId,
-        InstantiationException ex)) {
-      return Json.createObjectBuilder(
-          serializeInstantiationException(ex).asJsonObject())
-          .add("success", JsonValue.FALSE)
-          .add("id", constraintId.id())
-          .add("revision", constraintId.revision())
-                 .build();
-    } else if (response instanceof BulkConstraintEffectiveArgumentResponse.NoConstraintFailure(ConstraintId constraintId)) {
-      return Json.createObjectBuilder()
-                 .add("success", JsonValue.FALSE)
-                 .add("id", constraintId.id())
-                 .add("revision", constraintId.revision())
-                 .add("errors", "There is no constraint with this id")
-                 .build();
-    } else if (response instanceof BulkConstraintEffectiveArgumentResponse.ProcedureLoadFailure(
-        ConstraintId constraintId, ProcedureLoader.ProcedureLoadException ex)) {
-      return Json.createObjectBuilder()
-                 .add("success", JsonValue.FALSE)
-                 .add("id", constraintId.id())
-                 .add("revision", constraintId.revision())
-                 .add("errors", "Error when loading the procedure jar")
-                 .build();
-    }
-    return Json.createObjectBuilder()
-               .add("success", JsonValue.FALSE)
-               .add("errors", String.format("Internal error: %s", response))
-               .build();
+    return switch (response) {
+      case BulkConstraintEffectiveArgumentResponse.Success s ->
+          Json.createObjectBuilder()
+              .add("id", s.constraintId().id())
+              .add("revision", s.constraintId().revision())
+              .add("success", JsonValue.TRUE)
+              .add("arguments",
+                   serializeMap(
+                       ResponseSerializers::serializeArgument,
+                       s.effectiveArguments()))
+              .build();
+      case BulkConstraintEffectiveArgumentResponse.TypeFailure tf ->
+          Json.createObjectBuilder()
+              .add("id", tf.constraintId().id())
+              .add("revision", tf.constraintId().revision())
+              .add("success", JsonValue.FALSE)
+              .add("errors", "Constraint is not procedural")
+              .build();
+      case BulkConstraintEffectiveArgumentResponse.InstantiationFailure inf ->
+          Json.createObjectBuilder(
+                  serializeInstantiationException(inf.ex()).asJsonObject())
+              .add("success", JsonValue.FALSE)
+              .add("id", inf.constraintId().id())
+              .add("revision", inf.constraintId().revision())
+              .build();
+      case BulkConstraintEffectiveArgumentResponse.NoConstraintFailure ncf ->
+          Json.createObjectBuilder()
+              .add("success", JsonValue.FALSE)
+              .add("id", ncf.constraintId().id())
+              .add("revision", ncf.constraintId().revision())
+              .add("errors", "There is no constraint with this id")
+              .build();
+      case BulkConstraintEffectiveArgumentResponse.ProcedureLoadFailure plf ->
+          Json.createObjectBuilder()
+              .add("success", JsonValue.FALSE)
+              .add("id", plf.constraintId().id())
+              .add("revision", plf.constraintId().revision())
+              .add("errors", "Error when loading the procedure jar")
+              .build();
+    };
   }
 
   public static JsonValue serializeBulkEffectiveArgumentResponse(BulkEffectiveArgumentResponse response) {
-    // TODO use pattern matching in switch statement with JDK 21
-    if (response instanceof BulkEffectiveArgumentResponse.Success s) {
-      return Json.createObjectBuilder()
-          .add("typeName",
-               s.activity().getTypeName())
-          .add("success", JsonValue.TRUE)
-          .add("arguments",
-               serializeMap(
-                   ResponseSerializers::serializeArgument,
-                   s.activity().getArguments()))
-          .build();
-    } else if (response instanceof BulkEffectiveArgumentResponse.TypeFailure f) {
-      return Json.createObjectBuilder()
-          .add("typeName", f.ex().activityTypeId)
-          .add("success", JsonValue.FALSE)
-          .add("errors", "No such activity type")
-          .build();
-    } else if (response instanceof BulkEffectiveArgumentResponse.InstantiationFailure f) {
-      return Json.createObjectBuilder(serializeInstantiationException(f.ex()).asJsonObject())
-          .add("typeName", f.ex().containerName)
-          .build();
-    }
-    return Json.createObjectBuilder()
-        .add("success", JsonValue.FALSE)
-        .add("errors", String.format("Internal error: %s", response))
-        .build();
+    return switch (response) {
+      case BulkEffectiveArgumentResponse.Success s ->
+          Json.createObjectBuilder()
+              .add("typeName", s.activity().getTypeName())
+              .add("success", JsonValue.TRUE)
+              .add("arguments",
+                   serializeMap(
+                       ResponseSerializers::serializeArgument,
+                       s.activity().getArguments()))
+              .build();
+      case BulkEffectiveArgumentResponse.TypeFailure tf ->
+          Json.createObjectBuilder()
+              .add("typeName", tf.ex().activityTypeId)
+              .add("success", JsonValue.FALSE)
+              .add("errors", "No such activity type")
+              .build();
+      case BulkEffectiveArgumentResponse.InstantiationFailure inf ->
+          Json.createObjectBuilder(serializeInstantiationException(inf.ex()).asJsonObject())
+              .add("typeName", inf.ex().containerName)
+              .build();
+    };
   }
 
   public static JsonValue serializeBulkArgumentValidationResponse(BulkArgumentValidationResponse response) {
@@ -227,10 +212,6 @@ public final class ResponseSerializers {
                                  .add("noSuchMissionModelError", new MerlinFormattedError(m.ex()).toJson())
                                  .build())
               .build();
-      default -> Json.createObjectBuilder()
-                     .add("success", JsonValue.FALSE)
-                     .add("errors", String.format("Internal error: %s", response))
-                     .build();
     };
   }
 
@@ -247,7 +228,6 @@ public final class ResponseSerializers {
           builder.add("reason", serializeInstantiationException(r.ex())).build();
       case MissionModelService.ActivityInstantiationFailure.NoSuchActivityType r ->
           builder.add("reason", new MerlinFormattedError(r.ex()).toJson()).build();
-      default -> throw new UnexpectedSubtypeError(MissionModelService.ActivityInstantiationFailure.class, reason);
     };
   }
 

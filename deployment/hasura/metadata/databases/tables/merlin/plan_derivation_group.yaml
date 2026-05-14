@@ -58,11 +58,11 @@ insert_permissions:
 update_permissions:
   - role: aerie_admin
     permission:
-      columns: [ acknowledged ]
+      columns: [ acknowledged, enabled ]
       filter: {}
   - role: user
     permission:
-      columns: [ acknowledged ]
+      columns: [ acknowledged, enabled ]
       filter: {
         "plan": {
           "_or": [

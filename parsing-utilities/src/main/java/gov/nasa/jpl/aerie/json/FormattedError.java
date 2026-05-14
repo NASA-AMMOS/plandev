@@ -270,13 +270,25 @@ public class FormattedError {
    * The class implements Jackson's JsonSerializer in specific because Javalin uses Jackson as its default JSON Mapper.
    */
   public static final class FormattedErrorSerializer extends JsonSerializer<FormattedError> {
+    public static boolean USE_HASURA_FORMATTING = false;
+
     @Override
     public void serialize(
         final FormattedError formattedError,
         final JsonGenerator jsonGenerator,
         final SerializerProvider serializerProvider) throws IOException
     {
-      jsonGenerator.writeRaw(formattedError.toString());
+      // Hasura only acknowledges the "message" and "extensions" keys, so rewrap the error in that format
+      if(USE_HASURA_FORMATTING) {
+        final var respString = Json.createObjectBuilder()
+                                   .add("message", formattedError.message)
+                                   .add("extensions", formattedError.toJson())
+                                   .build()
+                                   .toString();
+        jsonGenerator.writeRaw(respString);
+      } else {
+        jsonGenerator.writeRaw(formattedError.toString());
+      }
     }
   }
 }

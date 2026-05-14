@@ -69,6 +69,9 @@ public record SchedulerBindings(
    */
   @Override
   public void apply(final Javalin javalin) {
+    // Since all of these endpoints are Hasura Actions, toggle Formatted Error writing to Hasura style
+    FormattedError.FormattedErrorSerializer.USE_HASURA_FORMATTING = true;
+
     javalin.routes(() -> {
       before(ctx -> ctx.contentType("application/json"));
 

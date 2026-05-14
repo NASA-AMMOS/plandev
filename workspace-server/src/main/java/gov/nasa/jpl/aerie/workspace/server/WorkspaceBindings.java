@@ -92,6 +92,9 @@ public class WorkspaceBindings implements Plugin {
 
   @Override
   public void apply(final Javalin javalin) {
+    // Since none of these endpoints are Hasura Actions, ensure that Formatted Errors are not using the Hasura style
+    FormattedError.FormattedErrorSerializer.USE_HASURA_FORMATTING = false;
+
     javalin.routes(() -> {
       before("/ws/*", ctx -> {
         // don't force auth on health check

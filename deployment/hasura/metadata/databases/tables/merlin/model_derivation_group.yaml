@@ -1,0 +1,62 @@
+table:
+  name: model_derivation_group
+  schema: merlin
+configuration:
+  custom_name: "model_derivation_group"
+object_relationships:
+  - name: mission_model
+    using:
+      foreign_key_constraint_on: model_id
+  - name: derivation_group
+    using:
+      foreign_key_constraint_on: derivation_group_name
+array_relationships:
+  - name: external_events
+    using:
+      manual_configuration:
+        remote_table:
+          name: external_event
+          schema: merlin
+        column_mapping:
+          derivation_group_name: derivation_group_name
+select_permissions:
+  - role: aerie_admin
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: user
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: viewer
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+insert_permissions:
+  - role: aerie_admin
+    permission:
+      columns: [model_id, derivation_group_name]
+      check: {}
+  - role: user
+    permission:
+      columns: [model_id, derivation_group_name]
+      check: {}
+update_permissions:
+  - role: aerie_admin
+    permission:
+      columns: [ acknowledged ]
+      filter: {}
+  - role: user
+    permission:
+      columns: [ acknowledged ]
+      filter: {}
+delete_permissions:
+  - role: aerie_admin
+    permission:
+      filter: {}
+  - role: user
+    permission:
+      filter: {}

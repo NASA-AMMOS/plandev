@@ -15,6 +15,7 @@ drop function merlin.external_source_pdg_ack_update cascade;
 drop trigger pdg_update_ack_at on merlin.plan_derivation_group;
 drop function merlin.pdg_update_ack_at cascade;
 drop table merlin.plan_derivation_group cascade;
+drop table merlin.model_derivation_group cascade;
 
 drop trigger check_external_event_boundaries on merlin.external_event;
 drop function merlin.check_external_event_boundaries cascade;

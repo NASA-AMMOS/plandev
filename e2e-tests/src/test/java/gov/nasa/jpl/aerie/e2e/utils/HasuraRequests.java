@@ -6,6 +6,7 @@ import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.TimeoutError;
 import com.microsoft.playwright.options.RequestOptions;
 import gov.nasa.jpl.aerie.e2e.types.*;
+import gov.nasa.jpl.aerie.e2e.types.workspaces.HasuraRequestFailure;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.json.Json;
@@ -93,7 +94,7 @@ public class HasuraRequests implements AutoCloseable {
     final var bodyJson = RequestBodyHelper.getBody(response);
     if (bodyJson.containsKey("errors")) {
       System.err.println("Errors in response: \n" + bodyJson.get("errors"));
-      throw new RuntimeException(bodyJson.toString());
+      throw new HasuraRequestFailure(bodyJson.getJsonArray("errors"));
     }
     return bodyJson.getJsonObject("data");
   }

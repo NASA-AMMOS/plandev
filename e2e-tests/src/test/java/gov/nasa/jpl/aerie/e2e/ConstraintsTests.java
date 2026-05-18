@@ -6,6 +6,7 @@ import gov.nasa.jpl.aerie.e2e.types.ConstraintError;
 import gov.nasa.jpl.aerie.e2e.types.ExternalDataset.ProfileInput;
 import gov.nasa.jpl.aerie.e2e.types.ExternalDataset.ProfileInput.ProfileSegmentInput;
 import gov.nasa.jpl.aerie.e2e.types.ValueSchema;
+import gov.nasa.jpl.aerie.e2e.types.workspaces.HasuraRequestFailure;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
 import org.junit.jupiter.api.*;
@@ -94,14 +95,17 @@ public class ConstraintsTests {
 
   @Test
   void constraintsFailNoSimData() {
-    final var exception = assertThrows(RuntimeException.class, () -> hasura.checkConstraints(planId));
-    final var message = exception.getMessage().split("\"message\":\"")[1].split("\"}]")[0];
-    // Hasura strips the cause message ("Assumption falsified -- mission model for existing plan does not exist")
-    // from the error it returns
+    final var exception = assertThrows(HasuraRequestFailure.class, () -> hasura.checkConstraints(planId));
+
+    // Check the response message
     final var expectedMessage = "plan with id " + planId + " has not yet been simulated at its current revision";
-    if (!message.equals(expectedMessage)) {
-      throw exception;
-    }
+    assertEquals(expectedMessage, exception.getMessage());
+
+    // Check the attached extensions object
+    final var extensions = exception.getExtensions();
+    assertEquals("INPUT_MISMATCH_EXCEPTION", extensions.getString("type"));
+    assertEquals(expectedMessage, extensions.getString("message"));
+    assertEquals("aerie_merlin", extensions.getString("service"));
   }
 
   @Test

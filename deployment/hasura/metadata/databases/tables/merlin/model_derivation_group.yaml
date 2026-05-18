@@ -47,11 +47,11 @@ insert_permissions:
 update_permissions:
   - role: aerie_admin
     permission:
-      columns: [ acknowledged ]
+      columns: []
       filter: {}
   - role: user
     permission:
-      columns: [ acknowledged ]
+      columns: []
       filter: {}
 delete_permissions:
   - role: aerie_admin

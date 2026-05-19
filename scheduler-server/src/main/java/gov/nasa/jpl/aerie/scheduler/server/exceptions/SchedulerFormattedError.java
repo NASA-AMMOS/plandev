@@ -52,6 +52,6 @@ public class SchedulerFormattedError extends FormattedError {
   }
 
   public SchedulerFormattedError(DatabaseException ex) {
-    super(AerieService.MERLIN_SERVER, "DATABASE_EXCEPTION", ex);
+    super(AerieService.SCHEDULER_SERVER, "DATABASE_EXCEPTION", ex);
   }
 }

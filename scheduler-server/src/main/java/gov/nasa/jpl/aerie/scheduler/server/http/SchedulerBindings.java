@@ -127,7 +127,7 @@ public record SchedulerBindings(
       // Catch-all for unexpected issues
       final var message = ex.getMessage() != null ? ex.getMessage() : "Unknown error.";
       final var fe = new FormattedError(AerieService.SCHEDULER_SERVER, "UNKNOWN_ERROR", message, ex);
-      logger.error("Unexpected error processing workspace request {}", fe);
+      logger.error("Unexpected error processing request: {}", fe);
       ctx.status(500).json(fe);
     });
   }

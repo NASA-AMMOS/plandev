@@ -15,6 +15,7 @@ select distinct on (event_key, derivation_group_name)
     output.start_time,
     output.source_range,
     output.valid_at,
+	  output.created_at as source_created_at,
     output.attributes
 from (
   -- select the events from the sources and include them as they fit into the ranges determined by sub
@@ -27,6 +28,7 @@ from (
     ee.start_time,
     s.source_range,
     s.valid_at,
+	  s.created_at,
     ee.attributes
   from merlin.external_event ee
   join (
@@ -37,7 +39,8 @@ from (
         external_source.key,
         external_source.derivation_group_name,
         tstzmultirange(tstzrange(external_source.start_time, external_source.end_time)) as range,
-        external_source.valid_at
+        external_source.valid_at,
+        external_source.created_at
       from merlin.external_source
       order by external_source.valid_at
     ), base_and_sub_ranges as (
@@ -48,12 +51,13 @@ from (
         base.derivation_group_name,
         base.range as original_range,
         array_remove(array_agg(subsequent.range order by subsequent.valid_at), NULL) as subsequent_ranges,
-        base.valid_at
+        base.valid_at,
+		base.created_at
       from base_ranges base
       left join base_ranges subsequent
         on base.derivation_group_name = subsequent.derivation_group_name
         and base.valid_at < subsequent.valid_at
-      group by base.key, base.derivation_group_name, base.valid_at, base.range
+      group by base.key, base.derivation_group_name, base.valid_at, base.range, base.created_at
     )
     -- this final selection (s) utilizes the first, as well as merlin.subtract_later_ranges,
     -- to produce a sparse multirange that a given source is valid over.
@@ -62,7 +66,8 @@ from (
       r.key,
       r.derivation_group_name,
       merlin.subtract_later_ranges(r.original_range, r.subsequent_ranges) as source_range,
-      r.valid_at
+      r.valid_at,
+	  r.created_at
     from base_and_sub_ranges r
     order by r.derivation_group_name desc, r.valid_at) s
   on s.key = ee.source_key

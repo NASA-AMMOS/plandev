@@ -29,7 +29,7 @@ begin;
 
   -- Scheduling Goals and Scheduling Goal Specification
   \ir init_scheduler_mid_merlin.sql
-  
+
   -- Activity Directives
   \ir tables/merlin/activity_directive/activity_directive_metadata_schema.sql
   \ir tables/merlin/activity_directive/activity_directive.sql
@@ -85,6 +85,7 @@ begin;
   \ir tables/merlin/external_events/external_source.sql
   \ir tables/merlin/external_events/external_event.sql
   \ir tables/merlin/external_events/plan_derivation_group.sql
+  \ir tables/merlin/external_events/model_derivation_group.sql
 
   ------------
   -- Functions

@@ -39,6 +39,13 @@ array_relationships:
         table:
           name: plan
           schema: merlin
+  - name: derivation_group_specification
+    using:
+      foreign_key_constraint_on:
+        column: model_id
+        table:
+          name: model_derivation_group
+          schema: merlin
   - name: resource_types
     using:
       foreign_key_constraint_on:

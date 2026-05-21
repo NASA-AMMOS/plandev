@@ -8,15 +8,27 @@ declare
   merge_request_id integer;
   model_id_receiving integer;
   model_id_supplying integer;
+  start_time_receiving timestamptz;
+  duration_receiving interval;
+  start_time_supplying timestamptz;
+  duration_supplying interval;
 begin
   if plan_id_receiving = plan_id_supplying then
     raise exception 'Cannot create a merge request between a plan and itself.';
   end if;
-  select id from merlin.plan where plan.id = plan_id_receiving into validate_planIds;
+
+  select id, model_id, start_time, duration
+  from merlin.plan
+  where plan.id = plan_id_receiving
+  into validate_planIds, model_id_receiving, start_time_receiving, duration_receiving;
   if validate_planIds is null then
     raise exception 'Plan receiving changes (Plan %) does not exist.', plan_id_receiving;
   end if;
-  select id from merlin.plan where plan.id = plan_id_supplying into validate_planIds;
+
+  select id, model_id, start_time, duration
+  from merlin.plan
+  where plan.id = plan_id_supplying
+  into validate_planIds, model_id_supplying, start_time_supplying, duration_supplying;
   if validate_planIds is null then
     raise exception 'Plan supplying changes (Plan %) does not exist.', plan_id_supplying;
   end if;
@@ -28,10 +40,13 @@ begin
     raise exception 'Cannot create merge request between unrelated plans.';
   end if;
 
-  select model_id from merlin.plan where plan.id = plan_id_receiving into model_id_receiving;
-  select model_id from merlin.plan where plan.id = plan_id_supplying into model_id_supplying;
   if model_id_receiving is distinct from model_id_supplying then
     raise exception 'Cannot create merge request: plan supplying changes is using a different model (%) than the receiving plan (%)', model_id_supplying, model_id_receiving;
+  end if;
+
+  if (start_time_receiving is distinct from start_time_supplying) or
+     (duration_receiving is distinct from duration_supplying) then
+    raise exception 'Cannot create merge request between plans with different bounds';
   end if;
 
   insert into merlin.merge_request(plan_id_receiving_changes, snapshot_id_supplying_changes, merge_base_snapshot_id, requester_username)

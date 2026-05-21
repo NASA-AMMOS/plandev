@@ -154,6 +154,58 @@ for each row
 when (pg_trigger_depth() < 1)
 execute function util_functions.increment_revision_update();
 
+create function merlin.cascade_plan_bounds_update()
+  returns trigger
+  language plpgsql as $$
+begin
+  -- prevent adjustment if the plan is locked
+  if old.is_locked then
+    raise exception 'Cannot adjust bounds of locked plan.';
+  end if;
+
+  -- Take a backup snapshot
+  perform merlin.create_snapshot(
+      old.id,
+      'Plan Bound Adjustment',
+      'Automatic snapshot made before adjusting plan bounds from ' ||
+      '['|| old.start_time ||' - '|| old.start_time + old.duration || '] to ' ||
+      '[' || new.start_time || ' - ' || new.start_time + new.duration || ']',
+      null);
+
+  -- Update activities that are anchored to the plan bounds
+  update merlin.activity_directive ad
+  set start_offset = start_offset + (new.start_time - old.start_time)
+  where anchor_id is null
+    and anchored_to_start -- anchored to plan start
+    and ad.plan_id = old.id;
+
+  update merlin.activity_directive ad
+  set start_offset = start_offset + (new.duration - old.duration)
+  where anchor_id is null
+    and not anchored_to_start -- anchored to plan end
+    and ad.plan_id = old.id;
+
+  -- Update associated dataset offsets (simulation and plan)
+  update merlin.simulation_dataset
+  set offset_from_plan_start = offset_from_plan_start + (new.start_time - old.start_time)
+  from merlin.simulation sim_spec
+  where simulation_id = sim_spec.id
+    and sim_spec.plan_id = old.id;
+
+  update merlin.plan_dataset
+  set offset_from_plan_start = offset_from_plan_start + (new.start_time - old.start_time)
+  where plan_id = old.id;
+
+  return new;
+end;
+$$;
+
+create trigger cascade_plan_bounds_on_update
+  before update on merlin.plan
+  for each row
+  when (old.start_time is distinct from new.start_time or old.duration is distinct from new.duration)
+execute function merlin.cascade_plan_bounds_update();
+
 -- Delete Triggers
 
 create function merlin.cleanup_on_delete()

@@ -87,6 +87,11 @@ begin;
   \ir tables/merlin/external_events/plan_derivation_group.sql
   \ir tables/merlin/external_events/model_derivation_group.sql
 
+  -- Scheduling Visibility
+  \ir tables/merlin/directive_source_is_activity.sql
+  \ir tables/merlin/directive_source_is_external_event.sql
+  \ir tables/merlin/directive_source_is_resource_type.sql
+
   ------------
   -- Functions
   \ir functions/merlin/reanchoring_functions.sql

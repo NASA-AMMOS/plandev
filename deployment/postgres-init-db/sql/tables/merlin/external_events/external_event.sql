@@ -3,15 +3,16 @@ create table merlin.external_event (
     event_type_name text not null,
     source_key text not null,
     derivation_group_name text not null,
+    source_created_at timestamp with time zone not null,
     start_time timestamp with time zone not null,
     duration interval not null,
     attributes jsonb not null default '{}',
 
     constraint external_event_pkey
-      primary key (key, source_key, derivation_group_name, event_type_name),
+      primary key (key, source_key, derivation_group_name, event_type_name, source_created_at),
     constraint external_event_references_source_key_derivation_group
-      foreign key (source_key, derivation_group_name)
-      references merlin.external_source (key, derivation_group_name)
+      foreign key (source_key, derivation_group_name, source_created_at)
+      references merlin.external_source (key, derivation_group_name, created_at)
       on update cascade
       on delete cascade,
     constraint external_event_references_event_type_name

@@ -10,6 +10,7 @@ public record ActivityDirective(
     SerializedActivity serializedActivity,
     ActivityDirectiveId anchorId, // anchorId can be null
     boolean anchoredToStart
+//    List<ActivitySource> sourceList -> TODO
 ) {
   public ActivityDirective(
       final Duration startOffset,

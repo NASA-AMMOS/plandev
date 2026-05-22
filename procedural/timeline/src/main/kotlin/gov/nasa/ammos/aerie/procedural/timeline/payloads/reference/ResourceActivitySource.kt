@@ -10,4 +10,5 @@ data class ResourceActivitySource (
 //  }
   // TODO: find some way to verify that the resource name is real...?
   //        may need to take the simulation and plan as parameters...
+  // TODO: cache that these exist based on calls to simulate().resource()??
 }

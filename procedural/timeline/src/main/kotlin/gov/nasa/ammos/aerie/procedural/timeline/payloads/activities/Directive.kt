@@ -22,8 +22,14 @@ data class Directive<A: Any>(
   val start: DirectiveStart,
 
   /** The activity's source(s), if scheduled. */
-  var activitySources: List<ActivitySource<*>>
+  var activitySources: List<ActivitySource<*>>? = listOf()
 ): Activity<Directive<A>> {
+
+  // because Java doesn't natively support default arguments
+  constructor(inner: A, name: String, id: ActivityDirectiveId, type: String, start: DirectiveStart):
+      this(inner, name, id, type, start, listOf())
+
+
   override val startTime: Duration
     get() = when (start) {
       is DirectiveStart.Absolute -> start.time

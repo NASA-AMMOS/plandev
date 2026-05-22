@@ -2,6 +2,7 @@ package gov.nasa.ammos.aerie.procedural.timeline.payloads.activities
 
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.ammos.aerie.procedural.timeline.Interval
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.reference.ActivitySource
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId
 
 /** A wrapper of any type of activity directive containing common data. */
@@ -19,6 +20,9 @@ data class Directive<A: Any>(
 
   /** The start behavior for this directive. */
   val start: DirectiveStart,
+
+  /** The activity's source(s), if scheduled. */
+  var activitySources: List<ActivitySource<*>>
 ): Activity<Directive<A>> {
   override val startTime: Duration
     get() = when (start) {
@@ -30,7 +34,7 @@ data class Directive<A: Any>(
     get() = Interval.at(startTime)
 
   override fun withNewInterval(i: Interval): Directive<A> {
-    if (i.isPoint()) return Directive(inner, name, id, type, start.atNewTime(i.start))
+    if (i.isPoint()) return Directive(inner, name, id, type, start.atNewTime(i.start), listOf())
     else throw Exception("Cannot change directive time to a non-instantaneous interval.")
   }
 
@@ -40,6 +44,7 @@ data class Directive<A: Any>(
     name,
     id,
     type,
-    start
+    start,
+    listOf()
   )
 }

@@ -21,8 +21,13 @@ data class NewDirective(
     val start: DirectiveStart,
 
     /** The activity's source(s), if scheduled. */
-    var activitySources: List<ActivitySource<*>>
+    var activitySources: List<ActivitySource<*>>? = listOf()
 ) {
+
+  // because Java doesn't natively support default arguments
+  constructor(inner: AnyDirective, name: String, type: String, start: DirectiveStart):
+      this(inner, name, type, start, listOf())
+
   /**
    * Resolves this activity into a proper [Directive] object.
    *
@@ -48,7 +53,6 @@ data class NewDirective(
               parent.startTime + start.offset
           )
         }
-      },
-      listOf()
+      }
   )
 }

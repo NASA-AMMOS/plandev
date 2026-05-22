@@ -5,6 +5,7 @@ import gov.nasa.ammos.aerie.procedural.scheduling.simulation.SimulateOptions
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.reference.ActivitySource
 import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan
 import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId
@@ -32,6 +33,20 @@ interface EditablePlan: Plan {
       "Unnamed Activity",
       type,
       start
+  ))
+
+  /** A simplified version of [create] with source list. */
+  fun create(
+    type: String,
+    start: DirectiveStart,
+    arguments: Map<String, SerializedValue>,
+    sources: List<ActivitySource<*>>
+  ) = create(NewDirective(
+    AnyDirective(arguments),
+    "Unnamed Activity",
+    type,
+    start,
+    sources
   ))
 
   /** Delete an activity specified by directive id, and throw an error if any activities are anchored to it. */

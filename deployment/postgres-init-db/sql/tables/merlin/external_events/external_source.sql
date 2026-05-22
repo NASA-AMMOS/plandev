@@ -11,7 +11,7 @@ create table merlin.external_source (
     attributes jsonb not null default '{}',
 
     constraint external_source_pkey
-      primary key (key, derivation_group_name),
+      primary key (key, derivation_group_name, created_at),
     -- a given dg cannot have two sources with the same valid_at!
     CONSTRAINT dg_unique_valid_at UNIQUE (derivation_group_name, valid_at),
     constraint external_source_references_external_source_type_name

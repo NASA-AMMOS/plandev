@@ -1,5 +1,6 @@
 package gov.nasa.ammos.aerie.procedural.scheduling.plan
 
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.reference.ActivitySource
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart
@@ -17,7 +18,10 @@ data class NewDirective(
     val type: String,
 
     /** The activity's start behavior. */
-    val start: DirectiveStart
+    val start: DirectiveStart,
+
+    /** The activity's source(s), if scheduled. */
+    var activitySources: List<ActivitySource<*>>
 ) {
   /**
    * Resolves this activity into a proper [Directive] object.
@@ -44,6 +48,7 @@ data class NewDirective(
               parent.startTime + start.offset
           )
         }
-      }
+      },
+      listOf()
   )
 }

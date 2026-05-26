@@ -40,7 +40,8 @@ public class SchedulePlanGrounder {
                 a.type().getName(),
                 a.arguments(),
                 (a.anchorId() == null) ? null : new ActivityDirectiveId(a.anchorId().id()),
-                a.anchoredToStart()
+                a.anchoredToStart(),
+                List.of()
             )))
         .filter($ -> $.getKey() != null)
         .collect(Collectors.toMap(Pair::getLeft, Pair::getRight));

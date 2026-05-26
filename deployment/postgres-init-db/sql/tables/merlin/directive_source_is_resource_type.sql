@@ -1,7 +1,3 @@
--- Table: merlin.directive_source_is_resource_type
-
--- DROP TABLE IF EXISTS merlin.directive_source_is_resource_type;
-
 create table merlin.directive_source_is_resource_type
 (
     scheduled_directive_id integer NOT NULL,

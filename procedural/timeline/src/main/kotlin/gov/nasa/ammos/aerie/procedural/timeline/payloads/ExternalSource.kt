@@ -15,6 +15,8 @@ data class ExternalSource(
   /** The derivation group that this source is a member of. */
   @JvmField
   val derivationGroup: String,
+  @JvmField
+  val createdAt: String,
   /** The attributes of the event. */
   @JvmField
   val attributes: Map<String, SerializedValue>,

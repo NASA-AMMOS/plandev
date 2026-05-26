@@ -244,7 +244,8 @@ public class PlanInMemory implements Plan {
                   $.topParent(),
                   $.anchorId() != null ? map.getOrDefault($.anchorId(), $.anchorId()) : null,
                   $.anchoredToStart(),
-                  $.name()
+                  $.name(),
+                  $.activitySources()
               );
             } else return $;
           })

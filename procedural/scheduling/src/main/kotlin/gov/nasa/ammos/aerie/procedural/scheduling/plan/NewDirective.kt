@@ -53,6 +53,7 @@ data class NewDirective(
               parent.startTime + start.offset
           )
         }
-      }
+      },
+      activitySources
   )
 }

@@ -21,6 +21,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -80,7 +81,8 @@ public class PlanJsonParser {
               type,
               arguments,
               anchorId,
-              anchoredToStart
+              anchoredToStart,
+              List.of()
           ));
     });
 

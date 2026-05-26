@@ -159,6 +159,9 @@
 - "!include scheduler/scheduling_run/scheduling_goal_analysis_created_activities.yaml"
 - "!include scheduler/scheduling_run/scheduling_goal_analysis_satisfying_activities.yaml"
 
+# Scheduling Sources
+- "!include merlin/directive_source_is_resource_type.yaml"
+
 ####################
 #### SEQUENCING ####
 ####################

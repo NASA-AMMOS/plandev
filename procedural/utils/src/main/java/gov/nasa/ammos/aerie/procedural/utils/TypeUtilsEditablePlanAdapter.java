@@ -135,7 +135,9 @@ public class TypeUtilsEditablePlanAdapter implements gov.nasa.ammos.aerie.proced
               case DirectiveStart.Anchor a -> a.getAnchorPoint() == DirectiveStart.Anchor.AnchorPoint.Start;
               case DirectiveStart.Absolute a -> true;
               default -> throw new Error("unreachable");
-            }
+            },
+            List.of()
+//            activity.getActivitySources() // TODO
     );
   }
 

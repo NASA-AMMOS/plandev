@@ -335,7 +335,8 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           type,
           effectiveArguments,
           (anchorId != null) ? new ActivityDirectiveId(anchorId) : null,
-          anchoredToStart);
+          anchoredToStart,
+          List.of());
       final var actPK = new ActivityDirectiveId(jsonActivity.getJsonNumber("id").longValue());
       merlinPlan.addActivity(actPK, merlinActivity);
     }
@@ -610,6 +611,12 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           }
         }
         """;
+
+    // TODO: add query to add links too
+    final var linkQuery = """
+        """;
+
+    // TODO: figure out how to remove existing links, or how to set them to stale, and maybe associate them with their respective scheduling run
 
     //assemble the entire mutation request body
     //TODO: (optimization) could use a lazy evaluating stream of strings to avoid large set of strings in memory
@@ -1349,6 +1356,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           new ExternalSource(
               e.getString("source_key"),
               e.getString("derivation_group_name"),
+              e.getString("created_at"),
               sourceAttributes
           ),
           eventAttributes,

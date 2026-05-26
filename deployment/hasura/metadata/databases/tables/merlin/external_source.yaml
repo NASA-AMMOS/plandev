@@ -10,6 +10,7 @@ array_relationships:
         columns:
           - source_key
           - derivation_group_name
+          - source_created_at
         table:
           name: external_event
           schema: merlin

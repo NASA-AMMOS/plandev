@@ -8,6 +8,7 @@ import org.intellij.lang.annotations.Language;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +21,8 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
       select
         key,
         attributes,
-        derivation_group_name
+        derivation_group_name,
+        created_at
       from merlin.plan_derivation_group as pdg
       join merlin.external_source as s using (derivation_group_name)
       where pdg.plan_id = ?;
@@ -47,11 +49,14 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
           .getSuccessOrThrow(reason -> new InvalidEntityException(List.of(reason)));
       // get derivation group
       final String derivationGroup = resultSet.getString("derivation_group_name");
+      // get created at
+      final String createdAt = resultSet.getTimestamp("created_at").toString();
 
       // create source
       ExternalSource s = new ExternalSource(
           key,
           derivationGroup,
+          createdAt,
           attributes
       );
 

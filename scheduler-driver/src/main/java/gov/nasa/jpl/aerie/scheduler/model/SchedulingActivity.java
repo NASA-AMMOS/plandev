@@ -9,6 +9,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.types.ActivityDirective;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.jpl.aerie.types.ActivitySource;
 
 import java.util.Comparator;
 import java.util.HashMap;
@@ -40,7 +41,8 @@ public record SchedulingActivity(
     ActivityDirectiveId topParent,
     ActivityDirectiveId anchorId,
     boolean anchoredToStart,
-    String name
+    String name,
+    List<ActivitySource<?>> activitySources
 ) {
 
   public static SchedulingActivity of(
@@ -60,7 +62,8 @@ public record SchedulingActivity(
         null,
         anchorId,
         anchoredToStart,
-        null
+        null,
+        List.of()
     );
   }
 
@@ -83,7 +86,33 @@ public record SchedulingActivity(
         topParent,
         anchorId,
         anchoredToStart,
-        null
+        null,
+        List.of()
+    );
+  }
+
+  public static SchedulingActivity of(
+      ActivityDirectiveId id,
+      ActivityType type,
+      Duration startOffset,
+      Duration duration,
+      Map<String, SerializedValue> parameters,
+      ActivityDirectiveId topParent,
+      ActivityDirectiveId anchorId,
+      boolean anchoredToStart,
+      List<ActivitySource<?>> activitySources
+  ) {
+    return new SchedulingActivity(
+        id,
+        type,
+        startOffset,
+        duration,
+        parameters,
+        topParent,
+        anchorId,
+        anchoredToStart,
+        null,
+        activitySources
     );
   }
 
@@ -97,7 +126,8 @@ public record SchedulingActivity(
         this.topParent,
         this.anchorId,
         this.anchoredToStart,
-        this.name
+        this.name,
+        this.activitySources
     );
   }
 
@@ -111,7 +141,8 @@ public record SchedulingActivity(
         this.topParent,
         anchorId,
         anchoredToStart,
-        this.name
+        this.name,
+        this.activitySources
     );
   }
 
@@ -125,7 +156,8 @@ public record SchedulingActivity(
         this.topParent,
         this.anchorId,
         this.anchoredToStart,
-        this.name
+        this.name,
+        this.activitySources
     );
   }
 
@@ -139,7 +171,8 @@ public record SchedulingActivity(
         topParent,
         this.anchorId,
         this.anchoredToStart,
-        this.name
+        this.name,
+        this.activitySources
     );
   }
 
@@ -153,7 +186,8 @@ public record SchedulingActivity(
         null,
         activity.anchorId(),
         activity.anchoredToStart(),
-        null
+        null,
+        activity.sourceList()
     );
   }
 

@@ -1262,7 +1262,8 @@ public class PrioritySolver implements Solver {
               null,
               null,
               true,
-              null
+              null,
+              List.of() // TODO: integrate this correctly
           );
           Duration computedDuration = null;
           try {

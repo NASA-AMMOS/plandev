@@ -62,13 +62,14 @@ data class SchedulerPlanEditAdapter(
             is gov.nasa.ammos.aerie.procedural.timeline.payloads.reference.DirectiveActivitySource ->
               DirectiveActivitySource(
                 ActivityDirective(
-                  it.v.startTime,
-                  it.v.name,
-                  it.v.inner.arguments,
-                  it.v.id,
+                  it.v.first.startTime,
+                  it.v.first.name,
+                  it.v.first.inner.arguments,
+                  it.v.first.id,
                   true, // TODO
-                  it.v.activitySources?.let { it1 -> convertActivitySources(it1) },
-                )
+                  it.v.first.activitySources?.let { it1 -> convertActivitySources(it1) },
+                ),
+                it.v.second
               )
 
             is gov.nasa.ammos.aerie.procedural.timeline.payloads.reference.ExternalEventActivitySource ->

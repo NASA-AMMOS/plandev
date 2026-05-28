@@ -11,15 +11,15 @@ create table merlin.directive_source_is_activity
       foreign key (referenced_directive_id, scheduled_plan_id)
       references merlin.activity_directive (id, plan_id)
       on update cascade
-      on delete set null,
+      on delete cascade,
     constraint scheduled_directive_exists
       foreign key (scheduled_directive_id, scheduled_plan_id)
       references merlin.activity_directive (id, plan_id)
       on update cascade
-      on delete set null,
+      on delete cascade,
     constraint plan_exists
       foreign key (scheduled_plan_id)
       references merlin.plan (id)
       on update cascade
-      on delete set null
+      on delete cascade
 );

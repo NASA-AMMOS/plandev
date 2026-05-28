@@ -110,7 +110,8 @@ class MockMerlinDatabaseService implements MerlinDatabaseService.OwnerRole {
       final PlanMetadata planMetadata,
       final Plan plan,
       final Map<SchedulingActivity, GoalId> activityToGoal,
-      final SchedulerModel schedulerModel
+      final SchedulerModel schedulerModel,
+      final long modelId
   )
   {
     return null;
@@ -128,7 +129,8 @@ class MockMerlinDatabaseService implements MerlinDatabaseService.OwnerRole {
       final MerlinPlan initialPlan,
       final Plan plan,
       final Map<SchedulingActivity, GoalId> activityToGoal,
-      final SchedulerModel schedulerModel
+      final SchedulerModel schedulerModel,
+      long modelId
   )
   {
     this.updatedPlan = extractActivityDirectives(plan, schedulerModel);

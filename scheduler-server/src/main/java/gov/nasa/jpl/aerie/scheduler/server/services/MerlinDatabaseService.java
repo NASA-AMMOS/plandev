@@ -135,7 +135,8 @@ public interface MerlinDatabaseService {
         final PlanMetadata planMetadata,
         final Plan plan,
         final Map<SchedulingActivity, GoalId> activityToGoalId,
-        final SchedulerModel schedulerModel
+        final SchedulerModel schedulerModel,
+        final long modelId
     )
     throws IOException, NoSuchPlanException, MerlinServiceException;
 
@@ -169,7 +170,8 @@ public interface MerlinDatabaseService {
         MerlinPlan initialPlan,
         Plan plan,
         Map<SchedulingActivity, GoalId> activityToGoalId,
-        SchedulerModel schedulerModel
+        SchedulerModel schedulerModel,
+        long modelId
     )
     throws IOException, NoSuchPlanException, MerlinServiceException, NoSuchActivityInstanceException;
 

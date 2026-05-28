@@ -365,7 +365,8 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
       final PlanMetadata planMetadata,
       final Plan plan,
       final Map<SchedulingActivity, GoalId> activityToGoalId,
-      final SchedulerModel schedulerModel
+      final SchedulerModel schedulerModel,
+      final long modelId
   )
   throws IOException, NoSuchPlanException, MerlinServiceException
   {
@@ -418,10 +419,13 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
       final MerlinPlan initialPlan,
       final Plan plan,
       final Map<SchedulingActivity, GoalId> activityToGoalId,
-      final SchedulerModel schedulerModel
+      final SchedulerModel schedulerModel,
+      final long modelId
       )
   throws IOException, NoSuchPlanException, MerlinServiceException
   {
+
+
     final var ids = new HashMap<ActivityDirectiveId, ActivityDirectiveId>();
     //creation are done in batch as that's what the scheduler does the most
     final var toAdd = new ArrayList<SchedulingActivity>();
@@ -460,6 +464,17 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
     //Create
     ids.putAll(createActivityDirectives(planId, toAdd, activityToGoalId, schedulerModel));
 
+    // TODO: add directive links
+    //    need to organize by source type, and then maybe batch/sort by the actual link source too if necessary?
+    addLinks(planId, modelId, toAdd, ids);
+
+
+
+
+    // TODO: figure out link invalidation
+
+    // TODO: figure out how to remove existing links, or how to set them to stale, and maybe associate them with their respective scheduling run
+
     // Create does not upload the anchor ids, because directive IDs can change during upload
     // and it would cause a foreign key violation. So we map the anchor ids using the creation results
     // and add an anchor-modification entry to the `toModify` list after the fact.
@@ -475,6 +490,55 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
     modifyActivityDirectives(planId, toModify);
     deleteActivityDirectives(planId, toDelete);
     return ids;
+  }
+
+  private void addLinks(PlanId planId, long modelId, ArrayList<SchedulingActivity> toAdd, Map<ActivityDirectiveId, ActivityDirectiveId> inAerieToInDB)
+  throws MerlinServiceException, IOException, NoSuchPlanException
+  {
+    final var query = """
+        mutation createAllPlanActivityDirectiveResourceSourceLinks($links: [directive_source_is_resource_type_insert_input!]!) {
+          insert_directive_source_is_resource_type(objects: $links) {
+            affected_rows
+          }
+        }
+        """;
+
+    final var insertionObjects = Json.createArrayBuilder();
+    for (final var act : toAdd) {
+      long activityId = inAerieToInDB.get(act.id()).id();
+
+      for (final var source : act.activitySources()) {
+        final var insertionObject = Json
+            .createObjectBuilder()
+            .add("scheduled_plan_id", planId.id())
+            .add("scheduled_directive_id", activityId)
+            .add("referenced_resource_model_id", modelId)
+            .add("referenced_resource_name", source.getValue().toString()); // TODO: disambiguate/translate for different classes of ActivitySource
+
+//      final var goalId = activityToGoalId.get(act);
+//      if (goalId != null) {
+//        insertionObject.add("source_scheduling_goal_id", goalId.id());
+//        goalId.goalInvocationId().ifPresent($ -> insertionObject.add("source_scheduling_goal_invocation_id", $));
+//      }
+
+      insertionObjects.add(insertionObject.build());
+      }
+    }
+
+    final var arguments = Json
+        .createObjectBuilder()
+        .add("links", insertionObjects.build())
+        .build();
+
+    final var response = postRequest(query, arguments).orElseThrow(() -> new NoSuchPlanException(planId));
+
+    try {
+      final var numCreated = response
+          .getJsonObject("data").getJsonObject("insert_directive_source_is_resource_type").getJsonNumber("affected_rows").longValueExact();
+      System.out.println(numCreated); // TODO: some check??
+    } catch (ClassCastException | ArithmeticException e) {
+      throw new NoSuchPlanException(planId);
+    }
   }
 
   /**
@@ -611,12 +675,6 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           }
         }
         """;
-
-    // TODO: add query to add links too
-    final var linkQuery = """
-        """;
-
-    // TODO: figure out how to remove existing links, or how to set them to stale, and maybe associate them with their respective scheduling run
 
     //assemble the entire mutation request body
     //TODO: (optimization) could use a lazy evaluating stream of strings to avoid large set of strings in memory

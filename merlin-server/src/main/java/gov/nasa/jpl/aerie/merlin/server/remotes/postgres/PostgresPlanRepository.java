@@ -322,9 +322,14 @@ public final class PostgresPlanRepository implements PlanRepository {
       final Connection connection,
       final PlanId planId
   ) throws SQLException, NoSuchPlanException {
+    // TODO: also grab activity sources
     try (
-        final var getActivitiesAction = new GetActivityDirectivesAction(connection)
+        final var getActivitiesAction = new GetActivityDirectivesAction(connection);
+        final var getActivitySourcesAction = new GetActivityDirectiveSourcesAction(connection);
     ) {
+      var sources = getActivitySourcesAction
+          .get(planId.id());
+
       return getActivitiesAction
           .get(planId.id())
           .stream()
@@ -336,7 +341,8 @@ public final class PostgresPlanRepository implements PlanRepository {
                   a.arguments(),
                   a.anchorId()!=null? new ActivityDirectiveId(a.anchorId()): null,
                   a.anchoredToStart(),
-                  List.of())));
+                  sources.get(a.id())
+              )));
     }
   }
 

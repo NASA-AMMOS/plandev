@@ -14,8 +14,11 @@ import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan;
 import gov.nasa.jpl.aerie.constraints.model.EvaluationEnvironment;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.jpl.aerie.types.DirectiveActivitySource;
 import gov.nasa.jpl.aerie.types.ResourceActivitySource;
 import gov.nasa.jpl.aerie.types.Timestamp;
+import kotlin.Pair;
 import kotlin.jvm.functions.Function1;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -93,13 +96,36 @@ public final class ReadonlyPlan implements Plan {
                                        new DirectiveStart.Absolute(dir.startOffset())
                                      : new DirectiveStart.Anchor(dir.anchorId(), dir.startOffset(), anchorPoint);
 
-                                 // TODO: get source list too
                                  final var sourceList = dir.sourceList().stream()
-                                                           .filter(a -> a instanceof ResourceActivitySource)
                                                            .map(a -> {
-                                                             return new gov.nasa.ammos.aerie.procedural.timeline.payloads.reference.ResourceActivitySource(
-                                                                 ((ResourceActivitySource) a).getValue()
-                                                             );
+                                                             if (a instanceof ResourceActivitySource) {
+                                                               return new gov.nasa.ammos.aerie.procedural.timeline.payloads.reference.ResourceActivitySource(
+                                                                   ((ResourceActivitySource) a).getValue()
+                                                               );
+                                                             }
+                                                             else {
+                                                               var pair = ((DirectiveActivitySource) a).getValue();
+                                                               var oldDirective = pair.getKey();
+                                                               var directive = new Directive<AnyDirective>(
+                                                                   (AnyDirective) deserializer.invoke(SerializedValue.of(oldDirective.serializedActivity().getArguments())),
+                                                                   "name unavailable",
+                                                                   new ActivityDirectiveId(pair.getRight()),
+                                                                   oldDirective.serializedActivity().getTypeName(),
+                                                                   oldDirective.anchorId() == null
+                                                                       ? new DirectiveStart.Absolute(oldDirective.startOffset())
+                                                                       : new DirectiveStart.Anchor(
+                                                                           oldDirective.anchorId(),
+                                                                           oldDirective.startOffset(),
+                                                                           oldDirective.anchoredToStart()
+                                                                               ? DirectiveStart.Anchor.AnchorPoint.Start
+                                                                               : DirectiveStart.Anchor.AnchorPoint.End
+                                                                       )
+//                                                                   oldDirective.sourceList()
+                                                               );
+                                                               return new gov.nasa.ammos.aerie.procedural.timeline.payloads.reference.DirectiveActivitySource(
+                                                                    new Pair<>(directive, pair.getValue())
+                                                               );
+                                                             }
                                                            })
                                                            .toList();
 

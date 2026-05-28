@@ -1,14 +1,16 @@
 package gov.nasa.jpl.aerie.types;
 
-public final class DirectiveActivitySource implements ActivitySource<ActivityDirective> {
-  ActivityDirective value;
+import org.apache.commons.lang3.tuple.Pair;
 
-  public DirectiveActivitySource(ActivityDirective resourceName) {
-    value = resourceName;
+public final class DirectiveActivitySource implements ActivitySource<Pair<ActivityDirective, Long>> {
+  Pair<ActivityDirective, Long> value;
+
+  public DirectiveActivitySource(ActivityDirective directive, Long directiveId) {
+    value = Pair.of(directive, directiveId);
   }
 
   @Override
-  public ActivityDirective getValue() {
+  public Pair<ActivityDirective, Long> getValue() {
     return value;
   }
 }

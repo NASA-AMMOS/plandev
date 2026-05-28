@@ -72,6 +72,10 @@ public class ReadonlyProceduralSimResults implements SimulationResults {
               "computedAttributes", act.computedAttributes());
           final var startTime = plan.toRelative(act.start());
           final var interval = new Interval(startTime, startTime.plus(act.duration()));
+
+          // TODO: get source list too??
+//          entry.getValue().
+
           return new Instance<A>(
               deserializer.invoke(SerializedValue.of(serializedActivity)),
               act.type(),

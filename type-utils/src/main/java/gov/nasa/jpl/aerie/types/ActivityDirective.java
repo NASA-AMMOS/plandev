@@ -32,6 +32,21 @@ public record ActivityDirective(
 
   public ActivityDirective(
       final Duration startOffset,
+      final SerializedActivity serializedActivity,
+      final ActivityDirectiveId anchorId,
+      final boolean anchoredToStart)
+  {
+    this(
+        startOffset,
+        serializedActivity,
+        anchorId,
+        anchoredToStart,
+        List.of()
+    );
+  }
+
+  public ActivityDirective(
+      final Duration startOffset,
       final String type,
       final Map<String, SerializedValue> arguments,
       final ActivityDirectiveId anchorId,

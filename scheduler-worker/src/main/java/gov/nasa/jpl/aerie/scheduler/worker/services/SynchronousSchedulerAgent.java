@@ -262,7 +262,8 @@ public record SynchronousSchedulerAgent(
           loadedPlanComponents.merlinPlan(),
           solutionPlan,
           newActivityToGoalId,
-          schedulerMissionModel.schedulerModel()
+          schedulerMissionModel.schedulerModel(),
+          planMetadata.modelId()
       );
 
       final var planMetadataAfterChanges = merlinDatabaseService.getPlanMetadata(specification.planId());
@@ -590,13 +591,14 @@ public record SynchronousSchedulerAgent(
     final MerlinPlan initialPlan,
     final Plan newPlan,
     final Map<SchedulingActivity, GoalId> goalToActivity,
-    final SchedulerModel schedulerModel
+    final SchedulerModel schedulerModel,
+    final long modelId
   ) {
     try {
       switch (this.outputMode) {
         case CreateNewOutputPlan -> {
           return merlinDatabaseService
-              .createNewPlanWithActivityDirectives(planMetadata, newPlan, goalToActivity, schedulerModel).getValue();
+              .createNewPlanWithActivityDirectives(planMetadata, newPlan, goalToActivity, schedulerModel, modelId).getValue();
         }
         case UpdateInputPlanWithNewActivities -> {
           return merlinDatabaseService.updatePlanActivityDirectives(
@@ -604,7 +606,8 @@ public record SynchronousSchedulerAgent(
               initialPlan,
               newPlan,
               goalToActivity,
-              schedulerModel
+              schedulerModel,
+              modelId
           );
         }
         default -> throw new IllegalArgumentException("unsupported scheduler output mode " + this.outputMode);

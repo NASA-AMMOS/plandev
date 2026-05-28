@@ -14,6 +14,7 @@ import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan;
 import gov.nasa.jpl.aerie.constraints.model.EvaluationEnvironment;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.jpl.aerie.types.ResourceActivitySource;
 import gov.nasa.jpl.aerie.types.Timestamp;
 import kotlin.jvm.functions.Function1;
 import org.jetbrains.annotations.NotNull;
@@ -92,12 +93,23 @@ public final class ReadonlyPlan implements Plan {
                                        new DirectiveStart.Absolute(dir.startOffset())
                                      : new DirectiveStart.Anchor(dir.anchorId(), dir.startOffset(), anchorPoint);
 
+                                 // TODO: get source list too
+                                 final var sourceList = dir.sourceList().stream()
+                                                           .filter(a -> a instanceof ResourceActivitySource)
+                                                           .map(a -> {
+                                                             return new gov.nasa.ammos.aerie.procedural.timeline.payloads.reference.ResourceActivitySource(
+                                                                 ((ResourceActivitySource) a).getValue()
+                                                             );
+                                                           })
+                                                           .toList();
+
                                  return new Directive<A>(
                                      deserializer.invoke(SerializedValue.of(dir.serializedActivity().getArguments())),
                                      dir.serializedActivity().getTypeName() + " " + dirId.id(),
                                      dirId,
                                      dir.serializedActivity().getTypeName(),
-                                     dirStart
+                                     dirStart,
+                                     sourceList
                                  );
                                })
                                .toList();

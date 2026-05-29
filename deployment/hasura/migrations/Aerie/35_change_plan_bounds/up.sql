@@ -1,3 +1,7 @@
+-- Drop snapshot name uniqueness constraint
+alter table merlin.plan_snapshot
+  drop constraint snapshot_name_unique_per_plan;
+
 -- Update Plan Snapshot to include plan bounds
 alter table merlin.plan_snapshot
 add column plan_start_time timestamptz,

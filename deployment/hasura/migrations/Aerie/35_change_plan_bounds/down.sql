@@ -539,4 +539,45 @@ alter table merlin.plan_snapshot
   drop column plan_start_time,
   drop column plan_duration;
 
+-- Data Migration: Prepare to restore snapshot name uniqueness constraint
+-- First, add 'at TIMESTAMP' to any duplicate names
+update merlin.plan_snapshot ps
+set snapshot_name = snapshot_name || ' at ' || taken_at
+from (
+  select
+    snapshot_id,
+    row_number() over (partition by (snapshot_name, plan_id)) - 1 as row
+  from merlin.plan_snapshot
+) as ir
+where ps.snapshot_id = ir.snapshot_id
+and ir.row > 0;
+
+-- Then, deduplicate any duplicate names
+do $$
+  begin
+    -- While there are duplicate names in the snapshots table...
+    while exists(
+      select from merlin.plan_snapshot
+      group by snapshot_name, plan_id
+      having count(snapshot_name) > 1
+    ) loop
+        -- ...deduplicate them
+        update merlin.plan_snapshot ps
+        set snapshot_name = snapshot_name || '(' || ir.row || ')'
+        from (
+               select snapshot_id,
+                      row_number() over (partition by snapshot_name, plan_id) - 1 as row
+               from merlin.plan_snapshot
+             ) as ir
+        where ps.snapshot_id = ir.snapshot_id
+          and ir.row > 0;
+      end loop;
+  end
+$$;
+
+-- Restore uniqueness constraint
+alter table merlin.plan_snapshot
+add constraint snapshot_name_unique_per_plan
+  unique (plan_id, snapshot_name);
+
 call migrations.mark_migration_rolled_back(35);

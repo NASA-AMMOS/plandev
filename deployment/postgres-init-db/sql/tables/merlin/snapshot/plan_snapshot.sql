@@ -18,9 +18,7 @@ create table merlin.plan_snapshot(
   snapshot_name text,
   description text,
   taken_by text,
-  taken_at timestamptz not null default now(),
-  constraint snapshot_name_unique_per_plan
-		unique (plan_id, snapshot_name)
+  taken_at timestamptz not null default now()
 );
 
 comment on table merlin.plan_snapshot is e''

@@ -54,6 +54,10 @@ create table merlin.activity_directive (
 
 create index activity_directive_plan_id_index on merlin.activity_directive (plan_id);
 
+create index activity_directive_anchor_id_index
+  on merlin.activity_directive (anchor_id, plan_id)
+  where anchor_id is not null;
+
 
 comment on table merlin.activity_directive is e''
   'A single activity_directive within a plan.';

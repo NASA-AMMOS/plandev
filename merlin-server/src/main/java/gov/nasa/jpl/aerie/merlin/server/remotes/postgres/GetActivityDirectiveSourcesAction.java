@@ -2,9 +2,14 @@ package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 
 import gov.nasa.jpl.aerie.types.ActivitySource;
 import gov.nasa.jpl.aerie.types.DirectiveActivitySource;
+import gov.nasa.jpl.aerie.types.ExternalEvent;
+import gov.nasa.jpl.aerie.types.ExternalEventActivitySource;
 import gov.nasa.jpl.aerie.types.ResourceActivitySource;
 import org.intellij.lang.annotations.Language;
 
+import javax.json.Json;
+import javax.json.JsonArray;
+import java.io.StringReader;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -13,22 +18,16 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.activityArgumentsP;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.getJsonColumn;
-
 /*package-local*/ final class GetActivityDirectiveSourcesAction implements AutoCloseable {
 
-  // TODO: need to aggregate across tables
+  // TODO: use view instead
   private static final @Language("SQL") String sql = """
-      select\s
-      	a.scheduled_directive_id,
-      	array_agg(concat('a: ', text(a.referenced_directive_id)))\s
-      		|| array_agg(concat('r: ', r.referenced_resource_name)) as sources
-      from merlin.directive_source_is_activity as a
-      join merlin.directive_source_is_resource_type as r
-      on a.scheduled_directive_id = r.scheduled_directive_id
-      where a.scheduled_plan_id = ? and r.referenced_resource_model_id = ?
-      group by a.scheduled_directive_id;
+      select
+        scheduled_directive_id,
+        scheduled_plan_id,
+        sources
+      from merlin.scheduling_sources
+      where scheduled_plan_id = ?;
     """;
 
   private final PreparedStatement statement;
@@ -37,22 +36,22 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
     this.statement = connection.prepareStatement(sql);
   }
 
-  public Map<Long, List<ActivitySource<?>>> get(final long planId, final long modelId) throws SQLException {
+  public Map<Long, List<ActivitySource<?>>> get(final long planId) throws SQLException {
     this.statement.setLong(1, planId);
-    this.statement.setLong(2, modelId);
 
     Map<Long, List<ActivitySource<?>>> sourceMap = new HashMap<>();
     try (final var results = this.statement.executeQuery()) {
       while (results.next()) {
         var id = results.getLong("scheduled_directive_id");
-        var currentSources = results.getArray("sources");
-        var sourceList = new ArrayList<ActivitySource<?>>(); // TODO: generalize
-        for (var source : (Object[]) currentSources.getArray()) {
-          var sourceString = source.toString();
 
-          // could be {"a: 14","r: orbitNumber"}, where first one is an activity directive, second is resource type
-          if (sourceString.contains("a: ")) { // DirectiveActivitySource
-            var directiveSourceId = Long.parseLong(sourceString.replace("a: ", ""));
+        // I do not like the java.sql library.
+        JsonArray sources = Json.createReader(new StringReader(results.getObject("sources").toString())).readArray();
+        var sourceList = new ArrayList<ActivitySource<?>>(); // TODO: generalize
+        for (var source : sources) {
+          String type = source.asJsonObject().getString("type");
+
+          if (type.contains("activity")) {
+            long directiveSourceId = source.asJsonObject().getInt("value");
             sourceList.add(
                 new DirectiveActivitySource(
                   null,
@@ -60,13 +59,29 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
                 )
             );
           }
-          else { // ResourceActivitySource
-            var resourceName = sourceString.replace("r: ", "");
+          else if (type.contains("resource")) {
+            String resourceName = source.asJsonObject().getString("value");
             sourceList.add(new ResourceActivitySource(resourceName));
           }
+          else {
+            var eventDetails = source.asJsonObject().getJsonObject("value");
+            String key = eventDetails.getString("referenced_event_key");
+            String event_type = eventDetails.getString("referenced_event_type");
+            String source_key = eventDetails.getString("referenced_event_source_key");
+            String source_created_at = eventDetails.getString("referenced_event_source_created_at");
+            String derivation_group = eventDetails.getString("referenced_event_derivation_group");
+            sourceList.add(new ExternalEventActivitySource(
+              new ExternalEvent(
+                  key,
+                  event_type,
+                  source_key,
+                  source_created_at,
+                  derivation_group
+              )
+            ));
+          }
+          sourceMap.put(id, sourceList);
         }
-
-        sourceMap.put(id, sourceList);
       }
     }
 

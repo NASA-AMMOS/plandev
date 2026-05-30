@@ -1,17 +1,18 @@
 create view merlin.scheduling_sources as (
   select
   	scheduled_directive_id,
+  	scheduled_plan_id,
   	jsonb_agg(sources) as sources
   from (
-  	select a.scheduled_directive_id, jsonb_build_object('type', 'activity', 'value', a.referenced_directive_id) AS sources
+  	select a.scheduled_directive_id, a.scheduled_plan_id, jsonb_build_object('type', 'activity', 'value', a.referenced_directive_id) AS sources
   	from merlin.directive_source_is_activity as a
   	union all
 
-  	select r.scheduled_directive_id, jsonb_build_object('type', 'resource', 'value', r.referenced_resource_name)
+  	select r.scheduled_directive_id, r.scheduled_plan_id, jsonb_build_object('type', 'resource', 'value', r.referenced_resource_name)
   	from merlin.directive_source_is_resource_type as r
   	union all
 
-  	select e.scheduled_directive_id,
+  	select e.scheduled_directive_id, e.scheduled_plan_id,
   			to_jsonb(
   				jsonb_build_object(
   					'type', 'external event',
@@ -26,5 +27,5 @@ create view merlin.scheduling_sources as (
   			)
   	from merlin.directive_source_is_external_event as e
   )
-  group by scheduled_directive_id
+  group by scheduled_directive_id, scheduled_plan_id
 );

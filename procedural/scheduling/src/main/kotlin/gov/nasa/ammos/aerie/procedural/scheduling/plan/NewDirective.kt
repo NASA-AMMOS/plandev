@@ -21,7 +21,7 @@ data class NewDirective(
     val start: DirectiveStart,
 
     /** The activity's source(s), if scheduled. */
-    var activitySources: List<ActivitySource<*>>? = listOf()
+    var activitySources: List<ActivitySource<*>> = listOf()
 ) {
 
   // because Java doesn't natively support default arguments

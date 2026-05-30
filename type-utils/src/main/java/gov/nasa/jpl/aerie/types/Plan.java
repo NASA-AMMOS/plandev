@@ -70,6 +70,8 @@ public final class Plan {
       final Timestamp simulationStartTimestamp,
       final Timestamp simulationEndTimestamp
   ) {
+    // TODO: may want to handle activity source resolution in constructor??
+
     this.name = name;
     this.missionModelId = missionModelId;
     this.startTimestamp = startTimestamp;

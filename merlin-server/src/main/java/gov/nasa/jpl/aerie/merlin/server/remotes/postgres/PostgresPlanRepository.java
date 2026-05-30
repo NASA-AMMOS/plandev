@@ -54,7 +54,7 @@ public final class PostgresPlanRepository implements PlanRepository {
         for (final var record : planRecords) {
           try {
             final var planId = new PlanId(record.id());
-            final var activities = getPlanActivities(connection, planId, new MissionModelId(record.missionModelId()));
+            final var activities = getPlanActivities(connection, planId);//, new MissionModelId(record.missionModelId()));
 
             plans.put(planId, new Plan(
                 record.name(),
@@ -89,7 +89,7 @@ public final class PostgresPlanRepository implements PlanRepository {
         templateRecord = Optional.empty();
       }
 
-      final var activities = getPlanActivities(connection, planId, new MissionModelId(planRecord.missionModelId()));
+      final var activities = getPlanActivities(connection, planId);//, new MissionModelId(planRecord.missionModelId()));
       final var arguments = getSimulationArguments(simulationRecord, templateRecord);
       final var simStartTime = simulationRecord.simulationStartTime();
       final var simEndTime = simulationRecord.simulationEndTime();
@@ -113,7 +113,7 @@ public final class PostgresPlanRepository implements PlanRepository {
   public Plan getPlanForValidation(final PlanId planId) throws NoSuchPlanException {
     try (final var connection = this.dataSource.getConnection()) {
       final var planRecord = getPlanRecord(connection, planId);
-      final var activities = getPlanActivities(connection, planId, new MissionModelId(planRecord.missionModelId()));
+      final var activities = getPlanActivities(connection, planId);//, new MissionModelId(planRecord.missionModelId()));
 
       return new Plan(
           planRecord.name(),
@@ -398,18 +398,18 @@ public final class PostgresPlanRepository implements PlanRepository {
 
   private Map<ActivityDirectiveId, ActivityDirective> getPlanActivities(
       final Connection connection,
-      final PlanId planId,
-      final MissionModelId modelId
+      final PlanId planId
   ) throws SQLException, NoSuchPlanException {
     try (
         final var getActivitiesAction = new GetActivityDirectivesAction(connection);
         final var getActivitySourcesAction = new GetActivityDirectiveSourcesAction(connection);
     ) {
+      // TODO: handle external events
 
       // transform the directive sources to reference actual directive objects
       // TODO: move this into a separate action or file, ideally one where events also visible without needing to be additionally fetched
       var sources = getActivitySourcesAction
-          .get(planId.id(), modelId.id());
+          .get(planId.id());
 
       var directiveRecords = getActivitiesAction
           .get(planId.id());

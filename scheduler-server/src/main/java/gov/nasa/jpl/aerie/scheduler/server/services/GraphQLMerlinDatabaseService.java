@@ -570,7 +570,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
     try {
       final var numCreated = response
           .getJsonObject("data").getJsonObject("insert_directive_source_is_activity").getJsonNumber("affected_rows").longValueExact();
-      final var numCreated2 = response
+      final var numCreated2 = response2
           .getJsonObject("data").getJsonObject("insert_directive_source_is_resource_type").getJsonNumber("affected_rows").longValueExact();
       System.out.println(numCreated + numCreated2); // TODO: some check??
     } catch (ClassCastException | ArithmeticException e) {

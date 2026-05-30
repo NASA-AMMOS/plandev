@@ -15,6 +15,7 @@ import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
 import gov.nasa.jpl.aerie.merlin.server.remotes.PlanRepository;
 import gov.nasa.jpl.aerie.types.ActivityDirective;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.jpl.aerie.types.DirectiveActivitySource;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import gov.nasa.jpl.aerie.types.Plan;
 import gov.nasa.jpl.aerie.types.Timestamp;
@@ -53,7 +54,7 @@ public final class PostgresPlanRepository implements PlanRepository {
         for (final var record : planRecords) {
           try {
             final var planId = new PlanId(record.id());
-            final var activities = getPlanActivities(connection, planId);
+            final var activities = getPlanActivities(connection, planId, new MissionModelId(record.missionModelId()));
 
             plans.put(planId, new Plan(
                 record.name(),
@@ -88,7 +89,7 @@ public final class PostgresPlanRepository implements PlanRepository {
         templateRecord = Optional.empty();
       }
 
-      final var activities = getPlanActivities(connection, planId);
+      final var activities = getPlanActivities(connection, planId, new MissionModelId(planRecord.missionModelId()));
       final var arguments = getSimulationArguments(simulationRecord, templateRecord);
       final var simStartTime = simulationRecord.simulationStartTime();
       final var simEndTime = simulationRecord.simulationEndTime();
@@ -112,7 +113,7 @@ public final class PostgresPlanRepository implements PlanRepository {
   public Plan getPlanForValidation(final PlanId planId) throws NoSuchPlanException {
     try (final var connection = this.dataSource.getConnection()) {
       final var planRecord = getPlanRecord(connection, planId);
-      final var activities = getPlanActivities(connection, planId);
+      final var activities = getPlanActivities(connection, planId, new MissionModelId(planRecord.missionModelId()));
 
       return new Plan(
           planRecord.name(),
@@ -318,20 +319,102 @@ public final class PostgresPlanRepository implements PlanRepository {
     }
   }
 
+  private void resolveActivitySources(
+    Map<ActivityDirectiveId, ActivityDirective> activityDirectiveMap
+  ) {
+    // update each directive entry in map that has a directive source to point to something else in the map
+    for (var activityDirectiveId : activityDirectiveMap.keySet()) {
+      // step 1: get directive
+      var activityDirective = activityDirectiveMap.get(activityDirectiveId);
+
+      // step 2: go through list of sources
+      for (int i = 0; i < activityDirective.sourceList().size(); i++) {
+        var source = activityDirective.sourceList().get(i);
+
+        // step 3: for each source, check if activity directive source
+        if (source instanceof DirectiveActivitySource) {
+          //  if so, update reference to instance in this map as opposed to null
+          //  -> should not have circular references, and since we mutate map directly,
+          //     won't need additional passes
+          var referencedDirectiveId = ((DirectiveActivitySource) source).getValue().getValue();
+          var referencedDirective = activityDirectiveMap.get(new ActivityDirectiveId(referencedDirectiveId));
+
+          activityDirective.sourceList().set(
+              i,
+              new DirectiveActivitySource(referencedDirective, referencedDirectiveId)
+          );
+        }
+      }
+    }
+
+
+
+//    for (var key : sources.keySet()) {
+//      List<ActivitySource<?>> currentSources = sources.get(key);
+//      List<ActivitySource<?>> resolvedSources = new ArrayList<>();
+//
+//      for (var source : currentSources) {
+//        if (source instanceof ResourceActivitySource) {
+//          resolvedSources.add(
+//            new ResourceActivitySource(
+//              ((ResourceActivitySource) source).getValue()
+//            )
+//          );
+//        }
+//        else if (source instanceof DirectiveActivitySource) {
+//          var sourceDirectiveId = ((DirectiveActivitySource) source).getValue().getValue();
+//          var sourceDirectiveFiltered = activityDirectiveRecords
+//                                          .stream()
+//                                          .filter(a -> a.id() == sourceDirectiveId)
+//                                          .toList();
+//          var sourceDirectiveRecord = !sourceDirectiveFiltered.isEmpty() ? sourceDirectiveFiltered.getFirst() : null;
+//          var sourceDirective = new ActivityDirective(
+//              Duration.of(sourceDirectiveRecord.startOffsetInMicros(), Duration.MICROSECONDS),
+//              sourceDirectiveRecord.type(),
+//              sourceDirectiveRecord.arguments(),
+//              sourceDirectiveRecord.anchorId()!=null? new ActivityDirectiveId(a.anchorId()): null,
+//              sourceDirectiveRecord.anchoredToStart(),
+//              sources.containsKey(sourceDirectiveRecord.id()) ? sources.get(sourceDirectiveRecord.id()) : List.of()
+//          );
+//          // TODO: warn user that it is null? or don't add the source??
+//
+//          resolvedSources.add(
+//              new DirectiveActivitySource(
+//                  sourceDirective,
+//                  sourceDirectiveId
+//              )
+//          );
+//
+//        }
+//        else {
+//          // TODO: ExternalEventActivitySource
+//          throw new NotImplementedException("ExternalEventActivitySources not implemented yet.");
+//        }
+//      }
+//
+//      // directly mutates sources
+//      sources.put(key, resolvedSources);
+  }
+
   private Map<ActivityDirectiveId, ActivityDirective> getPlanActivities(
       final Connection connection,
-      final PlanId planId
+      final PlanId planId,
+      final MissionModelId modelId
   ) throws SQLException, NoSuchPlanException {
-    // TODO: also grab activity sources
     try (
         final var getActivitiesAction = new GetActivityDirectivesAction(connection);
         final var getActivitySourcesAction = new GetActivityDirectiveSourcesAction(connection);
     ) {
+
+      // transform the directive sources to reference actual directive objects
+      // TODO: move this into a separate action or file, ideally one where events also visible without needing to be additionally fetched
       var sources = getActivitySourcesAction
+          .get(planId.id(), modelId.id());
+
+      var directiveRecords = getActivitiesAction
           .get(planId.id());
 
-      return getActivitiesAction
-          .get(planId.id())
+      var directives = directiveRecords
           .stream()
           .collect(Collectors.toMap(
               a -> new ActivityDirectiveId(a.id()),
@@ -341,8 +424,13 @@ public final class PostgresPlanRepository implements PlanRepository {
                   a.arguments(),
                   a.anchorId()!=null? new ActivityDirectiveId(a.anchorId()): null,
                   a.anchoredToStart(),
-                  sources.get(a.id())
+                  sources.containsKey(a.id()) ? sources.get(a.id()) : List.of()
               )));
+
+      // mutates sources
+      resolveActivitySources(directives);
+
+      return directives;
     }
   }
 

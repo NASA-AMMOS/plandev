@@ -545,6 +545,8 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           activityInsertionObjects.add(insertionObject.build());
         }
 
+        // TODO: ExternalEventDirectiveSource
+
 //      final var goalId = activityToGoalId.get(act);
 //      if (goalId != null) {
 //        insertionObject.add("source_scheduling_goal_id", goalId.id());
@@ -1280,6 +1282,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
             source_range
             start_time
             valid_at
+            source_created_at
             external_source {
               attributes
             }
@@ -1451,7 +1454,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           new ExternalSource(
               e.getString("source_key"),
               e.getString("derivation_group_name"),
-              e.getString("created_at"),
+              e.getString("source_created_at"),
               sourceAttributes
           ),
           eventAttributes,

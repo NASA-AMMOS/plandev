@@ -1,0 +1,59 @@
+table:
+  name: directive_source_is_external_event
+  schema: merlin
+configuration:
+  custom_name: "directive_source_is_external_event"
+
+  # TODO: RELATIONSHIPS
+#object_relationships:
+#  - name: plan
+#    using:
+#      foreign_key_constraint_on:
+#        - scheduled_plan_id
+#  - name: scheduled_directive
+#    using:
+#      manual_configuration:
+#        column_mapping:
+#          scheduled_directive_id: id
+#          scheduled_plan_id: plan_id
+#        remote_table:
+#          name: activity_directive
+#          schema: merlin
+#  - name: resource_type
+#    using:
+#      manual_configuration:
+#        column_mapping:
+#          referenced_resource_model_id: model_id
+#          referenced_resource_name: name
+#        remote_table:
+#          name: resource_type
+#          schema: merlin
+select_permissions:
+  - role: aerie_admin
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: user
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: viewer
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+insert_permissions:
+  - role: aerie_admin
+    permission:
+      columns: '*'
+      check: {}
+  - role: user
+    permission:
+      columns: '*'
+      check: {}
+delete_permissions:
+  - role: aerie_admin
+    permission:
+      filter: {}

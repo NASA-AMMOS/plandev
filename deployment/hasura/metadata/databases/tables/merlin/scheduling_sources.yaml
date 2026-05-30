@@ -3,6 +3,7 @@ table:
   schema: merlin
 configuration:
   custom_name: "scheduling_sources"
+  # TODO: RELATIONSHIPS
 #object_relationships:
 #  - name: external_source
 #    using:

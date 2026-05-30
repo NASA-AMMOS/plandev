@@ -1,15 +1,29 @@
-create view merlin.scheduling_sources as
-(
+create view merlin.scheduling_sources as (
   select
-    a.scheduled_directive_id,
-    array_agg(concat('a: ', text(a.referenced_directive_id)))
-      || array_agg(concat('r: ', r.referenced_resource_name)) as sources
-  from
-    merlin.directive_source_is_activity as a
-  join
-    merlin.directive_source_is_resource_type as r
-  on a.scheduled_directive_id = r.scheduled_directive_id
-  group by a.scheduled_directive_id, a.scheduled_plan_id, r.referenced_resource_model_id
+    scheduled_directive_id,
+    jsonb_agg(sources) as sources
+  from (
+    select a.scheduled_directive_id, to_jsonb(a.referenced_directive_id) AS sources
+    from merlin.directive_source_is_activity as a
+    union all
+
+    select r.scheduled_directive_id, to_jsonb(r.referenced_resource_name)
+    from merlin.directive_source_is_resource_type as r
+    union all
+
+    select e.scheduled_directive_id,
+        to_jsonb(
+          jsonb_build_object(
+            'referenced_event_key', e.referenced_event_key,
+            'referenced_event_type', e.referenced_event_type,
+            'referenced_event_derivation_group', e.referenced_event_derivation_group,
+            'referenced_event_source_key', e.referenced_event_source_key,
+            'referenced_event_source_created_at', e.referenced_event_source_created_at
+          )
+        )
+    from merlin.directive_source_is_external_event as e
+  )
+  group by scheduled_directive_id
 );
 
 

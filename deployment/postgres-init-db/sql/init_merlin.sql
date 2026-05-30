@@ -116,4 +116,5 @@ begin;
   \ir views/merlin/simulated_activity.sql
   \ir views/merlin/resource_profile.sql
   \ir views/merlin/derived_events.sql
+  \ir views/merlin/scheduling_sources.sql
 end;

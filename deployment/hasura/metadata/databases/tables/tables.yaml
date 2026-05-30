@@ -162,6 +162,7 @@
 # Scheduling Sources
 - "!include merlin/directive_source_is_resource_type.yaml"
 - "!include merlin/directive_source_is_activity.yaml"
+- "!include merlin/scheduling_sources.yaml"
 
 ####################
 #### SEQUENCING ####

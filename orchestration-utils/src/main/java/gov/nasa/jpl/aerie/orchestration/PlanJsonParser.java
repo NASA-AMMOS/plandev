@@ -73,6 +73,7 @@ public class PlanJsonParser {
       final var anchoredToStart = a.getBoolean("anchored_to_start");
       final var anchorId = a.isNull("anchor_id") ? null : new ActivityDirectiveId(a.getInt("anchor_id"));
       final var arguments = activityArgumentsP.parse(a.getJsonObject("arguments")).getSuccessOrThrow();
+//      final var sources = a.get
 
       activitiesMap.put(
           id,

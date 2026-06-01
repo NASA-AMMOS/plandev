@@ -119,7 +119,7 @@ jobs:
           path: ${{ env.RESULTS_DIR }}
 
   sonar:
-    name: SonarQube Scan
+    name: Build Java & Run SonarQube Scan
     needs: analyze
     runs-on: ubuntu-latest
     # PRs for forks can't use secrets, can't upload to Sonar
@@ -150,10 +150,21 @@ jobs:
           test -n "$sarif_paths"
           echo "SARIF_REPORT_PATHS=$sarif_paths" >> "$GITHUB_ENV"
 
-      - name: SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
+          cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
+
+      - name: Build and run SonarCloud scan
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.sarifReportPaths=${{ env.SARIF_REPORT_PATHS }}
+        run: >
+          ./gradlew build sonar
+          -Dsonar.sarifReportPaths="${{ env.SARIF_REPORT_PATHS }}"

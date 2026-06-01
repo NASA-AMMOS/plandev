@@ -1,5 +1,6 @@
 plugins {
   id 'com.github.ben-manes.versions' version '0.47.0'
+  id 'org.sonarqube' version '7.3.0.8198'
 }
 
 task archiveDeployment(type: Tar) {
@@ -19,6 +20,13 @@ configure(subprojects) {
         return "${findProperty("version.number")}-SNAPSHOT-$hash"
       }
     }())
+}
+
+sonar {
+  properties {
+    property "sonar.projectKey", "NASA-AMMOS_aerie"
+    property "sonar.organization", "nasa-ammos"
+  }
 }
 
 subprojects {

@@ -166,5 +166,5 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: >
-          ./gradlew build sonar
+          ./gradlew build sonar --info -Dsonar.verbose=true
           -Dsonar.sarifReportPaths="${{ env.SARIF_REPORT_PATHS }}"

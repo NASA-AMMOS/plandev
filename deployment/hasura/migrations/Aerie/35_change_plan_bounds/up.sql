@@ -28,9 +28,9 @@ alter column plan_duration set not null;
 create or replace function merlin.create_snapshot(_plan_id integer, _snapshot_name text, _description text, _user text)
   returns integer -- snapshot id inserted into the table
   language plpgsql as $$
-declare
-  validate_plan_id integer;
-  inserted_snapshot_id integer;
+  declare
+    validate_plan_id integer;
+    inserted_snapshot_id integer;
 begin
   select id from merlin.plan where plan.id = _plan_id into validate_plan_id;
   if validate_plan_id is null then
@@ -39,168 +39,168 @@ begin
 
   insert into merlin.plan_snapshot(plan_id, model_id, revision, plan_start_time, plan_duration,
                                    snapshot_name, description, taken_by)
-  select id, model_id, revision, start_time, duration,
-         _snapshot_name, _description, _user
-  from merlin.plan where id = _plan_id
-  returning snapshot_id into inserted_snapshot_id;
+    select id, model_id, revision, start_time, duration,
+           _snapshot_name, _description, _user
+    from merlin.plan where id = _plan_id
+    returning snapshot_id into inserted_snapshot_id;
 
   insert into merlin.plan_snapshot_activities(
-    snapshot_id, id, name, source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, created_by,
-    last_modified_at, last_modified_by, start_offset, type,
-    arguments, last_modified_arguments_at, metadata, anchor_id, anchored_to_start)
-  select
-    inserted_snapshot_id,                              -- this is the snapshot id
-    id, name, source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, created_by, -- these are the rest of the data for an activity row
-    last_modified_at, last_modified_by, start_offset, type,
-    arguments, last_modified_arguments_at, metadata, anchor_id, anchored_to_start
-  from merlin.activity_directive where activity_directive.plan_id = _plan_id;
+      snapshot_id, id, name, source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, created_by,
+      last_modified_at, last_modified_by, start_offset, type,
+      arguments, last_modified_arguments_at, metadata, anchor_id, anchored_to_start)
+    select
+      inserted_snapshot_id,                              -- this is the snapshot id
+      id, name, source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, created_by, -- these are the rest of the data for an activity row
+      last_modified_at, last_modified_by, start_offset, type,
+      arguments, last_modified_arguments_at, metadata, anchor_id, anchored_to_start
+    from merlin.activity_directive where activity_directive.plan_id = _plan_id;
 
   insert into merlin.preset_to_snapshot_directive(preset_id, activity_id, snapshot_id)
-  select ptd.preset_id, ptd.activity_id, inserted_snapshot_id
-  from merlin.preset_to_directive ptd
-  where ptd.plan_id = _plan_id;
+    select ptd.preset_id, ptd.activity_id, inserted_snapshot_id
+    from merlin.preset_to_directive ptd
+    where ptd.plan_id = _plan_id;
 
   insert into tags.snapshot_activity_tags(snapshot_id, directive_id, tag_id)
-  select inserted_snapshot_id, directive_id, tag_id
-  from tags.activity_directive_tags adt
-  where adt.plan_id = _plan_id;
+    select inserted_snapshot_id, directive_id, tag_id
+    from tags.activity_directive_tags adt
+    where adt.plan_id = _plan_id;
 
   --all snapshots in plan_latest_snapshot for plan plan_id become the parent of the current snapshot
   insert into merlin.plan_snapshot_parent(snapshot_id, parent_snapshot_id)
-  select inserted_snapshot_id, snapshot_id
-  from merlin.plan_latest_snapshot where plan_latest_snapshot.plan_id = _plan_id;
+    select inserted_snapshot_id, snapshot_id
+    from merlin.plan_latest_snapshot where plan_latest_snapshot.plan_id = _plan_id;
 
   --remove all of those entries from plan_latest_snapshot and add this new snapshot.
   delete from merlin.plan_latest_snapshot where plan_latest_snapshot.plan_id = _plan_id;
   insert into merlin.plan_latest_snapshot(plan_id, snapshot_id) values (_plan_id, inserted_snapshot_id);
 
   return inserted_snapshot_id;
-end;
+  end;
 $$;
 
 create or replace procedure merlin.restore_from_snapshot(_plan_id integer, _snapshot_id integer)
-  language plpgsql as $$
-declare
-  _snapshot_name text;
-  _plan_name text;
-  _model_id integer;
-  _plan_start_time timestamptz;
-  _plan_duration interval;
-begin
-  -- Input Validation
-  select name from merlin.plan where id = _plan_id into _plan_name;
-  if _plan_name is null then
-    raise exception 'Cannot Restore: Plan with ID % does not exist.', _plan_id;
-  end if;
-  if not exists(select snapshot_id from merlin.plan_snapshot where snapshot_id = _snapshot_id) then
-    raise exception 'Cannot Restore: Snapshot with ID % does not exist.', _snapshot_id;
-  end if;
-  if not exists(select snapshot_id from merlin.plan_snapshot where _snapshot_id = snapshot_id and _plan_id = plan_id ) then
-    select snapshot_name from merlin.plan_snapshot where snapshot_id = _snapshot_id into _snapshot_name;
-    if _snapshot_name is not null then
-      raise exception 'Cannot Restore: Snapshot ''%'' (ID %) is not a snapshot of Plan ''%'' (ID %)',
-        _snapshot_name, _snapshot_id, _plan_name, _plan_id;
-    else
-      raise exception 'Cannot Restore: Snapshot % is not a snapshot of Plan ''%'' (ID %)',
-        _snapshot_id, _plan_name, _plan_id;
+	language plpgsql as $$
+	declare
+		_snapshot_name text;
+		_plan_name text;
+		_model_id integer;
+    _plan_start_time timestamptz;
+    _plan_duration interval;
+	begin
+		-- Input Validation
+		select name from merlin.plan where id = _plan_id into _plan_name;
+		if _plan_name is null then
+			raise exception 'Cannot Restore: Plan with ID % does not exist.', _plan_id;
+		end if;
+		if not exists(select snapshot_id from merlin.plan_snapshot where snapshot_id = _snapshot_id) then
+			raise exception 'Cannot Restore: Snapshot with ID % does not exist.', _snapshot_id;
+		end if;
+		if not exists(select snapshot_id from merlin.plan_snapshot where _snapshot_id = snapshot_id and _plan_id = plan_id ) then
+			select snapshot_name from merlin.plan_snapshot where snapshot_id = _snapshot_id into _snapshot_name;
+			if _snapshot_name is not null then
+        raise exception 'Cannot Restore: Snapshot ''%'' (ID %) is not a snapshot of Plan ''%'' (ID %)',
+          _snapshot_name, _snapshot_id, _plan_name, _plan_id;
+      else
+				raise exception 'Cannot Restore: Snapshot % is not a snapshot of Plan ''%'' (ID %)',
+          _snapshot_id, _plan_name, _plan_id;
+      end if;
     end if;
-  end if;
 
-  select model_id, plan_start_time, plan_duration
-  from merlin.plan_snapshot
-  where snapshot_id = _snapshot_id
-  into _model_id, _plan_start_time, _plan_duration;
-  if not exists(select from merlin.mission_model m where m.id = _model_id) then
-    raise exception 'Cannot Restore: Model with ID % does not exist.', _model_id;
-  end if;
+    select model_id, plan_start_time, plan_duration
+    from merlin.plan_snapshot
+    where snapshot_id = _snapshot_id
+    into _model_id, _plan_start_time, _plan_duration;
+    if not exists(select from merlin.mission_model m where m.id = _model_id) then
+      raise exception 'Cannot Restore: Model with ID % does not exist.', _model_id;
+    end if;
 
-  -- Catch Plan_Locked
-  call merlin.plan_locked_exception(_plan_id);
+		-- Catch Plan_Locked
+		call merlin.plan_locked_exception(_plan_id);
 
-  -- Update model_id and bounds of the plan
-  update merlin.plan
-  set model_id = _model_id,
-      start_time = _plan_start_time,
-      duration = _plan_duration
-  where id = _plan_id;
+    -- Update model_id and bounds of the plan
+    update merlin.plan
+    set model_id = _model_id,
+        start_time = _plan_start_time,
+        duration = _plan_duration
+    where id = _plan_id;
 
-  -- Record the Union of Activities in Plan and Snapshot
-  -- and note which ones have been added since the Snapshot was taken (in_snapshot = false)
-  create temp table diff(
-                          activity_id integer,
-                          in_snapshot boolean not null
-  );
-  insert into diff(activity_id, in_snapshot)
-  select id as activity_id, true
-  from merlin.plan_snapshot_activities where snapshot_id = _snapshot_id;
+    -- Record the Union of Activities in Plan and Snapshot
+    -- and note which ones have been added since the Snapshot was taken (in_snapshot = false)
+    create temp table diff(
+			activity_id integer,
+			in_snapshot boolean not null
+		);
+		insert into diff(activity_id, in_snapshot)
+		select id as activity_id, true
+		from merlin.plan_snapshot_activities where snapshot_id = _snapshot_id;
 
-  insert into diff (activity_id, in_snapshot)
-  select activity_id, false
-  from(
-        select id as activity_id
-        from merlin.activity_directive
-        where plan_id = _plan_id
-        except
-        select activity_id
-        from diff) a;
+		insert into diff (activity_id, in_snapshot)
+		select activity_id, false
+		from(
+				select id as activity_id
+				from merlin.activity_directive
+				where plan_id = _plan_id
+			except
+				select activity_id
+				from diff) a;
 
-  -- Remove any added activities
+		-- Remove any added activities
   delete from merlin.activity_directive ad
-    using diff d
-  where (ad.id, ad.plan_id) = (d.activity_id, _plan_id)
-    and d.in_snapshot is false;
+		using diff d
+		where (ad.id, ad.plan_id) = (d.activity_id, _plan_id)
+			and d.in_snapshot is false;
 
-  -- Upsert the rest
-  insert into merlin.activity_directive (
-    id, plan_id, name, source_scheduling_goal_id, source_scheduling_goal_invocation_id,
-    created_at, created_by, last_modified_at, last_modified_by,
-    start_offset, type, arguments, last_modified_arguments_at, metadata,
-    anchor_id, anchored_to_start)
-  select psa.id, _plan_id, psa.name, psa.source_scheduling_goal_id, psa.source_scheduling_goal_invocation_id,
-         psa.created_at, psa.created_by, psa.last_modified_at, psa.last_modified_by,
-         psa.start_offset, psa.type, psa.arguments, psa.last_modified_arguments_at, psa.metadata,
-         psa.anchor_id, psa.anchored_to_start
-  from merlin.plan_snapshot_activities psa
-  where psa.snapshot_id = _snapshot_id
-  on conflict (id, plan_id) do update
-    -- 'last_modified_at' and 'last_modified_arguments_at' are skipped during update, as triggers will overwrite them to now()
-    set name = excluded.name,
-        source_scheduling_goal_id = excluded.source_scheduling_goal_id,
-        source_scheduling_goal_invocation_id = excluded.source_scheduling_goal_invocation_id,
-        created_at = excluded.created_at,
-        created_by = excluded.created_by,
-        last_modified_by = excluded.last_modified_by,
-        start_offset = excluded.start_offset,
-        type = excluded.type,
-        arguments = excluded.arguments,
-        metadata = excluded.metadata,
-        anchor_id = excluded.anchor_id,
-        anchored_to_start = excluded.anchored_to_start;
+		-- Upsert the rest
+		insert into merlin.activity_directive (
+		      id, plan_id, name, source_scheduling_goal_id, source_scheduling_goal_invocation_id,
+		      created_at, created_by, last_modified_at, last_modified_by,
+		      start_offset, type, arguments, last_modified_arguments_at, metadata,
+		      anchor_id, anchored_to_start)
+		select psa.id, _plan_id, psa.name, psa.source_scheduling_goal_id, psa.source_scheduling_goal_invocation_id,
+		       psa.created_at, psa.created_by, psa.last_modified_at, psa.last_modified_by,
+		       psa.start_offset, psa.type, psa.arguments, psa.last_modified_arguments_at, psa.metadata,
+		       psa.anchor_id, psa.anchored_to_start
+		from merlin.plan_snapshot_activities psa
+		where psa.snapshot_id = _snapshot_id
+		on conflict (id, plan_id) do update
+		-- 'last_modified_at' and 'last_modified_arguments_at' are skipped during update, as triggers will overwrite them to now()
+		set name = excluded.name,
+		    source_scheduling_goal_id = excluded.source_scheduling_goal_id,
+		    source_scheduling_goal_invocation_id = excluded.source_scheduling_goal_invocation_id,
+		    created_at = excluded.created_at,
+		    created_by = excluded.created_by,
+		    last_modified_by = excluded.last_modified_by,
+		    start_offset = excluded.start_offset,
+		    type = excluded.type,
+		    arguments = excluded.arguments,
+		    metadata = excluded.metadata,
+		    anchor_id = excluded.anchor_id,
+		    anchored_to_start = excluded.anchored_to_start;
 
-  -- Tags
-  delete from tags.activity_directive_tags adt
-    using diff d
-  where (adt.directive_id, adt.plan_id) = (d.activity_id, _plan_id);
+		-- Tags
+		delete from tags.activity_directive_tags adt
+		using diff d
+		where (adt.directive_id, adt.plan_id) = (d.activity_id, _plan_id);
 
-  insert into tags.activity_directive_tags(directive_id, plan_id, tag_id)
-  select sat.directive_id, _plan_id, sat.tag_id
-  from tags.snapshot_activity_tags sat
-  where sat.snapshot_id = _snapshot_id
-  on conflict (directive_id, plan_id, tag_id) do nothing;
+		insert into tags.activity_directive_tags(directive_id, plan_id, tag_id)
+		select sat.directive_id, _plan_id, sat.tag_id
+		from tags.snapshot_activity_tags sat
+		where sat.snapshot_id = _snapshot_id
+		on conflict (directive_id, plan_id, tag_id) do nothing;
 
-  -- Presets
-  delete from merlin.preset_to_directive
-  where plan_id = _plan_id;
-  insert into merlin.preset_to_directive(preset_id, activity_id, plan_id)
-  select pts.preset_id, pts.activity_id, _plan_id
-  from merlin.preset_to_snapshot_directive pts
-  where pts.snapshot_id = _snapshot_id
-  on conflict (activity_id, plan_id)
-    do update	set preset_id = excluded.preset_id;
+		-- Presets
+		delete from merlin.preset_to_directive
+		  where plan_id = _plan_id;
+		insert into merlin.preset_to_directive(preset_id, activity_id, plan_id)
+			select pts.preset_id, pts.activity_id, _plan_id
+			from merlin.preset_to_snapshot_directive pts
+			where pts.snapshot_id = _snapshot_id
+			on conflict (activity_id, plan_id)
+			do update	set preset_id = excluded.preset_id;
 
-  -- Clean up
-  drop table diff;
-end
+		-- Clean up
+		drop table diff;
+  end
 $$;
 
 -- Create trigger to create snapshot/cascade plan bounds changes
@@ -223,24 +223,30 @@ begin
       null);
 
   -- Update activities that are anchored to the plan bounds
-  update merlin.activity_directive
+  update merlin.activity_directive ad
   set start_offset = start_offset + (new.start_time - old.start_time)
-  where anchor_id is null and anchored_to_start; -- anchored to plan start
+  where anchor_id is null
+    and anchored_to_start -- anchored to plan start
+    and ad.plan_id = old.id;
 
-  update merlin.activity_directive
+  update merlin.activity_directive ad
   set start_offset = start_offset + (new.duration - old.duration)
-  where anchor_id is null and not anchored_to_start; -- anchored to plan end
+  where anchor_id is null
+    and not anchored_to_start -- anchored to plan end
+    and ad.plan_id = old.id;
 
   -- Update associated dataset offsets (simulation and plan)
   update merlin.simulation_dataset
-  set offset_from_plan_start = offset_from_plan_start + (new.start_offset - old.start_offset)
+  set offset_from_plan_start = offset_from_plan_start + (new.start_time - old.start_time)
   from merlin.simulation sim_spec
   where simulation_id = sim_spec.id
     and sim_spec.plan_id = old.id;
 
   update merlin.plan_dataset
-  set offset_from_plan_start = offset_from_plan_start + (new.start_offset - old.start_offset)
+  set offset_from_plan_start = offset_from_plan_start + (new.start_time - old.start_time)
   where plan_id = old.id;
+
+  return new;
 end;
 $$;
 
@@ -310,31 +316,31 @@ begin
   end if;
 
   insert into merlin.merge_request(plan_id_receiving_changes, snapshot_id_supplying_changes, merge_base_snapshot_id, requester_username)
-  values(plan_id_receiving, supplying_snapshot_id, merge_base_snapshot_id, request_username)
-  returning id into merge_request_id;
+    values(plan_id_receiving, supplying_snapshot_id, merge_base_snapshot_id, request_username)
+    returning id into merge_request_id;
   return merge_request_id;
 end
 $$;
 
 create or replace procedure merlin.begin_merge(_merge_request_id integer, review_username text)
   language plpgsql as $$
-declare
-  validate_id integer;
-  validate_status merlin.merge_request_status;
-  validate_non_no_op_status merlin.activity_change_type;
-  snapshot_id_supplying integer;
-  plan_id_receiving integer;
-  merge_base_id integer;
-  start_time_receiving timestamptz;
-  duration_receiving interval;
-  start_time_supplying timestamptz;
-  duration_supplying interval;
+  declare
+    validate_id integer;
+    validate_status merlin.merge_request_status;
+    validate_non_no_op_status merlin.activity_change_type;
+    snapshot_id_supplying integer;
+    plan_id_receiving integer;
+    merge_base_id integer;
+    start_time_receiving timestamptz;
+    duration_receiving interval;
+    start_time_supplying timestamptz;
+    duration_supplying interval;
 begin
   -- validate id and status
   select id, status
-  from merlin.merge_request
-  where _merge_request_id = id
-  into validate_id, validate_status;
+    from merlin.merge_request
+    where _merge_request_id = id
+    into validate_id, validate_status;
 
   if validate_id is null then
     raise exception 'Request ID % is not present in merge_request table.', _merge_request_id;
@@ -346,9 +352,9 @@ begin
 
   -- select from merge-request the snapshot_sc (s_sc) and plan_rc (p_rc) ids
   select plan_id_receiving_changes, snapshot_id_supplying_changes
-  from merlin.merge_request
-  where id = _merge_request_id
-  into plan_id_receiving, snapshot_id_supplying;
+    from merlin.merge_request
+    where id = _merge_request_id
+    into plan_id_receiving, snapshot_id_supplying;
 
   -- ensure that the plans cover the same boundaries
   select start_time, duration
@@ -373,79 +379,79 @@ begin
 
   -- lock plan_rc
   update merlin.plan
-  set is_locked = true
-  where plan.id = plan_id_receiving;
+    set is_locked = true
+    where plan.id = plan_id_receiving;
 
   -- get merge base (mb)
   select merlin.get_merge_base(plan_id_receiving, snapshot_id_supplying)
-  into merge_base_id;
+    into merge_base_id;
 
   -- update the status to "in progress"
   update merlin.merge_request
-  set status = 'in-progress',
-      merge_base_snapshot_id = merge_base_id,
-      reviewer_username = review_username
-  where id = _merge_request_id;
+    set status = 'in-progress',
+    merge_base_snapshot_id = merge_base_id,
+    reviewer_username = review_username
+    where id = _merge_request_id;
 
   -- perform diff between mb and s_sc (s_diff)
-  -- delete is B minus A on key
-  -- add is A minus B on key
-  -- A intersect B is no op
-  -- A minus B on everything except everything currently in the table is modify
+    -- delete is B minus A on key
+    -- add is A minus B on key
+    -- A intersect B is no op
+    -- A minus B on everything except everything currently in the table is modify
   create temp table supplying_diff(
-                                    activity_id integer,
-                                    change_type merlin.activity_change_type not null
+    activity_id integer,
+    change_type merlin.activity_change_type not null
   );
 
   insert into supplying_diff (activity_id, change_type)
   select activity_id, 'delete'
   from(
-        select id as activity_id
-        from merlin.plan_snapshot_activities
-        where snapshot_id = merge_base_id
-        except
-        select id as activity_id
-        from merlin.plan_snapshot_activities
-        where snapshot_id = snapshot_id_supplying) a;
+    select id as activity_id
+    from merlin.plan_snapshot_activities
+      where snapshot_id = merge_base_id
+    except
+    select id as activity_id
+    from merlin.plan_snapshot_activities
+      where snapshot_id = snapshot_id_supplying) a;
 
   insert into supplying_diff (activity_id, change_type)
   select activity_id, 'add'
   from(
-        select id as activity_id
-        from merlin.plan_snapshot_activities
-        where snapshot_id = snapshot_id_supplying
-        except
-        select id as activity_id
-        from merlin.plan_snapshot_activities
-        where snapshot_id = merge_base_id) a;
+    select id as activity_id
+    from merlin.plan_snapshot_activities
+      where snapshot_id = snapshot_id_supplying
+    except
+    select id as activity_id
+    from merlin.plan_snapshot_activities
+      where snapshot_id = merge_base_id) a;
 
   insert into supplying_diff (activity_id, change_type)
-  select activity_id, 'none'
-  from(
+    select activity_id, 'none'
+      from(
         select psa.id as activity_id, name, tags.tag_ids_activity_snapshot(psa.id, merge_base_id),
                source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, start_offset, type, arguments,
                metadata, anchor_id, anchored_to_start
         from merlin.plan_snapshot_activities psa
         where psa.snapshot_id = merge_base_id
-        intersect
-        select id as activity_id, name, tags.tag_ids_activity_snapshot(psa.id, snapshot_id_supplying),
-               source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, start_offset, type, arguments,
-               metadata, anchor_id, anchored_to_start
+    intersect
+      select id as activity_id, name, tags.tag_ids_activity_snapshot(psa.id, snapshot_id_supplying),
+             source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, start_offset, type, arguments,
+             metadata, anchor_id, anchored_to_start
         from merlin.plan_snapshot_activities psa
         where psa.snapshot_id = snapshot_id_supplying) a;
 
   insert into supplying_diff (activity_id, change_type)
-  select activity_id, 'modify'
-  from(
-        select id as activity_id from merlin.plan_snapshot_activities
+    select activity_id, 'modify'
+    from(
+      select id as activity_id from merlin.plan_snapshot_activities
         where snapshot_id = merge_base_id or snapshot_id = snapshot_id_supplying
-        except
-        select activity_id from supplying_diff) a;
+      except
+      select activity_id from supplying_diff) a;
 
   -- perform diff between mb and p_rc (r_diff)
   create temp table receiving_diff(
-                                    activity_id integer,
-                                    change_type merlin.activity_change_type not null
+     activity_id integer,
+     change_type merlin.activity_change_type not null
   );
 
   insert into receiving_diff (activity_id, change_type)
@@ -488,25 +494,25 @@ begin
   insert into receiving_diff (activity_id, change_type)
   select activity_id, 'modify'
   from (
-         (select id as activity_id
-          from merlin.plan_snapshot_activities
-          where snapshot_id = merge_base_id
-          union
-          select id as activity_id
-          from merlin.activity_directive
-          where plan_id = plan_id_receiving)
-         except
-         select activity_id
-         from receiving_diff) a;
+        (select id as activity_id
+         from merlin.plan_snapshot_activities
+         where snapshot_id = merge_base_id
+         union
+         select id as activity_id
+         from merlin.activity_directive
+         where plan_id = plan_id_receiving)
+        except
+        select activity_id
+        from receiving_diff) a;
 
 
   -- perform diff between s_diff and r_diff
-  -- upload the non-conflicts into merge_staging_area
-  -- upload conflict into conflicting_activities
+      -- upload the non-conflicts into merge_staging_area
+      -- upload conflict into conflicting_activities
   create temp table diff_diff(
-                               activity_id integer,
-                               change_type_supplying merlin.activity_change_type not null,
-                               change_type_receiving merlin.activity_change_type not null
+    activity_id integer,
+    change_type_supplying merlin.activity_change_type not null,
+    change_type_receiving merlin.activity_change_type not null
   );
 
   -- this is going to require us to do the "none" operation again on the remaining modifies
@@ -519,36 +525,36 @@ begin
     merge_request_id, activity_id, name, tags, source_scheduling_goal_id, source_scheduling_goal_invocation_id,
     created_at, created_by, last_modified_by,
     start_offset, type, arguments, metadata, anchor_id, anchored_to_start, change_type
-  )
+         )
   -- 'adds' can go directly into the merge staging area table
   select _merge_request_id, activity_id, name, tags.tag_ids_activity_snapshot(s_diff.activity_id, psa.snapshot_id),
          source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, created_by, last_modified_by,
          start_offset, type, arguments, metadata, anchor_id, anchored_to_start, change_type
-  from supplying_diff as  s_diff
-         join merlin.plan_snapshot_activities psa
-              on s_diff.activity_id = psa.id
-  where snapshot_id = snapshot_id_supplying and change_type = 'add'
+    from supplying_diff as  s_diff
+    join merlin.plan_snapshot_activities psa
+      on s_diff.activity_id = psa.id
+    where snapshot_id = snapshot_id_supplying and change_type = 'add'
   union
   -- an 'add' between the receiving plan and merge base is actually a 'none'
   select _merge_request_id, activity_id, name, tags.tag_ids_activity_directive(r_diff.activity_id, ad.plan_id),
          source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, created_by, last_modified_by,
          start_offset, type, arguments, metadata, anchor_id, anchored_to_start, 'none'::merlin.activity_change_type
-  from receiving_diff as r_diff
-         join merlin.activity_directive ad
-              on r_diff.activity_id = ad.id
-  where plan_id = plan_id_receiving and change_type = 'add';
+    from receiving_diff as r_diff
+    join merlin.activity_directive ad
+      on r_diff.activity_id = ad.id
+    where plan_id = plan_id_receiving and change_type = 'add';
 
   -- put the rest in diff_diff
   insert into diff_diff (activity_id, change_type_supplying, change_type_receiving)
   select activity_id, supplying_diff.change_type as change_type_supplying, receiving_diff.change_type as change_type_receiving
-  from receiving_diff
-         join supplying_diff using (activity_id)
+    from receiving_diff
+    join supplying_diff using (activity_id)
   where receiving_diff.change_type != 'add' or supplying_diff.change_type != 'add';
 
   -- ...except for that which is not recorded
   delete from diff_diff
-  where (change_type_receiving = 'delete' and  change_type_supplying = 'delete')
-     or (change_type_receiving = 'delete' and change_type_supplying = 'none');
+    where (change_type_receiving = 'delete' and  change_type_supplying = 'delete')
+       or (change_type_receiving = 'delete' and change_type_supplying = 'none');
 
   insert into merlin.merge_staging_area (
     merge_request_id, activity_id, name, tags, source_scheduling_goal_id, source_scheduling_goal_invocation_id,
@@ -559,58 +565,58 @@ begin
   select _merge_request_id, activity_id, name, tags.tag_ids_activity_directive(diff_diff.activity_id, plan_id),
          source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, created_by, last_modified_by,
          start_offset, type, arguments, metadata, anchor_id, anchored_to_start, 'none'
-  from diff_diff
-         join merlin.activity_directive
-              on activity_id=id
-  where plan_id = plan_id_receiving
-    and change_type_supplying = 'none'
-    and (change_type_receiving = 'modify' or change_type_receiving = 'none')
+    from diff_diff
+    join merlin.activity_directive
+      on activity_id=id
+    where plan_id = plan_id_receiving
+      and change_type_supplying = 'none'
+      and (change_type_receiving = 'modify' or change_type_receiving = 'none')
   union
   -- supplying 'modify' against receiving 'none' go into the merge staging area as 'modify'
   select _merge_request_id, activity_id, name, tags.tag_ids_activity_snapshot(diff_diff.activity_id, snapshot_id),  source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at,
          created_by, last_modified_by, start_offset, type, arguments, metadata, anchor_id, anchored_to_start, change_type_supplying
-  from diff_diff
-         join merlin.plan_snapshot_activities p
-              on diff_diff.activity_id = p.id
-  where snapshot_id = snapshot_id_supplying
-    and (change_type_receiving = 'none' and diff_diff.change_type_supplying = 'modify')
+    from diff_diff
+    join merlin.plan_snapshot_activities p
+      on diff_diff.activity_id = p.id
+    where snapshot_id = snapshot_id_supplying
+      and (change_type_receiving = 'none' and diff_diff.change_type_supplying = 'modify')
   union
   -- supplying 'delete' against receiving 'none' go into the merge staging area as 'delete'
-  select _merge_request_id, activity_id, name, tags.tag_ids_activity_directive(diff_diff.activity_id, plan_id),  source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at,
+    select _merge_request_id, activity_id, name, tags.tag_ids_activity_directive(diff_diff.activity_id, plan_id),  source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at,
          created_by, last_modified_by, start_offset, type, arguments, metadata, anchor_id, anchored_to_start, change_type_supplying
-  from diff_diff
-         join merlin.activity_directive p
-              on diff_diff.activity_id = p.id
-  where plan_id = plan_id_receiving
-    and (change_type_receiving = 'none' and diff_diff.change_type_supplying = 'delete');
+    from diff_diff
+    join merlin.activity_directive p
+      on diff_diff.activity_id = p.id
+    where plan_id = plan_id_receiving
+      and (change_type_receiving = 'none' and diff_diff.change_type_supplying = 'delete');
 
   -- 'modify' against a 'modify' must be checked for equality first.
   with false_modify as (
     select activity_id, name, tags.tag_ids_activity_directive(dd.activity_id, psa.snapshot_id) as tags,
            source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, start_offset, type, arguments, metadata, anchor_id, anchored_to_start
     from merlin.plan_snapshot_activities psa
-           join diff_diff dd
-                on dd.activity_id = psa.id
+    join diff_diff dd
+      on dd.activity_id = psa.id
     where psa.snapshot_id = snapshot_id_supplying
       and (dd.change_type_receiving = 'modify' and dd.change_type_supplying = 'modify')
     intersect
     select activity_id, name, tags.tag_ids_activity_directive(dd.activity_id, ad.plan_id) as tags,
            source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, start_offset, type, arguments, metadata, anchor_id, anchored_to_start
     from diff_diff dd
-           join merlin.activity_directive ad
-                on dd.activity_id = ad.id
+    join merlin.activity_directive ad
+      on dd.activity_id = ad.id
     where ad.plan_id = plan_id_receiving
       and (dd.change_type_supplying = 'modify' and dd.change_type_receiving = 'modify'))
   insert into merlin.merge_staging_area (
     merge_request_id, activity_id, name, tags, source_scheduling_goal_id, source_scheduling_goal_invocation_id,
     created_at, created_by, last_modified_by,
     start_offset, type, arguments, metadata, anchor_id, anchored_to_start, change_type)
-  select _merge_request_id, ad.id, ad.name, tags,  ad.source_scheduling_goal_id, ad.source_scheduling_goal_invocation_id,
-         ad.created_at, ad.created_by, ad.last_modified_by, ad.start_offset, ad.type, ad.arguments, ad.metadata,
-         ad.anchor_id, ad.anchored_to_start, 'none'
-  from false_modify fm
-         left join merlin.activity_directive ad
-                   on (ad.plan_id, ad.id) = (plan_id_receiving, fm.activity_id);
+    select _merge_request_id, ad.id, ad.name, tags,  ad.source_scheduling_goal_id, ad.source_scheduling_goal_invocation_id,
+           ad.created_at, ad.created_by, ad.last_modified_by, ad.start_offset, ad.type, ad.arguments, ad.metadata,
+           ad.anchor_id, ad.anchored_to_start, 'none'
+    from false_modify fm
+    left join merlin.activity_directive ad
+      on (ad.plan_id, ad.id) = (plan_id_receiving, fm.activity_id);
 
   -- 'modify' against 'delete' and inequal 'modify' against 'modify' goes into conflict table (aka everything left in diff_diff)
   insert into merlin.conflicting_activities (merge_request_id, activity_id, change_type_supplying, change_type_receiving)
@@ -620,7 +626,7 @@ begin
         except
         select msa.merge_request_id, activity_id
         from merlin.merge_staging_area msa) a
-         join diff_diff using (activity_id);
+  join diff_diff using (activity_id);
 
   -- Fail if there are no differences between the snapshot and the plan getting merged
   validate_non_no_op_status := null;
@@ -634,7 +640,7 @@ begin
     select change_type
     from merlin.merge_staging_area msa
     where merge_request_id = _merge_request_id
-      and msa.change_type != 'none'
+    and msa.change_type != 'none'
     limit 1
     into validate_non_no_op_status;
 

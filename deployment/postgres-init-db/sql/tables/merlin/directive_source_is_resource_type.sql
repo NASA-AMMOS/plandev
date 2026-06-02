@@ -4,6 +4,7 @@ create table merlin.directive_source_is_resource_type
     scheduled_plan_id integer NOT NULL,
     referenced_resource_name text NOT NULL,
     referenced_resource_model_id integer NOT NULL,
+    valid boolean NOT NULL default true, -- TODO: figure out trigger
 
     constraint directive_source_is_resource_type_pkey
       primary key (scheduled_directive_id, scheduled_plan_id, referenced_resource_name, referenced_resource_model_id),

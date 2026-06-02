@@ -157,7 +157,7 @@ jobs:
           java-version: "21"
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # 5.0.2
         with:
           # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
           cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
@@ -166,5 +166,7 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: >
-          ./gradlew build sonar --info -Dsonar.verbose=true
+          ./gradlew build sonar
+          -Dsonar.verbose=true
+          -Dsonar.scanAll=true
           -Dsonar.sarifReportPaths="${{ env.SARIF_REPORT_PATHS }}"

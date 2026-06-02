@@ -5,6 +5,7 @@ import gov.nasa.ammos.aerie.procedural.timeline.collections.Directives;
 import gov.nasa.ammos.aerie.procedural.timeline.collections.ExternalEvents;
 import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalSource;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive;
@@ -16,6 +17,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.DirectiveActivitySource;
+import gov.nasa.jpl.aerie.types.ExternalEventActivitySource;
 import gov.nasa.jpl.aerie.types.ResourceActivitySource;
 import gov.nasa.jpl.aerie.types.Timestamp;
 import kotlin.Pair;
@@ -103,7 +105,7 @@ public final class ReadonlyPlan implements Plan {
                                                                    ((ResourceActivitySource) a).getValue()
                                                                );
                                                              }
-                                                             else {
+                                                             else if (a instanceof DirectiveActivitySource) {
                                                                var pair = ((DirectiveActivitySource) a).getValue();
                                                                var oldDirective = pair.getKey();
                                                                var directive = new Directive<AnyDirective>(
@@ -123,7 +125,24 @@ public final class ReadonlyPlan implements Plan {
 //                                                                   oldDirective.sourceList()
                                                                );
                                                                return new gov.nasa.ammos.aerie.procedural.timeline.payloads.reference.DirectiveActivitySource(
-                                                                    new Pair<>(directive, pair.getValue())
+                                                                   new Pair<>(directive, pair.getValue())
+                                                               );
+                                                             }
+                                                             else { // ExternalEventActivitySource
+                                                               var referencedEvent = ((ExternalEventActivitySource) a).getValue();
+                                                               return new gov.nasa.ammos.aerie.procedural.timeline.payloads.reference.ExternalEventActivitySource(
+                                                                   new ExternalEvent(
+                                                                       referencedEvent.key(),
+                                                                       referencedEvent.external_event_type(),
+                                                                       new ExternalSource(
+                                                                           referencedEvent.source_key(),
+                                                                           referencedEvent.derivation_group_name(),
+                                                                           referencedEvent.source_created_at(),
+                                                                           Map.of() // TODO
+                                                                       ),
+                                                                       Map.of(), // TODO
+                                                                       Interval.between(dir.startOffset(), dir.startOffset()) // TODO
+                                                                   )
                                                                );
                                                              }
                                                            })

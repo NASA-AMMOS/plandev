@@ -54,9 +54,9 @@ create table merlin.activity_directive (
 
 create index activity_directive_plan_id_index on merlin.activity_directive (plan_id);
 
+-- Used by merlin.get_dependent_activities (called per row from validate_anchors_insert_trigger).
 create index activity_directive_anchor_id_index
-  on merlin.activity_directive (anchor_id, plan_id)
-  where anchor_id is not null;
+  on merlin.activity_directive (anchor_id, plan_id);
 
 
 comment on table merlin.activity_directive is e''

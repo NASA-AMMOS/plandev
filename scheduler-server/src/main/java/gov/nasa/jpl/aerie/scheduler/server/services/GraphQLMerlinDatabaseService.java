@@ -47,6 +47,7 @@ import gov.nasa.jpl.aerie.scheduler.server.models.UnwrappedProfileSet;
 import gov.nasa.jpl.aerie.types.ActivityDirective;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.DirectiveActivitySource;
+import gov.nasa.jpl.aerie.types.ExternalEventActivitySource;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import gov.nasa.jpl.aerie.types.ResourceActivitySource;
 import org.apache.commons.lang3.tuple.Pair;
@@ -466,8 +467,11 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
     //Create
     ids.putAll(createActivityDirectives(planId, toAdd, activityToGoalId, schedulerModel));
 
-    // TODO: add directive links
-    //    need to organize by source type, and then maybe batch/sort by the actual link source too if necessary?
+    // TODO: add links
+    //    may want to organize by source type, and then maybe batch/sort by the actual link source too if necessary?
+    //      ^ note: may not really help much. Each link will need an individual link entry, so it's just about creating
+    //              links efficiently, not about skipping making links or coalescing entries. unnecessary to worry about
+    //              for now
     addLinks(planId, modelId, toAdd, ids);
 
 
@@ -497,84 +501,94 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
   private void addLinks(PlanId planId, long modelId, ArrayList<SchedulingActivity> toAdd, Map<ActivityDirectiveId, ActivityDirectiveId> inAerieToInDB)
   throws MerlinServiceException, IOException, NoSuchPlanException
   {
-    final var resourceQuery = """
-        mutation createAllPlanActivityDirectiveResourceSourceLinks($links: [directive_source_is_resource_type_insert_input!]!) {
-          insert_directive_source_is_resource_type(objects: $links) {
+
+    final var query = """
+        mutation createAllPlanActivityDirectiveSourceLinks(
+          $directiveLinks: [directive_source_is_activity_insert_input!]!,
+          $resourceLinks: [directive_source_is_resource_type_insert_input!]!,
+          $eventLinks: [directive_source_is_external_event_insert_input!]!,
+        ) {
+          insert_directive_source_is_activity(objects: $directiveLinks) {
+            affected_rows
+          }
+          insert_directive_source_is_resource_type(objects: $resourceLinks) {
+            affected_rows
+          }
+          insert_directive_source_is_external_event(objects: $eventLinks) {
             affected_rows
           }
         }
         """;
 
-    final var activityQuery = """
-        mutation createAllPlanActivityDirectiveResourceSourceLinks($links: [directive_source_is_activity_insert_input!]!) {
-          insert_directive_source_is_activity(objects: $links) {
-            affected_rows
-          }
-        }
-        """;
-
-    final var resourceInsertionObjects = Json.createArrayBuilder();
     final var activityInsertionObjects = Json.createArrayBuilder();
+    final var resourceInsertionObjects = Json.createArrayBuilder();
+    final var externalEventInsertionObjects = Json.createArrayBuilder();
     for (final var act : toAdd) {
       long activityId = inAerieToInDB.get(act.id()).id();
 
       for (final var source : act.activitySources()) {
-        if (source instanceof ResourceActivitySource) {
+        if (source instanceof DirectiveActivitySource) {
+          final var insertionObject = Json
+              .createObjectBuilder()
+              .add("scheduled_plan_id", planId.id())
+              .add("scheduled_directive_id", activityId)
+              .add(
+                  "referenced_directive_id",
+                  ((DirectiveActivitySource) source)
+                      .getValue()
+                      .getValue());
+
+          activityInsertionObjects.add(insertionObject.build());
+        }
+        else if (source instanceof ResourceActivitySource) {
           final var insertionObject = Json
               .createObjectBuilder()
               .add("scheduled_plan_id", planId.id())
               .add("scheduled_directive_id", activityId)
               .add("referenced_resource_model_id", modelId)
-              .add("referenced_resource_name",
-                   source
-                       .getValue()
-                       .toString()); // TODO: disambiguate/translate for different classes of ActivitySource
+              .add(
+                  "referenced_resource_name",
+                  source
+                      .getValue()
+                      .toString());
 
           resourceInsertionObjects.add(insertionObject.build());
         }
-        else { // assuming DirectiveActivitySource
+        else { // ExternalEventActivitySource
+          final var referenceEvent = ((ExternalEventActivitySource) source).getValue();
+
           final var insertionObject = Json
               .createObjectBuilder()
               .add("scheduled_plan_id", planId.id())
               .add("scheduled_directive_id", activityId)
-              .add("referenced_directive_id",
-                   ((DirectiveActivitySource) source)
-                       .getValue()
-                       .getValue());
+              .add("referenced_event_key", referenceEvent.key())
+              .add("referenced_event_type", referenceEvent.external_event_type())
+              .add("referenced_event_derivation_group", referenceEvent.derivation_group_name())
+              .add("referenced_event_source_key", referenceEvent.source_key())
+              .add("referenced_event_source_created_at", referenceEvent.source_created_at());
 
-          activityInsertionObjects.add(insertionObject.build());
+          externalEventInsertionObjects.add(insertionObject.build());
         }
-
-        // TODO: ExternalEventDirectiveSource
-
-//      final var goalId = activityToGoalId.get(act);
-//      if (goalId != null) {
-//        insertionObject.add("source_scheduling_goal_id", goalId.id());
-//        goalId.goalInvocationId().ifPresent($ -> insertionObject.add("source_scheduling_goal_invocation_id", $));
-//      }
-
-
       }
     }
 
-    final var resourceArguments = Json
+    final var arguments = Json
         .createObjectBuilder()
-        .add("links", resourceInsertionObjects.build())
-        .build();
-    final var activityArguments = Json
-        .createObjectBuilder()
-        .add("links", activityInsertionObjects.build())
+        .add("directiveLinks", activityInsertionObjects.build())
+        .add("resourceLinks", resourceInsertionObjects.build())
+        .add("eventLinks", externalEventInsertionObjects.build())
         .build();
 
-    final var response = postRequest(activityQuery, activityArguments).orElseThrow(() -> new NoSuchPlanException(planId));
-    final var response2 = postRequest(resourceQuery, resourceArguments).orElseThrow(() -> new NoSuchPlanException(planId));
+    final var response = postRequest(query, arguments).orElseThrow(() -> new NoSuchPlanException(planId));
 
     try {
-      final var numCreated = response
+      final var numActivityLinksCreated = response
           .getJsonObject("data").getJsonObject("insert_directive_source_is_activity").getJsonNumber("affected_rows").longValueExact();
-      final var numCreated2 = response2
+      final var numResourceLinksCreated = response
           .getJsonObject("data").getJsonObject("insert_directive_source_is_resource_type").getJsonNumber("affected_rows").longValueExact();
-      System.out.println(numCreated + numCreated2); // TODO: some check??
+      final var numExternalEventLinksCreated = response
+          .getJsonObject("data").getJsonObject("insert_directive_source_is_external_event").getJsonNumber("affected_rows").longValueExact();
+      System.out.println(numActivityLinksCreated + numResourceLinksCreated + numExternalEventLinksCreated); // TODO: some check??
     } catch (ClassCastException | ArithmeticException e) {
       throw new NoSuchPlanException(planId);
     }

@@ -30,5 +30,27 @@ create view merlin.scheduling_sources as (
   group by scheduled_directive_id, scheduled_plan_id
 );
 
+CREATE OR REPLACE FUNCTION merlin.update_directive_source_is_activity_invalid()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    -- Only act if the value actually changed
+    IF NEW.start_offset IS DISTINCT FROM OLD.start_offset THEN
+        UPDATE merlin.directive_source_is_activity
+        SET valid = false
+        WHERE scheduled_directive_id = NEW.id and scheduled_plan_id = NEW.plan_id;
+    END IF;
+
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER merlin.trg_invalidate_b_on_date_change
+	AFTER UPDATE OF start_offset
+	ON merlin.activity_directive
+FOR EACH ROW
+	EXECUTE FUNCTION merlin.update_directive_source_is_activity_invalid();
+
 
 call migrations.mark_migration_applied(35);

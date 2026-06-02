@@ -168,5 +168,5 @@ jobs:
         run: >
           ./gradlew build sonar
           -Dsonar.verbose=true
-          -Dsonar.scanAll=true
+          -Dsonar.gradle.scanAll=true
           -Dsonar.sarifReportPaths="${{ env.SARIF_REPORT_PATHS }}"

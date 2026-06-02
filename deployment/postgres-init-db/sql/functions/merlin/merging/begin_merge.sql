@@ -67,7 +67,7 @@ begin
 
   if start_time_receiving is distinct from start_time_supplying or
      duration_receiving is distinct from duration_supplying then
-    raise exception 'Cannot begin merge request between plans with different bounds';
+    raise exception 'Cannot begin merge request between plans with different bounds.';
   end if;
 
   -- ensure the plan receiving changes isn't locked

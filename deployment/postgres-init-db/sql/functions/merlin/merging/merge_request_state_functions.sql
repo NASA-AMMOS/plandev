@@ -46,7 +46,7 @@ begin
 
   if (start_time_receiving is distinct from start_time_supplying) or
      (duration_receiving is distinct from duration_supplying) then
-    raise exception 'Cannot create merge request between plans with different bounds';
+    raise exception 'Cannot create merge request between plans with different bounds.';
   end if;
 
   insert into merlin.merge_request(plan_id_receiving_changes, snapshot_id_supplying_changes, merge_base_snapshot_id, requester_username)

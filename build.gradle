@@ -54,9 +54,6 @@ subprojects {
 // config for Sonar code scanning - see .github/workflows/security-scan.yml
 sonar {
   properties {
-    def existingSources = properties["sonar.sources"] ?: files()
-    // files scanned outside of gradle projects must be added here, or else their SARIF files won't associate correctly
-    properties["sonar.sources"] = existingSources + files(".github/workflows")
     property "sonar.projectKey", "NASA-AMMOS_aerie"
     property "sonar.organization", "nasa-ammos"
   }

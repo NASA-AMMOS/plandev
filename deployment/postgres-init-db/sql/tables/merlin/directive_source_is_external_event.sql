@@ -7,6 +7,7 @@ create table merlin.directive_source_is_external_event
     referenced_event_derivation_group text NOT NULL,
     referenced_event_source_key text NOT NULL,
     referenced_event_source_created_at timestamp with time zone NOT NULL,
+    valid boolean NOT NULL default true, -- TODO: figure out trigger
 
     constraint directive_source_is_external_event_pkey
       primary key (referenced_event_source_key, referenced_event_derivation_group,

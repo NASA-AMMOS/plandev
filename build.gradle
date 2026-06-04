@@ -22,13 +22,6 @@ configure(subprojects) {
     }())
 }
 
-sonar {
-  properties {
-    property "sonar.projectKey", "NASA-AMMOS_aerie"
-    property "sonar.organization", "nasa-ammos"
-  }
-}
-
 subprojects {
   apply plugin: 'com.github.ben-manes.versions'
 
@@ -51,10 +44,14 @@ subprojects {
   }
 }
 
-// config for Sonar code scanning - see .github/workflows/security-scan.yml
+// SonarCloud scans run through the Gradle Sonar scanner in .github/workflows/security-scan.yml.
+// When using Gradle Sonar plugin, this block replaces the `sonar-project.properties` file which is normally used
 sonar {
   properties {
     property "sonar.projectKey", "NASA-AMMOS_aerie"
     property "sonar.organization", "nasa-ammos"
+    property "sonar.projectName", "plandev"
+    property "sonar.projectVersion", findProperty("version.number")
+    property "sonar.python.version", "3.7, 3.8, 3.9, 3.10, 3.11, 3.12"
   }
 }

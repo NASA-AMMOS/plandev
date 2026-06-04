@@ -35,8 +35,6 @@ jobs:
         include:
           - language: actions
             build-mode: none
-          - language: java-kotlin
-            build-mode: autobuild
           - language: javascript-typescript
             build-mode: none
           - language: python
@@ -119,12 +117,14 @@ jobs:
           path: ${{ env.RESULTS_DIR }}
 
   sonar:
-    name: Build Java & Run SonarQube Scan
+    name: Build Java, Analyze Java & Run SonarQube Scan
     needs: analyze
     runs-on: ubuntu-latest
     # PRs for forks can't use secrets, can't upload to Sonar
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     permissions:
+      security-events: write
+      packages: read
       actions: read
       contents: read
     steps:
@@ -139,17 +139,6 @@ jobs:
           pattern: codeql-artifacts-*
           path: codeql-results
 
-      - name: collect stripped .sarif file paths
-        shell: bash
-        run: |
-          echo "downloaded CodeQL artifact files:"
-          find "${{ github.workspace }}/codeql-results" -type f | sort
-
-          sarif_paths="$(find "${{ github.workspace }}/codeql-results" -name '*_stripped.sarif' -type f | paste -sd, -)"
-          echo "sarif paths: $sarif_paths"
-          test -n "$sarif_paths"
-          echo "SARIF_REPORT_PATHS=$sarif_paths" >> "$GITHUB_ENV"
-
       - name: Setup Java
         uses: actions/setup-java@v5
         with:
@@ -162,13 +151,75 @@ jobs:
           # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
           cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
 
+      - name: Initialize Java CodeQL
+        uses: github/codeql-action/init@9e0d7b8d25671d64c341c19c0152d693099fb5ba #4.35.5
+        with:
+          languages: java-kotlin
+          build-mode: manual
+
+      - name: Build Java
+        run: ./gradlew build
+
+      - name: Perform Java CodeQL Analysis
+        uses: github/codeql-action/analyze@9e0d7b8d25671d64c341c19c0152d693099fb5ba #4.35.5
+        with:
+          category: '/language:java-kotlin'
+          output: ../results
+
+      # This step is required by AMMOS to remove malformed data from the CodeQL output
+      # It may be possible to remove in future iterations
+      - name: Post-Process Java CodeQL Output
+        run: |
+          python3 -m pip install nasa-scrub==3.0
+
+          results_dir=`realpath ${{ github.workspace }}/../results`
+          sarif_files=`find $results_dir -name '*.sarif'`
+
+          for sarif_file in $sarif_files
+          do
+            output_file="$results_dir/$(basename $sarif_file .sarif)_stripped.sarif"
+
+            python3 -m scrub.tools.parsers.translate_results $sarif_file $output_file ${{ github.workspace }} sarifv2.1.0
+          done
+
+          # TEMPORARY WORKAROUND: remove this once nasa-scrub emits valid SARIF 2.1.0.
+          # https://github.com/nasa/scrub/issues/118
+          python3 .github/scripts/repair-scrub-sarif.py "$results_dir"
+          # END TEMPORARY WORKAROUND
+
+          echo "JAVA_RESULTS_DIR=$results_dir" >> $GITHUB_ENV
+
+      # This step makes the Java analysis artifact available for download
+      # This can be helpful for debugging and archive purposes
+      - name: Upload Java Artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v7.0.1
+        with:
+          name: codeql-artifacts-java-kotlin
+          path: ${{ env.JAVA_RESULTS_DIR }}
+      
+      # Collect all the scrubbed .sarif file outputs from the CodeQL analyses
+      # to be uploaded to SonarCloud in addition to its own sonar scan
+      - name: collect stripped .sarif file paths
+        shell: bash
+        run: |
+          echo "downloaded CodeQL artifact files:"
+          find "${{ github.workspace }}/codeql-results" -type f | sort
+
+          echo "java CodeQL artifact files:"
+          find "$JAVA_RESULTS_DIR" -type f | sort
+
+          sarif_paths="$(find "${{ github.workspace }}/codeql-results" "$JAVA_RESULTS_DIR" -name '*_stripped.sarif' -type f | sort | paste -sd, -)"
+          echo "sarif paths: $sarif_paths"
+          test -n "$sarif_paths"
+          echo "SARIF_REPORT_PATHS=$sarif_paths" >> "$GITHUB_ENV"
+
       # PlanDev Sonar scans are run with the sonarqube gradle plugin instead of the Sonar GH action
       # this allows discovery + analysis of build artifacts via normal Gradle build process instead of complex Sonar config
-      - name: Build and run Sonar scan
+      - name: Run Sonar scan
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: >
-          ./gradlew build sonar
+          ./gradlew sonar
           -Dsonar.verbose=true
           -Dsonar.gradle.scanAll=true
           -Dsonar.sarifReportPaths="${{ env.SARIF_REPORT_PATHS }}"

@@ -88,7 +88,10 @@ jobs:
       # This step is required by AMMOS to remove malformed data from the CodeQL output
       # It may be possible to remove in future iterations
       - name: Post-Process Output
-        run: |
+        env:
+          RESULTS_ENV_VAR_NAME: RESULTS_DIR
+        # save this field as a reusable YAML anchor
+        run: &post-process-codeql-output |
           python3 -m pip install nasa-scrub==3.0
 
           results_dir=`realpath ${{ github.workspace }}/../results`
@@ -106,7 +109,7 @@ jobs:
           python3 .github/scripts/repair-scrub-sarif.py "$results_dir"
           # END TEMPORARY WORKAROUND
 
-          echo "RESULTS_DIR=$results_dir" >> $GITHUB_ENV
+          echo "$RESULTS_ENV_VAR_NAME=$results_dir" >> $GITHUB_ENV
 
       # This step makes the analysis artifacts available for download
       # This can be helpful for debugging and archive purposes
@@ -169,25 +172,10 @@ jobs:
       # This step is required by AMMOS to remove malformed data from the CodeQL output
       # It may be possible to remove in future iterations
       - name: Post-Process Java CodeQL Output
-        run: |
-          python3 -m pip install nasa-scrub==3.0
-
-          results_dir=`realpath ${{ github.workspace }}/../results`
-          sarif_files=`find $results_dir -name '*.sarif'`
-
-          for sarif_file in $sarif_files
-          do
-            output_file="$results_dir/$(basename $sarif_file .sarif)_stripped.sarif"
-
-            python3 -m scrub.tools.parsers.translate_results $sarif_file $output_file ${{ github.workspace }} sarifv2.1.0
-          done
-
-          # TEMPORARY WORKAROUND: remove this once nasa-scrub emits valid SARIF 2.1.0.
-          # https://github.com/nasa/scrub/issues/118
-          python3 .github/scripts/repair-scrub-sarif.py "$results_dir"
-          # END TEMPORARY WORKAROUND
-
-          echo "JAVA_RESULTS_DIR=$results_dir" >> $GITHUB_ENV
+        env:
+          RESULTS_ENV_VAR_NAME: JAVA_RESULTS_DIR
+        # reuse `run` anchor from above
+        run: *post-process-codeql-output
 
       # This step makes the Java analysis artifact available for download
       # This can be helpful for debugging and archive purposes

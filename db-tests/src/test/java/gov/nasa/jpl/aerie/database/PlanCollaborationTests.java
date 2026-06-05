@@ -21,10 +21,13 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import gov.nasa.jpl.aerie.database.TagsTests.Tag;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @SuppressWarnings("SqlSourceToSinkFlow")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -736,16 +739,9 @@ public class PlanCollaborationTests {
     }
 
     @Test
-    void snapshotFailsForNonexistentPlanId() throws SQLException{
-      try {
-        createSnapshot(1000);
-        fail();
-      }
-      catch(SQLException sqlEx)
-      {
-        if(!sqlEx.getMessage().contains("Plan 1000 does not exist."))
-          throw sqlEx;
-      }
+    void snapshotFailsForNonexistentPlanId() {
+      final var ex = assertThrows(SQLException.class, () -> createSnapshot(1000));
+      assertEquals("Plan 1000 does not exist.", ex.getMessage());
     }
 
     @Test
@@ -796,25 +792,15 @@ public class PlanCollaborationTests {
     @Test
     void restoreFailsForNonexistentPlan() throws SQLException {
       final int snapshotId = createSnapshot(merlinHelper.insertPlan(missionModelId));
-      try {
-        restoreFromSnapshot(-1, snapshotId);
-      } catch (SQLException ex) {
-        if (!ex.getMessage().contains("Cannot Restore: Plan with ID -1 does not exist.")) {
-          throw ex;
-        }
-      }
+      final var ex = assertThrows(SQLException.class, () -> restoreFromSnapshot(-1, snapshotId));
+      assertEquals("Cannot Restore: Plan with ID -1 does not exist.", ex.getMessage());
     }
 
     @Test
     void restoreFailsForNonexistentSnapshot() throws SQLException {
       final int planId = merlinHelper.insertPlan(missionModelId);
-      try {
-        restoreFromSnapshot(planId, -1);
-      } catch (SQLException ex) {
-        if (!ex.getMessage().contains("Cannot Restore: Snapshot with ID -1 does not exist.")) {
-          throw ex;
-        }
-      }
+      final var ex = assertThrows(SQLException.class, () -> restoreFromSnapshot(planId, -1));
+      assertEquals("Cannot Restore: Snapshot with ID -1 does not exist.", ex.getMessage());
     }
 
     @Test
@@ -823,14 +809,9 @@ public class PlanCollaborationTests {
       final int snapshotId = createSnapshot(wrongPlan);
       final int planId = merlinHelper.insertPlan(missionModelId, merlinHelper.user.name(), "Other Plan");
 
-      try {
-        restoreFromSnapshot(planId, snapshotId);
-      } catch (SQLException ex) {
-        if (!ex.getMessage().contains("Cannot Restore: Snapshot %d is not a snapshot of Plan 'Other Plan' (ID %d)"
-                            .formatted(snapshotId, planId))) {
-          throw ex;
-        }
-      }
+      final var ex = assertThrows(SQLException.class, () -> restoreFromSnapshot(planId, snapshotId));
+      assertEquals("Cannot Restore: Snapshot %d is not a snapshot of Plan 'Other Plan' (ID %d)"
+                       .formatted(snapshotId, planId), ex.getMessage());
     }
 
     @Test
@@ -839,14 +820,9 @@ public class PlanCollaborationTests {
       final int snapshotId = createSnapshot(wrongPlan);
       final int branchId = duplicatePlan(wrongPlan, "Different Plan");
 
-      try{
-        restoreFromSnapshot(branchId, snapshotId);
-      } catch (SQLException ex) {
-        if (!ex.getMessage().contains("Cannot Restore: Snapshot %d is not a snapshot of Plan 'Different Plan' (ID %d)"
-                            .formatted(snapshotId, branchId))) {
-          throw ex;
-        }
-      }
+      final var ex = assertThrows(SQLException.class, () -> restoreFromSnapshot(branchId, snapshotId));
+      assertEquals("Cannot Restore: Snapshot %d is not a snapshot of Plan 'Different Plan' (ID %d)"
+                       .formatted(snapshotId, branchId), ex.getMessage());
     }
 
     @Test
@@ -1006,16 +982,9 @@ public class PlanCollaborationTests {
     }
 
     @Test
-    void duplicateNonexistentPlanFails() throws SQLException {
-      try {
-        duplicatePlan(1000, "Nonexistent Parent Duplicate");
-        fail();
-      }
-      catch(SQLException sqlEx)
-      {
-        if(!sqlEx.getMessage().contains("Plan 1000 does not exist."))
-          throw sqlEx;
-      }
+    void duplicateNonexistentPlanFails() {
+      final var ex = assertThrows(SQLException.class, () -> duplicatePlan(1000, "Nonexistent Parent Duplicate"));
+      assertEquals("Plan 1000 does not exist.", ex.getMessage());
     }
   }
 
@@ -1046,15 +1015,9 @@ public class PlanCollaborationTests {
     }
 
     @Test
-    void getPlanHistoryInvalidId() throws SQLException {
-      try {
-        getPlanHistory(-1);
-        fail();
-      }
-      catch (SQLException sqlException) {
-        if (!sqlException.getMessage().contains("Plan ID -1 is not present in plan table."))
-          throw sqlException;
-      }
+    void getPlanHistoryInvalidId() {
+      final var ex = assertThrows(SQLException.class, () -> getPlanHistory(-1));
+      assertEquals("Plan ID -1 is not present in plan table.", ex.getMessage());
     }
 
     @Test
@@ -1102,10 +1065,8 @@ public class PlanCollaborationTests {
 
       try {
         lockPlan(planId);
-        merlinHelper.updateActivityName(newName, activityId, planId);
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Plan " + planId + " is locked."))
-          throw sqlEx;
+        final var ex = assertThrows(SQLException.class, () -> merlinHelper.updateActivityName(newName, activityId, planId));
+        assertEquals("Plan " + planId + " is locked.", ex.getMessage());
       } finally {
         unlockPlan(planId);
       }
@@ -1130,10 +1091,8 @@ public class PlanCollaborationTests {
 
       try {
         lockPlan(planId);
-        merlinHelper.deleteActivityDirective(planId, activityId);
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Plan " + planId + " is locked."))
-          throw sqlEx;
+        final var ex = assertThrows(SQLException.class, () -> merlinHelper.deleteActivityDirective(planId, activityId));
+        assertEquals("Plan " + planId + " is locked.", ex.getMessage());
       } finally {
         unlockPlan(planId);
       }
@@ -1154,10 +1113,8 @@ public class PlanCollaborationTests {
 
       try {
         lockPlan(planId);
-        merlinHelper.insertActivity(planId);
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Plan " + planId + " is locked."))
-          throw sqlEx;
+        final var ex = assertThrows(SQLException.class, () -> merlinHelper.insertActivity(planId));
+        assertEquals("Plan " + planId + " is locked.", ex.getMessage());
       } finally {
         unlockPlan(planId);
       }
@@ -1183,10 +1140,8 @@ public class PlanCollaborationTests {
 
       try {
         lockPlan(planId);
-        beginMerge(mergeRequest);
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Cannot begin merge request. Plan to receive changes is locked."))
-          throw sqlEx;
+        final var ex = assertThrows(SQLException.class, () -> beginMerge(mergeRequest));
+        assertEquals("Cannot begin merge request. Plan to receive changes is locked.", ex.getMessage());
       } finally {
         unlockPlan(planId);
       }
@@ -1198,11 +1153,8 @@ public class PlanCollaborationTests {
 
       try {
         lockPlan(planId);
-        merlinHelper.deletePlan(planId);
-        fail();
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Cannot delete locked plan."))
-          throw sqlEx;
+        final var ex = assertThrows(SQLException.class, () -> merlinHelper.deletePlan(planId));
+        assertEquals("Cannot delete locked plan.", ex.getMessage());
       } finally {
         unlockPlan(planId);
       }
@@ -1423,27 +1375,21 @@ public class PlanCollaborationTests {
       final int snapshotId = createSnapshot(planId);
 
       try(final var statement = connection.createStatement()) {
-        statement.execute(
+        final var ex = assertThrows(SQLException.class, () -> statement.execute(
             //language=sql
             """
             select merlin.get_merge_base(%d, -1);
-            """.formatted(planId));
-      }
-      catch (SQLException sqlEx){
-        if(!sqlEx.getMessage().contains("Snapshot ID "+-1 +" is not present in plan_snapshot table."))
-          throw sqlEx;
+            """.formatted(planId)));
+        assertEquals("Snapshot ID "+ -1 +" is not present in plan_snapshot table.", ex.getMessage());
       }
 
       try(final var statement = connection.createStatement()) {
-        statement.execute(
+        final var ex = assertThrows(SQLException.class, () -> statement.execute(
             //language=sql
             """
             select merlin.get_merge_base(-2, %d);
-            """.formatted(snapshotId));
-      }
-      catch (SQLException sqlEx){
-        if(!sqlEx.getMessage().contains("Snapshot ID "+-2 +" is not present in plan_snapshot table."))
-          throw sqlEx;
+            """.formatted(snapshotId)));
+        assertEquals("Plan ID "+ -2 +" is not present in plan_snapshot table.", ex.getMessage());
       }
     }
 
@@ -1511,23 +1457,11 @@ public class PlanCollaborationTests {
     void createRequestFailsForNonexistentPlans() throws SQLException {
       final int planId = merlinHelper.insertPlan(missionModelId);
 
-      try{
-        createMergeRequest(planId, -1);
-        fail();
-      }
-      catch (SQLException sqEx){
-        if(!sqEx.getMessage().contains("Plan supplying changes (Plan -1) does not exist."))
-          throw sqEx;
-      }
+      final var exInvalidSupplying = assertThrows(SQLException.class, () -> createMergeRequest(planId, -1));
+      assertEquals("Plan supplying changes (Plan -1) does not exist.", exInvalidSupplying.getMessage());
 
-      try{
-        createMergeRequest(-1, planId);
-        fail();
-      }
-      catch (SQLException sqEx){
-        if(!sqEx.getMessage().contains("Plan receiving changes (Plan -1) does not exist."))
-          throw sqEx;
-      }
+      final var exInvalidReceiving = assertThrows(SQLException.class, () -> createMergeRequest(-1, planId));
+      assertEquals("Plan receiving changes (Plan -1) does not exist.", exInvalidReceiving.getMessage());
     }
 
     @Test
@@ -1538,39 +1472,53 @@ public class PlanCollaborationTests {
       //Creating a snapshot so that the error comes from create_merge_request, not get_merge_base
       createSnapshot(plan1);
 
-      try{
-        createMergeRequest(plan1, plan2);
-        fail();
-      }
-      catch (SQLException sqEx){
-        if(!sqEx.getMessage().contains("Cannot create merge request between unrelated plans."))
-          throw sqEx;
-      }
+      final var ex = assertThrows(SQLException.class, () -> createMergeRequest(plan1, plan2));
+      assertEquals("Cannot create merge request between unrelated plans.", ex.getMessage());
     }
 
     @Test
     void createRequestFailsBetweenPlanAndSelf() throws SQLException {
       final int plan = merlinHelper.insertPlan(missionModelId);
-      try{
-        createMergeRequest(plan, plan);
-        fail();
-      } catch (SQLException sqEx){
-        if(!sqEx.getMessage().contains("Cannot create a merge request between a plan and itself."))
-          throw sqEx;
-      }
 
+      final var ex = assertThrows(SQLException.class, () -> createMergeRequest(plan, plan));
+      assertEquals("Cannot create a merge request between a plan and itself.", ex.getMessage());
     }
 
     @Test
-    void withdrawFailsForNonexistentRequest() throws SQLException {
-      try{
-        withdrawMergeRequest(-1);
-        fail();
-      }
-      catch (SQLException sqEx){
-        if(!sqEx.getMessage().contains("Merge request -1 does not exist. Cannot withdraw request."))
-          throw sqEx;
-      }
+    void withdrawFailsForNonexistentRequest() {
+      final var ex = assertThrows(SQLException.class, () -> withdrawMergeRequest(-1));
+      assertEquals("Merge request -1 does not exist. Cannot withdraw request.", ex.getMessage());
+    }
+
+    /**
+     * If two plans have different bounds, a merge request cannot be created between them.
+     */
+    @Test
+    void createRequestFailsBoundsDiffer() throws SQLException {
+      final int planId = merlinHelper.insertPlan(missionModelId);
+      final int childId = duplicatePlan(planId, "Child Plan");
+
+      merlinHelper.insertActivity(childId);
+
+      // Update the bounds of the parent plan
+      merlinHelper.updatePlanDuration(planId, "24:00:00");
+
+      // Merge request creation should fail
+      final var ex1 = assertThrows(SQLException.class, () -> createMergeRequest(planId, childId));
+      assertEquals("Cannot create merge request between plans with different bounds.", ex1.getMessage());
+
+      // Update the child so they have the same bounds
+      merlinHelper.updatePlanDuration(childId, "24:00:00");
+
+      // Merge request creation should succeed
+      assertDoesNotThrow(() -> createMergeRequest(planId, childId));
+
+      // Update the child so it has different bounds
+      merlinHelper.updatePlanDuration(childId, "48:00:00");
+
+      // Merge request creation should fail
+      final var ex2 = assertThrows(SQLException.class, () -> createMergeRequest(planId, childId));
+      assertEquals("Cannot create merge request between plans with different bounds.", ex2.getMessage());
     }
   }
 
@@ -1581,14 +1529,10 @@ public class PlanCollaborationTests {
   @Nested
   class BeginMergeTests {
     @Test
-    void beginMergeFailsOnInvalidRequestId() throws SQLException {
-      try{
-        beginMerge(-1);
-        fail();
-      }catch (SQLException sqlEx){
-        if(!sqlEx.getMessage().contains("Request ID -1 is not present in merge_request table."))
-          throw sqlEx;
-      }
+    void beginMergeFailsOnInvalidRequestId() {
+      final var ex = assertThrows(SQLException.class, () -> beginMerge(-1));
+      assertEquals("Request ID -1 is not present in merge_request table.", ex.getMessage());
+    }
     }
 
     @Test
@@ -1625,14 +1569,9 @@ public class PlanCollaborationTests {
       merlinHelper.insertActivity(planId);
       final int childPlan = duplicatePlan(planId, "Child");
 
-      try {
-        beginMerge(createMergeRequest(planId,childPlan));
-        fail();
-      } catch (SQLException sqlex) {
-          if(!sqlex.getMessage().contains("Cannot begin merge. The contents of the two plans are identical.")){
-            throw sqlex;
-          }
-      }
+      final var ex = assertThrows(SQLException.class, () -> beginMerge(createMergeRequest(planId,childPlan)));
+      assertEquals("Cannot begin merge. The contents of the two plans are identical.", ex.getMessage());
+
       // Assert that the plan was not locked
       assertFalse(isPlanLocked(planId));
     }
@@ -2013,14 +1952,9 @@ public class PlanCollaborationTests {
   @Nested
   class CommitMergeTests{
     @Test
-    void commitMergeFailsForNonexistentId() throws SQLException {
-      try {
-        commitMerge(-1);
-        fail();
-      } catch (SQLException sqlex){
-        if(!sqlex.getMessage().contains("Invalid merge request id -1."))
-          throw sqlex;
-      }
+    void commitMergeFailsForNonexistentId() {
+      final var ex = assertThrows(SQLException.class, () -> commitMerge(-1));
+      assertEquals("Invalid merge request id -1.", ex.getMessage());
     }
 
     @Test
@@ -2034,13 +1968,9 @@ public class PlanCollaborationTests {
 
       final int mergeRQ = createMergeRequest(basePlan, childPlan);
       beginMerge(mergeRQ);
-      try{
-        commitMerge(mergeRQ);
-        fail();
-      } catch (SQLException sqlex){
-        if(!sqlex.getMessage().contains("There are unresolved conflicts in merge request "+mergeRQ+". Cannot commit merge."))
-          throw sqlex;
-      }
+
+      final var ex = assertThrows(SQLException.class, () -> commitMerge(mergeRQ));
+      assertEquals("There are unresolved conflicts in merge request "+mergeRQ+". Cannot commit merge.", ex.getMessage());
     }
 
     @Test
@@ -2456,36 +2386,21 @@ public class PlanCollaborationTests {
   @Nested
   class MergeStateMachineTests{
     @Test
-    void cancelFailsForInvalidId() throws SQLException{
-      try{
-        cancelMerge(-1);
-        fail();
-      } catch (SQLException sqlException) {
-        if(!sqlException.getMessage().contains("Invalid merge request id -1."))
-          throw sqlException;
-      }
+    void cancelFailsForInvalidId() {
+      final var ex = assertThrows(SQLException.class, () -> cancelMerge(-1));
+      assertEquals("Invalid merge request id -1.", ex.getMessage());
     }
 
     @Test
-    void denyFailsForInvalidId() throws SQLException {
-      try{
-        denyMerge(-1);
-        fail();
-      } catch (SQLException sqlException) {
-        if(!sqlException.getMessage().contains("Invalid merge request id -1."))
-          throw sqlException;
-      }
+    void denyFailsForInvalidId() {
+      final var ex = assertThrows(SQLException.class, () -> denyMerge(-1));
+      assertEquals("Invalid merge request id -1.", ex.getMessage());
     }
 
     @Test
-    void withdrawFailsForInvalidId() throws SQLException {
-      try{
-        withdrawMergeRequest(-1);
-        fail();
-      } catch (SQLException sqlException){
-        if(!sqlException.getMessage().contains("Merge request -1 does not exist. Cannot withdraw request."))
-          throw sqlException;
-      }
+    void withdrawFailsForInvalidId() {
+      final var ex = assertThrows(SQLException.class, () -> withdrawMergeRequest(-1));
+      assertEquals("Merge request -1 does not exist. Cannot withdraw request.", ex.getMessage());
     }
 
     @Test
@@ -2496,181 +2411,125 @@ public class PlanCollaborationTests {
       assertEquals("pending", mergeRequest.status);
     }
 
-    @Test
-    void beginMergeOnlySucceedsOnPendingStatus() throws SQLException {
+    @ParameterizedTest
+    @ValueSource(strings = {"withdrawn", "accepted", "rejected", "in-progress"})
+    void beginMergeFailsOnNonPendingStatus(String status) throws SQLException {
       final int basePlan = merlinHelper.insertPlan(missionModelId);
       final int childPlan = duplicatePlan(basePlan, "Child");
       merlinHelper.insertActivity(childPlan);
       final int mergeRQ = createMergeRequest(basePlan, childPlan);
 
-      setMergeRequestStatus(mergeRQ, "withdrawn");
-      try {
-        beginMerge(mergeRQ);
-      } catch (SQLException sqlEx){
-        if (!sqlEx.getMessage().contains("Cannot begin request. Merge request "+mergeRQ+" is not in pending state."))
-          throw sqlEx;
-      }
+      setMergeRequestStatus(mergeRQ, status);
 
-      setMergeRequestStatus(mergeRQ, "accepted");
-      try {
-        beginMerge(mergeRQ);
-        fail();
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Cannot begin request. Merge request "+mergeRQ+" is not in pending state."))
-          throw sqlEx;
-      }
-
-      setMergeRequestStatus(mergeRQ, "rejected");
-      try {
-        beginMerge(mergeRQ);
-        fail();
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Cannot begin request. Merge request "+mergeRQ+" is not in pending state."))
-          throw sqlEx;
-      }
-
-      setMergeRequestStatus(mergeRQ, "in-progress");
-      try {
-        beginMerge(mergeRQ);
-        fail();
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Cannot begin request. Merge request "+mergeRQ+" is not in pending state."))
-          throw sqlEx;
-      }
-
-      setMergeRequestStatus(mergeRQ, "pending");
-      beginMerge(mergeRQ);
+      final var ex = assertThrows(SQLException.class, () -> beginMerge(mergeRQ));
+      assertEquals("Cannot begin request. Merge request "+mergeRQ+" is not in pending state.", ex.getMessage());
     }
 
     @Test
-    void withdrawOnlySucceedsOnPendingOrWithdrawnStatus() throws SQLException {
+    void beginMergeSucceedsOnPendingStatus() throws SQLException {
       final int basePlan = merlinHelper.insertPlan(missionModelId);
       final int childPlan = duplicatePlan(basePlan, "Child");
       merlinHelper.insertActivity(childPlan);
       final int mergeRQ = createMergeRequest(basePlan, childPlan);
 
       setMergeRequestStatus(mergeRQ, "pending");
-      withdrawMergeRequest(mergeRQ);
-
-      setMergeRequestStatus(mergeRQ, "withdrawn");
-      withdrawMergeRequest(mergeRQ);
-
-      setMergeRequestStatus(mergeRQ, "accepted");
-      try {
-        withdrawMergeRequest(mergeRQ);
-        fail();
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Cannot withdraw request."))
-          throw sqlEx;
-      }
-
-      setMergeRequestStatus(mergeRQ, "rejected");
-      try {
-        withdrawMergeRequest(mergeRQ);
-        fail();
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Cannot withdraw request."))
-          throw sqlEx;
-      }
-
-      setMergeRequestStatus(mergeRQ, "in-progress");
-      try {
-        withdrawMergeRequest(mergeRQ);
-        fail();
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Cannot withdraw request."))
-          throw sqlEx;
-      }
+      assertDoesNotThrow(() -> beginMerge(mergeRQ));
     }
 
-    @Test
-    void cancelOnlySucceedsOnInProgressOrPendingStatus() throws SQLException {
+    @ParameterizedTest
+    @ValueSource(strings = {"accepted", "rejected", "in-progress"})
+    void withdrawFailsAcceptedRejectedInProgress(String status) throws SQLException {
+      final int basePlan = merlinHelper.insertPlan(missionModelId);
+      final int childPlan = duplicatePlan(basePlan, "Child");
+      merlinHelper.insertActivity(childPlan);
+      final int mergeRQ = createMergeRequest(basePlan, childPlan);
+
+      setMergeRequestStatus(mergeRQ, status);
+
+      final var ex = assertThrows(SQLException.class, () -> withdrawMergeRequest(mergeRQ));
+      assertEquals("Cannot withdraw request.", ex.getMessage());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"accepted", "rejected", "in-progress"})
+    void withdrawSucceedsPendingOrWithdrawnStatus(String status) throws SQLException {
+      final int basePlan = merlinHelper.insertPlan(missionModelId);
+      final int childPlan = duplicatePlan(basePlan, "Child");
+      merlinHelper.insertActivity(childPlan);
+      final int mergeRQ = createMergeRequest(basePlan, childPlan);
+
+      setMergeRequestStatus(mergeRQ, status);
+
+      assertDoesNotThrow(() -> withdrawMergeRequest(mergeRQ));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"withdrawn", "accepted", "rejected"})
+    void cancelFailsWithdrawnAcceptedRejected(String status) throws SQLException {
       final int basePlan = merlinHelper.insertPlan(missionModelId);
       final int childPlan = duplicatePlan(basePlan, "Child");
       merlinHelper.insertActivity(childPlan);
       final int mergeRQ = createMergeRequest(basePlan, childPlan);
       beginMerge(mergeRQ);
 
-      setMergeRequestStatus(mergeRQ, "pending");
-      cancelMerge(mergeRQ);
+      setMergeRequestStatus(mergeRQ, status);
 
-      setMergeRequestStatus(mergeRQ, "withdrawn");
-      try {
-        cancelMerge(mergeRQ);
-        fail();
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Cannot cancel merge."))
-          throw sqlEx;
-      }
-
-      setMergeRequestStatus(mergeRQ, "accepted");
-      try {
-        cancelMerge(mergeRQ);
-        fail();
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Cannot cancel merge."))
-          throw sqlEx;
-      }
-
-      setMergeRequestStatus(mergeRQ, "rejected");
-      try {
-        cancelMerge(mergeRQ);
-        fail();
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Cannot cancel merge."))
-          throw sqlEx;
-      }
-
-      setMergeRequestStatus(mergeRQ, "in-progress");
-      cancelMerge(mergeRQ);
+      final var ex = assertThrows(SQLException.class, () -> cancelMerge(mergeRQ));
+      assertEquals("Cannot cancel merge.", ex.getMessage());
     }
 
-    @Test
-    void denyOnlySucceedsOnInProgressStatus() throws SQLException {
+    @ParameterizedTest
+    @ValueSource(strings = {"pending", "in-progress"})
+    void cancelSucceedsInProgressOrPendingStatus(String status) throws SQLException {
       final int basePlan = merlinHelper.insertPlan(missionModelId);
       final int childPlan = duplicatePlan(basePlan, "Child");
       merlinHelper.insertActivity(childPlan);
       final int mergeRQ = createMergeRequest(basePlan, childPlan);
       beginMerge(mergeRQ);
 
-      setMergeRequestStatus(mergeRQ, "pending");
-      try {
-        denyMerge(mergeRQ);
-        fail();
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Cannot reject merge not in progress."))
-          throw sqlEx;
-      }
+      setMergeRequestStatus(mergeRQ, status);
+      assertDoesNotThrow(() -> cancelMerge(mergeRQ));
+    }
 
-      setMergeRequestStatus(mergeRQ, "withdrawn");
-      try {
-        denyMerge(mergeRQ);
-        fail();
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Cannot reject merge not in progress."))
-          throw sqlEx;
-      }
+    @ParameterizedTest
+    @ValueSource(strings = {"withdrawn", "pending", "accepted", "rejected"})
+    void denyFailsNonInProgressStatus(String status) throws SQLException {
+      final int basePlan = merlinHelper.insertPlan(missionModelId);
+      final int childPlan = duplicatePlan(basePlan, "Child");
+      merlinHelper.insertActivity(childPlan);
+      final int mergeRQ = createMergeRequest(basePlan, childPlan);
+      beginMerge(mergeRQ);
 
-      setMergeRequestStatus(mergeRQ, "accepted");
-      try {
-        denyMerge(mergeRQ);
-        fail();
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Cannot reject merge not in progress."))
-          throw sqlEx;
-      }
+      setMergeRequestStatus(mergeRQ, status);
 
-      setMergeRequestStatus(mergeRQ, "rejected");
-      try {
-        denyMerge(mergeRQ);
-        fail();
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Cannot reject merge not in progress."))
-          throw sqlEx;
-      }
+      final var ex = assertThrows(SQLException.class, () -> denyMerge(mergeRQ));
+      assertEquals("Cannot reject merge not in progress.", ex.getMessage());
+    }
 
+    @Test
+    void denySucceedsInProgressStatus() throws SQLException {
+      final int basePlan = merlinHelper.insertPlan(missionModelId);
+      final int childPlan = duplicatePlan(basePlan, "Child");
+      merlinHelper.insertActivity(childPlan);
+      final int mergeRQ = createMergeRequest(basePlan, childPlan);
+      beginMerge(mergeRQ);
       setMergeRequestStatus(mergeRQ, "in-progress");
-      denyMerge(mergeRQ);
+      assertDoesNotThrow(() -> denyMerge(mergeRQ));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"withdrawn", "pending", "accepted", "rejected"})
+    void commitFailsNonInProgressStatus(String status) throws SQLException {
+      final int basePlan = merlinHelper.insertPlan(missionModelId);
+      final int childPlan = duplicatePlan(basePlan, "Child");
+      merlinHelper.insertActivity(childPlan);
+      final int mergeRQ = createMergeRequest(basePlan, childPlan);
+      beginMerge(mergeRQ);
+
+      setMergeRequestStatus(mergeRQ, status);
+
+      final var ex = assertThrows(SQLException.class, () -> commitMerge(mergeRQ));
+      assertEquals("Cannot reject merge not in progress.", ex.getMessage());
     }
 
     @Test
@@ -2681,44 +2540,8 @@ public class PlanCollaborationTests {
       final int mergeRQ = createMergeRequest(basePlan, childPlan);
       beginMerge(mergeRQ);
 
-      setMergeRequestStatus(mergeRQ, "pending");
-      try {
-        commitMerge(mergeRQ);
-        fail();
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Cannot commit a merge request that is not in-progress."))
-          throw sqlEx;
-      }
-
-      setMergeRequestStatus(mergeRQ, "withdrawn");
-      try {
-        commitMerge(mergeRQ);
-        fail();
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Cannot commit a merge request that is not in-progress."))
-          throw sqlEx;
-      }
-
-      setMergeRequestStatus(mergeRQ, "accepted");
-      try {
-        commitMerge(mergeRQ);
-        fail();
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Cannot commit a merge request that is not in-progress."))
-          throw sqlEx;
-      }
-
-      setMergeRequestStatus(mergeRQ, "rejected");
-      try {
-        commitMerge(mergeRQ);
-        fail();
-      } catch (SQLException sqlEx) {
-        if (!sqlEx.getMessage().contains("Cannot commit a merge request that is not in-progress."))
-          throw sqlEx;
-      }
-
       setMergeRequestStatus(mergeRQ, "in-progress");
-      commitMerge(mergeRQ);
+      assertDoesNotThrow(() -> commitMerge(mergeRQ));
     }
 
     /**
@@ -2901,14 +2724,9 @@ public class PlanCollaborationTests {
       // Merge fails as it would establish B -> A -> B cycle
       final int mergeRQ = createMergeRequest(planId, childPlan);
       beginMerge(mergeRQ);
-      try {
-        commitMerge(mergeRQ);
-        fail();
-      } catch (SQLException ex) {
-        if(!ex.getMessage().contains("Cycle detected. Cannot apply changes.")){
-          throw ex;
-        }
-      }
+
+      final var ex = assertThrows(SQLException.class, () -> commitMerge(mergeRQ));
+      assertEquals("Cycle detected. Cannot apply changes.", ex.getMessage());
     }
 
     @Test
@@ -2925,15 +2743,9 @@ public class PlanCollaborationTests {
 
       final int mergeRQ = createMergeRequest(planId, childPlan);
       beginMerge(mergeRQ);
-      try{
-        commitMerge(mergeRQ);
-        fail();
-      } catch (SQLException ex){
-        if(!ex.getMessage().contains(
-            "insert or update on table \"activity_directive\" violates foreign key constraint \"anchor_in_plan\"")){
-          throw ex;
-        }
-      }
+
+      final var ex = assertThrows(SQLException.class, () -> commitMerge(mergeRQ));
+      assertEquals("insert or update on table \"activity_directive\" violates foreign key constraint \"anchor_in_plan\"", ex.getMessage());
     }
 
     @Test
@@ -3426,20 +3238,12 @@ public class PlanCollaborationTests {
       final int mergeRQ = createMergeRequest(planId, branchId);
       beginMerge(mergeRQ);
 
-      try {
-        tagsHelper.deleteTag(activityTagId);
-      } catch (SQLException ex) {
-        if(!ex.getMessage().contains("Plan "+planId +" is locked.")){
-          throw ex;
-        }
-      }
-      try {
-        tagsHelper.deleteTag(snapshotTagId);
-      } catch (SQLException ex) {
-        if(!ex.getMessage().contains("Cannot delete. Snapshot is in use in an active merge review.")){
-          throw ex;
-        }
-      }
+      final var exActivityTagDelete = assertThrows(SQLException.class, () -> tagsHelper.deleteTag(activityTagId));
+      assertEquals("Plan "+planId +" is locked.", exActivityTagDelete.getMessage());
+
+      final var exSnapshotTagDelete = assertThrows(SQLException.class, () -> tagsHelper.deleteTag(snapshotTagId));
+      assertEquals("Cannot delete. Snapshot is in use in an active merge review.", exSnapshotTagDelete.getMessage());
+
       assertDoesNotThrow(()->tagsHelper.deleteTag(unrelatedTagId));
 
       unlockPlan(planId);

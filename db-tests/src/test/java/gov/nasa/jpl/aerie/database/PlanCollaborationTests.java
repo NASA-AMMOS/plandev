@@ -217,8 +217,12 @@ public class PlanCollaborationTests {
       return new SnapshotMetadata(
           res.getInt("snapshot_id"),
           res.getInt("plan_id"),
+          res.getInt("model_id"),
           res.getInt("revision"),
+          res.getString("plan_start_time"),
+          res.getString("plan_duration"),
           res.getString("snapshot_name"),
+          res.getString("description"),
           res.getString("taken_by"),
           res.getString("taken_at")
       );
@@ -618,8 +622,12 @@ public class PlanCollaborationTests {
   private record SnapshotMetadata(
       int snapshot_id,
       int plan_id,
+      int model_id,
       int revision,
+      String planStartTime,
+      String planDuration,
       String snapshot_name,
+      String description,
       String taken_by,
       String taken_at) {}
   private record SnapshotActivity(
@@ -754,17 +762,15 @@ public class PlanCollaborationTests {
       assertEquals(0, snapshot.revision);
     }
 
+    /**
+     * Snapshots can have duplicate names, as they have a description field to help
+     * disambiguate them
+     */
     @Test
-    void namedSnapshotsMustBeUnique() throws SQLException{
+    void namedSnapshotsMayHaveDuplicateNames() throws SQLException{
       final var planId = merlinHelper.insertPlan(missionModelId);
       createSnapshot(planId, "Snapshot", merlinHelper.admin);
-      try {
-        createSnapshot(planId, "Snapshot", merlinHelper.admin);
-      } catch (SQLException ex) {
-        if (!ex.getMessage().contains("duplicate key value violates unique constraint \"snapshot_name_unique_per_plan\"")) {
-          throw ex;
-        }
-      }
+      assertDoesNotThrow(() -> createSnapshot(planId, "Snapshot", merlinHelper.admin));
     }
 
     @Test
@@ -784,6 +790,36 @@ public class PlanCollaborationTests {
 
       assertEquals(merlinHelper.admin.name(), firstSnapshot.taken_by);
       assertEquals(merlinHelper.user.name(), secondSnapshot.taken_by);
+    }
+
+    /**
+     * A snapshot is automatically taken when the plan bounds are updated.
+     */
+    @Test
+    void snapshotTakenOnPlanBoundsUpdate() throws SQLException {
+      final var planId = merlinHelper.insertPlan(missionModelId, merlinHelper.user.name());
+      assertTrue(getLatestSnapshots(planId).isEmpty());
+
+      // Update plan bounds
+      merlinHelper.updatePlanDuration(planId, "28:00:00");
+
+      final var latestSnapshots = getLatestSnapshots(planId);
+      assertEquals(1, latestSnapshots.size());
+
+      // Check the snapshot's contents
+      final var snapshot = getSnapshotMetadata(latestSnapshots.getFirst());
+      assertEquals("Plan Bounds Adjustment", snapshot.snapshot_name);
+      assertEquals("Automatic snapshot made before adjusting plan bounds from "
+                   + "[2020-1-1 00:00:00+00 - 2020-1-1 00:00:00+00] to "
+                   + "[2020-1-1 00:00:00+00 - 2020-1-2 04:00:00+00]", snapshot.description);
+      assertEquals(planId, snapshot.plan_id);
+      assertEquals(missionModelId, snapshot.model_id);
+      assertEquals("2020-1-1 00:00:00+00", snapshot.planStartTime);
+      assertEquals("0", snapshot.planDuration);
+
+      // Assert that the snapshot was taken BEFORE the plan's revision was updated
+      assertEquals(0, snapshot.revision);
+      assertTrue(merlinHelper.getPlanRevision(planId) > 0);
     }
   }
 
@@ -884,6 +920,48 @@ public class PlanCollaborationTests {
       // Assert that directive's state has been restored
       final Activity restoredDirective = planActivities.get(0);
       assertActivityEquals(oldDirective, restoredDirective);
+    }
+
+    /**
+     * If plan bounds are updated after a snapshot is taken, then restoring the snapshot
+     * restores the boundaries to those at the time of the snapshot.
+     */
+    @Test
+    void restoresPlanBounds() throws SQLException {
+      final var planId = merlinHelper.insertPlan(missionModelId, merlinHelper.user.name());
+
+      // Update plan bounds
+      merlinHelper.updatePlanDuration(planId, "28:00:00");
+
+      // Get a handle on the revision
+      final var oldRevision = merlinHelper.getPlanRevision(planId);
+
+      // Restore the automatically created snapshot
+      final var oldSnapshotId = getLatestSnapshot(planId);
+      restoreFromSnapshot(planId, oldSnapshotId);
+
+      // The plan bounds should be restored
+      assertEquals("2020-1-1 00:00:00+00", merlinHelper.getPlanStartTime(planId));
+      assertEquals("0", merlinHelper.getPlanDuration(planId));
+
+      // The plan's revision should have been updated
+      assertTrue(merlinHelper.getPlanRevision(planId) > oldRevision);
+
+      // A new snapshot should have been created
+      final var newSnapshotId = getLatestSnapshot(planId);
+      assertNotEquals(oldSnapshotId, newSnapshotId);
+
+      // Check the new snapshot's contents
+      final var snapshot = getSnapshotMetadata(newSnapshotId);
+      assertEquals("Plan Bounds Adjustment", snapshot.snapshot_name);
+      assertEquals("Automatic snapshot made before adjusting plan bounds from "
+                   + "[2020-1-1 00:00:00+00 - 2020-1-2 04:00:00+00] to "
+                   + "[2020-1-1 00:00:00+00 - 2020-1-1 00:00:00+00]", snapshot.description);
+      assertEquals(planId, snapshot.plan_id);
+      assertEquals(missionModelId, snapshot.model_id);
+      assertEquals("2020-1-1 00:00:00+00", snapshot.planStartTime);
+      assertEquals("28:00:00", snapshot.planDuration);
+      assertEquals(oldRevision, snapshot.revision);
     }
   }
 
@@ -1533,6 +1611,55 @@ public class PlanCollaborationTests {
       final var ex = assertThrows(SQLException.class, () -> beginMerge(-1));
       assertEquals("Request ID -1 is not present in merge_request table.", ex.getMessage());
     }
+
+    /**
+     * If the plan receiving changes has its bounds changed between a merge request being made
+     * and the merge beginning, then the "begin_merge" method fails.
+     */
+    @Test
+    void beginMergeReceivingBoundsChange() throws SQLException {
+      final int planId = merlinHelper.insertPlan(missionModelId);
+      final int childId = duplicatePlan(planId, "Child Plan");
+
+      merlinHelper.insertActivity(childId);
+
+      // Create a merge request
+      final var mergeRQId = createMergeRequest(planId, childId);
+
+      // Update the plan bounds
+      merlinHelper.updatePlanDuration(planId, "24:00:00");
+
+      // Attempt to begin a merge request
+      final var ex = assertThrows(SQLException.class, () -> beginMerge(mergeRQId));
+
+      assertEquals("Cannot begin merge request between plans with different bounds.", ex.getMessage());
+
+      unlockPlan(planId);
+    }
+
+    /**
+     * If the plan supplying changes has its bounds changed between a merge request being made
+     * and the merge beginning, then the merge succeeds as normal.
+     * This is because the snapshot used in the merge request is unaffected by changes to the plan,
+     * including bounds changes.
+     */
+    @Test
+    void beginMergeSupplyingBoundsChange() throws SQLException {
+      final int planId = merlinHelper.insertPlan(missionModelId);
+      final int childId = duplicatePlan(planId, "Child Plan");
+
+      merlinHelper.insertActivity(childId);
+
+      // Create a merge request
+      final var mergeRQId = createMergeRequest(planId, childId);
+
+      // Update the child plan's bounds
+      merlinHelper.updatePlanDuration(childId, "24:00:00");
+
+      // Attempt to begin a merge request. This should succeed
+      assertDoesNotThrow(() -> beginMerge(mergeRQId));
+
+      unlockPlan(planId);
     }
 
     @Test

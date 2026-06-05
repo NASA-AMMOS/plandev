@@ -148,7 +148,6 @@ final class MerlinDatabaseTestHelper {
     return insertActivity(planId, startOffset, type, arguments, admin);
   }
 
-
   int insertActivity(final int planId, final String startOffset, final String arguments, User user) throws SQLException {
     try (final var statement = connection.createStatement()) {
       final var res = statement
@@ -294,7 +293,7 @@ final class MerlinDatabaseTestHelper {
     }
   }
 
-void unassignPreset(int presetId, int activityId, int planId) throws SQLException {
+  void unassignPreset(int presetId, int activityId, int planId) throws SQLException {
     try(final var statement = connection.createStatement()){
       statement.execute(
          //language=sql
@@ -304,7 +303,6 @@ void unassignPreset(int presetId, int activityId, int planId) throws SQLExceptio
          """.formatted(presetId, activityId, planId));
     }
   }
-
 
   int insertConstraint(String name, String definition, User user) throws SQLException {
     try(final var statement = connection.createStatement()) {
@@ -323,6 +321,64 @@ void unassignPreset(int presetId, int activityId, int planId) throws SQLExceptio
           """.formatted(name, user.name, user.name, definition));
       res.next();
       return res.getInt("constraint_id");
+    }
+  }
+
+  void updatePlanDuration(int planId, String newDuration) throws SQLException {
+    try(final var statement = connection.createStatement()) {
+      statement.executeUpdate(
+          //language=sql
+          """
+          update merlin.plan
+          set duration = '%s'
+          where id = %d
+          """.formatted(newDuration, planId)
+      );
+    }
+  }
+
+  int getPlanRevision(int planId) throws SQLException {
+    try(final var statement = connection.createStatement()) {
+      final var res = statement.executeQuery(
+          //language=sql
+          """
+          select revision
+          from merlin.plan
+          where id = %d
+          """.formatted(planId)
+      );
+      res.next();
+      return res.getInt("revision");
+    }
+  }
+
+  String getPlanStartTime(int planId) throws SQLException {
+    try(final var statement = connection.createStatement()) {
+      final var res = statement.executeQuery(
+          //language=sql
+          """
+          select start_time
+          from merlin.plan
+          where id = %d
+          """.formatted(planId)
+      );
+      res.next();
+      return res.getString("start_time");
+    }
+  }
+
+  String getPlanDuration(int planId) throws SQLException {
+    try(final var statement = connection.createStatement()) {
+      final var res = statement.executeQuery(
+          //language=sql
+          """
+          select duration
+          from merlin.plan
+          where id = %d
+          """.formatted(planId)
+      );
+      res.next();
+      return res.getString("duration");
     }
   }
 }

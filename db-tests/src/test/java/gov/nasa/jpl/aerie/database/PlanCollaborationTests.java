@@ -736,7 +736,7 @@ public class PlanCollaborationTests {
       }
 
       //assert that the snapshot history is n+1 long
-      assertEquals(snapshotHistory.size(), numberOfSnapshots + 1);
+      assertEquals(numberOfSnapshots + 1, snapshotHistory.size());
 
       //assert that res contains, in order: finalSnapshotId, snapshotId[0,1,...,n]
       assertEquals(finalSnapshotId, snapshotHistory.get(0));
@@ -1048,7 +1048,7 @@ public class PlanCollaborationTests {
           parentHistory.add(parentRes.getInt(1));
         }
 
-        assertEquals(parentHistory.size(), numberOfSnapshots + 1);
+        assertEquals(numberOfSnapshots + 1, parentHistory.size());
 
         final var childHistory = new ArrayList<Integer>();
         while (childRes.next()) {

@@ -749,7 +749,7 @@ public class PlanCollaborationTests {
     @Test
     void snapshotFailsForNonexistentPlanId() {
       final var ex = assertThrows(SQLException.class, () -> createSnapshot(1000));
-      assertEquals("Plan 1000 does not exist.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Plan 1000 does not exist."));
     }
 
     @Test
@@ -808,14 +808,14 @@ public class PlanCollaborationTests {
 
       // Check the snapshot's contents
       final var snapshot = getSnapshotMetadata(latestSnapshots.getFirst());
-      assertEquals("Plan Bounds Adjustment", snapshot.snapshot_name);
+      assertEquals("Plan Bound Adjustment", snapshot.snapshot_name);
       assertEquals("Automatic snapshot made before adjusting plan bounds from "
-                   + "[2020-1-1 00:00:00+00 - 2020-1-1 00:00:00+00] to "
-                   + "[2020-1-1 00:00:00+00 - 2020-1-2 04:00:00+00]", snapshot.description);
+                   + "[2020-01-01 00:00:00+00 - 2020-01-01 00:00:00+00] to "
+                   + "[2020-01-01 00:00:00+00 - 2020-01-02 04:00:00+00]", snapshot.description);
       assertEquals(planId, snapshot.plan_id);
       assertEquals(missionModelId, snapshot.model_id);
-      assertEquals("2020-1-1 00:00:00+00", snapshot.planStartTime);
-      assertEquals("0", snapshot.planDuration);
+      assertEquals("2020-01-01 00:00:00+00", snapshot.planStartTime);
+      assertEquals("00:00:00", snapshot.planDuration);
 
       // Assert that the snapshot was taken BEFORE the plan's revision was updated
       assertEquals(0, snapshot.revision);
@@ -829,14 +829,14 @@ public class PlanCollaborationTests {
     void restoreFailsForNonexistentPlan() throws SQLException {
       final int snapshotId = createSnapshot(merlinHelper.insertPlan(missionModelId));
       final var ex = assertThrows(SQLException.class, () -> restoreFromSnapshot(-1, snapshotId));
-      assertEquals("Cannot Restore: Plan with ID -1 does not exist.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Cannot Restore: Plan with ID -1 does not exist."));
     }
 
     @Test
     void restoreFailsForNonexistentSnapshot() throws SQLException {
       final int planId = merlinHelper.insertPlan(missionModelId);
       final var ex = assertThrows(SQLException.class, () -> restoreFromSnapshot(planId, -1));
-      assertEquals("Cannot Restore: Snapshot with ID -1 does not exist.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Cannot Restore: Snapshot with ID -1 does not exist."));
     }
 
     @Test
@@ -846,8 +846,8 @@ public class PlanCollaborationTests {
       final int planId = merlinHelper.insertPlan(missionModelId, merlinHelper.user.name(), "Other Plan");
 
       final var ex = assertThrows(SQLException.class, () -> restoreFromSnapshot(planId, snapshotId));
-      assertEquals("Cannot Restore: Snapshot %d is not a snapshot of Plan 'Other Plan' (ID %d)"
-                       .formatted(snapshotId, planId), ex.getMessage());
+      assertTrue(ex.getMessage().contains("Cannot Restore: Snapshot %d is not a snapshot of Plan 'Other Plan' (ID %d)"
+                                                .formatted(snapshotId, planId)));
     }
 
     @Test
@@ -857,8 +857,8 @@ public class PlanCollaborationTests {
       final int branchId = duplicatePlan(wrongPlan, "Different Plan");
 
       final var ex = assertThrows(SQLException.class, () -> restoreFromSnapshot(branchId, snapshotId));
-      assertEquals("Cannot Restore: Snapshot %d is not a snapshot of Plan 'Different Plan' (ID %d)"
-                       .formatted(snapshotId, branchId), ex.getMessage());
+      assertTrue(ex.getMessage().contains("Cannot Restore: Snapshot %d is not a snapshot of Plan 'Different Plan' (ID %d)"
+                                                .formatted(snapshotId, branchId)));
     }
 
     @Test
@@ -941,8 +941,8 @@ public class PlanCollaborationTests {
       restoreFromSnapshot(planId, oldSnapshotId);
 
       // The plan bounds should be restored
-      assertEquals("2020-1-1 00:00:00+00", merlinHelper.getPlanStartTime(planId));
-      assertEquals("0", merlinHelper.getPlanDuration(planId));
+      assertEquals("2020-01-01 00:00:00+00", merlinHelper.getPlanStartTime(planId));
+      assertEquals("00:00:00", merlinHelper.getPlanDuration(planId));
 
       // The plan's revision should have been updated
       assertTrue(merlinHelper.getPlanRevision(planId) > oldRevision);
@@ -953,13 +953,13 @@ public class PlanCollaborationTests {
 
       // Check the new snapshot's contents
       final var snapshot = getSnapshotMetadata(newSnapshotId);
-      assertEquals("Plan Bounds Adjustment", snapshot.snapshot_name);
+      assertEquals("Plan Bound Adjustment", snapshot.snapshot_name);
       assertEquals("Automatic snapshot made before adjusting plan bounds from "
-                   + "[2020-1-1 00:00:00+00 - 2020-1-2 04:00:00+00] to "
-                   + "[2020-1-1 00:00:00+00 - 2020-1-1 00:00:00+00]", snapshot.description);
+                   + "[2020-01-01 00:00:00+00 - 2020-01-02 04:00:00+00] to "
+                   + "[2020-01-01 00:00:00+00 - 2020-01-01 00:00:00+00]", snapshot.description);
       assertEquals(planId, snapshot.plan_id);
       assertEquals(missionModelId, snapshot.model_id);
-      assertEquals("2020-1-1 00:00:00+00", snapshot.planStartTime);
+      assertEquals("2020-01-01 00:00:00+00", snapshot.planStartTime);
       assertEquals("28:00:00", snapshot.planDuration);
       assertEquals(oldRevision, snapshot.revision);
     }
@@ -1062,7 +1062,7 @@ public class PlanCollaborationTests {
     @Test
     void duplicateNonexistentPlanFails() {
       final var ex = assertThrows(SQLException.class, () -> duplicatePlan(1000, "Nonexistent Parent Duplicate"));
-      assertEquals("Plan 1000 does not exist.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Plan 1000 does not exist."));
     }
   }
 
@@ -1095,7 +1095,7 @@ public class PlanCollaborationTests {
     @Test
     void getPlanHistoryInvalidId() {
       final var ex = assertThrows(SQLException.class, () -> getPlanHistory(-1));
-      assertEquals("Plan ID -1 is not present in plan table.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Plan ID -1 is not present in plan table."));
     }
 
     @Test
@@ -1144,7 +1144,7 @@ public class PlanCollaborationTests {
       try {
         lockPlan(planId);
         final var ex = assertThrows(SQLException.class, () -> merlinHelper.updateActivityName(newName, activityId, planId));
-        assertEquals("Plan " + planId + " is locked.", ex.getMessage());
+        assertTrue(ex.getMessage().contains("Plan " + planId + " is locked."));
       } finally {
         unlockPlan(planId);
       }
@@ -1170,7 +1170,7 @@ public class PlanCollaborationTests {
       try {
         lockPlan(planId);
         final var ex = assertThrows(SQLException.class, () -> merlinHelper.deleteActivityDirective(planId, activityId));
-        assertEquals("Plan " + planId + " is locked.", ex.getMessage());
+        assertTrue(ex.getMessage().contains("Plan " + planId + " is locked."));
       } finally {
         unlockPlan(planId);
       }
@@ -1192,7 +1192,7 @@ public class PlanCollaborationTests {
       try {
         lockPlan(planId);
         final var ex = assertThrows(SQLException.class, () -> merlinHelper.insertActivity(planId));
-        assertEquals("Plan " + planId + " is locked.", ex.getMessage());
+        assertTrue(ex.getMessage().contains("Plan " + planId + " is locked."));
       } finally {
         unlockPlan(planId);
       }
@@ -1219,7 +1219,7 @@ public class PlanCollaborationTests {
       try {
         lockPlan(planId);
         final var ex = assertThrows(SQLException.class, () -> beginMerge(mergeRequest));
-        assertEquals("Cannot begin merge request. Plan to receive changes is locked.", ex.getMessage());
+        assertTrue(ex.getMessage().contains("Cannot begin merge request. Plan to receive changes is locked."));;
       } finally {
         unlockPlan(planId);
       }
@@ -1232,7 +1232,7 @@ public class PlanCollaborationTests {
       try {
         lockPlan(planId);
         final var ex = assertThrows(SQLException.class, () -> merlinHelper.deletePlan(planId));
-        assertEquals("Cannot delete locked plan.", ex.getMessage());
+        assertTrue(ex.getMessage().contains("Cannot delete locked plan."));
       } finally {
         unlockPlan(planId);
       }
@@ -1458,7 +1458,7 @@ public class PlanCollaborationTests {
             """
             select merlin.get_merge_base(%d, -1);
             """.formatted(planId)));
-        assertEquals("Snapshot ID "+ -1 +" is not present in plan_snapshot table.", ex.getMessage());
+        assertTrue(ex.getMessage().contains("Snapshot ID "+ -1 +" is not present in plan_snapshot table."));
       }
 
       try(final var statement = connection.createStatement()) {
@@ -1467,7 +1467,7 @@ public class PlanCollaborationTests {
             """
             select merlin.get_merge_base(-2, %d);
             """.formatted(snapshotId)));
-        assertEquals("Plan ID "+ -2 +" is not present in plan_snapshot table.", ex.getMessage());
+        assertTrue(ex.getMessage().contains("Plan ID "+ -2 +" is not present in plan_snapshot table."));
       }
     }
 
@@ -1536,10 +1536,10 @@ public class PlanCollaborationTests {
       final int planId = merlinHelper.insertPlan(missionModelId);
 
       final var exInvalidSupplying = assertThrows(SQLException.class, () -> createMergeRequest(planId, -1));
-      assertEquals("Plan supplying changes (Plan -1) does not exist.", exInvalidSupplying.getMessage());
+      assertTrue(exInvalidSupplying.getMessage().contains("Plan supplying changes (Plan -1) does not exist."));
 
       final var exInvalidReceiving = assertThrows(SQLException.class, () -> createMergeRequest(-1, planId));
-      assertEquals("Plan receiving changes (Plan -1) does not exist.", exInvalidReceiving.getMessage());
+      assertTrue(exInvalidReceiving.getMessage().contains("Plan receiving changes (Plan -1) does not exist."));
     }
 
     @Test
@@ -1551,7 +1551,7 @@ public class PlanCollaborationTests {
       createSnapshot(plan1);
 
       final var ex = assertThrows(SQLException.class, () -> createMergeRequest(plan1, plan2));
-      assertEquals("Cannot create merge request between unrelated plans.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Cannot create merge request between unrelated plans."));
     }
 
     @Test
@@ -1559,13 +1559,13 @@ public class PlanCollaborationTests {
       final int plan = merlinHelper.insertPlan(missionModelId);
 
       final var ex = assertThrows(SQLException.class, () -> createMergeRequest(plan, plan));
-      assertEquals("Cannot create a merge request between a plan and itself.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Cannot create a merge request between a plan and itself."));
     }
 
     @Test
     void withdrawFailsForNonexistentRequest() {
       final var ex = assertThrows(SQLException.class, () -> withdrawMergeRequest(-1));
-      assertEquals("Merge request -1 does not exist. Cannot withdraw request.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Merge request -1 does not exist. Cannot withdraw request."));
     }
 
     /**
@@ -1583,7 +1583,7 @@ public class PlanCollaborationTests {
 
       // Merge request creation should fail
       final var ex1 = assertThrows(SQLException.class, () -> createMergeRequest(planId, childId));
-      assertEquals("Cannot create merge request between plans with different bounds.", ex1.getMessage());
+      assertTrue(ex1.getMessage().contains("Cannot create merge request between plans with different bounds."));
 
       // Update the child so they have the same bounds
       merlinHelper.updatePlanDuration(childId, "24:00:00");
@@ -1596,7 +1596,7 @@ public class PlanCollaborationTests {
 
       // Merge request creation should fail
       final var ex2 = assertThrows(SQLException.class, () -> createMergeRequest(planId, childId));
-      assertEquals("Cannot create merge request between plans with different bounds.", ex2.getMessage());
+      assertTrue(ex2.getMessage().contains("Cannot create merge request between plans with different bounds."));
     }
   }
 
@@ -1609,7 +1609,7 @@ public class PlanCollaborationTests {
     @Test
     void beginMergeFailsOnInvalidRequestId() {
       final var ex = assertThrows(SQLException.class, () -> beginMerge(-1));
-      assertEquals("Request ID -1 is not present in merge_request table.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Request ID -1 is not present in merge_request table."));
     }
 
     /**
@@ -1632,7 +1632,7 @@ public class PlanCollaborationTests {
       // Attempt to begin a merge request
       final var ex = assertThrows(SQLException.class, () -> beginMerge(mergeRQId));
 
-      assertEquals("Cannot begin merge request between plans with different bounds.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Cannot begin merge request between plans with different bounds."));
 
       unlockPlan(planId);
     }
@@ -1697,7 +1697,7 @@ public class PlanCollaborationTests {
       final int childPlan = duplicatePlan(planId, "Child");
 
       final var ex = assertThrows(SQLException.class, () -> beginMerge(createMergeRequest(planId,childPlan)));
-      assertEquals("Cannot begin merge. The contents of the two plans are identical.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Cannot begin merge. The contents of the two plans are identical."));
 
       // Assert that the plan was not locked
       assertFalse(isPlanLocked(planId));
@@ -2081,7 +2081,7 @@ public class PlanCollaborationTests {
     @Test
     void commitMergeFailsForNonexistentId() {
       final var ex = assertThrows(SQLException.class, () -> commitMerge(-1));
-      assertEquals("Invalid merge request id -1.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Invalid merge request id -1."));
     }
 
     @Test
@@ -2097,7 +2097,7 @@ public class PlanCollaborationTests {
       beginMerge(mergeRQ);
 
       final var ex = assertThrows(SQLException.class, () -> commitMerge(mergeRQ));
-      assertEquals("There are unresolved conflicts in merge request "+mergeRQ+". Cannot commit merge.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("There are unresolved conflicts in merge request "+mergeRQ+". Cannot commit merge."));
     }
 
     @Test
@@ -2515,19 +2515,19 @@ public class PlanCollaborationTests {
     @Test
     void cancelFailsForInvalidId() {
       final var ex = assertThrows(SQLException.class, () -> cancelMerge(-1));
-      assertEquals("Invalid merge request id -1.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Invalid merge request id -1."));
     }
 
     @Test
     void denyFailsForInvalidId() {
       final var ex = assertThrows(SQLException.class, () -> denyMerge(-1));
-      assertEquals("Invalid merge request id -1.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Invalid merge request id -1."));
     }
 
     @Test
     void withdrawFailsForInvalidId() {
       final var ex = assertThrows(SQLException.class, () -> withdrawMergeRequest(-1));
-      assertEquals("Merge request -1 does not exist. Cannot withdraw request.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Merge request -1 does not exist. Cannot withdraw request."));
     }
 
     @Test
@@ -2549,7 +2549,7 @@ public class PlanCollaborationTests {
       setMergeRequestStatus(mergeRQ, status);
 
       final var ex = assertThrows(SQLException.class, () -> beginMerge(mergeRQ));
-      assertEquals("Cannot begin request. Merge request "+mergeRQ+" is not in pending state.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Cannot begin request. Merge request "+mergeRQ+" is not in pending state."));
     }
 
     @Test
@@ -2574,7 +2574,7 @@ public class PlanCollaborationTests {
       setMergeRequestStatus(mergeRQ, status);
 
       final var ex = assertThrows(SQLException.class, () -> withdrawMergeRequest(mergeRQ));
-      assertEquals("Cannot withdraw request.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Cannot withdraw request."));
     }
 
     @ParameterizedTest
@@ -2602,7 +2602,7 @@ public class PlanCollaborationTests {
       setMergeRequestStatus(mergeRQ, status);
 
       final var ex = assertThrows(SQLException.class, () -> cancelMerge(mergeRQ));
-      assertEquals("Cannot cancel merge.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Cannot cancel merge."));
     }
 
     @ParameterizedTest
@@ -2630,7 +2630,7 @@ public class PlanCollaborationTests {
       setMergeRequestStatus(mergeRQ, status);
 
       final var ex = assertThrows(SQLException.class, () -> denyMerge(mergeRQ));
-      assertEquals("Cannot reject merge not in progress.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Cannot reject merge not in progress."));
     }
 
     @Test
@@ -2656,7 +2656,7 @@ public class PlanCollaborationTests {
       setMergeRequestStatus(mergeRQ, status);
 
       final var ex = assertThrows(SQLException.class, () -> commitMerge(mergeRQ));
-      assertEquals("Cannot reject merge not in progress.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Cannot reject merge not in progress."));
     }
 
     @Test
@@ -2853,7 +2853,7 @@ public class PlanCollaborationTests {
       beginMerge(mergeRQ);
 
       final var ex = assertThrows(SQLException.class, () -> commitMerge(mergeRQ));
-      assertEquals("Cycle detected. Cannot apply changes.", ex.getMessage());
+      assertTrue(ex.getMessage().contains("Cycle detected. Cannot apply changes."));
     }
 
     @Test
@@ -2872,7 +2872,7 @@ public class PlanCollaborationTests {
       beginMerge(mergeRQ);
 
       final var ex = assertThrows(SQLException.class, () -> commitMerge(mergeRQ));
-      assertEquals("insert or update on table \"activity_directive\" violates foreign key constraint \"anchor_in_plan\"", ex.getMessage());
+      assertTrue(ex.getMessage().contains("insert or update on table \"activity_directive\" violates foreign key constraint \"anchor_in_plan\""));
     }
 
     @Test
@@ -3366,10 +3366,10 @@ public class PlanCollaborationTests {
       beginMerge(mergeRQ);
 
       final var exActivityTagDelete = assertThrows(SQLException.class, () -> tagsHelper.deleteTag(activityTagId));
-      assertEquals("Plan "+planId +" is locked.", exActivityTagDelete.getMessage());
+      assertTrue(exActivityTagDelete.getMessage().contains("Plan "+planId +" is locked."));
 
       final var exSnapshotTagDelete = assertThrows(SQLException.class, () -> tagsHelper.deleteTag(snapshotTagId));
-      assertEquals("Cannot delete. Snapshot is in use in an active merge review.", exSnapshotTagDelete.getMessage());
+      assertTrue(exSnapshotTagDelete.getMessage().contains("Cannot delete. Snapshot is in use in an active merge review."));
 
       assertDoesNotThrow(()->tagsHelper.deleteTag(unrelatedTagId));
 

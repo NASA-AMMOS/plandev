@@ -40,16 +40,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Load NPM Cache
         uses: ./.github/actions/load-node-cache
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
           distribution: "temurin"
           java-version: "21"
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
         with:
           # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
           cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
@@ -60,7 +60,7 @@ jobs:
         run: ./gradlew test --parallel
       - name: Upload Test Results as XML and HTML
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: Unit Test Results
           path: |
@@ -72,9 +72,9 @@ jobs:
     environment: e2e-test
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Setup NPM
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version-file: ./action-server/.nvmrc
           cache: npm
@@ -87,7 +87,7 @@ jobs:
         working-directory: ./action-server
       - name: Upload Test Results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: Action Server Test Results
           path: |
@@ -98,18 +98,18 @@ jobs:
     environment: e2e-test
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Setup Postgres Client (psql)
         run: |
           sudo apt-get update
           sudo apt-get install --yes postgresql-client
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
           distribution: "temurin"
           java-version: "21"
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
         with:
           # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
           cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
@@ -123,7 +123,7 @@ jobs:
         run: ./gradlew db-tests:e2eTest
       - name: Upload DB Test Results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: DB Test Results
           path: |
@@ -136,14 +136,14 @@ jobs:
     environment: e2e-test
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
           distribution: "temurin"
           java-version: "21"
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
         with:
           # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
           cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
@@ -153,7 +153,7 @@ jobs:
         run: ./gradlew sequencing-server:e2eTest
       - name: Upload Sequencing E2E Test Results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: Sequencing E2E Test Results
           path: |
@@ -166,14 +166,14 @@ jobs:
     environment: e2e-test
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
           distribution: "temurin"
           java-version: "21"
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
         with:
           # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
           cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
@@ -185,7 +185,7 @@ jobs:
         run: ./gradlew e2e-tests:e2eTest
       - name: Upload E2E Test Results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: E2E Test Results
           path: |

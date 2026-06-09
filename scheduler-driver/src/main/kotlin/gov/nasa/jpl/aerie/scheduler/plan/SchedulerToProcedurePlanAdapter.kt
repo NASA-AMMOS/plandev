@@ -45,10 +45,13 @@ data class SchedulerToProcedurePlanAdapter(
 
     val result = ArrayList<Directive<A>>(schedulerActivities.size)
     for (activity in schedulerActivities) {
+      // TODO: fix this
+      val tempName = if (activity.name == null) "TEMPNAME" else activity.name
+
       result.add(
           Directive(
               deserializer(SerializedValue.of(activity.arguments)),
-              activity.name,
+            tempName,
               activity.id,
               activity.type.name,
               if (activity.anchorId == null) DirectiveStart.Absolute(activity.startOffset)

@@ -3,9 +3,6 @@ name: Create x86 JNISpice Artifacts
 on:
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 defaults:
   run:
     shell: bash
@@ -15,6 +12,8 @@ jobs:
   # The Windows build does not contain the problematic "-flat_namespace" flag in its build script for JNISpice.dll,
   # so we do not need to recompile
   retrieve_SPICE_windows:
+    permissions:
+      contents: read
     runs-on: windows-latest
     steps:
       - name: Download and Unpack JNISpice ZIP
@@ -31,6 +30,8 @@ jobs:
   # The Linux build does not contain the problematic "-flat_namespace" flag in its build script for libJNISpice.so,
   # so we do not need to recompile
   retrieve_SPICE_x86_linux:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Download and Unpack JNISpice TAR
@@ -50,6 +51,8 @@ jobs:
   # The Mac build contains the problematic "-flat_namespace -undefined suppress" flags in its build script
   # for libJNISpice.jnilib, so we must remove the flag and recompile
   compile_SPICE_x86_mac:
+    permissions:
+      contents: read
     runs-on: macos-latest
     steps:
       - name: Download and Unpack JNISpice TAR
@@ -74,6 +77,8 @@ jobs:
 
   # Recompiles the Java code, then removes all unneeded files and creates a JAR
   compile_JNI_JAR:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Setup Java

@@ -12,6 +12,9 @@ on:
       - v*
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   cloc:
     runs-on: ubuntu-latest

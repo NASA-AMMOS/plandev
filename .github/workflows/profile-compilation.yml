@@ -3,6 +3,9 @@ name: Profile Compilation
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   compile-check:
     runs-on: ubuntu-latest

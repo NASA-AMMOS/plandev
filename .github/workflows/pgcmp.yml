@@ -22,6 +22,10 @@ on:
       - v*
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: read
+
 env:
   AERIE_USERNAME: "${{secrets.AERIE_USERNAME}}"
   AERIE_PASSWORD: "${{secrets.AERIE_PASSWORD}}"

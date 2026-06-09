@@ -16,6 +16,9 @@ on:
     - cron: '42 2 * * 0' # weekly cron scan
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})

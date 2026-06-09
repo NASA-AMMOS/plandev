@@ -3,6 +3,10 @@ name: Load Test
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: read
+
 env:
   AERIE_USERNAME: "aerie"
   AERIE_PASSWORD: "aerie"

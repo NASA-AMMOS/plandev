@@ -161,7 +161,7 @@ jobs:
           build-mode: manual
 
       - name: Build Java
-        run: ./gradlew build
+        run: ./gradlew assemble
 
       - name: Perform Java CodeQL Analysis
         uses: github/codeql-action/analyze@9e0d7b8d25671d64c341c19c0152d693099fb5ba #4.35.5
@@ -184,7 +184,7 @@ jobs:
         with:
           name: codeql-artifacts-java-kotlin
           path: ${{ env.JAVA_RESULTS_DIR }}
-      
+
       # Collect all the scrubbed .sarif file outputs from the CodeQL analyses
       # to be uploaded to SonarCloud in addition to its own sonar scan
       - name: collect stripped .sarif file paths
@@ -203,11 +203,12 @@ jobs:
 
       # PlanDev Sonar scans are run with the sonarqube gradle plugin instead of the Sonar GH action
       # this allows discovery + analysis of build artifacts via normal Gradle build process instead of complex Sonar config
+      # Run test + jacocoTestReport first to generate coverage reports for scan
       - name: Run Sonar scan
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: >
-          ./gradlew sonar
+          ./gradlew test jacocoTestReport sonar
           -Dsonar.verbose=true
           -Dsonar.gradle.scanAll=true
           -Dsonar.sarifReportPaths="${{ env.SARIF_REPORT_PATHS }}"

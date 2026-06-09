@@ -17,7 +17,7 @@ create table merlin.directive_source_is_external_event
       foreign key (referenced_event_key, referenced_event_type, referenced_event_derivation_group,
                     referenced_event_source_key, referenced_event_source_created_at)
       references merlin.external_event (key, event_type_name, derivation_group_name, source_key, source_created_at)
-      on update cascade
+      on update set null
       on delete set null,
     constraint scheduled_directive_exists
       foreign key (scheduled_directive_id, scheduled_plan_id)

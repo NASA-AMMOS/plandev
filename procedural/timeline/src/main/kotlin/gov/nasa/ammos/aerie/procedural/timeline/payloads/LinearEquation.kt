@@ -52,9 +52,15 @@ data class LinearEquation(
     // If the following causes an exception, something really has gone wrong, and we don't want to catch it.
     val numSeconds = (other.valueAt(initialTime) - initialValue) / (rate - other.rate)
 
-    // Check if numSeconds is too big before putting it in a long.
-    return if (abs(numSeconds) > Long.MAX_VALUE.toDouble() / (Duration.SECOND / Duration.MICROSECOND)) null
-    else initialTime.plus(Duration.roundNearest(numSeconds, Duration.SECOND))
+    return try {
+      // Try to just return the answer
+      initialTime.plus(Duration.roundNearest(numSeconds, Duration.SECOND))
+        // But do a range check to make sure we're returning a legal value, in case we overflow a little
+        ?.takeIf { it in Duration.MIN_VALUE..Duration.MAX_VALUE }
+    } catch (_: ArithmeticException) {
+      // In the generally-unlikely case that we overflow a lot, catch the exception instead.
+      null
+    }
   }
 
   /** Calculates when this is less than another linear equation, as a [Booleans] object. */

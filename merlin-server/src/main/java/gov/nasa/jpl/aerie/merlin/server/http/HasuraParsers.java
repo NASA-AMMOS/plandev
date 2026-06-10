@@ -5,6 +5,8 @@ import gov.nasa.jpl.aerie.types.SerializedActivity;
 import gov.nasa.jpl.aerie.merlin.server.models.HasuraAction;
 import gov.nasa.jpl.aerie.merlin.server.models.HasuraMissionModelEvent;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static gov.nasa.jpl.aerie.json.BasicParsers.boolP;
@@ -209,4 +211,30 @@ public abstract class HasuraParsers {
             .map(
                 untuple(HasuraAction.ExtendExternalDatasetInput::new),
                 $ -> tuple($.datasetId(), $.profileSet())));
+
+  public static final JsonParser<HasuraAction<HasuraAction.UploadSimulationDatasetInput>> hasuraUploadSimulationDatasetActionP
+      = hasuraActionF(
+          productP
+              .field("planId", planIdP)
+              .field("simulationStart", timestampP)
+              .field("simulationEnd", timestampP)
+              .field("arguments", mapP(serializedValueP))
+              .field("profileSet", profileSetP)
+              .map(
+                  untuple((planId, simulationStart, simulationEnd, arguments, profileSet) ->
+                      new HasuraAction.UploadSimulationDatasetInput(
+                          planId,
+                          simulationStart,
+                          simulationEnd,
+                          arguments,
+                          profileSet,
+                          List.of(),
+                          List.of(),
+                          Map.of())),
+                  (HasuraAction.UploadSimulationDatasetInput $) -> tuple(
+                      $.planId(),
+                      $.simulationStart(),
+                      $.simulationEnd(),
+                      $.arguments(),
+                      $.profileSet())));
 }

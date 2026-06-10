@@ -26,6 +26,16 @@ type Mutation {
 }
 
 type Mutation {
+  uploadSimulationDataset(
+    planId: Int!,
+    simulationStart: String!,
+    simulationEnd: String!,
+    arguments: JSON!,
+    profileSet: ProfileSet!
+  ): UploadSimulationDatasetResponse
+}
+
+type Mutation {
   uploadDictionary(dictionary: String!, persistDictionaryToFilesystem: Boolean!): DictionaryResponse
 }
 
@@ -241,6 +251,10 @@ type ProcedureEffectiveArgumentsResponse {
 
 type AddExternalDatasetResponse {
   datasetId: Int!
+}
+
+type UploadSimulationDatasetResponse {
+  simulationDatasetId: Int!
 }
 
 type SchedulingResponse {

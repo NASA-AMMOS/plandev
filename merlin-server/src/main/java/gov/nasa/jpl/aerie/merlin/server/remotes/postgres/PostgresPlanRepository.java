@@ -228,6 +228,55 @@ public final class PostgresPlanRepository implements PlanRepository {
   }
 
   @Override
+  public long uploadSimulationDataset(
+      final PlanId planId,
+      final Timestamp simulationStart,
+      final Timestamp simulationEnd,
+      final Map<String, SerializedValue> arguments,
+      final ProfileSet profileSet,
+      final String requestedBy
+  ) throws NoSuchPlanException {
+    try (final var connection = this.dataSource.getConnection();
+         final var transactionContext = new TransactionContext(connection)) {
+      // Get the plan's simulation record
+      final var simulation = getSimulation(connection, planId);
+      
+      // Create simulation_dataset record
+      final var simulationDatasetRecord = createSimulationDataset(
+          connection,
+          simulation,
+          simulationStart,
+          simulationEnd,
+          arguments,
+          requestedBy);
+      
+      // Write profiles to the dataset
+      ProfileRepository.postResourceProfiles(
+          connection,
+          simulationDatasetRecord.datasetId(),
+          profileSet
+      );
+      
+      // TODO: Write activities, events, topics when implementing full version
+      
+      // Mark simulation as successful
+      try (final var setSimulationStateAction = new SetSimulationStateAction(connection)) {
+        setSimulationStateAction.apply(
+            simulationDatasetRecord.datasetId(),
+            SimulationStateRecord.success());
+      }
+      
+      transactionContext.commit();
+      return simulationDatasetRecord.simulationDatasetId();
+    } catch (final SQLException ex) {
+      throw new DatabaseException(
+          "Failed to upload simulation dataset for plan with id `%s`".formatted(planId), ex);
+    } catch (final NoSuchSimulationDatasetException ex) {
+      throw new Error("Simulation dataset was created but then not found", ex);
+    }
+  }
+
+  @Override
   public void extendExternalDataset(
       final DatasetId datasetId,
       final ProfileSet profileSet
@@ -348,6 +397,33 @@ public final class PostgresPlanRepository implements PlanRepository {
   ) throws SQLException {
     try (final var createPlanDatasetAction = new CreatePlanDatasetAction(connection)) {
       return createPlanDatasetAction.apply(planId.id(), simulationDatasetId, planStart, datasetStart);
+    }
+  }
+
+  private static SimulationRecord getSimulation(
+      final Connection connection,
+      final PlanId planId
+  ) throws SQLException {
+    try (final var getSimulationAction = new GetSimulationAction(connection)) {
+      return getSimulationAction.get(planId.id());
+    }
+  }
+
+  private static SimulationDatasetRecord createSimulationDataset(
+      final Connection connection,
+      final SimulationRecord simulation,
+      final Timestamp simulationStart,
+      final Timestamp simulationEnd,
+      final Map<String, SerializedValue> arguments,
+      final String requestedBy
+  ) throws SQLException {
+    try (final var createSimulationDatasetAction = new CreateSimulationDatasetAction(connection)) {
+      return createSimulationDatasetAction.apply(
+          simulation.id(),
+          simulationStart,
+          simulationEnd,
+          arguments,
+          requestedBy);
     }
   }
 }

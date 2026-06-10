@@ -2,6 +2,7 @@ package gov.nasa.jpl.aerie.merlin.server.mocks;
 
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.models.DatasetId;
@@ -131,6 +132,18 @@ public final class InMemoryPlanRepository implements PlanRepository {
       final ProfileSet profileSet)
   {
     return 0;
+  }
+
+  @Override
+  public long uploadSimulationDataset(
+      final PlanId planId,
+      final Timestamp simulationStart,
+      final Timestamp simulationEnd,
+      final Map<String, SerializedValue> arguments,
+      final ProfileSet profileSet,
+      final String requestedBy)
+  {
+    throw new UnsupportedOperationException("InMemoryPlanRepository does not support uploading simulation datasets");
   }
 
   @Override

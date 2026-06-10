@@ -221,6 +221,12 @@ public final class ResponseSerializers {
         .build();
   }
 
+  public static JsonValue serializeCreatedSimulationDatasetId(final long simulationDatasetId) {
+    return Json.createObjectBuilder()
+        .add("simulationDatasetId", simulationDatasetId)
+        .build();
+  }
+
   private static JsonValue serializeUnconstructableActivityFailure(final MissionModelService.ActivityInstantiationFailure reason) {
     final var builder = Json.createObjectBuilder();
     return switch (reason) {

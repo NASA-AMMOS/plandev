@@ -95,6 +95,22 @@ public final class StubPlanService implements PlanService {
   }
 
   @Override
+  public long uploadSimulationDataset(
+      final PlanId planId,
+      final Timestamp simulationStart,
+      final Timestamp simulationEnd,
+      final Map<String, SerializedValue> arguments,
+      final ProfileSet profileSet,
+      final String requestedBy)
+  throws NoSuchPlanException
+  {
+    if (!Objects.equals(planId, EXISTENT_PLAN_ID)) {
+      throw new NoSuchPlanException(planId);
+    }
+    return 12345L; // Return a fake simulation dataset ID for testing
+  }
+
+  @Override
   public void extendExternalDataset(final DatasetId datasetId, final ProfileSet profileSet) {
     throw new UnsupportedOperationException("StubPlanService does not store external datasets, so they cannot be extended");
   }

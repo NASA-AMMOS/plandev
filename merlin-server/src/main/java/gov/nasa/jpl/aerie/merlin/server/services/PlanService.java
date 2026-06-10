@@ -2,6 +2,7 @@ package gov.nasa.jpl.aerie.merlin.server.services;
 
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
@@ -31,6 +32,13 @@ public interface PlanService {
       Optional<SimulationDatasetId> simulationDatasetId,
       Timestamp datasetStart,
       ProfileSet profileSet) throws NoSuchPlanException;
+  long uploadSimulationDataset(
+      PlanId planId,
+      Timestamp simulationStart,
+      Timestamp simulationEnd,
+      Map<String, SerializedValue> arguments,
+      ProfileSet profileSet,
+      String requestedBy) throws NoSuchPlanException;
   void extendExternalDataset(DatasetId datasetId, ProfileSet profileSet) throws NoSuchPlanDatasetException;
   List<Pair<Duration, ProfileSet>> getExternalDatasets(
       final PlanId planId,

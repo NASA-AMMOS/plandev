@@ -157,43 +157,56 @@ execute function util_functions.increment_revision_update();
 create function merlin.cascade_plan_bounds_update()
   returns trigger
   language plpgsql as $$
+declare
+  old_plan_end timestamptz;
+  new_plan_end timestamptz;
+  sim_start_horizon timestamptz;
+  sim_end_horizon timestamptz;
+  start_time_difference interval;
+  end_time_difference interval;
 begin
   -- prevent adjustment if the plan is locked
   if old.is_locked then
     raise exception 'Cannot adjust bounds of locked plan.';
   end if;
 
+  -- Set variables
+  old_plan_end := old.start_time + old.duration;
+  new_plan_end := new.start_time + new.duration;
+  start_time_difference := old.start_time - new.start_time;
+  end_time_difference := old_plan_end - new_plan_end;
+
   -- Take a backup snapshot
   perform merlin.create_snapshot(
       old.id,
       'Plan Bound Adjustment',
       'Automatic snapshot made before adjusting plan bounds from ' ||
-      '['|| old.start_time ||' - '|| old.start_time + old.duration || '] to ' ||
-      '[' || new.start_time || ' - ' || new.start_time + new.duration || ']',
+      '['|| old.start_time ||' - '|| old_plan_end || '] to ' ||
+      '[' || new.start_time || ' - ' || new_plan_end || ']',
       null);
 
   -- Update activities that are anchored to the plan bounds
   update merlin.activity_directive ad
-  set start_offset = start_offset + (new.start_time - old.start_time)
+  set start_offset = start_offset + start_time_difference
   where anchor_id is null
     and anchored_to_start -- anchored to plan start
     and ad.plan_id = old.id;
 
   update merlin.activity_directive ad
-  set start_offset = start_offset + (new.duration - old.duration)
+  set start_offset = start_offset + end_time_difference
   where anchor_id is null
     and not anchored_to_start -- anchored to plan end
     and ad.plan_id = old.id;
 
   -- Update associated dataset offsets (simulation and plan)
   update merlin.simulation_dataset
-  set offset_from_plan_start = offset_from_plan_start + (new.start_time - old.start_time)
+  set offset_from_plan_start = offset_from_plan_start + start_time_difference
   from merlin.simulation sim_spec
   where simulation_id = sim_spec.id
     and sim_spec.plan_id = old.id;
 
   update merlin.plan_dataset
-  set offset_from_plan_start = offset_from_plan_start + (new.start_time - old.start_time)
+  set offset_from_plan_start = offset_from_plan_start + start_time_difference
   where plan_id = old.id;
 
   return new;
@@ -201,7 +214,7 @@ end;
 $$;
 
 create trigger cascade_plan_bounds_on_update
-  before update on merlin.plan
+  after update on merlin.plan
   for each row
   when (old.start_time is distinct from new.start_time or old.duration is distinct from new.duration)
 execute function merlin.cascade_plan_bounds_update();

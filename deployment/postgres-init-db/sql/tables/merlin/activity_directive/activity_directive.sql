@@ -129,7 +129,6 @@ end$$;
 create trigger increment_plan_revision_on_directive_update_trigger
 after update on merlin.activity_directive
 for each row
-when (pg_trigger_depth() < 1)
 execute function merlin.increment_plan_revision_on_directive_update();
 
 create function merlin.increment_plan_revision_on_directive_delete()

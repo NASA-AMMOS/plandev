@@ -12,7 +12,6 @@ import gov.nasa.jpl.aerie.workspace.server.postgres.WorkspacePostgresRepository;
 import io.javalin.Javalin;
 import io.javalin.config.SizeUnit;
 import io.javalin.http.UnauthorizedResponse;
-import io.javalin.plugin.bundled.CorsPluginConfig;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.LowResourceMonitor;
 import org.eclipse.jetty.server.Server;
@@ -65,7 +64,11 @@ public final class WorkspaceAppDriver {
       config.jetty.multipartConfig.maxInMemoryFileSize(10, SizeUnit.MB); //the maximum file size to handle in memory
       config.jetty.multipartConfig.maxTotalRequestSize(1, SizeUnit.GB); //the maximum size of the entire multipart request
 
-      config.plugins.enableCors(cors -> cors.add(CorsPluginConfig::anyHost));
+      config.plugins.enableCors(cors -> cors.add(it -> {
+        it.anyHost();
+        // Expose ETag so the browser client can read it cross-origin (not exposed by default).
+        it.exposeHeader("ETag");
+      }));
       config.plugins.register(workspaceBindings);
       config.jetty.server(() -> server);
     });

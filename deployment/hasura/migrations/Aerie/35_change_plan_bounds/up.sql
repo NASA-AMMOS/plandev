@@ -19,6 +19,74 @@ set plan_start_time = p.start_time,
 from merlin.plan p
 where p.id = plan_id;
 
+/*
+  Snapshots are kept around after plan deletion for use in finding the merge base
+  Since plan bounds can't currently change between a parent and a branch, we can use the
+   "plan_snapshot_parent" and "plan_latest_snapshot" tables to find what the bounds were
+ */
+-- Create a temporary function to walk down the snapshot history tree
+create function merlin.get_snapshot_children(starting_snapshot_id integer)
+  returns SETOF integer
+  language plpgsql as $$
+begin
+  return query with recursive children(id) as (
+    values(starting_snapshot_id) --base case
+    union
+    select psp.snapshot_id
+    from merlin.plan_snapshot_parent psp
+    join children on id = psp.parent_snapshot_id --recursive case
+  ) select * from children;
+end
+$$;
+
+-- "latest_snapshot_associations" gets the latest snapshot on every plan, as well as that plan's boundaries
+with latest_snapshot_associations (snapshot_id, new_start_time, new_duration) as (
+  select distinct on (snapshot_id)
+    snapshot_id, start_time, duration
+  from merlin.plan_latest_snapshot pls
+         join merlin.plan p on pls.plan_id = p.id
+),
+-- "ascendants" walks up the snapshot history chain and finds all older related snapshots
+  ascendants (snapshot_id, new_start_time, new_duration) as (
+    select distinct on (snapshot_id)
+      merlin.get_snapshot_history(lsa.snapshot_id) as snapshot_id,
+      lsa.new_start_time,
+      lsa.new_duration
+    from latest_snapshot_associations lsa
+  ),
+-- "descendants" walks down the snapshot history chain and finds all newer related snapshots
+  descendants (snapshot_id, new_start_time, new_duration) as (
+    select distinct on (snapshot_id)
+      merlin.get_snapshot_children(a.snapshot_id) as snapshot_id,
+      a.new_start_time,
+      a.new_duration
+    from ascendants a
+)
+update merlin.plan_snapshot ps
+set plan_start_time = d.new_start_time,
+    plan_duration = d.new_duration
+from descendants d  -- descendants contains the snapshot information of all snapshots that are somehow related to a plan
+where ps.snapshot_id = d.snapshot_id
+  and ps.plan_id is null;
+
+/*
+ If a snapshot still has NULL values for "plan_id", "plan_start_time" and "plan_duration", then that means:
+ 1. It is not the latest snapshot on any plan
+ 2. It is not related to the latest snapshot on any plan
+
+ This means that these snapshots aren't related to any plan in the database.
+ That means that they will never be used as a merge base.
+ As such they can be deleted
+ ... but for now, they will have "default" boundaries set
+ */
+update merlin.plan_snapshot
+set plan_start_time = '1950-01-01 T00:00:00Z',
+    plan_duration = '00:00:00'
+where plan_id is null and plan_start_time is null and plan_duration is null;
+
+-- drop temporary function
+drop function merlin.get_snapshot_children(starting_snapshot_id integer);
+
 -- Add not null argument to new columns
 alter table merlin.plan_snapshot
 alter column plan_start_time set not null,

@@ -28,6 +28,21 @@ public interface WorkspaceService {
   record FileStream(InputStream readingStream, String fileName, long fileSize){}
 
   /**
+   * A file's bytes plus its ETag (a tag identifying this exact content).
+   * @param content the file's bytes
+   * @param etag the file's version tag
+   */
+  record FileContent(byte[] content, String etag){}
+
+  /**
+   * Lightweight last-edit info read from a file's metadata, used to describe a save conflict.
+   * Either field may be null if the metadata does not record it.
+   * @param lastEditedBy the user who last edited the file
+   * @param lastEditedAt the ISO-8601 timestamp of the last edit
+   */
+  record LastEditInfo(String lastEditedBy, String lastEditedAt){}
+
+  /**
    * Create a new workspace
    * @param workspaceLocation the name of the root folder for the workspace
    * @param workspaceName the name of the workspace in the database
@@ -69,26 +84,46 @@ public interface WorkspaceService {
   RenderType getFileType(final Path filePath) throws SQLException;
 
   /**
-   * Load a file to send over a multipart HTTP response
+   * Load a file's bytes and its ETag (computed from those bytes).
    * @param workspaceId the id of the workspace the file lives in
    * @param filePath the path to the file, relative to the workspace's root
-   * @return a FileStream with a handler to the file's contents,
-   *         as well as the values to fill in for the "filename" and "content-length" headers
-   * @throws IOException if an I/O error occurs while attempting to open the file
+   * @return the file's bytes and its ETag
+   * @throws IOException if an I/O error occurs while reading the file
    * @throws NoSuchWorkspaceException if the specified workspace does not exist
    */
-  FileStream loadFile(final int workspaceId, final Path filePath) throws IOException, NoSuchWorkspaceException;
+  FileContent loadFileWithETag(final int workspaceId, final Path filePath) throws IOException, NoSuchWorkspaceException;
 
   /**
-   * Save an uploaded file to a workspace
+   * Compute the current concurrency token (ETag) for a file, or an empty Optional if the file does not exist.
+   * Used to validate an If-Match precondition on save.
+   * @param workspaceId the id of the workspace the file lives in
+   * @param filePath the path to the file, relative to the workspace's root
+   * @throws IOException if an I/O error occurs while reading the file
+   * @throws NoSuchWorkspaceException if the specified workspace does not exist
+   */
+  Optional<String> currentETag(final int workspaceId, final Path filePath) throws IOException, NoSuchWorkspaceException;
+
+  /**
+   * Read the last-edit info (editor and timestamp) from a file's metadata, used to describe a save conflict.
+   * @param workspaceId the id of the workspace the file lives in
+   * @param filePath the path to the file, relative to the workspace's root
+   * @throws IOException if the metadata file cannot be opened for reasons other than nonexistence
+   * @throws NoSuchWorkspaceException if the specified workspace does not exist
+   * @throws WorkspaceFileOpException if "filePath" refers to a metadata file or directory
+   */
+  LastEditInfo getLastEditInfo(final int workspaceId, final Path filePath)
+  throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException;
+
+  /**
+   * Save an uploaded file to a workspace.
    *
    * @param workspaceId the id of the workspace
    * @param filePath the path, relative to the workspace's root, to save the file at
    * @param file the contents of the file to be saved
    * @param userId the userId of the user saving the file
-   * @return true if the file was saved, false otherwise
+   * @return the saved file's new concurrency token (ETag), or an empty Optional if it was not saved
    */
-  boolean saveFile(final int workspaceId, final Path filePath, final UploadedFile file, final String userId)
+  Optional<String> saveFile(final int workspaceId, final Path filePath, final UploadedFile file, final String userId)
   throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException;
 
   /**

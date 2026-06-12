@@ -21,10 +21,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -299,15 +303,56 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   //region File Operations
   @Override
-  public FileStream loadFile(final int workspaceId, final Path filePath) throws IOException, NoSuchWorkspaceException {
+  public FileContent loadFileWithETag(final int workspaceId, final Path filePath)
+  throws IOException, NoSuchWorkspaceException {
     final var path = resolveReadingPath(workspaceId, filePath);
-    final var file = path.toFile();
-
-    return new FileStream(new FileInputStream(file), file.getName(), Files.size(file.toPath()));
+    final var content = Files.readAllBytes(path);
+    return new FileContent(content, computeETag(content));
   }
 
   @Override
-  public boolean saveFile(final int workspaceId, final Path filePath, final UploadedFile file, final String userId)
+  public Optional<String> currentETag(final int workspaceId, final Path filePath)
+  throws IOException, NoSuchWorkspaceException {
+    final var path = resolveReadingPath(workspaceId, filePath);
+    if (!path.toFile().isFile()) {
+      return Optional.empty();
+    }
+    return Optional.of(computeETag(Files.readAllBytes(path)));
+  }
+
+  @Override
+  public LastEditInfo getLastEditInfo(final int workspaceId, final Path filePath)
+  throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException {
+    final var metadata = readMetadataFile(resolveMetadataPath(workspaceId, filePath).toFile());
+    return new LastEditInfo(
+        metadata.getString(MetadataKeys.lastEditedBy.name(), null),
+        metadata.getString(MetadataKeys.lastEditedAt.name(), null));
+  }
+
+  /**
+   * A file's ETag: a quoted SHA-256 of its content. Kept in one place so it can later become a git
+   * object id without changing the HTTP contract. Package-private for tests.
+   */
+  static String computeETag(final byte[] content) {
+    return etagFromDigest(newSha256().digest(content));
+  }
+
+  /** Quote a digest as a strong ETag (lowercase hex). */
+  private static String etagFromDigest(final byte[] digestBytes) {
+    return "\"" + HexFormat.of().formatHex(digestBytes) + "\"";
+  }
+
+  /** A fresh SHA-256 digest (always available on the JVM). */
+  private static MessageDigest newSha256() {
+    try {
+      return MessageDigest.getInstance("SHA-256");
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException("SHA-256 algorithm not available", e);
+    }
+  }
+
+  @Override
+  public Optional<String> saveFile(final int workspaceId, final Path filePath, final UploadedFile file, final String userId)
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException
   {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
@@ -318,11 +363,15 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         .lastEditedBy(userId)
         .build();
 
-    if(path.toFile().isDirectory()) return false;
+    if(path.toFile().isDirectory()) return Optional.empty();
 
-    FileUtil.streamToFile(file.content(), path.toString());
+    // Hash while streaming to disk so the returned ETag matches what we wrote, with no extra read.
+    final var digest = newSha256();
+    try (final var contentStream = new DigestInputStream(file.content(), digest)) {
+      FileUtil.streamToFile(contentStream, path.toString());
+    }
     updateMetadataKeys(metadataFilePath, metadataUpdates, MetadataMergeBehavior.deepMerge);
-    return true;
+    return Optional.of(etagFromDigest(digest.digest()));
   }
 
   @Override

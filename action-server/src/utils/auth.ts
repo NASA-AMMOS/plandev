@@ -1,6 +1,7 @@
 import { Request } from 'express';
 import { configuration } from "../config";
-import jwt, {Algorithm} from "jsonwebtoken";
+import jwt, {Algorithm, JwtHeader} from "jsonwebtoken";
+import { JwksClient } from "jwks-rsa";
 import { parseCookie } from "cookie";
 
 export type JsonWebToken = string;
@@ -16,8 +17,15 @@ export type JwtPayload = {
 };
 
 export type JwtSecret = {
-  key: string;
+  // Symmetric key (JWT/SSO modes). Absent when verifying OIDC tokens via JWKS.
+  key?: string;
   type: string;
+  // OIDC: URL of the IdP's published signing keys. When set (and `key` is absent),
+  // tokens are verified against the JWKS instead of a shared secret.
+  jwk_url?: string;
+  // Optional claim validation, used with JWKS/OIDC.
+  issuer?: string;
+  audience?: string | string[];
 };
 
 export type AuthResponse = {
@@ -95,16 +103,79 @@ export function authorizationHeaderToToken(authorizationHeader: string | undefin
   }
 }
 
-export function decodeJwt(authorizationHeader: string | undefined): JwtDecode {
+// Lazily created JWKS client (OIDC). Cached across requests so signing keys are
+// fetched from the IdP once and reused, rather than on every token verification.
+let _jwksClient: JwksClient | undefined;
+function getJwksClient(jwkUrl: string): JwksClient {
+  if (!_jwksClient) {
+    _jwksClient = new JwksClient({
+      jwksUri: jwkUrl,
+      // Cache fetched signing keys (a `kid` maps to one immutable key, so long caching never
+      // goes stale) and rate-limit fetches so a flood of tokens carrying unknown `kid`s can't
+      // hammer the IdP's JWKS endpoint. Not configurable by design — these bounds suit any
+      // OIDC deployment and mirror the workspace server's JwkProvider settings.
+      cache: true,
+      cacheMaxAge: 24 * 60 * 60 * 1000, // 24h
+      cacheMaxEntries: 10,
+      jwksRequestsPerMinute: 10,
+      rateLimit: true,
+      timeout: 30000,
+    });
+  }
+  return _jwksClient;
+}
+
+/**
+ * Verify a token against an IdP's JWKS (asymmetric, e.g. RS256). The signing key
+ * is resolved by the token's `kid` header and cached by the JWKS client.
+ */
+function verifyWithJwks(token: string, jwkUrl: string, options: jwt.VerifyOptions): Promise<JwtPayload> {
+  const client = getJwksClient(jwkUrl);
+  const getKey = (header: JwtHeader, callback: (err: Error | null, key?: string) => void) => {
+    client.getSigningKey(header.kid, (err, signingKey) => {
+      if (err) {
+        callback(err);
+      } else {
+        callback(null, signingKey?.getPublicKey());
+      }
+    });
+  };
+  return new Promise((resolve, reject) => {
+    jwt.verify(token, getKey, options, (err, decoded) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(decoded as JwtPayload);
+      }
+    });
+  });
+}
+
+export async function decodeJwt(authorizationHeader: string | undefined): Promise<JwtDecode> {
   try {
     const token = authorizationHeaderToToken(authorizationHeader);
     const { HASURA_GRAPHQL_JWT_SECRET } = configuration();
-    const { key, type }: JwtSecret = JSON.parse(HASURA_GRAPHQL_JWT_SECRET);
+    const { key, type, jwk_url, issuer, audience }: JwtSecret = JSON.parse(HASURA_GRAPHQL_JWT_SECRET);
     if(!type) {
       throw new Error(`HASURA_GRAPHQL_JWT_SECRET must specify a 'type' field that is a valid JWT algorithm`)
     }
     const options: jwt.VerifyOptions = { algorithms: [type as Algorithm] };
-    const jwtPayload = jwt.verify(token, key, options) as JwtPayload;
+    // Optional claim validation (used with JWKS/OIDC).
+    if (issuer) {
+      options.issuer = issuer;
+    }
+    if (audience) {
+      options.audience = audience;
+    }
+
+    let jwtPayload: JwtPayload;
+    if (!key && jwk_url) {
+      // OIDC: verify against the IdP's published signing keys.
+      jwtPayload = await verifyWithJwks(token, jwk_url, options);
+    } else {
+      // JWT/SSO: verify against the shared symmetric key.
+      jwtPayload = jwt.verify(token, key as string, options) as JwtPayload;
+    }
     return { jwtErrorMessage: '', jwtPayload };
   } catch (e) {
     console.error(e);

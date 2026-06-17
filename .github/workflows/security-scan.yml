@@ -1,73 +1,213 @@
-name: Security Scan
+# AMMOS OSS Security Scan
+# (internal) docs - https://wiki.jpl.nasa.gov/pages/viewpage.action?spaceKey=AmmosArch&title=Code+Vulnerability+Scanning+Set+Up+for+AMMOS+Open+Source+Software
+name: 'Security Scan'
 
 on:
-  pull_request:
-    branches:
-      - develop
-      - dev-[0-9]+.[0-9]+.[0-9]+
   push:
     branches:
       - develop
     tags:
-      - v*
+      - 'v*'
+  pull_request:
+    branches:
+      - develop
+      - 'dev-[0-9]+.[0-9]+.[0-9]+'
+  schedule:
+    - cron: '42 2 * * 0' # weekly cron scan
   workflow_dispatch:
 
 jobs:
   analyze:
-    name: Analyze
-    runs-on: ubuntu-latest
+    name: Analyze (${{ matrix.language }})
+    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
     permissions:
-      actions: read
-      contents: write
+      # required for all workflows
       security-events: write
+      # required to fetch internal or private CodeQL packs
+      packages: read
+      # only required for workflows in private repositories
+      actions: read
+      contents: read
 
     strategy:
       fail-fast: false
       matrix:
-        language: ["java", "javascript"]
-
+        include:
+          - language: actions
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+          - language: python
+            build-mode: none
+        # CodeQL supports the following values keywords for 'language': 'actions', 'c-cpp', 'csharp', 'go', 'java-kotlin', 'javascript-typescript', 'python', 'ruby', 'rust', 'swift'
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #v6.0.2
+        with:
+          fetch-depth: 0
+
+      # Add any setup steps before running the `github/codeql-action/init` action.
+      # This includes steps like installing compilers or runtimes (`actions/setup-node`
+      # or others). This is typically only required for manual builds.
+      # - name: Setup runtime (example)
+      #   uses: actions/setup-example@v1
+
+      # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@9e0d7b8d25671d64c341c19c0152d693099fb5ba #4.35.5
         with:
           languages: ${{ matrix.language }}
-          queries: +security-extended
-          tools: latest
-      - name: Setup Java
-        uses: actions/setup-java@v5
-        with:
-          distribution: "temurin"
-          java-version: "21"
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
-        with:
-          # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
-          cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
-      - name: Build
+          build-mode: ${{ matrix.build-mode }}
+          # If you wish to specify custom queries, you can do so here or in a config file.
+          # For more details on CodeQL's query packs, refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
+          # queries: security-extended,security-and-quality
+
+      # If the analyze step fails for one of the languages you are analyzing with
+      # "We were unable to automatically build your code", modify the matrix above
+      # to set the build mode to "manual" for that language. Then modify this step
+      # to build your code.
+      # ℹ️ Command-line programs to run using the OS shell.
+      # 📚 See https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsrun
+      - name: Run manual build steps
+        if: matrix.build-mode == 'manual'
+        shell: bash
         run: |
-          ./gradlew testClasses
+          echo 'If you are using a "manual" build mode for one or more of the' \
+            'languages you are analyzing, replace this with the commands to build' \
+            'your code, for example:'
+          echo '  make bootstrap'
+          echo '  make release'
+          exit 1
+
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-      - name: NASA Scrub
-        run: |
-          python3 -m pip install nasa-scrub
+        uses: github/codeql-action/analyze@9e0d7b8d25671d64c341c19c0152d693099fb5ba #4.35.5
+        with:
+          category: '/language:${{matrix.language}}'
+          output: ../results
+
+      # This step is required by AMMOS to remove malformed data from the CodeQL output
+      # It may be possible to remove in future iterations
+      - name: Post-Process Output
+        env:
+          RESULTS_ENV_VAR_NAME: RESULTS_DIR
+        # save this field as a reusable YAML anchor
+        run: &post-process-codeql-output |
+          python3 -m pip install nasa-scrub==3.0
 
           results_dir=`realpath ${{ github.workspace }}/../results`
           sarif_files=`find $results_dir -name '*.sarif'`
 
           for sarif_file in $sarif_files
           do
-            output_file="$results_dir/$(basename $sarif_file .sarif).scrub"
-            python3 -m scrub.tools.parsers.translate_results $sarif_file $output_file ${{ github.workspace }} scrub
+            output_file="$results_dir/$(basename $sarif_file .sarif)_stripped.sarif"
+
+            python3 -m scrub.tools.parsers.translate_results $sarif_file $output_file ${{ github.workspace }} sarifv2.1.0
           done
 
-          python3 -m scrub.tools.parsers.csv_parser $results_dir
+          # TEMPORARY WORKAROUND: remove this once nasa-scrub emits valid SARIF 2.1.0.
+          # https://github.com/nasa/scrub/issues/118
+          python3 .github/scripts/repair-scrub-sarif.py "$results_dir"
+          # END TEMPORARY WORKAROUND
 
-          echo "RESULTS_DIR=$results_dir" >> $GITHUB_ENV
-      - name: Upload Security Scan Results
-        uses: actions/upload-artifact@v7
+          echo "$RESULTS_ENV_VAR_NAME=$results_dir" >> $GITHUB_ENV
+
+      # This step makes the analysis artifacts available for download
+      # This can be helpful for debugging and archive purposes
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v7.0.1
         with:
-          name: Security Scan Results - ${{ matrix.language }}
+          name: codeql-artifacts-${{ matrix.language }}
           path: ${{ env.RESULTS_DIR }}
+
+  sonar:
+    name: Build Java, Analyze Java & Run SonarQube Scan
+    needs: analyze
+    runs-on: ubuntu-latest
+    # PRs for forks can't use secrets, can't upload to Sonar
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Download CodeQL Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: codeql-artifacts-*
+          path: codeql-results
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # 5.0.2
+        with:
+          # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
+          cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
+
+      - name: Initialize Java CodeQL
+        uses: github/codeql-action/init@9e0d7b8d25671d64c341c19c0152d693099fb5ba #4.35.5
+        with:
+          languages: java-kotlin
+          build-mode: manual
+
+      - name: Build Java
+        run: ./gradlew build
+
+      - name: Perform Java CodeQL Analysis
+        uses: github/codeql-action/analyze@9e0d7b8d25671d64c341c19c0152d693099fb5ba #4.35.5
+        with:
+          category: '/language:java-kotlin'
+          output: ../results
+
+      # This step is required by AMMOS to remove malformed data from the CodeQL output
+      # It may be possible to remove in future iterations
+      - name: Post-Process Java CodeQL Output
+        env:
+          RESULTS_ENV_VAR_NAME: JAVA_RESULTS_DIR
+        # reuse `run` anchor from above
+        run: *post-process-codeql-output
+
+      # This step makes the Java analysis artifact available for download
+      # This can be helpful for debugging and archive purposes
+      - name: Upload Java Artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v7.0.1
+        with:
+          name: codeql-artifacts-java-kotlin
+          path: ${{ env.JAVA_RESULTS_DIR }}
+      
+      # Collect all the scrubbed .sarif file outputs from the CodeQL analyses
+      # to be uploaded to SonarCloud in addition to its own sonar scan
+      - name: collect stripped .sarif file paths
+        shell: bash
+        run: |
+          echo "downloaded CodeQL artifact files:"
+          find "${{ github.workspace }}/codeql-results" -type f | sort
+
+          echo "java CodeQL artifact files:"
+          find "$JAVA_RESULTS_DIR" -type f | sort
+
+          sarif_paths="$(find "${{ github.workspace }}/codeql-results" "$JAVA_RESULTS_DIR" -name '*_stripped.sarif' -type f | sort | paste -sd, -)"
+          echo "sarif paths: $sarif_paths"
+          test -n "$sarif_paths"
+          echo "SARIF_REPORT_PATHS=$sarif_paths" >> "$GITHUB_ENV"
+
+      # PlanDev Sonar scans are run with the sonarqube gradle plugin instead of the Sonar GH action
+      # this allows discovery + analysis of build artifacts via normal Gradle build process instead of complex Sonar config
+      - name: Run Sonar scan
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: >
+          ./gradlew sonar
+          -Dsonar.verbose=true
+          -Dsonar.gradle.scanAll=true
+          -Dsonar.sarifReportPaths="${{ env.SARIF_REPORT_PATHS }}"

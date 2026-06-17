@@ -113,6 +113,7 @@
 - "!include merlin/external_source.yaml"
 - "!include merlin/external_source_type.yaml"
 - "!include merlin/plan_derivation_group.yaml"
+- "!include merlin/model_derivation_group.yaml"
 
 # Constraints
 - "!include merlin/constraints/constraint_metadata.yaml"

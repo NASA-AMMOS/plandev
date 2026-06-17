@@ -343,6 +343,7 @@ type ConstraintResult {
 }
 
 type ConstraintViolation {
+  message: String,
   windows: [Interval!]!,
   activityInstanceIds: [Int!]!
 }

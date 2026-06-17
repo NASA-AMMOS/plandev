@@ -4,20 +4,23 @@ import javax.json.JsonNumber;
 import javax.json.JsonObject;
 import javax.json.JsonString;
 import java.util.List;
+import java.util.Optional;
 
 public record ConstraintResult(
     List<String> resourceIds,
     List<ConstraintResult.ConstraintViolation> violations,
     List<ConstraintResult.Interval> gaps
 ) {
-  public record ConstraintViolation(List<Integer> activityInstanceIds, List<Interval> windows) {
+  public record ConstraintViolation(List<Integer> activityInstanceIds, List<Interval> windows, Optional<String> message) {
 
     public static ConstraintViolation fromJSON(JsonObject json) {
       return new ConstraintViolation(
           json.getJsonArray("activityInstanceIds")
               .getValuesAs(JsonNumber::intValue),
           json.getJsonArray("windows")
-              .getValuesAs(Interval::fromJSON));
+              .getValuesAs(Interval::fromJSON),
+          Optional.ofNullable(json.getString("message", null))
+      );
     }
   }
 

@@ -23,4 +23,10 @@ public record ConstraintRecord(
     String description,
     ConstraintType type,
     Map<String, SerializedValue> arguments
-) {}
+) implements Comparable<ConstraintRecord> {
+
+  @Override
+  public int compareTo(final ConstraintRecord o) {
+    return Long.compare(this.priority, o.priority);
+  }
+}

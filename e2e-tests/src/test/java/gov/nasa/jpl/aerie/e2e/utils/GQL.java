@@ -75,6 +75,7 @@ public enum GQL {
               start
             }
             violations {
+              message
               activityInstanceIds
               windows {
                 end

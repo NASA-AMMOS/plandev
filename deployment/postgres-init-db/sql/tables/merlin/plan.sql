@@ -113,6 +113,26 @@ after insert on merlin.plan
 for each row
 execute function merlin.populate_constraint_spec_new_plan();
 
+create function merlin.populate_derivation_groups_new_plan()
+returns trigger
+language plpgsql as $$
+begin
+  insert into merlin.plan_derivation_group (plan_id, derivation_group_name)
+  select new.id, mdg.derivation_group_name
+  from merlin.model_derivation_group mdg
+  where mdg.model_id = new.model_id;
+  return new;
+end;
+$$;
+
+comment on function merlin.populate_derivation_groups_new_plan() is e''
+'Populates the plan''s derivation group associations with the contents of its model''s derivation group associations.';
+
+create trigger populate_derivation_groups_new_plan_trigger
+after insert on merlin.plan
+for each row
+execute function merlin.populate_derivation_groups_new_plan();
+
 -- Insert or Update Triggers
 
 create trigger set_timestamp

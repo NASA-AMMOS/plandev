@@ -77,7 +77,8 @@ type Mutation {
   expandAllTemplates(
     seqIds: [String!]!,
     simulationDatasetId: Int!,
-    modelId: Int!
+    modelId: Int!,
+    bypassConstraints: Bool, // (optional)
   ): ExpandAllSequencesResponse
 }
 

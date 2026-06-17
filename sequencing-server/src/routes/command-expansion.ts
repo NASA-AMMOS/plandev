@@ -1,7 +1,7 @@
 import type { UserCodeError } from '@nasa-jpl/aerie-ts-user-code-runner';
 import pgFormat from 'pg-format';
 import type { Context } from '../app.js';
-import { db, piscina, promiseThrottler, typeCheckingCache } from './../app.js';
+import { db, graphqlClient, piscina, promiseThrottler, typeCheckingCache } from './../app.js';
 import { Result } from '@nasa-jpl/aerie-ts-user-code-runner/build/utils/monads.js';
 import express from 'express';
 import { serializeWithTemporal } from './../utils/temporalSerializers.js';
@@ -25,6 +25,7 @@ import { stringifyActivity } from '../lib/mustache/util/activity.js';
 import { stolBuilder } from '../builders/stolBuilder.js';
 import { concatBuilder } from "../builders/concatBuilder.js";
 import { SequencingLanguage } from '../lib/mustache/enums/language.js';
+import { gql } from 'graphql-request';
 
 const logger = getLogger('app');
 
@@ -359,6 +360,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
 
   //  0. Extract stuff from request
   // needed to uniquely identify sequence templates, along with activity type
+  const bypassConstraints = req.body.bypass !== undefined ? req.body.bypass as boolean : true;
   const modelId = req.body.input.modelId as number;
   const simulationDatasetId = req.body.input.simulationDatasetId as number;
   const seqIds = (req.body.input.seqIds as number[]).filter((val, index, arr) => arr.indexOf(val) == index); // remove duplicates, if they're even possible
@@ -366,6 +368,52 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   const seqMetadata = {
     simulationDatasetId
   }
+
+  //  0b. [OPTIONAL] Verify that for the given simulationDatasetId, constraints are up to date
+  if (!bypassConstraints) {
+    // not checking if simulation is out of date, as that leads to a lot of extra Hasura calls and processing here, and this expansion call is for a specific simulation dataset.
+    // additionally, not checking unchecked cosntraints, as we shouldn't throw an error if anything is unchecked.
+    // we only care about if there are violated constraints:
+    const { constraint_run } = await graphqlClient.request<{
+      constraint_run: {
+        results: {
+          errors: object,
+          results: {
+            gaps: object[],
+            violations: object[]
+          }
+        }
+      }[]
+    }>(
+      gql`
+        query GetConstraintResults($simulationDatasetId: Int!) {
+          constraint_run (where: {results: {simulation_dataset_id: {_eq: $simulationDatasetId}}}) {
+            results {
+              errors
+              results 
+            }
+          }
+        }
+      `,
+      {
+        simulationDatasetId: simulationDatasetId
+      },
+    );
+  
+    console.log(simulationDatasetId, JSON.stringify(constraint_run), "\n", constraint_run.at(constraint_run.length-1), "\n", constraint_run.at(constraint_run.length-1)?.results.results.violations);
+    if (constraint_run.length === 0) {
+      throw new Error(
+        `POST /command-expansion/expand-all-sequence-templates: Expansion for simulation dataset ${simulationDatasetId} failed, as violations haven't been checked yet.`
+      );
+    } 
+    if (constraint_run.at(constraint_run.length-1)?.results.results.violations.length) {
+      const numViolations = constraint_run.at(constraint_run.length-1)?.results.results.violations.length;
+      throw new Error(
+        `POST /command-expansion/expand-all-sequence-templates: Expansion for simulation dataset ${simulationDatasetId} failed, as there ${numViolations ?? 0 > 1 ? "are" : "is"} still ${numViolations} violation${numViolations ?? 0 > 1 ? "s" : ""}.`
+      );
+    } 
+  }
+  
 
   //  1. Load simulated activities and templates
   const [sequenceTemplates, filteredSimulatedActivitiesBySeqId] = await Promise.all([

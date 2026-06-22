@@ -37,13 +37,6 @@ create procedure merlin.restore_from_snapshot(_plan_id integer, _snapshot_id int
 		-- Catch Plan_Locked
 		call merlin.plan_locked_exception(_plan_id);
 
-    -- Update model_id and bounds of the plan
-    update merlin.plan
-    set model_id = _model_id,
-        start_time = _plan_start_time,
-        duration = _plan_duration
-    where id = _plan_id;
-
     -- Record the Union of Activities in Plan and Snapshot
     -- and note which ones have been added since the Snapshot was taken (in_snapshot = false)
     create temp table diff(
@@ -117,6 +110,13 @@ create procedure merlin.restore_from_snapshot(_plan_id integer, _snapshot_id int
 			where pts.snapshot_id = _snapshot_id
 			on conflict (activity_id, plan_id)
 			do update	set preset_id = excluded.preset_id;
+
+    -- Update model_id and bounds of the plan
+    update merlin.plan
+    set model_id = _model_id,
+        start_time = _plan_start_time,
+        duration = _plan_duration
+    where id = _plan_id;
 
 		-- Clean up
 		drop table diff;

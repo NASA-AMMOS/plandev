@@ -39,9 +39,18 @@ test('Health check', async () => {
 
 const {key} = JSON.parse(configuration().HASURA_GRAPHQL_JWT_SECRET);
 
+// decodeJwt now requires the Hasura claims namespace, so a valid test token must carry it.
+const validClaims = {
+  'https://hasura.io/jwt/claims': {
+    'x-hasura-user-id': 'user-123',
+    'x-hasura-default-role': 'user',
+    'x-hasura-allowed-roles': ['user'],
+  },
+};
+
 test('auth middleware', async () => {
   await test('should allow access with valid jwt', async () => {
-    const validToken = jwt.sign({ sub: 'user-123' }, key, { algorithm: 'HS256', expiresIn: '1h' });
+    const validToken = jwt.sign(validClaims, key, { algorithm: 'HS256', expiresIn: '1h' });
     const res = await request(app)
         .post('/secrets')
         .send({action_run_id: 1, secrets: {}})
@@ -77,8 +86,36 @@ test('auth middleware', async () => {
   });
 });
 
+test('username resolution', async () => {
+  await test('falls back to x-hasura-user-id when the top-level username claim is absent (OIDC)', async () => {
+    // OIDC tokens carry identity as x-hasura-user-id (not a top-level username); USERNAME must still resolve.
+    called.length = 0;
+    const claims = {
+      'x-hasura-user-id': 'user-from-claims',
+      'x-hasura-default-role': 'user',
+      'x-hasura-allowed-roles': ['user'],
+    };
+    const token = jwt.sign({ 'https://hasura.io/jwt/claims': claims }, key, { algorithm: 'HS256', expiresIn: '1h' });
+
+    const res = await request(app)
+        .post('/secrets')
+        .send({ action_run_id: 'oidc-username', secrets: {} })
+        .set('Authorization', `Bearer ${token}`);
+
+    assert.equal(res.status, 200);
+    assert.equal(called.length, 1);
+    const user = JSON.parse(called[0].secrets.user);
+    assert.equal(user.username, 'user-from-claims');
+  });
+});
+
+// Issuer (`iss` alias) and audience claim-validation are covered as unit tests:
+//  - action server: tests/authConfig.test.mts (issuer), which needs its own process because
+//    decodeJwt memoizes the parsed secret on first use.
+//  - workspace server: JWTServiceTest (issuer + audience ANY/none/single).
+
 test('cookie forwarding', async () => {
-  const validToken = jwt.sign({ sub: 'user-123' }, key, { algorithm: 'HS256', expiresIn: '1h' });
+  const validToken = jwt.sign(validClaims, key, { algorithm: 'HS256', expiresIn: '1h' });
 
   await test('should forward configured cookies as secrets', async () => {
     process.env.ACTION_COOKIE_NAMES = 'ssosession,other_cookie';

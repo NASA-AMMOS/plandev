@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.workspace.server;
 
 import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.auth0.jwt.exceptions.TokenExpiredException;
 import gov.nasa.jpl.aerie.permissions.PermissionsService;
 import gov.nasa.jpl.aerie.permissions.WorkspaceAction;
 import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
@@ -209,8 +210,13 @@ public class WorkspaceBindings implements Plugin {
     } else {
       try {
         return jwtService.validateAuthorization(authHeader, activeRole);
+      } catch (TokenExpiredException tee) {
+        logger.warn("JWT expired: {}", tee.getMessage());
+        throw new UnauthorizedResponse("Authorization token expired");
       } catch (JWTVerificationException jve) {
-        throw new UnauthorizedResponse(jve.getMessage());
+        // curated message; detail logged above (don't leak JWKS/library internals)
+        logger.warn("JWT verification failed: {}", jve.getMessage());
+        throw new UnauthorizedResponse("Invalid authorization token");
       }
     }
   }

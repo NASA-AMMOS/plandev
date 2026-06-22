@@ -42,6 +42,7 @@ export const authMiddleware: RequestHandler = async (req, res, next) => {
     res.locals.userRole = userRoleHeader;
     next();
   } else {
-    res.status(401).send({ message: `Unauthorized: ${jwtErrorMessage}`, success: false });
+    // decodeJwt returns a curated message (no internals) and logs the detail server-side.
+    res.status(401).send({ message: jwtErrorMessage, success: false });
   }
 };

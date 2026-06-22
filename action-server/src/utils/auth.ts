@@ -17,14 +17,14 @@ export type JwtPayload = {
 };
 
 export type JwtSecret = {
-  // Symmetric key (JWT/SSO modes). Absent when verifying OIDC tokens via JWKS.
+  // symmetric key (HMAC); absent for JWKS/OIDC
   key?: string;
   type: string;
-  // OIDC: URL of the IdP's published signing keys. When set (and `key` is absent),
-  // tokens are verified against the JWKS instead of a shared secret.
+  // IdP JWKS endpoint (asymmetric/OIDC)
   jwk_url?: string;
-  // Optional claim validation, used with JWKS/OIDC.
+  // `iss` is the legacy alias for issuer
   issuer?: string;
+  iss?: string;
   audience?: string | string[];
 };
 
@@ -103,21 +103,57 @@ export function authorizationHeaderToToken(authorizationHeader: string | undefin
   }
 }
 
-// Lazily created JWKS client (OIDC). Cached across requests so signing keys are
-// fetched from the IdP once and reused, rather than on every token verification.
+// Parsed + memoized view of HASURA_GRAPHQL_JWT_SECRET (static config, parsed once).
+type VerificationConfig = {
+  algorithm: Algorithm;
+  audience?: string | string[];
+  issuer?: string;
+  jwkUrl?: string;
+  key?: string;
+};
+
+let _config: VerificationConfig | undefined;
+function getVerificationConfig(): VerificationConfig {
+  if (_config) {
+    return _config;
+  }
+  const { HASURA_GRAPHQL_JWT_SECRET } = configuration();
+  const parsed: JwtSecret = JSON.parse(HASURA_GRAPHQL_JWT_SECRET);
+  const { key, type, jwk_url } = parsed;
+  // accept the legacy `iss` alias
+  const issuer = parsed.issuer ?? parsed.iss;
+
+  if (!type) {
+    throw new Error("HASURA_GRAPHQL_JWT_SECRET must specify a 'type' field that is a valid JWT algorithm");
+  }
+  // exactly one of key (HMAC) or jwk_url (JWKS)
+  if (!!key === !!jwk_url) {
+    throw new Error(`HASURA_GRAPHQL_JWT_SECRET must specify exactly one of 'key' or 'jwk_url' (got ${key ? 'both' : 'neither'})`);
+  }
+  // algorithm family must match the mode (HS* = symmetric key, RS*/ES*/PS* = JWKS)
+  const symmetric = type.startsWith('HS');
+  if (symmetric && jwk_url) {
+    throw new Error(`HMAC algorithm '${type}' requires 'key', not 'jwk_url'`);
+  }
+  if (!symmetric && key) {
+    throw new Error(`Asymmetric algorithm '${type}' requires 'jwk_url', not 'key'`);
+  }
+
+  _config = { algorithm: type as Algorithm, audience: parsed.audience, issuer, jwkUrl: jwk_url, key };
+  return _config;
+}
+
+// Memoized JWKS client (OIDC): cache signing keys and rate-limit fetches so unknown-`kid` floods
+// can't hammer the IdP. Bounds mirror the workspace server's JwkProvider.
 let _jwksClient: JwksClient | undefined;
-function getJwksClient(jwkUrl: string): JwksClient {
+function getJwksClient(): JwksClient {
   if (!_jwksClient) {
     _jwksClient = new JwksClient({
-      jwksUri: jwkUrl,
-      // Cache fetched signing keys (a `kid` maps to one immutable key, so long caching never
-      // goes stale) and rate-limit fetches so a flood of tokens carrying unknown `kid`s can't
-      // hammer the IdP's JWKS endpoint. Not configurable by design — these bounds suit any
-      // OIDC deployment and mirror the workspace server's JwkProvider settings.
       cache: true,
       cacheMaxAge: 24 * 60 * 60 * 1000, // 24h
-      cacheMaxEntries: 10,
+      cacheMaxEntries: 100,
       jwksRequestsPerMinute: 10,
+      jwksUri: getVerificationConfig().jwkUrl as string,
       rateLimit: true,
       timeout: 30000,
     });
@@ -129,8 +165,8 @@ function getJwksClient(jwkUrl: string): JwksClient {
  * Verify a token against an IdP's JWKS (asymmetric, e.g. RS256). The signing key
  * is resolved by the token's `kid` header and cached by the JWKS client.
  */
-function verifyWithJwks(token: string, jwkUrl: string, options: jwt.VerifyOptions): Promise<JwtPayload> {
-  const client = getJwksClient(jwkUrl);
+function verifyWithJwks(token: string, options: jwt.VerifyOptions): Promise<JwtPayload> {
+  const client = getJwksClient();
   const getKey = (header: JwtHeader, callback: (err: Error | null, key?: string) => void) => {
     client.getSigningKey(header.kid, (err, signingKey) => {
       if (err) {
@@ -154,12 +190,9 @@ function verifyWithJwks(token: string, jwkUrl: string, options: jwt.VerifyOption
 export async function decodeJwt(authorizationHeader: string | undefined): Promise<JwtDecode> {
   try {
     const token = authorizationHeaderToToken(authorizationHeader);
-    const { HASURA_GRAPHQL_JWT_SECRET } = configuration();
-    const { key, type, jwk_url, issuer, audience }: JwtSecret = JSON.parse(HASURA_GRAPHQL_JWT_SECRET);
-    if(!type) {
-      throw new Error(`HASURA_GRAPHQL_JWT_SECRET must specify a 'type' field that is a valid JWT algorithm`)
-    }
-    const options: jwt.VerifyOptions = { algorithms: [type as Algorithm] };
+    const { algorithm, audience, issuer, jwkUrl, key } = getVerificationConfig();
+
+    const options: jwt.VerifyOptions = { algorithms: [algorithm] };
     // Optional claim validation (used with JWKS/OIDC).
     if (issuer) {
       options.issuer = issuer;
@@ -168,25 +201,34 @@ export async function decodeJwt(authorizationHeader: string | undefined): Promis
       options.audience = audience;
     }
 
-    let jwtPayload: JwtPayload;
-    if (!key && jwk_url) {
-      // OIDC: verify against the IdP's published signing keys.
-      jwtPayload = await verifyWithJwks(token, jwk_url, options);
-    } else {
-      // JWT/SSO: verify against the shared symmetric key.
-      jwtPayload = jwt.verify(token, key as string, options) as JwtPayload;
-    }
-    return { jwtErrorMessage: '', jwtPayload };
-  } catch (e) {
-    console.error(e);
+    const jwtPayload: JwtPayload = jwkUrl
+      ? await verifyWithJwks(token, options)
+      : (jwt.verify(token, key as string, options) as JwtPayload);
 
-    if (e instanceof jwt.TokenExpiredError) {
-      const tokenExpiredError = e as jwt.TokenExpiredError;
-      const jwtErrorMessage = `Token expired on ${tokenExpiredError.expiredAt}`;
+    // Require the Hasura claims namespace (matches the workspace server).
+    const hasuraClaims = jwtPayload['https://hasura.io/jwt/claims'] as Record<string, unknown> | undefined;
+    if (!hasuraClaims || typeof hasuraClaims !== 'object') {
+      throw new Error('JWT is missing the Hasura claims namespace');
+    }
+
+    // OIDC tokens carry identity as x-hasura-user-id in the namespace, not a top-level `username`.
+    if (!jwtPayload.username) {
+      const hasuraUserId = hasuraClaims['x-hasura-user-id'];
+      if (hasuraUserId !== undefined && hasuraUserId !== null) {
+        jwtPayload.username = String(hasuraUserId);
+      }
+    }
+
+    return { jwtErrorMessage: '', jwtPayload };
+  } catch (error) {
+    console.error(error);
+
+    if (error instanceof jwt.TokenExpiredError) {
+      const jwtErrorMessage = `Token expired on ${error.expiredAt.toISOString()}`;
       return { jwtErrorMessage, jwtPayload: null };
     } else {
-      const error = e as Error;
-      const jwtErrorMessage = error?.message ?? 'Token could not be verified';
+      // Curated message — don't echo raw library text (leaks expected issuer/audience). Logged above.
+      const jwtErrorMessage = 'Invalid authorization token';
       return { jwtErrorMessage, jwtPayload: null };
     }
   }

@@ -13,6 +13,7 @@ import com.auth0.jwt.interfaces.RSAKeyProvider;
 import javax.json.JsonArray;
 import javax.json.JsonObject;
 import javax.json.JsonString;
+import javax.json.JsonValue;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.security.interfaces.RSAPrivateKey;
@@ -35,16 +36,15 @@ public final class JWTService {
 
   JWTService(final JsonObject jwtInfo) {
     final var typeString = jwtInfo.getString("type");
-    // Support both "iss" (legacy workspace config) and "issuer" (gateway/OIDC config).
-    final var issuer = jwtInfo.containsKey("iss") ? jwtInfo.getString("iss")
-        : jwtInfo.containsKey("issuer") ? jwtInfo.getString("issuer") : null;
+    // `issuer` is canonical; `iss` is the legacy alias. Prefer `issuer` when both are present.
+    final var issuer = jwtInfo.containsKey("issuer") ? jwtInfo.getString("issuer")
+        : jwtInfo.containsKey("iss") ? jwtInfo.getString("iss") : null;
     final var audiences = parseAudience(jwtInfo);
     final var jwkUrl = jwtInfo.containsKey("jwk_url") ? jwtInfo.getString("jwk_url") : null;
 
     final Algorithm algorithm;
     if (jwkUrl != null && !jwkUrl.isBlank()) {
-      // OIDC: verify asymmetric tokens (e.g. Keycloak RS256) against the IdP's published
-      // signing keys (JWKS). The key is resolved per-token by its `kid` header and cached.
+      // OIDC: verify against the IdP's JWKS (key resolved per-token by `kid`).
       final var keyProvider = buildJwksKeyProvider(jwkUrl);
       algorithm = switch (typeString) {
         case "RS256" -> Algorithm.RSA256(keyProvider);
@@ -69,7 +69,8 @@ public final class JWTService {
       vbuilder.withIssuer(issuer);
     }
     if(audiences != null && audiences.length > 0) {
-      vbuilder.withAudience(audiences);
+      // withAnyOfAudience matches ANY (java-jwt's withAudience requires ALL; the jsonwebtoken side matches any).
+      vbuilder.withAnyOfAudience(audiences);
     }
 
     verifier = vbuilder.build();
@@ -87,9 +88,13 @@ public final class JWTService {
     final var value = jwtInfo.get("audience");
     return switch (value.getValueType()) {
       case STRING -> new String[] { ((JsonString) value).getString() };
-      case ARRAY -> ((JsonArray) value).getValuesAs(JsonString.class).stream()
-          .map(JsonString::getString)
-          .toArray(String[]::new);
+      case ARRAY -> ((JsonArray) value).stream().map(element -> {
+        // explicit element check -> clear error instead of a raw ClassCastException
+        if (element.getValueType() != JsonValue.ValueType.STRING) {
+          throw new IllegalArgumentException("OIDC 'audience' array must contain only strings");
+        }
+        return ((JsonString) element).getString();
+      }).toArray(String[]::new);
       default -> throw new IllegalArgumentException("OIDC 'audience' must be a string or an array of strings");
     };
   }
@@ -102,7 +107,10 @@ public final class JWTService {
     final JwkProvider provider;
     try {
       provider = new JwkProviderBuilder(URI.create(jwkUrl).toURL())
-          .cached(10, 24, TimeUnit.HOURS)
+          // Cache well above any realistic active-key count (rotation overlap / multi-realm) so
+          // legitimate keys aren't evicted; rate-limit fetches so unknown-`kid` floods can't hammer
+          // the IdP. A `kid` maps to one immutable key, so long caching never goes stale.
+          .cached(100, 24, TimeUnit.HOURS)
           .rateLimited(10, 1, TimeUnit.MINUTES)
           .build();
     } catch (final MalformedURLException | IllegalArgumentException e) {
@@ -112,7 +120,12 @@ public final class JWTService {
       @Override
       public RSAPublicKey getPublicKeyById(final String keyId) {
         try {
-          return (RSAPublicKey) provider.get(keyId).getPublicKey();
+          // Guard the cast: a non-RSA key (e.g. EC) would otherwise throw an uncaught ClassCastException (500, not 401).
+          final var publicKey = provider.get(keyId).getPublicKey();
+          if (publicKey instanceof RSAPublicKey rsaPublicKey) {
+            return rsaPublicKey;
+          }
+          throw new JWTVerificationException("JWKS signing key '" + keyId + "' is not an RSA key, cannot verify with an RSA algorithm.");
         } catch (final JwkException e) {
           throw new JWTVerificationException("Unable to fetch JWKS signing key '" + keyId + "': " + e.getMessage(), e);
         }
@@ -157,9 +170,10 @@ public final class JWTService {
     // identity (see aerie-gateway session(): namespace[x-hasura-user-id]).
     var username = decodedJWT.getClaim("username").asString();
     if (username == null || username.isBlank()) {
+      // Coerce defensively — Hasura requires string session vars, but an IdP could emit a non-string.
       final var hasuraUserId = hasuraClaims.get("x-hasura-user-id");
-      if (hasuraUserId instanceof String hasuraUserIdString) {
-        username = hasuraUserIdString;
+      if (hasuraUserId != null) {
+        username = String.valueOf(hasuraUserId);
       }
     }
 

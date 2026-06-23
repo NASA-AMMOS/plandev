@@ -154,6 +154,38 @@ for each row
 when (pg_trigger_depth() < 1)
 execute function util_functions.increment_revision_update();
 
+create function merlin.take_snapshot_before_plan_bounds_update()
+  returns trigger
+  language plpgsql as $$
+declare
+  old_plan_end timestamptz;
+  new_plan_end timestamptz;
+begin
+  -- Catch Plan_Locked
+  call merlin.plan_locked_exception(old.id);
+
+  -- Set variables
+  old_plan_end := old.start_time + old.duration;
+  new_plan_end := new.start_time + new.duration;
+
+  -- Take a backup snapshot
+  perform merlin.create_snapshot(
+      old.id,
+      'Plan Bound Adjustment',
+      'Automatic snapshot made before adjusting plan bounds from ' ||
+      '['|| old.start_time ||' - '|| old_plan_end || '] to ' ||
+      '[' || new.start_time || ' - ' || new_plan_end || ']',
+      null);
+  return new;
+end;
+$$;
+
+create trigger take_snapshot_before_plan_bounds_update
+  before update on merlin.plan
+  for each row
+  when (old.start_time is distinct from new.start_time or old.duration is distinct from new.duration)
+execute function merlin.take_snapshot_before_plan_bounds_update();
+
 create function merlin.cascade_plan_bounds_update()
   returns trigger
   language plpgsql as $$
@@ -165,25 +197,14 @@ declare
   start_time_difference interval;
   end_time_difference interval;
 begin
-  -- prevent adjustment if the plan is locked
-  if old.is_locked then
-    raise exception 'Cannot adjust bounds of locked plan.';
-  end if;
+  -- Catch Plan_Locked
+  call merlin.plan_locked_exception(old.id);
 
   -- Set variables
   old_plan_end := old.start_time + old.duration;
   new_plan_end := new.start_time + new.duration;
   start_time_difference := old.start_time - new.start_time;
   end_time_difference := old_plan_end - new_plan_end;
-
-  -- Take a backup snapshot
-  perform merlin.create_snapshot(
-      old.id,
-      'Plan Bound Adjustment',
-      'Automatic snapshot made before adjusting plan bounds from ' ||
-      '['|| old.start_time ||' - '|| old_plan_end || '] to ' ||
-      '[' || new.start_time || ' - ' || new_plan_end || ']',
-      null);
 
   -- Update activities that are anchored to the plan bounds
   update merlin.activity_directive ad

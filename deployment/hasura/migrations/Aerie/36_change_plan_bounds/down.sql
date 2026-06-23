@@ -587,4 +587,4 @@ alter table merlin.plan_snapshot
 add constraint snapshot_name_unique_per_plan
   unique (plan_id, snapshot_name);
 
-call migrations.mark_migration_rolled_back(35);
+call migrations.mark_migration_rolled_back(36);

@@ -1,6 +1,5 @@
 package gov.nasa.jpl.aerie.database;
 
-import gov.nasa.jpl.aerie.database.PlanCollaborationTests.Activity;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -50,39 +49,6 @@ public class ActivityDirectiveChangelogTests {
   }
 
   //region Helper Methods
-  private Activity getActivity(final int planId, final int activityId) throws SQLException {
-    try (final var statement = connection.createStatement()) {
-      final var res = statement.executeQuery(
-          // language=sql
-          """
-          SELECT *
-          FROM merlin.activity_directive
-          WHERE id = %d
-          AND plan_id = %d;
-          """.formatted(activityId, planId));
-
-      res.next();
-
-      return new Activity(
-          res.getInt("id"),
-          res.getInt("plan_id"),
-          res.getString("name"),
-          res.getInt("source_scheduling_goal_id"),
-          res.getInt("source_scheduling_goal_invocation_id"),
-          res.getString("created_at"),
-          res.getString("created_by"),
-          res.getString("last_modified_at"),
-          res.getString("last_modified_by"),
-          res.getString("start_offset"),
-          res.getString("type"),
-          res.getString("arguments"),
-          res.getString("last_modified_arguments_at"),
-          res.getString("metadata"),
-          res.getString("anchor_id"),
-          res.getBoolean("anchored_to_start")
-      );
-    }
-  }
   private void updateActivityStartOffset(int planId, int activityDirectiveId, String newOffset) throws SQLException {
     try (final var statement = connection.createStatement()) {
       final var updatedRows = statement.executeQuery(
@@ -171,7 +137,7 @@ public class ActivityDirectiveChangelogTests {
             """.formatted(planId, activityId));
 
         res.next();
-        final var current = getActivity(planId, activityId);
+        final var current = merlinHelper.getActivity(planId, activityId);
 
         assertEquals(current.activityId(), res.getInt("activity_directive_id"));
         assertEquals(current.planId(), res.getInt("plan_id"));
@@ -239,7 +205,7 @@ public class ActivityDirectiveChangelogTests {
   void shouldRevertActDirToChangelogEntry() throws SQLException {
     final var activityId = merlinHelper.insertActivity(planId);
 
-    final var actDirBefore = getActivity(planId, activityId);
+    final var actDirBefore = merlinHelper.getActivity(planId, activityId);
 
     try (final var statement = connection.createStatement()) {
       statement.executeQuery(
@@ -254,10 +220,10 @@ public class ActivityDirectiveChangelogTests {
           RETURNING *;
           """.formatted(planId, activityId));
     }
-    final var actDirMid = getActivity(planId, activityId);
+    final var actDirMid = merlinHelper.getActivity(planId, activityId);
 
     revertActivityDirectiveToChangelog(planId, activityId, 0);
-    final var actDirAfter = getActivity(planId, activityId);
+    final var actDirAfter = merlinHelper.getActivity(planId, activityId);
 
     assertNotEquals(actDirBefore.name(), actDirMid.name());
     assertNotEquals(actDirBefore.startOffset(), actDirMid.startOffset());

@@ -15,7 +15,9 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
+import gov.nasa.jpl.aerie.database.types.Activity;
 
+import static gov.nasa.jpl.aerie.database.types.Activity.assertActivityEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -36,13 +38,11 @@ public class PlanCollaborationTests {
   private MerlinDatabaseTestHelper merlinHelper;
 
   private Connection connection;
-  int fileId;
   int missionModelId;
 
   @BeforeEach
   void beforeEach() throws SQLException {
-    fileId = merlinHelper.insertFileUpload();
-    missionModelId = merlinHelper.insertMissionModel(fileId);
+    missionModelId = merlinHelper.insertMissionModel(merlinHelper.insertFileUpload());
   }
 
   @AfterEach
@@ -430,74 +430,6 @@ public class PlanCollaborationTests {
     return activities;
   }
 
-  private Activity getActivity(final int planId, final int activityId) throws SQLException {
-    try (final var statement = connection.createStatement()) {
-      final var res = statement.executeQuery(
-          //language=sql
-          """
-          SELECT *
-          FROM merlin.activity_directive
-          WHERE id = %d
-          AND plan_id = %d;
-          """.formatted(activityId, planId));
-      res.next();
-      return new Activity(
-          res.getInt("id"),
-          res.getInt("plan_id"),
-          res.getString("name"),
-          res.getInt("source_scheduling_goal_id"),
-          res.getInt("source_scheduling_goal_invocation_id"),
-          res.getString("created_at"),
-          res.getString("created_by"),
-          res.getString("last_modified_at"),
-          res.getString("last_modified_by"),
-          res.getString("start_offset"),
-          res.getString("type"),
-          res.getString("arguments"),
-          res.getString("last_modified_arguments_at"),
-          res.getString("metadata"),
-          res.getString("anchor_id"),
-          res.getBoolean("anchored_to_start")
-      );
-    }
-  }
-
-  private ArrayList<Activity> getActivities(final int planId) throws SQLException {
-    try (final var statement = connection.createStatement()) {
-      final var res = statement.executeQuery(
-          //language=sql
-          """
-          SELECT *
-          FROM merlin.activity_directive
-          WHERE plan_id = %d
-          ORDER BY id;
-        """.formatted(planId));
-
-      final var activities = new ArrayList<Activity>();
-      while (res.next()){
-        activities.add(new Activity(
-            res.getInt("id"),
-            res.getInt("plan_id"),
-            res.getString("name"),
-            res.getInt("source_scheduling_goal_id"),
-            res.getInt("source_scheduling_goal_invocation_id"),
-            res.getString("created_at"),
-            res.getString("created_by"),
-            res.getString("last_modified_at"),
-            res.getString("last_modified_by"),
-            res.getString("start_offset"),
-            res.getString("type"),
-            res.getString("arguments"),
-            res.getString("last_modified_arguments_at"),
-            res.getString("metadata"),
-            res.getString("anchor_id"),
-            res.getBoolean("anchored_to_start")
-        ));
-      }
-      return activities;
-    }
-  }
-
   private ArrayList<SnapshotActivity> getSnapshotActivities(final int snapshotId) throws SQLException {
     try (final var statement = connection.createStatement()) {
       final var res = statement.executeQuery(
@@ -567,58 +499,24 @@ public class PlanCollaborationTests {
     }
   }
 
-  public static void assertActivityEquals(final Activity expected, final Activity actual) {
-    // validate all shared properties
-    assertEquals(expected.activityId, actual.activityId);
-    assertEquals(expected.name, actual.name);
-    assertEquals(expected.sourceSchedulingGoalId, actual.sourceSchedulingGoalId);
-    assertEquals(expected.sourceSchedulingGoalInvocationId, actual.sourceSchedulingGoalInvocationId);
-    assertEquals(expected.createdAt, actual.createdAt);
-    assertEquals(expected.createdBy, actual.createdBy);
-    assertEquals(expected.startOffset, actual.startOffset);
-    assertEquals(expected.type, actual.type);
-    assertEquals(expected.arguments, actual.arguments);
-    assertEquals(expected.metadata, actual.metadata);
-    assertEquals(expected.anchorId, actual.anchorId);
-    assertEquals(expected.anchoredToStart, actual.anchoredToStart);
-  }
-
   private static void assertActivityEqualsSnapshot(final Activity expected, final SnapshotActivity actual) {
     // validate all shared properties
-    assertEquals(expected.activityId, actual.activityId);
-    assertEquals(expected.name, actual.name);
-    assertEquals(expected.sourceSchedulingGoalId, actual.sourceSchedulingGoalId);
-    assertEquals(expected.sourceSchedulingGoalInvocationId, actual.sourceSchedulingGoalInvocationId);
-    assertEquals(expected.createdAt, actual.createdAt);
-    assertEquals(expected.createdBy, actual.createdBy);
-    assertEquals(expected.startOffset, actual.startOffset);
-    assertEquals(expected.type, actual.type);
-    assertEquals(expected.arguments, actual.arguments);
-    assertEquals(expected.metadata, actual.metadata);
-    assertEquals(expected.anchorId, actual.anchorId);
-    assertEquals(expected.anchoredToStart, actual.anchoredToStart);
+    assertEquals(expected.activityId(), actual.activityId());
+    assertEquals(expected.name(), actual.name());
+    assertEquals(expected.sourceSchedulingGoalId(), actual.sourceSchedulingGoalId());
+    assertEquals(expected.sourceSchedulingGoalInvocationId(), actual.sourceSchedulingGoalInvocationId());
+    assertEquals(expected.createdAt(), actual.createdAt());
+    assertEquals(expected.createdBy(), actual.createdBy());
+    assertEquals(expected.startOffset(), actual.startOffset());
+    assertEquals(expected.type(), actual.type());
+    assertEquals(expected.arguments(), actual.arguments());
+    assertEquals(expected.metadata(), actual.metadata());
+    assertEquals(expected.anchorId(), actual.anchorId());
+    assertEquals(expected.anchoredToStart(), actual.anchoredToStart());
   }
   //endregion
 
   //region Records
-  public record Activity(
-      int activityId,
-      int planId,
-      String name,
-      int sourceSchedulingGoalId,
-      int sourceSchedulingGoalInvocationId,
-      String createdAt,
-      String createdBy,
-      String lastModifiedAt,
-      String lastModifiedBy,
-      String startOffset,
-      String type,
-      String arguments,
-      String lastModifiedArgumentsAt,
-      String metadata,
-      String anchorId,  // Since anchor_id allows for null values, this is a String to avoid confusion over what the number means.
-      boolean anchoredToStart
-  ) {}
   private record SnapshotMetadata(
       int snapshot_id,
       int plan_id,
@@ -663,7 +561,7 @@ public class PlanCollaborationTests {
       for (var i = 0; i < activityCount; i++) {
         activityIds.add(merlinHelper.insertActivity(planId));
       }
-      final var planActivities = getActivities(planId);
+      final var planActivities = merlinHelper.getActivities(planId);
 
       final var snapshotId = createSnapshot(planId);
       final var snapshotActivities = getSnapshotActivities(snapshotId);
@@ -676,17 +574,17 @@ public class PlanCollaborationTests {
 
       for (int i = 0; i < activityCount; ++i) {
         //assert that this activity exists
-        assertTrue(activityIds.contains(planActivities.get(i).activityId));
-        assertTrue(activityIds.contains(snapshotActivities.get(i).activityId));
+        assertTrue(activityIds.contains(planActivities.get(i).activityId()));
+        assertTrue(activityIds.contains(snapshotActivities.get(i).activityId()));
         // validate all shared properties
         assertActivityEqualsSnapshot(planActivities.get(i), snapshotActivities.get(i));
 
         // validate "modifiedAt" columns
-        assertEquals(planActivities.get(i).lastModifiedAt, snapshotActivities.get(i).lastModifiedAt);
-        assertEquals(planActivities.get(i).lastModifiedBy, snapshotActivities.get(i).lastModifiedBy);
-        assertEquals(planActivities.get(i).lastModifiedArgumentsAt, snapshotActivities.get(i).lastModifiedArgumentsAt);
+        assertEquals(planActivities.get(i).lastModifiedAt(), snapshotActivities.get(i).lastModifiedAt());
+        assertEquals(planActivities.get(i).lastModifiedBy(), snapshotActivities.get(i).lastModifiedBy());
+        assertEquals(planActivities.get(i).lastModifiedArgumentsAt(), snapshotActivities.get(i).lastModifiedArgumentsAt());
 
-        activityIds.remove(planActivities.get(i).activityId);
+        activityIds.remove(planActivities.get(i).activityId());
       }
       assert activityIds.isEmpty();
     }
@@ -864,16 +762,16 @@ public class PlanCollaborationTests {
     @Test
     void restoresDeletedActivities() throws SQLException {
       final int planId = merlinHelper.insertPlan(missionModelId);
-      final Activity deletedDirective = getActivity(planId, merlinHelper.insertActivity(planId));
+      final Activity deletedDirective = merlinHelper.getActivity(planId, merlinHelper.insertActivity(planId));
       final int snapshotId =  createSnapshot(planId);
 
       // Empty Plan
-      merlinHelper.deleteActivityDirective(planId, deletedDirective.activityId);
-      assertEquals(0, getActivities(planId).size());
+      merlinHelper.deleteActivityDirective(planId, deletedDirective.activityId());
+      assertEquals(0, merlinHelper.getActivities(planId).size());
 
       // Restore Plan from Snapshot
       restoreFromSnapshot(planId, snapshotId);
-      final var planActivities = getActivities(planId);
+      final var planActivities = merlinHelper.getActivities(planId);
       assertEquals(1, planActivities.size());
 
       // Assert that restored directive equals what it did before (aside from last_updated fields)
@@ -884,16 +782,16 @@ public class PlanCollaborationTests {
     @Test
     void restoreDeletesAddedActivities() throws SQLException {
       final int planId = merlinHelper.insertPlan(missionModelId);
-      final Activity stableDirective = getActivity(planId, merlinHelper.insertActivity(planId));
+      final Activity stableDirective = merlinHelper.getActivity(planId, merlinHelper.insertActivity(planId));
       final int snapshotId =  createSnapshot(planId);
 
       // Add new Directive
       merlinHelper.insertActivity(planId);
-      assertEquals(2, getActivities(planId).size());
+      assertEquals(2, merlinHelper.getActivities(planId).size());
 
       // Restore Plan from Snapshot
       restoreFromSnapshot(planId, snapshotId);
-      final var planActivities = getActivities(planId);
+      final var planActivities = merlinHelper.getActivities(planId);
       assertEquals(1, planActivities.size());
 
       // Assert that remaining directive is the one that was there at the time of the snapshot
@@ -906,15 +804,15 @@ public class PlanCollaborationTests {
       final int planId = merlinHelper.insertPlan(missionModelId);
       final int oldDirectiveId = merlinHelper.insertActivity(planId);
       merlinHelper.updateActivityName("old name", oldDirectiveId, planId);
-      final Activity oldDirective = getActivity(planId, oldDirectiveId);
+      final Activity oldDirective = merlinHelper.getActivity(planId, oldDirectiveId);
       final int snapshotId =  createSnapshot(planId);
 
       // Modify Directive
-      merlinHelper.updateActivityName("new name", oldDirective.activityId, planId);
+      merlinHelper.updateActivityName("new name", oldDirective.activityId(), planId);
 
       // Restore Plan from Snapshot
       restoreFromSnapshot(planId, snapshotId);
-      final var planActivities = getActivities(planId);
+      final var planActivities = merlinHelper.getActivities(planId);
       assertEquals(1, planActivities.size());
 
       // Assert that directive's state has been restored
@@ -936,6 +834,12 @@ public class PlanCollaborationTests {
       // Get a handle on the revision
       final var oldRevision = merlinHelper.getPlanRevision(planId);
 
+      // Add an activity
+      // This activity checks that restoring a snapshot that changes plan bounds
+      // doesn't attempt to update the anchor validations of activities that are removed
+      // by the snapshot restoration process
+      merlinHelper.insertActivity(planId);
+
       // Restore the automatically created snapshot
       final var oldSnapshotId = getLatestSnapshot(planId);
       restoreFromSnapshot(planId, oldSnapshotId);
@@ -946,6 +850,9 @@ public class PlanCollaborationTests {
 
       // The plan's revision should have been updated
       assertTrue(merlinHelper.getPlanRevision(planId) > oldRevision);
+
+      // The added activity should be gone
+      assertTrue(merlinHelper.getActivities(planId).isEmpty());
 
       // A new snapshot should have been created
       final var newSnapshotId = getLatestSnapshot(planId);
@@ -961,7 +868,6 @@ public class PlanCollaborationTests {
       assertEquals(missionModelId, snapshot.model_id);
       assertEquals("2020-01-01 00:00:00+00", snapshot.planStartTime);
       assertEquals("28:00:00", snapshot.planDuration);
-      assertEquals(oldRevision, snapshot.revision);
     }
   }
 
@@ -981,10 +887,10 @@ public class PlanCollaborationTests {
         activityIds.add(merlinHelper.insertActivity(planId));
       }
 
-      final var planActivities = getActivities(planId);
+      final var planActivities = merlinHelper.getActivities(planId);
 
       final var childPlan = duplicatePlan(planId, "My new duplicated plan");
-      final var childActivities = getActivities(childPlan);
+      final var childActivities = merlinHelper.getActivities(childPlan);
       //assert the correct number of activities were copied
       assertFalse(planActivities.isEmpty());
       assertFalse(childActivities.isEmpty());
@@ -993,16 +899,16 @@ public class PlanCollaborationTests {
 
       for (int i = 0; i < activityCount; ++i) {
         //assert that this activity exists
-        assertTrue(activityIds.contains(planActivities.get(i).activityId));
-        assertTrue(activityIds.contains(childActivities.get(i).activityId));
+        assertTrue(activityIds.contains(planActivities.get(i).activityId()));
+        assertTrue(activityIds.contains(childActivities.get(i).activityId()));
         // validate all shared properties
         assertActivityEquals(planActivities.get(i), childActivities.get(i));
 
         // validate "modified columns
-        assertEquals(planActivities.get(i).lastModifiedAt, childActivities.get(i).lastModifiedAt);
-        assertEquals(planActivities.get(i).lastModifiedArgumentsAt, childActivities.get(i).lastModifiedArgumentsAt);
+        assertEquals(planActivities.get(i).lastModifiedAt(), childActivities.get(i).lastModifiedAt());
+        assertEquals(planActivities.get(i).lastModifiedArgumentsAt(), childActivities.get(i).lastModifiedArgumentsAt());
 
-        activityIds.remove(planActivities.get(i).activityId);
+        activityIds.remove(planActivities.get(i).activityId());
       }
       assert activityIds.isEmpty();
     }
@@ -1150,16 +1056,16 @@ public class PlanCollaborationTests {
       }
 
       //Assert that there is one activity and it is the one that was added earlier.
-      final var activitiesBefore = getActivities(planId);
+      final var activitiesBefore = merlinHelper.getActivities(planId);
       assertEquals(1, activitiesBefore.size());
-      assertEquals(activityId, activitiesBefore.get(0).activityId);
-      assertEquals(oldName, activitiesBefore.get(0).name);
+      assertEquals(activityId, activitiesBefore.get(0).activityId());
+      assertEquals(oldName, activitiesBefore.get(0).name());
 
       merlinHelper.updateActivityName(newName, activityId, planId);
-      final var activitiesAfter = getActivities(planId);
+      final var activitiesAfter = merlinHelper.getActivities(planId);
       assertEquals(1, activitiesAfter.size());
-      assertEquals(activityId, activitiesAfter.get(0).activityId);
-      assertEquals(newName, activitiesAfter.get(0).name);
+      assertEquals(activityId, activitiesAfter.get(0).activityId());
+      assertEquals(newName, activitiesAfter.get(0).name());
     }
 
     @Test
@@ -1176,12 +1082,12 @@ public class PlanCollaborationTests {
       }
 
       //Assert that there is one activity and it is the one that was added earlier.
-      final var activitiesBefore = getActivities(planId);
+      final var activitiesBefore = merlinHelper.getActivities(planId);
       assertEquals(1, activitiesBefore.size());
-      assertEquals(activityId, activitiesBefore.get(0).activityId);
+      assertEquals(activityId, activitiesBefore.get(0).activityId());
 
       merlinHelper.deleteActivityDirective(planId, activityId);
-      final var activitiesAfter = getActivities(planId);
+      final var activitiesAfter = merlinHelper.getActivities(planId);
       assertTrue(activitiesAfter.isEmpty());
     }
 
@@ -1198,14 +1104,40 @@ public class PlanCollaborationTests {
       }
 
       //Assert that there are no activities for this plan.
-      final var activitiesBefore = getActivities(planId);
+      final var activitiesBefore = merlinHelper.getActivities(planId);
       assertTrue(activitiesBefore.isEmpty());
 
       final int insertedId = merlinHelper.insertActivity(planId);
 
-      final var activitiesAfter = getActivities(planId);
+      final var activitiesAfter = merlinHelper.getActivities(planId);
       assertEquals(1, activitiesAfter.size());
-      assertEquals(insertedId, activitiesAfter.get(0).activityId);
+      assertEquals(insertedId, activitiesAfter.get(0).activityId());
+    }
+
+    @Test
+    void changingPlanBoundsFailsOnLockedPlan() throws SQLException {
+      final var planId = merlinHelper.insertPlan(
+          missionModelId,
+          merlinHelper.user.name(),
+          "Bounds Locked Test",
+          "2026-01-01T00:00:00+00",
+          "24:00:00");
+
+      try {
+        lockPlan(planId);
+        // Attempt to change start time
+        final var exStartTime = assertThrows(SQLException.class, () -> merlinHelper.updatePlanStartTime(planId, "2025-01-01T00:00:00+00"));
+        assertTrue(exStartTime.getMessage().contains("Plan " + planId + " is locked."));
+        // Attempt to change end time
+        final var exDuration = assertThrows(SQLException.class, () -> merlinHelper.updatePlanDuration(planId, "01:00:00"));
+        assertTrue(exDuration.getMessage().contains("Plan " + planId + " is locked."));
+      } finally {
+        unlockPlan(planId);
+      }
+
+      // Assert the plan bounds are the same
+      assertEquals("2026-01-01 00:00:00+00", merlinHelper.getPlanStartTime(planId));
+      assertEquals("24:00:00", merlinHelper.getPlanDuration(planId));
     }
 
     @Test
@@ -1259,42 +1191,42 @@ public class PlanCollaborationTests {
         merlinHelper.updateActivityName(newName, activityId, relatedPlanId);
         merlinHelper.updateActivityName(newName, unrelatedActivityId, unrelatedPlanId);
 
-        var relatedActivities = getActivities(relatedPlanId);
-        var unrelatedActivities = getActivities(unrelatedPlanId);
+        var relatedActivities = merlinHelper.getActivities(relatedPlanId);
+        var unrelatedActivities = merlinHelper.getActivities(unrelatedPlanId);
 
         assertEquals(1, relatedActivities.size());
         assertEquals(1, unrelatedActivities.size());
-        assertEquals(activityId, relatedActivities.get(0).activityId);
-        assertEquals(unrelatedActivityId, unrelatedActivities.get(0).activityId);
-        assertEquals(newName, relatedActivities.get(0).name);
-        assertEquals(newName, unrelatedActivities.get(0).name);
+        assertEquals(activityId, relatedActivities.get(0).activityId());
+        assertEquals(unrelatedActivityId, unrelatedActivities.get(0).activityId());
+        assertEquals(newName, relatedActivities.get(0).name());
+        assertEquals(newName, unrelatedActivities.get(0).name());
 
 
         //Insert a new activity into the unlocked plans
         final int newActivityRelated = merlinHelper.insertActivity(relatedPlanId);
         final int newActivityUnrelated = merlinHelper.insertActivity(unrelatedPlanId);
 
-        relatedActivities = getActivities(relatedPlanId);
-        unrelatedActivities = getActivities(unrelatedPlanId);
+        relatedActivities = merlinHelper.getActivities(relatedPlanId);
+        unrelatedActivities = merlinHelper.getActivities(unrelatedPlanId);
 
         assertEquals(2, relatedActivities.size());
         assertEquals(2, unrelatedActivities.size());
-        assertEquals(activityId, relatedActivities.get(0).activityId);
-        assertEquals(unrelatedActivityId, unrelatedActivities.get(0).activityId);
-        assertEquals(newActivityRelated, relatedActivities.get(1).activityId);
-        assertEquals(newActivityUnrelated, unrelatedActivities.get(1).activityId);
+        assertEquals(activityId, relatedActivities.get(0).activityId());
+        assertEquals(unrelatedActivityId, unrelatedActivities.get(0).activityId());
+        assertEquals(newActivityRelated, relatedActivities.get(1).activityId());
+        assertEquals(newActivityUnrelated, unrelatedActivities.get(1).activityId());
 
         //Delete the first activity in the unlocked plans
         merlinHelper.deleteActivityDirective(relatedPlanId, activityId);
         merlinHelper.deleteActivityDirective(unrelatedPlanId, unrelatedActivityId);
 
-        relatedActivities = getActivities(relatedPlanId);
-        unrelatedActivities = getActivities(unrelatedPlanId);
+        relatedActivities = merlinHelper.getActivities(relatedPlanId);
+        unrelatedActivities = merlinHelper.getActivities(unrelatedPlanId);
 
         assertEquals(1, relatedActivities.size());
         assertEquals(1, unrelatedActivities.size());
-        assertEquals(newActivityRelated, relatedActivities.get(0).activityId);
-        assertEquals(newActivityUnrelated, unrelatedActivities.get(0).activityId);
+        assertEquals(newActivityRelated, relatedActivities.get(0).activityId());
+        assertEquals(newActivityUnrelated, unrelatedActivities.get(0).activityId());
       } finally {
         unlockPlan(planId);
       }
@@ -1453,7 +1385,7 @@ public class PlanCollaborationTests {
       final int snapshotId = createSnapshot(planId);
 
       try(final var statement = connection.createStatement()) {
-        final var ex = assertThrows(SQLException.class, () -> statement.execute(
+        final var ex = assertThrows(SQLException.class, () -> statement.executeQuery(
             //language=sql
             """
             select merlin.get_merge_base(%d, -1);
@@ -1462,12 +1394,12 @@ public class PlanCollaborationTests {
       }
 
       try(final var statement = connection.createStatement()) {
-        final var ex = assertThrows(SQLException.class, () -> statement.execute(
+        final var ex = assertThrows(SQLException.class, () -> statement.executeQuery(
             //language=sql
             """
             select merlin.get_merge_base(-2, %d);
             """.formatted(snapshotId)));
-        assertTrue(ex.getMessage().contains("Plan ID "+ -2 +" is not present in plan_snapshot table."));
+        assertTrue(ex.getMessage().contains("Plan with ID "+ -2 +" does not exist."));
       }
     }
 
@@ -1718,9 +1650,9 @@ public class PlanCollaborationTests {
       assertTrue(conflicts.isEmpty());
       assertFalse(stagedActs.isEmpty());
       assertEquals(2, stagedActs.size());
-      assertEquals(activityId, stagedActs.get(0).activityId);
+      assertEquals(activityId, stagedActs.get(0).activityId());
       assertEquals("none", stagedActs.get(0).changeType);
-      assertEquals(noopDodger, stagedActs.get(1).activityId);
+      assertEquals(noopDodger, stagedActs.get(1).activityId());
       assertEquals("add", stagedActs.get(1).changeType);
 
       unlockPlan(basePlan);
@@ -1740,7 +1672,7 @@ public class PlanCollaborationTests {
       assertTrue(conflicts.isEmpty());
       assertFalse(stagedActs.isEmpty());
       assertEquals(1, stagedActs.size());
-      assertEquals(activityId, stagedActs.get(0).activityId);
+      assertEquals(activityId, stagedActs.get(0).activityId());
       assertEquals("add", stagedActs.get(0).changeType);
 
       unlockPlan(basePlan);
@@ -1761,9 +1693,9 @@ public class PlanCollaborationTests {
       assertTrue(conflicts.isEmpty());
       assertFalse(stagedActs.isEmpty());
       assertEquals(2, stagedActs.size());
-      assertEquals(activityId, stagedActs.get(0).activityId);
+      assertEquals(activityId, stagedActs.get(0).activityId());
       assertEquals("none", stagedActs.get(0).changeType);
-      assertEquals(noopDodger, stagedActs.get(1).activityId);
+      assertEquals(noopDodger, stagedActs.get(1).activityId());
       assertEquals("add", stagedActs.get(1).changeType);
 
       unlockPlan(basePlan);
@@ -1786,7 +1718,7 @@ public class PlanCollaborationTests {
       assertTrue(conflicts.isEmpty());
       assertFalse(stagedActs.isEmpty());
       assertEquals(1, stagedActs.size());
-      assertEquals(activityId, stagedActs.get(0).activityId);
+      assertEquals(activityId, stagedActs.get(0).activityId());
       assertEquals("modify", stagedActs.get(0).changeType);
 
       unlockPlan(basePlan);
@@ -1808,7 +1740,7 @@ public class PlanCollaborationTests {
       assertTrue(conflicts.isEmpty());
       assertFalse(stagedActs.isEmpty());
       assertEquals(1, stagedActs.size());
-      assertEquals(activityId, stagedActs.get(0).activityId);
+      assertEquals(activityId, stagedActs.get(0).activityId());
       assertEquals("delete", stagedActs.get(0).changeType);
 
       unlockPlan(basePlan);
@@ -1834,9 +1766,9 @@ public class PlanCollaborationTests {
       assertTrue(conflicts.isEmpty());
       assertFalse(stagedActs.isEmpty());
       assertEquals(2, stagedActs.size());
-      assertEquals(activityId, stagedActs.get(0).activityId);
+      assertEquals(activityId, stagedActs.get(0).activityId());
       assertEquals("none", stagedActs.get(0).changeType);
-      assertEquals(noopDodger, stagedActs.get(1).activityId);
+      assertEquals(noopDodger, stagedActs.get(1).activityId());
       assertEquals("add", stagedActs.get(1).changeType);
 
       unlockPlan(basePlan);
@@ -1864,9 +1796,9 @@ public class PlanCollaborationTests {
       assertTrue(conflicts.isEmpty());
       assertFalse(stagedActs.isEmpty());
       assertEquals(2, stagedActs.size());
-      assertEquals(activityId, stagedActs.get(0).activityId);
+      assertEquals(activityId, stagedActs.get(0).activityId());
       assertEquals("none", stagedActs.get(0).changeType);
-      assertEquals(noopDodger, stagedActs.get(1).activityId);
+      assertEquals(noopDodger, stagedActs.get(1).activityId());
       assertEquals("add", stagedActs.get(1).changeType);
 
       unlockPlan(basePlan);
@@ -1903,9 +1835,9 @@ public class PlanCollaborationTests {
       assertTrue(conflicts.isEmpty());
       assertFalse(stagedActs.isEmpty());
       assertEquals(2, stagedActs.size());
-      assertEquals(activityId, stagedActs.get(0).activityId);
+      assertEquals(activityId, stagedActs.get(0).activityId());
       assertEquals("none", stagedActs.get(0).changeType);
-      assertEquals(noopDodger, stagedActs.get(1).activityId);
+      assertEquals(noopDodger, stagedActs.get(1).activityId());
       assertEquals("add", stagedActs.get(1).changeType);
 
       unlockPlan(basePlan);
@@ -1942,9 +1874,9 @@ public class PlanCollaborationTests {
       assertTrue(conflicts.isEmpty());
       assertFalse(stagedActs.isEmpty());
       assertEquals(2, stagedActs.size());
-      assertEquals(activityId, stagedActs.get(0).activityId);
+      assertEquals(activityId, stagedActs.get(0).activityId());
       assertEquals("none", stagedActs.get(0).changeType);
-      assertEquals(noopDodger, stagedActs.get(1).activityId);
+      assertEquals(noopDodger, stagedActs.get(1).activityId());
       assertEquals("add", stagedActs.get(1).changeType);
 
       unlockPlan(basePlan);
@@ -1968,7 +1900,7 @@ public class PlanCollaborationTests {
       assertTrue(stagedActs.isEmpty());
       assertFalse(conflicts.isEmpty());
       assertEquals(1, conflicts.size());
-      assertEquals(activityId, conflicts.get(0).activityId);
+      assertEquals(activityId, conflicts.get(0).activityId());
       assertEquals("modify", conflicts.get(0).changeTypeReceiving);
       assertEquals("modify", conflicts.get(0).changeTypeSupplying);
 
@@ -1993,7 +1925,7 @@ public class PlanCollaborationTests {
       assertTrue(stagedActs.isEmpty());
       assertFalse(conflicts.isEmpty());
       assertEquals(1, conflicts.size());
-      assertEquals(activityId, conflicts.get(0).activityId);
+      assertEquals(activityId, conflicts.get(0).activityId());
       assertEquals("modify", conflicts.get(0).changeTypeReceiving);
       assertEquals("delete", conflicts.get(0).changeTypeSupplying);
 
@@ -2017,7 +1949,7 @@ public class PlanCollaborationTests {
       final var conflicts = getConflictingActivities(mergeRQ);
 
       assertEquals(1, stagedActs.size());
-      assertEquals(noopDodger, stagedActs.get(0).activityId);
+      assertEquals(noopDodger, stagedActs.get(0).activityId());
       assertEquals("add", stagedActs.get(0).changeType);
       assertTrue(conflicts.isEmpty());
 
@@ -2042,7 +1974,7 @@ public class PlanCollaborationTests {
       assertTrue(stagedActs.isEmpty());
       assertFalse(conflicts.isEmpty());
       assertEquals(1, conflicts.size());
-      assertEquals(activityId, conflicts.get(0).activityId);
+      assertEquals(activityId, conflicts.get(0).activityId());
       assertEquals("delete", conflicts.get(0).changeTypeReceiving);
       assertEquals("modify", conflicts.get(0).changeTypeSupplying);
 
@@ -2067,7 +1999,7 @@ public class PlanCollaborationTests {
       final var conflicts = getConflictingActivities(mergeRQ);
 
       assertEquals(1, stagedActs.size());
-      assertEquals(noopDodger, stagedActs.get(0).activityId);
+      assertEquals(noopDodger, stagedActs.get(0).activityId());
       assertEquals("add", stagedActs.get(0).changeType);
       assertTrue(conflicts.isEmpty());
 
@@ -2127,7 +2059,7 @@ public class PlanCollaborationTests {
       assertTrue(stagingArea.isEmpty());
 
       for(final var conflict : conflicts){
-        setResolution(mergeRQ, conflict.activityId, "receiving");
+        setResolution(mergeRQ, conflict.activityId(), "receiving");
       }
 
       commitMerge(mergeRQ);
@@ -2169,7 +2101,7 @@ public class PlanCollaborationTests {
       beginMerge(mergeRQ);
       commitMerge(mergeRQ);
       //assert that all activities are included now
-      assertEquals(375, getActivities(basePlan).size()); //425-50
+      assertEquals(375, merlinHelper.getActivities(basePlan).size()); //425-50
     }
 
     @Test
@@ -2195,8 +2127,8 @@ public class PlanCollaborationTests {
       final int deleteContestedReceivingResolveSupplyingActId = merlinHelper.insertActivity(basePlan);
       final int childPlan = duplicatePlan(basePlan, "Child");
 
-      assertEquals(8, getActivities(basePlan).size());
-      assertEquals(8, getActivities(childPlan).size());
+      assertEquals(8, merlinHelper.getActivities(basePlan).size());
+      assertEquals(8, merlinHelper.getActivities(childPlan).size());
 
       merlinHelper.updateActivityName("Test", modifyUncontestedActId, childPlan);
 
@@ -2231,36 +2163,36 @@ public class PlanCollaborationTests {
       setResolution(mergeRQ, deleteContestedReceivingResolveReceivingActId, "receiving");
       setResolution(mergeRQ, deleteContestedReceivingResolveSupplyingActId, "supplying");
 
-      final Activity muActivityBefore = getActivity(basePlan, modifyUncontestedActId);
-      final Activity mcsActivityBefore = getActivity(basePlan, modifyContestedSupplyingActId);
-      final Activity mcrActivityBefore = getActivity(basePlan, modifyContestedReceivingActId);
-      final Activity dcsActivityBefore = getActivity(basePlan, deleteContestedSupplyingResolveReceivingActId);
+      final Activity muActivityBefore = merlinHelper.getActivity(basePlan, modifyUncontestedActId);
+      final Activity mcsActivityBefore = merlinHelper.getActivity(basePlan, modifyContestedSupplyingActId);
+      final Activity mcrActivityBefore = merlinHelper.getActivity(basePlan, modifyContestedReceivingActId);
+      final Activity dcsActivityBefore = merlinHelper.getActivity(basePlan, deleteContestedSupplyingResolveReceivingActId);
 
       commitMerge(mergeRQ);
 
-      final var postMergeActivities = getActivities(basePlan);
+      final var postMergeActivities = merlinHelper.getActivities(basePlan);
 
       assertEquals(5, postMergeActivities.size());
-      assertEquals(5, getActivities(childPlan).size());
+      assertEquals(5, merlinHelper.getActivities(childPlan).size());
 
       for (Activity activity : postMergeActivities) {
-        if (activity.activityId == muActivityBefore.activityId) {
-          final var muActivityChild = getActivity(childPlan, modifyUncontestedActId);
+        if (activity.activityId() == muActivityBefore.activityId()) {
+          final var muActivityChild = merlinHelper.getActivity(childPlan, modifyUncontestedActId);
           // validate all shared properties
           assertActivityEquals(muActivityChild, activity);
-        } else if (activity.activityId == mcsActivityBefore.activityId) {
-          final var mcsActivityChild = getActivity(childPlan, modifyContestedSupplyingActId);
+        } else if (activity.activityId() == mcsActivityBefore.activityId()) {
+          final var mcsActivityChild = merlinHelper.getActivity(childPlan, modifyContestedSupplyingActId);
           // validate all shared properties
           assertActivityEquals(mcsActivityChild, activity);
-        } else if (activity.activityId == mcrActivityBefore.activityId) {
+        } else if (activity.activityId() == mcrActivityBefore.activityId()) {
           // validate all shared properties
           assertActivityEquals(mcrActivityBefore, activity);
-        } else if (activity.activityId == deleteContestedSupplyingResolveReceivingActId) {
+        } else if (activity.activityId() == deleteContestedSupplyingResolveReceivingActId) {
           // validate all shared properties
           assertActivityEquals(dcsActivityBefore, activity);
-        } else if (activity.activityId == deleteContestedReceivingResolveSupplyingActId) {
+        } else if (activity.activityId() == deleteContestedReceivingResolveSupplyingActId) {
           // validate all shared properties
-          assertActivityEquals(getActivity(childPlan, deleteContestedReceivingResolveSupplyingActId), activity);
+          assertActivityEquals(merlinHelper.getActivity(childPlan, deleteContestedReceivingResolveSupplyingActId), activity);
         } else fail();
       }
     }
@@ -2348,14 +2280,14 @@ public class PlanCollaborationTests {
       commitMerge(mergeRQ2);
 
       // Validate the final state of the plan
-      final var activities = getActivities(basePlan);
+      final var activities = merlinHelper.getActivities(basePlan);
       assertEquals(2, activities.size());
 
-      assertEquals(helloActivityId, activities.get(0).activityId);
-      assertEquals("Hello", activities.get(0).name);
+      assertEquals(helloActivityId, activities.get(0).activityId());
+      assertEquals("Hello", activities.get(0).name());
 
-      assertEquals(worldActivityId, activities.get(1).activityId);
-      assertEquals("World", activities.get(1).name);
+      assertEquals(worldActivityId, activities.get(1).activityId());
+      assertEquals("World", activities.get(1).name());
     }
 
     /*
@@ -2410,7 +2342,7 @@ public class PlanCollaborationTests {
       commitMerge(mergeRQ2);
 
       // Validate the final state of the plan
-      assertTrue(getActivities(basePlan).isEmpty());
+      assertTrue(merlinHelper.getActivities(basePlan).isEmpty());
     }
 
     /*
@@ -2452,9 +2384,9 @@ public class PlanCollaborationTests {
       commitMerge(mergeRQ2);
 
       // Validate the final state of the plan
-      final var activities = getActivities(basePlan);
+      final var activities = merlinHelper.getActivities(basePlan);
       assertEquals(1, activities.size());
-      assertEquals(addedActivityId, activities.get(0).activityId);
+      assertEquals(addedActivityId, activities.get(0).activityId());
     }
 
     /*
@@ -2500,13 +2432,13 @@ public class PlanCollaborationTests {
       commitMerge(mergeRQ2);
 
       // Validate the final state of the plan
-      final var activities = getActivities(basePlan);
+      final var activities = merlinHelper.getActivities(basePlan);
       assertEquals(2, activities.size());
 
-      assertEquals(modifyActivityId, activities.get(0).activityId);
-      assertEquals(newName, activities.get(0).name);
+      assertEquals(modifyActivityId, activities.get(0).activityId());
+      assertEquals(newName, activities.get(0).name());
 
-      assertEquals(addedActivityId, activities.get(1).activityId);
+      assertEquals(addedActivityId, activities.get(1).activityId());
     }
   }
 
@@ -2578,7 +2510,7 @@ public class PlanCollaborationTests {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"accepted", "rejected", "in-progress"})
+    @ValueSource(strings = {"pending", "withdrawn"})
     void withdrawSucceedsPendingOrWithdrawnStatus(String status) throws SQLException {
       final int basePlan = merlinHelper.insertPlan(missionModelId);
       final int childPlan = duplicatePlan(basePlan, "Child");
@@ -2656,7 +2588,7 @@ public class PlanCollaborationTests {
       setMergeRequestStatus(mergeRQ, status);
 
       final var ex = assertThrows(SQLException.class, () -> commitMerge(mergeRQ));
-      assertTrue(ex.getMessage().contains("Cannot reject merge not in progress."));
+      assertTrue(ex.getMessage().contains("Cannot commit a merge request that is not in-progress."));
     }
 
     @Test
@@ -2727,15 +2659,15 @@ public class PlanCollaborationTests {
 
       //Assert the staging area
       assertEquals(1, getStagingAreaActivities(mergeRQ1).size());
-      assertEquals(childActivity1, getStagingAreaActivities(mergeRQ1).get(0).activityId);
+      assertEquals(childActivity1, getStagingAreaActivities(mergeRQ1).get(0).activityId());
       assertEquals(1, getStagingAreaActivities(mergeRQ2).size());
-      assertEquals(childActivity2, getStagingAreaActivities(mergeRQ2).get(0).activityId);
+      assertEquals(childActivity2, getStagingAreaActivities(mergeRQ2).get(0).activityId());
 
       //Assert the conflict
       assertEquals(1, getConflictingActivities(mergeRQ1).size());
-      assertEquals(baseActivity1, getConflictingActivities(mergeRQ1).get(0).activityId);
+      assertEquals(baseActivity1, getConflictingActivities(mergeRQ1).get(0).activityId());
       assertEquals(1, getConflictingActivities(mergeRQ2).size());
-      assertEquals(baseActivity2, getConflictingActivities(mergeRQ2).get(0).activityId);
+      assertEquals(baseActivity2, getConflictingActivities(mergeRQ2).get(0).activityId());
 
       //Assert both plans are locked
       assertTrue(isPlanLocked(basePlan1));
@@ -2750,12 +2682,12 @@ public class PlanCollaborationTests {
       //Assert the staging area
       assertTrue(getStagingAreaActivities(mergeRQ1).isEmpty());
       assertEquals(1, getStagingAreaActivities(mergeRQ2).size());
-      assertEquals(childActivity2, getStagingAreaActivities(mergeRQ2).get(0).activityId);
+      assertEquals(childActivity2, getStagingAreaActivities(mergeRQ2).get(0).activityId());
 
       //Assert the conflict
       assertTrue(getConflictingActivities(mergeRQ1).isEmpty());
       assertEquals(1, getConflictingActivities(mergeRQ2).size());
-      assertEquals(baseActivity2, getConflictingActivities(mergeRQ2).get(0).activityId);
+      assertEquals(baseActivity2, getConflictingActivities(mergeRQ2).get(0).activityId());
 
       //Assert only the in-progress merge is now locked
       assertFalse(isPlanLocked(basePlan1));
@@ -2797,15 +2729,15 @@ public class PlanCollaborationTests {
 
       //Assert the staging area
       assertEquals(1, getStagingAreaActivities(mergeRQ1).size());
-      assertEquals(childActivity1, getStagingAreaActivities(mergeRQ1).get(0).activityId);
+      assertEquals(childActivity1, getStagingAreaActivities(mergeRQ1).get(0).activityId());
       assertEquals(1, getStagingAreaActivities(mergeRQ2).size());
-      assertEquals(childActivity2, getStagingAreaActivities(mergeRQ2).get(0).activityId);
+      assertEquals(childActivity2, getStagingAreaActivities(mergeRQ2).get(0).activityId());
 
       //Assert the conflict
       assertEquals(1, getConflictingActivities(mergeRQ1).size());
-      assertEquals(baseActivity1, getConflictingActivities(mergeRQ1).get(0).activityId);
+      assertEquals(baseActivity1, getConflictingActivities(mergeRQ1).get(0).activityId());
       assertEquals(1, getConflictingActivities(mergeRQ2).size());
-      assertEquals(baseActivity2, getConflictingActivities(mergeRQ2).get(0).activityId);
+      assertEquals(baseActivity2, getConflictingActivities(mergeRQ2).get(0).activityId());
 
       //Assert both plans are locked
       assertTrue(isPlanLocked(basePlan1));
@@ -2820,12 +2752,12 @@ public class PlanCollaborationTests {
       //Assert the staging area
       assertTrue(getStagingAreaActivities(mergeRQ1).isEmpty());
       assertEquals(1, getStagingAreaActivities(mergeRQ2).size());
-      assertEquals(childActivity2, getStagingAreaActivities(mergeRQ2).get(0).activityId);
+      assertEquals(childActivity2, getStagingAreaActivities(mergeRQ2).get(0).activityId());
 
       //Assert the conflict
       assertTrue(getConflictingActivities(mergeRQ1).isEmpty());
       assertEquals(1, getConflictingActivities(mergeRQ2).size());
-      assertEquals(baseActivity2, getConflictingActivities(mergeRQ2).get(0).activityId);
+      assertEquals(baseActivity2, getConflictingActivities(mergeRQ2).get(0).activityId());
 
       //Assert only the in-progress merge is now locked
       assertFalse(isPlanLocked(basePlan1));
@@ -2883,8 +2815,8 @@ public class PlanCollaborationTests {
       merlinHelper.setAnchor(activityAId, true, activityBId, planId);
       final int childPlanId = duplicatePlan(planId, "Delete Chain Test");
 
-      final Activity activityABefore = getActivity(childPlanId, activityAId);
-      final Activity activityBBefore = getActivity(childPlanId, activityBId);
+      final Activity activityABefore = merlinHelper.getActivity(childPlanId, activityAId);
+      final Activity activityBBefore = merlinHelper.getActivity(childPlanId, activityBId);
 
       try(final var statement = connection.createStatement()) {
         statement.execute(
@@ -2893,10 +2825,10 @@ public class PlanCollaborationTests {
              select hasura.delete_activity_by_pk_delete_subtree(%d, %d, '%s'::json)
              """.formatted(activityAId, planId, merlinHelper.admin.session()));
       }
-      assertEquals(0, getActivities(planId).size());
-      assertEquals(2, getActivities(childPlanId).size());
-      assertActivityEquals(activityABefore, getActivity(childPlanId, activityAId));
-      assertActivityEquals(activityBBefore, getActivity(childPlanId, activityBId));
+      assertEquals(0, merlinHelper.getActivities(planId).size());
+      assertEquals(2, merlinHelper.getActivities(childPlanId).size());
+      assertActivityEquals(activityABefore, merlinHelper.getActivity(childPlanId, activityAId));
+      assertActivityEquals(activityBBefore, merlinHelper.getActivity(childPlanId, activityBId));
     }
 
     @Test
@@ -2907,8 +2839,8 @@ public class PlanCollaborationTests {
       merlinHelper.setAnchor(activityAId, true, activityBId, planId);
       final int childPlanId = duplicatePlan(planId, "Delete Chain Test");
 
-      final Activity activityABefore = getActivity(childPlanId, activityAId);
-      final Activity activityBBefore = getActivity(childPlanId, activityBId);
+      final Activity activityABefore = merlinHelper.getActivity(childPlanId, activityAId);
+      final Activity activityBBefore = merlinHelper.getActivity(childPlanId, activityBId);
 
       try(final var statement = connection.createStatement()) {
         statement.execute(
@@ -2917,10 +2849,10 @@ public class PlanCollaborationTests {
              select hasura.delete_activity_by_pk_reanchor_plan_start(%d, %d, '%s'::json)
              """.formatted(activityAId, planId, merlinHelper.admin.session()));
       }
-      assertEquals(1, getActivities(planId).size());
-      assertEquals(2, getActivities(childPlanId).size());
-      assertActivityEquals(activityABefore, getActivity(childPlanId, activityAId));
-      assertActivityEquals(activityBBefore, getActivity(childPlanId, activityBId));
+      assertEquals(1, merlinHelper.getActivities(planId).size());
+      assertEquals(2, merlinHelper.getActivities(childPlanId).size());
+      assertActivityEquals(activityABefore, merlinHelper.getActivity(childPlanId, activityAId));
+      assertActivityEquals(activityBBefore, merlinHelper.getActivity(childPlanId, activityBId));
     }
     @Test
     void deleteActivityReanchorDoesNotImpactRelatedPlans() throws SQLException{
@@ -2932,9 +2864,9 @@ public class PlanCollaborationTests {
       merlinHelper.setAnchor(activityCId, true, activityAId, planId);
       final int childPlanId = duplicatePlan(planId, "Delete Chain Test");
 
-      final Activity activityABefore = getActivity(childPlanId, activityAId);
-      final Activity activityBBefore = getActivity(childPlanId, activityBId);
-      final Activity activityCBefore = getActivity(childPlanId, activityCId);
+      final Activity activityABefore = merlinHelper.getActivity(childPlanId, activityAId);
+      final Activity activityBBefore = merlinHelper.getActivity(childPlanId, activityBId);
+      final Activity activityCBefore = merlinHelper.getActivity(childPlanId, activityCId);
 
       try(final var statement = connection.createStatement()) {
         statement.execute(
@@ -2943,11 +2875,11 @@ public class PlanCollaborationTests {
              select hasura.delete_activity_by_pk_reanchor_to_anchor(%d, %d, '%s'::json)
              """.formatted(activityAId, planId, merlinHelper.admin.session()));
       }
-      assertEquals(2, getActivities(planId).size());
-      assertEquals(3, getActivities(childPlanId).size());
-      assertActivityEquals(activityABefore, getActivity(childPlanId, activityAId));
-      assertActivityEquals(activityBBefore, getActivity(childPlanId, activityBId));
-      assertActivityEquals(activityCBefore, getActivity(childPlanId, activityCId));
+      assertEquals(2, merlinHelper.getActivities(planId).size());
+      assertEquals(3, merlinHelper.getActivities(childPlanId).size());
+      assertActivityEquals(activityABefore, merlinHelper.getActivity(childPlanId, activityAId));
+      assertActivityEquals(activityBBefore, merlinHelper.getActivity(childPlanId, activityBId));
+      assertActivityEquals(activityCBefore, merlinHelper.getActivity(childPlanId, activityCId));
     }
   }
 
@@ -3109,26 +3041,26 @@ public class PlanCollaborationTests {
       }
       tagsHelper.assignTagToPlan(planId, farmTagId);
 
-      final var planActivities = getActivities(planId);
+      final var planActivities = merlinHelper.getActivities(planId);
       final var planTags = tagsHelper.getTagsOnPlan(planId);
 
       final var childPlan = duplicatePlan(planId, "My new duplicated plan");
-      final var childActivities = getActivities(childPlan);
+      final var childActivities = merlinHelper.getActivities(childPlan);
       final var childTags = tagsHelper.getTagsOnPlan(childPlan);
 
       // Assert Plan Tags were copied
       assertEquals(planTags, childTags);
 
       for (int i = 0; i < activityCount; ++i) {
-        assertTrue(activityIds.contains(planActivities.get(i).activityId));
-        assertTrue(activityIds.contains(childActivities.get(i).activityId));
+        assertTrue(activityIds.contains(planActivities.get(i).activityId()));
+        assertTrue(activityIds.contains(childActivities.get(i).activityId()));
 
         // Assert Activity Tags were copied
-        assertEquals(planActivities.get(i).activityId, childActivities.get(i).activityId);
-        assertEquals(tagsHelper.getTagsOnActivity(planActivities.get(i).activityId, planId),
-                     tagsHelper.getTagsOnActivity(childActivities.get(i).activityId, childPlan));
+        assertEquals(planActivities.get(i).activityId(), childActivities.get(i).activityId());
+        assertEquals(tagsHelper.getTagsOnActivity(planActivities.get(i).activityId(), planId),
+                     tagsHelper.getTagsOnActivity(childActivities.get(i).activityId(), childPlan));
 
-        activityIds.remove(planActivities.get(i).activityId);
+        activityIds.remove(planActivities.get(i).activityId());
       }
       assert activityIds.isEmpty();
     }
@@ -3150,7 +3082,7 @@ public class PlanCollaborationTests {
           tagsHelper.assignTagToActivity(activityId, planId, tractorTagId);
         }
       }
-      final var planActivities = getActivities(planId);
+      final var planActivities = merlinHelper.getActivities(planId);
 
       final var snapshotId = createSnapshot(planId);
       final var snapshotActivities = getSnapshotActivities(snapshotId);
@@ -3163,14 +3095,14 @@ public class PlanCollaborationTests {
 
       for (int i = 0; i < activityCount; ++i) {
         //assert that this activity exists
-        assertTrue(activityIds.contains(planActivities.get(i).activityId));
-        assertTrue(activityIds.contains(snapshotActivities.get(i).activityId));
+        assertTrue(activityIds.contains(planActivities.get(i).activityId()));
+        assertTrue(activityIds.contains(snapshotActivities.get(i).activityId()));
         // validate tags were copied
-        assertEquals(planActivities.get(i).activityId, snapshotActivities.get(i).activityId);
+        assertEquals(planActivities.get(i).activityId(), snapshotActivities.get(i).activityId());
         assertEquals(
-            tagsHelper.getTagsOnActivity(planActivities.get(i).activityId, planId),
-            tagsHelper.getTagsOnActivitySnapshot(snapshotActivities.get(i).activityId, snapshotId));
-        activityIds.remove(planActivities.get(i).activityId);
+            tagsHelper.getTagsOnActivity(planActivities.get(i).activityId(), planId),
+            tagsHelper.getTagsOnActivitySnapshot(snapshotActivities.get(i).activityId(), snapshotId));
+        activityIds.remove(planActivities.get(i).activityId());
       }
       assert activityIds.isEmpty();
     }
@@ -3190,7 +3122,7 @@ public class PlanCollaborationTests {
       commitMerge(mergeRQId);
 
       // Assertions
-      final var activities = getActivities(planId);
+      final var activities = merlinHelper.getActivities(planId);
       assertEquals(2, activities.size());
       assertEquals(new ArrayList<Tag>(), tagsHelper.getTagsOnActivity(untaggedActivityId, planId));
       final var expectedTags = new ArrayList<Tag>();
@@ -3271,7 +3203,7 @@ public class PlanCollaborationTests {
       setResolution(mergeRQ, activityId, "receiving");
       commitMerge(mergeRQ);
 
-      final var activities = getActivities(planId);
+      final var activities = merlinHelper.getActivities(planId);
       assertEquals(1, activities.size());
       final var expectedTags = new ArrayList<Tag>();
       expectedTags.add(new Tag(tractorTagId, "Tractor", null, "MerlinAdmin"));
@@ -3301,7 +3233,7 @@ public class PlanCollaborationTests {
       setResolution(mergeRQ, activityId, "supplying");
       commitMerge(mergeRQ);
 
-      final var activities = getActivities(planId);
+      final var activities = merlinHelper.getActivities(planId);
       assertEquals(1, activities.size());
       final var expectedTags = new ArrayList<Tag>();
       expectedTags.add(new Tag(tractorTagId, "Tractor", null, "MerlinAdmin"));
@@ -3335,7 +3267,7 @@ public class PlanCollaborationTests {
       setResolution(mergeRQ, targetActivityId, "supplying");
       commitMerge(mergeRQ);
 
-      final var activities = getActivities(planId);
+      final var activities = merlinHelper.getActivities(planId);
       assertEquals(2, activities.size());
 
       final var expectedSourceTags = new ArrayList<Tag>();
@@ -3442,38 +3374,38 @@ public class PlanCollaborationTests {
       beginMerge(mergeRQ);
       commitMerge(mergeRQ);
 
-      final var activities = getActivities(planId);
-      activities.sort(Comparator.comparingInt(a -> a.activityId));
+      final var activities = merlinHelper.getActivities(planId);
+      activities.sort(Comparator.comparingInt(a -> a.activityId()));
       assertEquals(7, activities.size());
 
-      assertEquals(case0Id, activities.get(0).activityId);
+      assertEquals(case0Id, activities.get(0).activityId());
       assertTrue(tagsHelper.getTagsOnActivity(case0Id, planId).isEmpty());
 
       final var case1Tags = new ArrayList<Tag>();
       case1Tags.add(farmTag);
-      assertEquals(case1Id, activities.get(1).activityId);
+      assertEquals(case1Id, activities.get(1).activityId());
       assertEquals(case1Tags, tagsHelper.getTagsOnActivity(case1Id, planId));
 
       final var case2Tags = new ArrayList<Tag>();
       case2Tags.add(barnTag);
-      assertEquals(case2Id, activities.get(2).activityId);
+      assertEquals(case2Id, activities.get(2).activityId());
       assertEquals(case2Tags, tagsHelper.getTagsOnActivity(case2Id, planId));
 
       final var case3Tags = new ArrayList<Tag>();
       case3Tags.add(tractorTag);
       case3Tags.add(barnTag);
-      assertEquals(case3Id, activities.get(3).activityId);
+      assertEquals(case3Id, activities.get(3).activityId());
       assertEquals(case3Tags, tagsHelper.getTagsOnActivity(case3Id, planId));
 
-      assertEquals(case4Id, activities.get(4).activityId);
+      assertEquals(case4Id, activities.get(4).activityId());
       assertTrue(tagsHelper.getTagsOnActivity(case4Id, planId).isEmpty());
 
-      assertEquals(case7Id, activities.get(5).activityId);
+      assertEquals(case7Id, activities.get(5).activityId());
       assertTrue(tagsHelper.getTagsOnActivity(case7Id, planId).isEmpty());
 
       final var case8Tags = new ArrayList<Tag>();
       case8Tags.add(barnTag);
-      assertEquals(case8Id, activities.get(6).activityId);
+      assertEquals(case8Id, activities.get(6).activityId());
       assertEquals(case8Tags, tagsHelper.getTagsOnActivity(case8Id, planId));
     }
   }

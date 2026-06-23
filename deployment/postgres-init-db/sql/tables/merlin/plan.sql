@@ -209,6 +209,52 @@ begin
   set offset_from_plan_start = offset_from_plan_start + start_time_difference
   where plan_id = old.id;
 
+  -- Update sim spec bounds...
+  select simulation_start_time, simulation_end_time
+  from merlin.simulation s
+  where s.plan_id = old.id
+  into sim_start_horizon, sim_end_horizon;
+
+  if (sim_start_horizon is not null and sim_end_horizon is not null) then
+    -- ... if its bounds = the plan bounds
+    if (sim_start_horizon is not distinct from old.start_time) and
+       (sim_end_horizon is not distinct from old_plan_end) then
+      update merlin.simulation
+      set simulation_start_time = new.start_time,
+          simulation_end_time = new_plan_end
+      where plan_id = new.id;
+    else
+      -- if the sim horizon is outside the new plan bounds, adjust it to the new plan start
+      if (sim_start_horizon < new.start_time or sim_start_horizon >= new_plan_end) then
+        -- BUT, if that would put the new sim start after the current sim end, snap both bounds at once
+        if(sim_end_horizon < new.start_time) then
+          update merlin.simulation
+          set simulation_start_time = new.start_time,
+              simulation_end_time = new_plan_end
+          where plan_id = new.id;
+        else
+          update merlin.simulation
+          set simulation_start_time = new.start_time
+          where plan_id = new.id;
+        end if;
+      end if;
+      -- and if the sim end horizon is outside the new plan bounds, adjust it to the new plan end
+      if (sim_end_horizon <= new.start_time or sim_end_horizon > new_plan_end) then
+        -- BUT, if that would put the new sim end before the current sim start, snap both bounds at once
+        if(sim_start_horizon > new_plan_end) then
+          update merlin.simulation
+          set simulation_start_time = new.start_time,
+              simulation_end_time = new_plan_end
+          where plan_id = new.id;
+        else
+          update merlin.simulation
+          set simulation_end_time = new_plan_end
+          where plan_id = new.id;
+        end if;
+      end if;
+    end if;
+  end if;
+
   return new;
 end;
 $$;

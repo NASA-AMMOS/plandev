@@ -185,13 +185,6 @@ create or replace procedure merlin.restore_from_snapshot(_plan_id integer, _snap
 		-- Catch Plan_Locked
 		call merlin.plan_locked_exception(_plan_id);
 
-    -- Update model_id and bounds of the plan
-    update merlin.plan
-    set model_id = _model_id,
-        start_time = _plan_start_time,
-        duration = _plan_duration
-    where id = _plan_id;
-
     -- Record the Union of Activities in Plan and Snapshot
     -- and note which ones have been added since the Snapshot was taken (in_snapshot = false)
     create temp table diff(
@@ -266,70 +259,150 @@ create or replace procedure merlin.restore_from_snapshot(_plan_id integer, _snap
 			on conflict (activity_id, plan_id)
 			do update	set preset_id = excluded.preset_id;
 
+    -- Update model_id and bounds of the plan
+    update merlin.plan
+    set model_id = _model_id,
+        start_time = _plan_start_time,
+        duration = _plan_duration
+    where id = _plan_id;
+
 		-- Clean up
 		drop table diff;
   end
 $$;
 
--- Create trigger to create snapshot/cascade plan bounds changes
-create function merlin.cascade_plan_bounds_update()
+create function merlin.take_snapshot_before_plan_bounds_update()
   returns trigger
   language plpgsql as $$
+declare
+  old_plan_end timestamptz;
+  new_plan_end timestamptz;
 begin
-  -- prevent adjustment if the plan is locked
-  if old.is_locked then
-    raise exception 'Cannot adjust bounds of locked plan.';
-  end if;
+  -- Catch Plan_Locked
+  call merlin.plan_locked_exception(old.id);
+
+  -- Set variables
+  old_plan_end := old.start_time + old.duration;
+  new_plan_end := new.start_time + new.duration;
 
   -- Take a backup snapshot
   perform merlin.create_snapshot(
       old.id,
       'Plan Bound Adjustment',
       'Automatic snapshot made before adjusting plan bounds from ' ||
-      '['|| old.start_time ||' - '|| old.start_time + old.duration || '] to ' ||
-      '[' || new.start_time || ' - ' || new.start_time + new.duration || ']',
+      '['|| old.start_time ||' - '|| old_plan_end || '] to ' ||
+      '[' || new.start_time || ' - ' || new_plan_end || ']',
       null);
+  return new;
+end;
+$$;
+
+create trigger take_snapshot_before_plan_bounds_update
+  before update on merlin.plan
+  for each row
+  when (old.start_time is distinct from new.start_time or old.duration is distinct from new.duration)
+execute function merlin.take_snapshot_before_plan_bounds_update();
+
+-- Create trigger to create snapshot/cascade plan bounds changes
+create function merlin.cascade_plan_bounds_update()
+  returns trigger
+  language plpgsql as $$
+declare
+  old_plan_end timestamptz;
+  new_plan_end timestamptz;
+  sim_start_horizon timestamptz;
+  sim_end_horizon timestamptz;
+  start_time_difference interval;
+  end_time_difference interval;
+begin
+  -- Catch Plan_Locked
+  call merlin.plan_locked_exception(old.id);
+
+  -- Set variables
+  old_plan_end := old.start_time + old.duration;
+  new_plan_end := new.start_time + new.duration;
+  start_time_difference := old.start_time - new.start_time;
+  end_time_difference := old_plan_end - new_plan_end;
 
   -- Update activities that are anchored to the plan bounds
   update merlin.activity_directive ad
-  set start_offset = start_offset + (new.start_time - old.start_time)
+  set start_offset = start_offset + start_time_difference
   where anchor_id is null
     and anchored_to_start -- anchored to plan start
     and ad.plan_id = old.id;
 
   update merlin.activity_directive ad
-  set start_offset = start_offset + (new.duration - old.duration)
+  set start_offset = start_offset + end_time_difference
   where anchor_id is null
     and not anchored_to_start -- anchored to plan end
     and ad.plan_id = old.id;
 
   -- Update associated dataset offsets (simulation and plan)
   update merlin.simulation_dataset
-  set offset_from_plan_start = offset_from_plan_start + (new.start_time - old.start_time)
+  set offset_from_plan_start = offset_from_plan_start + start_time_difference
   from merlin.simulation sim_spec
   where simulation_id = sim_spec.id
     and sim_spec.plan_id = old.id;
 
   update merlin.plan_dataset
-  set offset_from_plan_start = offset_from_plan_start + (new.start_time - old.start_time)
+  set offset_from_plan_start = offset_from_plan_start + start_time_difference
   where plan_id = old.id;
+
+  -- Update sim spec bounds...
+  select simulation_start_time, simulation_end_time
+  from merlin.simulation s
+  where s.plan_id = old.id
+  into sim_start_horizon, sim_end_horizon;
+
+  if (sim_start_horizon is not null and sim_end_horizon is not null) then
+    -- ... if its bounds = the plan bounds
+    if (sim_start_horizon is not distinct from old.start_time) and
+       (sim_end_horizon is not distinct from old_plan_end) then
+      update merlin.simulation
+      set simulation_start_time = new.start_time,
+          simulation_end_time = new_plan_end
+      where plan_id = new.id;
+    else
+      -- if the sim horizon is outside the new plan bounds, adjust it to the new plan start
+      if (sim_start_horizon < new.start_time or sim_start_horizon >= new_plan_end) then
+        -- BUT, if that would put the new sim start after the current sim end, snap both bounds at once
+        if(sim_end_horizon < new.start_time) then
+          update merlin.simulation
+          set simulation_start_time = new.start_time,
+              simulation_end_time = new_plan_end
+          where plan_id = new.id;
+        else
+          update merlin.simulation
+          set simulation_start_time = new.start_time
+          where plan_id = new.id;
+        end if;
+      end if;
+      -- and if the sim end horizon is outside the new plan bounds, adjust it to the new plan end
+      if (sim_end_horizon <= new.start_time or sim_end_horizon > new_plan_end) then
+        -- BUT, if that would put the new sim end before the current sim start, snap both bounds at once
+        if(sim_start_horizon > new_plan_end) then
+          update merlin.simulation
+          set simulation_start_time = new.start_time,
+              simulation_end_time = new_plan_end
+          where plan_id = new.id;
+        else
+          update merlin.simulation
+          set simulation_end_time = new_plan_end
+          where plan_id = new.id;
+        end if;
+      end if;
+    end if;
+  end if;
 
   return new;
 end;
 $$;
 
 create trigger cascade_plan_bounds_on_update
-  before update on merlin.plan
+  after update on merlin.plan
   for each row
   when (old.start_time is distinct from new.start_time or old.duration is distinct from new.duration)
 execute function merlin.cascade_plan_bounds_update();
-
--- Prevent "Update Plan Revision on Directive Change" from firing during other triggers
-create or replace trigger increment_plan_revision_on_directive_update_trigger
-  after update on merlin.activity_directive
-  for each row
-  when (pg_trigger_depth() < 1)
-execute function merlin.increment_plan_revision_on_directive_update();
 
 -- Update Plan Merge Functions to block merging plans with different bounds
 create or replace function merlin.create_merge_request(plan_id_supplying integer, plan_id_receiving integer, request_username text)
@@ -722,6 +795,20 @@ begin
   drop table supplying_diff;
   drop table receiving_diff;
   drop table diff_diff;
+end
+$$;
+
+-- Validate input of 'get_snapshot_history_from_plan'
+create or replace function merlin.get_snapshot_history_from_plan(starting_plan_id integer)
+  returns setof integer
+  language plpgsql as $$
+begin
+  if not exists(select from merlin.plan where id = starting_plan_id) then
+    raise exception 'Plan with ID % does not exist.', starting_plan_id;
+  end if;
+  return query
+    select merlin.get_snapshot_history(snapshot_id)  --runs the recursion
+    from merlin.plan_latest_snapshot where plan_id = starting_plan_id; --supplies input for get_snapshot_history
 end
 $$;
 

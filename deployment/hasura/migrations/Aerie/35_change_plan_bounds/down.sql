@@ -1,4 +1,14 @@
 -- Restore plan merge functions
+create or replace function merlin.get_snapshot_history_from_plan(starting_plan_id integer)
+  returns setof integer
+  language plpgsql as $$
+  begin
+    return query
+      select merlin.get_snapshot_history(snapshot_id)  --runs the recursion
+      from merlin.plan_latest_snapshot where plan_id = starting_plan_id; --supplies input for get_snapshot_history
+  end
+$$;
+
 create or replace procedure merlin.begin_merge(_merge_request_id integer, review_username text)
   language plpgsql as $$
 declare
@@ -358,15 +368,12 @@ begin
 end
 $$;
 
--- Restore "Update Plan Revision on Directive Change" trigger behavior
-create or replace trigger increment_plan_revision_on_directive_update_trigger
-  after update on merlin.activity_directive
-  for each row
-execute function merlin.increment_plan_revision_on_directive_update();
-
 -- Drop new triggers
 drop trigger cascade_plan_bounds_on_update on merlin.plan;
 drop function merlin.cascade_plan_bounds_update();
+
+drop trigger take_snapshot_before_plan_bounds_update on merlin.plan;
+drop function merlin.take_snapshot_before_plan_bounds_update();
 
 -- Restore Snapshot Creation and Restoration Functions
 create or replace procedure merlin.restore_from_snapshot(_plan_id integer, _snapshot_id integer)

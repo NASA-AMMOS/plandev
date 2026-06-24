@@ -58,10 +58,17 @@ create procedure merlin.restore_from_snapshot(_plan_id integer, _snapshot_id int
 				from diff) a;
 
 		-- Remove any added activities
-  delete from merlin.activity_directive ad
+    delete from merlin.activity_directive ad
 		using diff d
 		where (ad.id, ad.plan_id) = (d.activity_id, _plan_id)
 			and d.in_snapshot is false;
+
+    -- Update model_id and bounds of the plan
+    update merlin.plan
+    set model_id = _model_id,
+        start_time = _plan_start_time,
+        duration = _plan_duration
+    where id = _plan_id;
 
 		-- Upsert the rest
 		insert into merlin.activity_directive (
@@ -110,13 +117,6 @@ create procedure merlin.restore_from_snapshot(_plan_id integer, _snapshot_id int
 			where pts.snapshot_id = _snapshot_id
 			on conflict (activity_id, plan_id)
 			do update	set preset_id = excluded.preset_id;
-
-    -- Update model_id and bounds of the plan
-    update merlin.plan
-    set model_id = _model_id,
-        start_time = _plan_start_time,
-        duration = _plan_duration
-    where id = _plan_id;
 
 		-- Clean up
 		drop table diff;

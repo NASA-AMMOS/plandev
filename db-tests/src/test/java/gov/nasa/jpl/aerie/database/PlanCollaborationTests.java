@@ -826,10 +826,14 @@ public class PlanCollaborationTests {
      */
     @Test
     void restoresPlanBounds() throws SQLException {
+      // Create a plan with an activity
       final var planId = merlinHelper.insertPlan(missionModelId, merlinHelper.user.name());
+      final var activity = merlinHelper.getActivity(planId, merlinHelper.insertActivity(planId, "10:00:00"));
 
       // Update plan bounds
-      merlinHelper.updatePlanDuration(planId, "28:00:00");
+      merlinHelper.updatePlanBounds(planId, "2026-01-01T00:00:00", "28:00:00");
+      // Verify the activity has had its start offset updated
+      assertNotEquals(activity.startOffset(), activity.refresh(merlinHelper).startOffset());
 
       // Get a handle on the revision
       final var oldRevision = merlinHelper.getPlanRevision(planId);
@@ -851,8 +855,10 @@ public class PlanCollaborationTests {
       // The plan's revision should have been updated
       assertTrue(merlinHelper.getPlanRevision(planId) > oldRevision);
 
-      // The added activity should be gone
-      assertTrue(merlinHelper.getActivities(planId).isEmpty());
+      // The added activity should be gone, and the original activity should be restored to its initial state
+      final var planActivities = merlinHelper.getActivities(planId);
+      assertEquals(1, planActivities.size());
+      Activity.assertActivityEquals(activity, planActivities.getFirst());
 
       // A new snapshot should have been created
       final var newSnapshotId = getLatestSnapshot(planId);
@@ -862,11 +868,11 @@ public class PlanCollaborationTests {
       final var snapshot = getSnapshotMetadata(newSnapshotId);
       assertEquals("Plan Bound Adjustment", snapshot.snapshot_name);
       assertEquals("Automatic snapshot made before adjusting plan bounds from "
-                   + "[2020-01-01 00:00:00+00 - 2020-01-02 04:00:00+00] to "
+                   + "[2026-01-01 00:00:00+00 - 2026-01-02 04:00:00+00] to "
                    + "[2020-01-01 00:00:00+00 - 2020-01-01 00:00:00+00]", snapshot.description);
       assertEquals(planId, snapshot.plan_id);
       assertEquals(missionModelId, snapshot.model_id);
-      assertEquals("2020-01-01 00:00:00+00", snapshot.planStartTime);
+      assertEquals("2026-01-01 00:00:00+00", snapshot.planStartTime);
       assertEquals("28:00:00", snapshot.planDuration);
     }
   }

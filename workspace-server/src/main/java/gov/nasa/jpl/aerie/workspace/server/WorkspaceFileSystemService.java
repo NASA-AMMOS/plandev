@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.workspace.server;
 
+import gov.nasa.jpl.aerie.workspace.server.exceptions.NoSuchFileException;
 import gov.nasa.jpl.aerie.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.RenderType;
@@ -43,8 +44,9 @@ import javax.json.stream.JsonGenerator;
 
 public class WorkspaceFileSystemService implements WorkspaceService {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceFileSystemService.class);
+
   // Configure how the Metadata JSONs are written
-  private final static Map<String,String> config = Map.of(JsonGenerator.PRETTY_PRINTING, "");
+  private static final Map<String,String> config = Map.of(JsonGenerator.PRETTY_PRINTING, "");
 
   final WorkspacePostgresRepository postgresRepository;
 
@@ -300,11 +302,23 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   //region File Operations
   @Override
-  public FileContent loadFileWithETag(final int workspaceId, final Path filePath)
-  throws IOException, NoSuchWorkspaceException {
+  public FileStream loadFile(final int workspaceId, final Path filePath)
+  throws IOException, NoSuchWorkspaceException, NoSuchFileException, WorkspaceFileOpException
+  {
     final var path = resolveReadingPath(workspaceId, filePath);
-    final var content = Files.readAllBytes(path);
-    return new FileContent(content, computeETag(content));
+    final var file = path.toFile();
+
+    if(filePath.toFile().isDirectory()) {
+      throw new WorkspaceFileOpException("Cannot get the file contents of a directory.");
+    }
+    if(RenderType.isAerieMetadataFile(file.getName())) {
+      throw new WorkspaceFileOpException("Cannot load a metadata file directly.");
+    }
+    if(!Files.exists(path)) {
+      throw new NoSuchFileException(workspaceId, filePath);
+    }
+
+    return new FileStream(new FileInputStream(file), file.getName(), Files.size(file.toPath()), getETag(path));
   }
 
   @Override
@@ -652,6 +666,22 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     }
   }
 
+  /**
+   * Generates a generic FileStream response to use as a fallback in the event
+   * that a user attempts to load a non-existent metadata file.
+   * @param metadataFileName the name of the metadata file
+   */
+  private FileStream generateFallbackMetadataResponse(final String metadataFileName) {
+    final byte[] fallbackResponse = Json.createObjectBuilder()
+                                        .add("version", "1")
+                                        .build()
+                                        .toString()
+                                        .getBytes(StandardCharsets.UTF_8);
+    final var inputStream = new ByteArrayInputStream(fallbackResponse);
+    final var eTag = WorkspaceService.computeETag(WorkspaceService.newSHA256Digest().digest(fallbackResponse));
+    return new FileStream(inputStream, metadataFileName, fallbackResponse.length, eTag);
+  }
+
   @Override
   public FileStream loadMetadataFile(final int workspaceId, final Path filePath)
   throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException
@@ -661,16 +691,19 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
     // If the file doesn't exist, return a file containing just the current metadata file version
     if(!metadataFile.exists()) {
-      final byte[] fallbackResponse = Json.createObjectBuilder()
-                                          .add("version", "1")
-                                          .build()
-                                          .toString()
-                                          .getBytes(StandardCharsets.UTF_8);
-      final var inputStream = new ByteArrayInputStream(fallbackResponse);
-      return new FileStream(inputStream, metadataFile.getName(), fallbackResponse.length);
+      return generateFallbackMetadataResponse(metadataFile.getName());
     }
 
-    return new FileStream(new FileInputStream(metadataFile), metadataFile.getName(), Files.size(metadataFile.toPath()));
+    try {
+      return new FileStream(
+          new FileInputStream(metadataFile),
+          metadataFile.getName(),
+          Files.size(metadataFile.toPath()),
+          getETag(workspaceId, filePath));
+    } catch (NoSuchFileException nfe) {
+      logger.error("Metadata file deleted mid-read.");
+      return generateFallbackMetadataResponse(metadataFile.getName());
+    }
   }
 
   @Override

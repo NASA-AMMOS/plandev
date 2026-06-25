@@ -83,10 +83,6 @@ public class WorkspaceBindings implements Plugin {
     String fileName() {
       return filePath.getFileName().toString();
     }
-
-    String metadataFileName() {
-      return RenderType.toMetadataFileName(fileName());
-    }
   }
 
   @Override
@@ -431,13 +427,13 @@ public class WorkspaceBindings implements Plugin {
       }
 
       try {
-        final var fileContent = workspaceService.loadFileWithETag(pathInfo.workspaceId, pathInfo.filePath());
+        final var fileStream = workspaceService.loadFile(pathInfo.workspaceId, pathInfo.filePath());
         context.header("x-render-type", workspaceService.getFileType(pathInfo.filePath).name());
         context.contentType(ContentType.OCTET_STREAM);
-        context.header("Content-Disposition", "attachment; filename=\"" + pathInfo.fileName() + "\"");
+        context.header("Content-Disposition", "attachment; filename=\"" + fileStream.fileName() + "\"");
         // The client sends this ETag back as If-Match when it saves.
-        context.header("ETag", fileContent.etag());
-        context.status(200).result(fileContent.content());
+        context.header("ETag", fileStream.etag());
+        context.status(200).result(fileStream.readingStream());
       } catch (IOException ioe) {
         final var fe = new FormattedError(ioe, "Could not load file " + pathInfo.fileName());
         logger.warn("GET FILE: IO Exception: {}", fe);
@@ -446,6 +442,10 @@ public class WorkspaceBindings implements Plugin {
         final var fe = new FormattedError(se, "Could not load file " + pathInfo.fileName());
         logger.warn("GET FILE: SQL Exception: {}", fe);
         context.status(500).json(fe);
+      } catch (NoSuchFileException nfe) {
+        context.status(404).json(new FormattedError(nfe));
+      } catch (WorkspaceFileOpException wfe) {
+        context.status(415).json(new FormattedError(wfe));
       }
     }
   }
@@ -653,25 +653,26 @@ public class WorkspaceBindings implements Plugin {
 
       // Reject the save if the file changed since the client loaded it. "*" or no If-Match means force-overwrite.
       if (ifMatch != null && !ifMatch.equals("*")) {
-        final var currentETag = workspaceService.currentETag(workspaceId, uploadPath);
-        if (currentETag.isEmpty()) {
+        try {
+          final var currentETag = workspaceService.getETag(workspaceId, uploadPath);
+          if (!currentETag.equals(ifMatch)) {
+            // Who/when is best-effort detail for the modal; don't let a metadata read failure make this a 500.
+            String lastEditedBy = null;
+            String lastEditedAt = null;
+            try {
+              final var editInfo = workspaceService.getLastEditInfo(workspaceId, uploadPath);
+              lastEditedBy = editInfo.lastEditedBy();
+              lastEditedAt = editInfo.lastEditedAt();
+            } catch (IOException | NoSuchWorkspaceException | WorkspaceFileOpException | JsonException e) {
+              logger.warn("UPLOAD FILE: could not read last-edit info for conflict on {}: {}", uploadPath, e.getMessage());
+            }
+            return new HandlerResult.Failure(
+                412,
+                FormattedError.saveConflict("conflict", currentETag, lastEditedBy, lastEditedAt));
+          }
+        } catch (NoSuchFileException nfe) {
           // File is gone — deleted or moved out from under the editor.
           return new HandlerResult.Failure(412, FormattedError.saveConflict("deleted", null, null, null));
-        }
-        if (!currentETag.get().equals(ifMatch)) {
-          // Who/when is best-effort detail for the modal; don't let a metadata read failure make this a 500.
-          String lastEditedBy = null;
-          String lastEditedAt = null;
-          try {
-            final var editInfo = workspaceService.getLastEditInfo(workspaceId, uploadPath);
-            lastEditedBy = editInfo.lastEditedBy();
-            lastEditedAt = editInfo.lastEditedAt();
-          } catch (IOException | NoSuchWorkspaceException | WorkspaceFileOpException | JsonException e) {
-            logger.warn("UPLOAD FILE: could not read last-edit info for conflict on {}: {}", uploadPath, e.getMessage());
-          }
-          return new HandlerResult.Failure(
-              412,
-              FormattedError.saveConflict("conflict", currentETag.get(), lastEditedBy, lastEditedAt));
         }
       }
 
@@ -1393,13 +1394,14 @@ public class WorkspaceBindings implements Plugin {
 
     try {
       final var fileStream = workspaceService.loadMetadataFile(pathInfo.workspaceId, pathInfo.filePath());
-      final var inputStream = fileStream.readingStream();
 
       // Set up headers for file response
       context.header("x-render-type", RenderType.METADATA.name());
       context.contentType(ContentType.OCTET_STREAM);
-      context.header("Content-Disposition", "attachment; filename=\"" + pathInfo.metadataFileName() + "\"");
-      context.status(200).result(inputStream);
+      // The client sends this ETag back as If-Match when it saves.
+      context.header("ETag", fileStream.etag());
+      context.header("Content-Disposition", "attachment; filename=\"" + fileStream.fileName() + "\"");
+      context.status(200).result(fileStream.readingStream());
     } catch (WorkspaceFileOpException wfe) {
       final var fe = new FormattedError(wfe, "Could not retrieve metadata file for file "+pathInfo.fileName());
       context.status(400).json(fe);

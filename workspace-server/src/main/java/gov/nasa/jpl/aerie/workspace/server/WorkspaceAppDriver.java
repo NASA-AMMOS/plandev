@@ -11,14 +11,12 @@ import gov.nasa.jpl.aerie.workspace.server.config.UnexpectedSubtypeError;
 import gov.nasa.jpl.aerie.workspace.server.postgres.WorkspacePostgresRepository;
 import io.javalin.Javalin;
 import io.javalin.config.SizeUnit;
-import io.javalin.http.UnauthorizedResponse;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.LowResourceMonitor;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.handler.StatisticsHandler;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
-import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.json.Json;
@@ -28,9 +26,6 @@ import java.net.URI;
 import java.nio.file.Path;
 
 public final class WorkspaceAppDriver {
-
-  private static final Logger logger = LoggerFactory.getLogger(WorkspaceBindings.class);
-
   public static void main(final String[] args) {
     // Fetch application configuration properties.
     final var configuration = loadConfiguration();
@@ -55,6 +50,7 @@ public final class WorkspaceAppDriver {
     server.insertHandler(new StatisticsHandler());
     server.setConnectors(new Connector[]{connector});
     final var javalin = Javalin.create(config -> {
+      config.http.generateEtags = true;
       config.showJavalinBanner = false;
       if (configuration.enableJavalinDevLogging()) config.plugins.enableDevLogging();
 

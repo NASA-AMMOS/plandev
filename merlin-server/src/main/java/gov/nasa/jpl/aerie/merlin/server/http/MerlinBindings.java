@@ -496,17 +496,9 @@ public final class MerlinBindings implements Plugin {
       final var planId = input.planId();
       this.checkPermissions(HasuraAction.insert_ext_dataset, body.session(), planId);
 
-      final var simulationStart = input.simulationStart();
-      final var simulationEnd = input.simulationEnd();
-      final var arguments = input.arguments();
-      final var profileSet = input.profileSet();
-
       final var simulationDatasetId = this.planService.uploadSimulationDataset(
           planId,
-          simulationStart,
-          simulationEnd,
-          arguments,
-          profileSet,
+          input.simulationResults(),
           body.session().hasuraUserId());
 
       ctx.status(201).result(ResponseSerializers.serializeCreatedSimulationDatasetId(simulationDatasetId).toString());

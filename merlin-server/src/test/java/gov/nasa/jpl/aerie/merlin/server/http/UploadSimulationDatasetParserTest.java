@@ -1,7 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.http;
 
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
-import gov.nasa.jpl.aerie.types.Timestamp;
 import org.junit.jupiter.api.Test;
 
 import javax.json.Json;
@@ -12,200 +11,167 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public final class UploadSimulationDatasetParserTest {
 
+  private static javax.json.JsonObject minimalSimulationResults(String start, String end) {
+    return Json.createObjectBuilder()
+        .add("simulationStartTime", start)
+        .add("simulationEndTime", end)
+        .add("profiles", Json.createObjectBuilder()
+            .add("realProfiles", Json.createArrayBuilder())
+            .add("discreteProfiles", Json.createArrayBuilder()))
+        .add("spans", Json.createObjectBuilder()
+            .add("simulatedActivities", Json.createArrayBuilder())
+            .add("unfinishedActivities", Json.createArrayBuilder()))
+        .build();
+  }
+
   @Test
   public void testParseValidUploadSimulationDatasetAction() {
-    // GIVEN
-    final var json = Json
-        .createObjectBuilder()
-        .add("action", Json
-            .createObjectBuilder()
-            .add("name", "uploadSimulationDataset")
-            .build())
-        .add("input", Json
-            .createObjectBuilder()
+    final var json = Json.createObjectBuilder()
+        .add("action", Json.createObjectBuilder().add("name", "uploadSimulationDataset"))
+        .add("input", Json.createObjectBuilder()
             .add("planId", 123)
-            .add("simulationStart", "2024-001T00:00:00.000")
-            .add("simulationEnd", "2024-002T00:00:00.000")
-            .add("arguments", Json
-                .createObjectBuilder()
-                .add("param1", "value1")
-                .add("param2", 42)
-                .build())
-            .add("profileSet", Json.createObjectBuilder().build())
-            .build())
-        .add("session_variables", Json
-            .createObjectBuilder()
+            .add("simulationResults", minimalSimulationResults("2024-001T00:00:00.000", "2024-002T00:00:00.000")))
+        .add("session_variables", Json.createObjectBuilder()
             .add("x-hasura-role", "aerie_admin")
-            .add("x-hasura-user-id", "test-user")
-            .build())
+            .add("x-hasura-user-id", "test-user"))
         .add("request_query", "mutation { uploadSimulationDataset }")
         .build();
 
-    // WHEN
     final var action = hasuraUploadSimulationDatasetActionP.parse(json).getSuccessOrThrow();
 
-    // THEN
-    
     assertEquals("uploadSimulationDataset", action.name());
     assertEquals(new PlanId(123L), action.input().planId());
-    assertEquals(new Timestamp(Instant.parse("2024-01-01T00:00:00.000Z")), action.input().simulationStart());
-    assertEquals(new Timestamp(Instant.parse("2024-01-02T00:00:00.000Z")), action.input().simulationEnd());
     assertEquals("aerie_admin", action.session().hasuraRole());
     assertEquals("test-user", action.session().hasuraUserId());
-    
-    // Verify arguments
-    final var arguments = action.input().arguments();
-    assertEquals(2, arguments.size());
-    assertTrue(arguments.containsKey("param1"));
-    assertTrue(arguments.containsKey("param2"));
-    
-    // Verify profileSet
-    final var profileSet = action.input().profileSet();
-    assertEquals(0, profileSet.realProfiles().size());
-    assertEquals(0, profileSet.discreteProfiles().size());
-    
-    // Verify MVP: activities, topics, events are empty
-    assertTrue(action.input().activities().isEmpty(), "Activities should be empty in MVP");
-    assertTrue(action.input().topics().isEmpty(), "Topics should be empty in MVP");
-    assertTrue(action.input().events().isEmpty(), "Events should be empty in MVP");
+
+    final var results = action.input().simulationResults();
+    assertEquals(Instant.parse("2024-01-01T00:00:00.000Z"), results.startTime);
+    assertTrue(results.realProfiles.isEmpty());
+    assertTrue(results.discreteProfiles.isEmpty());
+    assertTrue(results.simulatedActivities.isEmpty());
+    assertTrue(results.unfinishedActivities.isEmpty());
+    assertTrue(results.topics.isEmpty());
+    assertTrue(results.events.isEmpty());
   }
 
   @Test
-  public void testParseWithProfiles() {
-    // GIVEN
-    final var json = Json
-        .createObjectBuilder()
-        .add("action", Json
-            .createObjectBuilder()
-            .add("name", "uploadSimulationDataset")
-            .build())
-        .add("input", Json
-            .createObjectBuilder()
+  public void testParseWithRealProfile() {
+    final var simResults = Json.createObjectBuilder()
+        .add("simulationStartTime", "2024-001T00:00:00.000")
+        .add("simulationEndTime", "2024-001T01:00:00.000")
+        .add("profiles", Json.createObjectBuilder()
+            .add("realProfiles", Json.createArrayBuilder()
+                .add(Json.createObjectBuilder()
+                    .add("name", "/battery")
+                    .add("schema", Json.createObjectBuilder().add("type", "real"))
+                    .add("segments", Json.createArrayBuilder()
+                        .add(Json.createObjectBuilder()
+                            .add("extent", "01:00:00")
+                            .add("dynamics", Json.createObjectBuilder()
+                                .add("initial", 100.0)
+                                .add("rate", -0.5))))))
+            .add("discreteProfiles", Json.createArrayBuilder()))
+        .add("spans", Json.createObjectBuilder()
+            .add("simulatedActivities", Json.createArrayBuilder())
+            .add("unfinishedActivities", Json.createArrayBuilder()))
+        .build();
+
+    final var json = Json.createObjectBuilder()
+        .add("action", Json.createObjectBuilder().add("name", "uploadSimulationDataset"))
+        .add("input", Json.createObjectBuilder()
             .add("planId", 456)
-            .add("simulationStart", "2024-001T00:00:00.000")
-            .add("simulationEnd", "2024-001T01:00:00.000")
-            .add("arguments", Json.createObjectBuilder().build())
-            .add("profileSet", Json
-                .createObjectBuilder()
-                .add("/battery", Json
-                    .createObjectBuilder()
-                    .add("type", "real")
-                    .add("schema", Json
-                        .createObjectBuilder()
-                        .add("type", "real")
-                        .build())
-                    .add("segments", Json.createArrayBuilder().build())
-                    .build())
-                .build())
-            .build())
-        .add("session_variables", Json
-            .createObjectBuilder()
-            .add("x-hasura-role", "user")
-            .build())
+            .add("simulationResults", simResults))
+        .add("session_variables", Json.createObjectBuilder().add("x-hasura-role", "user"))
         .add("request_query", "mutation { uploadSimulationDataset }")
         .build();
 
-    // WHEN
     final var action = hasuraUploadSimulationDatasetActionP.parse(json).getSuccessOrThrow();
 
-    // THEN
-    
     assertEquals(new PlanId(456L), action.input().planId());
-    final var profileSet = action.input().profileSet();
-    assertEquals(1, profileSet.realProfiles().size(), "Should have one real profile");
-    assertTrue(profileSet.realProfiles().containsKey("/battery"));
+    final var results = action.input().simulationResults();
+    assertEquals(1, results.realProfiles.size());
+    assertTrue(results.realProfiles.containsKey("/battery"));
   }
 
   @Test
-  public void testParseMissingRequiredField() {
-    // GIVEN - missing simulationEnd
-    final var json = Json
-        .createObjectBuilder()
-        .add("action", Json
-            .createObjectBuilder()
-            .add("name", "uploadSimulationDataset")
-            .build())
-        .add("input", Json
-            .createObjectBuilder()
-            .add("planId", 123)
-            .add("simulationStart", "2024-001T00:00:00.000")
-            // Missing simulationEnd
-            .add("arguments", Json.createObjectBuilder().build())
-            .add("profileSet", Json.createObjectBuilder().build())
-            .build())
-        .add("session_variables", Json
-            .createObjectBuilder()
-            .add("x-hasura-role", "aerie_admin")
-            .build())
+  public void testParseMissingSimulationResults() {
+    final var json = Json.createObjectBuilder()
+        .add("action", Json.createObjectBuilder().add("name", "uploadSimulationDataset"))
+        .add("input", Json.createObjectBuilder()
+            .add("planId", 123))
+        .add("session_variables", Json.createObjectBuilder().add("x-hasura-role", "aerie_admin"))
         .add("request_query", "mutation { uploadSimulationDataset }")
         .build();
 
-    // WHEN
     final var result = hasuraUploadSimulationDatasetActionP.parse(json);
 
-    // THEN
-    assertTrue(result.isFailure(), "Parser should fail when required field is missing");
+    assertTrue(result.isFailure(), "Parser should fail when simulationResults is missing");
   }
 
   @Test
   public void testParseInvalidTimestamp() {
-    // GIVEN - invalid timestamp format
-    final var json = Json
-        .createObjectBuilder()
-        .add("action", Json
-            .createObjectBuilder()
-            .add("name", "uploadSimulationDataset")
-            .build())
-        .add("input", Json
-            .createObjectBuilder()
+    final var simResults = Json.createObjectBuilder()
+        .add("simulationStartTime", "not-a-timestamp")
+        .add("simulationEndTime", "2024-001T00:00:00.000")
+        .add("profiles", Json.createObjectBuilder()
+            .add("realProfiles", Json.createArrayBuilder())
+            .add("discreteProfiles", Json.createArrayBuilder()))
+        .add("spans", Json.createObjectBuilder()
+            .add("simulatedActivities", Json.createArrayBuilder())
+            .add("unfinishedActivities", Json.createArrayBuilder()))
+        .build();
+
+    final var json = Json.createObjectBuilder()
+        .add("action", Json.createObjectBuilder().add("name", "uploadSimulationDataset"))
+        .add("input", Json.createObjectBuilder()
             .add("planId", 123)
-            .add("simulationStart", "not-a-timestamp")
-            .add("simulationEnd", "2024-001T00:00:00.000")
-            .add("arguments", Json.createObjectBuilder().build())
-            .add("profileSet", Json.createObjectBuilder().build())
-            .build())
-        .add("session_variables", Json
-            .createObjectBuilder()
-            .add("x-hasura-role", "aerie_admin")
-            .build())
+            .add("simulationResults", simResults))
+        .add("session_variables", Json.createObjectBuilder().add("x-hasura-role", "aerie_admin"))
         .add("request_query", "mutation { uploadSimulationDataset }")
         .build();
 
-    // WHEN
     final var result = hasuraUploadSimulationDatasetActionP.parse(json);
 
-    // THEN
     assertTrue(result.isFailure(), "Parser should fail with invalid timestamp");
   }
 
   @Test
-  public void testParseEmptyArguments() {
-    // GIVEN - empty arguments map
-    final var json = Json
-        .createObjectBuilder()
-        .add("action", Json
-            .createObjectBuilder()
-            .add("name", "uploadSimulationDataset")
-            .build())
-        .add("input", Json
-            .createObjectBuilder()
+  public void testParseWithActivities() {
+    final var simResults = Json.createObjectBuilder()
+        .add("simulationStartTime", "2024-001T00:00:00.000")
+        .add("simulationEndTime", "2024-002T00:00:00.000")
+        .add("profiles", Json.createObjectBuilder()
+            .add("realProfiles", Json.createArrayBuilder())
+            .add("discreteProfiles", Json.createArrayBuilder()))
+        .add("spans", Json.createObjectBuilder()
+            .add("simulatedActivities", Json.createArrayBuilder()
+                .add(Json.createObjectBuilder()
+                    .add("id", 1)
+                    .add("directiveId", 42)
+                    .addNull("parentId")
+                    .add("childIds", Json.createArrayBuilder())
+                    .add("type", "MyActivity")
+                    .add("startOffset", "01:00:00")
+                    .add("duration", "00:30:00")
+                    .add("attributes", Json.createObjectBuilder().add("type", "string").add("value", "done"))
+                    .add("arguments", Json.createObjectBuilder())
+                    .add("startTime", "2024-001T01:00:00.000")
+                    .add("endTime", "2024-001T01:30:00.000")))
+            .add("unfinishedActivities", Json.createArrayBuilder()))
+        .build();
+
+    final var json = Json.createObjectBuilder()
+        .add("action", Json.createObjectBuilder().add("name", "uploadSimulationDataset"))
+        .add("input", Json.createObjectBuilder()
             .add("planId", 789)
-            .add("simulationStart", "2024-001T00:00:00.000")
-            .add("simulationEnd", "2024-001T12:00:00.000")
-            .add("arguments", Json.createObjectBuilder().build())
-            .add("profileSet", Json.createObjectBuilder().build())
-            .build())
-        .add("session_variables", Json
-            .createObjectBuilder()
-            .add("x-hasura-role", "user")
-            .build())
+            .add("simulationResults", simResults))
+        .add("session_variables", Json.createObjectBuilder().add("x-hasura-role", "user"))
         .add("request_query", "mutation { uploadSimulationDataset }")
         .build();
 
-    // WHEN
     final var action = hasuraUploadSimulationDatasetActionP.parse(json).getSuccessOrThrow();
 
-    // THEN
-    assertTrue(action.input().arguments().isEmpty(), "Arguments should be empty");
+    assertEquals(new PlanId(789L), action.input().planId());
+    assertEquals(1, action.input().simulationResults().simulatedActivities.size());
   }
 }

@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.merlin.server.mocks;
 
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
@@ -97,17 +98,14 @@ public final class StubPlanService implements PlanService {
   @Override
   public long uploadSimulationDataset(
       final PlanId planId,
-      final Timestamp simulationStart,
-      final Timestamp simulationEnd,
-      final Map<String, SerializedValue> arguments,
-      final ProfileSet profileSet,
+      final SimulationResults simulationResults,
       final String requestedBy)
   throws NoSuchPlanException
   {
     if (!Objects.equals(planId, EXISTENT_PLAN_ID)) {
       throw new NoSuchPlanException(planId);
     }
-    return 12345L; // Return a fake simulation dataset ID for testing
+    return 12345L;
   }
 
   @Override

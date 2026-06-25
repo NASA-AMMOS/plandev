@@ -5,8 +5,6 @@ import gov.nasa.jpl.aerie.types.SerializedActivity;
 import gov.nasa.jpl.aerie.merlin.server.models.HasuraAction;
 import gov.nasa.jpl.aerie.merlin.server.models.HasuraMissionModelEvent;
 
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static gov.nasa.jpl.aerie.json.BasicParsers.boolP;
@@ -25,6 +23,7 @@ import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.planIdP;
 import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.simulationDatasetIdP;
 import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.timestampP;
 import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.profileSetP;
+
 
 public abstract class HasuraParsers {
   private HasuraParsers() {}
@@ -216,25 +215,8 @@ public abstract class HasuraParsers {
       = hasuraActionF(
           productP
               .field("planId", planIdP)
-              .field("simulationStart", timestampP)
-              .field("simulationEnd", timestampP)
-              .field("arguments", mapP(serializedValueP))
-              .field("profileSet", profileSetP)
+              .field("simulationResults", SimulationResultsParser.simulationResultsP)
               .map(
-                  untuple((planId, simulationStart, simulationEnd, arguments, profileSet) ->
-                      new HasuraAction.UploadSimulationDatasetInput(
-                          planId,
-                          simulationStart,
-                          simulationEnd,
-                          arguments,
-                          profileSet,
-                          List.of(),
-                          List.of(),
-                          Map.of())),
-                  (HasuraAction.UploadSimulationDatasetInput $) -> tuple(
-                      $.planId(),
-                      $.simulationStart(),
-                      $.simulationEnd(),
-                      $.arguments(),
-                      $.profileSet())));
+                  untuple(HasuraAction.UploadSimulationDatasetInput::new),
+                  $ -> tuple($.planId(), $.simulationResults())));
 }

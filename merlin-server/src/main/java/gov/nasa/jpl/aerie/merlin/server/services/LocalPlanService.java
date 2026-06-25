@@ -1,8 +1,8 @@
 package gov.nasa.jpl.aerie.merlin.server.services;
 
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
@@ -64,17 +64,11 @@ public final class LocalPlanService implements PlanService {
   @Override
   public long uploadSimulationDataset(
       final PlanId planId,
-      final Timestamp simulationStart,
-      final Timestamp simulationEnd,
-      final Map<String, SerializedValue> arguments,
-      final ProfileSet profileSet,
+      final SimulationResults simulationResults,
       final String requestedBy)
   throws NoSuchPlanException
   {
-    // TODO: Implement full simulation dataset upload with activities, events, topics
-    // For MVP: Create simulation_dataset with profiles only
-    return this.planRepository.uploadSimulationDataset(
-        planId, simulationStart, simulationEnd, arguments, profileSet, requestedBy);
+    return this.planRepository.uploadSimulationDataset(planId, simulationResults, requestedBy);
   }
 
   @Override

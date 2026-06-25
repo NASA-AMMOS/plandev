@@ -308,13 +308,35 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
-  public Optional<String> currentETag(final int workspaceId, final Path filePath)
-  throws IOException, NoSuchWorkspaceException {
+  public String getETag(final int workspaceId, final Path filePath)
+  throws IOException, NoSuchWorkspaceException, NoSuchFileException, WorkspaceFileOpException {
     final var path = resolveReadingPath(workspaceId, filePath);
-    if (!path.toFile().isFile()) {
-      return Optional.empty();
+    if(filePath.toFile().isDirectory()) {
+      throw new WorkspaceFileOpException("Cannot compute the Entity Tag for a directory.");
     }
-    return Optional.of(computeETag(Files.readAllBytes(path)));
+    if(!Files.exists(path)) {
+      throw new NoSuchFileException(workspaceId, filePath);
+    }
+    return getETag(path);
+  }
+
+  /**
+   * Override of getETag that takes in a resolved, tested file path
+   * @param filePath the resolved path to a file in the workspace
+   * @return the file's current Entity Tag
+   * @throws IOException If there is an I/O Error while reading the file's contents
+   */
+  private String getETag(final Path filePath) throws IOException{
+    // Read the file in 1 MB chunks to avoid loading it all into memory at once
+    final var md = WorkspaceService.newSHA256Digest();
+    try(final var inputStream = new DigestInputStream(new FileInputStream(filePath.toFile()), md)) {
+      final var buffer = new byte[1048576]; // 1 MB
+      while(inputStream.read(buffer) > 0) {
+        // This while body is left intentionally empty, since the DigestInputStream automatically
+        // processes the chunk as part of read().
+      }
+      return WorkspaceService.computeETag(md.digest());
+    }
   }
 
   @Override

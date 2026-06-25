@@ -118,14 +118,17 @@ public interface WorkspaceService {
   FileContent loadFileWithETag(final int workspaceId, final Path filePath) throws IOException, NoSuchWorkspaceException;
 
   /**
-   * Compute the current concurrency token (ETag) for a file, or an empty Optional if the file does not exist.
+   * Get the current concurrency token (ETag) for a file.
    * Used to validate an If-Match precondition on save.
    * @param workspaceId the id of the workspace the file lives in
    * @param filePath the path to the file, relative to the workspace's root
    * @throws IOException if an I/O error occurs while reading the file
    * @throws NoSuchWorkspaceException if the specified workspace does not exist
+   * @throws NoSuchFileException if the specified file does not exist
+   * @throws WorkspaceFileOpException if "filePath" refers to a directory
    */
-  Optional<String> currentETag(final int workspaceId, final Path filePath) throws IOException, NoSuchWorkspaceException;
+  String getETag(final int workspaceId, final Path filePath)
+  throws IOException, NoSuchWorkspaceException, NoSuchFileException, WorkspaceFileOpException;
 
   /**
    * Read the last-edit info (editor and timestamp) from a file's metadata, used to describe a save conflict.

@@ -510,9 +510,7 @@ public class WorkspaceBindings implements Plugin {
     switch (uploadResults){
       case HandlerResult.Success success -> {
         // Return the saved file's new ETag so the client can keep saving without re-fetching.
-        if (success.etag() != null) {
-          context.header("ETag", success.etag());
-        }
+        success.etag().ifPresent(et -> context.header("ETag", et));
         context.status(success.status()).result(success.response());
       }
       case HandlerResult.Failure failure -> context.status(failure.status()).json(failure.error());
@@ -683,7 +681,7 @@ public class WorkspaceBindings implements Plugin {
         return new HandlerResult.Success(
             200,
             "File " + uploadPath.getFileName() + " uploaded to " + uploadPath,
-            newETag.get());
+            newETag);
       } else {
         logger.warn("UPLOAD FILE: Save File failed for path {}", uploadPath);
         return new HandlerResult.Failure(500, new FormattedError("Could not save file."));

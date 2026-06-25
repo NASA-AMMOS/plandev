@@ -10,7 +10,10 @@ import javax.json.JsonException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.SQLException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -19,6 +22,27 @@ import java.util.Set;
  * An interface that defines how the Aerie system can interact with the Workspaces backend.
  */
 public interface WorkspaceService {
+  /**
+   * Compute a byte array into a strong Entity Tag (lowercase hex) using the SHA-256 algorithm.
+   */
+  static String computeETag(final byte[] content) {
+    return eTagFromDigest(newSHA256Digest().digest(content));
+  }
+
+  /** Quote a digest as a strong ETag (lowercase hex). */
+  static String eTagFromDigest(final byte[] digestBytes) {
+    return "\"" + HexFormat.of().formatHex(digestBytes) + "\"";
+  }
+
+  /** A fresh SHA-256 digest (always available on the JVM). */
+  static MessageDigest newSHA256Digest() {
+    try {
+      return MessageDigest.getInstance("SHA-256");
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException("SHA-256 algorithm not available", e);
+    }
+  }
+
   /**
    * A record containing a File ready to be streamed over the network
    * @param readingStream a stream of the file's contents

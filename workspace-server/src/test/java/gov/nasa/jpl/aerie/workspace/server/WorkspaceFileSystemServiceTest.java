@@ -167,20 +167,20 @@ class WorkspaceFileSystemServiceTest {
     @Test
     void sameContentProducesSameToken() {
       assertEquals(
-          WorkspaceFileSystemService.computeETag(bytes("command ABC;")),
-          WorkspaceFileSystemService.computeETag(bytes("command ABC;")));
+          WorkspaceService.computeETag(bytes("command ABC;")),
+          WorkspaceService.computeETag(bytes("command ABC;")));
     }
 
     @Test
     void differentContentProducesDifferentToken() {
       assertNotEquals(
-          WorkspaceFileSystemService.computeETag(bytes("command ABC;")),
-          WorkspaceFileSystemService.computeETag(bytes("command XYZ;")));
+          WorkspaceService.computeETag(bytes("command ABC;")),
+          WorkspaceService.computeETag(bytes("command XYZ;")));
     }
 
     @Test
     void tokenIsQuotedLowercaseSha256Hex() {
-      final var token = WorkspaceFileSystemService.computeETag(new byte[0]);
+      final var token = WorkspaceService.computeETag(new byte[0]);
       // Strong ETag: a quoted, 64-char lowercase-hex SHA-256 digest.
       assertTrue(token.matches("\"[0-9a-f]{64}\""), "unexpected token format: " + token);
       // SHA-256 of empty input is a well-known constant; pins the algorithm and encoding.

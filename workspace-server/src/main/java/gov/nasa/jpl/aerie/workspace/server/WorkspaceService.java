@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.workspace.server;
 
+import gov.nasa.jpl.aerie.workspace.server.exceptions.NoSuchFileException;
 import gov.nasa.jpl.aerie.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.RenderType;
@@ -48,15 +49,9 @@ public interface WorkspaceService {
    * @param readingStream a stream of the file's contents
    * @param fileName the file's name, for the purpose of the "filename" header
    * @param fileSize the file's length, for the purpose of the "content-length" header
+   * @param etag the file's entity version tag, generated as its SHA-256 checksum, for the purpose of the "ETag" header
    */
-  record FileStream(InputStream readingStream, String fileName, long fileSize){}
-
-  /**
-   * A file's bytes plus its ETag (a tag identifying this exact content).
-   * @param content the file's bytes
-   * @param etag the file's version tag
-   */
-  record FileContent(byte[] content, String etag){}
+  record FileStream(InputStream readingStream, String fileName, long fileSize, String etag){}
 
   /**
    * Lightweight last-edit info read from a file's metadata, used to describe a save conflict.
@@ -108,14 +103,18 @@ public interface WorkspaceService {
   RenderType getFileType(final Path filePath) throws SQLException;
 
   /**
-   * Load a file's bytes and its ETag (computed from those bytes).
+   * Load a file to send over as a multipart HTTP response
    * @param workspaceId the id of the workspace the file lives in
    * @param filePath the path to the file, relative to the workspace's root
-   * @return the file's bytes and its ETag
-   * @throws IOException if an I/O error occurs while reading the file
+   * @return a FileStream with a handler to the file's contents,
+   *         as well as the values to fill in for the "filename", "content-length", and "ETag" headers
+   * @throws IOException if an I/O error occurs while attempting to open the file
    * @throws NoSuchWorkspaceException if the specified workspace does not exist
+   * @throws NoSuchFileException if the specified file does not exist
+   * @throws WorkspaceFileOpException if a 'filePath' refers to a directory or metadata file
    */
-  FileContent loadFileWithETag(final int workspaceId, final Path filePath) throws IOException, NoSuchWorkspaceException;
+  FileStream loadFile(final int workspaceId, final Path filePath)
+  throws IOException, NoSuchWorkspaceException, NoSuchFileException, WorkspaceFileOpException;
 
   /**
    * Get the current concurrency token (ETag) for a file.

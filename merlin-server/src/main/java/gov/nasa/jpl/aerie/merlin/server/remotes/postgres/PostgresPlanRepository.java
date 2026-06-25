@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
@@ -230,42 +231,50 @@ public final class PostgresPlanRepository implements PlanRepository {
   @Override
   public long uploadSimulationDataset(
       final PlanId planId,
-      final Timestamp simulationStart,
-      final Timestamp simulationEnd,
-      final Map<String, SerializedValue> arguments,
-      final ProfileSet profileSet,
+      final SimulationResults simulationResults,
       final String requestedBy
   ) throws NoSuchPlanException {
     try (final var connection = this.dataSource.getConnection();
          final var transactionContext = new TransactionContext(connection)) {
-      // Get the plan's simulation record
       final var simulation = getSimulation(connection, planId);
-      
-      // Create simulation_dataset record
+      final var simulationStart = new Timestamp(simulationResults.startTime);
+      final var simulationEnd = simulationStart.plusMicros(simulationResults.duration.in(Duration.MICROSECONDS));
+
       final var simulationDatasetRecord = createSimulationDataset(
           connection,
           simulation,
           simulationStart,
           simulationEnd,
-          arguments,
+          Map.of(),
           requestedBy);
-      
-      // Write profiles to the dataset
-      ProfileRepository.postResourceProfiles(
+
+      final var datasetId = simulationDatasetRecord.datasetId();
+
+      final var profileSet = ProfileSet.of(simulationResults.realProfiles, simulationResults.discreteProfiles);
+      ProfileRepository.postResourceProfiles(connection, datasetId, profileSet);
+
+      PostgresResultsCellRepository.postActivities(
           connection,
-          simulationDatasetRecord.datasetId(),
-          profileSet
-      );
-      
-      // TODO: Write activities, events, topics when implementing full version
-      
-      // Mark simulation as successful
+          datasetId,
+          simulationResults.simulatedActivities,
+          simulationResults.unfinishedActivities,
+          simulationStart);
+
+      PostgresResultsCellRepository.insertSimulationTopics(
+          connection,
+          datasetId,
+          simulationResults.topics);
+
+      PostgresResultsCellRepository.insertSimulationEvents(
+          connection,
+          datasetId,
+          simulationResults.events,
+          simulationStart);
+
       try (final var setSimulationStateAction = new SetSimulationStateAction(connection)) {
-        setSimulationStateAction.apply(
-            simulationDatasetRecord.datasetId(),
-            SimulationStateRecord.success());
+        setSimulationStateAction.apply(datasetId, SimulationStateRecord.success());
       }
-      
+
       transactionContext.commit();
       return simulationDatasetRecord.simulationDatasetId();
     } catch (final SQLException ex) {

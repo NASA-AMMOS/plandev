@@ -1,15 +1,10 @@
 package gov.nasa.jpl.aerie.merlin.server.models;
 
-import gov.nasa.jpl.aerie.merlin.driver.engine.EventRecord;
-import gov.nasa.jpl.aerie.merlin.driver.timeline.EventGraph;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
-import gov.nasa.jpl.aerie.types.ActivityInstance;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.types.Timestamp;
-import org.apache.commons.lang3.tuple.Triple;
 
 import java.util.List;
 import java.util.Map;
@@ -45,11 +40,5 @@ public record HasuraAction<I extends HasuraAction.Input>(String name, I input, S
   public record ConstraintArgumentItem(long constraintId, long revision, Map<String, SerializedValue> arguments) implements Input {}
   public record ConstraintArguments(List<ConstraintArgumentItem> items) implements Input {}
   public record UploadSimulationDatasetInput(PlanId planId,
-                                             Timestamp simulationStart,
-                                             Timestamp simulationEnd,
-                                             Map<String, SerializedValue> arguments,
-                                             ProfileSet profileSet,
-                                             List<ActivityInstance> activities,
-                                             List<Triple<Integer, String, ValueSchema>> topics,
-                                             Map<Duration, List<EventGraph<EventRecord>>> events) implements Input {}
+                                             SimulationResults simulationResults) implements Input {}
 }

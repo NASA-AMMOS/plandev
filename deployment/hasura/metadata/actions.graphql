@@ -28,10 +28,7 @@ type Mutation {
 type Mutation {
   uploadSimulationDataset(
     planId: Int!,
-    simulationStart: String!,
-    simulationEnd: String!,
-    arguments: JSON!,
-    profileSet: ProfileSet!
+    simulationResults: SimulationResultsInput!
   ): UploadSimulationDatasetResponse
 }
 
@@ -385,6 +382,8 @@ scalar ActivityArguments
 scalar ProcedureArguments
 
 scalar ProfileSet
+
+scalar SimulationResultsInput
 
 scalar SchedulingFailureReason
 

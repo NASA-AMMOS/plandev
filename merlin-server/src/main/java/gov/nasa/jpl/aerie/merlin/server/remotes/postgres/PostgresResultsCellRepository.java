@@ -375,7 +375,7 @@ public final class PostgresResultsCellRepository implements ResultsCellRepositor
     }
   }
 
-  private static void insertSimulationTopics(
+  static void insertSimulationTopics(
       Connection connection,
       long datasetId,
       final List<Triple<Integer, String, ValueSchema>> topics) throws SQLException
@@ -387,7 +387,7 @@ public final class PostgresResultsCellRepository implements ResultsCellRepositor
     }
   }
 
-  private static void insertSimulationEvents(
+  static void insertSimulationEvents(
       Connection connection,
       long datasetId,
       Map<Duration, List<EventGraph<EventRecord>>> events,
@@ -400,7 +400,7 @@ public final class PostgresResultsCellRepository implements ResultsCellRepositor
     }
   }
 
-  private static void postActivities(
+  static void postActivities(
       final Connection connection,
       final long datasetId,
       final Map<ActivityInstanceId, ActivityInstance> simulatedActivities,

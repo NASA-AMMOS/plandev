@@ -22,13 +22,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.DigestInputStream;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -329,28 +326,6 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         metadata.getString(MetadataKeys.lastEditedAt.name(), null));
   }
 
-  /**
-   * A file's ETag: a quoted SHA-256 of its content. Kept in one place so it can later become a git
-   * object id without changing the HTTP contract. Package-private for tests.
-   */
-  static String computeETag(final byte[] content) {
-    return etagFromDigest(newSha256().digest(content));
-  }
-
-  /** Quote a digest as a strong ETag (lowercase hex). */
-  private static String etagFromDigest(final byte[] digestBytes) {
-    return "\"" + HexFormat.of().formatHex(digestBytes) + "\"";
-  }
-
-  /** A fresh SHA-256 digest (always available on the JVM). */
-  private static MessageDigest newSha256() {
-    try {
-      return MessageDigest.getInstance("SHA-256");
-    } catch (NoSuchAlgorithmException e) {
-      throw new IllegalStateException("SHA-256 algorithm not available", e);
-    }
-  }
-
   @Override
   public Optional<String> saveFile(final int workspaceId, final Path filePath, final UploadedFile file, final String userId)
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException
@@ -366,12 +341,12 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     if(path.toFile().isDirectory()) return Optional.empty();
 
     // Hash while streaming to disk so the returned ETag matches what we wrote, with no extra read.
-    final var digest = newSha256();
-    try (final var contentStream = new DigestInputStream(file.content(), digest)) {
+    final var md = WorkspaceService.newSHA256Digest();
+    try (final var contentStream = new DigestInputStream(file.content(), md)) {
       FileUtil.streamToFile(contentStream, path.toString());
     }
     updateMetadataKeys(metadataFilePath, metadataUpdates, MetadataMergeBehavior.deepMerge);
-    return Optional.of(etagFromDigest(digest.digest()));
+    return Optional.of(WorkspaceService.computeETag(md.digest()));
   }
 
   @Override

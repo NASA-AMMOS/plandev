@@ -114,7 +114,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
    * @param filePath the untrusted path to the file
    * @return the path to the metadata file for the specified file
    */
-  private Path resolveMetadataPath(final Path rootPath, final Path filePath) throws WorkspaceFileOpException {
+  Path resolveMetadataPath(final Path rootPath, final Path filePath) throws WorkspaceFileOpException {
     final var baseFilePath = resolveWritingPath(rootPath, filePath);
 
     // Check that the given filepath is not a directory or a metadata file, both of which are not allowed to have associated metadata files
@@ -652,7 +652,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
    * @throws JsonException if the metadata file is malformed
    * @throws IOException if the metadata file cannot be opened for reading for reasons other than nonexistence
    */
-  private JsonObject readMetadataFile(final File metadataFile) throws IOException, JsonException {
+  JsonObject readMetadataFile(final File metadataFile) throws IOException, JsonException {
     try(final var reader = Json.createReader(new FileReader(metadataFile))){
       return reader.readObject();
     } catch (FileNotFoundException fnf) {
@@ -713,7 +713,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     return updateMetadataKeys(resolveMetadataPath(workspaceId, filePath), updates, mergeBehavior);
   }
 
-  private boolean updateMetadataKeys(final Path resolvedMetadataPath, MetadataUpdates updates, MetadataMergeBehavior mergeBehavior) throws IOException, JsonException {
+  boolean updateMetadataKeys(final Path resolvedMetadataPath, MetadataUpdates updates, MetadataMergeBehavior mergeBehavior) throws IOException, JsonException {
     final var metadataFile = resolvedMetadataPath.toFile();
     final var fileContents = readMetadataFile(metadataFile);
 
@@ -737,6 +737,9 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       contents.version().ifPresentOrElse(
           v -> generator.write("version", v),
           () -> generator.write("version", "1"));
+
+      // Add the stable file identity if one has been assigned (system-managed; used by file versioning).
+      contents.fileId().ifPresent(f -> generator.write("fileId", f));
 
       // Fill in "created" information, using the "metadataLastEdited" information as a fallback
       contents.createdBy().ifPresentOrElse(
@@ -786,6 +789,17 @@ public class WorkspaceFileSystemService implements WorkspaceService {
             mergedBuilder.version(currentContents.getString("version"));
           } else {
             mergedBuilder.version("1"); // Fallback
+          }
+        }
+    );
+    // Preserve the stable file identity across saves once it has been assigned (no fallback: a file that
+    // has never been revisioned simply has no fileId yet). This keeps a file's revision history attached
+    // through ordinary edits and renames.
+    updates.fileId().ifPresentOrElse(
+        mergedBuilder::fileId,
+        () -> {
+          if(currentContents.containsKey("fileId")) {
+            mergedBuilder.fileId(currentContents.getString("fileId"));
           }
         }
     );
@@ -957,6 +971,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         final var mKey = MetadataKeys.valueOf(key);
         switch (mKey) {
           case user -> fileContentsBuilder.user(null);
+          case fileId -> fileContentsBuilder.fileId(null);
           case readOnly -> fileContentsBuilder.readOnly(null);
           case createdBy -> fileContentsBuilder.createdBy(null);
           case createdAt -> fileContentsBuilder.createdAt(null);

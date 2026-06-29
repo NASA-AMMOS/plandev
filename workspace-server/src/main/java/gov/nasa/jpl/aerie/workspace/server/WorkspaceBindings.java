@@ -34,6 +34,7 @@ import io.javalin.validation.ValidationException;
 import javax.json.Json;
 import javax.json.JsonArray;
 import javax.json.JsonException;
+import javax.json.JsonObject;
 import javax.json.JsonString;
 import java.io.IOException;
 import java.io.StringReader;
@@ -58,16 +59,19 @@ public class WorkspaceBindings implements Plugin {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceBindings.class);
   private final JWTService jwtService;
   private final WorkspaceService workspaceService;
+  private final WorkspaceVersioningService versioningService;
   private final PermissionsService permissionsService;
   private final String hasuraAdminSecret;
 
   public WorkspaceBindings(
       final JWTService jwtService,
       final WorkspaceService workspaceService,
+      final WorkspaceVersioningService versioningService,
       final PermissionsService permissionsService,
       final String hasuraAdminSecret) {
     this.jwtService = jwtService;
     this.workspaceService = workspaceService;
+    this.versioningService = versioningService;
     this.permissionsService = permissionsService;
     this.hasuraAdminSecret = hasuraAdminSecret;
   }
@@ -96,6 +100,11 @@ public class WorkspaceBindings implements Plugin {
         }
       });
       before("/metadata/*", ctx -> {
+        if(ctx.method() != HandlerType.OPTIONS) {
+          authorize(ctx);
+        }
+      });
+      before("/revisions/*", ctx -> {
         if(ctx.method() != HandlerType.OPTIONS) {
           authorize(ctx);
         }
@@ -135,6 +144,23 @@ public class WorkspaceBindings implements Plugin {
         ApiBuilder.get(this::getMetadataFile);
         ApiBuilder.post(this::setMetadataKeys);
         ApiBuilder.delete(this::deleteMetadata);
+      });
+
+      // File Versioning (Phase-1 prototype).
+      // Literal-prefixed routes are registered before the general "{workspaceId}/<path>" pattern so the
+      // literal segment wins the match (same convention as /ws/bulk and /metadata/unset above).
+      path("/revisions/migrate/{workspaceId}", () -> ApiBuilder.post(this::migrateWorkspaceRevisions));
+      path("/revisions/restore/{workspaceId}/<path>", () -> ApiBuilder.post(this::restoreRevision));
+      path("/revisions/ws/restore/{workspaceId}", () -> ApiBuilder.post(this::restoreToCheckpoint));
+      path("/revisions/ws/{workspaceId}", () -> {
+        // Workspace-level checkpoints: GET lists them, POST snapshots all dirty files at once.
+        ApiBuilder.get(this::listWorkspaceCheckpoints);
+        ApiBuilder.post(this::snapshotWorkspace);
+      });
+      path("/revisions/{workspaceId}/<path>", () -> {
+        // GET with no "rev" query param lists a file's revisions; GET with "rev" previews that revision's bytes.
+        ApiBuilder.get(this::listOrReadRevision);
+        ApiBuilder.post(this::createRevision);
       });
     });
 
@@ -617,6 +643,233 @@ public class WorkspaceBindings implements Plugin {
     switch (deleteResults){
       case HandlerResult.Success success -> context.status(success.status()).result(success.response());
       case HandlerResult.Failure failure -> context.status(failure.status()).json(failure.error());
+    }
+  }
+  // endregion
+
+  // region File Versioning Endpoints (Phase-1 prototype)
+
+  /** POST /revisions/migrate/{workspaceId} — initialize the workspace as a Git repo + baseline (revision a). */
+  private void migrateWorkspaceRevisions(Context context) throws NoSuchWorkspaceException {
+    final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
+    if (!checkPermissions(context, workspaceId, WorkspaceAction.write_file_directory)) {
+      return;
+    }
+    try {
+      final var migrated = versioningService.migrate(workspaceId, authorize(context).userId());
+      context.status(200).json(Json.createObjectBuilder().add("migrated", migrated).build().toString());
+    } catch (WorkspaceFileOpException wfe) {
+      context.status(400).json(new FormattedError(wfe, "Could not migrate workspace into Git."));
+    } catch (IOException ioe) {
+      final var fe = new FormattedError(ioe, "Could not migrate workspace into Git.");
+      logger.warn("MIGRATE REVISIONS: IO Exception: {}", fe);
+      context.status(500).json(fe);
+    }
+  }
+
+  /** POST /revisions/ws/{workspaceId} — snapshot all dirty files into one workspace checkpoint. */
+  private void snapshotWorkspace(Context context) throws NoSuchWorkspaceException {
+    final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
+    if (!checkPermissions(context, workspaceId, WorkspaceAction.write_file_directory)) {
+      return;
+    }
+
+    Optional<String> name = Optional.empty();
+    Optional<String> message = Optional.empty();
+    final var rawBody = context.body();
+    if (rawBody != null && !rawBody.isBlank()) {
+      try (final var reader = Json.createReader(new StringReader(rawBody))) {
+        final var body = reader.readObject();
+        if (body.containsKey("name") && !body.isNull("name")) name = Optional.of(body.getString("name"));
+        if (body.containsKey("message") && !body.isNull("message")) message = Optional.of(body.getString("message"));
+      } catch (JsonException je) {
+        context.status(400).json(new FormattedError(je, "Request body must be a JSON object with optional 'name' and 'message'."));
+        return;
+      }
+    }
+
+    try {
+      final var snapshot = versioningService.snapshotWorkspace(workspaceId, name, message, authorize(context).userId());
+      final var fileRevisions = Json.createArrayBuilder();
+      snapshot.fileRevisions().forEach(r -> fileRevisions.add(r.toJson()));
+      context.status(200).json(Json.createObjectBuilder()
+          .add("checkpoint", checkpointJson(snapshot.checkpoint()))
+          .add("fileRevisions", fileRevisions)
+          .build().toString());
+    } catch (WorkspaceFileOpException wfe) {
+      context.status(400).json(new FormattedError(wfe, "Could not snapshot workspace."));
+    } catch (IOException ioe) {
+      final var fe = new FormattedError(ioe, "Could not snapshot workspace.");
+      logger.warn("SNAPSHOT WORKSPACE: IO Exception: {}", fe);
+      context.status(500).json(fe);
+    }
+  }
+
+  /** GET /revisions/ws/{workspaceId} — list the workspace's checkpoints. */
+  private void listWorkspaceCheckpoints(Context context) throws NoSuchWorkspaceException {
+    final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
+    if (!checkPermissions(context, workspaceId, WorkspaceAction.read_file_directory)) {
+      return;
+    }
+    try {
+      final var checkpoints = Json.createArrayBuilder();
+      versioningService.listCheckpoints(workspaceId).forEach(c -> checkpoints.add(checkpointJson(c)));
+      context.status(200).json(checkpoints.build().toString());
+    } catch (IOException ioe) {
+      final var fe = new FormattedError(ioe, "Could not list workspace checkpoints.");
+      logger.warn("LIST CHECKPOINTS: IO Exception: {}", fe);
+      context.status(500).json(fe);
+    }
+  }
+
+  private static JsonObject checkpointJson(final WorkspaceVersioningService.WorkspaceCheckpoint c) {
+    return Json.createObjectBuilder()
+        .add("number", c.number())
+        .add("name", c.name())
+        .add("commitSha", c.commitSha())
+        .add("author", c.author() == null ? "" : c.author())
+        .add("createdAt", c.createdAt() == null ? "" : c.createdAt())
+        .add("message", c.message() == null ? "" : c.message())
+        .add("fileCount", c.fileCount())
+        .build();
+  }
+
+  /** POST /revisions/ws/restore/{workspaceId}?checkpoint={rev} — reset the workspace to a checkpoint (no merge). */
+  private void restoreToCheckpoint(Context context) throws NoSuchWorkspaceException {
+    final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
+    if (!checkPermissions(context, workspaceId, WorkspaceAction.write_file_directory)) {
+      return;
+    }
+    final var checkpoint = context.queryParam("checkpoint");
+    if (checkpoint == null || checkpoint.isBlank()) {
+      context.status(400).json(new FormattedError("Query parameter 'checkpoint' is required (a checkpoint number or name)."));
+      return;
+    }
+    try {
+      final var result = versioningService.restoreToCheckpoint(workspaceId, checkpoint, authorize(context).userId());
+      if (result.isEmpty()) {
+        context.status(404).json(new FormattedError("No checkpoint '%s'.".formatted(checkpoint)));
+        return;
+      }
+      final var restored = Json.createArrayBuilder();
+      result.get().restoredPaths().forEach(restored::add);
+      final var createdSince = Json.createArrayBuilder();
+      result.get().filesCreatedSince().forEach(createdSince::add);
+      context.status(200).json(Json.createObjectBuilder()
+          .add("restored", restored)
+          .add("filesCreatedSince", createdSince)
+          .build().toString());
+    } catch (WorkspaceFileOpException wfe) {
+      context.status(400).json(new FormattedError(wfe, "Could not restore checkpoint."));
+    } catch (IOException ioe) {
+      final var fe = new FormattedError(ioe, "Could not restore checkpoint.");
+      logger.warn("RESTORE CHECKPOINT: IO Exception: {}", fe);
+      context.status(500).json(fe);
+    }
+  }
+
+  /** POST /revisions/{workspaceId}/&lt;path&gt; — snapshot the file's working copy as a new immutable revision. */
+  private void createRevision(Context context) throws NoSuchWorkspaceException {
+    final var pathInfo = PathInformation.of(context);
+    if (!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.write_file_directory)) {
+      return;
+    }
+
+    Optional<String> name = Optional.empty();
+    Optional<String> message = Optional.empty();
+    final var rawBody = context.body();
+    if (rawBody != null && !rawBody.isBlank()) {
+      try (final var reader = Json.createReader(new StringReader(rawBody))) {
+        final var body = reader.readObject();
+        if (body.containsKey("name") && !body.isNull("name")) name = Optional.of(body.getString("name"));
+        if (body.containsKey("message") && !body.isNull("message")) message = Optional.of(body.getString("message"));
+      } catch (JsonException je) {
+        context.status(400).json(new FormattedError(je, "Request body must be a JSON object with optional 'name' and 'message'."));
+        return;
+      }
+    }
+
+    try {
+      if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
+        context.status(404).json(new FormattedError(new NoSuchFileException(pathInfo.workspaceId, pathInfo.filePath)));
+        return;
+      }
+      final var revision = versioningService.createRevision(
+          pathInfo.workspaceId, pathInfo.filePath, name, message, authorize(context).userId());
+      context.status(200).json(revision.toJson().toString());
+    } catch (WorkspaceFileOpException wfe) {
+      context.status(400).json(new FormattedError(wfe, "Could not create revision."));
+    } catch (IOException ioe) {
+      final var fe = new FormattedError(ioe, "Could not create revision.");
+      logger.warn("CREATE REVISION: IO Exception: {}", fe);
+      context.status(500).json(fe);
+    }
+  }
+
+  /** GET /revisions/{workspaceId}/&lt;path&gt; — list a file's revisions, or (with ?rev=) preview one revision's bytes. */
+  private void listOrReadRevision(Context context) throws NoSuchWorkspaceException {
+    final var pathInfo = PathInformation.of(context);
+    if (!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.read_file_directory)) {
+      return;
+    }
+    final var rev = context.queryParam("rev");
+    try {
+      if (rev == null) {
+        final var revisions = versioningService.listRevisions(pathInfo.workspaceId, pathInfo.filePath);
+        final var arr = Json.createArrayBuilder();
+        revisions.forEach(r -> arr.add(r.toJson()));
+        context.status(200).json(arr.build().toString());
+      } else {
+        final var bytes = versioningService.readRevision(pathInfo.workspaceId, pathInfo.filePath, rev);
+        if (bytes.isEmpty()) {
+          context.status(404).json(new FormattedError("No revision '%s' for %s.".formatted(rev, pathInfo.filePath)));
+          return;
+        }
+        context.contentType(ContentType.OCTET_STREAM);
+        context.header("Content-Disposition", "attachment; filename=\"" + pathInfo.fileName() + "\"");
+        context.status(200).result(bytes.get());
+      }
+    } catch (WorkspaceFileOpException wfe) {
+      context.status(400).json(new FormattedError(wfe, "Could not read revisions."));
+    } catch (IOException ioe) {
+      final var fe = new FormattedError(ioe, "Could not read revisions.");
+      logger.warn("READ REVISIONS: IO Exception: {}", fe);
+      context.status(500).json(fe);
+    }
+  }
+
+  /** POST /revisions/restore/{workspaceId}/&lt;path&gt;?rev={rev} — overwrite the working copy with a revision (no merge). */
+  private void restoreRevision(Context context) throws NoSuchWorkspaceException {
+    final var pathInfo = PathInformation.of(context);
+    if (!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.write_file_directory)) {
+      return;
+    }
+    final var rev = context.queryParam("rev");
+    if (rev == null || rev.isBlank()) {
+      context.status(400).json(new FormattedError("Query parameter 'rev' is required (a revision number or name)."));
+      return;
+    }
+    try {
+      final var result = versioningService.restore(
+          pathInfo.workspaceId, pathInfo.filePath, rev, authorize(context).userId());
+      if (result.isEmpty()) {
+        context.status(404).json(new FormattedError("No revision '%s' for %s.".formatted(rev, pathInfo.filePath)));
+        return;
+      }
+      final var r = result.get();
+      // Return the restored working copy's new ETag so the editor can keep saving without re-fetching.
+      context.header("ETag", r.etag());
+      context.status(200).json(Json.createObjectBuilder()
+          .add("etag", r.etag())
+          .add("number", r.number())
+          .add("name", r.name())
+          .build().toString());
+    } catch (WorkspaceFileOpException wfe) {
+      context.status(400).json(new FormattedError(wfe, "Could not restore revision."));
+    } catch (IOException ioe) {
+      final var fe = new FormattedError(ioe, "Could not restore revision.");
+      logger.warn("RESTORE REVISION: IO Exception: {}", fe);
+      context.status(500).json(fe);
     }
   }
   // endregion

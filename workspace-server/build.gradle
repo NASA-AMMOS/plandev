@@ -34,6 +34,9 @@ dependencies {
   implementation 'org.postgresql:postgresql:42.6.1'
   implementation 'com.zaxxer:HikariCP:5.0.1'
 
+  // Git-native workspace file versioning (Phase-1 prototype).
+  implementation 'org.eclipse.jgit:org.eclipse.jgit:6.10.0.202406032230-r'
+
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:6.0.1'
   testImplementation 'org.junit.jupiter:junit-jupiter-params:6.0.1'
   testImplementation 'net.jqwik:jqwik:1.6.5'

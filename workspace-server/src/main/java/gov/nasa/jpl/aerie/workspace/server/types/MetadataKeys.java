@@ -4,6 +4,7 @@ import java.util.Set;
 
 public enum MetadataKeys {
   version,
+  fileId,
   createdBy,
   createdAt,
   lastEditedBy,

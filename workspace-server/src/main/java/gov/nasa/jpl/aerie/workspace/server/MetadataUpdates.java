@@ -10,6 +10,9 @@ import java.util.Optional;
 public class MetadataUpdates {
   // System-Managed Fields
   private final Optional<String> version;
+  // Stable per-file identity used by file versioning. Set once (at first revision/migration) and
+  // preserved across saves so a file's history survives renames. System-managed; not user-settable.
+  private final Optional<String> fileId;
   private final Optional<String> createdBy;
   private final Optional<Instant> createdAt;
   private final Optional<String> lastEditedBy;
@@ -24,6 +27,7 @@ public class MetadataUpdates {
 
   private MetadataUpdates(Builder builder){
     this.version = Optional.ofNullable(builder.version);
+    this.fileId = Optional.ofNullable(builder.fileId);
     this.createdBy = Optional.ofNullable(builder.createdBy);
     this.createdAt = Optional.ofNullable(builder.createdAt);
     this.lastEditedBy = Optional.ofNullable(builder.lastEditedBy);
@@ -43,6 +47,7 @@ public class MetadataUpdates {
     this.user = user;
 
     this.version = Optional.empty();
+    this.fileId = Optional.empty();
     this.createdBy = Optional.empty();
     this.createdAt = Optional.empty();
     this.lastEditedBy = Optional.empty();
@@ -52,6 +57,10 @@ public class MetadataUpdates {
   // System-managed fields
   public Optional<String> version() {
     return version;
+  }
+
+  public Optional<String> fileId() {
+    return fileId;
   }
 
   public Optional<String> createdBy() {
@@ -157,6 +166,7 @@ public class MetadataUpdates {
 
   public static class Builder {
     private String version;
+    private String fileId;
     private String createdBy;
     private Instant createdAt;
     private String lastEditedBy;
@@ -179,6 +189,11 @@ public class MetadataUpdates {
 
     public Builder version(String version) {
       this.version = version;
+      return this;
+    }
+
+    public Builder fileId(String fileId) {
+      this.fileId = fileId;
       return this;
     }
 

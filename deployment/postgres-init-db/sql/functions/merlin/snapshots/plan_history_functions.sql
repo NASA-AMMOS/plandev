@@ -26,11 +26,14 @@ $$;
 create function merlin.get_snapshot_history_from_plan(starting_plan_id integer)
   returns setof integer
   language plpgsql as $$
-  begin
-    return query
-      select merlin.get_snapshot_history(snapshot_id)  --runs the recursion
-      from merlin.plan_latest_snapshot where plan_id = starting_plan_id; --supplies input for get_snapshot_history
-  end
+begin
+  if not exists(select from merlin.plan where id = starting_plan_id) then
+    raise exception 'Plan with ID % does not exist.', starting_plan_id;
+  end if;
+  return query
+    select merlin.get_snapshot_history(snapshot_id)  --runs the recursion
+    from merlin.plan_latest_snapshot where plan_id = starting_plan_id; --supplies input for get_snapshot_history
+end
 $$;
 
 create function merlin.get_snapshot_history(starting_snapshot_id integer)

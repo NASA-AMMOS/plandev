@@ -25,12 +25,16 @@ import java.util.Set;
 public interface WorkspaceService {
   /**
    * Compute a byte array into a strong Entity Tag (lowercase hex) using the SHA-256 algorithm.
+   * @param content a byte array containing the original (non-digested) content
    */
   static String computeETag(final byte[] content) {
     return eTagFromDigest(newSHA256Digest().digest(content));
   }
 
-  /** Quote a digest as a strong ETag (lowercase hex). */
+  /**
+   * Quote a digest as a strong ETag (lowercase hex).
+   * @param digestBytes the message digest to be quoted
+   */
   static String eTagFromDigest(final byte[] digestBytes) {
     return "\"" + HexFormat.of().formatHex(digestBytes) + "\"";
   }

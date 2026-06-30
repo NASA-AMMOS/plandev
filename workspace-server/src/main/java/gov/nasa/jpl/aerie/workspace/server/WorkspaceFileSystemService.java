@@ -349,7 +349,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         // This while body is left intentionally empty, since the DigestInputStream automatically
         // processes the chunk as part of read().
       }
-      return WorkspaceService.computeETag(md.digest());
+      return WorkspaceService.eTagFromDigest(md.digest());
     }
   }
 
@@ -382,7 +382,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       FileUtil.streamToFile(contentStream, path.toString());
     }
     updateMetadataKeys(metadataFilePath, metadataUpdates, MetadataMergeBehavior.deepMerge);
-    return Optional.of(WorkspaceService.computeETag(md.digest()));
+    return Optional.of(WorkspaceService.eTagFromDigest(md.digest()));
   }
 
   @Override
@@ -678,7 +678,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
                                         .toString()
                                         .getBytes(StandardCharsets.UTF_8);
     final var inputStream = new ByteArrayInputStream(fallbackResponse);
-    final var eTag = WorkspaceService.computeETag(WorkspaceService.newSHA256Digest().digest(fallbackResponse));
+    final var eTag = WorkspaceService.computeETag(fallbackResponse);
     return new FileStream(inputStream, metadataFileName, fallbackResponse.length, eTag);
   }
 

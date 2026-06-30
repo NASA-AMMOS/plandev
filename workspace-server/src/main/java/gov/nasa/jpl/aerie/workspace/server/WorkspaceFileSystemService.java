@@ -118,7 +118,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var baseFilePath = resolveWritingPath(rootPath, filePath);
 
     // Check that the given filepath is not a directory or a metadata file, both of which are not allowed to have associated metadata files
-    if(baseFilePath.toFile().isDirectory()) {
+    if(Files.isDirectory(baseFilePath)) {
       throw new WorkspaceFileOpException("Cannot resolve metadata file path: %s is a directory.".formatted(baseFilePath.getFileName()));
     }
 
@@ -131,7 +131,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var metadataFileName = RenderType.toMetadataFileName(baseFilePath.getFileName().toString());
     final var metadataFilePath = baseFilePath.resolveSibling(metadataFileName); // Metadata files are hidden sibling files
 
-    if(metadataFilePath.toFile().isDirectory()) {
+    if(Files.isDirectory(metadataFilePath)) {
       throw new WorkspaceFileOpException("Cannot retrieve metadata file: %s is a directory".formatted(metadataFilePath.getFileName()));
     }
 
@@ -229,7 +229,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     }
 
     for(final var f : contents) {
-      if(Files.isSymbolicLink(f.toPath()) || !f.isDirectory()) {
+      if(Files.isSymbolicLink(f.toPath()) || !Files.isDirectory(f.toPath())) {
         success = rm(f) && success;
       } else {
         success = rmDirectory(f) && success;
@@ -263,7 +263,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   @Override
   public boolean isDirectory(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException {
     final var path = resolveReadingPath(workspaceId, filePath);
-    return path.toFile().isDirectory();
+    return Files.isDirectory(path);
   }
 
   @Override
@@ -308,7 +308,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var path = resolveReadingPath(workspaceId, filePath);
     final var file = path.toFile();
 
-    if(filePath.toFile().isDirectory()) {
+    if(Files.isDirectory(path)) {
       throw new WorkspaceFileOpException("Cannot get the file contents of a directory.");
     }
     if(RenderType.isAerieMetadataFile(file.getName())) {
@@ -325,7 +325,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   public String getETag(final int workspaceId, final Path filePath)
   throws IOException, NoSuchWorkspaceException, NoSuchFileException, WorkspaceFileOpException {
     final var path = resolveReadingPath(workspaceId, filePath);
-    if(filePath.toFile().isDirectory()) {
+    if(Files.isDirectory(path)) {
       throw new WorkspaceFileOpException("Cannot compute the Entity Tag for a directory.");
     }
     if(!Files.exists(path)) {
@@ -374,7 +374,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         .lastEditedBy(userId)
         .build();
 
-    if(path.toFile().isDirectory()) return Optional.empty();
+    if(Files.isDirectory(path)) return Optional.empty();
 
     // Hash while streaming to disk so the returned ETag matches what we wrote, with no extra read.
     final var md = WorkspaceService.newSHA256Digest();
@@ -491,7 +491,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   public DirectoryTree listFiles(final int workspaceId, final Path directoryPath, final int depth, final boolean withMetadata)
   throws SQLException, NoSuchWorkspaceException, IOException {
     final var path = resolveReadingPath(workspaceId, directoryPath);
-    if(!path.toFile().isDirectory()) {
+    if(!Files.isDirectory(path)) {
       return null;
     }
     return listFiles(path, depth, withMetadata);
@@ -632,7 +632,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
     final var directoryPath = resolveReadingPath(repoPath, dirPath);
 
-    if(!directoryPath.toFile().isDirectory()) {
+    if(!Files.isDirectory(directoryPath)) {
       if(isReadOnly(repoPath, dirPath)) {
         return List.of(directoryPath);
       }

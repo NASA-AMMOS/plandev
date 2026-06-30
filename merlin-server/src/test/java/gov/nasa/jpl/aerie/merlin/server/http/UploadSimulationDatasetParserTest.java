@@ -174,4 +174,55 @@ public final class UploadSimulationDatasetParserTest {
     assertEquals(new PlanId(789L), action.input().planId());
     assertEquals(1, action.input().simulationResults().simulatedActivities.size());
   }
+
+  @Test
+  public void testParseWithSimulationArguments() {
+    final var simResults = Json.createObjectBuilder()
+        .add("simulationStartTime", "2024-001T00:00:00.000")
+        .add("simulationEndTime", "2024-002T00:00:00.000")
+        .add("profiles", Json.createObjectBuilder()
+            .add("realProfiles", Json.createArrayBuilder())
+            .add("discreteProfiles", Json.createArrayBuilder()))
+        .add("spans", Json.createObjectBuilder()
+            .add("simulatedActivities", Json.createArrayBuilder())
+            .add("unfinishedActivities", Json.createArrayBuilder()))
+        .add("simulationArguments", Json.createObjectBuilder()
+            .add("batteryCapacity", Json.createObjectBuilder().add("type", "real").add("value", 30.0)))
+        .build();
+
+    final var json = Json.createObjectBuilder()
+        .add("action", Json.createObjectBuilder().add("name", "uploadSimulationDataset"))
+        .add("input", Json.createObjectBuilder()
+            .add("planId", 999)
+            .add("simulationResults", simResults))
+        .add("session_variables", Json.createObjectBuilder().add("x-hasura-role", "user"))
+        .add("request_query", "mutation { uploadSimulationDataset }")
+        .build();
+
+    final var action = hasuraUploadSimulationDatasetActionP.parse(json).getSuccessOrThrow();
+
+    assertEquals(new PlanId(999L), action.input().planId());
+    final var results = action.input().simulationResults();
+    assertEquals(1, results.simulationArguments.size());
+    assertTrue(results.simulationArguments.containsKey("batteryCapacity"));
+  }
+
+  @Test
+  public void testParseWithoutSimulationArgumentsDefaultsToEmpty() {
+    final var json = Json.createObjectBuilder()
+        .add("action", Json.createObjectBuilder().add("name", "uploadSimulationDataset"))
+        .add("input", Json.createObjectBuilder()
+            .add("planId", 123)
+            .add("simulationResults", minimalSimulationResults("2024-001T00:00:00.000", "2024-002T00:00:00.000")))
+        .add("session_variables", Json.createObjectBuilder()
+            .add("x-hasura-role", "aerie_admin")
+            .add("x-hasura-user-id", "test-user"))
+        .add("request_query", "mutation { uploadSimulationDataset }")
+        .build();
+
+    final var action = hasuraUploadSimulationDatasetActionP.parse(json).getSuccessOrThrow();
+
+    assertTrue(action.input().simulationResults().simulationArguments.isEmpty(),
+        "simulationArguments should default to empty map when not provided");
+  }
 }

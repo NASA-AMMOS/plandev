@@ -245,7 +245,7 @@ public final class PostgresPlanRepository implements PlanRepository {
           simulation,
           simulationStart,
           simulationEnd,
-          Map.of(),
+          simulationResults.simulationArguments,
           requestedBy);
 
       final var datasetId = simulationDatasetRecord.datasetId();

@@ -199,8 +199,9 @@ public final class SimulationResultsParser {
                     return Map.<Map<ActivityInstanceId, ActivityInstance>, Map<ActivityInstanceId, UnfinishedActivity>>entry(simMap, unfinMap);
                   }),
                   spans -> tuple(List.of(), List.of())))
+          .optionalField("simulationArguments", mapP(serializedValueP))
           .map(
-              untuple((startTime, endTime, profiles, spans) -> {
+              untuple((startTime, endTime, profiles, spans, simArgs) -> {
                 final var duration = Duration.of(startTime.microsUntil(endTime), Duration.MICROSECONDS);
                 return new SimulationResults(
                     profiles.getKey(),
@@ -210,11 +211,13 @@ public final class SimulationResultsParser {
                     startTime.toInstant(),
                     duration,
                     List.of(),
-                    Map.of());
+                    Map.of(),
+                    simArgs.orElse(Map.of()));
               }),
               results -> tuple(
                   new Timestamp(results.startTime),
                   new Timestamp(results.startTime).plusMicros(results.duration.in(Duration.MICROSECONDS)),
                   Map.entry(Map.of(), Map.of()),
-                  Map.entry(Map.of(), Map.of())));
+                  Map.entry(Map.of(), Map.of()),
+                  Optional.ofNullable(results.simulationArguments.isEmpty() ? null : results.simulationArguments)));
 }

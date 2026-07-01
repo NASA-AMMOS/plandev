@@ -11,12 +11,12 @@ create or replace function merlin.get_dependent_activities(_activity_id int, _pl
   with recursive d_activities(activity_id, anchor_id, anchored_to_start, start_offset, total_offset) as (
       select ad.id, ad.anchor_id, ad.anchored_to_start, ad.start_offset, ad.start_offset
       from merlin.activity_directive ad
-      where (ad.anchor_id, ad.plan_id) = (_activity_id, _plan_id)
+      where (ad.anchor_id, ad.plan_id) = (_activity_id, _plan_id) -- select all activities anchored to this one
     union
       select ad.id, ad.anchor_id, ad.anchored_to_start, ad.start_offset, da.total_offset + ad.start_offset
       from merlin.activity_directive ad, d_activities da
-      where (ad.anchor_id, ad.plan_id) = (da.activity_id, _plan_id)
-        and ad.anchored_to_start
+      where (ad.anchor_id, ad.plan_id) = (da.activity_id, _plan_id) -- select all activities anchored to those in the selection
+        and ad.anchored_to_start  -- stop at next end-time anchor
   ) select da.activity_id, da.total_offset
   from d_activities da;
 $$;

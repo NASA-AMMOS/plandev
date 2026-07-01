@@ -21,4 +21,4 @@ create or replace function merlin.get_dependent_activities(_activity_id int, _pl
   from d_activities da;
 $$;
 
-call migrations.mark_migration_applied(35);
+call migrations.mark_migration_applied(37);

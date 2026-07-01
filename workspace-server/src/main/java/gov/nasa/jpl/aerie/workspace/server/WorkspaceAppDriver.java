@@ -50,8 +50,8 @@ public final class WorkspaceAppDriver {
     server.insertHandler(new StatisticsHandler());
     server.setConnectors(new Connector[]{connector});
     final var javalin = Javalin.create(config -> {
-      // Have Javalin generate etags automatically for dynamic endpoints (like listFiles)
-      // We have to generate them manually for serving static workspace files (not supported by Javalin)
+      // Have Javalin generate Entity Tags automatically for endpoints that respond with a simple JSON object (like listFiles)
+      // We have to generate them manually for endpoints that respond with an InputStream (such as getFile) (not supported by Javalin)
       config.http.generateEtags = true;
       config.showJavalinBanner = false;
       if (configuration.enableJavalinDevLogging()) config.plugins.enableDevLogging();

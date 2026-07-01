@@ -428,7 +428,7 @@ public class WorkspaceBindings implements Plugin {
         context.header("Content-Disposition", "attachment; filename=\"" + fileStream.fileName() + "\"");
         // The client sends this ETag back as If-Match when it saves.
         context.header("ETag", fileStream.etag());
-        context.status(200).result(fileStream.readingStream());
+        context.status(200).result(fileStream.readingStream()); // Javalin auto-closes InputStreams once it has sent the contents
       } catch (IOException ioe) {
         final var fe = new FormattedError(ioe, "Could not load file " + pathInfo.fileName());
         logger.warn("GET FILE: IO Exception: {}", fe);
@@ -1396,7 +1396,7 @@ public class WorkspaceBindings implements Plugin {
       // The client sends this ETag back as If-Match when it saves.
       context.header("ETag", fileStream.etag());
       context.header("Content-Disposition", "attachment; filename=\"" + fileStream.fileName() + "\"");
-      context.status(200).result(fileStream.readingStream());
+      context.status(200).result(fileStream.readingStream()); // Javalin auto-closes InputStreams once it has sent the contents
     } catch (WorkspaceFileOpException wfe) {
       final var fe = new FormattedError(wfe, "Could not retrieve metadata file for file "+pathInfo.fileName());
       context.status(400).json(fe);

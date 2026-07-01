@@ -25,16 +25,5 @@ data class Constants<V: Any>(private val timeline: Timeline<Segment<V>, Constant
         l: List<Segment<SerializedValue>> ->
       Constants(l.map { segment -> segment.mapValue(mapper) })
     }
-
-    /**
-     * Returns a deserializer, for use with [gov.nasa.ammos.aerie.procedural.timeline.plan.Plan.resource].
-     *
-     * Unlike [deserializer], this version does not coalesce adjacent segments with equal values.
-     * Use this version if reinforcing the current value is meaningful.
-     */
-    @JvmStatic fun <V: Any> nonCoalescingDeserializer(mapper: (Segment<SerializedValue>) -> V): (List<Segment<SerializedValue>>) -> Constants<V> = {
-        l: List<Segment<SerializedValue>> ->
-      Constants(BaseTimeline(::Constants, preprocessList(l.map { segment -> segment.mapValue(mapper) }, null)))
-    }
   }
 }

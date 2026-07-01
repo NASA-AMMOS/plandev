@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Integration tests for the uploadSimulationDataset endpoint.
- * Tests the full end-to-end flow of uploading externally-generated simulation datasets.
+ * Tests the full end-to-end flow of uploading simulation datasets into a plan.
  */
 public class UploadSimulationDatasetTests {
   // Requests
@@ -87,35 +87,34 @@ public class UploadSimulationDatasetTests {
   @Nested
   class UploadSimulationDataset {
 
-    @Test
-    void invalidPlanId() {
-      // Returns a 404 if the PlanId is invalid
-      // message is "no such plan"
-      final var profileSetBuilder = Json.createObjectBuilder()
-          .add(
-              "/my_boolean",
-              Json.createObjectBuilder()
-                  .add("type", "discrete")
-                  .add("schema", Json.createObjectBuilder().add("type", "boolean"))
-                  .add("segments", Json.createArrayBuilder()
-                      .add(Json.createObjectBuilder()
-                          .add("duration", 3600000000L)
-                          .add("dynamics", true))));
+    private static javax.json.JsonObject minimalSimResults(String start, String end) {
+      return Json.createObjectBuilder()
+          .add("simulationStartTime", start)
+          .add("simulationEndTime", end)
+          .add("profiles", Json.createObjectBuilder()
+              .add("realProfiles", Json.createArrayBuilder())
+              .add("discreteProfiles", Json.createArrayBuilder()))
+          .add("spans", Json.createObjectBuilder()
+              .add("simulatedActivities", Json.createArrayBuilder())
+              .add("unfinishedActivities", Json.createArrayBuilder()))
+          .build();
+    }
 
-      final String data = Json.createObjectBuilder()
+    private static String buildRequest(int pid, javax.json.JsonObject simResults, javax.json.JsonObject session) {
+      return Json.createObjectBuilder()
           .add("action", Json.createObjectBuilder().add("name", "uploadSimulationDataset"))
-          .add(
-              "input", Json.createObjectBuilder()
-                  .add("planId", -1)
-                  .add("simulationStart", "2024-001T00:00:00.000")
-                  .add("simulationEnd", "2024-002T00:00:00.000")
-                  .add("arguments", Json.createObjectBuilder().build())
-                  .add("profileSet", profileSetBuilder))
-          .add("request_query", "")
-          .add("session_variables", admin.getSession())
+          .add("input", Json.createObjectBuilder()
+              .add("planId", pid)
+              .add("simulationResults", simResults))
+          .add("request_query", "mutation { uploadSimulationDataset }")
+          .add("session_variables", session)
           .build()
           .toString();
+    }
 
+    @Test
+    void invalidPlanId() {
+      final String data = buildRequest(-1, minimalSimResults("2024-001T00:00:00.000", "2024-002T00:00:00.000"), admin.getSession());
       final var response = request.post("/uploadSimulationDataset", RequestOptions.create().setData(data));
       assertEquals(404, response.status());
       assertEquals("no such plan", getBody(response).getString("message"));
@@ -123,23 +122,7 @@ public class UploadSimulationDatasetTests {
 
     @Test
     void validWithEmptyProfiles() {
-      // Returns a 201 with empty profiles
-      final var profileSetBuilder = Json.createObjectBuilder();
-
-      final String data = Json.createObjectBuilder()
-          .add("action", Json.createObjectBuilder().add("name", "uploadSimulationDataset"))
-          .add(
-              "input", Json.createObjectBuilder()
-                  .add("planId", planId)
-                  .add("simulationStart", "2024-001T00:00:00.000")
-                  .add("simulationEnd", "2024-001T12:00:00.000")
-                  .add("arguments", Json.createObjectBuilder().build())
-                  .add("profileSet", profileSetBuilder))
-          .add("request_query", "")
-          .add("session_variables", admin.getSession())
-          .build()
-          .toString();
-
+      final String data = buildRequest(planId, minimalSimResults("2024-001T00:00:00.000", "2024-001T12:00:00.000"), admin.getSession());
       final var response = request.post("/uploadSimulationDataset", RequestOptions.create().setData(data));
       assertEquals(201, response.status());
       assertTrue(getBody(response).containsKey("simulationDatasetId"));
@@ -148,82 +131,65 @@ public class UploadSimulationDatasetTests {
 
     @Test
     void validWithDiscreteProfile() {
-      // Returns a 201 with a discrete profile
-      final var profileSetBuilder = Json.createObjectBuilder()
-          .add(
-              "/my_boolean",
-              Json.createObjectBuilder()
-                  .add("type", "discrete")
-                  .add("schema", Json.createObjectBuilder().add("type", "boolean"))
-                  .add("segments", Json.createArrayBuilder()
-                      .add(Json.createObjectBuilder()
-                          .add("duration", 3600000000L)
-                          .add("dynamics", true))
-                      .add(Json.createObjectBuilder()
-                          .add("duration", 3600000000L)
-                          .add("dynamics", false))));
+      final var simResults = Json.createObjectBuilder()
+          .add("simulationStartTime", "2024-001T00:00:00.000")
+          .add("simulationEndTime", "2024-001T12:00:00.000")
+          .add("profiles", Json.createObjectBuilder()
+              .add("realProfiles", Json.createArrayBuilder())
+              .add("discreteProfiles", Json.createArrayBuilder()
+                  .add(Json.createObjectBuilder()
+                      .add("name", "/my_boolean")
+                      .add("schema", Json.createObjectBuilder().add("type", "boolean"))
+                      .add("segments", Json.createArrayBuilder()
+                          .add(Json.createObjectBuilder()
+                              .add("extent", "01:00:00.000000")
+                              .add("dynamics", true))
+                          .add(Json.createObjectBuilder()
+                              .add("extent", "01:00:00.000000")
+                              .add("dynamics", false))))))
+          .add("spans", Json.createObjectBuilder()
+              .add("simulatedActivities", Json.createArrayBuilder())
+              .add("unfinishedActivities", Json.createArrayBuilder()))
+          .build();
 
-      final String data = Json.createObjectBuilder()
-          .add("action", Json.createObjectBuilder().add("name", "uploadSimulationDataset"))
-          .add(
-              "input", Json.createObjectBuilder()
-                  .add("planId", planId)
-                  .add("simulationStart", "2024-001T00:00:00.000")
-                  .add("simulationEnd", "2024-001T12:00:00.000")
-                  .add("arguments", Json.createObjectBuilder()
-                      .add("param1", "value1")
-                      .add("param2", 42))
-                  .add("profileSet", profileSetBuilder))
-          .add("request_query", "")
-          .add("session_variables", admin.getSession())
-          .build()
-          .toString();
-
+      final String data = buildRequest(planId, simResults, admin.getSession());
       final var response = request.post("/uploadSimulationDataset", RequestOptions.create().setData(data));
       assertEquals(201, response.status());
       assertTrue(getBody(response).containsKey("simulationDatasetId"));
       assertFalse(getBody(response).isNull("simulationDatasetId"));
 
-      // Verify the returned ID is a positive integer
       final int simulationDatasetId = getBody(response).getInt("simulationDatasetId");
       assertTrue(simulationDatasetId > 0, "Simulation dataset ID should be positive");
     }
 
     @Test
     void validWithRealProfile() {
-      // Returns a 201 with a real profile
-      final var profileSetBuilder = Json.createObjectBuilder()
-          .add(
-              "/battery",
-              Json.createObjectBuilder()
-                  .add("type", "real")
-                  .add("schema", Json.createObjectBuilder().add("type", "real"))
-                  .add("segments", Json.createArrayBuilder()
-                      .add(Json.createObjectBuilder()
-                          .add("duration", 3600000000L)
-                          .add("dynamics", Json.createObjectBuilder()
-                              .add("initial", 100.0)
-                              .add("rate", -0.5)))
-                      .add(Json.createObjectBuilder()
-                          .add("duration", 3600000000L)
-                          .add("dynamics", Json.createObjectBuilder()
-                              .add("initial", 98.2)
-                              .add("rate", -0.3)))));
+      final var simResults = Json.createObjectBuilder()
+          .add("simulationStartTime", "2024-001T00:00:00.000")
+          .add("simulationEndTime", "2024-002T00:00:00.000")
+          .add("profiles", Json.createObjectBuilder()
+              .add("realProfiles", Json.createArrayBuilder()
+                  .add(Json.createObjectBuilder()
+                      .add("name", "/battery")
+                      .add("schema", Json.createObjectBuilder().add("type", "real"))
+                      .add("segments", Json.createArrayBuilder()
+                          .add(Json.createObjectBuilder()
+                              .add("extent", "01:00:00.000000")
+                              .add("dynamics", Json.createObjectBuilder()
+                                  .add("initial", 100.0)
+                                  .add("rate", -0.5)))
+                          .add(Json.createObjectBuilder()
+                              .add("extent", "01:00:00.000000")
+                              .add("dynamics", Json.createObjectBuilder()
+                                  .add("initial", 98.2)
+                                  .add("rate", -0.3))))))
+              .add("discreteProfiles", Json.createArrayBuilder()))
+          .add("spans", Json.createObjectBuilder()
+              .add("simulatedActivities", Json.createArrayBuilder())
+              .add("unfinishedActivities", Json.createArrayBuilder()))
+          .build();
 
-      final String data = Json.createObjectBuilder()
-          .add("action", Json.createObjectBuilder().add("name", "uploadSimulationDataset"))
-          .add(
-              "input", Json.createObjectBuilder()
-                  .add("planId", planId)
-                  .add("simulationStart", "2024-001T00:00:00.000")
-                  .add("simulationEnd", "2024-002T00:00:00.000")
-                  .add("arguments", Json.createObjectBuilder().build())
-                  .add("profileSet", profileSetBuilder))
-          .add("request_query", "")
-          .add("session_variables", admin.getSession())
-          .build()
-          .toString();
-
+      final String data = buildRequest(planId, simResults, admin.getSession());
       final var response = request.post("/uploadSimulationDataset", RequestOptions.create().setData(data));
       assertEquals(201, response.status());
       assertTrue(getBody(response).containsKey("simulationDatasetId"));
@@ -232,47 +198,37 @@ public class UploadSimulationDatasetTests {
 
     @Test
     void validWithMultipleProfiles() {
-      // Returns a 201 with multiple profiles (both real and discrete)
-      final var profileSetBuilder = Json.createObjectBuilder()
-          .add(
-              "/battery",
-              Json.createObjectBuilder()
-                  .add("type", "real")
-                  .add("schema", Json.createObjectBuilder().add("type", "real"))
-                  .add("segments", Json.createArrayBuilder()
-                      .add(Json.createObjectBuilder()
-                          .add("duration", 7200000000L)
-                          .add("dynamics", Json.createObjectBuilder()
-                              .add("initial", 100.0)
-                              .add("rate", -1.0)))))
-          .add(
-              "/mode",
-              Json.createObjectBuilder()
-                  .add("type", "discrete")
-                  .add("schema", Json.createObjectBuilder().add("type", "string"))
-                  .add("segments", Json.createArrayBuilder()
-                      .add(Json.createObjectBuilder()
-                          .add("duration", 3600000000L)
-                          .add("dynamics", "IDLE"))
-                      .add(Json.createObjectBuilder()
-                          .add("duration", 3600000000L)
-                          .add("dynamics", "ACTIVE"))));
+      final var simResults = Json.createObjectBuilder()
+          .add("simulationStartTime", "2024-001T00:00:00.000")
+          .add("simulationEndTime", "2024-001T12:00:00.000")
+          .add("profiles", Json.createObjectBuilder()
+              .add("realProfiles", Json.createArrayBuilder()
+                  .add(Json.createObjectBuilder()
+                      .add("name", "/battery")
+                      .add("schema", Json.createObjectBuilder().add("type", "real"))
+                      .add("segments", Json.createArrayBuilder()
+                          .add(Json.createObjectBuilder()
+                              .add("extent", "02:00:00.000000")
+                              .add("dynamics", Json.createObjectBuilder()
+                                  .add("initial", 100.0)
+                                  .add("rate", -1.0))))))
+              .add("discreteProfiles", Json.createArrayBuilder()
+                  .add(Json.createObjectBuilder()
+                      .add("name", "/mode")
+                      .add("schema", Json.createObjectBuilder().add("type", "string"))
+                      .add("segments", Json.createArrayBuilder()
+                          .add(Json.createObjectBuilder()
+                              .add("extent", "01:00:00.000000")
+                              .add("dynamics", "IDLE"))
+                          .add(Json.createObjectBuilder()
+                              .add("extent", "01:00:00.000000")
+                              .add("dynamics", "ACTIVE"))))))
+          .add("spans", Json.createObjectBuilder()
+              .add("simulatedActivities", Json.createArrayBuilder())
+              .add("unfinishedActivities", Json.createArrayBuilder()))
+          .build();
 
-      final String data = Json.createObjectBuilder()
-          .add("action", Json.createObjectBuilder().add("name", "uploadSimulationDataset"))
-          .add(
-              "input", Json.createObjectBuilder()
-                  .add("planId", planId)
-                  .add("simulationStart", "2024-001T00:00:00.000")
-                  .add("simulationEnd", "2024-001T12:00:00.000")
-                  .add("arguments", Json.createObjectBuilder()
-                      .add("simulationConfig", "external"))
-                  .add("profileSet", profileSetBuilder))
-          .add("request_query", "")
-          .add("session_variables", admin.getSession())
-          .build()
-          .toString();
-
+      final String data = buildRequest(planId, simResults, admin.getSession());
       final var response = request.post("/uploadSimulationDataset", RequestOptions.create().setData(data));
       assertEquals(201, response.status());
       assertTrue(getBody(response).containsKey("simulationDatasetId"));
@@ -281,20 +237,12 @@ public class UploadSimulationDatasetTests {
 
     @Test
     void missingRequiredField() {
-      // Returns a 400 if required field is missing
-      final var profileSetBuilder = Json.createObjectBuilder();
-
-      // Missing simulationEnd
+      // Returns a 400 when simulationResults is missing entirely
       final String data = Json.createObjectBuilder()
           .add("action", Json.createObjectBuilder().add("name", "uploadSimulationDataset"))
-          .add(
-              "input", Json.createObjectBuilder()
-                  .add("planId", planId)
-                  .add("simulationStart", "2024-001T00:00:00.000")
-                  // Missing simulationEnd
-                  .add("arguments", Json.createObjectBuilder().build())
-                  .add("profileSet", profileSetBuilder))
-          .add("request_query", "")
+          .add("input", Json.createObjectBuilder()
+              .add("planId", planId))
+          .add("request_query", "mutation { uploadSimulationDataset }")
           .add("session_variables", admin.getSession())
           .build()
           .toString();
@@ -305,23 +253,7 @@ public class UploadSimulationDatasetTests {
 
     @Test
     void unauthorizedUser() {
-      // Returns a 403 if user doesn't have permission
-      final var profileSetBuilder = Json.createObjectBuilder();
-
-      final String data = Json.createObjectBuilder()
-          .add("action", Json.createObjectBuilder().add("name", "uploadSimulationDataset"))
-          .add(
-              "input", Json.createObjectBuilder()
-                  .add("planId", planId)
-                  .add("simulationStart", "2024-001T00:00:00.000")
-                  .add("simulationEnd", "2024-001T12:00:00.000")
-                  .add("arguments", Json.createObjectBuilder().build())
-                  .add("profileSet", profileSetBuilder))
-          .add("request_query", "")
-          .add("session_variables", nonOwner.getSession())
-          .build()
-          .toString();
-
+      final String data = buildRequest(planId, minimalSimResults("2024-001T00:00:00.000", "2024-001T12:00:00.000"), nonOwner.getSession());
       final var response = request.post("/uploadSimulationDataset", RequestOptions.create().setData(data));
       assertEquals(403, response.status());
     }

@@ -78,7 +78,7 @@ type Mutation {
     seqIds: [String!]!,
     simulationDatasetId: Int!,
     modelId: Int!,
-    bypassConstraints: Bool, // (optional)
+    bypassConstraints: Boolean,
   ): ExpandAllSequencesResponse
 }
 

@@ -360,7 +360,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
 
   //  0. Extract stuff from request
   // needed to uniquely identify sequence templates, along with activity type
-  const bypassConstraints = req.body.bypass !== undefined ? req.body.bypass as boolean : true;
+  const bypassConstraints = req.body.input.bypassConstraints !== undefined ? (req.body.input.bypassConstraints as boolean) : true;
   const modelId = req.body.input.modelId as number;
   const simulationDatasetId = req.body.input.simulationDatasetId as number;
   const seqIds = (req.body.input.seqIds as number[]).filter((val, index, arr) => arr.indexOf(val) == index); // remove duplicates, if they're even possible
@@ -371,47 +371,61 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
 
   //  0b. [OPTIONAL] Verify that for the given simulationDatasetId, constraints are up to date
   if (!bypassConstraints) {
-    // not checking if simulation is out of date, as that leads to a lot of extra Hasura calls and processing here, and this expansion call is for a specific simulation dataset.
-    // additionally, not checking unchecked cosntraints, as we shouldn't throw an error if anything is unchecked.
-    // we only care about if there are violated constraints:
-    const { constraint_run } = await graphqlClient.request<{
-      constraint_run: {
-        results: {
-          errors: object,
+    // We only block on *violations*. We intentionally don't fail on stale sims,
+    // unchecked constraints, or constraint errors — only on confirmed violations
+    // in the most recent constraint request for this simulation dataset.
+    const { constraint_request } = await graphqlClient.request<{
+      constraint_request: {
+        constraints_run: {
           results: {
-            gaps: object[],
-            violations: object[]
+            errors: object,
+            results: {
+              gaps: object[],
+              violations: object[]
+            }
           }
-        }
+        }[]
       }[]
     }>(
       gql`
-        query GetConstraintResults($simulationDatasetId: Int!) {
-          constraint_run (where: {results: {simulation_dataset_id: {_eq: $simulationDatasetId}}}) {
-            results {
-              errors
-              results 
+        query GetLatestConstraintViolations($simulationDatasetId: Int!) {
+          constraint_request (
+            where: { simulation_dataset_id: { _eq: $simulationDatasetId } }
+            order_by: { requested_at: desc }
+            limit: 1
+          ) {
+            constraints_run {
+              results {
+                results
+              }
             }
           }
         }
       `,
-      {
-        simulationDatasetId: simulationDatasetId
-      },
+      { simulationDatasetId },
     );
+
+    console.log("HERE!")
   
-    console.log(simulationDatasetId, JSON.stringify(constraint_run), "\n", constraint_run.at(constraint_run.length-1), "\n", constraint_run.at(constraint_run.length-1)?.results.results.violations);
-    if (constraint_run.length === 0) {
+    const latestRequest = constraint_request[0];
+    if (latestRequest === undefined) {
       throw new Error(
-        `POST /command-expansion/expand-all-sequence-templates: Expansion for simulation dataset ${simulationDatasetId} failed, as violations haven't been checked yet.`
+        `POST /command-expansion/expand-all-sequence-templates: Expansion for simulation dataset ${simulationDatasetId} failed, as constraints haven't been checked yet.`,
       );
-    } 
-    if (constraint_run.at(constraint_run.length-1)?.results.results.violations.length) {
-      const numViolations = constraint_run.at(constraint_run.length-1)?.results.results.violations.length;
+    }
+
+    const numViolations = latestRequest.constraints_run.reduce(
+      (total, run) => total + (run.results?.results?.violations?.length ?? 0),
+      0,
+    );
+
+    if (numViolations > 0) {
       throw new Error(
-        `POST /command-expansion/expand-all-sequence-templates: Expansion for simulation dataset ${simulationDatasetId} failed, as there ${numViolations ?? 0 > 1 ? "are" : "is"} still ${numViolations} violation${numViolations ?? 0 > 1 ? "s" : ""}.`
+        `POST /command-expansion/expand-all-sequence-templates: Expansion for simulation dataset ${simulationDatasetId} failed, as there ${
+          (numViolations > 1) ? 'are' : 'is'
+        } still ${numViolations} violation${(numViolations > 1) ? 's' : ''}.`,
       );
-    } 
+    }
   }
   
 
@@ -639,12 +653,72 @@ commandExpansionRouter.post('/expand-all-activity-instances', async (req, res, n
   const context: Context = res.locals['context'];
 
   // Query for expansion set data
+  const bypassConstraints = req.body.input.bypassConstraints !== undefined ? (req.body.input.bypassConstraints as boolean) : true;
   const expansionSetId = req.body.input.expansionSetId as number;
   const simulationDatasetId = req.body.input.simulationDatasetId as number;
   const [expansionSet, simulatedActivities] = await Promise.all([
     context.expansionSetDataLoader.load({ expansionSetId }),
     context.simulatedActivitiesDataLoader.load({ simulationDatasetId }),
   ]);
+
+  //  [OPTIONAL] Verify that for the given simulationDatasetId, constraints are up to date
+  if (!bypassConstraints) {
+    // We only block on *violations*. We intentionally don't fail on stale sims,
+    // unchecked constraints, or constraint errors — only on confirmed violations
+    // in the most recent constraint request for this simulation dataset.
+    const { constraint_request } = await graphqlClient.request<{
+      constraint_request: {
+        constraints_run: {
+          results: {
+            errors: object,
+            results: {
+              gaps: object[],
+              violations: object[]
+            }
+          }
+        }[]
+      }[]
+    }>(
+      gql`
+        query GetLatestConstraintViolations($simulationDatasetId: Int!) {
+          constraint_request (
+            where: { simulation_dataset_id: { _eq: $simulationDatasetId } }
+            order_by: { requested_at: desc }
+            limit: 1
+          ) {
+            constraints_run {
+              results {
+                results
+              }
+            }
+          }
+        }
+      `,
+      { simulationDatasetId },
+    );
+
+    console.log("HERE!")
+  
+    const latestRequest = constraint_request[0];
+    if (latestRequest === undefined) {
+      throw new Error(
+        `POST /command-expansion/expand-all-activity-instances: Expansion for simulation dataset ${simulationDatasetId} failed, as constraints haven't been checked yet.`,
+      );
+    }
+
+    const numViolations = latestRequest.constraints_run.reduce(
+      (total, run) => total + (run.results?.results?.violations?.length ?? 0),
+      0,
+    );
+
+    if (numViolations > 0) {
+      throw new Error(
+        `POST /command-expansion/expand-all-activity-instances: Expansion for simulation dataset ${simulationDatasetId} failed, as there ${
+          (numViolations > 1) ? 'are' : 'is'
+        } still ${numViolations} violation${(numViolations > 1) ? 's' : ''}.`,
+      );
+    }
+  }
 
   const missionModelId = expansionSet.missionModel.id;
   const commandTypes = expansionSet.parcel.command_dictionary.commandTypesTypeScript;

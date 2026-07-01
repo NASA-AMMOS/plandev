@@ -3,21 +3,31 @@ package gov.nasa.jpl.aerie.merlin.server.http;
 import gov.nasa.jpl.aerie.json.JsonParser;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.driver.UnfinishedActivity;
+import gov.nasa.jpl.aerie.merlin.driver.engine.EventRecord;
 import gov.nasa.jpl.aerie.merlin.driver.engine.ProfileSegment;
 import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfile;
+import gov.nasa.jpl.aerie.merlin.driver.timeline.EventGraph;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.EventGraphUnflattener;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.ActivityInstance;
 import gov.nasa.jpl.aerie.types.ActivityInstanceId;
 import gov.nasa.jpl.aerie.types.Timestamp;
+import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
+import static gov.nasa.jpl.aerie.json.BasicParsers.intP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.listP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.longP;
 import static gov.nasa.jpl.aerie.json.BasicParsers.mapP;
@@ -39,7 +49,7 @@ import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.realDynamicsP
  *
  * The writer serializes:
  *   - profile segment extents as strings ("HH:MM:SS.ssssss") under the key "extent"
- *   - activity durations/startOffsets as strings under "duration"/"startOffset"
+ *   - activity durations as strings under "duration"
  *   - timestamps as DOY strings ("YYYY-DDDT...") under "startTime"/"simulationStartTime"
  *   - parentId / directiveId as JSON null when absent
  */
@@ -170,6 +180,96 @@ public final class SimulationResultsParser {
                   e.getValue().arguments(),
                   new Timestamp(e.getValue().start())));
 
+  /** Parser for a single flat event object */
+  private record FlatEvent(
+      String causalTime, Timestamp realTime, int transactionIndex,
+      SerializedValue value, String topic, Optional<Long> spanId
+  ) {}
+
+  private static final JsonParser<FlatEvent> flatEventP =
+      productP
+          .field("causalTime", stringP)
+          .field("realTime", timestampP)
+          .field("transactionIndex", intP)
+          .field("value", serializedValueP)
+          .field("topic", stringP)
+          .field("spanId", nullableP(longP))
+          .map(
+              untuple((causal, real, txIdx, val, topic, span) ->
+                  new FlatEvent(causal, real, txIdx, val, topic, span)),
+              fe -> tuple(fe.causalTime, fe.realTime, fe.transactionIndex,
+                          fe.value, fe.topic, fe.spanId));
+
+  /**
+   * Reconstruct topics and events from the parsed JSON structures.
+   *
+   * Topics come as a map of {name -> {schema}} and get converted to
+   * List<Triple<Integer, String, ValueSchema>> with synthesized indices.
+   *
+   * Events come as a flat list, grouped by (realTime, transactionIndex),
+   * then unflattened back into EventGraph<EventRecord> objects.
+   */
+  private static List<Triple<Integer, String, ValueSchema>> buildTopics(
+      Map<String, ValueSchema> topicMap
+  ) {
+    // Synthesized indices are arbitrary — buildEvents resolves topics by name,
+    // so the order here does not need to match the original simulation's topic ordering.
+    final var topics = new ArrayList<Triple<Integer, String, ValueSchema>>();
+    int idx = 0;
+    for (final var entry : topicMap.entrySet()) {
+      topics.add(Triple.of(idx++, entry.getKey(), entry.getValue()));
+    }
+    return topics;
+  }
+
+  private static Map<Duration, List<EventGraph<EventRecord>>> buildEvents(
+      List<FlatEvent> flatEvents,
+      List<Triple<Integer, String, ValueSchema>> topics,
+      Timestamp simulationStart
+  ) {
+    // Build topic name -> index lookup
+    final var topicIndexByName = new HashMap<String, Integer>();
+    for (final var t : topics) {
+      topicIndexByName.put(t.getMiddle(), t.getLeft());
+    }
+
+    // Group flat events by (realTime, transactionIndex)
+    // Key: Duration offset from sim start; inner key: transactionIndex
+    final SortedMap<Duration, Map<Integer, List<Pair<String, EventRecord>>>> grouped = new TreeMap<>();
+
+    for (final var fe : flatEvents) {
+      final var offset = Duration.of(
+          simulationStart.microsUntil(fe.realTime), Duration.MICROSECONDS);
+      final var topicIdx = topicIndexByName.getOrDefault(fe.topic, -1);
+      final var record = new EventRecord(topicIdx, fe.spanId, fe.value);
+
+      grouped
+          .computeIfAbsent(offset, k -> new TreeMap<>())
+          .computeIfAbsent(fe.transactionIndex, k -> new ArrayList<>())
+          .add(Pair.of(fe.causalTime, record));
+    }
+
+    // Convert grouped events into EventGraph structures
+    final var result = new TreeMap<Duration, List<EventGraph<EventRecord>>>();
+    for (final var timeEntry : grouped.entrySet()) {
+      final var duration = timeEntry.getKey();
+      final var transactions = timeEntry.getValue();
+
+      final var graphList = new ArrayList<EventGraph<EventRecord>>();
+      // Iterate in transaction index order
+      for (final var txEntry : transactions.entrySet()) {
+        try {
+          graphList.add(EventGraphUnflattener.unflatten(txEntry.getValue()));
+        } catch (EventGraphUnflattener.InvalidTagException e) {
+          throw new RuntimeException("Failed to reconstruct event graph from uploaded events", e);
+        }
+      }
+      result.put(duration, graphList);
+    }
+
+    return result;
+  }
+
   /** Top-level parser for a complete simulation results JSON blob. */
   public static final JsonParser<SimulationResults> simulationResultsP =
       productP
@@ -200,9 +300,25 @@ public final class SimulationResultsParser {
                   }),
                   spans -> tuple(List.of(), List.of())))
           .optionalField("simulationArguments", mapP(serializedValueP))
+          .optionalField("topics", mapP(productP
+              .field("schema", valueSchemaP)
+              .map(untuple(schema -> schema), s -> tuple(s))))
+          .optionalField("events", listP(flatEventP))
           .map(
-              untuple((startTime, endTime, profiles, spans, simArgs) -> {
+              untuple((startTime, endTime, profiles, spans, simArgs, topicsOpt, eventsOpt) -> {
                 final var duration = Duration.of(startTime.microsUntil(endTime), Duration.MICROSECONDS);
+
+                final List<Triple<Integer, String, ValueSchema>> topics;
+                final Map<Duration, List<EventGraph<EventRecord>>> events;
+
+                if (topicsOpt.isPresent() && eventsOpt.isPresent()) {
+                  topics = buildTopics(topicsOpt.get());
+                  events = buildEvents(eventsOpt.get(), topics, startTime);
+                } else {
+                  topics = List.of();
+                  events = Map.of();
+                }
+
                 return new SimulationResults(
                     profiles.getKey(),
                     profiles.getValue(),
@@ -210,8 +326,8 @@ public final class SimulationResultsParser {
                     spans.getValue(),
                     startTime.toInstant(),
                     duration,
-                    List.of(),
-                    Map.of(),
+                    topics,
+                    events,
                     simArgs.orElse(Map.of()));
               }),
               results -> tuple(
@@ -219,5 +335,7 @@ public final class SimulationResultsParser {
                   new Timestamp(results.startTime).plusMicros(results.duration.in(Duration.MICROSECONDS)),
                   Map.entry(Map.of(), Map.of()),
                   Map.entry(Map.of(), Map.of()),
-                  Optional.ofNullable(results.simulationArguments.isEmpty() ? null : results.simulationArguments)));
+                  Optional.ofNullable(results.simulationArguments.isEmpty() ? null : results.simulationArguments),
+                  Optional.empty(),
+                  Optional.empty()));
 }

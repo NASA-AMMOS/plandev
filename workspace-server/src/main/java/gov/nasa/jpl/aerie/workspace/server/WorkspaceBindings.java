@@ -421,11 +421,6 @@ public class WorkspaceBindings implements Plugin {
     if (workspaceService.isDirectory(pathInfo.workspaceId, pathInfo.filePath)) {
       listContents(context);
     } else {
-      if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
-        context.status(404).json(new FormattedError(new NoSuchFileException(pathInfo.workspaceId, pathInfo.filePath)));
-        return;
-      }
-
       try {
         final var fileStream = workspaceService.loadFile(pathInfo.workspaceId, pathInfo.filePath());
         context.header("x-render-type", workspaceService.getFileType(pathInfo.filePath).name());

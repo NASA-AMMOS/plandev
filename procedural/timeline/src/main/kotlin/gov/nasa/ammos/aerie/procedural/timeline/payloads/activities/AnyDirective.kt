@@ -5,12 +5,13 @@ import kotlin.jvm.optionals.getOrNull
 
 /** A general-purpose container for representing the arguments any type of activity directive. */
 data class AnyDirective(
+//  /***/ @JvmField val arguments: LinkedHashMap<String, SerializedValue>
     /***/ @JvmField val arguments: Map<String, SerializedValue>
 ) {
   /** Serialize this directive into a [SerializedValue]. */
   fun serialize(): SerializedValue = SerializedValue.of(arguments)
   /***/ companion object {
     /** Converts a [SerializedValue] object containing activity arguments into an [AnyDirective] object. */
-    @JvmStatic fun deserializer() = { attributes: SerializedValue -> AnyDirective(attributes.asMap().getOrNull()!!) }
+    @JvmStatic fun deserializer() = { attributes: SerializedValue -> AnyDirective(LinkedHashMap(attributes.asMap().getOrNull()!!)) }
   }
 }

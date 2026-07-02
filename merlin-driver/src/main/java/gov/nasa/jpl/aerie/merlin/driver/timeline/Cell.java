@@ -52,7 +52,7 @@ public final class Cell<State> {
   }
 
   public State getState() {
-    return this.inner.cellType.duplicate(this.state);
+    return this.state;
   }
 
   public boolean isInterestedIn(final Set<Topic<?>> topics) {

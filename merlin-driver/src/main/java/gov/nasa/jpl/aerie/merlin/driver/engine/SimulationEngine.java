@@ -99,6 +99,8 @@ public final class SimulationEngine implements AutoCloseable {
   private final LiveCells cells;
   private Duration elapsedTime;
 
+  private final EngineQuerier reusableQuerier = new EngineQuerier();
+
   public SimulationEngine(LiveCells initialCells) {
     timeline = new TemporalEventSource();
     referenceTimeline = new TemporalEventSource();
@@ -523,15 +525,15 @@ public final class SimulationEngine implements AutoCloseable {
       final Duration horizonTime
   ) {
     if (this.closed) throw new IllegalStateException("Cannot update condition on closed simulation engine");
-    final var querier = new EngineQuerier(frame);
+    reusableQuerier.reset(frame);
     final var prediction = this.conditions
         .get(condition)
-        .nextSatisfied(querier, horizonTime.minus(currentTime))
+        .nextSatisfied(reusableQuerier, horizonTime.minus(currentTime))
         .map(currentTime::plus);
 
-    this.waitingConditions.subscribeQuery(condition, querier.referencedTopics);
+    this.waitingConditions.subscribeQuery(condition, reusableQuerier.referencedTopics);
 
-    final var expiry = querier.expiry.map(currentTime::plus);
+    final var expiry = reusableQuerier.expiry.map(currentTime::plus);
     if (prediction.isPresent() && (expiry.isEmpty() || prediction.get().shorterThan(expiry.get()))) {
       this.scheduledJobs.schedule(JobId.forSignal(condition), SubInstant.Tasks.at(prediction.get()));
     } else {
@@ -548,16 +550,16 @@ public final class SimulationEngine implements AutoCloseable {
       final Duration currentTime,
       final ResourceUpdates resourceUpdates) {
     if (this.closed) throw new IllegalStateException("Cannot update resource on closed simulation engine");
-    final var querier = new EngineQuerier(frame);
+    reusableQuerier.reset(frame);
     resourceUpdates.add(new ResourceUpdates.ResourceUpdate<>(
-        querier,
+        reusableQuerier,
         currentTime,
         resourceId,
         this.resources.get(resourceId)));
 
-    this.waitingResources.subscribeQuery(resourceId, querier.referencedTopics);
+    this.waitingResources.subscribeQuery(resourceId, reusableQuerier.referencedTopics);
 
-    final var expiry = querier.expiry.map(currentTime::plus);
+    final var expiry = reusableQuerier.expiry.map(currentTime::plus);
     if (expiry.isPresent()) {
       this.scheduledJobs.schedule(JobId.forResource(resourceId), SubInstant.Resources.at(expiry.get()));
     }
@@ -1160,15 +1162,19 @@ public final class SimulationEngine implements AutoCloseable {
 
   /** A handle for processing requests from a modeled resource or condition. */
   private static final class EngineQuerier implements Querier {
-    private final TaskFrame<JobId> frame;
-    private final Set<Topic<?>> referencedTopics = new HashSet<>();
+    private TaskFrame<JobId> frame;
+    private Set<Topic<?>> referencedTopics = new HashSet<>();
     private Optional<Duration> expiry = Optional.empty();
     // Cache: query -> state. Safe because resources/conditions never emit events during getDynamics,
     // so cell state cannot change between repeated reads within one evaluation.
     private final HashMap<Query<?>, Object> stateCache = new HashMap<>(32);
 
-    public EngineQuerier(final TaskFrame<JobId> frame) {
+    void reset(final TaskFrame<JobId> frame) {
       this.frame = Objects.requireNonNull(frame);
+      // subscribeQuery takes ownership of the previous set, so allocate a new one
+      this.referencedTopics = new HashSet<>();
+      this.expiry = Optional.empty();
+      this.stateCache.clear();
     }
 
     @Override

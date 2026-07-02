@@ -47,18 +47,12 @@ public final class Naming {
   private static final WeakHashMap<Object, Function<NamingContext, Optional<String>>> NAMES = new WeakHashMap<>();
 
   private record NamingContext(Set<Object> visited, Function<Object, Optional<String>> anonymousName) {
-    NamingContext visit(Object thing) {
-      var newVisited = new HashSet<>(visited);
-      newVisited.add(thing);
-      return new NamingContext(newVisited, anonymousName);
-    }
-
     public NamingContext() {
-      this(Set.of(), $ -> Optional.empty());
+      this(new HashSet<>(), $ -> Optional.empty());
     }
 
     public NamingContext(String anonymousName) {
-      this(Set.of(), anonymousName == null ? $ -> Optional.of(Objects.toString($)) : $ -> Optional.of(anonymousName));
+      this(new HashSet<>(), anonymousName == null ? $ -> Optional.of(Objects.toString($)) : $ -> Optional.of(anonymousName));
     }
   }
 
@@ -109,9 +103,15 @@ public final class Naming {
   }
 
   private static Optional<String> getName(Object thing, NamingContext context) {
-    return context.visited.contains(thing)
-            ? context.anonymousName.apply(thing)
-            : NAMES.getOrDefault(thing, ctx -> ctx.anonymousName.apply(thing)).apply(context.visit(thing));
+    if (context.visited.contains(thing)) {
+      return context.anonymousName.apply(thing);
+    }
+    context.visited.add(thing);
+    try {
+      return NAMES.getOrDefault(thing, ctx -> ctx.anonymousName.apply(thing)).apply(context);
+    } finally {
+      context.visited.remove(thing);
+    }
   }
 
   public static String argsFormat(Collection<?> collection) {

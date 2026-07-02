@@ -5,6 +5,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.model.OutputType;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 
 import java.io.IOException;
+import java.util.Objects;
 
 /**
  * Wraps a raw Java value and its OutputType, deferring serialization until needed.
@@ -33,5 +34,9 @@ public final class DeferredSerializedValue {
 
   public void writeJson(final JsonGenerator gen) throws IOException {
     outputType.writeJson(rawValue, gen);
+  }
+
+  public boolean sameValueAs(final DeferredSerializedValue other) {
+    return other != null && Objects.equals(this.rawValue, other.rawValue);
   }
 }

@@ -147,24 +147,30 @@ public class InMemorySimulationResourceManager implements SimulationResourceMana
       final var resourceName = e.getKey();
       final var resourceSegment = e.getValue();
 
-      realResourceSegments
+      final var segments = realResourceSegments
           .computeIfAbsent(
               resourceName,
               r -> new ResourceSegments<>(resourceSegment.getLeft(), new ArrayList<>()))
-          .segments()
-          .add(new ResourceSegments.Segment<>(elapsedTime, resourceSegment.getRight()));
+          .segments();
+      final var newDynamics = resourceSegment.getRight();
+      if (segments.isEmpty() || !newDynamics.equals(segments.getLast().dynamics())) {
+        segments.add(new ResourceSegments.Segment<>(elapsedTime, newDynamics));
+      }
     }
 
     for(final var e : discreteResourceUpdates.entrySet()) {
       final var resourceName = e.getKey();
       final var resourceSegment = e.getValue();
 
-      discreteResourceSegments
+      final var segments = discreteResourceSegments
           .computeIfAbsent(
               resourceName,
               r -> new ResourceSegments<>(resourceSegment.getLeft(), new ArrayList<>()))
-          .segments()
-          .add(new ResourceSegments.Segment<>(elapsedTime, resourceSegment.getRight()));
+          .segments();
+      final var newValue = resourceSegment.getRight();
+      if (segments.isEmpty() || !newValue.sameValueAs(segments.getLast().dynamics())) {
+        segments.add(new ResourceSegments.Segment<>(elapsedTime, newValue));
+      }
     }
 
   }

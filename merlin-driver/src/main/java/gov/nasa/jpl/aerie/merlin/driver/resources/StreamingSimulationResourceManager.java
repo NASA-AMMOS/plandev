@@ -178,14 +178,17 @@ public class StreamingSimulationResourceManager implements SimulationResourceMan
       final var resourceName = e.getKey();
       final var resourceSegment = e.getValue();
 
-      realResourceSegments
+      final var segments = realResourceSegments
           .computeIfAbsent(
               resourceName,
               r -> new ResourceSegments<>(resourceSegment.getLeft(), threshold))
-          .segments()
-          .add(new ResourceSegments.Segment<>(elapsedTime, resourceSegment.getRight()));
+          .segments();
+      final var newDynamics = resourceSegment.getRight();
+      if (segments.isEmpty() || !newDynamics.equals(segments.getLast().dynamics())) {
+        segments.add(new ResourceSegments.Segment<>(elapsedTime, newDynamics));
+      }
 
-      if(realResourceSegments.get(resourceName).segments().size() >= threshold) {
+      if(segments.size() >= threshold) {
         readyToStream = true;
       }
     }
@@ -194,14 +197,17 @@ public class StreamingSimulationResourceManager implements SimulationResourceMan
       final var resourceName = e.getKey();
       final var resourceSegment = e.getValue();
 
-      discreteResourceSegments
+      final var segments = discreteResourceSegments
           .computeIfAbsent(
               resourceName,
               r -> new ResourceSegments<>(resourceSegment.getLeft(), threshold))
-          .segments()
-          .add(new ResourceSegments.Segment<>(elapsedTime, resourceSegment.getRight()));
+          .segments();
+      final var newValue = resourceSegment.getRight();
+      if (segments.isEmpty() || !newValue.sameValueAs(segments.getLast().dynamics())) {
+        segments.add(new ResourceSegments.Segment<>(elapsedTime, newValue));
+      }
 
-      if(discreteResourceSegments.get(resourceName).segments().size() >= threshold) {
+      if(segments.size() >= threshold) {
         readyToStream = true;
       }
     }

@@ -40,23 +40,10 @@ public final class CellExpiryTest {
 
     final var actual = results.discreteProfiles.get("/key").segments();
 
+    // With segment deduplication, consecutive identical values collapse into one segment.
+    // The resource is still re-evaluated at each expiry interval, but only distinct values are stored.
     final var expected = List.of(
-        new ProfileSegment<>(duration(500, MILLISECONDS), SerializedValue.of("value")),
-        new ProfileSegment<>(duration(500, MILLISECONDS), SerializedValue.of("value")),
-
-        new ProfileSegment<>(duration(500, MILLISECONDS), SerializedValue.of("value")),
-        new ProfileSegment<>(duration(500, MILLISECONDS), SerializedValue.of("value")),
-
-        new ProfileSegment<>(duration(500, MILLISECONDS), SerializedValue.of("value")),
-        new ProfileSegment<>(duration(500, MILLISECONDS), SerializedValue.of("value")),
-
-        new ProfileSegment<>(duration(500, MILLISECONDS), SerializedValue.of("value")),
-        new ProfileSegment<>(duration(500, MILLISECONDS), SerializedValue.of("value")),
-
-        new ProfileSegment<>(duration(500, MILLISECONDS), SerializedValue.of("value")),
-        new ProfileSegment<>(duration(500, MILLISECONDS), SerializedValue.of("value")),
-
-        new ProfileSegment<>(Duration.ZERO, SerializedValue.of("value")));
+        new ProfileSegment<>(Duration.SECONDS.times(5), SerializedValue.of("value")));
 
     assertEquals(expected, actual);
   }

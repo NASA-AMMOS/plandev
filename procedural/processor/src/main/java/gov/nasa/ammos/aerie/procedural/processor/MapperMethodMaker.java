@@ -83,7 +83,7 @@ public abstract sealed class MapperMethodMaker
             "final var $L = new $T()",
             "arguments",
             ParameterizedTypeName.get(
-                java.util.HashMap.class,
+                java.util.LinkedHashMap.class,
                 String.class,
                 gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue.class))
         .addCode(

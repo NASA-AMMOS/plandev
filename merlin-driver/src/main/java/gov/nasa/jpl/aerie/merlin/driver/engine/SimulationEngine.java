@@ -99,6 +99,16 @@ public final class SimulationEngine implements AutoCloseable {
   private final LiveCells cells;
   private Duration elapsedTime;
 
+  /** SpanInfo collected incrementally during simulation, so the timeline can be trimmed. */
+  private SpanInfo incrementalSpanInfo;
+  /** Reusable trait for incremental SpanInfo collection (initialized lazily). */
+  private SpanInfo.Trait spanInfoTrait;
+  /** Number of simulation steps since the last timeline trim. */
+  private int stepsSinceLastTrim = 0;
+  /** Trim the timeline when this many slabs have accumulated. Keep 2 for safety. */
+  private static final int TRIM_SLAB_THRESHOLD = 10;
+  private static final int SLABS_TO_KEEP = 2;
+
   public SimulationEngine(LiveCells initialCells) {
     timeline = new TemporalEventSource();
     referenceTimeline = new TemporalEventSource();
@@ -170,12 +180,58 @@ public final class SimulationEngine implements AutoCloseable {
       final var batch = this.extractNextJobs(Duration.MAX_VALUE);
       final var results = this.performJobs(batch.jobs(), cells, elapsedTime, Duration.MAX_VALUE);
       for (final var commit : results.commits()) {
+        collectSpanInfo(commit);
         timeline.add(commit);
       }
       if (results.error.isPresent()) {
         throw results.error.get();
       }
     }
+
+    // If timeline trimming is enabled, materialize all cells so that all cursors exist.
+    // After this, no new cursors will be created from parent lookups.
+    if (this.spanInfoTrait != null) {
+      this.cells.materializeAll();
+    }
+  }
+
+  /**
+   * Initialize incremental SpanInfo collection.
+   * Must be called before the first step() if timeline trimming is desired.
+   */
+  public void initSpanInfoCollection(
+      final Topic<ActivityDirectiveId> activityTopic,
+      final Iterable<SerializableTopic<?>> serializableTopics
+  ) {
+    this.incrementalSpanInfo = new SpanInfo();
+    this.spanInfoTrait = new SpanInfo.Trait(serializableTopics, activityTopic);
+  }
+
+  /**
+   * Incrementally collect SpanInfo from a committed EventGraph.
+   * This is called each time events are committed to the timeline, so that
+   * the timeline can be trimmed without losing activity metadata.
+   */
+  private void collectSpanInfo(final EventGraph<Event> commit) {
+    if (this.spanInfoTrait == null) return;
+    commit.evaluate(this.spanInfoTrait, this.spanInfoTrait::atom).accept(this.incrementalSpanInfo);
+  }
+
+  /**
+   * Periodically step up all cells and trim old timeline slabs.
+   * This releases EventGraph trees and their associated objects from old slabs,
+   * reducing retained heap memory.
+   */
+  private void tryTrimTimeline() {
+    // Only trim if incremental SpanInfo collection is enabled (which implies materializeAll was done)
+    if (this.spanInfoTrait == null) return;
+    if (timeline.slabCount() < TRIM_SLAB_THRESHOLD) return;
+
+    // Step up ALL cells so their cursors advance past old entries
+    this.cells.stepUpAll();
+
+    // Now safe to trim old slabs — all cursors are past them
+    timeline.trim(SLABS_TO_KEEP);
   }
 
   public sealed interface Status {
@@ -214,11 +270,15 @@ public final class SimulationEngine implements AutoCloseable {
     // Run the jobs in this batch.
     final var results = this.performJobs(batch.jobs(), cells, elapsedTime, simulationDuration);
     for (final var commit : results.commits()) {
+      collectSpanInfo(commit);
       timeline.add(commit);
     }
     if (results.error.isPresent()) {
       throw results.error.get();
     }
+
+    // Periodically trim old timeline slabs to reduce retained memory
+    tryTrimTimeline();
 
     // Collect the resources updated in this batch — discrete values are deferred (not serialized yet)
     final var realResourceUpdates = new HashMap<String, Pair<ValueSchema, RealDynamics>>();
@@ -703,8 +763,10 @@ public final class SimulationEngine implements AutoCloseable {
       final Iterable<SerializableTopic<?>> serializableTopics,
       final SpanId spanId
   ) {
-    // Collect per-span information from the event graph.
-    final var spanInfo = computeSpanInfo(activityTopic, serializableTopics, this.timeline);
+    // Use incremental SpanInfo if available, otherwise compute from timeline.
+    final var spanInfo = this.incrementalSpanInfo != null
+        ? this.incrementalSpanInfo
+        : computeSpanInfo(activityTopic, serializableTopics, this.timeline);
 
     // Identify the nearest ancestor directive by walking up the parent
     // span tree. Save the activity trace along the way
@@ -738,6 +800,11 @@ public final class SimulationEngine implements AutoCloseable {
       final Iterable<SerializableTopic<?>> serializableTopics,
       final TemporalEventSource timeline
   ) {
+    // If SpanInfo was collected incrementally (for timeline trimming), use it directly.
+    if (this.incrementalSpanInfo != null) {
+      return this.incrementalSpanInfo;
+    }
+
     // Collect per-span information from the event graph.
     final var spanInfo = new SpanInfo();
 
@@ -784,10 +851,10 @@ public final class SimulationEngine implements AutoCloseable {
       final Topic<ActivityDirectiveId> activityTopic,
       final Iterable<SerializableTopic<?>> serializableTopics
   ) {
-    return computeActivitySimulationResults(
-        startTime,
-        computeSpanInfo(activityTopic, serializableTopics, combineTimeline())
-    );
+    final var spanInfo = this.incrementalSpanInfo != null
+        ? this.incrementalSpanInfo
+        : computeSpanInfo(activityTopic, serializableTopics, combineTimeline());
+    return computeActivitySimulationResults(startTime, spanInfo);
   }
 
   private HashMap<SpanId, ActivityDirectiveId> spanToActivityDirectiveId(
@@ -978,9 +1045,14 @@ public final class SimulationEngine implements AutoCloseable {
     final var realProfiles = resourceProfiles.realProfiles();
     final var discreteProfiles = resourceProfiles.discreteProfiles();
 
-    // Compute span info with INPUTS ONLY (skips expensive output serialization)
-    final var combinedTimeline = this.combineTimeline();
-    final var spanInfo = computeSpanInfoInputsOnly(activityTopic, serializableTopics, combinedTimeline);
+    // Use incremental SpanInfo if available, otherwise compute inputs only from timeline
+    final SpanInfo spanInfo;
+    if (this.incrementalSpanInfo != null) {
+      spanInfo = this.incrementalSpanInfo;
+    } else {
+      final var combinedTimeline = this.combineTimeline();
+      spanInfo = computeSpanInfoInputsOnly(activityTopic, serializableTopics, combinedTimeline);
+    }
 
     // Use the same activity ID assignment logic as full computation
     final var activityParents = new HashMap<SpanId, SpanId>();
@@ -1067,9 +1139,11 @@ public final class SimulationEngine implements AutoCloseable {
       final Iterable<SerializableTopic<?>> serializableTopics,
       final SimulationResourceManager resourceManager
   ) {
-    final var combinedTimeline = this.combineTimeline();
     // Collect per-task information from the event graph.
-    final var spanInfo = computeSpanInfo(activityTopic, serializableTopics, combinedTimeline);
+    // Skip combineTimeline() if SpanInfo was collected incrementally (timeline may be trimmed).
+    final var spanInfo = this.incrementalSpanInfo != null
+        ? this.incrementalSpanInfo
+        : computeSpanInfo(activityTopic, serializableTopics, this.combineTimeline());
 
     // Extract profiles for every resource.
     final var resourceProfiles = resourceManager.computeProfiles(elapsedTime);
@@ -1110,9 +1184,11 @@ public final class SimulationEngine implements AutoCloseable {
       final SimulationResourceManager resourceManager,
       final Set<String> resourceNames
   ) {
-    final var combinedTimeline = this.combineTimeline();
     // Collect per-task information from the event graph.
-    final var spanInfo = computeSpanInfo(activityTopic, serializableTopics, combinedTimeline);
+    // Skip combineTimeline() if SpanInfo was collected incrementally (timeline may be trimmed).
+    final var spanInfo = this.incrementalSpanInfo != null
+        ? this.incrementalSpanInfo
+        : computeSpanInfo(activityTopic, serializableTopics, this.combineTimeline());
 
     // Extract profiles for every resource.
     final var resourceProfiles = resourceManager.computeProfiles(elapsedTime, resourceNames);

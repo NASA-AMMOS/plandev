@@ -87,6 +87,26 @@ public record TemporalEventSource(SlabList<TimePoint> points) implements EventSo
     record Commit(EventGraph<Event> events, Set<Topic<?>> topics) implements TimePoint {}
   }
 
+  /**
+   * Trim old slabs from the timeline, releasing memory.
+   * PRECONDITION: All cursors must have been advanced past the slabs being trimmed
+   * (call LiveCells.stepUpAll() first).
+   *
+   * @param slabsToKeep minimum number of slabs to retain (keep recent data for safety)
+   * @return number of timeline entries trimmed
+   */
+  public int trim(final int slabsToKeep) {
+    final int totalSlabs = this.points.slabCount();
+    final int slabsToTrim = totalSlabs - slabsToKeep;
+    if (slabsToTrim <= 0) return 0;
+    return this.points.advanceHead(slabsToTrim);
+  }
+
+  /** Returns the number of slabs currently in the timeline. */
+  public int slabCount() {
+    return this.points.slabCount();
+  }
+
   public void freeze() {
     this.points.freeze();
   }

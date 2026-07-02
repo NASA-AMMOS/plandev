@@ -18,12 +18,13 @@ public final class SlabList<T> implements Iterable<T> {
   /** ~4 KiB of elements (or at least, references thereof). */
   private static final int SLAB_SIZE = 1024;
 
-  private final Slab<T> head = new Slab<>();
+  private Slab<T> head = new Slab<>();
 
   /*derived*/
   private Slab<T> tail = this.head;
   /*derived*/
   private int size = 0;
+  private int trimmedCount = 0;
   private boolean frozen = false;
 
   public void append(final T element) {
@@ -33,7 +34,7 @@ public final class SlabList<T> implements Iterable<T> {
     this.tail.elements().add(element);
     this.size += 1;
 
-    if (this.size % SLAB_SIZE == 0) {
+    if (this.totalAppended() % SLAB_SIZE == 0) {
       this.tail.next().setValue(new Slab<>());
       this.tail = this.tail.next().getValue();
     }
@@ -114,5 +115,47 @@ public final class SlabList<T> implements Iterable<T> {
 
   public void freeze() {
     this.frozen = true;
+  }
+
+  /**
+   * Advance the head of the list, releasing old slabs for garbage collection.
+   * All active iterators MUST have already advanced past the old head before calling this.
+   * Returns the number of elements trimmed.
+   */
+  public int advanceHead(final int slabsToTrim) {
+    int trimmed = 0;
+    for (int i = 0; i < slabsToTrim; i++) {
+      final var nextSlab = this.head.next().getValue();
+      if (nextSlab == null) break;
+      trimmed += this.head.elements().size();
+      // Clear old slab's references to help GC
+      this.head.elements().clear();
+      this.head.next().setValue(null);
+      this.head = nextSlab;
+    }
+    this.trimmedCount += trimmed;
+    this.size -= trimmed;
+    return trimmed;
+  }
+
+  /** Returns the total number of elements that have been trimmed from the front. */
+  public int trimmedCount() {
+    return this.trimmedCount;
+  }
+
+  /** Returns the total number of elements ever appended (live + trimmed). */
+  public int totalAppended() {
+    return this.size + this.trimmedCount;
+  }
+
+  /** Returns the number of complete slabs currently in the list. */
+  public int slabCount() {
+    int count = 0;
+    var slab = this.head;
+    while (slab != null) {
+      count++;
+      slab = slab.next().getValue();
+    }
+    return count;
   }
 }

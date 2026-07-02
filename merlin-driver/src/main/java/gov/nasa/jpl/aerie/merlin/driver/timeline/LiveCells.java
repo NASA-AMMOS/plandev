@@ -65,6 +65,39 @@ public final class LiveCells {
     return cell.get();
   }
 
+  /**
+   * Force-create local LiveCell entries for all cells in the parent.
+   * This ensures all cursors exist locally, which is required before timeline trimming
+   * can safely advance the head (no new cursors will start from the old head).
+   */
+  public void materializeAll() {
+    if (this.parent == null) return;
+    for (final var query : this.parent.allQueries()) {
+      getCell(query);
+    }
+  }
+
+  /**
+   * Step up all local cells to the current timeline position.
+   * After this call, all cursors have advanced past all current entries.
+   */
+  public void stepUpAll() {
+    for (final var entry : this.cells.values()) {
+      entry.get();
+    }
+  }
+
+  /** Returns the set of all queries known to this LiveCells (local + parent). */
+  private Iterable<Query<?>> allQueries() {
+    if (this.parent == null) return this.cells.keySet();
+    // Combine local and parent queries
+    final var all = new HashMap<Query<?>, LiveCell<?>>(this.cells);
+    for (final var query : this.parent.allQueries()) {
+      all.putIfAbsent(query, null); // null value just to collect keys
+    }
+    return all.keySet();
+  }
+
   public void freeze() {
     if (this.parent != null) this.parent.freeze();
     this.source.freeze();

@@ -66,6 +66,10 @@ public final class SimulationDriver {
       final var activityTopic = new Topic<ActivityDirectiveId>();
 
       try {
+        // Enable incremental SpanInfo collection and timeline trimming.
+        // Must be done before init() so daemon task commits are also collected.
+        engine.initSpanInfoCollection(activityTopic, missionModel.getTopics());
+
         engine.init(missionModel.getResources(), missionModel.getDaemon());
 
         // Get all activities as close as possible to absolute time

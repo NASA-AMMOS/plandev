@@ -11,14 +11,14 @@
   },
   "dependencies": {
     "@nasa-jpl/aerie-ts-user-code-runner": "0.5.0",
-    "@js-temporal/polyfill": "^0.4.0",
-    "prettier": "^2.6.2",
-    "source-map": "^0.7.3",
-    "typescript": "^4.5.5"
+    "@js-temporal/polyfill": "0.4.3",
+    "prettier": "2.8.1",
+    "source-map": "0.7.4",
+    "typescript": "4.9.4"
   },
   "devDependencies": {
-    "@tsconfig/node16-strictest-esm": "^1.0.2",
-    "@types/node": "^17.0.21",
-    "typedoc": "^0.23.10"
+    "@tsconfig/node16-strictest-esm": "1.0.3",
+    "@types/node": "17.0.45",
+    "typedoc": "0.23.23"
   }
 }

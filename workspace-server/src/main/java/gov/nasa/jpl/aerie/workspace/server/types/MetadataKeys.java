@@ -4,9 +4,10 @@ import java.util.Set;
 
 public enum MetadataKeys {
   version,
-  fileId,
   createdBy,
   createdAt,
+  // lastEditedBy/lastEditedAt are no longer written (Approach 2 derives last-edited from git), but remain
+  // recognized so sidecars written before that change still validate. They are never mandatory.
   lastEditedBy,
   lastEditedAt,
   readOnly,
@@ -19,7 +20,6 @@ public enum MetadataKeys {
       lastEditedBy.name(), lastEditedAt.name(),
       readOnly.name(), user.name());
   public static final Set<String> mandatoryKeys = Set.of(version.name(),
-                                                         createdBy.name(), createdAt.name(),
-                                                         lastEditedBy.name(), lastEditedAt.name());
+                                                         createdBy.name(), createdAt.name());
 
 }

@@ -6,12 +6,16 @@ import gov.nasa.jpl.aerie.workspace.server.postgres.RenderType;
 import gov.nasa.jpl.aerie.workspace.server.postgres.WorkspacePostgresRepository;
 import gov.nasa.jpl.aerie.workspace.server.types.MetadataMergeBehavior;
 import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.MergeResult;
 import org.eclipse.jgit.api.ResetCommand;
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.diff.DiffConfig;
+import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.dircache.DirCache;
 import org.eclipse.jgit.dircache.DirCacheBuilder;
 import org.eclipse.jgit.dircache.DirCacheEditor;
 import org.eclipse.jgit.dircache.DirCacheEntry;
+import org.eclipse.jgit.errors.IncorrectObjectTypeException;
 import org.eclipse.jgit.lib.CommitBuilder;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.FileMode;
@@ -21,11 +25,19 @@ import org.eclipse.jgit.lib.ObjectReader;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.RefUpdate;
 import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.lib.TagBuilder;
+import org.eclipse.jgit.merge.MergeStrategy;
+import org.eclipse.jgit.revwalk.FollowFilter;
+import org.eclipse.jgit.revwalk.RenameCallback;
 import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.revwalk.RevTag;
 import org.eclipse.jgit.revwalk.RevTree;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.eclipse.jgit.treewalk.TreeWalk;
+import org.eclipse.jgit.treewalk.filter.AndTreeFilter;
+import org.eclipse.jgit.treewalk.filter.PathFilterGroup;
+import org.eclipse.jgit.treewalk.filter.TreeFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,6 +48,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,24 +79,20 @@ import java.util.concurrent.locks.ReentrantLock;
  * read at the file's <em>current</em> path), and {@code .git}/{@code .meta.seqdev} path-traversal
  * hardening. The token, ref index, commit-via-plumbing, migration, and lock are real.
  */
-public class WorkspaceVersioningService {
+public class WorkspaceVersioningService implements FileHistoryProvider {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceVersioningService.class);
 
-  /** Revisions are indexed under this ref namespace: {@code refs/seqdev/rev/<fileId>/<number>}. */
-  static final String REV_REF_PREFIX = "refs/seqdev/rev/";
+  // Approach 2: a revision is an annotated tag on a save-commit. The ref name is an opaque UUID; the facts
+  // (path, number, name, content hash) live in the tag message. Listing selects tags whose recorded path is
+  // one the file has occupied (git log --follow), so renames keep their revisions.
+  static final String REV_TAG_SHORT_PREFIX = "seqdev/rev/";               // under refs/tags/
+  static final String REV_TAG_PREFIX = Constants.R_TAGS + REV_TAG_SHORT_PREFIX; // refs/tags/seqdev/rev/
+  private static final String TRAILER_REV_PATH = "Seqdev-Rev-Path";
 
-  // Commit-message trailers that record the per-file revision facts (the commit itself carries author/time).
-  private static final String TRAILER_FILE_ID = "Seqdev-File-Id";
+  // Revision-fact trailers shared by tag messages (the commit/tag itself carries author/time).
   private static final String TRAILER_NUMBER = "Seqdev-Number";
   private static final String TRAILER_NAME = "Seqdev-Name";
   private static final String TRAILER_CONTENT_HASH = "Seqdev-Content-Hash";
-  private static final String TRAILER_ADOPTED_FROM = "Seqdev-Adopted-From";
-
-  // Mirror pull-back refs (Phase-2 spike). "incoming" stands in for a fetched external branch; "last-synced"
-  // is the incoming commit we last reconciled (the 3-way base); "stash" holds the pre-pull working copy.
-  static final String REF_INCOMING = "refs/seqdev/incoming";
-  static final String REF_LAST_SYNCED = "refs/seqdev/last-synced";
-  static final String REF_STASH = "refs/seqdev/stash";
 
   // Workspace-level checkpoint refs (snapshot-all-dirty): refs/seqdev/ws/<n> → a snapshot commit.
   static final String REF_WS_PREFIX = "refs/seqdev/ws/";
@@ -120,6 +129,36 @@ public class WorkspaceVersioningService {
       final Optional<String> message, final String userId)
   throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException {
     return createRevision(rootOf(workspaceId), filePath, name, message, userId);
+  }
+
+  /**
+   * Approach-2 commit-on-save: record the file's just-saved state as a commit on the workspace branch.
+   * Called by the save path after the working copy is written. Best-effort at the call site (a failure
+   * here must not fail the user's save — the bytes are already durably on disk).
+   */
+  public void commitSave(final int workspaceId, final Path filePath, final String userId)
+  throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException {
+    commitSave(rootOf(workspaceId), filePath, userId);
+  }
+
+  /**
+   * Commit-on-rename (Approach 2): record an in-app rename as a pure-rename commit (identical content blob
+   * moved to the new path) so {@code git log --follow} tracks the file across the rename at 100%. Called by
+   * the move path after the working copy has been moved. Best-effort at the call site.
+   */
+  public void commitRename(final int workspaceId, final Path oldFilePath, final Path newFilePath, final String userId)
+  throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException {
+    commitRename(rootOf(workspaceId), oldFilePath, newFilePath, userId);
+  }
+
+  /**
+   * Commit-on-delete (Approach 2): record a soft-delete as a commit that removes the file's content+metadata
+   * from the tree. The bytes stay reachable in ancestor commits (restorable from history); only the working
+   * copy is gone. Called by the delete path after the working copy is removed. Best-effort at the call site.
+   */
+  public void commitDelete(final int workspaceId, final Path filePath, final String userId)
+  throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException {
+    commitDelete(rootOf(workspaceId), filePath, userId);
   }
 
   public List<WorkspaceFileRevision> listRevisions(final int workspaceId, final Path filePath)
@@ -182,43 +221,275 @@ public class WorkspaceVersioningService {
       }
 
       final var metaPath = fs.resolveMetadataPath(root, filePath);
-      final var fileId = ensureFileId(root, filePath, userId);
-
       final byte[] content = Files.readAllBytes(contentPath);
-      final byte[] metaBytes = Files.readAllBytes(metaPath); // ensureFileId guarantees this exists
+      final byte[] metaBytes = Files.isRegularFile(metaPath) ? Files.readAllBytes(metaPath) : null;
 
       try (Repository repo = openRepo(root)) {
         final var ident = personIdent(userId);
-        return commitFileRevision(
-            repo, root, filePath, fileId, content, metaBytes, ident, ident, nameOverride, message.orElse(null), null);
+        // Approach 2: a revision is a *tag* on a save-commit. Ensure the current bytes are committed
+        // (no-op if unchanged), then tag the latest commit that touches this file.
+        commitSaveLocked(repo, root, filePath, content, metaBytes, ident);
+        return tagRevision(repo, root, filePath, ident, nameOverride, message.orElse(null));
       }
     } finally {
       lock.unlock();
     }
   }
 
-  /** List a file's revisions, oldest first. Lock-free. Empty if the workspace isn't a repo or the file has no id. */
+  /**
+   * Create a revision = an annotated tag (opaque UUID ref under {@code refs/tags/seqdev/rev/}, facts in the
+   * tag message) on the latest commit that touches this file. Per-file numbering (a, b, c…) is derived from
+   * how many revisions the file already has along its {@code git log --follow} history. Caller holds the lock.
+   */
+  private WorkspaceFileRevision tagRevision(
+      final Repository repo, final Path root, final Path filePath,
+      final PersonIdent tagger, final Optional<String> nameOverride, final String userMessage)
+  throws IOException, WorkspaceFileOpException {
+    final String relContent = relativize(root, fs.resolveReadingPath(root, filePath));
+    final ObjectId head = repo.resolve(Constants.HEAD);
+    final RevCommit target = latestCommitTouching(repo, head, relContent);
+    if (target == null) {
+      throw new WorkspaceFileOpException("Cannot create a revision of a file with no committed history: " + filePath);
+    }
+    return tagRevisionOnCommit(repo, relContent, target, head, tagger, nameOverride, userMessage);
+  }
+
+  /**
+   * Tag {@code target} as the next revision of the file at {@code relContent}. Per-file numbering is derived
+   * from the file's existing revisions along the history reachable from {@code headForNumbering}. Shared by
+   * in-app revision creation (tags the latest commit touching the file) and workspace checkpoints (tag the
+   * one checkpoint commit once per dirty file, each tag recording that file's own path).
+   */
+  private WorkspaceFileRevision tagRevisionOnCommit(
+      final Repository repo, final String relContent, final RevCommit target, final ObjectId headForNumbering,
+      final PersonIdent tagger, final Optional<String> nameOverride, final String userMessage)
+  throws IOException {
+    final byte[] content = readBlobAtPath(repo, target, relContent);
+    final String contentHash = content == null ? "" : contentToken(content);
+
+    final int number = revisionsForFile(repo, headForNumbering, relContent).size() + 1;
+    final String name = nameOverride.filter(s -> !s.isBlank()).orElse(RevisionName.forNumber(number));
+    final String strippedMessage = (userMessage == null || userMessage.isBlank()) ? "" : userMessage.strip();
+
+    final var msg = new StringBuilder();
+    msg.append("Revision ").append(name).append(" of ").append(relContent).append("\n");
+    if (!strippedMessage.isEmpty()) msg.append("\n").append(strippedMessage).append("\n");
+    msg.append("\n");
+    msg.append(TRAILER_REV_PATH).append(": ").append(relContent).append("\n");
+    msg.append(TRAILER_NUMBER).append(": ").append(number).append("\n");
+    msg.append(TRAILER_NAME).append(": ").append(name).append("\n");
+    msg.append(TRAILER_CONTENT_HASH).append(": ").append(contentHash).append("\n");
+
+    final String shortTag = REV_TAG_SHORT_PREFIX + UUID.randomUUID();
+    final ObjectId tagId;
+    try (ObjectInserter inserter = repo.newObjectInserter()) {
+      final TagBuilder tag = new TagBuilder();
+      tag.setObjectId(target, Constants.OBJ_COMMIT);
+      tag.setTag(shortTag);
+      tag.setTagger(tagger);
+      tag.setMessage(msg.toString());
+      tagId = inserter.insert(tag);
+      inserter.flush();
+    }
+    writeRef(repo, Constants.R_TAGS + shortTag, tagId);
+
+    return new WorkspaceFileRevision(
+        number, name, relContent, contentHash,
+        tagger.getName(), Instant.now().toString(), strippedMessage, target.getName());
+  }
+
+  /**
+   * Commit-on-save (Approach 2). Append a path-keyed commit capturing the file's current content and its
+   * metadata sidecar to the workspace's append-only branch, making git history the fine-grained per-file
+   * history. A curated "revision" (later slice) becomes a <em>tag</em> on one of these save-commits. A save
+   * whose content and metadata are byte-identical to HEAD is a no-op (no empty commit). Takes the
+   * per-workspace lock.
+   */
+  void commitSave(final Path root, final Path filePath, final String userId)
+  throws IOException, WorkspaceFileOpException {
+    final var lock = lockFor(root);
+    lock.lock();
+    try {
+      migrateLocked(root, userId); // lazy migration on first mutation
+
+      final var contentPath = fs.resolveReadingPath(root, filePath);
+      if (!Files.isRegularFile(contentPath)) return; // directories / missing files are never committed
+      if (RenderType.isAerieMetadataFile(contentPath.getFileName().toString())) return; // metadata rides with its content, never committed alone
+
+      final byte[] content = Files.readAllBytes(contentPath);
+      final var metaPath = fs.resolveMetadataPath(root, filePath);
+      final byte[] metaBytes = Files.isRegularFile(metaPath) ? Files.readAllBytes(metaPath) : null;
+
+      try (Repository repo = openRepo(root)) {
+        commitSaveLocked(repo, root, filePath, content, metaBytes, personIdent(userId));
+      }
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /**
+   * Insert the content (+ metadata) blobs, build a tree on the current branch tip with those paths replaced,
+   * commit, and advance the branch. Pure plumbing — no working index/checkout. Caller holds the lock.
+   *
+   * @return the new commit id, or {@code null} if the save was a no-op (all paths identical to HEAD)
+   */
+  private ObjectId commitSaveLocked(
+      final Repository repo, final Path root, final Path filePath,
+      final byte[] content, final byte[] metaBytes, final PersonIdent ident)
+  throws IOException, WorkspaceFileOpException {
+    final String relContent = relativize(root, fs.resolveReadingPath(root, filePath));
+    final String relMeta = relativize(root, fs.resolveMetadataPath(root, filePath));
+    final var contentHash = contentToken(content);
+
+    final ObjectId commitId;
+    try (ObjectInserter inserter = repo.newObjectInserter()) {
+      final ObjectId head = repo.resolve(Constants.HEAD);
+      final var upserts = new HashMap<String, ObjectId>();
+      upserts.put(relContent, inserter.insert(Constants.OBJ_BLOB, content));
+      if (metaBytes != null) {
+        upserts.put(relMeta, inserter.insert(Constants.OBJ_BLOB, metaBytes));
+      }
+
+      // Skip no-op saves: if every path already resolves to the same blob at HEAD, there is nothing new to record.
+      if (head != null && unchangedAtHead(repo, head, upserts)) return null;
+
+      final ObjectId treeId = buildTreeWith(repo, inserter, head, upserts);
+      final var commit = new CommitBuilder();
+      commit.setTreeId(treeId);
+      if (head != null) commit.setParentId(head);
+      commit.setAuthor(ident);
+      commit.setCommitter(ident);
+      commit.setMessage("Save " + filePath.toString().replace('\\', '/') + "\n\n"
+          + TRAILER_CONTENT_HASH + ": " + contentHash + "\n");
+      commitId = inserter.insert(commit);
+      inserter.flush();
+      advanceBranch(repo, head, commitId);
+    }
+    refreshIndex(repo);
+    return commitId;
+  }
+
+  /** True iff every {@code path -> blobId} already resolves to that same blob in {@code headCommit}'s tree. */
+  private boolean unchangedAtHead(final Repository repo, final ObjectId headCommit, final Map<String, ObjectId> upserts)
+  throws IOException {
+    try (RevWalk rw = new RevWalk(repo)) {
+      final RevCommit head = rw.parseCommit(headCommit);
+      for (final var e : upserts.entrySet()) {
+        try (TreeWalk tw = TreeWalk.forPath(repo, e.getKey(), head.getTree())) {
+          if (tw == null || !e.getValue().equals(tw.getObjectId(0))) return false;
+        }
+      }
+      return true;
+    }
+  }
+
+  /**
+   * Commit-on-rename (Approach 2). Emit a single commit that deletes the old content+metadata paths and adds
+   * them at the new paths with the <em>same</em> content blob, so git records an exact rename and
+   * {@code git log --follow <new-path>} walks straight through the file's pre-rename history. Content that
+   * genuinely changed in the same operation is captured too (the new blob is whatever is on disk now). A no-op
+   * if the workspace isn't a repo yet or nothing actually moved. Takes the per-workspace lock.
+   */
+  void commitRename(final Path root, final Path oldFilePath, final Path newFilePath, final String userId)
+  throws IOException, WorkspaceFileOpException {
+    final var lock = lockFor(root);
+    lock.lock();
+    try {
+      migrateLocked(root, userId);
+
+      final var newContentPath = fs.resolveReadingPath(root, newFilePath);
+      if (!Files.isRegularFile(newContentPath)) return;               // directory move / vanished — nothing to record
+      if (RenderType.isAerieMetadataFile(newContentPath.getFileName().toString())) return;
+
+      final String oldContent = relativize(root, fs.resolveReadingPath(root, oldFilePath));
+      final String oldMeta = relativize(root, fs.resolveMetadataPath(root, oldFilePath));
+      final String newContent = relativize(root, newContentPath);
+      final String newMeta = relativize(root, fs.resolveMetadataPath(root, newFilePath));
+      if (oldContent.equals(newContent)) return;                       // not actually a rename
+
+      final byte[] content = Files.readAllBytes(newContentPath);
+      final var newMetaPath = fs.resolveMetadataPath(root, newFilePath);
+      final byte[] metaBytes = Files.isRegularFile(newMetaPath) ? Files.readAllBytes(newMetaPath) : null;
+
+      try (Repository repo = openRepo(root); ObjectInserter inserter = repo.newObjectInserter()) {
+        final ObjectId head = repo.resolve(Constants.HEAD);
+        final var upserts = new HashMap<String, ObjectId>();
+        upserts.put(newContent, inserter.insert(Constants.OBJ_BLOB, content));
+        if (metaBytes != null) upserts.put(newMeta, inserter.insert(Constants.OBJ_BLOB, metaBytes));
+        final var deletes = new java.util.HashSet<>(Set.of(oldContent, oldMeta));
+
+        final ObjectId treeId = buildTreeApplying(repo, inserter, head, upserts, deletes);
+        final var commit = new CommitBuilder();
+        commit.setTreeId(treeId);
+        if (head != null) commit.setParentId(head);
+        final var ident = personIdent(userId);
+        commit.setAuthor(ident);
+        commit.setCommitter(ident);
+        commit.setMessage("Rename " + oldContent + " -> " + newContent + "\n\n"
+            + TRAILER_CONTENT_HASH + ": " + contentToken(content) + "\n");
+        final ObjectId commitId = inserter.insert(commit);
+        inserter.flush();
+        advanceBranch(repo, head, commitId);
+        refreshIndex(repo);
+      }
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /**
+   * Commit-on-delete (Approach 2). Emit a commit that removes the file's content+metadata paths from the tree
+   * (soft-delete: the bytes remain reachable via ancestor commits and are restorable from history). A no-op if
+   * the workspace isn't a repo or the path was never committed. Takes the per-workspace lock. The working copy
+   * is expected to already be gone from disk (the delete path removed it before calling this).
+   */
+  void commitDelete(final Path root, final Path filePath, final String userId)
+  throws IOException, WorkspaceFileOpException {
+    if (RenderType.isAerieMetadataFile(filePath.getFileName().toString())) return;
+    final var lock = lockFor(root);
+    lock.lock();
+    try {
+      if (!isRepo(root)) return; // never migrated → nothing tracked yet
+
+      final String relContent = relativize(root, fs.resolveReadingPath(root, filePath));
+      final String relMeta = relativize(root, fs.resolveMetadataPath(root, filePath));
+
+      try (Repository repo = openRepo(root);
+           ObjectInserter inserter = repo.newObjectInserter();
+           RevWalk rw = new RevWalk(repo)) {
+        final ObjectId head = repo.resolve(Constants.HEAD);
+        if (head == null) return;
+        // Nothing to remove if the content path isn't in HEAD's tree.
+        try (TreeWalk tw = TreeWalk.forPath(repo, relContent, rw.parseCommit(head).getTree())) {
+          if (tw == null) return;
+        }
+
+        final ObjectId treeId = buildTreeApplying(repo, inserter, head, Map.of(), Set.of(relContent, relMeta));
+        final var commit = new CommitBuilder();
+        commit.setTreeId(treeId);
+        commit.setParentId(head);
+        final var ident = personIdent(userId);
+        commit.setAuthor(ident);
+        commit.setCommitter(ident);
+        commit.setMessage("Delete " + relContent + "\n");
+        final ObjectId commitId = inserter.insert(commit);
+        inserter.flush();
+        advanceBranch(repo, head, commitId);
+        refreshIndex(repo);
+      }
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /** List a file's revisions, oldest first (by frozen number). Lock-free. Empty if the workspace isn't a repo. */
   List<WorkspaceFileRevision> listRevisions(final Path root, final Path filePath)
   throws IOException, WorkspaceFileOpException {
     if (!isRepo(root)) return List.of();
-    final var fileId = fileIdFor(root, filePath);
-    if (fileId == null) return List.of();
-
-    final var pathStr = relativize(root, fs.resolveReadingPath(root, filePath));
+    final var relContent = relativize(root, fs.resolveReadingPath(root, filePath));
     try (Repository repo = openRepo(root)) {
-      final var prefix = REV_REF_PREFIX + fileId + "/";
-      final var refs = repo.getRefDatabase().getRefsByPrefix(prefix);
-      final var out = new ArrayList<WorkspaceFileRevision>(refs.size());
-      try (RevWalk rw = new RevWalk(repo)) {
-        for (final var ref : refs) {
-          final int number = parseTrailingInt(ref.getName(), prefix);
-          if (number < 0) continue;
-          final RevCommit commit = rw.parseCommit(ref.getObjectId());
-          out.add(toRevision(repo, rw, commit, fileId, number, pathStr));
-        }
-      }
-      out.sort(Comparator.comparingInt(WorkspaceFileRevision::number));
-      return out;
+      return revisionsForFile(repo, repo.resolve(Constants.HEAD), relContent);
     }
   }
 
@@ -226,24 +497,20 @@ public class WorkspaceVersioningService {
   Optional<byte[]> readRevision(final Path root, final Path filePath, final String rev)
   throws IOException, WorkspaceFileOpException {
     if (!isRepo(root)) return Optional.empty();
-    final var fileId = fileIdFor(root, filePath);
-    if (fileId == null) return Optional.empty();
-
-    final var pathStr = relativize(root, fs.resolveReadingPath(root, filePath));
-    try (Repository repo = openRepo(root)) {
-      final ObjectId commitId = resolveRevisionCommit(repo, fileId, rev);
-      if (commitId == null) return Optional.empty();
-      try (RevWalk rw = new RevWalk(repo)) {
-        final RevCommit commit = rw.parseCommit(commitId);
-        return Optional.ofNullable(readBlobAtPath(repo, commit, pathStr));
-      }
+    final var relContent = relativize(root, fs.resolveReadingPath(root, filePath));
+    try (Repository repo = openRepo(root); RevWalk rw = new RevWalk(repo)) {
+      final var match = findRevision(repo, repo.resolve(Constants.HEAD), relContent, rev);
+      if (match.isEmpty()) return Optional.empty();
+      final var r = match.get();
+      // The bytes live at the revision's recorded path (which may differ from the current path if renamed).
+      return Optional.ofNullable(readBlobAtPath(repo, rw.parseCommit(ObjectId.fromString(r.commitSha())), r.path()));
     }
   }
 
   /**
    * Restore the working copy to a revision's content. Non-destructive: revisions/history are untouched, so
-   * the restored state can itself become a later revision. Takes the per-workspace lock. (Prototype restores
-   * content only; restoring the committed metadata blob alongside it is the full-fidelity behavior.)
+   * the restored state can itself become a later revision. The restore is recorded as a save-commit so the
+   * working tree stays in sync with git (Approach 2). Takes the per-workspace lock.
    */
   Optional<RestoreResult> restore(final Path root, final Path filePath, final String rev, final String userId)
   throws IOException, WorkspaceFileOpException {
@@ -251,35 +518,129 @@ public class WorkspaceVersioningService {
     lock.lock();
     try {
       if (!isRepo(root)) return Optional.empty();
-      final var fileId = fileIdFor(root, filePath);
-      if (fileId == null) return Optional.empty();
-
       final var contentPath = fs.resolveReadingPath(root, filePath);
-      final var pathStr = relativize(root, contentPath);
+      final var relContent = relativize(root, contentPath);
 
       try (Repository repo = openRepo(root)) {
-        final ObjectId commitId = resolveRevisionCommit(repo, fileId, rev);
-        if (commitId == null) return Optional.empty();
-        final int number = numberForRev(repo, fileId, rev);
+        final var match = findRevision(repo, repo.resolve(Constants.HEAD), relContent, rev);
+        if (match.isEmpty()) return Optional.empty();
+        final var r = match.get();
+
+        final byte[] bytes;
         try (RevWalk rw = new RevWalk(repo)) {
-          final RevCommit commit = rw.parseCommit(commitId);
-          final byte[] bytes = readBlobAtPath(repo, commit, pathStr);
-          if (bytes == null) return Optional.empty();
-
-          Files.write(contentPath, bytes); // overwrite working copy — a plain file write, never a merge
-          // Reflect the edit in the working-copy metadata (fileId is preserved by the writer).
-          fs.updateMetadataKeys(
-              fs.resolveMetadataPath(root, filePath),
-              new MetadataUpdates.Builder(userId).lastEditedAt(Instant.now()).lastEditedBy(userId).build(),
-              MetadataMergeBehavior.deepMerge);
-
-          final String name = number > 0 ? RevisionName.forNumber(number) : rev;
-          return Optional.of(new RestoreResult(contentToken(bytes), number, name));
+          bytes = readBlobAtPath(repo, rw.parseCommit(ObjectId.fromString(r.commitSha())), r.path());
         }
+        if (bytes == null) return Optional.empty();
+
+        Files.write(contentPath, bytes); // overwrite working copy — a plain file write, never a merge
+
+        // Record the restore as a save-commit (keeps the working tree == git; no-op if bytes were unchanged).
+        // last-edited is derived from git, so no sidecar timestamp update is needed here.
+        final var metaPath = fs.resolveMetadataPath(root, filePath);
+        final byte[] metaBytes = Files.isRegularFile(metaPath) ? Files.readAllBytes(metaPath) : null;
+        commitSaveLocked(repo, root, filePath, bytes, metaBytes, personIdent(userId));
+
+        return Optional.of(new RestoreResult(contentToken(bytes), r.number(), r.name()));
       }
     } finally {
       lock.unlock();
     }
+  }
+
+  // region Tag-based revision helpers (Approach 2)
+
+  /** The latest commit reachable from {@code head} that modified {@code path}, or null if none. */
+  private RevCommit latestCommitTouching(final Repository repo, final ObjectId head, final String path)
+  throws IOException {
+    if (head == null) return null;
+    try (RevWalk rw = new RevWalk(repo)) {
+      rw.setTreeFilter(AndTreeFilter.create(PathFilterGroup.createFromStrings(path), TreeFilter.ANY_DIFF));
+      rw.markStart(rw.parseCommit(head));
+      return rw.next();
+    }
+  }
+
+  /**
+   * The set of paths the file currently at {@code currentPath} has occupied over its history, following
+   * renames via {@code git log --follow}. Used so a revision tagged before a rename still lists after it.
+   */
+  private Set<String> historicalPaths(final Repository repo, final ObjectId head, final String currentPath)
+  throws IOException {
+    final Set<String> paths = new HashSet<>();
+    paths.add(currentPath);
+    if (head == null) return paths;
+    try (RevWalk rw = new RevWalk(repo)) {
+      final FollowFilter follow = FollowFilter.create(currentPath, repo.getConfig().get(DiffConfig.KEY));
+      follow.setRenameCallback(new RenameCallback() {
+        @Override public void renamed(final DiffEntry entry) {
+          paths.add(entry.getOldPath());
+          paths.add(entry.getNewPath());
+        }
+      });
+      rw.setTreeFilter(follow);
+      rw.markStart(rw.parseCommit(head));
+      for (final RevCommit ignored : rw) { /* drain the walk so the rename callback fires */ }
+    }
+    return paths;
+  }
+
+  /**
+   * All revisions belonging to the file currently at {@code currentPath}: every {@code refs/tags/seqdev/rev/}
+   * annotated tag whose recorded path is one this file has occupied ({@link #historicalPaths}). Sorted by the
+   * frozen per-file number.
+   */
+  private List<WorkspaceFileRevision> revisionsForFile(final Repository repo, final ObjectId head, final String currentPath)
+  throws IOException {
+    if (head == null) return List.of();
+    final Set<String> historical = historicalPaths(repo, head, currentPath);
+    final var out = new ArrayList<WorkspaceFileRevision>();
+    try (RevWalk rw = new RevWalk(repo)) {
+      for (final var ref : repo.getRefDatabase().getRefsByPrefix(REV_TAG_PREFIX)) {
+        final RevTag tag;
+        try {
+          tag = rw.parseTag(ref.getObjectId());
+        } catch (IncorrectObjectTypeException e) {
+          continue; // a lightweight (non-annotated) tag under our namespace — skip
+        }
+        final var trailers = parseTrailers(tag.getFullMessage());
+        final String revPath = trailers.get(TRAILER_REV_PATH);
+        if (revPath == null || !historical.contains(revPath)) continue;
+
+        final RevCommit target = rw.parseCommit(tag.getObject());
+        final Integer parsed = tryParseInt(trailers.getOrDefault(TRAILER_NUMBER, ""));
+        final int number = parsed == null ? 0 : parsed;
+        final String name = trailers.getOrDefault(TRAILER_NAME, RevisionName.forNumber(Math.max(1, number)));
+        out.add(new WorkspaceFileRevision(
+            number, name, revPath, trailers.getOrDefault(TRAILER_CONTENT_HASH, ""),
+            tag.getTaggerIdent().getName(),
+            tag.getTaggerIdent().getWhen().toInstant().toString(),
+            userMessageFromTag(tag.getFullMessage()),
+            target.getName()));
+      }
+    }
+    out.sort(Comparator.comparingInt(WorkspaceFileRevision::number));
+    return out;
+  }
+
+  /** Find one of this file's revisions by number ("3") or name ("c"). */
+  private Optional<WorkspaceFileRevision> findRevision(
+      final Repository repo, final ObjectId head, final String currentPath, final String rev)
+  throws IOException {
+    final Integer n = tryParseInt(rev);
+    return revisionsForFile(repo, head, currentPath).stream()
+        .filter(r -> n != null ? r.number() == n : r.name().equals(rev))
+        .findFirst();
+  }
+
+  /** Extract the free-form user message from an annotated tag's body (subject line + trailers stripped). */
+  private String userMessageFromTag(final String fullMessage) {
+    final var lines = fullMessage.split("\n");
+    final var sb = new StringBuilder();
+    for (int i = 1; i < lines.length; i++) {
+      if (lines[i].startsWith("Seqdev-")) continue;
+      sb.append(lines[i]).append("\n");
+    }
+    return sb.toString().trim();
   }
   // endregion
 
@@ -293,22 +654,18 @@ public class WorkspaceVersioningService {
       final Repository repo = git.getRepository();
       configureRepo(repo);
 
-      // Assign a stable fileId to every existing content file before the baseline snapshot.
-      forEachContentFile(root, p -> ensureFileId(root, root.relativize(p), userId));
-
+      // Approach 2: identity is the path (git log --follow), so no synthetic fileId is minted.
       git.add().addFilepattern(".").call();
       final RevCommit baseline = git.commit()
-          .setMessage("Revision a (baseline)\n\nSeqdev baseline snapshot for workspace versioning.")
+          .setMessage("Baseline\n\nSeqdev baseline snapshot for workspace versioning.")
           .setAuthor(personIdent(userId))
           .setCommitter(personIdent(userId))
           .setAllowEmpty(true)
           .call();
 
-      // Seed revision "a" (number 1) for every file present at baseline.
-      forEachContentFile(root, p -> {
-        final var fileId = fileIdFor(root, root.relativize(p));
-        if (fileId != null) writeRef(repo, revRef(fileId, 1), baseline.getId());
-      });
+      // Approach 2: migration establishes git *history* (this baseline commit), but does NOT create a
+      // revision — revisions are user-triggered tags. A freshly-migrated file has zero revisions until
+      // someone creates one; the baseline is its restore-able starting point in history regardless.
       logger.info("Migrated workspace at {} into Git (baseline {})", root, baseline.getId().abbreviate(8).name());
       return true;
     } catch (GitAPIException e) {
@@ -321,27 +678,21 @@ public class WorkspaceVersioningService {
     final var cfg = repo.getConfig();
     cfg.setBoolean("core", null, "autocrlf", false);
     cfg.setString("core", null, "eol", "lf");
+    // Give the repo a default identity so plumbing/merge commits never fail for lack of user.* config.
+    cfg.setString("user", null, "name", "seqdev");
+    cfg.setString("user", null, "email", "seqdev@seqdev.local");
     cfg.save();
+
+    // Approach 2: never line-merge workspace content. With every path marked non-mergeable, a git merge
+    // resolves at the FILE level only — a file changed on one side is taken whole; a file changed on BOTH
+    // sides conflicts (→ merge-or-abort punts it), so git never silently blends two sequences. We write this
+    // to .git/info/attributes (repo-local): it is honored for PlanDev's own merges without adding a
+    // working-tree/mirror-visible .gitattributes file.
+    final var infoDir = repo.getDirectory().toPath().resolve("info");
+    Files.createDirectories(infoDir);
+    Files.writeString(infoDir.resolve("attributes"), "* -merge\n");
   }
 
-  /**
-   * Ensure the file has a stable fileId in its committed metadata, generating and persisting one if absent.
-   * @return the file's fileId
-   */
-  private String ensureFileId(final Path root, final Path filePath, final String userId)
-  throws IOException, WorkspaceFileOpException {
-    final var metaPath = fs.resolveMetadataPath(root, filePath);
-    final var existing = fs.readMetadataFile(metaPath.toFile());
-    final var current = existing.getString("fileId", null);
-    if (current != null && !current.isBlank()) return current;
-
-    final var id = UUID.randomUUID().toString();
-    fs.updateMetadataKeys(
-        metaPath,
-        new MetadataUpdates.Builder(userId).fileId(id).build(),
-        MetadataMergeBehavior.deepMerge);
-    return id;
-  }
   // endregion
 
   // region Git plumbing helpers
@@ -432,43 +783,6 @@ public class WorkspaceVersioningService {
     }
   }
 
-  private int nextNumber(final Repository repo, final String fileId) throws IOException {
-    final var prefix = REV_REF_PREFIX + fileId + "/";
-    int max = 0;
-    for (final var ref : repo.getRefDatabase().getRefsByPrefix(prefix)) {
-      max = Math.max(max, parseTrailingInt(ref.getName(), prefix));
-    }
-    return max + 1;
-  }
-
-  /** Resolve a revision selector (number string or name) to its commit, or null if not found. */
-  private ObjectId resolveRevisionCommit(final Repository repo, final String fileId, final String rev)
-  throws IOException {
-    final Integer number = tryParseInt(rev);
-    if (number != null) {
-      final var ref = repo.exactRef(revRef(fileId, number));
-      return ref == null ? null : ref.getObjectId();
-    }
-    // Treat as a name: find the ref whose number maps to that base-26 name.
-    final var prefix = REV_REF_PREFIX + fileId + "/";
-    for (final var ref : repo.getRefDatabase().getRefsByPrefix(prefix)) {
-      final int n = parseTrailingInt(ref.getName(), prefix);
-      if (n >= 1 && RevisionName.forNumber(n).equals(rev)) return ref.getObjectId();
-    }
-    return null;
-  }
-
-  private int numberForRev(final Repository repo, final String fileId, final String rev) throws IOException {
-    final Integer number = tryParseInt(rev);
-    if (number != null) return number;
-    final var prefix = REV_REF_PREFIX + fileId + "/";
-    for (final var ref : repo.getRefDatabase().getRefsByPrefix(prefix)) {
-      final int n = parseTrailingInt(ref.getName(), prefix);
-      if (n >= 1 && RevisionName.forNumber(n).equals(rev)) return n;
-    }
-    return -1;
-  }
-
   private byte[] readBlobAtPath(final Repository repo, final RevCommit commit, final String pathStr)
   throws IOException {
     try (TreeWalk tw = TreeWalk.forPath(repo, pathStr, commit.getTree())) {
@@ -478,314 +792,7 @@ public class WorkspaceVersioningService {
     }
   }
 
-  /**
-   * Commit one file's content+metadata as its next revision: insert blobs, build a tree on the current
-   * branch tip with those two paths replaced, commit, advance the branch, and write the per-{@code fileId}
-   * ref. Shared by in-app revision creation and mirror pull-back adoption.
-   *
-   * @param author      revision author (a PlanDev userId for in-app revisions; the original external
-   *                    committer for an adopted revision — preserving provenance)
-   * @param committer   who recorded it (PlanDev's service/user identity)
-   * @param userMessage optional human message ("" / null for none)
-   * @param adoptedFrom nullable incoming commit sha, recorded as a {@code Seqdev-Adopted-From} back-reference
-   */
-  private WorkspaceFileRevision commitFileRevision(
-      final Repository repo, final Path root, final Path filePath, final String fileId,
-      final byte[] content, final byte[] metaBytes,
-      final PersonIdent author, final PersonIdent committer,
-      final Optional<String> nameOverride, final String userMessage, final String adoptedFrom)
-  throws IOException, WorkspaceFileOpException {
-    final var contentHash = contentToken(content);
-    final int number = nextNumber(repo, fileId);
-    final String name = nameOverride.filter(s -> !s.isBlank()).orElse(RevisionName.forNumber(number));
-    final String relContent = relativize(root, fs.resolveReadingPath(root, filePath));
-    final String relMeta = relativize(root, fs.resolveMetadataPath(root, filePath));
-
-    final ObjectId commitId;
-    try (ObjectInserter inserter = repo.newObjectInserter()) {
-      final ObjectId contentBlob = inserter.insert(Constants.OBJ_BLOB, content);
-      final ObjectId metaBlob = inserter.insert(Constants.OBJ_BLOB, metaBytes);
-      final ObjectId head = repo.resolve(Constants.HEAD);
-
-      final ObjectId treeId = buildTreeWith(repo, inserter, head, Map.of(relContent, contentBlob, relMeta, metaBlob));
-
-      final var commit = new CommitBuilder();
-      commit.setTreeId(treeId);
-      if (head != null) commit.setParentId(head);
-      commit.setAuthor(author);
-      commit.setCommitter(committer);
-      commit.setMessage(buildMessage(
-          name, filePath, Optional.ofNullable(userMessage).filter(s -> !s.isBlank()),
-          fileId, number, contentHash, adoptedFrom));
-      commitId = inserter.insert(commit);
-      inserter.flush();
-
-      // Advance the workspace's append-only branch, then index this file's new revision.
-      advanceBranch(repo, head, commitId);
-      writeRef(repo, revRef(fileId, number), commitId);
-    }
-
-    // Keep the Git index in sync with the new HEAD (commits above bypass the index via plumbing).
-    refreshIndex(repo);
-
-    return new WorkspaceFileRevision(
-        fileId, number, name, relContent, contentHash,
-        author.getName(), Instant.now().toString(), userMessage == null ? "" : userMessage.strip(), commitId.getName());
-  }
-
-  /** Compose the revision commit message: a human subject, the optional user message, then machine trailers. */
-  private String buildMessage(
-      final String name, final Path filePath, final Optional<String> message,
-      final String fileId, final int number, final String contentHash, final String adoptedFrom) {
-    final var sb = new StringBuilder();
-    sb.append("Revision ").append(name).append(" of ").append(filePath.toString().replace('\\', '/')).append("\n");
-    message.filter(m -> !m.isBlank()).ifPresent(m -> sb.append("\n").append(m.strip()).append("\n"));
-    sb.append("\n");
-    sb.append(TRAILER_FILE_ID).append(": ").append(fileId).append("\n");
-    sb.append(TRAILER_NUMBER).append(": ").append(number).append("\n");
-    sb.append(TRAILER_NAME).append(": ").append(name).append("\n");
-    sb.append(TRAILER_CONTENT_HASH).append(": ").append(contentHash).append("\n");
-    if (adoptedFrom != null && !adoptedFrom.isBlank()) {
-      sb.append(TRAILER_ADOPTED_FROM).append(": ").append(adoptedFrom).append("\n");
-    }
-    return sb.toString();
-  }
-
-  private WorkspaceFileRevision toRevision(
-      final Repository repo, final RevWalk rw, final RevCommit commit,
-      final String fileId, final int number, final String pathStr) throws IOException {
-    final var trailers = parseTrailers(commit.getFullMessage());
-    final var name = trailers.getOrDefault(TRAILER_NAME, RevisionName.forNumber(number));
-    String contentHash = trailers.get(TRAILER_CONTENT_HASH);
-    if (contentHash == null) {
-      // Baseline ("a") commits carry no per-file trailer; recompute from the blob (identical bytes → identical token).
-      final byte[] bytes = readBlobAtPath(repo, commit, pathStr);
-      contentHash = bytes == null ? "" : contentToken(bytes);
-    }
-    final var author = commit.getAuthorIdent().getName();
-    final var createdAt = Instant.ofEpochSecond(commit.getCommitTime()).toString();
-    return new WorkspaceFileRevision(
-        fileId, number, name, pathStr, contentHash, author, createdAt, userMessage(commit), commit.getName());
-  }
-  // endregion
-
-  // region Mirror pull-back (Phase-2 spike) — inbound changes resolved file-by-file, never a Git merge.
-  //
-  // Model: an external writer commits to an "incoming" branch (here, the refs/seqdev/incoming ref, populated
-  // by the test helpers below that stand in for the network fetch). We classify each file 3-way against a
-  // recorded last-synced base — NOT raw HEAD-vs-HEAD — so we know what changed *and by whom since we last
-  // agreed*. Clean changes auto-adopt as new revisions (preserving the external author + a back-reference);
-  // genuine conflicts and upstream deletions are surfaced as a per-file take-mine/take-theirs choice. After
-  // applying, the base advances to the incoming tip, so a resolved decision (e.g. a kept deletion) is never
-  // re-surfaced unless the upstream genuinely changes it again.
-
-  /** What pulling the incoming changes would do to a file. */
-  public enum PullDisposition {
-    /** Nothing to do (upstream unchanged since the base, or both sides already converged). */
-    NOOP,
-    /** Upstream changed, PlanDev did not — adopt the incoming bytes silently. Also covers upstream adds. */
-    CLEAN_ADOPT,
-    /** Both sides edited the file — needs a take-mine/take-theirs decision. */
-    CONFLICT,
-    /** Upstream deleted a file PlanDev left untouched — reviewable (accept the delete, or keep). */
-    DELETE,
-    /** Upstream deleted a file PlanDev also edited — needs a decision. */
-    CONFLICT_DELETE
-  }
-
-  /** Per-file decision for a reviewable item. For deletes, {@code TAKE_THEIRS} means "accept the deletion." */
-  public enum PullChoice { TAKE_MINE, TAKE_THEIRS }
-
-  /** One file's classification in a pull plan. */
-  public record PullItem(String path, PullDisposition disposition) {}
-
-  /** What actually happened to one file when a pull was applied. {@code outcome} ∈ ADOPTED|DELETED|KEPT_MINE. */
-  public record PullOutcome(String path, String outcome) {}
-
-  /** Summary of an applied pull. */
-  public record PullResult(List<PullOutcome> outcomes, String stashCommit, String syncedTo) {}
-
-  // Public (workspaceId-based) wrappers — HTTP wiring is a later step, once the fetch transport lands.
-  public List<PullItem> computePullPlan(final int workspaceId)
-  throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException {
-    return computePullPlan(rootOf(workspaceId));
-  }
-
-  public PullResult applyPull(
-      final int workspaceId, final Map<String, PullChoice> decisions,
-      final boolean autoAcceptDeletions, final String userId)
-  throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException {
-    return applyPull(rootOf(workspaceId), decisions, autoAcceptDeletions, userId);
-  }
-
-  /** Classify what a pull would do to each changed file. Lock-free read; empty if nothing has been fetched. */
-  List<PullItem> computePullPlan(final Path root) throws IOException, WorkspaceFileOpException {
-    if (!isRepo(root)) return List.of();
-    try (Repository repo = openRepo(root)) {
-      final RevCommit incoming = incomingCommit(repo);
-      if (incoming == null) return List.of();
-      final RevCommit base = lastSyncedCommit(repo);
-
-      final var paths = unionOfPaths(repo, root, base, incoming);
-      final var out = new ArrayList<PullItem>();
-      for (final var path : paths) {
-        final var disp = classify(
-            tokenInTree(repo, base, path), tokenInTree(repo, incoming, path), tokenWorkingCopy(root, path));
-        if (disp != PullDisposition.NOOP) out.add(new PullItem(path, disp));
-      }
-      return out;
-    }
-  }
-
-  /**
-   * Apply a pull: auto-adopt clean changes, apply the caller's decisions to conflicts/deletions, and advance
-   * the synced base. Takes the per-workspace lock and recomputes the plan under it (never trusts a stale plan).
-   */
-  PullResult applyPull(
-      final Path root, final Map<String, PullChoice> decisions,
-      final boolean autoAcceptDeletions, final String userId)
-  throws IOException, WorkspaceFileOpException {
-    final var lock = lockFor(root);
-    lock.lock();
-    try {
-      if (!isRepo(root)) return new PullResult(List.of(), null, null);
-      try (Repository repo = openRepo(root)) {
-        final RevCommit incoming = incomingCommit(repo);
-        if (incoming == null) return new PullResult(List.of(), null, null);
-        final RevCommit base = lastSyncedCommit(repo);
-
-        final var paths = unionOfPaths(repo, root, base, incoming);
-        final var toAdopt = new ArrayList<String>();
-        final var toDelete = new ArrayList<String>();
-        final var outcomes = new ArrayList<PullOutcome>();
-
-        for (final var path : paths) {
-          final var b = tokenInTree(repo, base, path);
-          final var t = tokenInTree(repo, incoming, path);
-          final var m = tokenWorkingCopy(root, path);
-          switch (classify(b, t, m)) {
-            case NOOP -> { }
-            case CLEAN_ADOPT -> toAdopt.add(path);
-            case CONFLICT -> {
-              if (decisions.get(path) == PullChoice.TAKE_THEIRS) toAdopt.add(path);
-              else outcomes.add(new PullOutcome(path, "KEPT_MINE"));
-            }
-            case DELETE -> {
-              if (autoAcceptDeletions || decisions.get(path) == PullChoice.TAKE_THEIRS) toDelete.add(path);
-              else outcomes.add(new PullOutcome(path, "KEPT_MINE"));
-            }
-            case CONFLICT_DELETE -> {
-              if (decisions.get(path) == PullChoice.TAKE_THEIRS) toDelete.add(path);
-              else outcomes.add(new PullOutcome(path, "KEPT_MINE"));
-            }
-          }
-        }
-
-        // Pre-pull stash of exactly the files about to change (recoverable safety net for take-theirs).
-        final var affected = new TreeSet<String>();
-        affected.addAll(toAdopt);
-        affected.addAll(toDelete);
-        final var stash = stashAffected(repo, root, affected);
-
-        for (final var path : toAdopt) {
-          adoptFile(repo, root, Path.of(path), readBlobAtPath(repo, incoming, path), incoming, userId);
-          outcomes.add(new PullOutcome(path, "ADOPTED"));
-        }
-        for (final var path : toDelete) {
-          softDelete(root, Path.of(path));
-          outcomes.add(new PullOutcome(path, "DELETED"));
-        }
-
-        // Advance the synced base so resolved decisions are not re-surfaced on the next pull.
-        writeRef(repo, REF_LAST_SYNCED, incoming.getId());
-        return new PullResult(outcomes, stash, incoming.getName());
-      }
-    } finally {
-      lock.unlock();
-    }
-  }
-
-  /** The 3-way classification table (base / theirs=incoming / mine=working copy), all as SHA-256 content tokens. */
-  private PullDisposition classify(final String base, final String theirs, final String mine) {
-    if (Objects.equals(theirs, base)) return PullDisposition.NOOP;       // upstream unchanged since base
-    if (Objects.equals(mine, base)) {                                    // local untouched since base
-      return (theirs == null) ? PullDisposition.DELETE : PullDisposition.CLEAN_ADOPT;
-    }
-    if (Objects.equals(theirs, mine)) return PullDisposition.NOOP;       // both converged to the same content
-    return (theirs == null) ? PullDisposition.CONFLICT_DELETE : PullDisposition.CONFLICT;
-  }
-
-  /** Adopt incoming bytes for one file: converge the working copy, then record an adopted revision. */
-  private WorkspaceFileRevision adoptFile(
-      final Repository repo, final Path root, final Path filePath,
-      final byte[] theirs, final RevCommit incoming, final String userId)
-  throws IOException, WorkspaceFileOpException {
-    final var contentPath = fs.resolveReadingPath(root, filePath);
-    if (contentPath.getParent() != null) Files.createDirectories(contentPath.getParent());
-    Files.write(contentPath, theirs);
-    final var fileId = ensureFileId(root, filePath, userId);
-    final byte[] metaBytes = Files.readAllBytes(fs.resolveMetadataPath(root, filePath));
-    // Preserve provenance: author = the original external committer, committer = PlanDev's identity.
-    return commitFileRevision(
-        repo, root, filePath, fileId, theirs, metaBytes,
-        incoming.getAuthorIdent(), personIdent(userId), Optional.empty(), incoming.getShortMessage(), incoming.getName());
-  }
-
-  /** Soft-delete: remove the file (and its metadata) from the working copy; revision history is retained. */
-  private void softDelete(final Path root, final Path filePath) throws IOException, WorkspaceFileOpException {
-    Files.deleteIfExists(fs.resolveReadingPath(root, filePath));
-    Files.deleteIfExists(fs.resolveMetadataPath(root, filePath));
-  }
-
-  /** Snapshot the current working bytes of the affected files into a throwaway commit; returns its sha (or null). */
-  private String stashAffected(final Repository repo, final Path root, final Set<String> affectedPaths)
-  throws IOException {
-    try (ObjectInserter inserter = repo.newObjectInserter()) {
-      final var upserts = new LinkedHashMap<String, ObjectId>();
-      for (final var path : affectedPaths) {
-        final var p = root.resolve(path);
-        if (Files.isRegularFile(p)) upserts.put(path, inserter.insert(Constants.OBJ_BLOB, Files.readAllBytes(p)));
-      }
-      if (upserts.isEmpty()) return null;
-      final var treeId = buildTreeApplying(repo, inserter, null, upserts, Set.of());
-      final var ident = personIdent("seqdev");
-      final var commit = new CommitBuilder();
-      commit.setTreeId(treeId);
-      commit.setAuthor(ident);
-      commit.setCommitter(ident);
-      commit.setMessage("Pre-pull stash (recoverable working copy of files about to change)\n");
-      final var commitId = inserter.insert(commit);
-      inserter.flush();
-      writeRef(repo, REF_STASH, commitId);
-      return commitId.getName();
-    }
-  }
-
-  private Set<String> unionOfPaths(final Repository repo, final Path root, final RevCommit base, final RevCommit incoming)
-  throws IOException {
-    final var paths = new TreeSet<String>();
-    paths.addAll(contentPathsInTree(repo, base));
-    paths.addAll(contentPathsInTree(repo, incoming));
-    paths.addAll(workingCopyContentPaths(root));
-    return paths;
-  }
-
-  private RevCommit incomingCommit(final Repository repo) throws IOException { return resolveCommit(repo, REF_INCOMING); }
-  private RevCommit lastSyncedCommit(final Repository repo) throws IOException { return resolveCommit(repo, REF_LAST_SYNCED); }
-
-  private RevCommit resolveCommit(final Repository repo, final String ref) throws IOException {
-    final var r = repo.exactRef(ref);
-    if (r == null || r.getObjectId() == null) return null;
-    try (RevWalk rw = new RevWalk(repo)) {
-      return rw.parseCommit(r.getObjectId());
-    }
-  }
-
-  private ObjectId resolveObj(final Repository repo, final String ref) throws IOException {
-    final var r = repo.exactRef(ref);
-    return r == null ? null : r.getObjectId();
-  }
-
+  /** Every non-metadata content path in a commit's tree (recursive). Used by workspace-checkpoint diffing. */
   private Set<String> contentPathsInTree(final Repository repo, final RevCommit commit) throws IOException {
     final var out = new TreeSet<String>();
     if (commit == null) return out;
@@ -801,18 +808,7 @@ public class WorkspaceVersioningService {
     return out;
   }
 
-  private String tokenInTree(final Repository repo, final RevCommit commit, final String path) throws IOException {
-    if (commit == null) return null;
-    final byte[] bytes = readBlobAtPath(repo, commit, path);
-    return bytes == null ? null : contentToken(bytes);
-  }
-
-  private String tokenWorkingCopy(final Path root, final String path) throws IOException {
-    final var p = root.resolve(path);
-    if (!Files.isRegularFile(p)) return null;
-    return contentToken(Files.readAllBytes(p));
-  }
-
+  /** Every non-metadata content path currently in the working copy (excluding {@code .git}). */
   private Set<String> workingCopyContentPaths(final Path root) throws IOException {
     final var out = new TreeSet<String>();
     final var gitDir = root.resolve(Constants.DOT_GIT).toAbsolutePath().normalize();
@@ -825,54 +821,20 @@ public class WorkspaceVersioningService {
     return out;
   }
 
-  // --- Test/spike-only transport simulation (stands in for the network push/fetch, which is out of spike scope) ---
-
-  /**
-   * TEST/SPIKE ONLY — models the initial mirror link (PlanDev pushes, then records the synced base): point
-   * both the incoming and last-synced refs at the current PlanDev HEAD, so base == incoming == working copy.
-   */
-  void establishMirrorBaseline(final Path root) throws IOException {
-    try (Repository repo = openRepo(root)) {
-      final ObjectId head = repo.resolve(Constants.HEAD);
-      if (head == null) throw new IOException("No baseline commit to mirror; migrate first.");
-      writeRef(repo, REF_INCOMING, head);
-      writeRef(repo, REF_LAST_SYNCED, head);
-    }
+  /** The SHA-256 content token of a path in a commit's tree, or null if absent. */
+  private String tokenInTree(final Repository repo, final RevCommit commit, final String path) throws IOException {
+    if (commit == null) return null;
+    final byte[] bytes = readBlobAtPath(repo, commit, path);
+    return bytes == null ? null : contentToken(bytes);
   }
 
-  /**
-   * TEST/SPIKE ONLY — models an external writer committing to the incoming branch and a fetch landing it:
-   * apply {@code changes} (a null value deletes that path) on top of the current incoming tip.
-   * @return the new incoming commit sha
-   */
-  String stageIncoming(final Path root, final Map<String, byte[]> changes, final String authorName, final String message)
-  throws IOException {
-    try (Repository repo = openRepo(root)) {
-      final ObjectId incomingTip = resolveObj(repo, REF_INCOMING);
-      final ObjectId baseForTree = (incomingTip != null) ? incomingTip : repo.resolve(Constants.HEAD);
-      try (ObjectInserter inserter = repo.newObjectInserter()) {
-        final var upserts = new LinkedHashMap<String, ObjectId>();
-        final var deletes = new TreeSet<String>();
-        for (final var e : changes.entrySet()) {
-          if (e.getValue() == null) deletes.add(e.getKey());
-          else upserts.put(e.getKey(), inserter.insert(Constants.OBJ_BLOB, e.getValue()));
-        }
-        final ObjectId treeId = buildTreeApplying(repo, inserter, baseForTree, upserts, deletes);
-        final var ident = new PersonIdent(authorName, authorName + "@external.example");
-        final var commit = new CommitBuilder();
-        commit.setTreeId(treeId);
-        if (incomingTip != null) commit.setParentId(incomingTip);
-        commit.setAuthor(ident);
-        commit.setCommitter(ident);
-        commit.setMessage(message);
-        final ObjectId commitId = inserter.insert(commit);
-        inserter.flush();
-        writeRef(repo, REF_INCOMING, commitId);
-        return commitId.getName();
-      }
-    }
+  /** The SHA-256 content token of a working-copy path, or null if absent. */
+  private String tokenWorkingCopy(final Path root, final String path) throws IOException {
+    final var p = root.resolve(path);
+    if (!Files.isRegularFile(p)) return null;
+    return contentToken(Files.readAllBytes(p));
   }
-  // endregion
+
 
   // region Workspace checkpoints (snapshot-all-dirty)
   //
@@ -891,12 +853,12 @@ public class WorkspaceVersioningService {
 
   /**
    * Result of restoring to a checkpoint. {@code restoredPaths} were reset to the checkpoint's content;
-   * {@code filesCreatedSince} exist now but weren't in the checkpoint — left in place (never silently deleted),
-   * surfaced so the caller can offer a keep/remove choice.
+   * {@code removedPaths} existed but weren't in the checkpoint (created since) and were soft-deleted so the
+   * workspace matches the checkpoint — recoverable from git history.
    */
-  public record RestoreCheckpointResult(List<String> restoredPaths, List<String> filesCreatedSince) {}
+  public record RestoreCheckpointResult(List<String> restoredPaths, List<String> removedPaths) {}
 
-  private record PendingFile(String path, String fileId, String contentHash) {}
+  private record PendingFile(String path, String contentHash) {}
 
   // Public (workspaceId-based) wrappers.
   public WorkspaceSnapshot snapshotWorkspace(
@@ -958,7 +920,10 @@ public class WorkspaceVersioningService {
           treeDeletes.add(del);
           treeDeletes.add(relativize(root, fs.resolveMetadataPath(root, Path.of(del))));
         }
-        final int totalChanged = dirty.size() + deletions.size();
+        // A checkpoint captures the whole workspace as it is now, so "N files" is the number of files the
+        // checkpoint CONTAINS (= the current working-copy file set), not the number changed since HEAD.
+        // (Under commit-on-save nothing is ever "dirty" at snapshot time, so a changed-count would read 0.)
+        final int fileCount = workingPaths.size();
 
         final int wsNumber = nextWsNumber(repo);
         final String wsName = nameOverride.filter(s -> !s.isBlank()).orElse(RevisionName.forNumber(wsNumber));
@@ -972,12 +937,12 @@ public class WorkspaceVersioningService {
           for (final var filePath : dirty) {
             final var contentPath = fs.resolveReadingPath(root, filePath);
             final var metaPath = fs.resolveMetadataPath(root, filePath);
-            final var fileId = ensureFileId(root, filePath, userId);
             final byte[] content = Files.readAllBytes(contentPath);
-            final byte[] meta = Files.readAllBytes(metaPath);
             upserts.put(relativize(root, contentPath), inserter.insert(Constants.OBJ_BLOB, content));
-            upserts.put(relativize(root, metaPath), inserter.insert(Constants.OBJ_BLOB, meta));
-            pending.add(new PendingFile(relativize(root, contentPath), fileId, contentToken(content)));
+            if (Files.isRegularFile(metaPath)) {
+              upserts.put(relativize(root, metaPath), inserter.insert(Constants.OBJ_BLOB, Files.readAllBytes(metaPath)));
+            }
+            pending.add(new PendingFile(relativize(root, contentPath), contentToken(content)));
           }
 
           // Tree = HEAD's tree with the dirty files' new blobs and the deleted files removed
@@ -988,18 +953,20 @@ public class WorkspaceVersioningService {
           if (head != null) commit.setParentId(head);
           commit.setAuthor(ident);
           commit.setCommitter(ident);
-          commit.setMessage(buildWsMessage(wsName, wsNumber, totalChanged, message));
+          commit.setMessage(buildWsMessage(wsName, wsNumber, fileCount, message));
           checkpointCommit = inserter.insert(commit);
           inserter.flush();
 
           advanceBranch(repo, head, checkpointCommit);
 
-          for (final var p : pending) {
-            final int number = nextNumber(repo, p.fileId()); // distinct fileIds → independent numbering
-            writeRef(repo, revRef(p.fileId(), number), checkpointCommit);
-            fileRevisions.add(new WorkspaceFileRevision(
-                p.fileId(), number, RevisionName.forNumber(number), p.path(), p.contentHash(),
-                ident.getName(), Instant.now().toString(), message.orElse(""), checkpointCommit.getName()));
+          try (RevWalk rw = new RevWalk(repo)) {
+            final RevCommit checkpointRev = rw.parseCommit(checkpointCommit);
+            for (final var p : pending) {
+              // Each dirty file gets its next revision as a tag on the shared checkpoint commit; the tag
+              // records that file's own path, so per-file listing (git log --follow) resolves it correctly.
+              fileRevisions.add(tagRevisionOnCommit(
+                  repo, p.path(), checkpointRev, checkpointCommit, ident, Optional.empty(), message.orElse(null)));
+            }
           }
         }
 
@@ -1008,7 +975,7 @@ public class WorkspaceVersioningService {
 
         final var checkpoint = new WorkspaceCheckpoint(
             wsNumber, wsName, checkpointCommit.getName(), ident.getName(),
-            Instant.now().toString(), message.orElse(""), totalChanged);
+            Instant.now().toString(), message.orElse(""), fileCount);
         return new WorkspaceSnapshot(checkpoint, fileRevisions);
       }
     } finally {
@@ -1046,11 +1013,10 @@ public class WorkspaceVersioningService {
   }
 
   /**
-   * Restore the workspace to a checkpoint, non-destructively. Every file in the checkpoint is reset to its
-   * checkpoint content (overwriting/recreating the working copy — a plain file write, no commit, history
-   * untouched). Files that exist now but weren't in the checkpoint (created since) are <em>left in place</em>
-   * and surfaced in {@link RestoreCheckpointResult#filesCreatedSince()} for the caller to offer keep/remove.
-   * Takes the per-workspace lock. (Slice: resets content by path; metadata is left as-is.)
+   * Restore the workspace to a checkpoint so it MATCHES that checkpoint. Every file in the checkpoint is reset
+   * to its checkpoint content + metadata (recreating any deleted since), and files created since the checkpoint
+   * are soft-deleted (removed from the working copy; content stays in git history → recoverable). A plain
+   * working-copy operation — history is untouched. Takes the per-workspace lock.
    */
   Optional<RestoreCheckpointResult> restoreToCheckpoint(final Path root, final String rev, final String userId)
   throws IOException, WorkspaceFileOpException {
@@ -1085,13 +1051,18 @@ public class WorkspaceVersioningService {
             restored.add(path);
           }
 
-          // Files present now but absent from the checkpoint = created since → kept, surfaced for review.
-          final var createdSince = new ArrayList<String>();
+          // Files present now but absent from the checkpoint were created since → remove them so the
+          // workspace actually MATCHES the checkpoint. Soft-delete: the content remains in git history
+          // (reachable from prior commits), so a removed file is recoverable.
+          final var removed = new ArrayList<String>();
           for (final var path : currentPaths) {
-            if (!checkpointPaths.contains(path)) createdSince.add(path);
+            if (checkpointPaths.contains(path)) continue;
+            Files.deleteIfExists(fs.resolveReadingPath(root, Path.of(path)));
+            Files.deleteIfExists(fs.resolveMetadataPath(root, Path.of(path)));
+            removed.add(path);
           }
 
-          return Optional.of(new RestoreCheckpointResult(restored, createdSince));
+          return Optional.of(new RestoreCheckpointResult(restored, removed));
         }
       }
     } finally {
@@ -1138,6 +1109,234 @@ public class WorkspaceVersioningService {
   }
   // endregion
 
+  // region Inbound merge-or-abort (Approach 2) — bring external changes back via a real git merge.
+  //
+  // PlanDev pulls a fetched external branch (here the refs/seqdev/incoming ref, populated by the test helper
+  // below that stands in for the network fetch) and attempts a real git merge into the workspace branch.
+  // Because .git/info/attributes marks every path non-mergeable (* -merge), git merges at the FILE level:
+  // a file changed on only one side is taken whole; a file changed on BOTH sides is a conflict. On ANY
+  // conflict we `git merge --abort` (hard-reset to the pre-merge HEAD — safe because commit-on-save means the
+  // working copy already == HEAD, so nothing uncommitted is lost) and punt to the external git users to
+  // resolve upstream and re-push. No conflict markers ever land on disk, and PlanDev never runs a line merge.
+
+  static final String REF_INCOMING = "refs/seqdev/incoming";
+
+  public enum MergeOutcome {
+    /** No incoming branch staged — nothing to pull. */
+    NO_INCOMING,
+    /** The workspace branch already contains the incoming commit — no-op. */
+    ALREADY_UP_TO_DATE,
+    /** The merge applied cleanly (file-level); the working copy now reflects the merged result. */
+    MERGED,
+    /** A file changed on both sides — the merge was aborted (no markers) and must be resolved upstream. */
+    ABORTED_CONFLICTS
+  }
+
+  /** Outcome of an inbound pull. {@code changedPaths} on MERGED; {@code conflictedPaths} on ABORTED_CONFLICTS. */
+  public record MergeReport(MergeOutcome outcome, List<String> changedPaths, List<String> conflictedPaths) {}
+
+  public MergeReport mergeIncoming(final int workspaceId, final String userId)
+  throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException {
+    return mergeIncoming(rootOf(workspaceId), userId);
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Approach 2 derives created/last-edited from git rather than storing them in the sidecar: the earliest
+   * commit touching the file's path ({@code git log --follow}) is its creation, the latest is its most recent
+   * edit. Lock-free. Empty when the workspace isn't a repo or the current path has no committed history (e.g.
+   * a soft-deleted file), so callers fall back to any stored sidecar values.
+   */
+  @Override
+  public Optional<FileHistoryInfo> fileHistory(final int workspaceId, final Path filePath)
+  throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException {
+    return fileHistory(rootOf(workspaceId), filePath);
+  }
+
+  Optional<FileHistoryInfo> fileHistory(final Path root, final Path filePath)
+  throws IOException, WorkspaceFileOpException {
+    if (!isRepo(root)) return Optional.empty();
+    final var relContent = relativize(root, fs.resolveReadingPath(root, filePath));
+    try (Repository repo = openRepo(root); RevWalk rw = new RevWalk(repo)) {
+      final ObjectId head = repo.resolve(Constants.HEAD);
+      if (head == null) return Optional.empty();
+      rw.setTreeFilter(FollowFilter.create(relContent, repo.getConfig().get(DiffConfig.KEY)));
+      rw.markStart(rw.parseCommit(head));
+      RevCommit newest = null;
+      RevCommit oldest = null;
+      for (final RevCommit c : rw) {
+        if (newest == null) newest = c; // walk yields newest-first
+        oldest = c;
+      }
+      if (newest == null) return Optional.empty();
+      return Optional.of(historyInfo(oldest, newest));
+    }
+  }
+
+  @Override
+  public Map<String, FileHistoryInfo> fileHistories(final int workspaceId)
+  throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException {
+    return fileHistories(rootOf(workspaceId));
+  }
+
+  Map<String, FileHistoryInfo> fileHistories(final Path root) throws IOException {
+    if (!isRepo(root)) return Map.of();
+    try (Repository repo = openRepo(root); RevWalk rw = new RevWalk(repo)) {
+      final ObjectId head = repo.resolve(Constants.HEAD);
+      if (head == null) return Map.of();
+      final RevCommit headCommit = rw.parseCommit(head);
+      final Set<String> live = contentPathsInTree(repo, headCommit); // only files still present
+
+      // One newest-first pass: the first commit that touches a path is its last edit; the last is its creation.
+      final Map<String, RevCommit> newest = new HashMap<>();
+      final Map<String, RevCommit> oldest = new HashMap<>();
+      rw.markStart(headCommit);
+      for (final RevCommit c : rw) {
+        for (final String path : changedPathsAgainstParent(repo, c)) {
+          if (!live.contains(path)) continue;
+          newest.putIfAbsent(path, c);
+          oldest.put(path, c);
+        }
+      }
+
+      final Map<String, FileHistoryInfo> out = new HashMap<>();
+      for (final String path : live) {
+        final RevCommit o = oldest.get(path);
+        final RevCommit n = newest.get(path);
+        if (o != null && n != null) out.put(path, historyInfo(o, n));
+      }
+      return out;
+    }
+  }
+
+  /** Build a {@link FileHistoryInfo} from the oldest (created) and newest (last-edited) commits touching a path. */
+  private FileHistoryInfo historyInfo(final RevCommit oldest, final RevCommit newest) {
+    return new FileHistoryInfo(
+        oldest.getAuthorIdent().getName(), oldest.getAuthorIdent().getWhen().toInstant().toString(),
+        newest.getAuthorIdent().getName(), newest.getAuthorIdent().getWhen().toInstant().toString());
+  }
+
+  /** Non-metadata content paths changed by {@code c} relative to its first parent (all paths for a root commit). */
+  private Set<String> changedPathsAgainstParent(final Repository repo, final RevCommit c) throws IOException {
+    if (c.getParentCount() == 0) {
+      try (RevWalk rw = new RevWalk(repo)) {
+        return contentPathsInTree(repo, rw.parseCommit(c.getId()));
+      }
+    }
+    return new HashSet<>(changedContentPaths(repo, c.getParent(0).getId(), c.getId()));
+  }
+
+  MergeReport mergeIncoming(final Path root, final String userId)
+  throws IOException, WorkspaceFileOpException {
+    final var lock = lockFor(root);
+    lock.lock();
+    try {
+      if (!isRepo(root)) return new MergeReport(MergeOutcome.NO_INCOMING, List.of(), List.of());
+      try (Repository repo = openRepo(root)) {
+        final var incomingRef = repo.exactRef(REF_INCOMING);
+        if (incomingRef == null) return new MergeReport(MergeOutcome.NO_INCOMING, List.of(), List.of());
+        final ObjectId incoming = incomingRef.getObjectId();
+        final ObjectId preMerge = repo.resolve(Constants.HEAD);
+
+        setRepoUser(repo, userId); // attribute the merge commit to the puller
+        final Git git = Git.wrap(repo);
+        final MergeResult mr;
+        try {
+          mr = git.merge()
+              .include(incoming)
+              .setCommit(true)
+              .setStrategy(MergeStrategy.RECURSIVE)
+              .setMessage("Merge incoming external changes")
+              .call();
+        } catch (GitAPIException e) {
+          throw new IOException("Failed to merge incoming changes for workspace at " + root, e);
+        }
+
+        switch (mr.getMergeStatus()) {
+          case ALREADY_UP_TO_DATE -> {
+            return new MergeReport(MergeOutcome.ALREADY_UP_TO_DATE, List.of(), List.of());
+          }
+          case FAST_FORWARD, MERGED -> {
+            refreshIndex(repo);
+            final var changed = changedContentPaths(repo, preMerge, repo.resolve(Constants.HEAD));
+            return new MergeReport(MergeOutcome.MERGED, changed, List.of());
+          }
+          default -> {
+            // CONFLICTING / FAILED / CHECKOUT_CONFLICT → abort cleanly (no markers), punt upstream.
+            final var conflicts = new TreeSet<String>();
+            if (mr.getConflicts() != null) conflicts.addAll(mr.getConflicts().keySet());
+            if (mr.getFailingPaths() != null) conflicts.addAll(mr.getFailingPaths().keySet());
+            try {
+              git.reset().setMode(ResetCommand.ResetType.HARD).setRef(preMerge.getName()).call();
+            } catch (GitAPIException e) {
+              throw new IOException("Failed to abort a conflicted merge for workspace at " + root, e);
+            }
+            return new MergeReport(MergeOutcome.ABORTED_CONFLICTS, List.of(), List.copyOf(conflicts));
+          }
+        }
+      }
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /** Set the repo's committer identity (used for the merge commit) to the acting user. */
+  private void setRepoUser(final Repository repo, final String userId) throws IOException {
+    final var who = (userId == null || userId.isBlank()) ? "seqdev" : userId;
+    final var cfg = repo.getConfig();
+    cfg.setString("user", null, "name", who);
+    cfg.setString("user", null, "email", who + "@seqdev.local");
+    cfg.save();
+  }
+
+  /** Non-metadata content paths that differ between two commits (informational, for the merge report). */
+  private List<String> changedContentPaths(final Repository repo, final ObjectId a, final ObjectId b)
+  throws IOException {
+    final var out = new ArrayList<String>();
+    try (RevWalk rw = new RevWalk(repo); TreeWalk tw = new TreeWalk(repo)) {
+      tw.addTree(rw.parseCommit(a).getTree());
+      tw.addTree(rw.parseCommit(b).getTree());
+      tw.setRecursive(true);
+      tw.setFilter(TreeFilter.ANY_DIFF);
+      while (tw.next()) {
+        final var path = tw.getPathString();
+        final var name = path.substring(path.lastIndexOf('/') + 1);
+        if (!RenderType.isAerieMetadataFile(name)) out.add(path);
+      }
+    }
+    return out;
+  }
+
+  /**
+   * TEST/SPIKE ONLY — stands in for the network fetch of an external branch. Builds a commit on top of the
+   * current HEAD applying {@code changes} (path → bytes) and points {@link #REF_INCOMING} at it, so a later
+   * {@link #mergeIncoming} sees "an external writer committed and we fetched." To model divergence, call this
+   * before making the PlanDev-side commit so both derive from the same base.
+   */
+  void stageIncomingBranch(final Path root, final Map<String, byte[]> changes, final String authorName, final String message)
+  throws IOException {
+    try (Repository repo = openRepo(root); ObjectInserter inserter = repo.newObjectInserter()) {
+      final ObjectId head = repo.resolve(Constants.HEAD);
+      final var upserts = new HashMap<String, ObjectId>();
+      for (final var e : changes.entrySet()) {
+        upserts.put(e.getKey(), inserter.insert(Constants.OBJ_BLOB, e.getValue()));
+      }
+      final ObjectId tree = buildTreeWith(repo, inserter, head, upserts);
+      final var commit = new CommitBuilder();
+      commit.setTreeId(tree);
+      if (head != null) commit.setParentId(head);
+      final var who = new PersonIdent(authorName, authorName + "@ext.local");
+      commit.setAuthor(who);
+      commit.setCommitter(who);
+      commit.setMessage(message);
+      final ObjectId cid = inserter.insert(commit);
+      inserter.flush();
+      writeRef(repo, REF_INCOMING, cid);
+    }
+  }
+  // endregion
+
   // region Small utilities
   private boolean isRepo(final Path root) {
     return root.resolve(Constants.DOT_GIT).toFile().isDirectory();
@@ -1151,18 +1350,9 @@ public class WorkspaceVersioningService {
     return workspaceLocks.computeIfAbsent(root.toAbsolutePath().normalize().toString(), k -> new ReentrantLock());
   }
 
-  private String fileIdFor(final Path root, final Path filePath) throws IOException, WorkspaceFileOpException {
-    final var meta = fs.readMetadataFile(fs.resolveMetadataPath(root, filePath).toFile());
-    return meta.getString("fileId", null);
-  }
-
   private PersonIdent personIdent(final String userId) {
     final var who = (userId == null || userId.isBlank()) ? "seqdev" : userId;
     return new PersonIdent(who, who + "@seqdev.local");
-  }
-
-  private String revRef(final String fileId, final int number) {
-    return REV_REF_PREFIX + fileId + "/" + number;
   }
 
   private String relativize(final Path root, final Path absolute) {

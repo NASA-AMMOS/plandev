@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,8 +51,18 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   final WorkspacePostgresRepository postgresRepository;
 
+  // Approach 2: created/last-edited provenance is derived from git rather than stored in the sidecar.
+  // Set post-construction (versioning depends on this service, so the wiring is a one-way setter to break
+  // the cycle). Null in unit tests that exercise the file system directly; reads then fall back to any
+  // stored sidecar values.
+  private FileHistoryProvider fileHistory;
+
   public WorkspaceFileSystemService(final WorkspacePostgresRepository postgresRepository) {
     this.postgresRepository = postgresRepository;
+  }
+
+  public void setFileHistoryProvider(final FileHistoryProvider fileHistory) {
+    this.fileHistory = fileHistory;
   }
 
   //region Path Resolution
@@ -356,10 +367,15 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   @Override
   public LastEditInfo getLastEditInfo(final int workspaceId, final Path filePath)
   throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException {
-    final var metadata = readMetadataFile(resolveMetadataPath(workspaceId, filePath).toFile());
-    return new LastEditInfo(
-        metadata.getString(MetadataKeys.lastEditedBy.name(), null),
-        metadata.getString(MetadataKeys.lastEditedAt.name(), null));
+    // Approach 2: last-edited is derived from git (the latest commit touching the path), not stored in the
+    // sidecar. Null when there's no committed history yet (the modal shows "unknown" gracefully).
+    if (fileHistory != null) {
+      final var history = fileHistory.fileHistory(workspaceId, filePath);
+      if (history.isPresent()) {
+        return new LastEditInfo(history.get().lastEditedBy(), history.get().lastEditedAt());
+      }
+    }
+    return new LastEditInfo(null, null);
   }
 
   @Override
@@ -369,10 +385,9 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
     final var path = resolveWritingPath(repoPath, filePath);
     final var metadataFilePath = resolveMetadataPath(repoPath, filePath);
-    final var metadataUpdates = new MetadataUpdates.Builder(userId)
-        .lastEditedAt(Instant.now())
-        .lastEditedBy(userId)
-        .build();
+    // Approach 2: last-edited is derived from git, not stored — so a save only ensures the sidecar exists
+    // (version + created), leaving it byte-stable across saves (no per-save churn in git history).
+    final var metadataUpdates = new MetadataUpdates.Builder(userId).build();
 
     if(path.toFile().isDirectory()) return Optional.empty();
 
@@ -406,11 +421,8 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     if(Files.exists(oldMetadataPath)) {
       Files.move(oldMetadataPath, newMetadataPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     }
-    // Update the metadata
-    final var metadataUpdates = new MetadataUpdates.Builder(userId)
-        .lastEditedAt(Instant.now())
-        .lastEditedBy(userId)
-        .build();
+    // Ensure the moved file's sidecar exists/stays valid; last-edited is derived from git (commit-on-rename).
+    final var metadataUpdates = new MetadataUpdates.Builder(userId).build();
     updateMetadataKeys(newMetadataPath, metadataUpdates, MetadataMergeBehavior.deepMerge);
 
     Files.move(oldPath, newPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
@@ -449,13 +461,10 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     if (Files.exists(sourceMetadataPath)) {
       Files.copy(sourceMetadataPath, destMetadataPath, StandardCopyOption.REPLACE_EXISTING);
     }
-    // Update the metadata
-    final var now = Instant.now();
+    // A copy is a new file: stamp its created provenance and clear readOnly. Last-edited is derived from git.
     final var metadataUpdates = new MetadataUpdates.Builder(userId)
-        .createdAt(now)
+        .createdAt(Instant.now())
         .createdBy(userId)
-        .lastEditedAt(now)
-        .lastEditedBy(userId)
         .readOnly(false)
         .build();
     updateMetadataKeys(destMetadataPath, metadataUpdates, MetadataMergeBehavior.deepMerge);
@@ -494,7 +503,26 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     if(!path.toFile().isDirectory()) {
       return null;
     }
-    return listFiles(path, depth, withMetadata);
+    // Approach 2: enrich the tree with git-derived last-edited (created stays in the sidecar). One batched
+    // history pass per listing, keyed by absolute path so the tree can look it up per node.
+    final var history = (withMetadata && fileHistory != null)
+        ? gitHistoryByAbsolutePath(workspaceId)
+        : Map.<String, FileHistoryProvider.FileHistoryInfo>of();
+    return listFiles(path, depth, withMetadata, history);
+  }
+
+  /** Batched git provenance keyed by absolute path string (best-effort — a hiccup must not fail listing). */
+  private Map<String, FileHistoryProvider.FileHistoryInfo> gitHistoryByAbsolutePath(final int workspaceId) {
+    try {
+      final var root = postgresRepository.workspaceRootPath(workspaceId);
+      final var byRelative = fileHistory.fileHistories(workspaceId);
+      final var byAbsolute = new java.util.HashMap<String, FileHistoryProvider.FileHistoryInfo>(byRelative.size());
+      byRelative.forEach((rel, info) -> byAbsolute.put(root.resolve(rel).toString(), info));
+      return byAbsolute;
+    } catch (NoSuchWorkspaceException | IOException | WorkspaceFileOpException e) {
+      logger.warn("LIST FILES: could not derive git history for workspace {}: {}", workspaceId, e.getMessage());
+      return Map.of();
+    }
   }
 
   /**
@@ -512,16 +540,34 @@ public class WorkspaceFileSystemService implements WorkspaceService {
    *
    * @return A DirectoryTree representing the contents of the directory
    */
-  private DirectoryTree listFiles(final Path resolvedDirectoryPath, final int depth, final boolean withMetadata)
+  private DirectoryTree listFiles(
+      final Path resolvedDirectoryPath, final int depth, final boolean withMetadata,
+      final Map<String, FileHistoryProvider.FileHistoryInfo> gitHistoryByAbsolutePath)
   throws SQLException, IOException, IllegalArgumentException
   {
     // Convert to our API from the Files API
     final var walkDepth = depth == -1 ? Integer.MAX_VALUE : depth + 1;
     try(final Stream<Path> walkOutput = Files.walk(resolvedDirectoryPath, walkDepth)) {
-      final var walkList = new ArrayList<>(walkOutput.toList());
+      // Hide the git store (Approach 2 makes each workspace a git repo): the .git directory must never appear
+      // in a workspace listing — it's internal, and exposing/serving it leaks history/refs.
+      final var walkList = walkOutput
+          .filter(p -> !isUnderGitDir(resolvedDirectoryPath, p))
+          .collect(Collectors.toCollection(ArrayList::new));
       walkList.removeFirst(); // remove the initial path
-      return new DirectoryTree(resolvedDirectoryPath, walkList, postgresRepository.getExtensionMapping(), withMetadata);
+      return new DirectoryTree(
+          resolvedDirectoryPath, walkList, postgresRepository.getExtensionMapping(), withMetadata,
+          gitHistoryByAbsolutePath);
     }
+  }
+
+  /** True if {@code path} is the workspace's {@code .git} directory or anything inside it. */
+  private static boolean isUnderGitDir(final Path root, final Path path) {
+    for (final var segment : root.relativize(path)) {
+      if (segment.toString().equals(".git")) {
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override
@@ -639,7 +685,8 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       return List.of();
     }
 
-    return listFiles(directoryPath, -1, true).readOnlyNodes();
+    // Only readOnly flags are needed here, so skip the git-history enrichment.
+    return listFiles(directoryPath, -1, true, Map.of()).readOnlyNodes();
   }
   //endregion
 
@@ -738,24 +785,14 @@ public class WorkspaceFileSystemService implements WorkspaceService {
           v -> generator.write("version", v),
           () -> generator.write("version", "1"));
 
-      // Add the stable file identity if one has been assigned (system-managed; used by file versioning).
-      contents.fileId().ifPresent(f -> generator.write("fileId", f));
-
-      // Fill in "created" information, using the "metadataLastEdited" information as a fallback
+      // Fill in "created" information, using the "metadataLastEdited" information as a fallback.
+      // (last-edited is NOT stored — Approach 2 derives it from git; see FileHistoryProvider.)
       contents.createdBy().ifPresentOrElse(
           c -> generator.write("createdBy", c),
           () -> generator.write("createdBy", contents.metadataLastEditedBy()));
       contents.createdAt().ifPresentOrElse(
           c -> generator.write("createdAt", c.toString()),
           () -> generator.write("createdAt", contents.metadataLastEditedAt().toString()));
-
-      // Fill in "lastEdited" information, using the "metadataLastEdited" information as a fallback
-      contents.lastEditedBy().ifPresentOrElse(
-          c -> generator.write("lastEditedBy", c),
-          () -> generator.write("lastEditedBy", contents.metadataLastEditedBy()));
-      contents.lastEditedAt().ifPresentOrElse(
-          c -> generator.write("lastEditedAt", c.toString()),
-          () -> generator.write("lastEditedAt", contents.metadataLastEditedAt().toString()));
 
       // Fill in the user-mutable fields, if included
       contents.readOnly().ifPresent(r -> generator.write("readOnly", r));
@@ -792,28 +829,13 @@ public class WorkspaceFileSystemService implements WorkspaceService {
           }
         }
     );
-    // Preserve the stable file identity across saves once it has been assigned (no fallback: a file that
-    // has never been revisioned simply has no fileId yet). This keeps a file's revision history attached
-    // through ordinary edits and renames.
-    updates.fileId().ifPresentOrElse(
-        mergedBuilder::fileId,
-        () -> {
-          if(currentContents.containsKey("fileId")) {
-            mergedBuilder.fileId(currentContents.getString("fileId"));
-          }
-        }
-    );
     updates.createdBy().ifPresentOrElse(
         mergedBuilder::createdBy,
         () -> {
           if(currentContents.containsKey("createdBy")) {
             mergedBuilder.createdBy(currentContents.getString("createdBy"));
           } else {
-            // Fallback, trying to use last file edit before the current metadata edits
-            updates.lastEditedBy().ifPresentOrElse(
-                mergedBuilder::createdBy,
-                () -> mergedBuilder.createdBy(updates.metadataLastEditedBy())
-            );
+            mergedBuilder.createdBy(updates.metadataLastEditedBy()); // Fallback: the acting user
           }
         }
     );
@@ -823,34 +845,11 @@ public class WorkspaceFileSystemService implements WorkspaceService {
           if(currentContents.containsKey("createdAt")) {
             mergedBuilder.createdAt(Instant.parse(currentContents.getString("createdAt")));
           } else {
-            // Fallback, trying to use last file edit before the current metadata edits
-            updates.lastEditedAt().ifPresentOrElse(
-                mergedBuilder::createdAt,
-                () -> mergedBuilder.createdAt(updates.metadataLastEditedAt())
-            );
+            mergedBuilder.createdAt(updates.metadataLastEditedAt()); // Fallback: now
           }
         }
     );
-    updates.lastEditedBy().ifPresentOrElse(
-        mergedBuilder::lastEditedBy,
-        () -> {
-          if(currentContents.containsKey("lastEditedBy")) {
-            mergedBuilder.lastEditedBy(currentContents.getString("lastEditedBy"));
-          } else {
-            mergedBuilder.lastEditedBy(updates.metadataLastEditedBy()); // Fallback
-          }
-        }
-    );
-    updates.lastEditedAt().ifPresentOrElse(
-        mergedBuilder::lastEditedAt,
-        () -> {
-          if(currentContents.containsKey("lastEditedAt")) {
-            mergedBuilder.lastEditedAt(Instant.parse(currentContents.getString("lastEditedAt")));
-          } else {
-            mergedBuilder.lastEditedAt(updates.metadataLastEditedAt()); // Fallback
-          }
-        }
-    );
+    // last-edited is NOT stored (Approach 2 derives it from git — see FileHistoryProvider).
 
     updates.readOnly().ifPresentOrElse(
         mergedBuilder::readOnly,
@@ -971,12 +970,11 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         final var mKey = MetadataKeys.valueOf(key);
         switch (mKey) {
           case user -> fileContentsBuilder.user(null);
-          case fileId -> fileContentsBuilder.fileId(null);
           case readOnly -> fileContentsBuilder.readOnly(null);
           case createdBy -> fileContentsBuilder.createdBy(null);
           case createdAt -> fileContentsBuilder.createdAt(null);
-          case lastEditedAt -> fileContentsBuilder.lastEditedAt(null);
-          case lastEditedBy -> fileContentsBuilder.lastEditedBy(null);
+          // last-edited is derived from git, not stored — nothing to clear from the sidecar.
+          case lastEditedAt, lastEditedBy -> { }
           case version -> fileContentsBuilder.version(null);
         }
       }

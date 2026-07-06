@@ -638,7 +638,7 @@ public class WorkspaceBindings implements Plugin {
       return;
     }
 
-    final var deleteResults = handleDelete(pathInfo.workspaceId, pathInfo.filePath);
+    final var deleteResults = handleDelete(pathInfo.workspaceId, pathInfo.filePath, authorize(context).userId());
 
     switch (deleteResults){
       case HandlerResult.Success success -> context.status(success.status()).result(success.response());
@@ -753,11 +753,11 @@ public class WorkspaceBindings implements Plugin {
       }
       final var restored = Json.createArrayBuilder();
       result.get().restoredPaths().forEach(restored::add);
-      final var createdSince = Json.createArrayBuilder();
-      result.get().filesCreatedSince().forEach(createdSince::add);
+      final var removed = Json.createArrayBuilder();
+      result.get().removedPaths().forEach(removed::add);
       context.status(200).json(Json.createObjectBuilder()
           .add("restored", restored)
-          .add("filesCreatedSince", createdSince)
+          .add("removed", removed)
           .build().toString());
     } catch (WorkspaceFileOpException wfe) {
       context.status(400).json(new FormattedError(wfe, "Could not restore checkpoint."));
@@ -932,6 +932,14 @@ public class WorkspaceBindings implements Plugin {
       // saveFile hashes as it writes and returns the new ETag, so we don't re-read the file.
       final var newETag = workspaceService.saveFile(workspaceId, uploadPath, file, userId);
       if (newETag.isPresent()) {
+        // Commit-on-save (Approach 2): record this save as a commit so git history is the fine-grained
+        // per-file history. Best-effort — the bytes are already durably on disk, so a versioning hiccup
+        // must not fail the save.
+        try {
+          versioningService.commitSave(workspaceId, uploadPath, userId);
+        } catch (IOException | WorkspaceFileOpException | NoSuchWorkspaceException e) {
+          logger.warn("UPLOAD FILE: commit-on-save failed for {}: {}", uploadPath, e.getMessage());
+        }
         return new HandlerResult.Success(
             200,
             "File " + uploadPath.getFileName() + " uploaded to " + uploadPath,
@@ -1064,6 +1072,16 @@ public class WorkspaceBindings implements Plugin {
         }
 
         if (workspaceService.moveFile(sourceWorkspaceId, toMove, destinationWorkspaceId, destinationPath, userId)) {
+          // Commit-on-rename (Approach 2): a same-workspace rename becomes a pure-rename commit so
+          // git log --follow tracks the file. Cross-workspace moves are a delete+add across two repos —
+          // handled by their own commit hooks. Best-effort — the move already succeeded on disk.
+          if (sourceWorkspaceId == destinationWorkspaceId) {
+            try {
+              versioningService.commitRename(sourceWorkspaceId, toMove, destinationPath, userId);
+            } catch (IOException | WorkspaceFileOpException | NoSuchWorkspaceException e) {
+              logger.warn("MOVE: commit-on-rename failed for {} -> {}: {}", toMove, destinationPath, e.getMessage());
+            }
+          }
           return new HandlerResult.Success(200, successMsg);
         } else {
           return new HandlerResult.Failure(500, new FormattedError(errorMsg));
@@ -1157,7 +1175,7 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
-  private HandlerResult handleDelete(int workspaceId, Path filePath) {
+  private HandlerResult handleDelete(int workspaceId, Path filePath, String userId) {
     try {
       final var errorMsg = "Could not delete %s.".formatted(filePath);
 
@@ -1196,6 +1214,13 @@ public class WorkspaceBindings implements Plugin {
         }
 
         if (workspaceService.deleteFile(workspaceId, filePath)) {
+          // Commit-on-delete (Approach 2): record the soft-delete so the tree matches disk; the bytes stay
+          // reachable in history and are restorable. Best-effort — the file is already gone from disk.
+          try {
+            versioningService.commitDelete(workspaceId, filePath, userId);
+          } catch (IOException | WorkspaceFileOpException | NoSuchWorkspaceException e) {
+            logger.warn("DELETE: commit-on-delete failed for {}: {}", filePath, e.getMessage());
+          }
           return new HandlerResult.Success(200, "File deleted.");
         } else {
           logger.warn("DELETE: Delete File failed for path {}", filePath);
@@ -1605,14 +1630,14 @@ public class WorkspaceBindings implements Plugin {
     }
 
     // Return multipart response
-    context.status(207).json(handleBulkDelete(workspaceId, toDelete).toString());
+    context.status(207).json(handleBulkDelete(workspaceId, toDelete, authorize(context).userId()).toString());
   }
 
-  private JsonArray handleBulkDelete(int workspaceId, List<String> toDelete) {
+  private JsonArray handleBulkDelete(int workspaceId, List<String> toDelete, String userId) {
     final var responseArray = Json.createArrayBuilder();
 
     for(final var item : toDelete) {
-      final var results = handleDelete(workspaceId, Path.of(item));
+      final var results = handleDelete(workspaceId, Path.of(item), userId);
       final var response = Json.createObjectBuilder()
                                .add("item", item)
                                .add("status", results.status())
@@ -1648,13 +1673,32 @@ public class WorkspaceBindings implements Plugin {
     try {
       final var fileStream = workspaceService.loadMetadataFile(pathInfo.workspaceId, pathInfo.filePath());
 
-      // Set up headers for file response
+      // Approach 2: last-edited is derived from git, not stored in the sidecar. Overlay it onto the returned
+      // metadata so the open-file metadata panel shows it (the file browser gets the same overlay via listFiles).
+      final javax.json.JsonObject sidecar;
+      try (final var reader = Json.createReader(fileStream.readingStream())) {
+        sidecar = reader.readObject();
+      }
+      javax.json.JsonObject metadata = sidecar;
+      final var history = versioningService.fileHistory(pathInfo.workspaceId, pathInfo.filePath());
+      if (history.isPresent()) {
+        final var builder = Json.createObjectBuilder(sidecar);
+        if (history.get().lastEditedBy() != null) builder.add("lastEditedBy", history.get().lastEditedBy());
+        if (history.get().lastEditedAt() != null) builder.add("lastEditedAt", history.get().lastEditedAt());
+        metadata = builder.build();
+      }
+
+      // Set up headers for file response. ETag stays the sidecar's (client sends it back as If-Match on save);
+      // the overlaid last-edited is display-only and is not part of what the client edits (readOnly/user).
       context.header("x-render-type", RenderType.METADATA.name());
       context.contentType(ContentType.OCTET_STREAM);
-      // The client sends this ETag back as If-Match when it saves.
-      context.header("ETag", fileStream.etag());
+      // No ETag here (the metadata save doesn't use If-Match, and the client reads only the body): the metadata
+      // now carries git-derived last-edited (and user{} edits) that change independently of the content-file
+      // ETag, so ETag-based revalidation would 304 and serve stale metadata (last-edited "disappearing" on
+      // click). Omit the ETag and mark no-store so the browser always fetches fresh.
+      context.header("Cache-Control", "no-store");
       context.header("Content-Disposition", "attachment; filename=\"" + fileStream.fileName() + "\"");
-      context.status(200).result(fileStream.readingStream());
+      context.status(200).result(metadata.toString());
     } catch (WorkspaceFileOpException wfe) {
       final var fe = new FormattedError(wfe, "Could not retrieve metadata file for file "+pathInfo.fileName());
       context.status(400).json(fe);

@@ -102,6 +102,7 @@ public final class WorkspaceAppDriver {
       final var postgresRepository = new WorkspacePostgresRepository(config.workspaceFileStore(), hikariDataSource);
       final var workspace = new WorkspaceFileSystemService(postgresRepository);
       final var versioning = new WorkspaceVersioningService(postgresRepository, workspace);
+      workspace.setFileHistoryProvider(versioning); // Approach 2: derive created/last-edited from git
       return new Stores(jwt, workspace, versioning);
     } else {
       throw new UnexpectedSubtypeError(Store.class, store);

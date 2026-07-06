@@ -10,13 +10,9 @@ import java.util.Optional;
 public class MetadataUpdates {
   // System-Managed Fields
   private final Optional<String> version;
-  // Stable per-file identity used by file versioning. Set once (at first revision/migration) and
-  // preserved across saves so a file's history survives renames. System-managed; not user-settable.
-  private final Optional<String> fileId;
   private final Optional<String> createdBy;
   private final Optional<Instant> createdAt;
-  private final Optional<String> lastEditedBy;
-  private final Optional<Instant> lastEditedAt;
+  // last-edited is NOT stored — Approach 2 derives it from git (see FileHistoryProvider).
   // Fallback values. Non-optional as we know when the most recent edit to the metadata is:
   // it's when the edits represented by this Update object are applied.
   private final String metadataLastEditedBy;
@@ -27,11 +23,8 @@ public class MetadataUpdates {
 
   private MetadataUpdates(Builder builder){
     this.version = Optional.ofNullable(builder.version);
-    this.fileId = Optional.ofNullable(builder.fileId);
     this.createdBy = Optional.ofNullable(builder.createdBy);
     this.createdAt = Optional.ofNullable(builder.createdAt);
-    this.lastEditedBy = Optional.ofNullable(builder.lastEditedBy);
-    this.lastEditedAt = Optional.ofNullable(builder.lastEditedAt);
     // Tracked but unwritten fields (currently used for fallbacks)
     this.metadataLastEditedBy = builder.metadataLastEditedBy;
     this.metadataLastEditedAt = builder.metadataLastEditedAt;
@@ -47,20 +40,13 @@ public class MetadataUpdates {
     this.user = user;
 
     this.version = Optional.empty();
-    this.fileId = Optional.empty();
     this.createdBy = Optional.empty();
     this.createdAt = Optional.empty();
-    this.lastEditedBy = Optional.empty();
-    this.lastEditedAt = Optional.empty();
   }
 
   // System-managed fields
   public Optional<String> version() {
     return version;
-  }
-
-  public Optional<String> fileId() {
-    return fileId;
   }
 
   public Optional<String> createdBy() {
@@ -69,14 +55,6 @@ public class MetadataUpdates {
 
   public Optional<Instant> createdAt() {
     return createdAt;
-  }
-
-  public Optional<String> lastEditedBy() {
-    return lastEditedBy;
-  }
-
-  public Optional<Instant> lastEditedAt() {
-    return lastEditedAt;
   }
 
   public String metadataLastEditedBy() {
@@ -166,11 +144,8 @@ public class MetadataUpdates {
 
   public static class Builder {
     private String version;
-    private String fileId;
     private String createdBy;
     private Instant createdAt;
-    private String lastEditedBy;
-    private Instant lastEditedAt;
     private final String metadataLastEditedBy;
     private final Instant metadataLastEditedAt;
 
@@ -192,11 +167,6 @@ public class MetadataUpdates {
       return this;
     }
 
-    public Builder fileId(String fileId) {
-      this.fileId = fileId;
-      return this;
-    }
-
     public Builder createdBy(String createdBy) {
       this.createdBy = createdBy;
       return this;
@@ -204,16 +174,6 @@ public class MetadataUpdates {
 
     public Builder createdAt(Instant createdAt) {
       this.createdAt = createdAt;
-      return this;
-    }
-
-    public Builder lastEditedBy(String lastEditedBy) {
-      this.lastEditedBy = lastEditedBy;
-      return this;
-    }
-
-    public Builder lastEditedAt(Instant lastEditedAt) {
-      this.lastEditedAt = lastEditedAt;
       return this;
     }
 

@@ -6,12 +6,12 @@ import javax.json.JsonObject;
 /**
  * One immutable revision of a single workspace file, as surfaced by the versioning API.
  *
- * <p>A revision is anchored on a Git commit; its content lives in a Git blob and its identity/metadata
- * in the committed {@code .meta.seqdev} blob. The {@link #contentHash} is the SHA-256 content token —
- * the <em>same</em> value the edit-protection layer returns as an {@code ETag} — so "is the working copy
- * dirty since revision N" is just {@code workingCopyETag != revision.contentHash}.
+ * <p>A revision is a Git <em>tag</em> on a save-commit (Approach 2). Its content lives in a Git blob; the
+ * {@link #contentHash} is the SHA-256 content token — the <em>same</em> value the edit-protection layer
+ * returns as an {@code ETag} — so "is the working copy dirty since revision N" is just
+ * {@code workingCopyETag != revision.contentHash}. Identity is the file's <em>path</em> (git log --follow),
+ * so there is no synthetic file id.
  *
- * @param fileId      stable per-file identity (rename-proof); the key revisions are indexed by
  * @param number      1-based per-file revision number (independent per file)
  * @param name        auto-assigned name (a, b, c …) frozen at creation
  * @param path        the file's path (relative to the workspace root) as of this revision
@@ -22,7 +22,6 @@ import javax.json.JsonObject;
  * @param commitSha   the underlying Git commit id (internal detail, useful for debugging/mirror)
  */
 public record WorkspaceFileRevision(
-    String fileId,
     int number,
     String name,
     String path,
@@ -34,7 +33,6 @@ public record WorkspaceFileRevision(
 ) {
   public JsonObject toJson() {
     return Json.createObjectBuilder()
-        .add("fileId", fileId)
         .add("number", number)
         .add("name", name)
         .add("path", path)

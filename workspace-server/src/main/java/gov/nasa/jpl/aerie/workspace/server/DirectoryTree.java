@@ -39,17 +39,28 @@ public class DirectoryTree {
    *    Used to determine the RenderType of file paths
    */
   public DirectoryTree(Path root, List<Path> inputList, Map<String, RenderType> extensionMappings, boolean withMetadata) {
+    this(root, inputList, extensionMappings, withMetadata, Map.of());
+  }
+
+  /**
+   * As {@link #DirectoryTree(Path, List, Map, boolean)}, additionally overlaying git-derived last-edited
+   * provenance (Approach 2 keeps last-edited out of the sidecar) onto each file's metadata. The map is keyed
+   * by absolute path string; empty to skip enrichment.
+   */
+  public DirectoryTree(
+      Path root, List<Path> inputList, Map<String, RenderType> extensionMappings, boolean withMetadata,
+      Map<String, FileHistoryProvider.FileHistoryInfo> gitHistoryByAbsolutePath) {
     if(!root.toFile().isDirectory()) {
       throw new IllegalArgumentException("Cannot create a DirectoryTree from a file.");
     }
-    this.root = new DirectoryNode(root);
+    this.root = new DirectoryNode(root, gitHistoryByAbsolutePath);
 
     for(final var path : inputList){
       if(path.toFile().isDirectory()) {
-        this.root.addChild(new DirectoryNode(path));
+        this.root.addChild(new DirectoryNode(path, gitHistoryByAbsolutePath));
       } else {
         final var rType = RenderType.getRenderType(path.getFileName().toString(), extensionMappings);
-        this.root.addChild(new FileNode(path, rType, withMetadata));
+        this.root.addChild(new FileNode(path, rType, withMetadata, gitHistoryByAbsolutePath));
       }
     }
   }
@@ -64,25 +75,30 @@ public class DirectoryTree {
 
     final boolean readOnly;
 
+    // Approach 2: git-derived last-edited to overlay onto the sidecar metadata (keyed by absolute path).
+    final Map<String, FileHistoryProvider.FileHistoryInfo> gitHistory;
+
     private enum MetadataStatus {
       ok, // Metadata file exists and is valid
       missing, // Metadata file is absent
       malformed  // Metadata JSON is invalid
     }
 
-    FileNode(Path path, RenderType renderType) {
+    FileNode(Path path, RenderType renderType, Map<String, FileHistoryProvider.FileHistoryInfo> gitHistory) {
       this.path = path;
       this.renderType = renderType;
       this.name = path.getFileName().toString();
       this.metadata = Optional.empty();
       this.metadataStatus = Optional.empty();
       this.readOnly = false;
+      this.gitHistory = gitHistory;
     }
 
-    FileNode(Path path, RenderType renderType, boolean getMetadata) {
+    FileNode(Path path, RenderType renderType, boolean getMetadata, Map<String, FileHistoryProvider.FileHistoryInfo> gitHistory) {
       this.path = path;
       this.renderType = renderType;
       this.name = path.getFileName().toString();
+      this.gitHistory = gitHistory;
 
       // Check if we even need to get the file's metadata
       if (!getMetadata || renderType == RenderType.METADATA) {
@@ -156,10 +172,14 @@ public class DirectoryTree {
         final var createdAt = metadata.getString("createdAt");
         Instant.parse(createdAt);
 
-        metadata.getString("lastEditedBy");
-        final var lastEditedAt = metadata.getString("lastEditedAt");
-        Instant.parse(lastEditedAt);
-
+        // lastEditedBy/lastEditedAt are no longer written (derived from git), but validate them if a
+        // pre-existing sidecar still carries them.
+        if (metadata.containsKey("lastEditedBy")) {
+          metadata.getString("lastEditedBy");
+        }
+        if (metadata.containsKey("lastEditedAt")) {
+          Instant.parse(metadata.getString("lastEditedAt"));
+        }
 
         // Validate that the optional keys have the correct type, if they're present
         if (metadata.containsKey("readOnly")) {
@@ -186,7 +206,7 @@ public class DirectoryTree {
       metadataStatus.ifPresent(status -> {
         builder.add("metadataStatus", status.name());
         if(status == MetadataStatus.ok && metadata.isPresent()) {
-          builder.add("metadata", metadata.get());
+          builder.add("metadata", enrichWithGitHistory(metadata.get()));
         } else {
           builder.add("metadata", JsonValue.NULL);
         }
@@ -194,13 +214,32 @@ public class DirectoryTree {
 
       return builder;
     }
+
+    /**
+     * Overlay git-derived last-edited onto the sidecar metadata (Approach 2 keeps last-edited out of the
+     * sidecar; git is the source of truth). Returns the metadata unchanged when no history is available.
+     */
+    private JsonObject enrichWithGitHistory(JsonObject metadata) {
+      final var info = gitHistory.get(path.toString());
+      if(info == null) {
+        return metadata;
+      }
+      final var builder = Json.createObjectBuilder(metadata);
+      if(info.lastEditedBy() != null) {
+        builder.add("lastEditedBy", info.lastEditedBy());
+      }
+      if(info.lastEditedAt() != null) {
+        builder.add("lastEditedAt", info.lastEditedAt());
+      }
+      return builder.build();
+    }
   }
 
   private static class DirectoryNode extends FileNode {
     private final Map<String, FileNode> children;
 
-    DirectoryNode(Path path){
-      super(path, RenderType.DIRECTORY);
+    DirectoryNode(Path path, Map<String, FileHistoryProvider.FileHistoryInfo> gitHistory){
+      super(path, RenderType.DIRECTORY, gitHistory);
       children = new TreeMap<>();
     }
 
@@ -213,7 +252,7 @@ public class DirectoryTree {
       } else {
         // Create subdirectory if it does not exist
         final var subdir = rpath.getName(0);
-        children.putIfAbsent(subdir.toString(), new DirectoryNode(this.path.resolve(subdir)));
+        children.putIfAbsent(subdir.toString(), new DirectoryNode(this.path.resolve(subdir), gitHistory));
 
         // Add this node to that child node, recursively
         if(children.get(subdir.toString()) instanceof DirectoryNode dn) {

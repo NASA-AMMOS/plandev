@@ -2,22 +2,10 @@ import * as ampcs from '@nasa-jpl/aerie-ampcs';
 import { FormalParameter, FPPJSONDictionarySchema as FPPDictionary, TypeDescriptor } from '../schema/fprime-types.js';
 import { ChannelDictionary, CommandDictionary, ParameterDictionary } from '@nasa-jpl/aerie-ampcs';
 
-// Extended type definition to include 'alias' which exists in runtime data but not in generated schema
-type ExtendedTypeDefinition =
-  | NonNullable<FPPDictionary['typeDefinitions']>[number]
-  | {
-      kind: 'alias';
-      qualifiedName: string;
-      type: TypeDescriptor;
-      underlyingType: TypeDescriptor;
-      annotation?: string;
-      [k: string]: unknown;
-    };
-
 export default {
   name: 'fprime-parser',
   version: '1.0.0',
-  author: 'Ryan Goetz',
+  author: 'AMMOS SeqDev',
   parseDictionary(dictionaryString: string): {
     commandDictionary?: CommandDictionary;
     channelDictionary?: ChannelDictionary;
@@ -189,7 +177,7 @@ function argToFSWArg(
         throw new Error(`${arg.name} has no type defined in typeDefinitions`);
       }
       const typeDefinition = typeDefinitions.find(typeDefinition => typeDefinition.qualifiedName === arg.type.name) as
-        | ExtendedTypeDefinition
+        | NonNullable<FPPDictionary['typeDefinitions']>[number]
         | undefined;
       if (!typeDefinition) {
         throw new Error(`${arg.name} has no type defined in typeDefinitions`);

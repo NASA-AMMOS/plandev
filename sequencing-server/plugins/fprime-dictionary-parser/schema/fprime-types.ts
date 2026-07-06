@@ -55,6 +55,14 @@ export interface FPPJSONDictionarySchema {
         };
         [k: string]: unknown;
       }
+    | {
+        kind: "alias";
+        qualifiedName: string;
+        type: TypeDescriptor;
+        underlyingType: TypeDescriptor;
+        annotation?: string;
+        [k: string]: unknown;
+      }
   )[];
   commands?: {
     name: string;
@@ -88,7 +96,15 @@ export interface FPPJSONDictionarySchema {
     formalParams: FormalParameter[];
     id: number;
     format?: string;
-    throttle?: number;
+    throttle?: {
+      count?: number;
+      interval?: {
+        seconds?: number;
+        useconds?: number;
+        [k: string]: unknown;
+      };
+      [k: string]: unknown;
+    };
     [k: string]: unknown;
   }[];
   telemetryChannels?: {
@@ -130,6 +146,12 @@ export interface FPPJSONDictionarySchema {
     defaultPriority?: number;
     [k: string]: unknown;
   }[];
+  telemetryPacketSets?: {
+    name: string;
+    members: TelemetryPacket[];
+    omitted: string[];
+    [k: string]: unknown;
+  }[];
   [k: string]: unknown;
 }
 export interface TypeDescriptor {
@@ -158,5 +180,12 @@ export interface FormalParameter {
   annotation?: string;
   type: TypeDescriptor;
   ref: boolean;
+  [k: string]: unknown;
+}
+export interface TelemetryPacket {
+  name: string;
+  id: number;
+  group: number;
+  members: string[];
   [k: string]: unknown;
 }

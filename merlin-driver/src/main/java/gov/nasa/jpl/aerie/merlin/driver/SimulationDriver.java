@@ -66,7 +66,7 @@ public final class SimulationDriver {
       final var activityTopic = new Topic<ActivityDirectiveId>();
 
       try {
-        engine.init(missionModel.getResources(), missionModel.getDaemon());
+        engine.init(missionModel.getResources(), missionModel.getDaemon(), activityTopic, missionModel.getTopics());
 
         // Get all activities as close as possible to absolute time
         // Schedule all activities.
@@ -139,7 +139,8 @@ public final class SimulationDriver {
     try (final var engine = new SimulationEngine(missionModel.getInitialCells())) {
       // Track resources and kick off daemon tasks
       try {
-        engine.init(missionModel.getResources(), missionModel.getDaemon());
+        final var activityTopic = new Topic<ActivityDirectiveId>();
+        engine.init(missionModel.getResources(), missionModel.getDaemon(), activityTopic, missionModel.getTopics());
       } catch (Throwable t) {
         throw new RuntimeException("Exception thrown while starting daemon tasks", t);
       }

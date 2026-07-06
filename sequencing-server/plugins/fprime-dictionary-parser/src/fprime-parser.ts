@@ -1,15 +1,27 @@
 import * as ampcs from '@nasa-jpl/aerie-ampcs';
-import { FormalParameter, FPPJSONDictionarySchema as FPPDictionary } from '../schema/fprime-types.js';
+import { FormalParameter, FPPJSONDictionarySchema as FPPDictionary, TypeDescriptor } from '../schema/fprime-types.js';
 import { ChannelDictionary, CommandDictionary, ParameterDictionary } from '@nasa-jpl/aerie-ampcs';
+
+// Extended type definition to include 'alias' which exists in runtime data but not in generated schema
+type ExtendedTypeDefinition =
+  | NonNullable<FPPDictionary['typeDefinitions']>[number]
+  | {
+      kind: 'alias';
+      qualifiedName: string;
+      type: TypeDescriptor;
+      underlyingType: TypeDescriptor;
+      annotation?: string;
+      [k: string]: unknown;
+    };
 
 export default {
   name: 'fprime-parser',
   version: '1.0.0',
   author: 'Ryan Goetz',
   parseDictionary(dictionaryString: string): {
-    commandDictionary?: CommandDictionary,
-    channelDictionary?: ChannelDictionary,
-    parameterDictionary?: ParameterDictionary
+    commandDictionary?: CommandDictionary;
+    channelDictionary?: ChannelDictionary;
+    parameterDictionary?: ParameterDictionary;
   } {
     const dictionary = JSON.parse(dictionaryString) as FPPDictionary;
 
@@ -34,8 +46,8 @@ export default {
         hwCommands: [],
         id: '',
         path: null,
-      }
-    }
+      },
+    };
   },
   processDictionary(parsedDictionary: ampcs.CommandDictionary) {
     return '';
@@ -93,7 +105,7 @@ function commandToAMPCSCommand(
   return {
     ...argsToAMPCSArgs(fppCommand.formalParams, typeDefinitions),
     description: fppCommand.annotation ?? '',
-    stem: fppCommand.name.replaceAll('.', '_'),
+    stem: fppCommand.name,
     type: 'fsw_command',
   };
 }
@@ -176,11 +188,24 @@ function argToFSWArg(
       if (!typeDefinitions || !typeDefinitions.length) {
         throw new Error(`${arg.name} has no type defined in typeDefinitions`);
       }
-      const typeDefinition = typeDefinitions.find(typeDefinition => typeDefinition.qualifiedName === arg.type.name);
+      const typeDefinition = typeDefinitions.find(typeDefinition => typeDefinition.qualifiedName === arg.type.name) as
+        | ExtendedTypeDefinition
+        | undefined;
       if (!typeDefinition) {
         throw new Error(`${arg.name} has no type defined in typeDefinitions`);
       }
       switch (typeDefinition.kind) {
+        case 'alias':
+          // Recursively resolve the alias to its underlying type
+          return argToFSWArg(
+            {
+              name: arg.name,
+              type: typeDefinition.underlyingType,
+              ref: arg.ref,
+              annotation: arg.annotation,
+            } as FormalParameter,
+            typeDefinitions,
+          );
         case 'enum':
           return {
             arg_type: 'enum',

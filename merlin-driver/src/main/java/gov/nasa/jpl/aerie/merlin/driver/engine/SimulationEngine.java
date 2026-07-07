@@ -104,6 +104,7 @@ public final class SimulationEngine implements AutoCloseable {
     timeline = new TemporalEventSource();
     referenceTimeline = new TemporalEventSource();
     cells = new LiveCells(timeline, initialCells);
+    cells.stepUpAll(); // make sure all iterators have been initialized
     elapsedTime = Duration.ZERO;
 
     scheduledJobs = new JobSchedule<>();
@@ -968,8 +969,8 @@ public final class SimulationEngine implements AutoCloseable {
     final var discreteProfiles = resourceProfiles.discreteProfiles();
 
     // Compute span info with INPUTS ONLY (skips expensive output serialization)
-    final var combinedTimeline = this.combineTimeline();
-    final var spanInfo = computeSpanInfoInputsOnly(activityTopic, serializableTopics, combinedTimeline);
+//    final var combinedTimeline = this.combineTimeline();
+//    final var spanInfo = computeSpanInfoInputsOnly(activityTopic, serializableTopics, combinedTimeline);
 
     // Use the same activity ID assignment logic as full computation
     final var activityParents = new HashMap<SpanId, SpanId>();
@@ -1056,7 +1057,7 @@ public final class SimulationEngine implements AutoCloseable {
       final Iterable<SerializableTopic<?>> serializableTopics,
       final SimulationResourceManager resourceManager
   ) {
-    final var combinedTimeline = this.combineTimeline();
+//    final var combinedTimeline = this.combineTimeline();
 
     // Extract profiles for every resource.
     final var resourceProfiles = resourceManager.computeProfiles(elapsedTime);

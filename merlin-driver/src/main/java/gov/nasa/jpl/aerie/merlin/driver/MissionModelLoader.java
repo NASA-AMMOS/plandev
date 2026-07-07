@@ -1,9 +1,9 @@
 package gov.nasa.jpl.aerie.merlin.driver;
 
-import gov.nasa.jpl.aerie.merlin.protocol.model.MerlinPlugin;
-import gov.nasa.jpl.aerie.merlin.protocol.model.ModelType;
-import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.model.MerlinPlugin;
+import gov.nasa.ammos.plandev.merlin.protocol.model.ModelType;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -63,27 +63,45 @@ public final class MissionModelLoader {
     {
         // Look for a MerlinPlugin implementor in the mission model. For correctness, we're assuming there's
         // only one matching MerlinMissionModel in any given mission model.
-        final var className = getImplementingClassName(path, name, version);
+        final var implementingClass = getImplementingClassName(path, name, version);
 
         // Construct a ClassLoader with access to classes in the mission model location.
         final var classLoader = new URLClassLoader(new URL[] {missionModelPathToUrl(path)});
 
-        try {
-            final var pluginClass$ = classLoader.loadClass(className);
-            if (!MerlinPlugin.class.isAssignableFrom(pluginClass$)) {
-                throw new MissionModelLoadException(path, name, version);
-            }
 
-            return (MerlinPlugin) pluginClass$.getConstructor().newInstance();
+        try {
+            final var pluginClass$ = classLoader.loadClass(implementingClass.name);
+
+            if (implementingClass.legacy) {
+                if (!gov.nasa.jpl.aerie.merlin.protocol.model.MerlinPlugin.class.isAssignableFrom(pluginClass$)) {
+                    throw new MissionModelLoadException(path, name, version);
+                }
+                var legacyPlugin = (gov.nasa.jpl.aerie.merlin.protocol.model.MerlinPlugin) pluginClass$.getConstructor().newInstance();
+                return () -> new ModelTypeAdapter<>(legacyPlugin.getModelType());
+            } else {
+                if (!MerlinPlugin.class.isAssignableFrom(pluginClass$)) {
+                    throw new MissionModelLoadException(path, name, version);
+                }
+                return (MerlinPlugin) pluginClass$.getConstructor().newInstance();
+            }
         } catch (final ReflectiveOperationException ex) {
             throw new MissionModelLoadException(path, name, version, ex);
         }
     }
 
-    private static String getImplementingClassName(final Path jarPath, final String name, final String version)
+    record ImplementingClass(boolean legacy, String name) {}
+
+    private static ImplementingClass getImplementingClassName(final Path jarPath, final String name, final String version)
     throws MissionModelLoadException {
         try (final var jarFile = new JarFile(jarPath.toFile())) {
-            final var jarEntry = jarFile.getEntry("META-INF/services/" + MerlinPlugin.class.getCanonicalName());
+            var jarEntry = jarFile.getEntry("META-INF/services/" + MerlinPlugin.class.getCanonicalName());
+            var legacy = false;
+
+            if (jarEntry == null) {
+                jarEntry = jarFile.getEntry("META-INF/services/" + gov.nasa.jpl.aerie.merlin.protocol.model.MerlinPlugin.class.getCanonicalName());
+                legacy = true;
+            }
+
             final var inputStream = jarFile.getInputStream(jarEntry);
 
             final var classPathList = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))
@@ -94,7 +112,7 @@ public final class MissionModelLoader {
                 throw new MissionModelLoadException(jarPath, name, version);
             }
 
-            return classPathList.get(0);
+            return new ImplementingClass(legacy, classPathList.get(0));
         } catch (final IOException ex) {
             throw new MissionModelLoadException(jarPath, name, version, ex);
         }

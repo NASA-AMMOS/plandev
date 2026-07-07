@@ -1,18 +1,17 @@
-package gov.nasa.jpl.aerie.merlin.protocol.model;
+package protocol.model;
 
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Scheduler;
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Topic;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.InSpan;
-import gov.nasa.jpl.aerie.merlin.protocol.types.TaskStatus;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
+import protocol.driver.Scheduler;
+import protocol.driver.Topic;
+import protocol.types.Duration;
+import protocol.types.InSpan;
+import protocol.types.TaskStatus;
+import protocol.types.Unit;
 
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-@Deprecated
 public interface Task<Output> {
   /**
    * Perform one step of the task, returning the next step of the task and the conditions under which to perform it.
@@ -20,7 +19,7 @@ public interface Task<Output> {
    * <p>Clients must only call {@code step()} at most once, and must not invoke {@code step()} after {@link #release()}
    * has been invoked.</p>
    */
-  TaskStatus<Output> step(Scheduler scheduler);
+  protocol.types.TaskStatus<Output> step(protocol.driver.Scheduler scheduler);
 
   /**
    * Release any transient system resources allocated to this task.
@@ -30,14 +29,14 @@ public interface Task<Output> {
    * resource leaks</p>
    *
    * <p>This method <b>shall not</b> be called on this object after invoking {@code #step(Scheduler)};
-   * nor shall {@link #step(Scheduler)} be called after this method.</p>
+   * nor shall {@link #step(protocol.driver.Scheduler)} be called after this method.</p>
    */
   default void release() {}
 
   /**
    * Produce a copy of this Task that can be stepped independently from this Task
    *
-   * <p>Clients must not invoke {@code duplicate()} after {@link #step(Scheduler)} or {@link #release()}
+   * <p>Clients must not invoke {@code duplicate()} after {@link #step(protocol.driver.Scheduler)} or {@link #release()}
    * has been invoked.</p>
    * @param executor the executor to use for the new Task
    * @return a copy of this Task that can be stepped independently from this Task
@@ -78,10 +77,10 @@ public interface Task<Output> {
       @Override
       public TaskStatus<Unit> step(final Scheduler scheduler) {
         switch (this.step(scheduler)) {
-          case TaskStatus.Completed<?> s -> {
+          case protocol.types.TaskStatus.Completed<?> s -> {
             return TaskStatus.completed(Unit.UNIT);
           }
-          case TaskStatus.AwaitingCondition<?> s -> {
+          case protocol.types.TaskStatus.AwaitingCondition<?> s -> {
             return new TaskStatus.AwaitingCondition<>(s.condition(), s.continuation().dropOutput());
           }
           case TaskStatus.CallingTask<?> s -> {
@@ -104,20 +103,20 @@ public interface Task<Output> {
     return new Task<Unit>() {
       @Override
       public TaskStatus<Unit> step(final Scheduler scheduler) {
-        return TaskStatus.calling(InSpan.Parent, (TaskFactory < Output >)executor -> task, Task.empty());
+        return TaskStatus.calling(InSpan.Parent, (TaskFactory< Output >) executor -> task, Task.empty());
       }
 
       @Override
-      public Task<Unit> duplicate(final Executor executor) {
+      public Task<protocol.types.Unit> duplicate(final Executor executor) {
         return calling(task.duplicate(executor));
       }
     };
   }
 
-  static <Output> Task<Unit> callingWithSpan(Task<Output> task) {
-    return new Task<Unit>() {
+  static <Output> Task<protocol.types.Unit> callingWithSpan(Task<Output> task) {
+    return new Task<protocol.types.Unit>() {
       @Override
-      public TaskStatus<Unit> step(final Scheduler scheduler) {
+      public protocol.types.TaskStatus<protocol.types.Unit> step(final protocol.driver.Scheduler scheduler) {
         return TaskStatus.calling(InSpan.Fresh, (TaskFactory<Output>) executor -> task, Task.empty());
       }
 
@@ -144,11 +143,11 @@ public interface Task<Output> {
     return Task.run($ -> $.spawn(InSpan.Parent, (TaskFactory<Unit>) executor -> Task.run(f)));
   }
 
-  static Task<Unit> spawningWithSpan(TaskFactory<?> taskFactory) {
-    return Task.run($ -> $.spawn(InSpan.Fresh, taskFactory));
+  static Task<protocol.types.Unit> spawningWithSpan(protocol.model.TaskFactory<?> taskFactory) {
+    return Task.run($ -> $.spawn(protocol.types.InSpan.Fresh, taskFactory));
   }
 
-  static Task<Unit> spawningWithSpan(Consumer<Scheduler> f) {
+  static Task<Unit> spawningWithSpan(Consumer<protocol.driver.Scheduler> f) {
     return Task.run($ -> $.spawn(InSpan.Fresh, (TaskFactory<Unit>) executor -> Task.run(f)));
   }
 
@@ -188,8 +187,8 @@ public interface Task<Output> {
   static Task<Unit> empty() {
     return new Task<>() {
       @Override
-      public TaskStatus<Unit> step(final Scheduler scheduler) {
-        return TaskStatus.completed(Unit.UNIT);
+      public TaskStatus<Unit> step(final protocol.driver.Scheduler scheduler) {
+        return protocol.types.TaskStatus.completed(Unit.UNIT);
       }
 
       @Override

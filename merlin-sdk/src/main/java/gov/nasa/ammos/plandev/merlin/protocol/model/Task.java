@@ -1,18 +1,17 @@
-package gov.nasa.jpl.aerie.merlin.protocol.model;
+package gov.nasa.ammos.plandev.merlin.protocol.model;
 
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Scheduler;
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Topic;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.InSpan;
-import gov.nasa.jpl.aerie.merlin.protocol.types.TaskStatus;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Scheduler;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Topic;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InSpan;
+import gov.nasa.ammos.plandev.merlin.protocol.types.TaskStatus;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Unit;
 
 import java.util.List;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-@Deprecated
 public interface Task<Output> {
   /**
    * Perform one step of the task, returning the next step of the task and the conditions under which to perform it.
@@ -104,7 +103,7 @@ public interface Task<Output> {
     return new Task<Unit>() {
       @Override
       public TaskStatus<Unit> step(final Scheduler scheduler) {
-        return TaskStatus.calling(InSpan.Parent, (TaskFactory < Output >)executor -> task, Task.empty());
+        return TaskStatus.calling(InSpan.Parent, (TaskFactory< Output >) executor -> task, Task.empty());
       }
 
       @Override

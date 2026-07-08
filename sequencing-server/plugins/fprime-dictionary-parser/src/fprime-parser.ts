@@ -1,6 +1,6 @@
-import * as ampcs from '@nasa-jpl/aerie-ampcs';
-import { FormalParameter, FPPJSONDictionarySchema as FPPDictionary } from '../schema/fprime-types.js';
-import { ChannelDictionary, CommandDictionary, ParameterDictionary } from '@nasa-jpl/aerie-ampcs';
+import type * as ampcs from '@nasa-jpl/aerie-ampcs';
+import type { FormalParameter, FPPJSONDictionarySchema as FPPDictionary } from '../schema/fprime-types.js';
+import type { ChannelDictionary, CommandDictionary, ParameterDictionary } from '@nasa-jpl/aerie-ampcs';
 
 export default {
   name: 'fprime-parser',
@@ -37,7 +37,7 @@ export default {
       },
     };
   },
-  processDictionary(parsedDictionary: ampcs.CommandDictionary) {
+  processDictionary(_parsedDictionary: ampcs.CommandDictionary) {
     return '';
   },
 };
@@ -236,18 +236,22 @@ function argToFSWArg(
             repeat: {
               argumentMap: {},
               arguments: Object.keys(typeDefinition.members).map(memberName => {
+                const member = typeDefinition.members[memberName];
+                if (!member) {
+                  throw new Error(`Member ${memberName} not found in struct definition`);
+                }
                 return argToFSWArg(
                   {
                     name: memberName.replaceAll('.', '_'),
-                    type: typeDefinition.members[memberName].type,
+                    type: member.type,
                     ref: false,
-                    annotation: typeDefinition.members[memberName].annotation,
+                    annotation: member.annotation,
                   } as FormalParameter,
                   typeDefinitions,
                 );
               }),
               min: 0,
-              max: typeDefinition.size,
+              max: typeDefinition['size'],
             },
           } as ampcs.FswCommandArgumentRepeat;
         default:

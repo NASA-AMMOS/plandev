@@ -1,5 +1,5 @@
 import * as ampcs from '@nasa-jpl/aerie-ampcs';
-import { FormalParameter, FPPJSONDictionarySchema as FPPDictionary, TypeDescriptor } from '../schema/fprime-types.js';
+import { FormalParameter, FPPJSONDictionarySchema as FPPDictionary } from '../schema/fprime-types.js';
 import { ChannelDictionary, CommandDictionary, ParameterDictionary } from '@nasa-jpl/aerie-ampcs';
 
 export default {

@@ -1,6 +1,6 @@
 FROM alpine:3.15 AS extractor
 
-COPY build/distributions/*.tar /usr/src/app/server.tar
+COPY plandev/merlin-server/build/distributions/*.tar /usr/src/app/server.tar
 RUN mkdir /usr/src/app/extracted
 RUN cd /usr/src/app && tar --strip-components 1 -xf server.tar -C extracted
 
@@ -9,7 +9,7 @@ FROM eclipse-temurin:21-jre-jammy
 ENV NODE_VERSION=20.12.1
 ENV NVM_DIR=/usr/src/.nvm
 ENV PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}"
-RUN apt update && apt install --no-install-recommends -y curl \
+RUN apt update && apt install --no-install-recommends -y curl python3 python3-pip \
     && mkdir -p $NVM_DIR \
     && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash \
     &&. "$NVM_DIR/nvm.sh" \
@@ -21,7 +21,10 @@ RUN apt update && apt install --no-install-recommends -y curl \
 
 COPY --from=extractor /usr/src/app/extracted /usr/src/app
 
-COPY constraints-dsl-compiler /usr/src/app/constraints-dsl-compiler
+COPY plandev/merlin-server/constraints-dsl-compiler /usr/src/app/constraints-dsl-compiler
+
+COPY pymerlin /usr/src/pymerlin
+RUN pip3 install --no-cache-dir /usr/src/pymerlin
 ENV CONSTRAINTS_DSL_COMPILER_ROOT="/usr/src/app/constraints-dsl-compiler/"
 ENV CONSTRAINTS_DSL_COMPILER_COMMAND="./build/main.js"
 ENV NODE_PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin/node"

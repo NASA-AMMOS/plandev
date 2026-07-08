@@ -13,14 +13,14 @@ export default {
   testRunner: 'jest-circus/runner',
   // testRegex: "(/test/.*|(\\.|/)(test|spec))\\.(jsx?|tsx?)$",
   testRegex: '((\\.|/)(test|spec))\\.(jsx?|tsx?)$',
-  testPathIgnorePatterns: ['/node_modules/', '/build/', '/plugins/'],
+  testPathIgnorePatterns: ['/node_modules/', '/build/'],
   coverageReporters: ['html'],
   setupFiles: ['dotenv/config', './src/polyfills.ts'],
   globalSetup: './jestGlobalSetup.js',
   setupFilesAfterEnv: ['jest-extended/all'],
   reporters: [
     'default',
-    [ 'jest-junit', { outputName: "test-report.xml" } ],
+    ['jest-junit', { outputName: 'test-report.xml' }],
     [
       'jest-html-reporters',
       {

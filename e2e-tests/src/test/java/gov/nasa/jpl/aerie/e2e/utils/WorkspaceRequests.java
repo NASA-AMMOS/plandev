@@ -14,6 +14,7 @@ import javax.json.Json;
 import javax.json.JsonObject;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -135,6 +136,30 @@ public class WorkspaceRequests implements AutoCloseable {
         fileLocation.getFileName().toString(),
         "text/plain",
         fileContents.getBytes(StandardCharsets.UTF_8));
+    final var options = RequestOptions
+        .create()
+        .setQueryParam("type", "file")
+        .setHeader("Authorization", "Bearer "+token)
+        .setMultipart(FormData.create().set("file", filePayload));
+    return request.put(SINGLE_ITEM_URL.formatted(workspaceId, fileLocation), options);
+  }
+
+  /**
+   * Upload a file located in the test resources to the Workspace Server using the 'PUT file' endpoint.
+   * Does not pass the "overwrite" flag.
+   * @param token The JWT token for the user making the request
+   * @param workspaceId The workspace to insert the file into
+   * @param fileLocation Where to place the file in the workspace
+   * @param resourcePath The Path to the file within the test resources folder (src/test/resources)
+   * @return The APIResponse from the server
+   */
+  public APIResponse putFile(String token, int workspaceId, Path fileLocation, Path resourcePath) throws IOException
+  {
+    byte[] buffer = Files.readAllBytes(Path.of("src/test/resources/", resourcePath.toString()));
+    FilePayload filePayload = new FilePayload(
+        fileLocation.getFileName().toString(),
+        "text/plain",
+        buffer);
     final var options = RequestOptions
         .create()
         .setQueryParam("type", "file")

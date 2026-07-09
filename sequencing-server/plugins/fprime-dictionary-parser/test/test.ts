@@ -10,7 +10,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const testDir = __dirname.endsWith('/build/test') ? path.join(__dirname, '../../test') : __dirname;
 
-test('Unit Test', async () => {
+await test('Unit Test', async () => {
   await test('Parse the dictionary', async () => {
     const dictionary = fs.readFileSync(path.join(testDir, 'dictionary/RefTopologyDictionary.json'), 'utf8');
     const parsedDictionary = plugin.parseDictionary(dictionary);

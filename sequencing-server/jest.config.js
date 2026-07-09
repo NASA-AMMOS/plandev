@@ -13,7 +13,7 @@ export default {
   testRunner: 'jest-circus/runner',
   // testRegex: "(/test/.*|(\\.|/)(test|spec))\\.(jsx?|tsx?)$",
   testRegex: '((\\.|/)(test|spec))\\.(jsx?|tsx?)$',
-  testPathIgnorePatterns: ['/node_modules/', '/build/'],
+  testPathIgnorePatterns: ['/node_modules/', '/build/', '/plugins/'],
   coverageReporters: ['html'],
   setupFiles: ['dotenv/config', './src/polyfills.ts'],
   globalSetup: './jestGlobalSetup.js',

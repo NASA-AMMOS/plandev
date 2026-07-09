@@ -57,7 +57,7 @@ public class SimulationDuplicationTest {
         CachedSimulationEngine.empty(TestMissionModel.missionModel(), Instant.EPOCH),
         List.of(Duration.of(5, MINUTES)),
         store);
-    final SimulationResults expected = SimulationDriver.simulate(
+    final SimulationResultsInterface expected = SimulationDriver.simulate(
         TestMissionModel.missionModel(),
         Map.of(),
         Instant.EPOCH,
@@ -72,7 +72,7 @@ public class SimulationDuplicationTest {
     assertEquals(expected, newResults);
   }
 
-  static SimulationResults simulateWithCheckpoints(
+  static SimulationResultsInterface simulateWithCheckpoints(
       final CachedSimulationEngine cachedEngine,
       final List<Duration> desiredCheckpoints,
       final CachedEngineStore engineStore

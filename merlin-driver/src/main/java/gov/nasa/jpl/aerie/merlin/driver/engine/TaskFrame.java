@@ -23,8 +23,8 @@ import java.util.function.BiConsumer;
 public final class TaskFrame<Job> {
   private record Branch<Job>(CausalEventSource base, LiveCells context, Job job) {}
 
-  private final List<Branch<Job>> branches = new ArrayList<>();
-  private CausalEventSource tip = new CausalEventSource();
+  public final List<Branch<Job>> branches = new ArrayList<>();
+  public CausalEventSource tip = new CausalEventSource();
 
   private LiveCells previousCells;
   private LiveCells cells;

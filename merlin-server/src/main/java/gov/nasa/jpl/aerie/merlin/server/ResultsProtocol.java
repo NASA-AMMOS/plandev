@@ -1,7 +1,7 @@
 package gov.nasa.jpl.aerie.merlin.server;
 
 import gov.nasa.jpl.aerie.merlin.driver.SimulationFailure;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.server.models.SimulationResultsHandle;
 
@@ -38,7 +38,7 @@ public final class ResultsProtocol {
     //   it must still complete with `failWith()`.
     //   Otherwise, the reader would not be able to reclaim unique ownership
     //   of the underlying resource in order to deallocate it.
-    void succeedWith(SimulationResults results);
+    void succeedWith(SimulationResultsInterface results);
 
     void failWith(SimulationFailure reason);
 
@@ -48,7 +48,7 @@ public final class ResultsProtocol {
       failWith(builder.build());
     }
 
-    void reportIncompleteResults(SimulationResults results);
+    void reportIncompleteResults(SimulationResultsInterface results);
 
     void reportSimulationExtent(Duration extent);
   }

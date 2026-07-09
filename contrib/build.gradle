@@ -18,6 +18,9 @@ test {
   testLogging {
     exceptionFormat = 'full'
   }
+  if (project.hasProperty('excludeTests')) {
+    exclude project.property('excludeTests')
+  }
 }
 
 jacocoTestReport {

@@ -10,6 +10,9 @@ import gov.nasa.jpl.aerie.merlin.driver.MissionModelBuilder;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationDriver;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationEngineConfiguration;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface;
+import gov.nasa.jpl.aerie.merlin.driver.engine.SimulationEngine;
+import gov.nasa.jpl.aerie.merlin.driver.timeline.TemporalEventSource;
 import gov.nasa.jpl.aerie.merlin.framework.ThreadedTask;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
@@ -33,6 +36,7 @@ import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class FooSimulationDuplicationTest {
+  public static boolean debug = false;
   CachedEngineStore store;
   final private class InfiniteCapacityEngineStore implements CachedEngineStore{
     private final Map<SimulationEngineConfiguration, List<CachedSimulationEngine>> store = new HashMap<>();
@@ -56,11 +60,14 @@ public class FooSimulationDuplicationTest {
   }
 
   public static SimulationEngineConfiguration mockConfiguration(){
-    return new SimulationEngineConfiguration(
+    TemporalEventSource.freezable = !TemporalEventSource.neverfreezable;
+    var c = new SimulationEngineConfiguration(
         Map.of(),
         Instant.EPOCH,
         new MissionModelId(0)
     );
+    TemporalEventSource.freezable = TemporalEventSource.alwaysfreezable;
+    return c;
   }
 
   @BeforeEach
@@ -76,7 +83,9 @@ public class FooSimulationDuplicationTest {
   private static MissionModel<Mission> makeMissionModel(final MissionModelBuilder builder, final Instant planStart, final Configuration config) {
     final var factory = new GeneratedModelType();
     final var registry = DirectiveTypeRegistry.extract(factory);
+    TemporalEventSource.freezable = !TemporalEventSource.neverfreezable;
     final var model = factory.instantiate(planStart, config, builder);
+    TemporalEventSource.freezable = TemporalEventSource.alwaysfreezable;
     return builder.build(model, registry);
   }
 
@@ -93,7 +102,7 @@ public class FooSimulationDuplicationTest {
         store,
         mockConfiguration()
     );
-    final SimulationResults expected = SimulationDriver.simulate(
+    final SimulationResultsInterface expected = SimulationDriver.simulate(
         missionModel,
         Map.of(),
         Instant.EPOCH,
@@ -114,6 +123,9 @@ public class FooSimulationDuplicationTest {
         activityFrom(1, MINUTE, "foo", Map.of("z", SerializedValue.of(123))),
         activityFrom(7, MINUTES, "foo", Map.of("z", SerializedValue.of(999)))
     );
+
+    if (debug) System.out.println("\n\n-- simulateWithCheckpoints 1 --\n\n");
+
     final var results = simulateWithCheckpoints(
         missionModel,
         List.of(Duration.of(5, MINUTES)),
@@ -121,7 +133,9 @@ public class FooSimulationDuplicationTest {
         store,
         mockConfiguration()
     );
-    final SimulationResults expected = SimulationDriver.simulate(
+    if (debug) System.out.println("\n\n-- expected simulation 1 --\n\n");
+
+    final SimulationResultsInterface expected = SimulationDriver.simulate(
         missionModel,
         schedule,
         Instant.EPOCH,
@@ -129,9 +143,13 @@ public class FooSimulationDuplicationTest {
         Instant.EPOCH,
         Duration.HOUR,
         () -> false);
+    if (debug) System.out.println("\n\nexpected results 1 = \n" + expected);
+    if (debug) System.out.println("\n\nactual results 1 = \n" + results);
     assertResultsEqual(expected, results);
 
     assertEquals(Duration.of(5, MINUTES), store.getCachedEngines(mockConfiguration()).getFirst().endsAt());
+
+    if (debug) System.out.println("\n\n-- simulateWithCheckpoints 2 --\n\n");
 
     final var results2 = simulateWithCheckpoints(
         missionModel,
@@ -141,6 +159,8 @@ public class FooSimulationDuplicationTest {
         store,
         mockConfiguration()
     );
+    if (debug) System.out.println("\n\nexpected results 2 (and 1) = \n" + expected);
+    if (debug) System.out.println("\n\nactual results 2 = \n" + results2);
 
     assertResultsEqual(expected, results2);
   }
@@ -162,7 +182,7 @@ public class FooSimulationDuplicationTest {
         store,
         mockConfiguration()
     );
-    final SimulationResults expected = SimulationDriver.simulate(
+    final SimulationResultsInterface expected = SimulationDriver.simulate(
         missionModel,
         schedule,
         Instant.EPOCH,
@@ -214,7 +234,7 @@ public class FooSimulationDuplicationTest {
         store,
         mockConfiguration()
     );
-    final SimulationResults expected = SimulationDriver.simulate(
+    final SimulationResultsInterface expected = SimulationDriver.simulate(
         missionModel,
         schedule,
         Instant.EPOCH,
@@ -275,7 +295,7 @@ public class FooSimulationDuplicationTest {
         store,
         mockConfiguration()
     );
-    final SimulationResults expected1 = SimulationDriver.simulate(
+    final SimulationResultsInterface expected1 = SimulationDriver.simulate(
         missionModel,
         schedule1,
         Instant.EPOCH,
@@ -284,7 +304,7 @@ public class FooSimulationDuplicationTest {
         Duration.HOUR,
         () -> false);
 
-    final SimulationResults expected2 = SimulationDriver.simulate(
+    final SimulationResultsInterface expected2 = SimulationDriver.simulate(
         missionModel,
         schedule2,
         Instant.EPOCH,
@@ -307,7 +327,7 @@ public class FooSimulationDuplicationTest {
     );
     assertResultsEqual(expected2, results2);
 
-    final SimulationResults results3 = simulateWithCheckpoints(
+    final SimulationResultsInterface results3 = simulateWithCheckpoints(
         missionModel,
         store.getCachedEngines(mockConfiguration()).get(1),
         List.of(Duration.of(5, MINUTES), Duration.of(6, MINUTES)),
@@ -330,34 +350,31 @@ public class FooSimulationDuplicationTest {
   }
 
 
-  static void assertResultsEqual(SimulationResults expected, SimulationResults actual) {
+  static void assertResultsEqual(SimulationResultsInterface expected, SimulationResultsInterface actual) {
     if (expected.equals(actual)) return;
     final var differences = new ArrayList<String>();
-    if (!expected.duration.equals(actual.duration)) {
+    if (!expected.getDuration().equals(actual.getDuration())) {
       differences.add("duration");
     }
-    if (!expected.realProfiles.equals(actual.realProfiles)) {
+    if (!expected.getRealProfiles().equals(actual.getRealProfiles())) {
       differences.add("realProfiles");
     }
-    if (!expected.discreteProfiles.equals(actual.discreteProfiles)) {
+    if (!expected.getDiscreteProfiles().equals(actual.getDiscreteProfiles())) {
       differences.add("discreteProfiles");
     }
-    if (!expected.simulatedActivities.equals(actual.simulatedActivities)) {
+    if (!expected.getSimulatedActivities().equals(actual.getSimulatedActivities())) {
       differences.add("simulatedActivities");
     }
-    if (!expected.unfinishedActivities.equals(actual.unfinishedActivities)) {
+    if (!expected.getUnfinishedActivities().equals(actual.getUnfinishedActivities())) {
       differences.add("unfinishedActivities");
     }
-    if (!expected.startTime.equals(actual.startTime)) {
+    if (!expected.getStartTime().equals(actual.getStartTime())) {
       differences.add("startTime");
     }
-    if (!expected.duration.equals(actual.duration)) {
-      differences.add("duration");
-    }
-    if (!expected.topics.equals(actual.topics)) {
+    if (!expected.getTopics().equals(actual.getTopics())) {
       differences.add("topics");
     }
-    if (!expected.events.equals(actual.events)) {
+    if (!expected.getEvents().equals(actual.getEvents())) {
       differences.add("events");
     }
     if (!differences.isEmpty()) {
@@ -367,7 +384,7 @@ public class FooSimulationDuplicationTest {
     assertEquals(expected, actual);
   }
 
-  static SimulationResults simulateWithCheckpoints(
+  static SimulationResultsInterface simulateWithCheckpoints(
       final MissionModel<?> missionModel,
       final CachedSimulationEngine cachedSimulationEngine,
       final List<Duration> desiredCheckpoints,
@@ -392,13 +409,14 @@ public class FooSimulationDuplicationTest {
     ).computeResults();
   }
 
-  static SimulationResults simulateWithCheckpoints(
+  static SimulationResultsInterface simulateWithCheckpoints(
       final MissionModel<?> missionModel,
       final List<Duration> desiredCheckpoints,
       final Map<ActivityDirectiveId, ActivityDirective> schedule,
       final CachedEngineStore cachedEngineStore,
       final SimulationEngineConfiguration simulationEngineConfiguration
   ) {
+    TemporalEventSource.freezable  = !TemporalEventSource.neverfreezable;
     return CheckpointSimulationDriver.simulateWithCheckpoints(
         missionModel,
         schedule,

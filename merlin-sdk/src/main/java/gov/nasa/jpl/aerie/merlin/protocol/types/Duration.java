@@ -455,6 +455,13 @@ public record Duration(long micros) implements Comparable<Duration> {
         .plusNanos(1000 * duration.remainderOf(Duration.MILLISECONDS).dividedBy(Duration.MICROSECONDS));
   }
 
+  public static Duration minus(java.time.Instant i1, java.time.Instant i2) {
+    var micros1 = i1.getEpochSecond() * 1000000L + i1.getNano() / 1000L;
+    var micros2 = i2.getEpochSecond() * 1000000L + i2.getNano() / 1000L;
+    Duration d = new Duration(micros1 - micros2);
+    return d;
+  }
+
   /** @see Duration#add(Duration, Duration) */
   public Duration plus(final Duration other) throws ArithmeticException {
     return Duration.add(this, other);

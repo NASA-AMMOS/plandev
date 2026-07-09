@@ -23,7 +23,7 @@ import gov.nasa.jpl.aerie.constraints.tree.Starts;
 import gov.nasa.jpl.aerie.constraints.tree.StructExpressionAt;
 import gov.nasa.jpl.aerie.constraints.tree.ValueAt;
 import gov.nasa.jpl.aerie.constraints.tree.WindowsFromSpans;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
@@ -104,7 +104,7 @@ class SchedulingDSLCompilationServiceTests {
     }
 
     @Override
-    public Optional<Pair<SimulationResults, DatasetId>> getSimulationResults(final PlanMetadata planMetadata) {
+    public Optional<Pair<SimulationResultsInterface, DatasetId>> getSimulationResults(final PlanMetadata planMetadata) {
       return Optional.empty();
     }
 

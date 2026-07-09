@@ -1,9 +1,11 @@
 package gov.nasa.jpl.aerie.merlin.driver.timeline;
 
 import gov.nasa.jpl.aerie.merlin.protocol.model.EffectTrait;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Function;
@@ -35,7 +37,17 @@ import java.util.function.Function;
  * @see EffectTrait
  */
 public sealed interface EventGraph<Event> extends EffectExpression<Event> {
+  /**
+   * Compare two events based on their ordering.
+   * @param e1 an event
+   * @param e2 an event
+   * @return an integer less than 0 if e1 is sequentially before e2,
+   *         an integer greater than 0 if the e1 is sequentially after e2,
+   *         else 0.
+   */
+  //int compare(Event e1, Event e2);
   /** Use {@link EventGraph#empty()} instead of instantiating this class directly. */
+
   record Empty<Event>() implements EventGraph<Event> {
     // The behavior of the empty graph is independent of the parameterized Event type,
     // so we cache a single instance and re-use it for all Event types.
@@ -44,6 +56,22 @@ public sealed interface EventGraph<Event> extends EffectExpression<Event> {
     @Override
     public String toString() {
       return EffectExpressionDisplay.displayGraph(this);
+      //return "EventGraph(" + hashCode() + ", " + EffectExpressionDisplay.displayGraph(this) + ")";
+    }
+    @Override
+    public boolean equals(Object o) {
+      // Making this explicit because a structural equals() is problematic in data structures of these
+      return this == o;
+    }
+
+    //@Override
+    public int compare(final Event e1, final Event e2) {
+      return 0;
+    }
+
+    @Override
+    public int hashCode() {
+      return System.identityHashCode(this);
     }
   }
 
@@ -52,6 +80,21 @@ public sealed interface EventGraph<Event> extends EffectExpression<Event> {
     @Override
     public String toString() {
       return EffectExpressionDisplay.displayGraph(this);
+      //return "EventGraph(" + hashCode() + ", " + EffectExpressionDisplay.displayGraph(this) + ")";
+    }
+    @Override
+    public boolean equals(Object o) {
+      return this == o;
+    }
+
+    //@Override
+    public int compare(final Event e1, final Event e2) {
+      return 0;
+    }
+
+    @Override
+    public int hashCode() {
+      return System.identityHashCode(this);
     }
   }
 
@@ -60,6 +103,16 @@ public sealed interface EventGraph<Event> extends EffectExpression<Event> {
     @Override
     public String toString() {
       return EffectExpressionDisplay.displayGraph(this);
+      //return "EventGraph(" + hashCode() + ", " + EffectExpressionDisplay.displayGraph(this) + ")";
+    }
+    @Override
+    public boolean equals(Object o) {
+      return this == o;
+    }
+
+    @Override
+    public int hashCode() {
+      return System.identityHashCode(this);
     }
   }
 
@@ -68,7 +121,88 @@ public sealed interface EventGraph<Event> extends EffectExpression<Event> {
     @Override
     public String toString() {
       return EffectExpressionDisplay.displayGraph(this);
+      //return "EventGraph(" + hashCode() + ", " + EffectExpressionDisplay.displayGraph(this) + ")";
     }
+    @Override
+    public boolean equals(Object o) {
+      return this == o;
+    }
+
+    @Override
+    public int hashCode() {
+      return System.identityHashCode(this);
+    }
+  }
+
+
+  /**
+   * This is a non-recursive alternative to {@link EventGraph#evaluate(EffectTrait, Function)}.
+   * <p/>
+   * Initial testing shows no speed improvement over the recursive version because the call to
+   * {@code substitution.apply()} was relatively expensive, and the overhead of recursion seems
+   * to be less than the overhead of {@link HashMap}s used here.
+   * <p/>
+   * Another approach could use a stack of {code EventGraph}s to mimic the call stack of the recursive method.
+   * Intermediate results would still need to stored, but this could have the advantage of avoiding the overhead of
+   * {@link HashMap} puts and gets.
+   * <p/>
+   * It may be worth using a non-recursive version just to avoid potential stack overflow for large graphs.
+   */
+  default <Effect> Effect evaluateNonRecursively(final EffectTrait<Effect> trait, final Function<Event, Effect> substitution) {
+    HashMap<EventGraph<Event>, EventGraph<Event>> parents = new HashMap<>();
+    HashMap<EventGraph<Event>, Effect> results = new HashMap<>();
+    EventGraph<Event> g = this;
+    Effect r = null;
+    while (true) {
+      if (g == null) break;
+      // TODO -- use switch on type like this for expected efficiency improvement
+      //      switch (g) {
+      //        case EventGraph.Empty ee:
+      //          r = trait.empty();
+      //          break;
+      //        case EventGraph.Atom<Event> gg:
+      //          r = substitution.apply(gg.atom());
+      //          break;
+      //      }
+      if (g instanceof EventGraph.Empty) {
+        r = trait.empty();
+      } else if (g instanceof EventGraph.Atom<Event> gg) {
+        r = substitution.apply(gg.atom());
+      } else if (g instanceof EventGraph.Sequentially<Event> gg) {
+        var r1 = results.get(gg.prefix());
+        if (r1 == null) {
+          parents.put(gg.prefix(), gg);
+          g = gg.prefix();
+          continue;
+        }
+        var r2 = results.get(gg.suffix());
+        if (r2 == null) {
+          parents.put(gg.suffix(), gg);
+          g = gg.suffix();
+          continue;
+        }
+        r = trait.sequentially(r1, r2);
+      } else if (g instanceof EventGraph.Concurrently<Event> gg) {
+        var r1 = results.get(gg.left());
+        if (r1 == null) {
+          parents.put(gg.left(), gg);
+          g = gg.left();
+          continue;
+        }
+        var r2 = results.get(gg.right());
+        if (r2 == null) {
+          parents.put(gg.right(), gg);
+          g = gg.right();
+          continue;
+        }
+        r = trait.concurrently(r1, r2);
+      } else {
+        throw new IllegalArgumentException();
+      }
+      results.put(g, r);
+      g = parents.get(g);
+    }
+    return results.get(this);
   }
 
   default <Effect> Effect evaluate(final EffectTrait<Effect> trait, final Function<Event, Effect> substitution) {
@@ -87,6 +221,136 @@ public sealed interface EventGraph<Event> extends EffectExpression<Event> {
     } else {
       throw new IllegalArgumentException();
     }
+  }
+
+  default long count() {
+    if (this instanceof EventGraph.Empty) {
+      return 1;
+    } else if (this instanceof EventGraph.Atom<Event> g) {
+      return 1;
+    } else if (this instanceof EventGraph.Sequentially<Event> g) {
+      return g.prefix.count() + g.suffix.count();
+    } else if (this instanceof EventGraph.Concurrently<Event> g) {
+      return g.left.count() + g.right.count();
+    } else {
+      throw new IllegalArgumentException();
+    }
+  }
+
+  default long countNonEmpty() {
+    if (this instanceof EventGraph.Empty) {
+      return 0;
+    } else if (this instanceof EventGraph.Atom<Event> g) {
+      return 1;
+    } else if (this instanceof EventGraph.Sequentially<Event> g) {
+      return g.prefix.countNonEmpty() + g.suffix.countNonEmpty();
+    } else if (this instanceof EventGraph.Concurrently<Event> g) {
+      return g.left.countNonEmpty() + g.right.countNonEmpty();
+    } else {
+      throw new IllegalArgumentException();
+    }
+  }
+
+
+  /**
+   * Return a subset of the graph filtering on events.
+   * @param f a boolean Function testing whether an Event should remain in the graph
+   * @return an empty graph if no events remain, {@code this} graph if no events are removed, or else a new graph with filtered events.
+   */
+  default EventGraph<Event> filter(Function<Event, Boolean> f) {
+    // Instead of redefining filter() and evaluate() in each class, they are implemented for each Class here in one function.
+    // This is so it's easier to follow the logic with it all in one place.  For this very situation Java 17 has a preview feature
+    // for Pattern Matching for switch.
+    // Would it be better to create a class implementing EffectTrait<EventGraph> and just call evaluate?
+    // --> No, it would always make a copy of the graph, and we want to preserve it in some cases.
+
+    if (this instanceof EventGraph.Empty) return this;
+    if (this instanceof EventGraph.Atom<Event> g) {
+      if (f.apply(g.atom)) return g;
+      return EventGraph.empty();
+    }
+    if (this instanceof EventGraph.Sequentially<Event> g) {
+      var g1 = g.prefix.filter(f);
+      var g2 = g.suffix.filter(f);
+      if (g.prefix == g1 && g.suffix == g2) return this;
+      if (g1 instanceof EventGraph.Empty<Event>) return g2;
+      if (g2 instanceof EventGraph.Empty<Event>) return g1;
+      return sequentially(g1, g2);
+    }
+    if (this instanceof EventGraph.Concurrently<Event> g) {
+      var g1 = g.left.filter(f);
+      var g2 = g.right.filter(f);
+      if (g.left == g1 && g.right == g2) return this;
+      if (g1 instanceof EventGraph.Empty<Event>) return g2;
+      if (g2 instanceof EventGraph.Empty<Event>) return g1;
+      return concurrently(g1, g2);
+    } else {
+      throw new IllegalArgumentException();
+    }
+  }
+
+  /**
+   * Return a subset of the graph filtering on events using a Boolean function.  If {@code afterEvent} is not null,
+   * then all events before and including {@code afterEvent} are included or excluded in the resulting graph according
+   * to a flag, {@code includeBefore}.
+   *
+   * @param f a boolean Function testing whether an Event should remain in the graph
+   * @param afterEvent the event after which the filter test is to be applied
+   * @param includeBefore whether to include, else exclude, events prior to and including {@code afterEvent}
+   * @return a filtered event graph paired with a Boolean indicating whether {@code afterEvent} was encountered;
+   *         the returned graph is an empty graph if no events remain, {@code this} graph if no events are removed,
+   *         or else a new graph with filtered events.
+   */
+  default Pair<EventGraph<Event>, Boolean> filter(Function<Event, Boolean> f, Event afterEvent, boolean includeBefore) {
+    // Instead of redefining filter() and evaluate() in each class, they are implemented for each Class here in one function.
+    // This is so it's easier to follow the logic with it all in one place.  For this very situation Java 17 has a preview feature
+    // for Pattern Matching for switch.
+    // Would it be better to create a class implementing EffectTrait<EventGraph> and just call evaluate?
+    // --> No, it would always make a copy of the graph, and we want to preserve it in some cases.
+
+    if (this instanceof EventGraph.Empty) return Pair.of(this, false);
+    if (this instanceof EventGraph.Atom<Event> g) {
+      // afterEvent == null && f(g) ||
+      // afterEvent != null && includeBefore
+      if ((afterEvent != null && includeBefore) || (afterEvent == null && f.apply(g.atom))) return Pair.of(g, afterEvent != null && g.atom == afterEvent);
+      return Pair.of(EventGraph.empty(), afterEvent != null && g.atom == afterEvent);
+    }
+    if (this instanceof EventGraph.Sequentially<Event> g) {
+      var p1 = g.prefix.filter(f, afterEvent, includeBefore);
+      var g1 = p1.getLeft();
+      var foundEvent = p1.getRight();
+      var p2 = g.suffix.filter(f, foundEvent ? null : afterEvent, includeBefore);
+      var g2 = p2.getLeft();
+      foundEvent = foundEvent || p2.getRight();
+      if (g.prefix == g1 && g.suffix == g2) return Pair.of(this, foundEvent);
+      if (g1 instanceof EventGraph.Empty<Event>) return Pair.of(g2, foundEvent);
+      if (g2 instanceof EventGraph.Empty<Event>) return Pair.of(g1, foundEvent);
+      return Pair.of(sequentially(g1, g2), foundEvent);
+    }
+    if (this instanceof EventGraph.Concurrently<Event> g) {
+      var p1 = g.left.filter(f, afterEvent, includeBefore);
+      var g1 = p1.getLeft();
+      var p2 = g.right.filter(f, afterEvent, includeBefore);
+      var g2 = p2.getLeft();
+      var foundEvent = p1.getRight() || p2.getRight();
+      if (g.left == g1 && g.right == g2) return Pair.of(this, foundEvent);
+      if (g1 instanceof EventGraph.Empty<Event>) return Pair.of(g2, foundEvent);
+      if (g2 instanceof EventGraph.Empty<Event>) return Pair.of(g1, foundEvent);
+      return Pair.of(concurrently(g1, g2), foundEvent);
+    } else {
+      throw new IllegalArgumentException();
+    }
+  }
+
+
+  /**
+   * Remove all occurrences of an Event from the graph, returning {@code this} EventGraph if and
+   * only if there are no removals, else a new graph.
+   * @param e the Event to remove
+   * @return a new graph if there are any changes, else {@code this}
+   */
+  default EventGraph<Event> remove(Event e) {
+    return filter(ev -> !ev.equals(e));
   }
 
   /**

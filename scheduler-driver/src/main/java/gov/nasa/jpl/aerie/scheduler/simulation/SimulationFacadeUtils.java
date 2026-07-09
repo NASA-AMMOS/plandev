@@ -1,8 +1,9 @@
 package gov.nasa.jpl.aerie.scheduler.simulation;
 
+import com.google.common.collect.MoreCollectors;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface;
 import gov.nasa.jpl.aerie.types.ActivityInstance;
 import gov.nasa.jpl.aerie.types.ActivityInstanceId;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsComputerInputs;
 import gov.nasa.jpl.aerie.merlin.driver.engine.SimulationEngine;
 import gov.nasa.jpl.aerie.merlin.protocol.model.SchedulerModel;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
@@ -126,12 +127,13 @@ public class SimulationFacadeUtils {
 
   public static Optional<Duration> getActivityDuration(
       final ActivityDirectiveId activityDirectiveId,
-      final SimulationResultsComputerInputs simulationResultsInputs
+      final SimulationResultsInterface simulationResults
   ){
-    return simulationResultsInputs.engine()
-                                  .getSpan(simulationResultsInputs.activityDirectiveIdTaskIdMap()
-                                                                  .get(activityDirectiveId))
-                                  .duration();
+    //unfortunately results are indexed by simActId not actDirId, so have to find the one match
+    return simulationResults.getSimulatedActivities().values().stream()
+        .filter(simAct->simAct.directiveId().map(activityDirectiveId::equals).orElse(false))
+        .collect(MoreCollectors.toOptional()) //throws if multiple
+        .map(ActivityInstance::duration);
   }
 
   public static ActivityDirective schedulingActToActivityDir(

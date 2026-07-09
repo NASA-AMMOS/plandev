@@ -15,9 +15,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.model.OutputType;
 import gov.nasa.jpl.aerie.merlin.protocol.model.Resource;
 import gov.nasa.jpl.aerie.merlin.protocol.model.TaskFactory;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -57,8 +55,8 @@ public final class MissionModelBuilder implements Initializer {
   }
 
   @Override
-  public void daemon(final TaskFactory<?> task) {
-    this.state.daemon(task);
+  public void daemon(final String taskName, final TaskFactory<?> task) {
+    this.state.daemon(taskName, task);
   }
 
   public <Model>
@@ -77,8 +75,9 @@ public final class MissionModelBuilder implements Initializer {
     private final LiveCells initialCells = new LiveCells(new CausalEventSource());
 
     private final Map<String, Resource<?>> resources = new HashMap<>();
-    private final List<TaskFactory<?>> daemons = new ArrayList<>();
-    private final List<MissionModel.SerializableTopic<?>> topics = new ArrayList<>();
+    private final Map<String, TaskFactory<?>> daemons = new HashMap<>();
+    //private final List<MissionModel.SerializableTopic<?>> topics = new ArrayList<>();
+    private final HashMap<Topic<?>, MissionModel.SerializableTopic<?>> topics = new HashMap<>();
 
     @Override
     public <State> State getInitialState(
@@ -127,12 +126,41 @@ public final class MissionModelBuilder implements Initializer {
         final Topic<Event> topic,
         final OutputType<Event> outputType)
     {
-      this.topics.add(new MissionModel.SerializableTopic<>(name, topic, outputType));
+      this.topics.put(topic, new MissionModel.SerializableTopic<>(name, topic, outputType));
     }
 
+    /**
+     * Collect daemons to run at the start of simulation.  Record unique names/IDs for daemon
+     * tasks such that a simulation rerun can identify them and handle effects properly.
+     * If the mission model does not specify a name ({@code taskName == null}), then
+     * re-executing the daemon will re-apply any effects, potentially resulting in
+     * an inaccurate simulation.  This function will add a suffix if necessary to the passed-in name
+     * in order to make it unique. If null is passed, "daemon" is used.  The same IDs
+     * will be generated for tasks with passed-in names in consecutive runs so that they
+     * can be correlated.
+     * @param taskName A name to associate with the task so that it can be rerun
+     * @param task A factory for constructing instances of the daemon task.
+     */
     @Override
-    public void daemon(final TaskFactory<?> task) {
-      this.daemons.add(task);
+    public void daemon(String taskName, final TaskFactory<?> task) {
+      int numDigits = 5;
+      int ct = 0;
+      taskName = taskName == null ? "daemon" : taskName;
+      String id = taskName;
+      // If we care how fast this is, we should save the ct for the taskName so that we don't have to visit
+      // every daemon with the same name, or we should do a binary search.
+      while (true) {
+        if (!this.daemons.containsKey(id)) {
+          break;
+        }
+        String suffix = String.format("%0" + numDigits + "d", ct);
+        id = taskName + suffix;
+        ct++;
+        if (ct >= Math.pow(10,numDigits)) {
+          throw new RuntimeException("Too many daemon tasks!  Limit is " + ct + ".");
+        }
+      }
+      this.daemons.put(id, task);
     }
 
     @Override
@@ -186,7 +214,7 @@ public final class MissionModelBuilder implements Initializer {
     }
 
     @Override
-    public void daemon(final TaskFactory<?> task) {
+    public void daemon(final String taskName, final TaskFactory<?> task) {
       throw new IllegalStateException("Daemons cannot be added after the schema is built");
     }
 

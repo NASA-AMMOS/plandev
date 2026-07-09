@@ -60,7 +60,7 @@ public final class GetSimulationResultsAction {
 
     final var samples = new HashMap<String, List<Pair<Duration, SerializedValue>>>();
 
-    simulationResults.realProfiles.forEach((name, p) -> {
+    simulationResults.getRealProfiles().forEach((name, p) -> {
       var elapsed = Duration.ZERO;
       var profile = p.segments();
 
@@ -78,7 +78,7 @@ public final class GetSimulationResultsAction {
 
       samples.put(name, timeline);
     });
-    simulationResults.discreteProfiles.forEach((name, p) -> {
+    simulationResults.getDiscreteProfiles().forEach((name, p) -> {
       var elapsed = Duration.ZERO;
       var profile = p.segments();
 

@@ -92,10 +92,27 @@ public interface Initializer {
    *
    * <p> The return value from a daemon task is discarded and ignored. </p>
    *
-   * @param factory
-   *   A factory for constructing instances of the daemon task.
+   * @param taskName A name to associate with the task so that it can be rerun
+   * @param factory A factory for constructing instances of the daemon task.
    */
-  void daemon(TaskFactory<?> factory);
+  void daemon(final String taskName, TaskFactory<?> factory);
+
+  /**
+   * Registers a specification for a top-level "daemon" task to be spawned at the beginning of simulation.
+   *
+   * <p> Daemon tasks are so-named in analogy to the <a href="https://en.wikipedia.org/wiki/Daemon_(computing)">"daemon"
+   * processes</a> of UNIX, which are background processes that monitor system state and take action on some condition
+   * or periodic schedule. Merlin's daemon tasks are much the same: tasks that exist on the model's behalf, rather than
+   * as reactions to environmental stimuli, which may model some system upkeep behavior on some condition or periodic
+   * schedule. </p>
+   *
+   * <p> The return value from a daemon task is discarded and ignored. </p>
+   *
+   * @param factory A factory for constructing instances of the daemon task.
+   */
+  default void daemon(TaskFactory<?> factory) {
+    daemon(null, factory);
+  }
 
   /**
    * Registers a model resource whose value over time is observable by the environment.

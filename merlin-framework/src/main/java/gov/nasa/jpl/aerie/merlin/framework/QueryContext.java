@@ -44,6 +44,16 @@ public final class QueryContext implements Context {
   }
 
   @Override
+  public <T> void startActivity(final T activity, final Topic<T> inputTopic) {
+    throw new IllegalStateException("Cannot start an activity in a query-only context");
+  }
+
+  @Override
+  public <T> void endActivity(final T result, final Topic<T> outputTopic) {
+    throw new IllegalStateException("Cannot end an activity in a query-only context");
+  }
+
+  @Override
   public void spawn(final InSpan inSpan, final TaskFactory<?> task) {
     throw new IllegalStateException("Cannot schedule tasks in a query-only context");
   }

@@ -2,6 +2,7 @@ package gov.nasa.jpl.aerie.merlin.server.services;
 
 import gov.nasa.jpl.aerie.merlin.driver.SimulationException;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface;
 import gov.nasa.jpl.aerie.merlin.driver.resources.SimulationResourceManager;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.server.ResultsProtocol;
@@ -20,12 +21,19 @@ public record SimulationAgent (
     MissionModelService missionModelService,
     long simulationProgressPollPeriod
 ) {
+
+  /**
+   * invokes simulation of the target plan
+   *
+   * @param simReuseStrategy how to reuse prior simulations to speed up the current simulation request
+   */
   public void simulate(
       final PlanId planId,
       final RevisionData revisionData,
       final ResultsProtocol.WriterRole writer,
       final Supplier<Boolean> canceledListener,
-      final SimulationResourceManager resourceManager
+      final SimulationResourceManager resourceManager,
+      final SimulationReuseStrategy simReuseStrategy
   ) {
     final Plan plan;
     try {
@@ -49,7 +57,18 @@ public record SimulationAgent (
       return;
     }
 
-    final SimulationResults results;
+//<<<<<<< HEAD
+//    final var planDuration = Duration.of(
+//        plan.startTimestamp.toInstant().until(plan.endTimestamp.toInstant(), ChronoUnit.MICROS),
+//        Duration.MICROSECONDS);
+//    final var simDuration = Duration.of(
+//        plan.simulationStartTimestamp.toInstant().until(plan.simulationEndTimestamp.toInstant(), ChronoUnit.MICROS),
+//        Duration.MICROSECONDS);
+//
+    final SimulationResultsInterface results;
+//=======
+//    final SimulationResults results;
+//>>>>>>> v2.20.0
     try {
       // Validate plan activity construction
       final var failures = this.missionModelService.validateActivityInstantiations(
@@ -72,10 +91,23 @@ public record SimulationAgent (
           simulationProgressPollPeriod)
       ) {
         results = this.missionModelService.runSimulation(
-           plan,
+//<<<<<<< HEAD
+//            new CreateSimulationMessage(
+//                plan.missionModelId,
+//                plan.simulationStartTimestamp.toInstant(),
+//                simDuration,
+//                plan.startTimestamp.toInstant(),
+//                planDuration,
+//                plan.activityDirectives,
+//                plan.configuration,
+//                simReuseStrategy),
+//=======
+            plan,
+//>>>>>>> v2.20.0
             extentListener::updateValue,
             canceledListener,
-            resourceManager);
+            resourceManager,
+            simReuseStrategy);
       }
     } catch (SimulationException ex) {
       final var errorMsgBuilder = Json.createObjectBuilder()

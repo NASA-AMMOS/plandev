@@ -25,7 +25,9 @@ import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationEngineConfiguration;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface;
+import gov.nasa.jpl.aerie.merlin.driver.timeline.TemporalEventSource;
+import gov.nasa.jpl.aerie.scheduler.simulation.SchedulerSimulationReuseStrategy;
 import gov.nasa.jpl.aerie.merlin.protocol.model.SchedulerModel;
 import gov.nasa.jpl.aerie.merlin.protocol.model.SchedulerPlugin;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
@@ -71,6 +73,8 @@ import gov.nasa.jpl.aerie.scheduler.server.services.SchedulerAgent;
 import gov.nasa.jpl.aerie.scheduler.server.services.SpecificationService;
 import gov.nasa.jpl.aerie.scheduler.simulation.CheckpointSimulationFacade;
 import gov.nasa.jpl.aerie.scheduler.simulation.InMemoryCachedEngineStore;
+import gov.nasa.jpl.aerie.scheduler.simulation.IncrementalSimulationFacade;
+import gov.nasa.jpl.aerie.scheduler.simulation.SimulationFacade;
 import gov.nasa.jpl.aerie.scheduler.simulation.SimulationData;
 import gov.nasa.jpl.aerie.scheduler.solver.PrioritySolver;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
@@ -85,23 +89,40 @@ import org.slf4j.LoggerFactory;
  * @param merlinDatabaseService interface for querying plan and mission model details from merlin
  * @param modelJarsDir path to parent directory for mission model jars (interim backdoor jar file access)
  * @param outputMode how the scheduling output should be returned to aerie (eg overwrite or new container)
+ * @param simReuseStrategy how to reuse simulation results during/between scheduler runs (eg incremental sim)
  */
-//TODO: will eventually need scheduling goal service arg to pull goals from scheduler's own data store
 public record SynchronousSchedulerAgent(
     SpecificationService specificationService,
     MerlinDatabaseService.OwnerRole merlinDatabaseService,
     Path modelJarsDir,
     PlanOutputMode outputMode,
-    SchedulingDSLCompilationService schedulingDSLCompilationService
+    SchedulingDSLCompilationService schedulingDSLCompilationService,
+    Map<Pair<PlanId, PlanningHorizon>, SimulationFacade> simulationFacades,
+    SchedulerSimulationReuseStrategy simReuseStrategy
 )
     implements SchedulerAgent
 {
   private static final Logger LOGGER = LoggerFactory.getLogger(SynchronousSchedulerAgent.class);
 
   public SynchronousSchedulerAgent {
+    Objects.requireNonNull(specificationService);
     Objects.requireNonNull(merlinDatabaseService);
     Objects.requireNonNull(modelJarsDir);
+    Objects.requireNonNull(outputMode);
     Objects.requireNonNull(schedulingDSLCompilationService);
+    Objects.requireNonNull(simulationFacades);
+    Objects.requireNonNull(simReuseStrategy);
+  }
+
+  public SynchronousSchedulerAgent(
+      SpecificationService specificationService,
+      MerlinDatabaseService.OwnerRole merlinService,
+      Path modelJarsDir,
+      PlanOutputMode outputMode,
+      SchedulingDSLCompilationService schedulingDSLCompilationService,
+      SchedulerSimulationReuseStrategy simReuseStrategy) {
+    this(specificationService, merlinService, modelJarsDir, outputMode,
+         schedulingDSLCompilationService, new HashMap<>(), simReuseStrategy);
   }
 
   /**
@@ -119,11 +140,13 @@ public record SynchronousSchedulerAgent(
       final Supplier<Boolean> canceledListener,
       final int sizeCachedEngineStore
   ) {
+    TemporalEventSource.freezable  = !TemporalEventSource.neverfreezable;
     try(final var cachedEngineStore = new InMemoryCachedEngineStore(sizeCachedEngineStore)) {
       //confirm requested plan to schedule from/into still exists at targeted version (request could be stale)
       //TODO: maybe some kind of high level db transaction wrapping entire read/update of target plan revision
 
       final var specification = specificationService.getSpecification(request.specificationId());
+      //TODO: consider caching planMetadata, schedulerMissionModel, Problem, etc. in addition to SimulationFacade
       final var planMetadata = merlinDatabaseService.getPlanMetadata(specification.planId());
       ensurePlanRevisionMatch(specification, planMetadata.planRev());
       ensureRequestIsCurrent(specification, request);
@@ -133,11 +156,13 @@ public record SynchronousSchedulerAgent(
           specification.horizonStartTimestamp().toInstant(),
           specification.horizonEndTimestamp().toInstant()
       );
-      final var simulationFacade = new CheckpointSimulationFacade(
+      //TODO: planningHorizon may be different from planMetadata.horizon(); could we reuse a facade with a different horizon?
+      final var simulationFacade = getSimulationFacade(
+          specification.planId(),
+          planningHorizon,
           schedulerMissionModel.missionModel(),
           schedulerMissionModel.schedulerModel(),
           cachedEngineStore,
-          planningHorizon,
           new SimulationEngineConfiguration(
               planMetadata.modelConfiguration(),
               planMetadata.horizon().getStartInstant(),
@@ -243,10 +268,10 @@ public record SynchronousSchedulerAgent(
         }
         problem.setGoals(orderedGoals);
 
-      final var scheduler = new PrioritySolver(problem, specification.analysisOnly());
-      //run the scheduler to find a solution to the posed problem, if any
-      final var solutionPlan = scheduler.getNextSolution().orElseThrow(
-          () -> new ResultsProtocolFailure("scheduler returned no solution"));
+        final var scheduler = new PrioritySolver(problem, specification.analysisOnly());
+        //run the scheduler to find a solution to the posed problem, if any
+        final var solutionPlan = scheduler.getNextSolution().orElseThrow(
+            () -> new ResultsProtocolFailure("scheduler returned no solution"));
 
       final var newActivityToGoalId = new HashMap<SchedulingActivity, GoalId>();
       for (final var entry : solutionPlan.getEvaluation().getGoalEvaluations().entrySet()) {
@@ -330,15 +355,41 @@ public record SynchronousSchedulerAgent(
           .type("OTHER_EXCEPTION")
           .message(e.toString())
           .trace(e));
+    } finally {
+      TemporalEventSource.freezable  = TemporalEventSource.alwaysfreezable;
     }
   }
 
-  private Optional<Pair<SimulationResults, DatasetId>> loadSimulationResults(final PlanMetadata planMetadata){
+  private Optional<Pair<SimulationResultsInterface, DatasetId>> loadSimulationResults(final PlanMetadata planMetadata){
     try {
       return merlinDatabaseService.getSimulationResults(planMetadata);
     } catch (MerlinServiceException | IOException | InvalidJsonException e) {
       throw new ResultsProtocolFailure(e);
     }
+  }
+
+  private SimulationFacade getSimulationFacade(
+      PlanId planId,
+      PlanningHorizon planningHorizon,
+      final MissionModel<?> missionModel,
+      final SchedulerModel schedulerModel,
+      final InMemoryCachedEngineStore cachedEngineStore,
+      final SimulationEngineConfiguration simEngineConfig,
+      final Supplier<Boolean> canceledListener) {
+    final var key = Pair.of(planId, planningHorizon);
+    var facade = this.simulationFacades.get(key);
+    if (facade == null) {
+      facade = switch(simReuseStrategy) {
+        case Incremental -> new IncrementalSimulationFacade<>(
+            missionModel, schedulerModel,
+            planningHorizon, canceledListener);
+        case Checkpoint -> new CheckpointSimulationFacade(
+            missionModel, schedulerModel, cachedEngineStore,
+            planningHorizon, simEngineConfig, canceledListener);
+        };
+      this.simulationFacades.put(key, facade);
+    }
+    return facade;
   }
 
   private ExternalProfiles loadExternalProfiles(final PlanId planId)
@@ -424,7 +475,7 @@ public record SynchronousSchedulerAgent(
   private PlanComponents loadInitialPlan(
       final PlanMetadata planMetadata,
       final Problem problem,
-      final Optional<SimulationResults> initialSimulationResults) {
+      final Optional<SimulationResultsInterface> initialSimulationResults) {
     //TODO: maybe paranoid check if plan rev has changed since original metadata?
     try {
       final var merlinPlan =  merlinDatabaseService.getPlanActivityDirectives(planMetadata, problem);
@@ -455,7 +506,7 @@ public record SynchronousSchedulerAgent(
                                                                                 .getArguments());
           case DurationType.Uncontrollable ignored -> {
             if (initialSimulationResults.isPresent()) {
-              for (final var simAct : initialSimulationResults.get().simulatedActivities.entrySet()) {
+              for (final var simAct : initialSimulationResults.get().getSimulatedActivities().entrySet()) {
                 if (simAct.getValue().directiveId().isPresent() &&
                     simAct.getValue().directiveId().get().equals(id)) {
                   actDuration = simAct.getValue().duration();

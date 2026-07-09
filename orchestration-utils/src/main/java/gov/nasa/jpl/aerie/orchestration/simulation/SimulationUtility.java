@@ -7,6 +7,7 @@ import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationDriver;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationException;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface;
 import gov.nasa.jpl.aerie.merlin.driver.resources.InMemorySimulationResourceManager;
 import gov.nasa.jpl.aerie.merlin.driver.resources.SimulationResourceManager;
 import gov.nasa.jpl.aerie.merlin.driver.resources.StreamingSimulationResourceManager;
@@ -108,7 +109,7 @@ public class SimulationUtility implements AutoCloseable {
    * @param plan The plan to simulate. Contains the simulation configuration
    * @return A Future to get the SimulationResults
    */
-  public Future<SimulationResults> simulate(MissionModel<?> model, Plan plan) {
+  public Future<SimulationResultsInterface> simulate(MissionModel<?> model, Plan plan) {
     return simulate(model, plan, () -> false, d -> {});
   }
 
@@ -120,7 +121,7 @@ public class SimulationUtility implements AutoCloseable {
    * @param extentConsumer A duration consumer to receive updates on how much time has elapsed within the simulation
    * @return A Future to get the SimulationResults
    */
-  public Future<SimulationResults> simulate(
+  public Future<SimulationResultsInterface> simulate(
       MissionModel<?> model,
       Plan plan,
       Supplier<Boolean> canceledListener,
@@ -134,9 +135,9 @@ public class SimulationUtility implements AutoCloseable {
     }
     final var simulationDuration = Duration.of(plan.simulationStartTimestamp
                                                    .microsUntil(plan.simulationEndTimestamp), Duration.MICROSECOND);
-    final var resultsThread = new Callable<SimulationResults>() {
+    final var resultsThread = new Callable<SimulationResultsInterface>() {
       @Override
-      public SimulationResults call() {
+      public SimulationResultsInterface call() {
         return SimulationDriver.simulate(
             model,
             plan.activityDirectives(),

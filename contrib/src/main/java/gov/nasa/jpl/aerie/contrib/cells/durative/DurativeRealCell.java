@@ -45,6 +45,14 @@ public final class DurativeRealCell {
     return dynamics;
   }
 
+  @Override
+  public String toString() {
+    return "DurativeRealCell{" +
+           "activeEffects=" + activeEffects +
+           ", elapsedTime=" + elapsedTime +
+           '}';
+  }
+
   public static final class DurativeCellType
       implements CellType<Collection<Pair<Duration, RealDynamics>>, DurativeRealCell>
   {

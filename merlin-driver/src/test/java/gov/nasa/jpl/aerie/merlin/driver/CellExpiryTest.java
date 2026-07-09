@@ -38,7 +38,7 @@ public final class CellExpiryTest {
         Duration.SECONDS.times(5),
         () -> false);
 
-    final var actual = results.discreteProfiles.get("/key").segments();
+    final var actual = results.getDiscreteProfiles().get("/key").segments();
 
     final var expected = List.of(
         new ProfileSegment<>(duration(500, MILLISECONDS), SerializedValue.of("value")),

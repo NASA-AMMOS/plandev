@@ -7,6 +7,7 @@ import gov.nasa.jpl.aerie.merlin.driver.SimulationDriver;
 import gov.nasa.jpl.aerie.merlin.framework.InitializationContext;
 import gov.nasa.jpl.aerie.merlin.framework.ModelActions;
 import gov.nasa.jpl.aerie.merlin.framework.Registrar;
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.extension.TestInstancePreDestroyCallback;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 
@@ -155,7 +157,8 @@ public final class MerlinExtension
           });
 
       try {
-        SimulationDriver.simulateTask(this.missionModel, task);
+        var driver = new SimulationDriver<Unit>(this.missionModel, Instant.now(), Duration.MAX_VALUE);
+        driver.simulateTask(task);
       } catch (final WrappedException ex) {
         throw ex.wrapped;
       }

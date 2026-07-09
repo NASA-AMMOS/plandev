@@ -27,7 +27,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static gov.nasa.jpl.aerie.scheduler.SimulationUtility.buildProblemFromFoo;
+import static gov.nasa.jpl.aerie.scheduler.SimulationUtility.buildFooProblem;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestUnsatisfiableCompositeGoals {
@@ -47,11 +47,14 @@ public class TestUnsatisfiableCompositeGoals {
 
   //test mission with two primitive activity types
   private static Problem makeTestMissionAB() {
-    return SimulationUtility.buildProblemFromFoo(h);
+    return SimulationUtility.buildFooProblem(h);
   }
 
+  private static Problem makeTestMissionABWithNoCache() {
+    return SimulationUtility.buildFooProblemWithCacheSize(h, 1);
+  }
   private static Problem makeTestMissionABWithCache() {
-    return SimulationUtility.buildProblemFromFoo(h, 15);
+    return SimulationUtility.buildFooProblemWithCacheSize(h, 15);
   }
 
   private static PlanInMemory makePlanA12(Problem problem) {
@@ -81,7 +84,7 @@ public class TestUnsatisfiableCompositeGoals {
   }
 
   static Stream<Arguments> testAndWithoutBackTrack() {
-    return Stream.of(Arguments.of(makeTestMissionAB()),
+    return Stream.of(Arguments.of(makeTestMissionABWithNoCache()),
                      Arguments.of(makeTestMissionABWithCache()));
   }
   @ParameterizedTest
@@ -227,7 +230,7 @@ public class TestUnsatisfiableCompositeGoals {
   public void testCardinalityBacktrack() throws SchedulingInterruptedException {
     var planningHorizon = new PlanningHorizon(TestUtility.timeFromEpochSeconds(0), TestUtility.timeFromEpochSeconds(20));
 
-    final var problem = buildProblemFromFoo(planningHorizon);
+    final var problem = buildFooProblem(planningHorizon);
     final var activityType = problem.getActivityType("ControllableDurationActivity");
 
     final var goalWindow = new Windows(false).set(List.of(

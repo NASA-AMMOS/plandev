@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "*",
+      "Bash(*)",
+      "python3 .tmp/*",
+      "python3 -c *",
+      "python3 *",
+      "cat .tmp/*"
+    ]
+  }
+}

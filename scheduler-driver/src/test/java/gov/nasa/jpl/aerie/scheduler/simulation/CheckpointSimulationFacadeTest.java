@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.scheduler.simulation;
 
 import gov.nasa.jpl.aerie.merlin.driver.SimulationEngineConfiguration;
+import gov.nasa.jpl.aerie.merlin.driver.timeline.TemporalEventSource;
 import gov.nasa.jpl.aerie.merlin.framework.ThreadedTask;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.scheduler.DirectiveIdGenerator;
@@ -43,19 +44,22 @@ public class CheckpointSimulationFacadeTest {
   @BeforeEach
   public void before(){
     ThreadedTask.CACHE_READS = true;
-    final var fooMissionModel = SimulationUtility.getFooMissionModel();
+    TemporalEventSource.freezable  = !TemporalEventSource.neverfreezable;
+    final var fooMissionModel = SimulationUtility.buildFooMissionModel();
+    final var fooSchedulerModel = SimulationUtility.buildFooSchedulerModel();
     activityTypes = new HashMap<>();
     for(var taskType : fooMissionModel.getDirectiveTypes().directiveTypes().entrySet()){
-      activityTypes.put(taskType.getKey(), new ActivityType(taskType.getKey(), taskType.getValue(), SimulationUtility.getFooSchedulerModel().getDurationTypes().get(taskType.getKey())));
+      activityTypes.put(taskType.getKey(), new ActivityType(taskType.getKey(), taskType.getValue(), fooSchedulerModel.getDurationTypes().get(taskType.getKey())));
     }
     newSimulationFacade = new CheckpointSimulationFacade(
         fooMissionModel,
-        SimulationUtility.getFooSchedulerModel(),
+        fooSchedulerModel,
         new InMemoryCachedEngineStore(10),
         H,
         new SimulationEngineConfiguration(Map.of(), Instant.EPOCH, new MissionModelId(1)),
         () -> false);
     newSimulationFacade.addActivityTypes(activityTypes.values());
+    TemporalEventSource.freezable  = TemporalEventSource.alwaysfreezable;
   }
 
   /**
@@ -105,8 +109,8 @@ public class CheckpointSimulationFacadeTest {
     final var actTypeA = activityTypes.get("ControllableDurationActivity");
     plan.add(SchedulingActivity.of(idGenerator.next(), actTypeA, t0, HOUR.times(200), null, true));
     final var results = newSimulationFacade.simulateNoResultsAllActivities(plan).computeResults();
-    assertEquals(H.getEndAerie(), results.duration);
-    assert(results.unfinishedActivities.size() == 1);
+    assertEquals(H.getEndAerie(), results.getDuration());
+    assert(results.getUnfinishedActivities().size() == 1);
   }
 
 }

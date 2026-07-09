@@ -15,6 +15,7 @@ import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresResultsCellRepo
 import gov.nasa.jpl.aerie.merlin.server.services.LocalMissionModelService;
 import gov.nasa.jpl.aerie.merlin.server.services.LocalPlanService;
 import gov.nasa.jpl.aerie.merlin.server.services.SimulationAgent;
+import gov.nasa.jpl.aerie.merlin.server.services.SimulationReuseStrategy;
 import gov.nasa.jpl.aerie.merlin.server.services.UnexpectedSubtypeError;
 import gov.nasa.jpl.aerie.merlin.worker.postgres.PostgresProfileStreamer;
 import gov.nasa.jpl.aerie.merlin.worker.postgres.PostgresSimulationNotificationPayload;
@@ -27,6 +28,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 public final class MerlinWorkerAppDriver {
+
   public static void main(String[] args) throws InterruptedException {
     final var configuration = loadConfiguration();
     final var store = configuration.store();
@@ -99,7 +101,8 @@ public final class MerlinWorkerAppDriver {
               revisionData,
               writer,
               canceledListener,
-              new StreamingSimulationResourceManager(streamer));
+              new StreamingSimulationResourceManager(streamer),
+              configuration.simReuseStrategy());
         } catch (final Throwable ex) {
           ex.printStackTrace(System.err);
           writer.failWith(b -> b
@@ -131,7 +134,9 @@ public final class MerlinWorkerAppDriver {
                           getEnv("MERLIN_DB_PASSWORD", ""),
                           "aerie"),
         Integer.parseInt(getEnv("SIMULATION_PROGRESS_POLL_PERIOD_MILLIS", "5000")),
-        Instant.parse(getEnv("UNTRUE_PLAN_START", ""))
+        Instant.parse(getEnv("UNTRUE_PLAN_START", "")),
+        SimulationReuseStrategy.valueOf(getEnv(
+            "SIM_REUSE_STRATEGY", SimulationReuseStrategy.Incremental.name()))
     );
   }
 }

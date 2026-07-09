@@ -53,10 +53,24 @@ public final class InitializationContext implements Context {
   }
 
   @Override
+  public <T> void startActivity(final T activity, final Topic<T> inputTopic) {
+    throw new IllegalStateException("Cannot start executing an activity state during initialization");
+  }
+
+  @Override
+  public <T> void endActivity(final T result, final Topic<T> outputTopic) {
+    throw new IllegalStateException("Cannot end executing an activity state during initialization");
+  }
+
+
+  @Override
   public void spawn(final InSpan _inSpan, final TaskFactory<?> task) {
     // As top-level tasks, daemons always get their own span.
     // TODO: maybe produce a warning if inSpan is not Fresh in initialization context
-    this.builder.daemon(task);
+    this.builder.daemon(null, task);
+  }
+  public void spawn(final String taskName, final InSpan _inSpan, final TaskFactory<?> task) {
+    this.builder.daemon(taskName, task);
   }
 
   @Override

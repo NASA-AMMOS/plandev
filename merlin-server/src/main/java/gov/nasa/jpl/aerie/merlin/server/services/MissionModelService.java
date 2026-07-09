@@ -5,8 +5,8 @@ import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import gov.nasa.jpl.aerie.types.Plan;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.driver.resources.SimulationResourceManager;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface;
 import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.Parameter;
 import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.ValidationNotice;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
@@ -64,11 +64,12 @@ public interface MissionModelService {
          LocalMissionModelService.MissionModelLoadException,
          InstantiationException;
 
-  SimulationResults runSimulation(
+  SimulationResultsInterface runSimulation(
       final Plan plan,
       final Consumer<Duration> writer,
       final Supplier<Boolean> canceledListener,
-      final SimulationResourceManager resourceManager
+      final SimulationResourceManager resourceManager,
+      final SimulationReuseStrategy simulationReuseStrategy
   ) throws NoSuchMissionModelException, MissionModelService.NoSuchActivityTypeException;
 
   void refreshModelParameters(MissionModelId missionModelId) throws NoSuchMissionModelException;

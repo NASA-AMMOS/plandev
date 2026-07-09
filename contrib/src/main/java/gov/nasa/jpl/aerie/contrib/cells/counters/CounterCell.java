@@ -39,6 +39,15 @@ public final class CounterCell<T> {
     return this.duplicator.apply(this.value);
   }
 
+  @Override
+  public String toString() {
+    return "CounterCell{" +
+           "duplicator=" + duplicator +
+           ", adder=" + adder +
+           ", value=" + value +
+           '}';
+  }
+
   public static final class CounterCellType<T> implements CellType<T, CounterCell<T>> {
     private final EffectTrait<T> monoid;
 

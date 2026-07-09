@@ -1,11 +1,15 @@
 package gov.nasa.jpl.aerie.merlin.driver.timeline;
 
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.jpl.aerie.merlin.protocol.types.SubInstantDuration;
+
 import java.util.Arrays;
 
 public final class CausalEventSource implements EventSource {
-  private Event[] points = new Event[2];
+  public Event[] points = new Event[2];
   private int size = 0;
   private boolean frozen = false;
+  private SubInstantDuration timeFroze = null;
 
   public void add(final Event point) {
     if (this.frozen) {
@@ -40,14 +44,23 @@ public final class CausalEventSource implements EventSource {
     private int index = 0;
 
     @Override
-    public void stepUp(final Cell<?> cell) {
+    public <State> Cell<State> stepUp(final Cell<State> cell) {
+      //System.out.println("CausalEventSource.CausalCursor.stepUp(" + cell + "): applying points " + Arrays.toString(points));
       cell.apply(points, this.index, size);
       this.index = size;
+      cell.doneStepping = isFrozen();
+      return cell;
     }
   }
 
   @Override
-  public void freeze() {
+  public void freeze(SubInstantDuration time) {
     this.frozen = true;
+    this.timeFroze = time;
+  }
+
+  @Override
+  public SubInstantDuration timeFroze() {
+    return this.timeFroze;
   }
 }

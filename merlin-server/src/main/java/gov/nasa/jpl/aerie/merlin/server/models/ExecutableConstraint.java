@@ -74,7 +74,7 @@ public sealed interface ExecutableConstraint extends Comparable<ExecutableConstr
     public ProceduralConstraintResult run(
         ReadonlyPlan plan,
         ReadonlyProceduralSimResults simResults,
-        gov.nasa.jpl.aerie.merlin.driver.SimulationResults merlinResults
+        gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface merlinResults
     ) {
       final ProcedureMapper<?> procedureMapper;
       try {

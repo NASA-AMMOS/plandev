@@ -154,4 +154,14 @@ public class ActivityType {
   public int hashCode() {
     return name.hashCode();
   }
+
+  @Override
+  public String toString() {
+    return "ActivityType{" +
+           "name='" + name + '\'' +
+           ", activityConstraints=" + activityConstraints +
+           ", specType=" + specType +
+           ", durationType=" + durationType +
+           '}';
+  }
 }

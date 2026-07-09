@@ -23,7 +23,7 @@ public class TestCardinalityGoal {
     Interval period = Interval.betweenClosedOpen(Duration.of(0, Duration.SECONDS), Duration.of(20, Duration.SECONDS));
 
     final var planningHorizon = new PlanningHorizon(TestUtility.timeFromEpochSeconds(0), TestUtility.timeFromEpochSeconds(25));
-    final var problem = SimulationUtility.buildProblemFromFoo(planningHorizon);
+    final var problem = SimulationUtility.buildFooProblem(planningHorizon);
 
     CardinalityGoal goal = new CardinalityGoal.Builder()
         .duration(Interval.between(Duration.of(12, Duration.SECONDS), Duration.of(15, Duration.SECONDS)))

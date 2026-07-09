@@ -39,7 +39,7 @@ public final class RegisterCell<T> {
 
   @Override
   public String toString() {
-    return "{value=%s, conflicted=%s}".formatted(this.getValue(), this.isConflicted());
+    return "RegisterCell{value=%s, conflicted=%s}".formatted(this.getValue(), this.isConflicted());
   }
 
   public static final class RegisterCellType<T> implements CellType<RegisterEffect<T>, RegisterCell<T>> {

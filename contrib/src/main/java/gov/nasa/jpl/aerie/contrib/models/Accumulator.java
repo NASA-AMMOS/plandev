@@ -39,6 +39,13 @@ public final class Accumulator implements RealResource {
     return super.equals(obj);
   }
 
+  @Override
+  public String toString() {
+    return "Accumulator{" +
+           "ref=" + ref.get() +
+           ", rate=" + rate.get() +
+           '}';
+  }
 
   public final class Rate implements RealResource {
     @Override

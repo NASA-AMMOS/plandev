@@ -1,5 +1,7 @@
 package gov.nasa.jpl.aerie.orchestration.simulation;
 
+import gov.nasa.jpl.aerie.merlin.driver.EventGraphFlattener;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface;
 import gov.nasa.jpl.aerie.json.JsonParser;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfile;
@@ -18,7 +20,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.Map;
 
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.EventGraphFlattener;
 import gov.nasa.jpl.aerie.types.Plan;
 import gov.nasa.jpl.aerie.types.Timestamp;
 
@@ -35,7 +36,7 @@ public class SimulationResultsWriter {
   // Write JSONs with Pretty Printing
   private final static Map<String,String> config = Map.of(JsonGenerator.PRETTY_PRINTING, "");
 
-  private final SimulationResults results;
+  private final SimulationResultsInterface results;
   private final Plan plan;
   private final ResourceFileStreamer resourceFileStreamer;
 
@@ -46,10 +47,44 @@ public class SimulationResultsWriter {
    * @param plan The Plan simulated
    * @param rfs The ResourceFileStreamer used during the simulation
    */
-  public SimulationResultsWriter(SimulationResults results, Plan plan, ResourceFileStreamer rfs) {
+//<<<<<<< HEAD
+//  public SimulationResultsWriter(SimulationResultsInterface results, Plan plan, ResourceFileStreamer rfs) {
+//    this.plan = plan;
+//    this.extent = results.getDuration();
+//    this.profilesTask = new RecursiveTask<>() {
+//      @Override
+//      protected JsonObject compute() {
+//        try {
+//          return buildProfiles(results.getRealProfiles(), results.getDiscreteProfiles(), rfs);
+//        } catch (IOException e) {
+//          throw new RuntimeException(e);
+//        }
+//      }
+//    };
+//    this.eventsTask = new RecursiveTask<>() {
+//      @Override
+//      protected JsonObject compute() {
+//        return buildEvents(results.getEvents(),results.getTopics());
+//      }
+//    };
+//    this.spansTask = new RecursiveTask<>() {
+//      @Override
+//      protected JsonObject compute() {
+//        return buildSpans(results.getSimulatedActivities(),results.getUnfinishedActivities(), plan.simulationStartTimestamp);
+//      }
+//    };
+//    this.simConfigTask = new RecursiveTask<>() {
+//      @Override
+//      protected JsonObject compute() {
+//        return buildSimConfig(plan);
+//      }
+//    };
+//=======
+  public SimulationResultsWriter(SimulationResultsInterface results, Plan plan, ResourceFileStreamer rfs) {
     this.results = results;
     this.plan = plan;
     this.resourceFileStreamer = rfs;
+//>>>>>>> origin/develop
   }
 
   /**
@@ -122,7 +157,7 @@ public class SimulationResultsWriter {
 
   /** Write the top-level fields of the results JSON */
   private void writeOpening(JsonGenerator resultsGenerator, boolean canceled) {
-    final var simEndTime = plan.simulationStartTimestamp.plusMicros(results.duration.in(Duration.MICROSECOND));
+    final var simEndTime = plan.simulationStartTimestamp.plusMicros(results.getDuration().in(Duration.MICROSECOND));
 
     resultsGenerator
         .write("version", SCHEMA_VERSION)
@@ -149,14 +184,14 @@ public class SimulationResultsWriter {
 
     // Each real profile is an object in the array realProfiles
     resultsGenerator.writeStartArray("realProfiles");
-    for (var e : results.realProfiles.entrySet()) {
+    for (var e : results.getRealProfiles().entrySet()) {
       writeProfile(resultsGenerator, e.getKey(), e.getValue(), realDynamicsP);
     }
     resultsGenerator.writeEnd();
 
     // Each discrete profile is an object in the array discreteProfiles
     resultsGenerator.writeStartArray("discreteProfiles");
-    for (var e : results.discreteProfiles.entrySet()) {
+    for (var e : results.getDiscreteProfiles().entrySet()) {
       writeProfile(resultsGenerator, e.getKey(), e.getValue(), serializedValueP);
     }
     resultsGenerator.writeEnd();
@@ -211,7 +246,7 @@ public class SimulationResultsWriter {
 
     // Each simulated activity is an object in the array simulatedActivities
     resultsGenerator.writeStartArray("simulatedActivities");
-    for (var e : results.simulatedActivities.entrySet()) {
+    for (var e : results.getSimulatedActivities().entrySet()) {
       final var id = e.getKey();
       final var act = e.getValue();
 
@@ -253,7 +288,7 @@ public class SimulationResultsWriter {
 
     // Each unfinished activity is an object in the array unfinishedActivities
     resultsGenerator.writeStartArray("unfinishedActivities");
-    for (var e : results.unfinishedActivities.entrySet()) {
+    for (var e : results.getUnfinishedActivities().entrySet()) {
       final var id = e.getKey();
       final var act = e.getValue();
 
@@ -295,7 +330,7 @@ public class SimulationResultsWriter {
   /** Write the topics section of the results */
   private void writeTopics(JsonGenerator resultsGenerator) {
     resultsGenerator.writeStartObject();
-    for (var t : results.topics) {
+    for (var t : results.getTopics()) {
       resultsGenerator.writeStartObject(t.getMiddle())
           .write("schema", valueSchemaP.unparse(t.getRight()))
           .writeEnd();
@@ -307,7 +342,7 @@ public class SimulationResultsWriter {
   private void writeEvents(JsonGenerator resultsGenerator) {
     resultsGenerator.writeStartArray();
 
-    for (var e : results.events.entrySet()) {
+    for (var e : results.getEvents().entrySet()) {
       var realTime = e.getKey();
       var transactions = e.getValue();
 
@@ -325,7 +360,7 @@ public class SimulationResultsWriter {
               .write("value", serializedValueP.unparse(event.value()));
 
           //grab the topic from the event's topic id
-          results.topics
+          results.getTopics()
               .stream()
               .filter(topic -> topic.getLeft() == event.topicId())
               .findFirst()

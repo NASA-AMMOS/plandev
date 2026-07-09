@@ -10,6 +10,8 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.InSpan;
 import java.util.function.Function;
 
 public interface Context {
+  <T> void startActivity(T activity, Topic<T> inputTopic);
+  <T> void endActivity(T result, Topic<T> outputTopic);
   enum ContextType { Initializing, Reacting, Querying }
 
   // Usable in all contexts
@@ -31,6 +33,10 @@ public interface Context {
   <Event> void emit(Event event, Topic<Event> topic);
 
   void spawn(InSpan inSpan, TaskFactory<?> task);
+  default void spawn(String taskName, InSpan inSpan, TaskFactory<?> task) {
+    spawn(inSpan, task);
+  }
+
   <Return> void call(InSpan inSpan, TaskFactory<Return> task);
 
   void delay(Duration duration);

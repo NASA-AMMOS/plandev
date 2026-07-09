@@ -2,6 +2,7 @@ package gov.nasa.jpl.aerie.banananation;
 
 import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
 import gov.nasa.jpl.aerie.merlin.driver.engine.SimulationEngine;
+import gov.nasa.jpl.aerie.merlin.driver.resources.SimulationResourceManager;
 import gov.nasa.jpl.aerie.merlin.driver.timeline.TemporalEventSource;
 import gov.nasa.jpl.aerie.merlin.protocol.driver.Topic;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 
@@ -40,14 +42,14 @@ public final class ActivityInstanceTest {
 
     final var simulationResults = SimulationUtility.simulate(schedule, simDuration);
 
-    assertEquals(1, simulationResults.simulatedActivities.size());
-    simulationResults.simulatedActivities.forEach( (id, act) -> {
-        assertEquals(1, act.arguments().size());
-        assertTrue(act.arguments().containsKey("peelDirection"));
+    assertEquals(1, simulationResults.getSimulatedActivities().size());
+    simulationResults.getSimulatedActivities().forEach( (id, act) -> {
+      assertEquals(1, act.arguments().size());
+      assertTrue(act.arguments().containsKey("peelDirection"));
     });
 
-    assertEquals(1, simulationResults.unfinishedActivities.size());
-    simulationResults.unfinishedActivities.forEach( (id, act) -> {
+    assertEquals(1, simulationResults.getUnfinishedActivities().size());
+    simulationResults.getUnfinishedActivities().forEach( (id, act) -> {
       assertEquals(2, act.arguments().size());
       assertTrue(act.arguments().containsKey("quantity"));
       assertTrue(act.arguments().containsKey("growingDuration"));
@@ -56,8 +58,7 @@ public final class ActivityInstanceTest {
 
   /** This test is a response to not accounting for all Task ExecutionStates
    * when collecting activities into the results object. This indirectly tests that portion
-   * of {@link gov.nasa.jpl.aerie.merlin.driver.engine.SimulationEngine#computeResults(
-   * SimulationEngine, Instant, Duration, Topic, TemporalEventSource, MissionModel) computeResults()}
+   * of {@link gov.nasa.jpl.aerie.merlin.driver.engine.SimulationEngine#computeResults(Instant, Duration, Topic, Map, SimulationResourceManager)}  computeResults()}
    *
    * The schedule in this test, results produces Tasks in all three of the states,
    * {@link gov.nasa.jpl.aerie.merlin.driver.engine.SimulationEngine.ExecutionState.AwaitingChildren AwaitingChildren},
@@ -84,19 +85,19 @@ public final class ActivityInstanceTest {
 
     final var simulationResults = SimulationUtility.simulate(schedule, simDuration);
 
-    assertEquals(2, simulationResults.simulatedActivities.size());
+    assertEquals(2, simulationResults.getSimulatedActivities().size());
 
     var simulatedActivityTypes = new HashSet<String>();
-    simulationResults.simulatedActivities.forEach( (id, act) -> simulatedActivityTypes.add(act.type()));
+    simulationResults.getSimulatedActivities().forEach( (id, act) -> simulatedActivityTypes.add(act.type()));
     Collection<String> expectedSimulated = new HashSet<>(
         Arrays.asList("PeelBanana", "DecomposingSpawnChild"));
 
     assertEquals(simulatedActivityTypes, expectedSimulated);
 
-    assertEquals(3, simulationResults.unfinishedActivities.size());
+    assertEquals(3, simulationResults.getUnfinishedActivities().size());
 
     var unfinishedActivityTypes = new HashSet<String>();
-    simulationResults.unfinishedActivities.forEach( (id, act) -> unfinishedActivityTypes.add(act.type()));
+    simulationResults.getUnfinishedActivities().forEach( (id, act) -> unfinishedActivityTypes.add(act.type()));
 
     Collection<String> expectedUnfinished = new HashSet<>(
         Arrays.asList("GrowBanana", "DecomposingSpawnChild", "DecomposingSpawnParent"));

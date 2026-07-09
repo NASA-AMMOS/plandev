@@ -8,7 +8,7 @@ import java.nio.file.Path;
 
 import static gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Template;
 
-public record Configuration(@Unit("count") int initialPlantCount, String initialProducer, Path initialDataPath, InitialConditions initialConditions) {
+public record Configuration(@Unit("count") int initialPlantCount, String initialProducer, Path initialDataPath, InitialConditions initialConditions, boolean runDaemons) {
 
   public static final int DEFAULT_PLANT_COUNT = 200;
   public static final String DEFAULT_PRODUCER = "Chiquita";
@@ -30,7 +30,11 @@ public record Configuration(@Unit("count") int initialPlantCount, String initial
   }
 
   public static @Template Configuration defaultConfiguration() {
-    return new Configuration(DEFAULT_PLANT_COUNT, DEFAULT_PRODUCER, DEFAULT_DATA_PATH, DEFAULT_INITIAL_CONDITIONS);
+    return new Configuration(DEFAULT_PLANT_COUNT, DEFAULT_PRODUCER, DEFAULT_DATA_PATH, DEFAULT_INITIAL_CONDITIONS, false);
+  }
+
+  public static @Template Configuration daemonConfiguration() {
+    return new Configuration(DEFAULT_PLANT_COUNT, DEFAULT_PRODUCER, DEFAULT_DATA_PATH, DEFAULT_INITIAL_CONDITIONS, true);
   }
 
   @AutoValueMapper.Record

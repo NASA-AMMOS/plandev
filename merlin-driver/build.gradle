@@ -35,6 +35,7 @@ javadoc.options.links 'https://commons.apache.org/proper/commons-lang/javadocs/a
 javadoc.options.addStringOption('Xdoclint:none', '-quiet')
 
 dependencies {
+  implementation project(":merlin-driver-protocol")
   implementation project(':parsing-utilities')
 
   api project(':merlin-sdk')
@@ -48,6 +49,10 @@ dependencies {
   testImplementation project(':contrib')
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:6.0.1'
   testImplementation "net.jqwik:jqwik:1.6.5"
+  implementation 'com.google.guava:guava:32.1.2-jre'
+  testImplementation 'com.google.guava:guava-testlib:32.1.2-jre'
+
+  testImplementation 'org.junit.platform:junit-platform-suite:1.8.2'
 
   testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }

@@ -6,6 +6,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.model.EffectTrait;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
 
+import java.util.Objects;
 import java.util.function.Function;
 
 public final class LinearIntegrationCell {
@@ -40,6 +41,32 @@ public final class LinearIntegrationCell {
 
   public RealDynamics getRate() {
     return RealDynamics.constant(this.rate);
+  }
+
+  @Override
+  public boolean equals(final Object o) {
+    if (this == o) return true;
+    if (o == null || getClass() != o.getClass()) return false;
+    LinearIntegrationCell that = (LinearIntegrationCell) o;
+    return Double.compare(initialVolume, that.initialVolume) == 0
+           && Double.compare(
+        accumulatedVolume,
+        that.accumulatedVolume) == 0
+           && Double.compare(rate, that.rate) == 0;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(initialVolume, accumulatedVolume, rate);
+  }
+
+  @Override
+  public String toString() {
+    return "LinearIntegrationCell{" +
+           "initialVolume=" + initialVolume +
+           ", accumulatedVolume=" + accumulatedVolume +
+           ", rate=" + rate +
+           '}';
   }
 
   public static final class LinearIntegrationCellType

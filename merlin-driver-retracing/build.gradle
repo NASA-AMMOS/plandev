@@ -1,0 +1,101 @@
+plugins {
+  id 'com.github.johnrengelman.shadow' version '8.1.1'
+  id 'java-library'
+  id 'maven-publish'
+  id 'jacoco'
+}
+
+java {
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(21)
+  }
+
+  withJavadocJar()
+  withSourcesJar()
+}
+
+test {
+  useJUnitPlatform {
+    includeEngines 'jqwik', 'junit-jupiter'
+  }
+  testLogging {
+    exceptionFormat = 'full'
+  }
+}
+
+jar {
+  dependsOn ':merlin-sdk:jar'
+  dependsOn ':merlin-driver-protocol:jar'
+  dependsOn ':parsing-utilities:jar'
+  from {
+    configurations.runtimeClasspath.filter{ it.exists() }.collect{ it.isDirectory() ? it : zipTree(it) }
+  } {
+    exclude 'META-INF/LICENSE.txt', 'META-INF/NOTICE.txt'
+  }
+}
+
+jacocoTestReport {
+  dependsOn test
+  reports {
+    xml.required = true
+  }
+}
+
+repositories {
+  flatDir { dirs "$rootDir/third-party" }
+  mavenCentral()
+  maven {
+    name = "GitHubPackages"
+    url = "https://maven.pkg.github.com/nasa-ammos/aerie"
+    credentials {
+      username = System.getenv('GITHUB_USER')
+      password = System.getenv('GITHUB_TOKEN')
+    }
+  }
+}
+
+// Link references to standard Java classes to the official Java 11 documentation.
+javadoc.options.links 'https://docs.oracle.com/en/java/javase/11/docs/api/'
+javadoc.options.links 'https://commons.apache.org/proper/commons-lang/javadocs/api-3.9/'
+javadoc.options.addStringOption('Xdoclint:none', '-quiet')
+
+dependencies {
+  implementation project(':parsing-utilities')
+
+//  api 'gov.nasa.jpl.aerie:merlin-sdk:+'
+  implementation project(':merlin-sdk')
+  api 'org.glassfish:javax.json:1.1.4'
+  implementation 'it.unimi.dsi:fastutil:8.5.12'
+
+  implementation project(':merlin-driver-protocol')
+
+//  testImplementation project(':merlin-framework')
+//  testImplementation project(':merlin-framework-junit')
+//  testImplementation project(':contrib')
+//  testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.10.0'
+//  testImplementation "net.jqwik:jqwik:1.6.5"
+
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+publishing {
+  publications {
+    library(MavenPublication) {
+      version = findProperty('publishing.version')
+      from components.java
+    }
+  }
+
+  publishing {
+    repositories {
+      maven {
+        name = findProperty("publishing.name")
+        url = findProperty("publishing.url")
+        credentials {
+          username = System.getenv(findProperty("publishing.usernameEnvironmentVariable"))
+          password = System.getenv(findProperty("publishing.passwordEnvironmentVariable"))
+        }
+      }
+    }
+  }
+}

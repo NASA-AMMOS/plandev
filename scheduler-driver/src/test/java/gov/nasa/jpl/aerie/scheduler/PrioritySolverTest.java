@@ -4,7 +4,6 @@ import com.google.common.testing.NullPointerTester;
 import gov.nasa.jpl.aerie.constraints.time.Interval;
 import gov.nasa.jpl.aerie.constraints.time.Windows;
 import gov.nasa.jpl.aerie.constraints.tree.WindowsWrapperExpression;
-import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.scheduler.constraints.activities.ActivityExpression;
 import gov.nasa.jpl.aerie.scheduler.constraints.timeexpressions.TimeAnchor;
@@ -37,20 +36,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class PrioritySolverTest {
   private static final DirectiveIdGenerator idGenerator = new DirectiveIdGenerator(0);
   private static PrioritySolver makeEmptyProblemSolver() {
-    MissionModel<?> bananaMissionModel = SimulationUtility.getBananaMissionModel();
-    final var schedulerModel = SimulationUtility.getBananaSchedulerModel();
-    return new PrioritySolver(
-            new Problem(
-                    bananaMissionModel,
-                    h,
-                    new CheckpointSimulationFacade(
-                        bananaMissionModel,
-                        schedulerModel,
-                        new InMemoryCachedEngineStore(15),
-                        h,
-                        new SimulationEngineConfiguration(Map.of(),Instant.EPOCH, new MissionModelId(1)),
-                        () -> false),
-                    schedulerModel));
+    return new PrioritySolver(makeTestMissionAB());
   }
 
   private static PrioritySolver makeProblemSolver(Problem problem) {
@@ -90,7 +76,7 @@ public class PrioritySolverTest {
 
   //test mission with two primitive activity types
   private static Problem makeTestMissionAB() {
-    return SimulationUtility.buildProblemFromFoo(h, 15);
+    return SimulationUtility.buildFooProblem(h);
   }
 
   private final static PlanningHorizon h = new PlanningHorizon(TimeUtility.fromDOY("2025-001T01:01:01.001"), TimeUtility.fromDOY("2025-005T01:01:01.001"));
@@ -250,13 +236,10 @@ public class PrioritySolverTest {
   throws SimulationFacade.SimulationException, SchedulingInterruptedException
   {
     final var problem = makeTestMissionAB();
-    final var adHocFacade = new CheckpointSimulationFacade(
-        problem.getMissionModel(),
-        problem.getSchedulerModel(),
-        new InMemoryCachedEngineStore(10),
+    final var adHocFacade = SimulationUtility.buildFacade(
         problem.getPlanningHorizon(),
-        new SimulationEngineConfiguration(Map.of(),Instant.EPOCH, new MissionModelId(1)),
-        () -> false);
+        problem.getMissionModel(),
+        problem.getSchedulerModel());
     final var simResults = adHocFacade.simulateWithResults(makePlanA012(problem), h.getEndAerie());
     problem.setInitialPlan(makePlanA012(problem), Optional.of(simResults.driverResults()));
     final var actTypeA = problem.getActivityType("ControllableDurationActivity");
@@ -284,7 +267,7 @@ public class PrioritySolverTest {
 
   @Test
   public void testCardGoalWithApplyWhen() throws SchedulingInterruptedException {
-    final var problem = SimulationUtility.buildProblemFromFoo(h);
+    final var problem = SimulationUtility.buildFooProblem(h);
     final var activityType = problem.getActivityType("ControllableDurationActivity");
 
     //act at t=1hr and at t=2hrs

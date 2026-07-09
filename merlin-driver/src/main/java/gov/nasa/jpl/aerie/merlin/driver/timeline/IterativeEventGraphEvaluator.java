@@ -1,13 +1,22 @@
 package gov.nasa.jpl.aerie.merlin.driver.timeline;
 
 import gov.nasa.jpl.aerie.merlin.protocol.model.EffectTrait;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.Optional;
 
 public final class IterativeEventGraphEvaluator implements EventGraphEvaluator {
   @Override
+  public <Effect> Pair<Optional<Effect>, Boolean>
+  evaluate(final EffectTrait<Effect> trait, final Selector<Effect> selector, EventGraph<Event> graph,
+           final Event lastEvent, boolean includeLast)
+  {
+    return Pair.of(evaluateR(trait, selector, graph, lastEvent, includeLast), lastEvent != null);
+  }
   public <Effect> Optional<Effect>
-  evaluate(final EffectTrait<Effect> trait, final Selector<Effect> selector, EventGraph<Event> graph) {
+  evaluateR(final EffectTrait<Effect> trait, final Selector<Effect> selector, EventGraph<Event> graph,
+           final Event lastEvent, boolean includeLast) {
+    // TODO: HERE!! Need to implement for last 2 arguments.  One approach is to extract the sub-graph of Events.
     Continuation<Event, Effect> andThen = new Continuation.Empty<>();
 
     while (true) {

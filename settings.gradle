@@ -53,5 +53,11 @@ include 'examples:streamline-demo'
 include 'stateless-aerie'
 include 'orchestration-utils'
 include 'type-utils'
-include 'workspace-server'
 
+// Incremental sim testing
+include 'merlin-driver-protocol'
+include 'merlin-driver-develop'
+include 'merlin-driver-retracing'
+include 'merlin-driver-test'
+
+include 'workspace-server'

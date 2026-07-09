@@ -1,7 +1,7 @@
 package gov.nasa.jpl.aerie.scheduler.simulation;
 
 import gov.nasa.jpl.aerie.types.ActivityInstance;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface;
 import gov.nasa.jpl.aerie.merlin.driver.engine.ProfileSegment;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
@@ -23,22 +23,22 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 public class SimulationResultsComparisonUtils {
 
-  public static void assertEqualsSimulationResults(final SimulationResults expected, final SimulationResults simulationResults)
+  public static void assertEqualsSimulationResults(final SimulationResultsInterface expected, final SimulationResultsInterface simulationResults)
   {
-    assertEquals(expected.unfinishedActivities, simulationResults.unfinishedActivities);
-    assertEquals(expected.topics, simulationResults.topics);
+    assertEquals(expected.getUnfinishedActivities(), simulationResults.getUnfinishedActivities());
+    assertEquals(expected.getTopics(), simulationResults.getTopics());
     assertEqualsTSA(convertSimulatedActivitiesToTree(expected), convertSimulatedActivitiesToTree(simulationResults));
     final var differencesDiscrete = new HashMap<String, Map<Integer, DiscreteProfileDifference>>();
-    for(final var discreteProfile: simulationResults.discreteProfiles.entrySet()){
-      final var differences = equalsDiscreteProfile(expected.discreteProfiles.get(discreteProfile.getKey()).segments(), discreteProfile.getValue().segments());
+    for(final var discreteProfile: simulationResults.getDiscreteProfiles().entrySet()){
+      final var differences = equalsDiscreteProfile(expected.getDiscreteProfiles().get(discreteProfile.getKey()).segments(), discreteProfile.getValue().segments());
       if(!differences.isEmpty()){
         differencesDiscrete.put(discreteProfile.getKey(), differences);
       }
     }
     final var differencesReal = new HashMap<String, Map<Integer, RealProfileDifference>>();
-    for(final var realProfile: simulationResults.realProfiles.entrySet()){
+    for(final var realProfile: simulationResults.getRealProfiles().entrySet()){
       final var profileElements = realProfile.getValue().segments();
-      final var expectedProfileElements = expected.realProfiles.get(realProfile.getKey()).segments();
+      final var expectedProfileElements = expected.getRealProfiles().get(realProfile.getKey()).segments();
       final var differences = equalsRealProfile(expectedProfileElements, profileElements);
       if(!differences.isEmpty()) {
         differencesReal.put(realProfile.getKey(), differences);
@@ -129,8 +129,8 @@ public class SimulationResultsComparisonUtils {
    * @param simulationResults the simulation results
    * @return a set of trees
    */
-  public static Set<TreeSimulatedActivity> convertSimulatedActivitiesToTree(final SimulationResults simulationResults){
-    return simulationResults.simulatedActivities.values().stream().map(simulatedActivity -> TreeSimulatedActivity.fromSimulatedActivity(
+  public static Set<TreeSimulatedActivity> convertSimulatedActivitiesToTree(final SimulationResultsInterface simulationResults){
+    return simulationResults.getSimulatedActivities().values().stream().map(simulatedActivity -> TreeSimulatedActivity.fromSimulatedActivity(
         simulatedActivity,
         simulationResults)).collect(Collectors.toSet());
   }
@@ -156,11 +156,11 @@ public class SimulationResultsComparisonUtils {
   // Representation of simulated activities as trees of activities
   public record TreeSimulatedActivity(StrippedSimulatedActivity activity,
                                       Set<TreeSimulatedActivity> children){
-    public static TreeSimulatedActivity fromSimulatedActivity(ActivityInstance activityInstance, SimulationResults simulationResults){
+    public static TreeSimulatedActivity fromSimulatedActivity(ActivityInstance activityInstance, SimulationResultsInterface simulationResults){
       final var stripped = StrippedSimulatedActivity.fromSimulatedActivity(activityInstance);
       final HashSet<TreeSimulatedActivity> children = new HashSet<>();
       for(final var childId: activityInstance.childIds()) {
-        final var child = fromSimulatedActivity(simulationResults.simulatedActivities.get(childId), simulationResults);
+        final var child = fromSimulatedActivity(simulationResults.getSimulatedActivities().get(childId), simulationResults);
         children.add(child);
       }
       return new TreeSimulatedActivity(stripped, children);

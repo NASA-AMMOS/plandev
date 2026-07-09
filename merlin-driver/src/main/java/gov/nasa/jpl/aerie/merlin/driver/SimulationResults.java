@@ -14,31 +14,50 @@ import gov.nasa.jpl.aerie.types.ActivityInstanceId;
 import org.apache.commons.lang3.tuple.Triple;
 
 import java.time.Instant;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Optional;
 import java.util.SortedMap;
 import java.util.stream.Collectors;
 
-public final class SimulationResults {
+public class SimulationResults implements SimulationResultsInterface {
   public final Instant startTime;
   public final Duration duration;
   public final Map<String, ResourceProfile<RealDynamics>> realProfiles;
   public final Map<String, ResourceProfile<SerializedValue>> discreteProfiles;
   public final Map<ActivityInstanceId, ActivityInstance> simulatedActivities;
   public final Map<ActivityInstanceId, UnfinishedActivity> unfinishedActivities;
+  public final Set<ActivityInstanceId> removedActivities;
   public final List<Triple<Integer, String, ValueSchema>> topics;
-  public final Map<Duration, List<EventGraph<EventRecord>>> events;
+  public final SortedMap<Duration, List<EventGraph<EventRecord>>> events;
 
-    public SimulationResults(
-        final Map<String, ResourceProfile<RealDynamics>> realProfiles,
-        final Map<String, ResourceProfile<SerializedValue>> discreteProfiles,
-        final Map<ActivityInstanceId, ActivityInstance> simulatedActivities,
-        final Map<ActivityInstanceId, UnfinishedActivity> unfinishedActivities,
-        final Instant startTime,
-        final Duration duration,
-        final List<Triple<Integer, String, ValueSchema>> topics,
-        final Map<Duration, List<EventGraph<EventRecord>>> events)
+  public SimulationResults(
+      final Map<String, ResourceProfile<RealDynamics>> realProfiles,
+      final Map<String, ResourceProfile<SerializedValue>> discreteProfiles,
+      final Map<ActivityInstanceId, ActivityInstance> simulatedActivities,
+      final Map<ActivityInstanceId, UnfinishedActivity> unfinishedActivities,
+      final Instant startTime,
+      final Duration duration,
+      final List<Triple<Integer, String, ValueSchema>> topics,
+      final SortedMap<Duration, List<EventGraph<EventRecord>>> events)
+  {
+    this(realProfiles, discreteProfiles, simulatedActivities, new HashSet<>(),
+         unfinishedActivities, startTime, duration, topics, events);
+  }
+
+  public SimulationResults(
+      final Map<String, ResourceProfile<RealDynamics>> realProfiles,
+      final Map<String, ResourceProfile<SerializedValue>> discreteProfiles,
+      final Map<ActivityInstanceId, ActivityInstance> simulatedActivities,
+      final Set<ActivityInstanceId> removedActivities,
+      final Map<ActivityInstanceId, UnfinishedActivity> unfinishedActivities,
+      final Instant startTime,
+      final Duration duration,
+      final List<Triple<Integer, String, ValueSchema>> topics,
+      final SortedMap<Duration, List<EventGraph<EventRecord>>> events)
   {
     this.startTime = startTime;
     this.duration = duration;
@@ -46,20 +65,59 @@ public final class SimulationResults {
     this.discreteProfiles = discreteProfiles;
     this.topics = topics;
     this.simulatedActivities = simulatedActivities;
+    this.removedActivities = removedActivities;
     this.unfinishedActivities = unfinishedActivities;
     this.events = events;
   }
 
   @Override
   public String toString() {
-    return
-        "SimulationResults "
-        + "{ startTime=" + this.startTime
-        + ", realProfiles=" + this.realProfiles
-        + ", discreteProfiles=" + this.discreteProfiles
-        + ", simulatedActivities=" + this.simulatedActivities
-        + ", unfinishedActivities=" + this.unfinishedActivities
-        + " }";
+    return makeString();
+  }
+
+  @Override
+  public Instant getStartTime() {
+    return startTime;
+  }
+
+  @Override
+  public Duration getDuration() {
+    return duration;
+  }
+
+  @Override
+  public Map<String, ResourceProfile<RealDynamics>> getRealProfiles() {
+    return realProfiles;
+  }
+
+  @Override
+  public Map<String, ResourceProfile<SerializedValue>> getDiscreteProfiles() {
+    return discreteProfiles;
+  }
+
+  @Override
+  public Map<ActivityInstanceId, ActivityInstance> getSimulatedActivities() {
+    return simulatedActivities;
+  }
+
+  @Override
+  public Set<ActivityInstanceId> getRemovedActivities() {
+    return removedActivities;
+  }
+
+  @Override
+  public Map<ActivityInstanceId, UnfinishedActivity> getUnfinishedActivities() {
+    return unfinishedActivities;
+  }
+
+  @Override
+  public List<Triple<Integer, String, ValueSchema>> getTopics() {
+    return topics;
+  }
+
+  @Override
+  public Map<Duration, List<EventGraph<EventRecord>>> getEvents() {
+    return events;
   }
 
   @Override

@@ -1,5 +1,8 @@
 package gov.nasa.jpl.aerie.banananation;
 
+import gov.nasa.jpl.aerie.banananation.activities.BiteBananaActivity;
+import gov.nasa.jpl.aerie.banananation.activities.GrowBananaActivity;
+import gov.nasa.jpl.aerie.banananation.generated.ActivityActions;
 import gov.nasa.jpl.aerie.contrib.models.Accumulator;
 import gov.nasa.jpl.aerie.contrib.models.Register;
 import gov.nasa.jpl.aerie.contrib.models.counters.Counter;
@@ -8,7 +11,9 @@ import gov.nasa.jpl.aerie.contrib.serialization.mappers.DoubleValueMapper;
 import gov.nasa.jpl.aerie.contrib.serialization.mappers.EnumValueMapper;
 import gov.nasa.jpl.aerie.contrib.serialization.mappers.IntegerValueMapper;
 import gov.nasa.jpl.aerie.contrib.serialization.mappers.StringValueMapper;
+import gov.nasa.jpl.aerie.merlin.framework.ModelActions;
 import gov.nasa.jpl.aerie.merlin.framework.Registrar;
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.spice.SpiceLoader;
 import spice.basic.CSPICE;
 import spice.basic.SpiceErrorException;
@@ -17,6 +22,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECOND;
+import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
 import static gov.nasa.jpl.aerie.contrib.metadata.UnitRegistrar.discreteResource;
 import static gov.nasa.jpl.aerie.contrib.metadata.UnitRegistrar.realResource;
 
@@ -49,9 +56,30 @@ public final class Mission {
     // Load SPICE in the Mission constructor
     try {
       SpiceLoader.loadSpice();
-      System.out.println(CSPICE.ktotal("ALL"));
+      System.out.println(this.getClass().getCanonicalName() + ": CSPICE.ktotal(\"ALL\") = " + CSPICE.ktotal("ALL"));
     } catch (final SpiceErrorException ex) {
       throw new Error(ex);
+    }
+
+    if (config.runDaemons()) {
+      ModelActions.spawn(
+          "grow bananas",
+          () -> {
+            while (true) {
+              if (fruit.get() < 6) {
+                ActivityActions.spawn(this, new GrowBananaActivity(1, Duration.of(1, SECOND)));
+              }
+              ModelActions.delay(2, SECONDS);
+            }
+          });
+      ModelActions.spawn(
+          "bite bananas",
+          () -> {
+            while (true) {
+              ModelActions.waitUntil(fruit.isBetween(6, 10));
+              ActivityActions.spawn(this, new BiteBananaActivity());
+            }
+          });
     }
   }
 

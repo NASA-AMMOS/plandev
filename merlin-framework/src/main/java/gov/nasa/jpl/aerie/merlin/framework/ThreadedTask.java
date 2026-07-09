@@ -283,7 +283,19 @@ public final class ThreadedTask<Return> implements Task<Return> {
       }
 
       @Override
-      public void spawn(final InSpan childSpan, final TaskFactory<?> task) {
+      public void spawn(final InSpan childSpan, final TaskFactory<?> task) {}
+
+      @Override
+      public <T> void startActivity(final T activity, final Topic<T> inputTopic) {}
+
+      @Override
+      public <T> void endActivity(final T result, final Topic<T> outputTopic) {}
+
+      @Override
+      public <ActivityDirectiveId> void startDirective(
+          final ActivityDirectiveId activityDirectiveId,
+          final Topic<ActivityDirectiveId> activityTopic)
+      {
 
       }
     };

@@ -1,6 +1,8 @@
 package gov.nasa.jpl.aerie.scheduler.simulation;
 
+import gov.nasa.jpl.aerie.foomissionmodel.Mission;
 import gov.nasa.jpl.aerie.merlin.driver.CachedSimulationEngine;
+import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationEngineConfiguration;
 import gov.nasa.jpl.aerie.merlin.driver.engine.SimulationEngine;
 import gov.nasa.jpl.aerie.merlin.driver.resources.InMemorySimulationResourceManager;
@@ -19,6 +21,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class InMemoryCachedEngineStoreTest {
+  private static final MissionModel<Mission> model = SimulationUtility.buildFooMissionModel();
   SimulationEngineConfiguration simulationEngineConfiguration;
   MissionModelId missionModelId;
   InMemoryCachedEngineStore store;
@@ -42,9 +45,9 @@ public class InMemoryCachedEngineStoreTest {
             new ActivityDirectiveId(1), new ActivityDirective(Duration.HOUR, "ActivityType1", Map.of(), null, true),
             new ActivityDirectiveId(2), new ActivityDirective(Duration.HOUR, "ActivityType2", Map.of(), null, true)
         ),
-        new SimulationEngine(SimulationUtility.getFooMissionModel().getInitialCells()),
+        new SimulationEngine(Instant.EPOCH,model,null),
         null,
-        SimulationUtility.getFooMissionModel(),
+        model,
         new InMemorySimulationResourceManager()
     );
   }
@@ -56,9 +59,9 @@ public class InMemoryCachedEngineStoreTest {
             new ActivityDirectiveId(3), new ActivityDirective(Duration.HOUR, "ActivityType3", Map.of(), null, true),
             new ActivityDirectiveId(4), new ActivityDirective(Duration.HOUR, "ActivityType4", Map.of(), null, true)
         ),
-        new SimulationEngine(SimulationUtility.getFooMissionModel().getInitialCells()),
+        new SimulationEngine(Instant.EPOCH,model,null),
         null,
-        SimulationUtility.getFooMissionModel(),
+        model,
         new InMemorySimulationResourceManager()
     );
   }
@@ -70,9 +73,9 @@ public class InMemoryCachedEngineStoreTest {
             new ActivityDirectiveId(5), new ActivityDirective(Duration.HOUR, "ActivityType5", Map.of(), null, true),
             new ActivityDirectiveId(6), new ActivityDirective(Duration.HOUR, "ActivityType6", Map.of(), null, true)
         ),
-        new SimulationEngine(SimulationUtility.getFooMissionModel().getInitialCells()),
+        new SimulationEngine(Instant.EPOCH,model,null),
         null,
-        SimulationUtility.getFooMissionModel(),
+        model,
         new InMemorySimulationResourceManager()
     );
   }
@@ -80,9 +83,9 @@ public class InMemoryCachedEngineStoreTest {
   @Test
   public void duplicateTest(){
     final var store = new InMemoryCachedEngineStore(2);
-    store.save(CachedSimulationEngine.empty(SimulationUtility.getFooMissionModel(), this.simulationEngineConfiguration.simStartTime()), this.simulationEngineConfiguration);
-    store.save(CachedSimulationEngine.empty(SimulationUtility.getFooMissionModel(), this.simulationEngineConfiguration.simStartTime()), this.simulationEngineConfiguration);
-    store.save(CachedSimulationEngine.empty(SimulationUtility.getFooMissionModel(), this.simulationEngineConfiguration.simStartTime()), this.simulationEngineConfiguration);
+    store.save(CachedSimulationEngine.empty(model, this.simulationEngineConfiguration.simStartTime()), this.simulationEngineConfiguration);
+    store.save(CachedSimulationEngine.empty(model, this.simulationEngineConfiguration.simStartTime()), this.simulationEngineConfiguration);
+    store.save(CachedSimulationEngine.empty(model, this.simulationEngineConfiguration.simStartTime()), this.simulationEngineConfiguration);
     assertEquals(1, store.getCachedEngines(this.simulationEngineConfiguration).size());
   }
 

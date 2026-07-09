@@ -46,28 +46,28 @@ public class TemporalSubsetSimulationTests {
   private final SerializedActivity serializedDelayDirective = new SerializedActivity("DelayActivityDirective", arguments);
   private final SerializedValue computedAttributes = new SerializedValue.MapValue(Map.of());
 
-  private static void assertEqualsSimulationResults(SimulationResults expected, SimulationResults actual){
-    assertEquals(expected.startTime, actual.startTime);
-    assertEquals(expected.duration, actual.duration);
-    assertEquals(expected.simulatedActivities.size(), actual.simulatedActivities.size());
-    for(final var entry : expected.simulatedActivities.entrySet()){
+  private static void assertEqualsSimulationResults(SimulationResultsInterface expected, SimulationResultsInterface actual){
+    assertEquals(expected.getStartTime(), actual.getStartTime());
+    assertEquals(expected.getDuration(), actual.getDuration());
+    assertEquals(expected.getSimulatedActivities().size(), actual.getSimulatedActivities().size());
+    for(final var entry : expected.getSimulatedActivities().entrySet()){
       final var key = entry.getKey();
       final var expectedValue = entry.getValue();
-      final var actualValue = actual.simulatedActivities.get(key);
+      final var actualValue = actual.getSimulatedActivities().get(key);
       assertNotNull(actualValue);
       assertEquals(expectedValue, actualValue);
     }
-    assertEquals(expected.unfinishedActivities.size(), actual.unfinishedActivities.size());
-    for(final var entry: expected.unfinishedActivities.entrySet()){
+    assertEquals(expected.getUnfinishedActivities().size(), actual.getUnfinishedActivities().size());
+    for(final var entry: expected.getUnfinishedActivities().entrySet()){
       final var key = entry.getKey();
       final var expectedValue = entry.getValue();
-      final var actualValue = actual.unfinishedActivities.get(key);
+      final var actualValue = actual.getUnfinishedActivities().get(key);
       assertNotNull(actualValue);
       assertEquals(expectedValue, actualValue);
     }
-    assertEquals(expected.topics.size(), actual.topics.size());
-    for(int i = 0; i < expected.topics.size(); ++i){
-      assertEquals(expected.topics.get(i), actual.topics.get(i));
+    assertEquals(expected.getTopics().size(), actual.getTopics().size());
+    for(int i = 0; i < expected.getTopics().size(); ++i){
+      assertEquals(expected.getTopics().get(i), actual.getTopics().get(i));
     }
   }
 

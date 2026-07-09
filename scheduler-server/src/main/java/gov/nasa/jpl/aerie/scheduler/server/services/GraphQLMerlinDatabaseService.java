@@ -11,6 +11,7 @@ import gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser;
 import gov.nasa.jpl.aerie.types.ActivityInstance;
 import gov.nasa.jpl.aerie.types.ActivityInstanceId;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface;
 import gov.nasa.jpl.aerie.merlin.driver.UnfinishedActivity;
 import gov.nasa.jpl.aerie.merlin.driver.engine.EventRecord;
 import gov.nasa.jpl.aerie.merlin.driver.engine.ProfileSegment;
@@ -945,20 +946,20 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
   @Override
   public DatasetId storeSimulationResults(
       final PlanMetadata planMetadata,
-      final SimulationResults results,
+      final SimulationResultsInterface results,
       final Map<ActivityDirectiveId, ActivityDirectiveId> uploadIdMap
   ) throws MerlinServiceException, IOException {
     final var simulationId = getSimulationId(planMetadata.planId());
     final var datasetIds = createSimulationDataset(simulationId, planMetadata);
-    final var profileSet = ProfileSet.of(results.realProfiles, results.discreteProfiles);
+    final var profileSet = ProfileSet.of(results.getRealProfiles(), results.getDiscreteProfiles());
     final var profileRecords = postResourceProfiles(
         datasetIds.datasetId(),
         profileSet.realProfiles(),
         profileSet.discreteProfiles());
     postProfileSegments(datasetIds.datasetId(), profileRecords, profileSet);
-    postActivities(datasetIds.datasetId(), results.simulatedActivities, results.unfinishedActivities, results.startTime, uploadIdMap);
-    insertSimulationTopics(datasetIds.datasetId(), results.topics);
-    insertSimulationEvents(datasetIds.datasetId(), results.events);
+    postActivities(datasetIds.datasetId(), results.getSimulatedActivities(), results.getUnfinishedActivities(), results.getStartTime(), uploadIdMap);
+    insertSimulationTopics(datasetIds.datasetId(), results.getTopics());
+    insertSimulationEvents(datasetIds.datasetId(), results.getEvents());
     setSimulationDatasetStatus(datasetIds.simulationDatasetId(), SimulationStateRecord.success());
     return datasetIds.datasetId();
   }
@@ -1047,7 +1048,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
   }
 
   @Override
-  public Optional<Pair<SimulationResults, DatasetId>> getSimulationResults(PlanMetadata planMetadata)
+  public Optional<Pair<SimulationResultsInterface, DatasetId>> getSimulationResults(PlanMetadata planMetadata)
   throws MerlinServiceException, IOException
   {
     final var simulationDatasetId = getSuitableSimulationResults(planMetadata);

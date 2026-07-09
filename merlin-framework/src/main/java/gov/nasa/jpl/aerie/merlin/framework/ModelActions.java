@@ -47,6 +47,10 @@ public /*non-final*/ class ModelActions {
     spawn(threaded(task));
   }
 
+  public static <T> void spawn(String taskName, final Supplier<T> task) {
+    spawn(taskName, threaded(task));
+  }
+
   public static void spawn(final Runnable task) {
     spawn(() -> {
       task.run();
@@ -56,6 +60,10 @@ public /*non-final*/ class ModelActions {
 
   public static <T> void spawn(final TaskFactory<T> task) {
     context.get().spawn(InSpan.Parent, task);
+  }
+
+  public static <T> void spawn(final String taskName, final TaskFactory<T> task) {
+    context.get().spawn(taskName, InSpan.Parent, task);
   }
 
   public static void call(final Runnable task) {
@@ -141,5 +149,13 @@ public /*non-final*/ class ModelActions {
 
   public static void waitUntil(final Condition condition) {
     context.get().waitUntil(condition);
+  }
+
+  public static <T> void startActivity(T activity, Topic<T> inputTopic) {
+    context.get().startActivity(activity, inputTopic);
+  }
+
+  public static <T> void endActivity(T result, Topic<T> outputTopic) {
+    context.get().endActivity(result, outputTopic);
   }
 }

@@ -149,7 +149,8 @@ public class CardinalityGoal extends ActivityTemplateGoal {
       int nbActs = 0;
       Duration total = Duration.ZERO;
       var planEvaluation = plan.getEvaluation();
-      var associatedActivitiesToThisGoal = planEvaluation.forGoal(this).getAssociatedActivities();
+      var goalEval = planEvaluation.forGoal(this);
+      var associatedActivitiesToThisGoal = goalEval.getAssociatedActivities();
       for (var act : acts) {
         if (planEvaluation.canAssociateMoreToCreatorOf(act) || associatedActivitiesToThisGoal.contains(act)) {
           total = total.plus(act.duration());

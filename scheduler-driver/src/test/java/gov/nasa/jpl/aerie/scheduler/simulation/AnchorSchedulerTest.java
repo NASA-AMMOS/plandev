@@ -1,15 +1,13 @@
 package gov.nasa.jpl.aerie.scheduler.simulation;
 
-import gov.nasa.jpl.aerie.merlin.driver.CachedSimulationEngine;
-import gov.nasa.jpl.aerie.merlin.driver.CheckpointSimulationDriver;
 import gov.nasa.jpl.aerie.merlin.driver.DirectiveTypeRegistry;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
 import gov.nasa.jpl.aerie.merlin.driver.OneStepTask;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationDriver;
 import gov.nasa.jpl.aerie.types.ActivityInstance;
 import gov.nasa.jpl.aerie.types.ActivityInstanceId;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationEngineConfiguration;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsComputerInputs;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface;
 import gov.nasa.jpl.aerie.merlin.driver.timeline.LiveCells;
 import gov.nasa.jpl.aerie.merlin.protocol.driver.Initializer;
 import gov.nasa.jpl.aerie.merlin.protocol.driver.Topic;
@@ -39,6 +37,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -61,22 +60,16 @@ public class AnchorSchedulerTest {
     private final Instant planStart = Instant.EPOCH;
 
 
-    public SimulationResultsComputerInputs simulateActivities( final Map<ActivityDirectiveId, ActivityDirective> schedule){
-      return CheckpointSimulationDriver.simulateWithCheckpoints(
+    public SimulationResultsInterface simulateActivities(final Map<ActivityDirectiveId, ActivityDirective> schedule){
+      //note that vanilla SimDriver currently has no way to stop after all acts (need CheckpointSimDriver for that)
+      return SimulationDriver.simulate(
           AnchorTestModel,
           schedule,
           planStart,
           tenDays,
           planStart,
           tenDays,
-          $ -> {},
-          () -> false,
-          CachedSimulationEngine.empty(AnchorTestModel, planStart),
-          (a) -> false,
-          CheckpointSimulationDriver.onceAllActivitiesAreFinished(),
-          new InMemoryCachedEngineStore(1),
-          new SimulationEngineConfiguration(Map.of(), planStart, new MissionModelId(1))
-      );
+          ()->false);
     }
 
     /**
@@ -86,22 +79,25 @@ public class AnchorSchedulerTest {
      *  - unfinishedActivities (asserted to be empty in actual)
      *  - topics
      *  Any resource profiles and events are not checked.
+     *  <p>
+     *  the duration span of the results themselves are not checked since eg only CheckpointSimDriver can currently stop
+     *  when all activities are finished. do note that the simulated activity durations are checked though.
      */
-    private static void assertEqualsSimulationResults(SimulationResults expected, SimulationResults actual){
-      assertEquals(expected.startTime, actual.startTime);
-      assertEquals(expected.duration, actual.duration);
-      assertEquals(expected.simulatedActivities.entrySet().size(), actual.simulatedActivities.size());
-      for(final var entry : expected.simulatedActivities.entrySet()){
+    private static void assertEqualsSimulationResults(SimulationResultsInterface expected, SimulationResultsInterface actual){
+      assertEquals(expected.getStartTime(), actual.getStartTime());
+      //do not require that results objects have the same duration since only CheckpointSimDriver accepts stop criteria
+      assertEquals(expected.getSimulatedActivities().entrySet().size(), actual.getSimulatedActivities().size());
+      for(final var entry : expected.getSimulatedActivities().entrySet()){
         final var key = entry.getKey();
         final var expectedValue = entry.getValue();
-        final var actualValue = actual.simulatedActivities.get(key);
+        final var actualValue = actual.getSimulatedActivities().get(key);
         assertNotNull(actualValue);
         assertEquals(expectedValue, actualValue);
       }
-      assertTrue(actual.unfinishedActivities.isEmpty());
-      assertEquals(expected.topics.size(), actual.topics.size());
-      for(int i = 0; i < expected.topics.size(); ++i){
-        assertEquals(expected.topics.get(i), actual.topics.get(i));
+      assertTrue(actual.getUnfinishedActivities().isEmpty());
+      assertEquals(expected.getTopics().size(), actual.getTopics().size());
+      for(int i = 0; i < expected.getTopics().size(); ++i){
+        assertEquals(expected.getTopics().get(i), actual.getTopics().get(i));
       }
     }
 
@@ -238,7 +234,7 @@ public class AnchorSchedulerTest {
           new TreeMap<>() //events
       );
 
-      final var actualSimResults = simulateActivities(resolveToPlanStartAnchors).computeResults();
+      final var actualSimResults = simulateActivities(resolveToPlanStartAnchors);
 
       assertEqualsSimulationResults(expectedSimResults, actualSimResults);
     }
@@ -349,7 +345,7 @@ public class AnchorSchedulerTest {
           new TreeMap<>() //events
       );
 
-      final var actualSimResults = simulateActivities(activitiesToSimulate).computeResults();
+      final var actualSimResults = simulateActivities(activitiesToSimulate);
 
       assertEqualsSimulationResults(expectedSimResults, actualSimResults);
     }
@@ -515,20 +511,20 @@ public class AnchorSchedulerTest {
           new ActivityDirectiveId(23),
           new ActivityInstance(serializedDecompositionDirective.getTypeName(), Map.of(), Instant.EPOCH.plus(4, ChronoUnit.MINUTES), threeMinutes, null, List.of(), Optional.of(new ActivityDirectiveId(23)), computedAttributes));
 
-      final var actualSimResults = simulateActivities(activitiesToSimulate).computeResults();
+      final var actualSimResults = simulateActivities(activitiesToSimulate);
 
-      assertEquals(planStart, actualSimResults.startTime);
-      assertTrue(actualSimResults.unfinishedActivities.isEmpty());
-      assertEquals(modelTopicList.size(), actualSimResults.topics.size());
+      assertEquals(planStart, actualSimResults.getStartTime());
+      assertTrue(actualSimResults.getUnfinishedActivities().isEmpty());
+      assertEquals(modelTopicList.size(), actualSimResults.getTopics().size());
       for(int i = 0; i < modelTopicList.size(); ++i){
-        assertEquals(modelTopicList.get(i), actualSimResults.topics.get(i));
+        assertEquals(modelTopicList.get(i), actualSimResults.getTopics().get(i));
       }
 
       final var childSimulatedActivities = new HashMap<ActivityInstanceId, ActivityInstance>(28);
       final var otherSimulatedActivities = new HashMap<ActivityInstanceId, ActivityInstance>(23);
-      assertEquals(51, actualSimResults.simulatedActivities.size()); // 23 + 2*(14 Decomposing activities)
+      assertEquals(51, actualSimResults.getSimulatedActivities().size()); // 23 + 2*(14 Decomposing activities)
 
-      for(final var entry : actualSimResults.simulatedActivities.entrySet()) {
+      for(final var entry : actualSimResults.getSimulatedActivities().entrySet()) {
         if(entry.getValue().parentId()==null){
           otherSimulatedActivities.put(entry.getKey(), entry.getValue());
         }
@@ -646,9 +642,9 @@ public class AnchorSchedulerTest {
           modelTopicList,
           new TreeMap<>() //events
       );
-      final var actualSimResults = simulateActivities(activitiesToSimulate).computeResults();
+      final var actualSimResults = simulateActivities(activitiesToSimulate);
 
-      assertEquals(3906, expectedSimResults.simulatedActivities.size());
+      assertEquals(3906, expectedSimResults.getSimulatedActivities().size());
       assertEqualsSimulationResults(expectedSimResults, actualSimResults);
     }
   }
@@ -681,9 +677,9 @@ public class AnchorSchedulerTest {
     @Override
     public TaskFactory<Object> getTaskFactory(final Object o, final Object o2) {
       return executor -> new OneStepTask<>($ -> {
-        $.emit(this, delayedActivityDirectiveInputTopic);
+        $.startActivity(this, delayedActivityDirectiveInputTopic);
         return TaskStatus.delayed(oneMinute, new OneStepTask<>($$ -> {
-          $$.emit(Unit.UNIT, delayedActivityDirectiveOutputTopic);
+          $$.endActivity(Unit.UNIT, delayedActivityDirectiveOutputTopic);
           return TaskStatus.completed(Unit.UNIT);
         }));
       });
@@ -711,7 +707,7 @@ public class AnchorSchedulerTest {
     @Override
     public TaskFactory<Object> getTaskFactory(final Object o, final Object o2) {
       return executor -> new OneStepTask<>(scheduler -> {
-        scheduler.emit(this, decomposingActivityDirectiveInputTopic);
+        scheduler.startActivity(this, decomposingActivityDirectiveInputTopic);
         return TaskStatus.delayed(
             Duration.ZERO,
             new OneStepTask<>($ -> {
@@ -729,7 +725,7 @@ public class AnchorSchedulerTest {
                       "Unexpected state: activity instantiation of DelayedActivityDirective failed with: %s".formatted(
                           ex.toString()));
                 }
-                $$.emit(Unit.UNIT, decomposingActivityDirectiveOutputTopic);
+                $$.endActivity(Unit.UNIT, decomposingActivityDirectiveOutputTopic);
                 return TaskStatus.completed(Unit.UNIT);
               }));
             }));
@@ -776,28 +772,36 @@ public class AnchorSchedulerTest {
     }
   };
 
+  private static LinkedHashMap<Topic<?>, MissionModel.SerializableTopic<?>> _topics = new LinkedHashMap<>();
+  {
+    _topics.put(delayedActivityDirectiveInputTopic,
+                new MissionModel.SerializableTopic<>(
+                    "ActivityType.Input.DelayActivityDirective",
+                    delayedActivityDirectiveInputTopic,
+                    testModelOutputType));
+    _topics.put(delayedActivityDirectiveOutputTopic,
+                new MissionModel.SerializableTopic<>(
+                    "ActivityType.Output.DelayActivityDirective",
+                    delayedActivityDirectiveOutputTopic,
+                    testModelOutputType));
+    _topics.put(decomposingActivityDirectiveInputTopic,
+                new MissionModel.SerializableTopic<>(
+                    "ActivityType.Input.DecomposingActivityDirective",
+                    decomposingActivityDirectiveInputTopic,
+                    testModelOutputType));
+    _topics.put(decomposingActivityDirectiveOutputTopic,
+                new MissionModel.SerializableTopic<>(
+                    "ActivityType.Output.DecomposingActivityDirective",
+                    decomposingActivityDirectiveOutputTopic,
+                    testModelOutputType));
+  }
+
   private static final MissionModel<Object> AnchorTestModel = new MissionModel<>(
       new Object(),
       new LiveCells(null),
       Map.of(),
-      List.of(
-          new MissionModel.SerializableTopic<>(
-              "ActivityType.Input.DelayActivityDirective",
-              delayedActivityDirectiveInputTopic,
-              testModelOutputType),
-          new MissionModel.SerializableTopic<>(
-              "ActivityType.Output.DelayActivityDirective",
-              delayedActivityDirectiveOutputTopic,
-              testModelOutputType),
-          new MissionModel.SerializableTopic<>(
-              "ActivityType.Input.DecomposingActivityDirective",
-              decomposingActivityDirectiveInputTopic,
-              testModelOutputType),
-          new MissionModel.SerializableTopic<>(
-              "ActivityType.Output.DecomposingActivityDirective",
-              decomposingActivityDirectiveOutputTopic,
-              testModelOutputType)),
-      List.of(),
+      _topics,
+      Map.of(),
       DirectiveTypeRegistry.extract(
           new ModelType<>() {
 

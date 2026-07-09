@@ -8,7 +8,7 @@ import gov.nasa.jpl.aerie.types.MissionModelId;
 import gov.nasa.jpl.aerie.types.Plan;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationDriver;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface;
 import gov.nasa.jpl.aerie.merlin.driver.resources.SimulationResourceManager;
 import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.Parameter;
 import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.ValidationNotice;
@@ -21,12 +21,19 @@ import gov.nasa.jpl.aerie.merlin.server.models.ActivityDirectiveForValidation;
 import gov.nasa.jpl.aerie.merlin.server.models.ActivityType;
 import gov.nasa.jpl.aerie.merlin.server.models.MissionModelJar;
 import gov.nasa.jpl.aerie.merlin.server.remotes.MissionModelRepository;
+import org.apache.commons.lang3.tuple.Triple;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -49,6 +56,9 @@ public final class LocalMissionModelService implements MissionModelService {
   private final Path missionModelDataPath;
   private final MissionModelRepository missionModelRepository;
   private final Instant untruePlanStart;
+
+  private final Map<Triple<MissionModelId, Instant, Duration>, SimulationDriver>
+      simulationDrivers = new HashMap<>();
 
   public LocalMissionModelService(
       final Path missionModelDataPath,
@@ -277,43 +287,108 @@ public final class LocalMissionModelService implements MissionModelService {
         .getEffectiveArguments(arguments);
   }
 
+  protected static ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
+
   /**
-   * Validate that a set of activity parameters conforms to the expectations of a named mission model.
+   * execute a simulation of the specified plan
    *
    * @param plan The plan to be simulated. Contains the parameters defining the simulation to perform.
    * @return A set of samples over the course of the simulation.
    * @throws NoSuchMissionModelException If no mission model is known by the given ID.
    */
   @Override
-  public SimulationResults runSimulation(
+  public SimulationResultsInterface runSimulation(
       final Plan plan,
       final Consumer<Duration> simulationExtentConsumer,
       final Supplier<Boolean> canceledListener,
-      final SimulationResourceManager resourceManager)
+      final SimulationResourceManager resourceManager,
+      SimulationReuseStrategy simReuseStrategy)
   throws NoSuchMissionModelException
   {
+    long accumulatedCpuTime = 0;  // nanoseconds
+    long initialCpuTime = threadMXBean.getCurrentThreadCpuTime();  // nanoseconds
     final var config = plan.simulationConfiguration();
     if (config.isEmpty()) {
       log.warn(
           "No mission model configuration defined for mission model. Simulations will receive an empty set of configuration arguments.");
     }
 
+    //determine how to reuse prior simulations for this request
+    final var doingIncrementalSim = switch(simReuseStrategy) {
+      case Incremental -> true;
+      case CachedResults -> false;
+      };
+
     // TODO: [AERIE-1516] Teardown the mission model after use to release any system resources (e.g. threads).
-    return SimulationDriver.simulate(
-        loadAndInstantiateMissionModel(
-            plan.missionModelId(),
-            plan.planStartInstant(),
-            SerializedValue.of(config)),
-        plan.activityDirectives(),
-        plan.simulationStartInstant(),
-        plan.simulationDuration(),
+    final MissionModel<?> missionModel = loadAndInstantiateMissionModel(
+        plan.missionModelId(),
         plan.planStartInstant(),
-        plan.duration(),
-        canceledListener,
-        simulationExtentConsumer,
-        resourceManager);
+        SerializedValue.of(config));
+
+    final var planInfo = Triple.of(plan.missionModelId(), plan.planStartInstant(), plan.duration());
+    //TODO: cache key should include sim configuration, otherwise may get incorrect sim
+    //may also want to use planId in cache key to tie one driver to each plan for maximum similarity
+    SimulationDriver<?> driver = simulationDrivers.get(planInfo);
+
+    SimulationResultsInterface results;
+    if (driver == null || !doingIncrementalSim) {
+      driver = new SimulationDriver<>(missionModel, plan.planStartInstant(), plan.duration());
+      simulationDrivers.put(planInfo, driver);
+      results = driver.simulate(
+          plan.activityDirectives(),
+          plan.simulationStartInstant(),
+          plan.simulationDuration(),
+          plan.planStartInstant(),
+          plan.duration(),
+          canceledListener,
+          simulationExtentConsumer);
+    } else {
+      // Try to reuse past simulation.
+      driver.initSimulation(plan.simulationDuration());
+      results = driver.diffAndSimulate(
+          plan.activityDirectives(),
+          plan.simulationStartInstant(),
+          plan.simulationDuration(),
+          plan.planStartInstant(),
+          plan.duration(),
+          true,
+          canceledListener,
+          simulationExtentConsumer,
+          resourceManager);
+    }
+    accumulatedCpuTime = threadMXBean.getCurrentThreadCpuTime() - initialCpuTime;
+    System.out.println("LocalMissionModelService.runSimulation() CPU time: " + formatTimestamp(accumulatedCpuTime));
+    return results;
   }
 
+  /**
+   * ISO timestamp format
+   */
+  public static final DateTimeFormatter format =
+      new DateTimeFormatterBuilder()
+          .appendPattern("uuuu-DDD'T'HH:mm:ss")
+          .appendFraction(ChronoField.MICRO_OF_SECOND, 0, 6, true)
+          .toFormatter();
+
+  /**
+   * Format Instant into a date-timestamp.
+   *
+   * @param instant
+   * @return formatted string
+   */  protected static String formatTimestamp(Instant instant) {
+    return format.format(instant.atZone(ZoneOffset.UTC));
+  }
+
+  /**
+   * Format nanoseconds into a date-timestamp.
+   *
+   * @param nanoseconds since the Java epoch, Jan 1, 1970
+   * @return formatted string
+   */
+  protected static String formatTimestamp(long nanoseconds) {
+    System.nanoTime();
+    return formatTimestamp(Instant.ofEpochSecond(0L, nanoseconds));
+  }
   @Override
   public void refreshModelParameters(final MissionModelId missionModelId)
   throws NoSuchMissionModelException

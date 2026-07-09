@@ -13,6 +13,7 @@ java {
 
 test {
   useJUnitPlatform()
+  maxHeapSize = "11g"
   testLogging {
     exceptionFormat = 'full'
   }

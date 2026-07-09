@@ -17,7 +17,7 @@ import java.time.Instant
 import kotlin.jvm.optionals.getOrNull
 
 class MerlinToProcedureSimulationResultsAdapter(
-    private val results: gov.nasa.jpl.aerie.merlin.driver.SimulationResults,
+    private val results: gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface,
 
     /** A copy of the plan that will not be mutated after creation. */
     private val plan: Plan

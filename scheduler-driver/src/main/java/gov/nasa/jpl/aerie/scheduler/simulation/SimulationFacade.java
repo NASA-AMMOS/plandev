@@ -21,8 +21,6 @@ import java.util.stream.Collectors;
 public interface SimulationFacade {
   void setInitialSimResults(SimulationData simulationData);
 
-  Duration totalSimulationTime();
-
   Supplier<Boolean> getCanceledListener();
 
   void addActivityTypes(Collection<ActivityType> activityTypes);

@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import gov.nasa.jpl.aerie.scheduler.simulation.SchedulerSimulationReuseStrategy;
 import gov.nasa.jpl.aerie.scheduler.server.ResultsProtocol;
 import gov.nasa.jpl.aerie.scheduler.server.config.PlanOutputMode;
 import gov.nasa.jpl.aerie.scheduler.server.config.PostgresStore;
@@ -72,7 +73,8 @@ public final class SchedulerWorkerAppDriver {
         merlinDatabaseService,
         config.merlinFileStore(),
         config.outputMode(),
-        schedulingDSLCompilationService);
+        schedulingDSLCompilationService,
+        config.simReuseStrategy());
 
     final var notificationQueue = new LinkedBlockingQueue<PostgresSchedulingRequestNotificationPayload>();
     final var listenAction = new ListenSchedulerCapability(hikariDataSource, notificationQueue);
@@ -129,6 +131,11 @@ public final class SchedulerWorkerAppDriver {
     return env == null ? fallback : env;
   }
 
+  /**
+   * parses any worker configuration options from env vars, instilling defaults if not found
+   *
+   * @return a complete worker configuration object, with all fields filled from env vars or defaults
+   */
   private static WorkerAppConfiguration loadConfiguration() {
     int maxNbCachedSimulationEngine = Integer.parseInt(getEnv("MAX_NB_CACHED_SIMULATION_ENGINES", "1"));
     if (maxNbCachedSimulationEngine < 1) {
@@ -145,7 +152,8 @@ public final class SchedulerWorkerAppDriver {
         Path.of(getEnv("MERLIN_LOCAL_STORE", "/usr/src/app/merlin_file_store")),
         PlanOutputMode.valueOf((getEnv("SCHEDULER_OUTPUT_MODE", "CreateNewOutputPlan"))),
         getEnv("HASURA_GRAPHQL_ADMIN_SECRET", ""),
-        maxNbCachedSimulationEngine
-    );
+        maxNbCachedSimulationEngine,
+        SchedulerSimulationReuseStrategy.valueOf(getEnv(
+            "SCHEDULER_SIM_REUSE_STRATEGY", SchedulerSimulationReuseStrategy.Incremental.name())));
   }
 }

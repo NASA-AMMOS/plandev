@@ -99,7 +99,7 @@ jacocoTestReport {
 
 application {
   mainClass = 'gov.nasa.jpl.aerie.scheduler.worker.SchedulerWorkerAppDriver'
-  applicationDefaultJvmArgs = ['-Xmx2g']
+  applicationDefaultJvmArgs = ['-Xmx22g']
 }
 
 // Link references to standard Java classes to the official Java 11 documentation.

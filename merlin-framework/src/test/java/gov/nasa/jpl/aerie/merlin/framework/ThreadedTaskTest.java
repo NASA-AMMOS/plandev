@@ -32,6 +32,24 @@ public final class ThreadedTaskTest {
       public void spawn(final InSpan inSpan, final TaskFactory<?> task) {
         throw new UnsupportedOperationException();
       }
+
+      @Override
+      public <T> void startActivity(final T activity, final Topic<T> inputTopic) {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public <T> void endActivity(final T result, final Topic<T> outputTopic) {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
+      public <ActivityDirectiveId> void startDirective(
+          final ActivityDirectiveId activityDirectiveId,
+          final Topic<ActivityDirectiveId> activityTopic)
+      {
+        throw new UnsupportedOperationException();
+      }
     };
 
     final var pool = Executors.newCachedThreadPool();

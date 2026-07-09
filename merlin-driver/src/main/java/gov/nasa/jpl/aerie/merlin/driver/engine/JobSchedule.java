@@ -1,6 +1,8 @@
 package gov.nasa.jpl.aerie.merlin.driver.engine;
 
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.jpl.aerie.merlin.protocol.types.SubInstantDuration;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,6 +33,17 @@ public final class JobSchedule<JobRef, TimeRef extends SchedulingInstant> {
     if (oldTime != null) removeJobFromQueue(oldTime, job);
   }
 
+  /** Returns the offset time of the next set of job in the queue. */
+  public SubInstantDuration timeOfNextJobs() {
+    if (this.queue.isEmpty()) return SubInstantDuration.MAX_VALUE;
+    final var time = this.queue.firstEntry().getKey();
+    final JobRef jobRef = this.queue.firstEntry().getValue().stream().findFirst().get();
+    if (jobRef instanceof SimulationEngine.JobId.ResourceJobId) {
+      return new SubInstantDuration(time.project(), Integer.MAX_VALUE);
+    }
+    return new SubInstantDuration(time.project(), 0);
+  }
+
   private void removeJobFromQueue(TimeRef time, JobRef job) {
     var jobsAtOldTime = this.queue.get(time);
     jobsAtOldTime.remove(job);
@@ -51,6 +64,11 @@ public final class JobSchedule<JobRef, TimeRef extends SchedulingInstant> {
     final var entry = this.queue.pollFirstEntry();
     entry.getValue().forEach(this.scheduledJobs::remove);
     return new Batch<>(entry.getKey().project(), entry.getValue());
+  }
+
+  public Optional<TimeRef> min() {
+    if (this.queue.isEmpty()) return Optional.empty();
+    return Optional.of(queue.firstEntry().getKey());
   }
 
   public void clear() {

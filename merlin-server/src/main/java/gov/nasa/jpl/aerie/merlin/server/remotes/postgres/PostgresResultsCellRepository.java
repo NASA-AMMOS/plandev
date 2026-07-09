@@ -5,6 +5,7 @@ import gov.nasa.jpl.aerie.types.ActivityInstanceId;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationException;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationFailure;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsInterface;
 import gov.nasa.jpl.aerie.merlin.driver.UnfinishedActivity;
 import gov.nasa.jpl.aerie.merlin.driver.engine.EventRecord;
 import gov.nasa.jpl.aerie.merlin.driver.timeline.EventGraph;
@@ -361,14 +362,16 @@ public final class PostgresResultsCellRepository implements ResultsCellRepositor
   private static void postSimulationResults(
       final Connection connection,
       final long datasetId,
-      final SimulationResults results,
+      final SimulationResultsInterface results,
       final SimulationStateRecord state
   ) throws SQLException, NoSuchSimulationDatasetException
   {
-    final var simulationStart = new Timestamp(results.startTime);
-    postActivities(connection, datasetId, results.simulatedActivities, results.unfinishedActivities, simulationStart);
-    insertSimulationTopics(connection, datasetId, results.topics);
-    insertSimulationEvents(connection, datasetId, results.events, simulationStart);
+    final var simulationStart = new Timestamp(results.getStartTime());
+    postActivities(connection, datasetId,
+                   results.getSimulatedActivities(),
+                   results.getUnfinishedActivities(), simulationStart);
+    insertSimulationTopics(connection, datasetId, results.getTopics());
+    insertSimulationEvents(connection, datasetId, results.getEvents(), simulationStart);
 
     try (final var setSimulationStateAction = new SetSimulationStateAction(connection)) {
       setSimulationStateAction.apply(datasetId, state);
@@ -558,7 +561,7 @@ public final class PostgresResultsCellRepository implements ResultsCellRepositor
     }
 
     @Override
-    public void succeedWith(final SimulationResults results) {
+    public void succeedWith(final SimulationResultsInterface results) {
       try (final var connection = dataSource.getConnection();
            final var transactionContext = new TransactionContext(connection)) {
         postSimulationResults(connection, datasetId, results, SimulationStateRecord.success());
@@ -592,14 +595,14 @@ public final class PostgresResultsCellRepository implements ResultsCellRepositor
     }
 
     @Override
-    public void reportIncompleteResults(final SimulationResults results) {
+    public void reportIncompleteResults(final SimulationResultsInterface results) {
       try (final var connection = dataSource.getConnection();
            final var transactionContext = new TransactionContext(connection)) {
         final var reason = new SimulationFailure.Builder()
             .type("SIMULATION_CANCELED")
             .data(Json.createObjectBuilder()
-                    .add("elapsedTime", SimulationException.formatDuration(results.duration))
-                    .add("utcTimeDoy", SimulationException.formatInstant(Duration.addToInstant(results.startTime, results.duration)))
+                    .add("elapsedTime", SimulationException.formatDuration(results.getDuration()))
+                    .add("utcTimeDoy", SimulationException.formatInstant(Duration.addToInstant(results.getStartTime(), results.getDuration())))
                     .build())
             .message("Simulation run was canceled")
             .build();
@@ -645,7 +648,7 @@ public final class PostgresResultsCellRepository implements ResultsCellRepositor
     }
 
     @Override
-    public SimulationResults getSimulationResults() {
+    public SimulationResultsInterface getSimulationResults() {
       try (final var connection = this.dataSource.getConnection()) {
         final var startTimestamp = record.simulationStartTime();
         final var simulationStart = startTimestamp.toInstant();

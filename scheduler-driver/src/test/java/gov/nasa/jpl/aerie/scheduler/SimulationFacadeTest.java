@@ -16,7 +16,6 @@ import gov.nasa.jpl.aerie.scheduler.model.PlanInMemory;
 import gov.nasa.jpl.aerie.scheduler.model.PlanningHorizon;
 import gov.nasa.jpl.aerie.scheduler.model.Problem;
 import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
-import gov.nasa.jpl.aerie.scheduler.simulation.CheckpointSimulationFacade;
 import gov.nasa.jpl.aerie.scheduler.simulation.SimulationFacade;
 import gov.nasa.jpl.aerie.scheduler.solver.PrioritySolver;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
@@ -85,15 +84,12 @@ public class SimulationFacadeTest {
 
   @BeforeEach
   public void setUp() {
-    missionModel = SimulationUtility.getBananaMissionModel();
-    final var schedulerModel = SimulationUtility.getBananaSchedulerModel();
-    facade = new CheckpointSimulationFacade(horizon, missionModel, schedulerModel);
-    problem = new Problem(missionModel, horizon, facade, schedulerModel);
+    problem = SimulationUtility.buildBananaProblem(horizon);
+    facade = problem.getSimulationFacade();
   }
 
   @AfterEach
   public void tearDown() {
-    missionModel = null;
     problem = null;
     facade = null;
   }
@@ -368,7 +364,7 @@ public class SimulationFacadeTest {
     assert(newPlan.getActivitiesById().containsKey(newId));
     final var results = facade.simulateWithResults(newPlan, tEnd);
 
-    final var simulatedIds = results.driverResults().simulatedActivities.values().stream().map(
+    final var simulatedIds = results.driverResults().getSimulatedActivities().values().stream().map(
         ActivityInstance::directiveId
     ).toList();
     assert(simulatedIds.contains(Optional.of(newId)));

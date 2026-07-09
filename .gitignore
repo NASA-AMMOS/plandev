@@ -65,3 +65,12 @@ docs/source/scheduling-edsl-api/
 *.log
 /sequencing-server/plugins/ampcs-dictionary-parser/ampcs-parser.js
 /sequencing-server/plugins/fprime-dictionary-parser/fprime-parser.js
+
+# Local development files
+.tmp/
+docker*.yml
+docker*.yaml
+output*.json
+report-tests.sh
+.claude/settings.local.json
+

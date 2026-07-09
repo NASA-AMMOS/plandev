@@ -10,7 +10,7 @@ import net.jqwik.api.Provide;
 import org.junit.jupiter.api.Test;
 
 import static gov.nasa.jpl.aerie.merlin.driver.timeline.EffectExpressionDisplay.displayGraph;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.EventGraphFlattener.flatten;
+import static gov.nasa.jpl.aerie.merlin.driver.EventGraphFlattener.flatten;
 import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.EventGraphUnflattener.unflatten;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

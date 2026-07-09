@@ -65,6 +65,16 @@ final class ReplayingReactionContext implements Context {
   }
 
   @Override
+  public <T> void startActivity(final T activity, final Topic<T> inputTopic) {
+    this.scheduler.startActivity(activity, inputTopic);
+  }
+
+  @Override
+  public <T> void endActivity(final T result, final Topic<T> outputTopic) {
+    this.scheduler.endActivity(result, outputTopic);
+  }
+
+  @Override
   public void spawn(final InSpan inSpan, final TaskFactory<?> task) {
     this.memory.doOnce(() -> {
       this.scheduler.spawn(inSpan, task);

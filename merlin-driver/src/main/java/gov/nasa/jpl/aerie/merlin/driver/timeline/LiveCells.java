@@ -3,8 +3,12 @@ package gov.nasa.jpl.aerie.merlin.driver.timeline;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 public final class LiveCells {
   // INVARIANT: Every Query<T> maps to a LiveCell<T>; that is, the type parameters are correlated.
@@ -68,5 +72,15 @@ public final class LiveCells {
   public void freeze() {
     if (this.parent != null) this.parent.freeze();
     this.source.freeze();
+  }
+
+  private Stream<Query<?>> allQueriesStream() {
+      var myStream = this.cells.keySet().stream();
+      if (this.parent == null) return myStream;
+      return Stream.concat(this.parent.allQueriesStream(), myStream);
+  }
+
+  public void stepUpAll() {
+      allQueriesStream().forEach(this::getCell);
   }
 }

@@ -18,10 +18,8 @@ public final class SlabList<T> implements Iterable<T> {
   /** ~4 KiB of elements (or at least, references thereof). */
   private static final int SLAB_SIZE = 1024;
 
-  private final Slab<T> head = new Slab<>();
+  private Slab<T> tail = new Slab<>();
 
-  /*derived*/
-  private Slab<T> tail = this.head;
   /*derived*/
   private int size = 0;
   private boolean frozen = false;
@@ -43,23 +41,6 @@ public final class SlabList<T> implements Iterable<T> {
     return this.size;
   }
 
-  @Override
-  public boolean equals(final Object o) {
-    if (!(o instanceof SlabList<?> other)) return false;
-
-    return Objects.equals(this.head, other.head);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(this.head);
-  }
-
-  @Override
-  public String toString() {
-    return SlabList.class.getSimpleName() + "[" + this.head + ']';
-  }
-
   /**
    * Returns an iterator that is stable through appends.
    *
@@ -72,10 +53,14 @@ public final class SlabList<T> implements Iterable<T> {
   }
 
   public final class SlabIterator implements Iterator<T> {
-    private Slab<T> slab = SlabList.this.head;
+    private Slab<T> slab = SlabList.this.tail;
     private int index = 0;
 
-    private SlabIterator() {}
+    private SlabIterator() {
+        if (SlabList.this.size() != 0) {
+            throw new IllegalStateException("Cannot create iterator on non-empty SlabList");
+        }
+    }
 
     @Override
     public boolean hasNext() {

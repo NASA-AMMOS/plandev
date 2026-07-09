@@ -96,6 +96,7 @@ public final class SimulationEngine implements AutoCloseable {
   /* The top-level simulation timeline. */
   private final TemporalEventSource timeline;
   private final TemporalEventSource referenceTimeline;
+  private SpanInfo spanInfo;
   private final LiveCells cells;
   private Duration elapsedTime;
 
@@ -103,6 +104,7 @@ public final class SimulationEngine implements AutoCloseable {
     timeline = new TemporalEventSource();
     referenceTimeline = new TemporalEventSource();
     cells = new LiveCells(timeline, initialCells);
+    cells.stepUpAll(); // make sure all iterators have been initialized
     elapsedTime = Duration.ZERO;
 
     scheduledJobs = new JobSchedule<>();
@@ -155,7 +157,9 @@ public final class SimulationEngine implements AutoCloseable {
   }
 
   /** Initialize the engine by tracking resources and kicking off daemon tasks. **/
-  public void init(Map<String, Resource<?>> resources, TaskFactory<Unit> daemons) throws Throwable {
+  public void init(Map<String, Resource<?>> resources, TaskFactory<Unit> daemons, Topic<ActivityDirectiveId> activityTopic, Iterable<SerializableTopic<?>> serializableTopics) throws Throwable {
+    this.spanInfo = new SpanInfo(activityTopic, serializableTopics);
+
     // Begin tracking all resources.
     for (final var entry : resources.entrySet()) {
       final var name = entry.getKey();
@@ -206,6 +210,9 @@ public final class SimulationEngine implements AutoCloseable {
     final var delta = batch.offsetFromStart().minus(elapsedTime);
     elapsedTime = batch.offsetFromStart();
     timeline.add(delta);
+    if (!delta.isZero()) {
+        cells.stepUpAll();
+    }
 
     // TODO: Advance a dense time counter so that future tasks are strictly ordered relative to these,
     //   even if they occur at the same real time.
@@ -215,6 +222,7 @@ public final class SimulationEngine implements AutoCloseable {
     final var results = this.performJobs(batch.jobs(), cells, elapsedTime, simulationDuration);
     for (final var commit : results.commits()) {
       timeline.add(commit);
+      spanInfo.add(commit);
     }
     if (results.error.isPresent()) {
       throw results.error.get();
@@ -590,10 +598,11 @@ public final class SimulationEngine implements AutoCloseable {
   private record SpanInfo(
       Map<SpanId, ActivityDirectiveId> spanToPlannedDirective,
       Map<SpanId, SerializedActivity> input,
-      Map<SpanId, SerializedValue> output
+      Map<SpanId, SerializedValue> output,
+      Trait trait
   ) {
-    public SpanInfo() {
-      this(new HashMap<>(), new HashMap<>(), new HashMap<>());
+    public SpanInfo(Topic<ActivityDirectiveId> activityTopic, Iterable<SerializableTopic<?>> serializableTopics) {
+      this(new HashMap<>(), new HashMap<>(), new HashMap<>(), new Trait(serializableTopics, activityTopic));
     }
 
     public boolean isActivity(final SpanId id) {
@@ -606,6 +615,10 @@ public final class SimulationEngine implements AutoCloseable {
 
     public ActivityDirectiveId getDirective(SpanId id) {
       return this.spanToPlannedDirective.get(id);
+    }
+
+    public void add(EventGraph<Event> commit) {
+      commit.evaluate(trait, trait::atom).accept(this);
     }
 
     public record Trait(
@@ -703,9 +716,6 @@ public final class SimulationEngine implements AutoCloseable {
       final Iterable<SerializableTopic<?>> serializableTopics,
       final SpanId spanId
   ) {
-    // Collect per-span information from the event graph.
-    final var spanInfo = computeSpanInfo(activityTopic, serializableTopics, this.timeline);
-
     // Identify the nearest ancestor directive by walking up the parent
     // span tree. Save the activity trace along the way
     Optional<SpanId> directiveSpanId = Optional.of(spanId);
@@ -733,23 +743,6 @@ public final class SimulationEngine implements AutoCloseable {
       Map<ActivityInstanceId, UnfinishedActivity> unfinishedActivities
   ) {}
 
-  private SpanInfo computeSpanInfo(
-      final Topic<ActivityDirectiveId> activityTopic,
-      final Iterable<SerializableTopic<?>> serializableTopics,
-      final TemporalEventSource timeline
-  ) {
-    // Collect per-span information from the event graph.
-    final var spanInfo = new SpanInfo();
-
-    for (final var point : timeline) {
-      if (!(point instanceof TemporalEventSource.TimePoint.Commit p)) continue;
-
-      final var trait = new SpanInfo.Trait(serializableTopics, activityTopic);
-      p.events().evaluate(trait, trait::atom).accept(spanInfo);
-    }
-    return spanInfo;
-  }
-
   /**
    * Compute SpanInfo with ONLY inputs (arguments), skipping expensive output serialization.
    * This is much faster when you only need activity arguments and don't need return values.
@@ -767,9 +760,6 @@ public final class SimulationEngine implements AutoCloseable {
       }
     }
 
-    // Collect per-span information from the event graph - inputs only!
-    final var spanInfo = new SpanInfo();
-
     for (final var point : timeline) {
       if (!(point instanceof TemporalEventSource.TimePoint.Commit p)) continue;
 
@@ -786,7 +776,7 @@ public final class SimulationEngine implements AutoCloseable {
   ) {
     return computeActivitySimulationResults(
         startTime,
-        computeSpanInfo(activityTopic, serializableTopics, combineTimeline())
+        spanInfo
     );
   }
 
@@ -979,8 +969,8 @@ public final class SimulationEngine implements AutoCloseable {
     final var discreteProfiles = resourceProfiles.discreteProfiles();
 
     // Compute span info with INPUTS ONLY (skips expensive output serialization)
-    final var combinedTimeline = this.combineTimeline();
-    final var spanInfo = computeSpanInfoInputsOnly(activityTopic, serializableTopics, combinedTimeline);
+//    final var combinedTimeline = this.combineTimeline();
+//    final var spanInfo = computeSpanInfoInputsOnly(activityTopic, serializableTopics, combinedTimeline);
 
     // Use the same activity ID assignment logic as full computation
     final var activityParents = new HashMap<SpanId, SpanId>();
@@ -1067,9 +1057,7 @@ public final class SimulationEngine implements AutoCloseable {
       final Iterable<SerializableTopic<?>> serializableTopics,
       final SimulationResourceManager resourceManager
   ) {
-    final var combinedTimeline = this.combineTimeline();
-    // Collect per-task information from the event graph.
-    final var spanInfo = computeSpanInfo(activityTopic, serializableTopics, combinedTimeline);
+//    final var combinedTimeline = this.combineTimeline();
 
     // Extract profiles for every resource.
     final var resourceProfiles = resourceManager.computeProfiles(elapsedTime);
@@ -1110,10 +1098,7 @@ public final class SimulationEngine implements AutoCloseable {
       final SimulationResourceManager resourceManager,
       final Set<String> resourceNames
   ) {
-    final var combinedTimeline = this.combineTimeline();
-    // Collect per-task information from the event graph.
-    final var spanInfo = computeSpanInfo(activityTopic, serializableTopics, combinedTimeline);
-
+//    final var combinedTimeline = this.combineTimeline();
     // Extract profiles for every resource.
     final var resourceProfiles = resourceManager.computeProfiles(elapsedTime, resourceNames);
     final var realProfiles = resourceProfiles.realProfiles();

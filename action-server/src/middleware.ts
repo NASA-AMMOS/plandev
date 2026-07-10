@@ -33,7 +33,7 @@ export const corsMiddleware: RequestHandler = (req, res, next) => {
 export const authMiddleware: RequestHandler = async (req, res, next) => {
   const authorizationHeader = req.get('authorization');
   const userRoleHeader = req.get('x-hasura-role');
-  const { jwtErrorMessage, jwtPayload } = decodeJwt(authorizationHeader);
+  const { jwtErrorMessage, jwtPayload } = await decodeJwt(authorizationHeader);
   if (jwtPayload) {
     // token is valid
     // set jwt payload on `user` local, so other things can access it
@@ -42,6 +42,7 @@ export const authMiddleware: RequestHandler = async (req, res, next) => {
     res.locals.userRole = userRoleHeader;
     next();
   } else {
-    res.status(401).send({ message: `Unauthorized: ${jwtErrorMessage}`, success: false });
+    // decodeJwt returns a curated message (no internals) and logs the detail server-side.
+    res.status(401).send({ message: jwtErrorMessage, success: false });
   }
 };

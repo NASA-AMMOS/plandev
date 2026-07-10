@@ -15,6 +15,7 @@ import gov.nasa.jpl.aerie.merlin.server.services.LocalMissionModelService;
 import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService;
 import gov.nasa.jpl.aerie.merlin.server.services.PlanService;
 import gov.nasa.jpl.aerie.permissions.HasuraAction;
+import gov.nasa.jpl.aerie.merlin.server.remotes.ExternalSimulationResultsRepository;
 import gov.nasa.jpl.aerie.permissions.PermissionsService;
 import gov.nasa.jpl.aerie.permissions.exceptions.ExceptionSerializers;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
@@ -38,6 +39,8 @@ import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraConstrai
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraConstraintsViolationsActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraSimulateActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraUploadExternalDatasetActionP;
+import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraRegisterModelTypesActionP;
+import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraIngestExternalSimulationResultsActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraMissionModelActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraMissionModelArgumentsActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraMissionModelEventTriggerP;
@@ -69,6 +72,7 @@ public final class MerlinBindings implements Plugin {
   private final GenerateConstraintsLibAction generateConstraintsLibAction;
   private final ConstraintAction constraintAction;
   private final PermissionsService permissionsService;
+  private final ExternalSimulationResultsRepository externalSimulationResultsRepository;
 
   public MerlinBindings(
       final MissionModelService missionModelService,
@@ -76,7 +80,8 @@ public final class MerlinBindings implements Plugin {
       final GetSimulationResultsAction simulationAction,
       final GenerateConstraintsLibAction generateConstraintsLibAction,
       final ConstraintAction constraintAction,
-      final PermissionsService permissionsService
+      final PermissionsService permissionsService,
+      final ExternalSimulationResultsRepository externalSimulationResultsRepository
   ) {
     this.missionModelService = missionModelService;
     this.planService = planService;
@@ -84,6 +89,56 @@ public final class MerlinBindings implements Plugin {
     this.generateConstraintsLibAction = generateConstraintsLibAction;
     this.constraintAction = constraintAction;
     this.permissionsService = permissionsService;
+    this.externalSimulationResultsRepository = externalSimulationResultsRepository;
+  }
+
+  private void registerModelTypes(final Context ctx) {
+    try {
+      final var input = parseJson(ctx.body(), hasuraRegisterModelTypesActionP).input();
+
+      final var activityTypes = input.activityTypes().stream()
+          .collect(Collectors.toMap(gov.nasa.jpl.aerie.merlin.server.models.ActivityType::name, $ -> $));
+      final var resourceTypes = input.resourceTypes().stream()
+          .collect(Collectors.toMap(
+              gov.nasa.jpl.aerie.merlin.server.models.HasuraAction.ModelResourceType::name,
+              gov.nasa.jpl.aerie.merlin.server.models.HasuraAction.ModelResourceType::schema));
+
+      this.missionModelService.registerModelTypes(
+          input.missionModelId(), activityTypes, resourceTypes, input.parameters());
+
+      ctx.status(200).result(Json.createObjectBuilder()
+          .add("activityTypeCount", activityTypes.size())
+          .add("resourceTypeCount", resourceTypes.size())
+          .add("parameterCount", input.parameters().size())
+          .build().toString());
+    } catch (final InvalidJsonException ex) {
+      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
+    } catch (final InvalidEntityException ex) {
+      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
+    } catch (final MissionModelService.NoSuchMissionModelException ex) {
+      ctx.status(404).result(ResponseSerializers.serializeNoSuchMissionModelException(ex).toString());
+    }
+  }
+
+  private void ingestExternalSimulationResults(final Context ctx) {
+    try {
+      final var body = parseJson(ctx.body(), hasuraIngestExternalSimulationResultsActionP);
+      final var input = body.input();
+      final var results = input.results();
+      final var requestedBy = body.session().hasuraUserId();
+
+      final var simulationDatasetId = this.externalSimulationResultsRepository.insertExternalSimulationResults(
+          input.planId(), input.simulationId(),
+          results.startTime(), results.duration(), results.profiles(), results.spans(), requestedBy);
+
+      ctx.status(201).result(Json.createObjectBuilder()
+          .add("simulationDatasetId", simulationDatasetId)
+          .build().toString());
+    } catch (final InvalidJsonException ex) {
+      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
+    } catch (final InvalidEntityException ex) {
+      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
+    }
   }
 
   @Override
@@ -98,6 +153,8 @@ public final class MerlinBindings implements Plugin {
       path("refreshModelParameters", () -> post(this::postRefreshModelParameters));
       path("refreshActivityTypes", () -> post(this::postRefreshActivityTypes));
       path("refreshResourceTypes", () -> post(this::postRefreshResourceTypes));
+      path("registerModelTypes", () -> post(this::registerModelTypes));
+      path("ingestExternalSimulationResults", () -> post(this::ingestExternalSimulationResults));
       path("validateActivityArguments", () -> post(this::validateActivityArguments));
       path("validateModelArguments", () -> post(this::validateModelArguments));
       path("validatePlan", () -> post(this::validatePlan));

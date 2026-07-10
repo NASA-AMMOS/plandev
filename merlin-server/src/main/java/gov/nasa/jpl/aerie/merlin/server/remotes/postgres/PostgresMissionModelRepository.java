@@ -73,6 +73,18 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
   }
 
   @Override
+  public List<Parameter> getModelParameters(final MissionModelId missionModelId) throws NoSuchMissionModelException {
+    try (final var connection = this.dataSource.getConnection()) {
+      try (final var getModelParametersAction = new GetModelParametersAction(connection)) {
+        return getModelParametersAction.get(missionModelId.id());
+      }
+    } catch (final SQLException ex) {
+      throw new DatabaseException(
+          "Failed to retrieve stored model parameters for mission model with id `%s`".formatted(missionModelId), ex);
+    }
+  }
+
+  @Override
   public void updateModelParameters(final MissionModelId missionModelId, final List<Parameter> modelParameters)
   throws NoSuchMissionModelException {
     try (final var connection = this.dataSource.getConnection()) {
@@ -128,6 +140,34 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
   }
 
   @Override
+  public Map<String, gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema> getResourceTypes(final MissionModelId missionModelId)
+  throws NoSuchMissionModelException {
+    try (final var connection = this.dataSource.getConnection()) {
+      try (final var getResourceTypesAction = new GetResourceTypesAction(connection)) {
+        return getResourceTypesAction.get(missionModelId.id());
+      }
+    } catch (final SQLException ex) {
+      throw new DatabaseException(
+          "Failed to retrieve resource types for mission model with id `%s`".formatted(missionModelId), ex);
+    }
+  }
+
+  @Override
+  public void updateResourceTypeSchemas(
+      final MissionModelId missionModelId,
+      final Map<String, gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema> resourceTypes)
+  throws NoSuchMissionModelException {
+    try (final var connection = this.dataSource.getConnection()) {
+      try (final var insertResourceTypesAction = new InsertResourceTypesAction(connection)) {
+        insertResourceTypesAction.apply((int) missionModelId.id(), resourceTypes);
+      }
+    } catch (final SQLException ex) {
+      throw new DatabaseException(
+          "Failed to update derived data for mission model with id `%s`".formatted(missionModelId), ex);
+    }
+  }
+
+  @Override
   public Map<MissionModelId, List<ActivityDirectiveForValidation>> getUnvalidatedDirectives() {
     try (final var connection = this.dataSource.getConnection();
          final var unvalidatedDirectivesAction = new GetUnvalidatedDirectivesAction(connection)) {
@@ -153,6 +193,8 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
     model.name = record.name();
     model.version = record.version();
     model.owner = record.owner();
+    model.modelType = record.modelType();
+    model.externalBackendUrl = record.externalBackendUrl();
     model.path = record.path();
 
     return model;

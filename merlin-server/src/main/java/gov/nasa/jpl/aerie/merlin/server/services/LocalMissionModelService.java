@@ -46,6 +46,8 @@ import java.util.stream.Collectors;
 public final class LocalMissionModelService implements MissionModelService {
   private static final Logger log = LoggerFactory.getLogger(LocalMissionModelService.class);
 
+  private static final String MODEL_TYPE_EXTERNAL = "external";
+
   private final Path missionModelDataPath;
   private final MissionModelRepository missionModelRepository;
   private final Instant untruePlanStart;
@@ -74,10 +76,55 @@ public final class LocalMissionModelService implements MissionModelService {
     }
   }
 
+  /**
+   * True when the model is a foreign ("external") backend rather than a Java JAR.
+   * External models have no MerlinPlugin/JAR and must never be JAR-loaded; their
+   * activity/model/resource metadata is pushed directly into the repository.
+   */
+  private boolean isExternalModel(final MissionModelId missionModelId)
+  throws NoSuchMissionModelException {
+    return MODEL_TYPE_EXTERNAL.equals(getMissionModelById(missionModelId).modelType);
+  }
+
+  /**
+   * Best-effort validation of arguments against stored parameter metadata (no JAR).
+   * Presence checks only: flags unrecognized argument names and missing required parameters.
+   * Deliberately does NOT deep-type-check SerializedValue against ValueSchema, to avoid false
+   * positives from a stored schema that may lag the external backend.
+   */
+  private static List<ValidationNotice> validateAgainstStoredParameters(
+      final List<Parameter> parameters,
+      final List<String> requiredParameters,
+      final Map<String, SerializedValue> arguments)
+  {
+    final var notices = new ArrayList<ValidationNotice>();
+    final var parameterNames = parameters.stream().map(Parameter::name).collect(Collectors.toSet());
+
+    for (final var argName : arguments.keySet()) {
+      if (!parameterNames.contains(argName)) {
+        notices.add(new ValidationNotice(List.of(argName), "unrecognized parameter '" + argName + "'"));
+      }
+    }
+    for (final var required : requiredParameters) {
+      if (!arguments.containsKey(required)) {
+        notices.add(new ValidationNotice(List.of(required), "missing required parameter '" + required + "'"));
+      }
+    }
+    return notices;
+  }
+
   @Override
   public Map<String, ValueSchema> getResourceSchemas(final MissionModelId missionModelId)
   throws NoSuchMissionModelException, MissionModelLoadException
   {
+    if (isExternalModel(missionModelId)) {
+      // External models have no JAR: resource schemas are served from the stored resource_type table.
+      try {
+        return this.missionModelRepository.getResourceTypes(missionModelId);
+      } catch (final MissionModelRepository.NoSuchMissionModelException ex) {
+        throw new NoSuchMissionModelException(missionModelId, ex);
+      }
+    }
     // TODO: [AERIE-1516] Teardown the missionModel after use to release any system resources (e.g. threads).
     final var schemas = new HashMap<String, ValueSchema>();
 
@@ -122,6 +169,12 @@ public final class LocalMissionModelService implements MissionModelService {
   public List<ValidationNotice> validateActivityArguments(final MissionModelId missionModelId, final SerializedActivity activity)
   throws NoSuchMissionModelException, MissionModelLoadException, InstantiationException
   {
+    if (isExternalModel(missionModelId)) {
+      final var activityType = getActivityTypes(missionModelId).get(activity.getTypeName());
+      if (activityType == null) return List.of(new ValidationNotice(List.of(), "unknown activity type"));
+      return validateAgainstStoredParameters(
+          activityType.parameters(), activityType.requiredParameters(), activity.getArguments());
+    }
     // TODO: [AERIE-1516] Teardown the missionModel after use to release any system resources (e.g. threads).
     final var modelType = this.loadMissionModelType(missionModelId);
     final var registry = DirectiveTypeRegistry.extract(modelType);
@@ -133,6 +186,29 @@ public final class LocalMissionModelService implements MissionModelService {
   public List<BulkArgumentValidationResponse> validateActivityArgumentsBulk(
       final MissionModelId missionModelId,
       final List<ActivityDirectiveForValidation> activities) {
+    final Map<String, ActivityType> externalActivityTypes;
+    try {
+      externalActivityTypes = isExternalModel(missionModelId) ? getActivityTypes(missionModelId) : null;
+    } catch (final NoSuchMissionModelException e) {
+      return activities.stream()
+          .<BulkArgumentValidationResponse>map(directive -> new BulkArgumentValidationResponse.NoSuchMissionModelError(e))
+          .collect(Collectors.toList());
+    }
+    if (externalActivityTypes != null) {
+      return activities.stream().<BulkArgumentValidationResponse>map(directive -> {
+        final var typeName = directive.activity().getTypeName();
+        final var activityType = externalActivityTypes.get(typeName);
+        if (activityType == null) {
+          return new BulkArgumentValidationResponse.NoSuchActivityError(new NoSuchActivityTypeException(typeName));
+        }
+        final var notices = validateAgainstStoredParameters(
+            activityType.parameters(), activityType.requiredParameters(), directive.activity().getArguments());
+        return notices.isEmpty()
+            ? new BulkArgumentValidationResponse.Success()
+            : new BulkArgumentValidationResponse.Validation(notices);
+      }).collect(Collectors.toList());
+    }
+
     // load mission model once for all activities
     ModelType<?, ?> modelType;
     try {
@@ -192,6 +268,18 @@ public final class LocalMissionModelService implements MissionModelService {
                                  final Map<ActivityDirectiveId, SerializedActivity> activities)
   throws NoSuchMissionModelException, MissionModelLoadException
   {
+    if (isExternalModel(missionModelId)) {
+      final var activityTypes = getActivityTypes(missionModelId);
+      final var externalFailures = new HashMap<ActivityDirectiveId, ActivityInstantiationFailure>();
+      for (final var entry : activities.entrySet()) {
+        final var typeName = entry.getValue().getTypeName();
+        if (!activityTypes.containsKey(typeName)) {
+          externalFailures.put(entry.getKey(),
+              new ActivityInstantiationFailure.NoSuchActivityType(new NoSuchActivityTypeException(typeName)));
+        }
+      }
+      return externalFailures;
+    }
     final var factory = this.loadMissionModelType(missionModelId);
     final var registry = DirectiveTypeRegistry.extract(factory);
 
@@ -221,6 +309,21 @@ public final class LocalMissionModelService implements MissionModelService {
       final MissionModelId missionModelId,
       final List<SerializedActivity> serializedActivities)
   throws NoSuchMissionModelException, MissionModelLoadException {
+      if (isExternalModel(missionModelId)) {
+        final var activityTypes = getActivityTypes(missionModelId);
+        final var externalResponse = new ArrayList<BulkEffectiveArgumentResponse>();
+        for (final var activity : serializedActivities) {
+          final var typeName = activity.getTypeName();
+          if (!activityTypes.containsKey(typeName)) {
+            externalResponse.add(new BulkEffectiveArgumentResponse.TypeFailure(new NoSuchActivityTypeException(typeName)));
+          } else {
+            // No stored defaults for external models; effective args == provided args.
+            externalResponse.add(new BulkEffectiveArgumentResponse.Success(
+                new SerializedActivity(typeName, activity.getArguments())));
+          }
+        }
+        return externalResponse;
+      }
       final var modelType = this.loadMissionModelType(missionModelId);
       final var registry = DirectiveTypeRegistry.extract(modelType);
       final var response = new ArrayList<BulkEffectiveArgumentResponse>();
@@ -254,6 +357,18 @@ public final class LocalMissionModelService implements MissionModelService {
          MissionModelLoadException,
          InstantiationException
   {
+    if (isExternalModel(missionModelId)) {
+      final List<Parameter> parameters;
+      try {
+        parameters = this.missionModelRepository.getModelParameters(missionModelId);
+      } catch (final MissionModelRepository.NoSuchMissionModelException ex) {
+        throw new NoSuchMissionModelException(missionModelId, ex);
+      }
+      // If stored config params are not yet populated, skip validation rather than flag all args as unknown.
+      if (parameters.isEmpty()) return List.of();
+      // Model config requiredness is not stored, so only the unrecognized-name check applies.
+      return validateAgainstStoredParameters(parameters, List.of(), arguments);
+    }
     return this.loadMissionModelType(missionModelId)
         .getConfigurationType()
         .validateArguments(arguments);
@@ -263,6 +378,13 @@ public final class LocalMissionModelService implements MissionModelService {
   public List<Parameter> getModelParameters(final MissionModelId missionModelId)
   throws NoSuchMissionModelException, MissionModelLoadException
   {
+    if (isExternalModel(missionModelId)) {
+      try {
+        return this.missionModelRepository.getModelParameters(missionModelId);
+      } catch (final MissionModelRepository.NoSuchMissionModelException ex) {
+        throw new NoSuchMissionModelException(missionModelId, ex);
+      }
+    }
     return this.loadMissionModelType(missionModelId).getConfigurationType().getParameters();
   }
 
@@ -272,6 +394,7 @@ public final class LocalMissionModelService implements MissionModelService {
          MissionModelLoadException,
          InstantiationException
   {
+    if (isExternalModel(missionModelId)) return arguments; // no stored defaults; echo provided args
     return this.loadMissionModelType(missionModelId)
         .getConfigurationType()
         .getEffectiveArguments(arguments);
@@ -292,6 +415,17 @@ public final class LocalMissionModelService implements MissionModelService {
       final SimulationResourceManager resourceManager)
   throws NoSuchMissionModelException
   {
+    if (isExternalModel(plan.missionModelId())) {
+      // External models are simulated by their external backend (e.g. the Blackbird adapter service):
+      // Merlin sends the plan's directives + config there and ingests the returned results through the
+      // normal resource-manager + succeedWith persistence path.
+      final var backendUrl = getMissionModelById(plan.missionModelId()).externalBackendUrl;
+      if (backendUrl == null || backendUrl.isBlank()) {
+        throw new IllegalStateException(
+            "External mission model `%s` has no external_backend_url configured.".formatted(plan.missionModelId()));
+      }
+      return ExternalSimulationBackend.simulate(backendUrl, plan, resourceManager);
+    }
     final var config = plan.simulationConfiguration();
     if (config.isEmpty()) {
       log.warn(
@@ -318,6 +452,7 @@ public final class LocalMissionModelService implements MissionModelService {
   public void refreshModelParameters(final MissionModelId missionModelId)
   throws NoSuchMissionModelException
   {
+    if (isExternalModel(missionModelId)) return; // external: metadata pushed directly; nothing to load
     try {
       this.missionModelRepository.updateModelParameters(missionModelId, getModelParameters(missionModelId));
     } catch (final MissionModelRepository.NoSuchMissionModelException ex) {
@@ -329,6 +464,7 @@ public final class LocalMissionModelService implements MissionModelService {
   public void refreshActivityTypes(final MissionModelId missionModelId)
   throws NoSuchMissionModelException
   {
+    if (isExternalModel(missionModelId)) return; // external: metadata pushed directly; nothing to load
     try {
       final var modelType = this.loadMissionModelType(missionModelId);
       final var registry = DirectiveTypeRegistry.extract(modelType);
@@ -355,11 +491,35 @@ public final class LocalMissionModelService implements MissionModelService {
   @Override
   public void refreshResourceTypes(final MissionModelId missionModelId)
   throws NoSuchMissionModelException, MissionModelLoadException {
+    if (isExternalModel(missionModelId)) return; // external: metadata pushed directly; nothing to load
     try {
       final var model = this.loadAndInstantiateMissionModel(missionModelId);
       this.missionModelRepository.updateResourceTypes(missionModelId, model.getResources());
     } catch (MissionModelRepository.NoSuchMissionModelException e) {
       throw new NoSuchMissionModelException(missionModelId);
+    }
+  }
+
+  @Override
+  public void registerModelTypes(
+      final MissionModelId missionModelId,
+      final Map<String, ActivityType> activityTypes,
+      final Map<String, ValueSchema> resourceTypes,
+      final List<Parameter> parameters
+  ) throws NoSuchMissionModelException {
+    try {
+      // Fail fast with 404 (not 500) if the model does not exist.
+      getMissionModelById(missionModelId);
+      final var subsystems = activityTypes.values().stream()
+          .map(ActivityType::subsystem)
+          .flatMap(Optional::stream)
+          .distinct()
+          .toList();
+      this.missionModelRepository.updateActivityTypes(missionModelId, activityTypes, subsystems);
+      this.missionModelRepository.updateResourceTypeSchemas(missionModelId, resourceTypes);
+      this.missionModelRepository.updateModelParameters(missionModelId, parameters);
+    } catch (final MissionModelRepository.NoSuchMissionModelException ex) {
+      throw new NoSuchMissionModelException(missionModelId, ex);
     }
   }
 

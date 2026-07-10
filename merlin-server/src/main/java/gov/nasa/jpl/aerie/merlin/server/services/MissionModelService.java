@@ -75,6 +75,14 @@ public interface MissionModelService {
   void refreshActivityTypes(MissionModelId missionModelId) throws NoSuchMissionModelException;
   void refreshResourceTypes(MissionModelId missionModelId) throws NoSuchMissionModelException;
 
+  /** Register activity/resource/config type metadata for a non-JAR ("external") mission model. */
+  void registerModelTypes(
+      MissionModelId missionModelId,
+      Map<String, ActivityType> activityTypes,
+      Map<String, ValueSchema> resourceTypes,
+      List<Parameter> parameters
+  ) throws NoSuchMissionModelException;
+
   sealed interface ActivityInstantiationFailure {
     record NoSuchActivityType(NoSuchActivityTypeException ex) implements ActivityInstantiationFailure { }
     record InstantiationFailure(InstantiationException ex) implements ActivityInstantiationFailure { }

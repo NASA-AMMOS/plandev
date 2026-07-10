@@ -17,11 +17,14 @@ public interface MissionModelRepository {
     Map<MissionModelId, MissionModelJar> getAllMissionModels();
     MissionModelJar getMissionModel(MissionModelId id) throws NoSuchMissionModelException;
     Map<String, ActivityType> getActivityTypes(MissionModelId missionModelId) throws NoSuchMissionModelException;
+    List<Parameter> getModelParameters(MissionModelId missionModelId) throws NoSuchMissionModelException;
+    Map<String, gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema> getResourceTypes(MissionModelId missionModelId) throws NoSuchMissionModelException;
 
     // Mutations
     void updateModelParameters(MissionModelId missionModelId, final List<Parameter> modelParameters) throws NoSuchMissionModelException;
     void updateActivityTypes(MissionModelId missionModelId, final Map<String, ActivityType> activityTypes, final List<String> subsystems) throws NoSuchMissionModelException;
     void updateResourceTypes(MissionModelId missionModelId, final Map<String, Resource<?>> resourceTypes) throws NoSuchMissionModelException;
+    void updateResourceTypeSchemas(MissionModelId missionModelId, final Map<String, gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema> resourceTypes) throws NoSuchMissionModelException;
     Map<MissionModelId, List<ActivityDirectiveForValidation>> getUnvalidatedDirectives();
     void updateDirectiveValidations(List<Pair<ActivityDirectiveForValidation, BulkArgumentValidationResponse>> updates);
 

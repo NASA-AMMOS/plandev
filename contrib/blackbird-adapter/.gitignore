@@ -1,0 +1,2 @@
+# JNISpice jar is not redistributable via this repo — provide it locally before building.
+vendor/

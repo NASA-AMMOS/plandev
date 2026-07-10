@@ -221,4 +221,11 @@ public final class StubMissionModelService implements MissionModelService {
 
   @Override
   public void refreshResourceTypes(final MissionModelId missionModelId) {}
+
+  @Override
+  public void registerModelTypes(
+      final MissionModelId missionModelId,
+      final java.util.Map<String, ActivityType> activityTypes,
+      final java.util.Map<String, ValueSchema> resourceTypes,
+      final java.util.List<Parameter> parameters) {}
 }

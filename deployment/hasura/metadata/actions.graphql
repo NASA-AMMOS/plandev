@@ -383,3 +383,53 @@ scalar SequenceSeqJson
 scalar Dictionary
 
 scalar Any
+
+scalar ValueSchema
+
+scalar ExternalSimulationResults
+
+input ModelParameterInput {
+  name: String!
+  schema: ValueSchema!
+}
+
+input ModelResourceTypeInput {
+  name: String!
+  schema: ValueSchema!
+}
+
+input ModelActivityTypeInput {
+  name: String!
+  parameters: [ModelParameterInput!]!
+  requiredParameters: [String!]!
+  computedAttributesSchema: ValueSchema!
+  subsystem: String
+  description: String
+}
+
+type RegisterModelTypesResponse {
+  activityTypeCount: Int!
+  resourceTypeCount: Int!
+  parameterCount: Int!
+}
+
+type IngestExternalSimulationResultsResponse {
+  simulationDatasetId: Int!
+}
+
+type Mutation {
+  registerModelTypes(
+    missionModelId: Int!
+    activityTypes: [ModelActivityTypeInput!]!
+    resourceTypes: [ModelResourceTypeInput!]!
+    parameters: [ModelParameterInput!]!
+  ): RegisterModelTypesResponse
+}
+
+type Mutation {
+  ingestExternalSimulationResults(
+    planId: Int!
+    simulationId: Int
+    results: ExternalSimulationResults!
+  ): IngestExternalSimulationResultsResponse
+}

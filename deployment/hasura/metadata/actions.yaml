@@ -235,6 +235,20 @@ actions:
       - role: aerie_admin
       - role: user
       - role: viewer
+  - name: registerModelTypes
+    definition:
+      kind: synchronous
+      handler: "{{AERIE_MERLIN_URL}}/registerModelTypes"
+      timeout: 300
+    permissions:
+      - role: aerie_admin
+  - name: ingestExternalSimulationResults
+    definition:
+      kind: synchronous
+      handler: "{{AERIE_MERLIN_URL}}/ingestExternalSimulationResults"
+      timeout: 300
+    permissions:
+      - role: aerie_admin
 custom_types:
   enums:
     - name: MerlinSimulationStatus
@@ -290,3 +304,5 @@ custom_types:
     - name: SequenceSeqJson
     - name: CommandSeqJson
     - name: Any
+    - name: ValueSchema
+    - name: ExternalSimulationResults

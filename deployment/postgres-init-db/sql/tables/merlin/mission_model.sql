@@ -9,7 +9,9 @@ create table merlin.mission_model (
   default_view_id integer default null,
 
   owner text,
-  jar_id integer not null,
+  jar_id integer,
+  model_type text not null default 'jar',
+  external_backend_url text,
 
   created_at timestamptz not null default now(),
 
@@ -17,6 +19,8 @@ create table merlin.mission_model (
     primary key (id),
   constraint mission_model_natural_key
     unique (mission, name, version),
+  constraint mission_model_type_check
+    check (model_type = 'jar' or model_type = 'external'),
   constraint mission_model_references_jar
     foreign key (jar_id)
     references merlin.uploaded_file
@@ -47,7 +51,10 @@ comment on column merlin.mission_model.version is e''
 comment on column merlin.mission_model.owner is e''
   'A human-meaningful identifier for the user responsible for this model.';
 comment on column merlin.mission_model.jar_id is e''
-  'An uploaded JAR file defining the mission model.';
+  'An uploaded JAR file defining the mission model. Null for non-JAR (e.g. "external") models.';
+comment on column merlin.mission_model.model_type is e''
+  'The kind of backend that defines this mission model.\n'
+  '"jar" is a Java JAR uploaded to Aerie; "external" is a foreign model backend served outside Aerie.';
 comment on column merlin.mission_model.created_at is e''
   'The time this mission model was uploaded into Aerie.';
 comment on column merlin.mission_model.description is e''

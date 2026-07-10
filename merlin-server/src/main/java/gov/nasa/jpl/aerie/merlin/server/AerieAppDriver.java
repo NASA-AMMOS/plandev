@@ -14,6 +14,8 @@ import gov.nasa.jpl.aerie.merlin.server.remotes.PlanRepository;
 import gov.nasa.jpl.aerie.merlin.server.remotes.ResultsCellRepository;
 import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresConstraintRepository;
 import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresMissionModelRepository;
+import gov.nasa.jpl.aerie.merlin.server.remotes.ExternalSimulationResultsRepository;
+import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresExternalSimulationResultsRepository;
 import gov.nasa.jpl.aerie.merlin.server.services.ValidationWorker;
 import gov.nasa.jpl.aerie.permissions.PermissionsService;
 import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresPlanRepository;
@@ -101,7 +103,8 @@ public final class AerieAppDriver {
         simulationAction,
         generateConstraintsLibAction,
         constraintAction,
-        permissionsService
+        permissionsService,
+        stores.externalSimulationResults()
     );
     // Configure an HTTP server.
     //default javalin jetty server has a QueuedThreadPool with maxThreads to 250
@@ -131,7 +134,8 @@ public final class AerieAppDriver {
       PlanRepository plans,
       MissionModelRepository missionModels,
       ResultsCellRepository results,
-      ConstraintRepository constraints
+      ConstraintRepository constraints,
+      ExternalSimulationResultsRepository externalSimulationResults
   ) {}
 
   private static Stores loadStores(final AppConfiguration config) {
@@ -155,7 +159,8 @@ public final class AerieAppDriver {
           new PostgresPlanRepository(hikariDataSource, config.merlinFileStore()),
           new PostgresMissionModelRepository(hikariDataSource),
           new PostgresResultsCellRepository(hikariDataSource),
-          new PostgresConstraintRepository(hikariDataSource));
+          new PostgresConstraintRepository(hikariDataSource),
+          new PostgresExternalSimulationResultsRepository(hikariDataSource));
     } else {
       throw new UnexpectedSubtypeError(Store.class, store);
     }

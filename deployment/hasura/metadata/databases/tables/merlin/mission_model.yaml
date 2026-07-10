@@ -110,7 +110,7 @@ select_permissions:
 insert_permissions:
   - role: aerie_admin
     permission:
-      columns: [mission, name, version, description, jar_id, default_view_id]
+      columns: [mission, name, version, description, jar_id, model_type, external_backend_url, default_view_id]
       check: {}
       set:
         owner: "x-hasura-user-id"

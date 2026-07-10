@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.merlin.server.services;
 
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
+import gov.nasa.jpl.aerie.merlin.driver.StartOffsetReducer;
 import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfile;
 import gov.nasa.jpl.aerie.merlin.driver.engine.ProfileSegment;
 import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfiles;
@@ -47,23 +48,46 @@ public final class ExternalSimulationBackend {
       final Plan plan,
       final SimulationResourceManager resourceManager)
   {
-    final Instant planStart = plan.planStartInstant();
+    // Offsets and results are keyed to the SIMULATION start (matching the jar simulate path in
+    // SimulationDriver), which may differ from the plan start.
+    final Instant simStart = plan.simulationStartInstant();
     final Duration simDuration = plan.simulationDuration();
     final long simDurationUs = simDuration.in(Duration.MICROSECONDS);
+    final var schedule = plan.activityDirectives();
 
-    // --- build request ---
+    // Resolve anchor chains to absolute offsets exactly as SimulationDriver does for jar models.
+    var resolved = new StartOffsetReducer(plan.duration(), schedule).compute();
+    // A directive anchored to the END of another activity resolves under a non-null parent key: its start
+    // depends on the parent's SIMULATED duration, which a stateless external backend cannot pre-compute.
+    // Reject rather than silently misplacing it (previously all offsets were sent raw, ignoring anchors).
+    final var endAnchored = resolved.entrySet().stream()
+        .filter(e -> e.getKey() != null)
+        .flatMap(e -> e.getValue().stream().map(p -> p.getKey().id()))
+        .sorted().toList();
+    if (!endAnchored.isEmpty()) {
+      throw new RuntimeException(
+          "External models do not support directives anchored to the end of another activity "
+          + "(their start depends on a simulated duration). Offending directive id(s): " + endAnchored);
+    }
+    // Shift plan-relative offsets to be simulation-start-relative, then drop anything before sim start.
+    if (!resolved.isEmpty()) {
+      resolved.put(null, StartOffsetReducer.adjustStartOffset(resolved.get(null), plan.simulationOffset()));
+    }
+    resolved = StartOffsetReducer.filterOutNegativeStartOffset(resolved);
+
+    // --- build request (offsets are now simulation-start-relative) ---
     final var directivesB = Json.createArrayBuilder();
-    for (final var entry : plan.activityDirectives().entrySet()) {
-      final var dir = entry.getValue();
+    for (final var pair : resolved.getOrDefault(null, List.of())) {
+      final var dir = schedule.get(pair.getKey());
       directivesB.add(Json.createObjectBuilder()
-          .add("id", entry.getKey().id())
+          .add("id", pair.getKey().id())
           .add("type", dir.serializedActivity().getTypeName())
-          .add("startOffset", dir.startOffset().in(Duration.MICROSECONDS))
+          .add("startOffset", pair.getValue().in(Duration.MICROSECONDS))
           .add("arguments", serializedValueP.unparse(SerializedValue.of(dir.serializedActivity().getArguments()))));
     }
     final var config = plan.simulationConfiguration();
     final var requestBody = Json.createObjectBuilder()
-        .add("planStart", planStart.toString())
+        .add("planStart", simStart.toString())
         .add("duration", simDurationUs)
         .add("configuration", serializedValueP.unparse(SerializedValue.of(config)))
         .add("directives", directivesB)
@@ -173,7 +197,7 @@ public final class ExternalSimulationBackend {
         simulatedActivities.put(new ActivityInstanceId(spanId), new ActivityInstance(
             span.getString("type"),
             args,
-            planStart.plus(java.time.Duration.of(startUs, java.time.temporal.ChronoUnit.MICROS)),
+            simStart.plus(java.time.Duration.of(startUs, java.time.temporal.ChronoUnit.MICROS)),
             Duration.of(durUs, Duration.MICROSECONDS),
             parentId,
             childIds.getOrDefault(spanId, List.of()),
@@ -187,7 +211,7 @@ public final class ExternalSimulationBackend {
         flushed.discreteProfiles(),
         simulatedActivities,
         Map.of(),          // unfinished activities
-        planStart,
+        simStart,
         simDuration,
         List.of(),         // topics
         Map.of());         // events

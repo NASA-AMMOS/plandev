@@ -77,6 +77,21 @@ public class FormattedError {
     this.service = service;
     this.cause = cause;
   }
+  /**
+   * For use in the event of an endpoint failing without throwing an exception, but where there's a more detailed data object.
+   * @param service the service that throw the exception.
+   * @param type the category of exception. Should be in SCREAMING_SNAKE_CASE.
+   * @param message the custom error message explaining the cause of the error.
+   *  Should be human-readable and between 1-2 sentences.
+   * @param cause the root cause of the exception.
+   */
+  public FormattedError(AerieService service, String type, String message, Optional<String> cause, JsonValue data) {
+    this.type = "INTERNAL_ERROR";
+    this.message = message;
+    this.service = service;
+    this.cause = cause;
+    this.data = Optional.of(data);
+  }
 
   /**
    * Create a FormattedException from a generic Exception object.

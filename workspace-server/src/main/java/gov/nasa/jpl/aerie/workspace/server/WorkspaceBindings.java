@@ -660,11 +660,11 @@ public class WorkspaceBindings implements Plugin {
             }
             return new HandlerResult.Failure(
                 412,
-                FormattedError.saveConflict("conflict", currentETag, lastEditedBy, lastEditedAt));
+                WorkspaceFormattedError.saveConflict("conflict", currentETag, lastEditedBy, lastEditedAt));
           }
         } catch (NoSuchFileException nfe) {
           // File is gone — deleted or moved out from under the editor.
-          return new HandlerResult.Failure(412, FormattedError.saveConflict("deleted", null, null, null));
+          return new HandlerResult.Failure(412, WorkspaceFormattedError.saveConflict("deleted", null, null, null));
         }
       }
 

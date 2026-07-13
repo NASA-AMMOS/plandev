@@ -420,11 +420,12 @@ public class WorkspaceBindings implements Plugin {
 
       try {
         final var fileStream = workspaceService.loadFile(pathInfo.workspaceId, pathInfo.filePath());
-        final var inputStream = fileStream.readingStream();
         context.header("x-render-type", workspaceService.getFileType(pathInfo.filePath).name());
         context.contentType(ContentType.OCTET_STREAM);
-        context.header("Content-Disposition", "attachment; filename=\"" + pathInfo.fileName() + "\"");
-        context.status(200).result(inputStream);
+        context.header("Content-Disposition", "attachment; filename=\"" + fileStream.fileName() + "\"");
+        // The client sends this ETag back as If-Match when it saves.
+        context.header("ETag", fileStream.etag());
+        context.status(200).result(fileStream.readingStream()); // Javalin auto-closes InputStreams once it has sent the contents
       } catch (IOException ioe) {
         final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ioe, "Could not load file " + pathInfo.fileName());
         logger.warn("GET FILE: IO Exception: {}", fe);
@@ -433,6 +434,10 @@ public class WorkspaceBindings implements Plugin {
         final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, se, "Could not load file " + pathInfo.fileName());
         logger.warn("GET FILE: SQL Exception: {}", fe);
         context.status(500).json(fe);
+      } catch (NoSuchFileException nfe) {
+        context.status(404).json(new WorkspaceFormattedError(nfe));
+      } catch (WorkspaceFileOpException wfe) {
+        context.status(415).json(new WorkspaceFormattedError(wfe));
       }
     }
   }
@@ -473,11 +478,13 @@ public class WorkspaceBindings implements Plugin {
         return;
       }
 
+      final var ifMatch = context.header("If-Match");
       uploadResults = handleFileUpload(
           pathInfo.workspaceId,
           pathInfo.filePath,
           file,
           overwrite.orElse(false),
+          ifMatch,
           authorize(context).userId());
 
     } else if (type == ItemType.directory) {
@@ -493,7 +500,11 @@ public class WorkspaceBindings implements Plugin {
     }
 
     switch (uploadResults){
-      case HandlerResult.Success success -> context.status(success.status()).result(success.response());
+      case HandlerResult.Success success -> {
+        // Return the saved file's new ETag so the client can keep saving without re-fetching.
+        success.etag().ifPresent(et -> context.header("ETag", et));
+        context.status(success.status()).result(success.response());
+      }
       case HandlerResult.Failure failure -> context.status(failure.status()).json(failure.error());
     }
   }
@@ -608,6 +619,7 @@ public class WorkspaceBindings implements Plugin {
       Path uploadPath,
       UploadedFile file,
       boolean overwrite,
+      String ifMatch,
       final String userId) {
     try {
       // Verify the user isn't attempting to save a metadata file using the main file api
@@ -620,9 +632,9 @@ public class WorkspaceBindings implements Plugin {
                     + " Use the metadata API (located at /metadata/{workspaceId}/<basefilepath>) instead.")));
       }
 
-      // Report a "Conflict" status if the file already exists and "overwrite" is false
-      // "overwrite" defaults to "false" if unspecified
-      if (workspaceService.checkFileExists(workspaceId, uploadPath) && !overwrite) {
+      // Conflict if the file already exists and "overwrite" is false (defaults to false).
+      // An If-Match means the client is editing a known file, so let the version check below handle it.
+      if (ifMatch == null && workspaceService.checkFileExists(workspaceId, uploadPath) && !overwrite) {
         return new HandlerResult.Failure(409, new FormattedError(AerieService.WORKSPACE_SERVER, uploadPath + " already exists."));
       }
 
@@ -631,10 +643,38 @@ public class WorkspaceBindings implements Plugin {
         return new HandlerResult.Failure(423, new WorkspaceFormattedError(new FileLockedException(uploadPath), "Cannot update file at " + uploadPath));
       }
 
-      if (workspaceService.saveFile(workspaceId, uploadPath, file, userId)) {
+      // Reject the save if the file changed since the client loaded it. "*" or no If-Match means force-overwrite.
+      if (ifMatch != null && !ifMatch.equals("*")) {
+        try {
+          final var currentETag = workspaceService.getETag(workspaceId, uploadPath);
+          if (!currentETag.equals(ifMatch)) {
+            // Who/when is best-effort detail for the modal; don't let a metadata read failure make this a 500.
+            String lastEditedBy = null;
+            String lastEditedAt = null;
+            try {
+              final var editInfo = workspaceService.getLastEditInfo(workspaceId, uploadPath);
+              lastEditedBy = editInfo.lastEditedBy();
+              lastEditedAt = editInfo.lastEditedAt();
+            } catch (IOException | NoSuchWorkspaceException | WorkspaceFileOpException | JsonException e) {
+              logger.warn("UPLOAD FILE: could not read last-edit info for conflict on {}: {}", uploadPath, e.getMessage());
+            }
+            return new HandlerResult.Failure(
+                412,
+                FormattedError.saveConflict("conflict", currentETag, lastEditedBy, lastEditedAt));
+          }
+        } catch (NoSuchFileException nfe) {
+          // File is gone — deleted or moved out from under the editor.
+          return new HandlerResult.Failure(412, FormattedError.saveConflict("deleted", null, null, null));
+        }
+      }
+
+      // saveFile hashes as it writes and returns the new ETag, so we don't re-read the file.
+      final var newETag = workspaceService.saveFile(workspaceId, uploadPath, file, userId);
+      if (newETag.isPresent()) {
         return new HandlerResult.Success(
             200,
-            "File " + uploadPath.getFileName() + " uploaded to " + uploadPath);
+            "File " + uploadPath.getFileName() + " uploaded to " + uploadPath,
+            newETag);
       } else {
         logger.warn("UPLOAD FILE: Save File failed for path {}", uploadPath);
         return new HandlerResult.Failure(500, new FormattedError(AerieService.WORKSPACE_SERVER, "Could not save file."));
@@ -1054,11 +1094,13 @@ public class WorkspaceBindings implements Plugin {
           continue;
         }
 
+        // Bulk uploads have no per-item If-Match; pass null to skip the version check (unchanged behavior).
         uploadResults = handleFileUpload(
             workspaceId,
             item.path(),
             file,
             item.overwrite(),
+            null,
             userId
         );
         response.add("status", uploadResults.status())
@@ -1355,13 +1397,14 @@ public class WorkspaceBindings implements Plugin {
 
     try {
       final var fileStream = workspaceService.loadMetadataFile(pathInfo.workspaceId, pathInfo.filePath());
-      final var inputStream = fileStream.readingStream();
 
       // Set up headers for file response
       context.header("x-render-type", RenderType.METADATA.name());
       context.contentType(ContentType.OCTET_STREAM);
-      context.header("Content-Disposition", "attachment; filename=\"" + pathInfo.metadataFileName() + "\"");
-      context.status(200).result(inputStream);
+      // The client sends this ETag back as If-Match when it saves.
+      context.header("ETag", fileStream.etag());
+      context.header("Content-Disposition", "attachment; filename=\"" + fileStream.fileName() + "\"");
+      context.status(200).result(fileStream.readingStream()); // Javalin auto-closes InputStreams once it has sent the contents
     } catch (WorkspaceFileOpException wfe) {
       final var fe = new WorkspaceFormattedError(wfe, "Could not retrieve metadata file for file "+pathInfo.fileName());
       context.status(400).json(fe);

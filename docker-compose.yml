@@ -277,6 +277,9 @@ services:
     volumes:
       - aerie_file_store:/usr/src/app/merlin_file_store:ro
   hasura:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.hasura
     container_name: aerie_hasura
     depends_on: ["postgres"]
     environment:
@@ -293,12 +296,15 @@ services:
       HASURA_GRAPHQL_LOG_LEVEL: info
       HASURA_GRAPHQL_METADATA_DATABASE_URL: "postgres://${AERIE_USERNAME}:${AERIE_PASSWORD}@postgres:5432/aerie_hasura"
       HASURA_GRAPHQL_METADATA_DIR: /hasura-metadata
-    image: "hasura/graphql-engine:v2.12.1.cli-migrations-v3"
+    image: aerie_hasura
     ports: ["8080:8080"]
     restart: always
     volumes:
       - ./deployment/hasura/metadata:/hasura-metadata
   postgres:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.postgres
     container_name: aerie_postgres
     environment:
       POSTGRES_DB: postgres
@@ -314,7 +320,7 @@ services:
       SCHEDULER_DB_PASSWORD: "${SCHEDULER_PASSWORD}"
       SEQUENCING_DB_USER: "${SEQUENCING_USERNAME}"
       SEQUENCING_DB_PASSWORD: "${SEQUENCING_PASSWORD}"
-    image: postgres:16.12-bookworm
+    image: aerie_postgres
     ports: ["5432:5432"]
     restart: always
     volumes:

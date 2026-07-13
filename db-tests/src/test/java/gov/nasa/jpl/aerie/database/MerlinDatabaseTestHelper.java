@@ -1,13 +1,19 @@
 package gov.nasa.jpl.aerie.database;
 
+import gov.nasa.jpl.aerie.database.types.Activity;
+import gov.nasa.jpl.aerie.database.types.PlanDatasetRecord;
+import gov.nasa.jpl.aerie.database.types.SimulationDatasetRecord;
+import gov.nasa.jpl.aerie.database.types.SimulationSpecification;
 import org.postgresql.util.PGInterval;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.UUID;
 
 @SuppressWarnings("SqlSourceToSinkFlow")
-final class MerlinDatabaseTestHelper {
+public final class MerlinDatabaseTestHelper {
   private final Connection connection;
   final User admin;
   final User user;
@@ -92,14 +98,18 @@ final class MerlinDatabaseTestHelper {
   }
 
   int insertPlan(final int missionModelId, final String username, final String planName, final String start_time) throws SQLException {
+    return insertPlan(missionModelId, username, planName, start_time, "0");
+  }
+
+  int insertPlan(final int missionModelId, final String username, final String planName, final String start_time, final String duration) throws SQLException {
     try (final var statement = connection.createStatement()) {
       final var res = statement.executeQuery(
           //language=sql
           """
           INSERT INTO merlin.plan (name, model_id, duration, start_time, owner)
-          VALUES ('%s', '%s', '0', '%s', '%s')
+          VALUES ('%s', %d, '%s', '%s', '%s')
           RETURNING id;
-          """.formatted(planName, missionModelId, start_time, username));
+          """.formatted(planName, missionModelId, duration, start_time, username));
       res.next();
       return res.getInt("id");
     }
@@ -148,7 +158,6 @@ final class MerlinDatabaseTestHelper {
     return insertActivity(planId, startOffset, type, arguments, admin);
   }
 
-
   int insertActivity(final int planId, final String startOffset, final String arguments, User user) throws SQLException {
     try (final var statement = connection.createStatement()) {
       final var res = statement
@@ -180,6 +189,74 @@ final class MerlinDatabaseTestHelper {
 
       res.next();
       return res.getInt("id");
+    }
+  }
+
+  public Activity getActivity(final int planId, final int activityId) throws SQLException {
+    try (final var statement = connection.createStatement()) {
+      final var res = statement.executeQuery(
+          //language=sql
+          """
+          SELECT *
+          FROM merlin.activity_directive
+          WHERE id = %d
+          AND plan_id = %d;
+          """.formatted(activityId, planId));
+      res.next();
+      return new Activity(
+          res.getInt("id"),
+          res.getInt("plan_id"),
+          res.getString("name"),
+          res.getInt("source_scheduling_goal_id"),
+          res.getInt("source_scheduling_goal_invocation_id"),
+          res.getString("created_at"),
+          res.getString("created_by"),
+          res.getString("last_modified_at"),
+          res.getString("last_modified_by"),
+          res.getString("start_offset"),
+          res.getString("type"),
+          res.getString("arguments"),
+          res.getString("last_modified_arguments_at"),
+          res.getString("metadata"),
+          res.getString("anchor_id"),
+          res.getBoolean("anchored_to_start")
+      );
+    }
+  }
+
+  public ArrayList<Activity> getActivities(final int planId) throws SQLException {
+    try (final var statement = connection.createStatement()) {
+      final var res = statement.executeQuery(
+          //language=sql
+          """
+          SELECT *
+          FROM merlin.activity_directive
+          WHERE plan_id = %d
+          ORDER BY id;
+        """.formatted(planId));
+
+      final var activities = new ArrayList<Activity>();
+      while (res.next()){
+        activities.add(new Activity(
+            res.getInt("id"),
+            res.getInt("plan_id"),
+            res.getString("name"),
+            res.getInt("source_scheduling_goal_id"),
+            res.getInt("source_scheduling_goal_invocation_id"),
+            res.getString("created_at"),
+            res.getString("created_by"),
+            res.getString("last_modified_at"),
+            res.getString("last_modified_by"),
+            res.getString("start_offset"),
+            res.getString("type"),
+            res.getString("arguments"),
+            res.getString("last_modified_arguments_at"),
+            res.getString("metadata"),
+            res.getString("anchor_id"),
+            res.getBoolean("anchored_to_start")
+        ));
+      }
+      return activities;
     }
   }
 
@@ -294,7 +371,7 @@ final class MerlinDatabaseTestHelper {
     }
   }
 
-void unassignPreset(int presetId, int activityId, int planId) throws SQLException {
+  void unassignPreset(int presetId, int activityId, int planId) throws SQLException {
     try(final var statement = connection.createStatement()){
       statement.execute(
          //language=sql
@@ -304,7 +381,6 @@ void unassignPreset(int presetId, int activityId, int planId) throws SQLExceptio
          """.formatted(presetId, activityId, planId));
     }
   }
-
 
   int insertConstraint(String name, String definition, User user) throws SQLException {
     try(final var statement = connection.createStatement()) {
@@ -323,6 +399,191 @@ void unassignPreset(int presetId, int activityId, int planId) throws SQLExceptio
           """.formatted(name, user.name, user.name, definition));
       res.next();
       return res.getInt("constraint_id");
+    }
+  }
+
+  void updatePlanDuration(int planId, String newDuration) throws SQLException {
+    try(final var statement = connection.createStatement()) {
+      statement.executeUpdate(
+          //language=sql
+          """
+          update merlin.plan
+          set duration = '%s'
+          where id = %d
+          """.formatted(newDuration, planId)
+      );
+    }
+  }
+
+  void updatePlanStartTime(int planId, String newStartTime) throws SQLException {
+    try(final var statement = connection.createStatement()) {
+      statement.executeUpdate(
+          //language=sql
+          """
+          update merlin.plan
+          set start_time = '%s'
+          where id = %d
+          """.formatted(newStartTime, planId)
+      );
+    }
+  }
+
+  void updatePlanBounds(int planId, String newStartTime, String newDuration) throws SQLException {
+    try(final var statement = connection.createStatement()) {
+      statement.executeUpdate(
+          //language=sql
+          """
+          update merlin.plan
+          set start_time = '%s',
+              duration = '%s'
+          where id = %d
+          """.formatted(newStartTime, newDuration, planId)
+      );
+    }
+  }
+
+  int getPlanRevision(int planId) throws SQLException {
+    try(final var statement = connection.createStatement()) {
+      final var res = statement.executeQuery(
+          //language=sql
+          """
+          select revision
+          from merlin.plan
+          where id = %d
+          """.formatted(planId)
+      );
+      res.next();
+      return res.getInt("revision");
+    }
+  }
+
+  String getPlanStartTime(int planId) throws SQLException {
+    try(final var statement = connection.createStatement()) {
+      final var res = statement.executeQuery(
+          //language=sql
+          """
+          select start_time
+          from merlin.plan
+          where id = %d
+          """.formatted(planId)
+      );
+      res.next();
+      return res.getString("start_time");
+    }
+  }
+
+  String getPlanDuration(int planId) throws SQLException {
+    try(final var statement = connection.createStatement()) {
+      final var res = statement.executeQuery(
+          //language=sql
+          """
+          select duration
+          from merlin.plan
+          where id = %d
+          """.formatted(planId)
+      );
+      res.next();
+      return res.getString("duration");
+    }
+  }
+
+  PlanDatasetRecord insertPlanDataset(final int planId) throws SQLException {
+    try (final var statement = connection.createStatement()) {
+      final var res = statement.executeQuery(
+          //language=sql
+          """
+          INSERT INTO merlin.plan_dataset (plan_id, offset_from_plan_start)
+          VALUES ('%s', '0')
+          RETURNING plan_id, dataset_id, offset_from_plan_start;
+          """.formatted(planId));
+      res.next();
+      return new PlanDatasetRecord(
+          res.getInt("plan_id"),
+          res.getInt("dataset_id"),
+          res.getString("offset_from_plan_start")
+      );
+    }
+  }
+
+  public PlanDatasetRecord getPlanDataset(final int planId, final int datasetId) throws SQLException {
+    try (final var statement = connection.createStatement()) {
+      final var res = statement.executeQuery(
+          //language=sql
+          """
+          SELECT plan_id, dataset_id, offset_from_plan_start
+          FROM merlin.plan_dataset
+          WHERE plan_id = %d and dataset_id = %d;
+          """.formatted(planId, datasetId));
+      res.next();
+      return new PlanDatasetRecord(
+          res.getInt("plan_id"),
+          res.getInt("dataset_id"),
+          res.getString("offset_from_plan_start")
+      );
+    }
+  }
+
+  /**
+   * Insert a COMPLETE simulation dataset for the specified plan
+   */
+  SimulationDatasetRecord insertSimulationDataset(final int planId) throws SQLException {
+    try (final var statement = connection.createStatement()) {
+      final var res = statement
+          .executeQuery(
+              //language=sql
+              """
+              INSERT INTO merlin.simulation_dataset (simulation_id, arguments, simulation_start_time, simulation_end_time, status)
+              SELECT id, arguments, simulation_start_time, simulation_end_time, 'success'
+              FROM merlin.simulation
+              WHERE plan_id = %d
+              RETURNING id, dataset_id, offset_from_plan_start;
+              """.formatted(planId)
+          );
+      res.next();
+      return new SimulationDatasetRecord(
+          res.getInt("id"),
+          res.getInt("dataset_id"),
+          res.getString("offset_from_plan_start"));
+    }
+  }
+
+  public SimulationDatasetRecord getSimulationDataset(final int simulationDatasetId) throws SQLException {
+    try (final var statement = connection.createStatement()) {
+      final var res = statement.executeQuery(
+          //language=sql
+          """
+          SELECT id, dataset_id, offset_from_plan_start
+          FROM merlin.simulation_dataset
+          WHERE id = %d;
+          """.formatted(simulationDatasetId));
+      res.next();
+      return new SimulationDatasetRecord(
+          res.getInt("id"),
+          res.getInt("dataset_id"),
+          res.getString("offset_from_plan_start")
+      );
+    }
+  }
+
+  public SimulationSpecification getSimulationSpecification(final int planId) throws SQLException {
+    try (final var statement = connection.createStatement()) {
+      final var res = statement.executeQuery(
+          //language=sql
+          """
+          SELECT id, plan_id, revision, simulation_template_id, arguments, simulation_start_time, simulation_end_time
+          FROM merlin.simulation
+          WHERE plan_id = %d;
+          """.formatted(planId));
+      res.next();
+      return new SimulationSpecification(
+          res.getInt("id"),
+          res.getInt("plan_id"),
+          res.getInt("revision"),
+          res.getObject("simulation_template_id") == null ? null : res.getInt("simulation_template_id"),
+          res.getString("arguments"),
+          ZonedDateTime.parse(res.getString("simulation_start_time").replace(' ', 'T')),
+          ZonedDateTime.parse(res.getString("simulation_end_time").replace(' ', 'T'))
+      );
     }
   }
 }

@@ -220,7 +220,7 @@ services:
       HASURA_GRAPHQL_LOG_LEVEL: warn
       HASURA_GRAPHQL_METADATA_DATABASE_URL: "postgres://${AERIE_USERNAME}:${AERIE_PASSWORD}@postgres:5432/aerie_hasura"
       HASURA_GRAPHQL_METADATA_DIR: /hasura-metadata
-    image: "hasura/graphql-engine:v2.12.1.cli-migrations-v3"
+    image: "${REPOSITORY_DOCKER_URL}/aerie-hasura:${DOCKER_TAG}"
     ports: ["8080:8080"]
     restart: always
     volumes:
@@ -243,7 +243,7 @@ services:
       SCHEDULER_DB_PASSWORD: "${SCHEDULER_PASSWORD}"
       SEQUENCING_DB_USER: "${SEQUENCING_USERNAME}"
       SEQUENCING_DB_PASSWORD: "${SEQUENCING_PASSWORD}"
-    image: postgres:16.12-bookworm
+    image: "${REPOSITORY_DOCKER_URL}/aerie-postgres:${DOCKER_TAG}"
     ports: ["5432:5432"]
     restart: always
     volumes:

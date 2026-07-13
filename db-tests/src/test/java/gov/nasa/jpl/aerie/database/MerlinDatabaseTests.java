@@ -1,5 +1,7 @@
 package gov.nasa.jpl.aerie.database;
 
+import gov.nasa.jpl.aerie.database.types.PlanDatasetRecord;
+import gov.nasa.jpl.aerie.database.types.SimulationDatasetRecord;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -21,8 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-record SimulationDatasetRecord(int simulation_id, int dataset_id){}
-record PlanDatasetRecord(int plan_id, int dataset_id) {}
 record ProfileSegmentAtATimeRecord(int datasetId, int profileId, String name, String type, String startOffset, String dynamics, boolean isGap) {}
 
 
@@ -85,19 +85,6 @@ class MerlinDatabaseTests {
       return res.getInt("revision");
     }
   }
-  int getSimulationRevision(final int simulationId) throws SQLException {
-    try(final var statement = connection.createStatement()) {
-      final var res = statement.executeQuery(
-          //language=sql
-          """
-          SELECT revision
-          FROM merlin.simulation
-          WHERE id = %d;
-          """.formatted(simulationId));
-      res.next();
-      return res.getInt("revision");
-    }
-  }
 
   int insertSimulationTemplate(final int modelId) throws SQLException {
     try (final var statement = connection.createStatement()) {
@@ -115,22 +102,7 @@ class MerlinDatabaseTests {
     }
   }
 
-  int getSimulationId(final int planId) throws SQLException {
-    try (final var statement = connection.createStatement()) {
-      final var res = statement.executeQuery(
-          //language=sql
-          """
-          SELECT id
-          FROM merlin.simulation s
-          WHERE s.plan_id = '%s';
-          """.formatted(planId)
-      );
-      res.next();
-      return res.getInt("id");
-    }
-  }
-
-  void addTemplateIdToSimulation(final int simulationTemplateId, final int simulationId) throws SQLException {
+  void addTemplateIdToSimulation(final int simulationTemplateId, final int planId) throws SQLException {
     try (final var statement = connection.createStatement()) {
       statement.executeUpdate(
           //language=sql
@@ -138,8 +110,8 @@ class MerlinDatabaseTests {
           UPDATE merlin.simulation
           SET simulation_template_id = %d,
               arguments = '{}'
-          WHERE id = %d;
-          """.formatted(simulationTemplateId, simulationId));
+          WHERE plan_id = %d;
+          """.formatted(simulationTemplateId, planId));
     }
   }
 
@@ -157,20 +129,6 @@ class MerlinDatabaseTests {
     }
   }
 
-  PlanDatasetRecord insertPlanDataset(final int planId) throws SQLException {
-    try (final var statement = connection.createStatement()) {
-      final var res = statement.executeQuery(
-          //language=sql
-          """
-          INSERT INTO merlin.plan_dataset (plan_id, offset_from_plan_start)
-          VALUES ('%s', '0')
-          RETURNING plan_id, dataset_id;
-          """.formatted(planId));
-      res.next();
-      return new PlanDatasetRecord(res.getInt("plan_id"), res.getInt("dataset_id"));
-    }
-  }
-
   int getDatasetCount(final int datasetId) throws SQLException {
     try (final var statement = connection.createStatement();
         final var res = statement.executeQuery(
@@ -185,23 +143,6 @@ class MerlinDatabaseTests {
       return res.getInt("count");
     }
   }
-
-  SimulationDatasetRecord insertSimulationDataset(final int simulationId, final int datasetId) throws SQLException {
-    try (final var statement = connection.createStatement()) {
-      final var res = statement
-          .executeQuery(
-              //language=sql
-              """
-              INSERT INTO merlin.simulation_dataset (simulation_id, dataset_id, arguments, simulation_start_time, simulation_end_time)
-              VALUES ('%s', '%s', '{}', '2020-1-1 00:00:00', '2020-1-2 00:00:00')
-              RETURNING simulation_id, dataset_id;
-              """.formatted(simulationId, datasetId)
-          );
-      res.next();
-      return new SimulationDatasetRecord(res.getInt("simulation_id"), res.getInt("dataset_id"));
-    }
-  }
-
   //endregion
 
   int fileId;
@@ -209,7 +150,6 @@ class MerlinDatabaseTests {
   int planId;
   int activityId;
   int simulationTemplateId;
-  int simulationId;
   int datasetId;
   SimulationDatasetRecord simulationDatasetRecord;
   PlanDatasetRecord planDatasetRecord;
@@ -221,11 +161,10 @@ class MerlinDatabaseTests {
     planId = merlinHelper.insertPlan(missionModelId);
     activityId = merlinHelper.insertActivity(planId);
     simulationTemplateId = insertSimulationTemplate(missionModelId);
-    simulationId = getSimulationId(planId);
-    addTemplateIdToSimulation(simulationTemplateId, simulationId);
-    planDatasetRecord = insertPlanDataset(planId);
+    addTemplateIdToSimulation(simulationTemplateId, planId);
+    planDatasetRecord = merlinHelper.insertPlanDataset(planId);
     datasetId = getDatasetId(planId);
-    simulationDatasetRecord = insertSimulationDataset(simulationId, datasetId);
+    simulationDatasetRecord = merlinHelper.insertSimulationDataset(planId);
   }
 
   @AfterEach
@@ -343,7 +282,7 @@ class MerlinDatabaseTests {
   class SimulationTriggers {
     @Test
     void shouldIncrementSimulationRevisionOnSimulationUpdate() throws SQLException {
-      final var initialRevision = getSimulationRevision(simulationId);
+      final var initialRevision = merlinHelper.getSimulationSpecification(planId).revision();
 
       try(final var statement = connection.createStatement()) {
         statement.executeUpdate(
@@ -351,11 +290,11 @@ class MerlinDatabaseTests {
             """
             UPDATE merlin.simulation
             SET arguments = '{}'
-            WHERE id = %s;
-            """.formatted(simulationId));
+            WHERE plan_id = %s;
+            """.formatted(planId));
       }
 
-      final var updatedRevision = getSimulationRevision(simulationId);
+      final var updatedRevision = merlinHelper.getSimulationSpecification(planId).revision();
       assertEquals(initialRevision + 1, updatedRevision);
     }
   }
@@ -364,7 +303,7 @@ class MerlinDatabaseTests {
   class PlanDatasetTriggers {
     @Test
     void shouldCreateDefaultDatasetOnPlanDatasetInsertWithNullDatasetId() throws SQLException {
-      final var newDatasetId = insertPlanDataset(planId).dataset_id();
+      final var newDatasetId = merlinHelper.insertPlanDataset(planId).datasetId();
       try(final var statement = connection.createStatement()) {
         final var datasetRes = statement.executeQuery(
             //language=sql
@@ -393,7 +332,7 @@ class MerlinDatabaseTests {
             INSERT INTO merlin.plan_dataset (plan_id, dataset_id)
             VALUES (%s, %s)
             RETURNING *;
-            """.formatted(newPlanId, planDatasetRecord.dataset_id()));
+            """.formatted(newPlanId, planDatasetRecord.datasetId()));
         planDatasetInsertRes.next();
         final var newOffsetFromPlanStart = new PGInterval(planDatasetInsertRes.getString("offset_from_plan_start"));
         assertEquals(new PGInterval("-1 hours"), newOffsetFromPlanStart);
@@ -402,7 +341,7 @@ class MerlinDatabaseTests {
 
     @Test
     void shouldDeleteDatasetWithNoAssociatedPlansOnPlanDatasetDelete() throws SQLException {
-      assertEquals(1, getDatasetCount(planDatasetRecord.dataset_id()));
+      assertEquals(1, getDatasetCount(planDatasetRecord.datasetId()));
 
       try (final var statement = connection.createStatement()) {
         statement.executeUpdate(
@@ -410,10 +349,10 @@ class MerlinDatabaseTests {
             """
             DELETE FROM merlin.plan_dataset
             WHERE plan_id = %d and dataset_id = %d;
-            """.formatted(planDatasetRecord.plan_id(), planDatasetRecord.dataset_id()));
+            """.formatted(planDatasetRecord.planId(), planDatasetRecord.datasetId()));
       }
 
-      assertEquals(0, getDatasetCount(planDatasetRecord.dataset_id()));
+      assertEquals(0, getDatasetCount(planDatasetRecord.datasetId()));
     }
   }
 
@@ -427,8 +366,8 @@ class MerlinDatabaseTests {
             """
             SELECT plan_revision, model_revision, simulation_revision, simulation_template_revision
             FROM merlin.simulation_dataset
-            WHERE simulation_id = %d AND dataset_id = %d;
-            """.formatted(simulationDatasetRecord.simulation_id(), simulationDatasetRecord.dataset_id()))
+            WHERE id = %d;
+            """.formatted(simulationDatasetRecord.simDatasetId()))
       ) {
         res.next();
         assertEquals(1, res.getInt("plan_revision"));
@@ -445,10 +384,10 @@ class MerlinDatabaseTests {
             //language=sql
             """
             DELETE FROM merlin.simulation_dataset
-            WHERE simulation_id = %d AND dataset_id = %d;
-            """.formatted(simulationDatasetRecord.simulation_id(), simulationDatasetRecord.dataset_id()));
+            WHERE id = %d;
+            """.formatted(simulationDatasetRecord.simDatasetId()));
       }
-      assertEquals(0, getDatasetCount(simulationDatasetRecord.dataset_id()));
+      assertEquals(0, getDatasetCount(simulationDatasetRecord.datasetId()));
     }
   }
 

@@ -29,6 +29,10 @@ create procedure merlin.begin_merge(_merge_request_id integer, review_username t
     snapshot_id_supplying integer;
     plan_id_receiving integer;
     merge_base_id integer;
+    start_time_receiving timestamptz;
+    duration_receiving interval;
+    start_time_supplying timestamptz;
+    duration_supplying interval;
 begin
   -- validate id and status
   select id, status
@@ -50,6 +54,22 @@ begin
     where id = _merge_request_id
     into plan_id_receiving, snapshot_id_supplying;
 
+  -- ensure that the plans cover the same boundaries
+  select start_time, duration
+  from merlin.plan
+  where plan.id = plan_id_receiving
+  into start_time_receiving, duration_receiving;
+
+  select plan_start_time, plan_duration
+  from merlin.plan_snapshot ps
+  where ps.snapshot_id = snapshot_id_supplying
+  into start_time_supplying, duration_supplying;
+
+  if start_time_receiving is distinct from start_time_supplying or
+     duration_receiving is distinct from duration_supplying then
+    raise exception 'Cannot begin merge request between plans with different bounds.';
+  end if;
+
   -- ensure the plan receiving changes isn't locked
   if (select is_locked from merlin.plan where plan.id=plan_id_receiving) then
     raise exception 'Cannot begin merge request. Plan to receive changes is locked.';
@@ -70,7 +90,6 @@ begin
     merge_base_snapshot_id = merge_base_id,
     reviewer_username = review_username
     where id = _merge_request_id;
-
 
   -- perform diff between mb and s_sc (s_diff)
     -- delete is B minus A on key

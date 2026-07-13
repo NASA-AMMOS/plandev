@@ -12,13 +12,13 @@ create table merlin.plan_snapshot(
     references merlin.mission_model
       on delete set null,
   revision integer not null,
+  plan_start_time timestamptz not null,
+  plan_duration interval not null,
 
   snapshot_name text,
   description text,
   taken_by text,
-  taken_at timestamptz not null default now(),
-  constraint snapshot_name_unique_per_plan
-		unique (plan_id, snapshot_name)
+  taken_at timestamptz not null default now()
 );
 
 comment on table merlin.plan_snapshot is e''
@@ -31,6 +31,10 @@ comment on column merlin.plan_snapshot.model_id is e''
     'The model that this plan was using at the time the snapshot was taken.';
 comment on column merlin.plan_snapshot.revision is e''
 	'The revision of the plan at the time the snapshot was taken.';
+comment on column merlin.plan_snapshot.plan_start_time is e''
+  'The start time of the plan at the time the snapshot was taken.';
+comment on column merlin.plan_snapshot.plan_duration is e''
+  'The duration of the plan at the time the snapshot was taken.';
 comment on column merlin.plan_snapshot.snapshot_name is e''
 	'A human-readable name for the snapshot.';
 comment on column merlin.plan_snapshot.description is e''

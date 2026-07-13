@@ -107,7 +107,7 @@ update_permissions:
         updated_by: "x-hasura-user-id"
   - role: user
     permission:
-      columns: [name, owner, description]
+      columns: [name, owner, duration, description, start_time]
       filter: {"owner":{"_eq":"X-Hasura-User-Id"}}
       set:
         updated_by: "x-hasura-user-id"

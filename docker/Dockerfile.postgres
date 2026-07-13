@@ -1,2 +1,8 @@
-FROM postgres:16.12-bookworm
+FROM postgres:16.14-bookworm
+
+# Update gnutls to pick up debian security fixes flagged by trivy (may not be needed after base image update)
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y --only-upgrade libgnutls30 \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY deployment/postgres-init-db /docker-entrypoint-initdb.d

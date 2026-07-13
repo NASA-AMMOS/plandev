@@ -4,6 +4,8 @@ create procedure merlin.restore_from_snapshot(_plan_id integer, _snapshot_id int
 		_snapshot_name text;
 		_plan_name text;
 		_model_id integer;
+    _plan_start_time timestamptz;
+    _plan_duration interval;
 	begin
 		-- Input Validation
 		select name from merlin.plan where id = _plan_id into _plan_name;
@@ -23,18 +25,17 @@ create procedure merlin.restore_from_snapshot(_plan_id integer, _snapshot_id int
           _snapshot_id, _plan_name, _plan_id;
       end if;
     end if;
-    select model_id from merlin.plan_snapshot where snapshot_id = _snapshot_id into _model_id;
+
+    select model_id, plan_start_time, plan_duration
+    from merlin.plan_snapshot
+    where snapshot_id = _snapshot_id
+    into _model_id, _plan_start_time, _plan_duration;
     if not exists(select from merlin.mission_model m where m.id = _model_id) then
       raise exception 'Cannot Restore: Model with ID % does not exist.', _model_id;
     end if;
 
 		-- Catch Plan_Locked
 		call merlin.plan_locked_exception(_plan_id);
-
-    -- Update model_id of the plan
-    update merlin.plan
-    set model_id = _model_id
-    where id = _plan_id;
 
     -- Record the Union of Activities in Plan and Snapshot
     -- and note which ones have been added since the Snapshot was taken (in_snapshot = false)
@@ -57,10 +58,17 @@ create procedure merlin.restore_from_snapshot(_plan_id integer, _snapshot_id int
 				from diff) a;
 
 		-- Remove any added activities
-  delete from merlin.activity_directive ad
+    delete from merlin.activity_directive ad
 		using diff d
 		where (ad.id, ad.plan_id) = (d.activity_id, _plan_id)
 			and d.in_snapshot is false;
+
+    -- Update model_id and bounds of the plan
+    update merlin.plan
+    set model_id = _model_id,
+        start_time = _plan_start_time,
+        duration = _plan_duration
+    where id = _plan_id;
 
 		-- Upsert the rest
 		insert into merlin.activity_directive (

@@ -103,6 +103,25 @@ public final class Registrar {
       final JsonWriter<Value> jsonWriter,
       final String description
   ) {
+    OutputType<Value> outputType = new OutputType<>() {
+      @Override
+      public ValueSchema getSchema() {
+        if (description != null) {
+          return ValueSchema.withMeta("description", SerializedValue.of(Map.of("value", SerializedValue.of(description))), valueSchema);
+        }
+        return valueSchema;
+      }
+
+      @Override
+      public SerializedValue serialize(final Value value) {
+        return serializer.apply(value);
+      }
+
+      @Override
+      public void writeJson(final Value value, final JsonGenerator gen) throws IOException {
+        jsonWriter.write(value, gen);
+      }
+    };
     return new gov.nasa.jpl.aerie.merlin.protocol.model.Resource<>() {
       @Override
       public String getType() {
@@ -111,25 +130,7 @@ public final class Registrar {
 
       @Override
       public OutputType<Value> getOutputType() {
-        return new OutputType<>() {
-          @Override
-          public ValueSchema getSchema() {
-            if (description != null) {
-              return ValueSchema.withMeta("description", SerializedValue.of(Map.of("value", SerializedValue.of(description))), valueSchema);
-            }
-            return valueSchema;
-          }
-
-          @Override
-          public SerializedValue serialize(final Value value) {
-            return serializer.apply(value);
-          }
-
-          @Override
-          public void writeJson(final Value value, final JsonGenerator gen) throws IOException {
-            jsonWriter.write(value, gen);
-          }
-        };
+        return outputType;
       }
 
       @Override

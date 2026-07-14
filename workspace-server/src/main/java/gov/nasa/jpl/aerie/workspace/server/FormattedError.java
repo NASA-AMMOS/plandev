@@ -214,6 +214,39 @@ public final class FormattedError {
   //endregion
 
   /**
+   * Build the 412 returned when a file changed under the editor. The details go under the "data" key
+   * so the client can drive its conflict-resolution UI.
+   * @param reason "conflict" (the file changed) or "deleted" (the file was removed or moved)
+   * @param currentETag the file's current token, or null if it no longer exists
+   * @param lastEditedBy the user who last edited the file, or null if unknown
+   * @param lastEditedAt the time the file was last edited, or null if unknown
+   */
+  public static FormattedError saveConflict(
+      final String reason,
+      final String currentETag,
+      final String lastEditedBy,
+      final String lastEditedAt) {
+    final var message = "deleted".equals(reason)
+        ? "This file was deleted or moved by another user."
+        : "This file was changed by another user since you last loaded it.";
+    final var error = new FormattedError("SAVE_CONFLICT", message, Optional.empty());
+    final var dataBuilder = Json.createObjectBuilder().add("reason", reason);
+    if (currentETag != null) {
+      dataBuilder.add("currentETag", currentETag);
+    } else {
+      dataBuilder.addNull("currentETag");
+    }
+    if (lastEditedBy != null) {
+      dataBuilder.add("lastEditedBy", lastEditedBy);
+    }
+    if (lastEditedAt != null) {
+      dataBuilder.add("lastEditedAt", lastEditedAt);
+    }
+    error.data = Optional.of(dataBuilder.build());
+    return error;
+  }
+
+  /**
    * Generate a stack trace string from an Exception.
    */
   private String generateTrace(Exception ex) {

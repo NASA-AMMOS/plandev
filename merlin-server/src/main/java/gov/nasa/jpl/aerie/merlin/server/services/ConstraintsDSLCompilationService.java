@@ -3,9 +3,9 @@ package gov.nasa.jpl.aerie.merlin.server.services;
 import gov.nasa.jpl.aerie.constraints.model.EDSLConstraintResult;
 import gov.nasa.jpl.aerie.constraints.tree.Expression;
 import gov.nasa.jpl.aerie.json.JsonParser;
+import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
-import gov.nasa.jpl.aerie.merlin.server.http.InvalidEntityException;
-import gov.nasa.jpl.aerie.merlin.server.http.InvalidJsonException;
+import gov.nasa.jpl.aerie.merlin.server.http.InvalidJsonEntityException;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintsCompilationError;
 import gov.nasa.jpl.aerie.constraints.json.ConstraintParsers;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
@@ -60,7 +60,8 @@ public class ConstraintsDSLCompilationService {
       final Optional<PlanId> planId,
       final Optional<SimulationDatasetId> simulationDatasetId,
       final String constraintTypescript
-  ) throws MissionModelService.NoSuchMissionModelException, NoSuchPlanException
+  ) throws MissionModelService.NoSuchMissionModelException, NoSuchPlanException,
+           MissionModelLoader.MissionModelLoadException
   {
     final var missionModelGeneratedCode = this.typescriptCodeGenerationService.generateTypescriptTypes(missionModelId, planId, simulationDatasetId);
     final JsonObject messageJson = Json.createObjectBuilder()
@@ -88,7 +89,7 @@ public class ConstraintsDSLCompilationService {
           final var output = outputReader.readLine();
           try {
             yield new ConstraintsDSLCompilationResult.Error(parseJson(output, ConstraintsCompilationError.constraintsErrorJsonP));
-          } catch (InvalidJsonException | InvalidEntityException e) {
+          } catch (JsonParsingException | InvalidJsonEntityException e) {
             throw new Error("Could not parse error JSON returned from typescript: " + output, e);
           }
         }
@@ -96,7 +97,7 @@ public class ConstraintsDSLCompilationService {
           final var output = outputReader.readLine();
           try {
             yield new ConstraintsDSLCompilationResult.Success(parseJson(output, ConstraintParsers.constraintP));
-          } catch (InvalidJsonException | InvalidEntityException e) {
+          } catch (JsonParsingException | InvalidJsonEntityException e) {
             throw new Error("Could not parse success JSON returned from typescript: " + output, e);
           }
         }
@@ -108,14 +109,12 @@ public class ConstraintsDSLCompilationService {
   }
 
   private static <T> T parseJson(final String jsonStr, final JsonParser<T> parser)
-  throws InvalidJsonException, InvalidEntityException
+  throws JsonParsingException, InvalidJsonEntityException
   {
     try (final var reader = Json.createReader(new StringReader(jsonStr))) {
       final var requestJson = reader.readValue();
       final var result = parser.parse(requestJson);
-      return result.getSuccessOrThrow(reason -> new InvalidEntityException(List.of(reason)));
-    } catch (JsonParsingException e) {
-      throw new InvalidJsonException(e);
+      return result.getSuccessOrThrow(reason -> new InvalidJsonEntityException(List.of(reason)));
     }
   }
 

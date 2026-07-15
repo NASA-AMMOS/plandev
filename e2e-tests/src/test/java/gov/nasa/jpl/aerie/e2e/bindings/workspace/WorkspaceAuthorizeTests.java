@@ -192,7 +192,7 @@ public class WorkspaceAuthorizeTests {
       final var body = getBody(response);
       assertEquals("FORBIDDEN", body.getString("type"));
       assertEquals("Role 'viewer' is not allowed to perform action 'write_file_directory'", body.getString("message"));
-      assertEquals("aerie_workspace", body.getString("service"));
+      assertEquals("aerie_permissions", body.getString("service"));
     }
   }
 
@@ -288,7 +288,7 @@ public class WorkspaceAuthorizeTests {
       final var body = getBody(response);
       assertEquals("FORBIDDEN", body.getString("type"));
       assertEquals("Role 'viewer' is not allowed to perform action 'write_file_directory'", body.getString("message"));
-      assertEquals("aerie_workspace", body.getString("service"));
+      assertEquals("aerie_permissions", body.getString("service"));
     }
 
     /**

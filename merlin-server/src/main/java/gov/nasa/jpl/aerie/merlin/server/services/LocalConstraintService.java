@@ -39,22 +39,16 @@ public class LocalConstraintService implements ConstraintService {
   }
 
   @Override
-  public void refreshConstraintProcedureParameterTypes(final long constraintId, final long revision) {
+  public void refreshConstraintProcedureParameterTypes(final long constraintId, final long revision)
+  throws NoSuchConstraintException, ProcedureLoader.ProcedureLoadException
+  {
     final ConstraintType constraintType;
-    try {
       constraintType = constraintRepository.getConstraintType(constraintId, revision);
-    } catch (NoSuchConstraintException e) {
-      throw new RuntimeException(e);
-    }
     switch (constraintType) {
       case ConstraintType.EDSL edsl -> { /* do nothing */ }
       case ConstraintType.JAR jar -> {
         final ProcedureMapper<?> mapper;
-        try {
           mapper = ProcedureLoader.loadProcedure(Path.of("/usr/src/app/merlin_file_store", jar.path().toString()));
-        } catch (ProcedureLoader.ProcedureLoadException e) {
-          throw new RuntimeException(e);
-        }
         final var schema = mapper.valueSchema();
         constraintRepository.updateConstraintParameterSchema(constraintId, revision, schema);
       }

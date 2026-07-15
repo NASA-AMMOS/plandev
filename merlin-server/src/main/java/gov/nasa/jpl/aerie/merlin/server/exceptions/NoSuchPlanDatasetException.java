@@ -6,7 +6,7 @@ public final class NoSuchPlanDatasetException extends Exception {
   public final DatasetId id;
 
   public NoSuchPlanDatasetException(final DatasetId id) {
-    super("No plan dataset exists with id `" + id + "`");
+    super("No plan dataset exists with id `" + id.id() + "`");
     this.id = id;
   }
 }

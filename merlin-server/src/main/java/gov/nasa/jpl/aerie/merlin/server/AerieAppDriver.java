@@ -5,9 +5,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import gov.nasa.jpl.aerie.merlin.server.config.AppConfiguration;
 import gov.nasa.jpl.aerie.merlin.server.config.PostgresStore;
 import gov.nasa.jpl.aerie.merlin.server.config.Store;
-import gov.nasa.jpl.aerie.merlin.server.http.LocalAppExceptionBindings;
 import gov.nasa.jpl.aerie.merlin.server.http.MerlinBindings;
-import gov.nasa.jpl.aerie.merlin.server.http.MissionModelRepositoryExceptionBindings;
 import gov.nasa.jpl.aerie.merlin.server.remotes.ConstraintRepository;
 import gov.nasa.jpl.aerie.merlin.server.remotes.MissionModelRepository;
 import gov.nasa.jpl.aerie.merlin.server.remotes.PlanRepository;
@@ -118,8 +116,6 @@ public final class AerieAppDriver {
       if (configuration.enableJavalinDevLogging()) config.plugins.enableDevLogging();
       config.plugins.enableCors(cors -> cors.add(it -> it.anyHost()));
       config.plugins.register(merlinBindings);
-      config.plugins.register(new LocalAppExceptionBindings());
-      config.plugins.register(new MissionModelRepositoryExceptionBindings());
       config.jetty.server(() -> server);
     });
 

@@ -44,10 +44,12 @@ public sealed interface ActivityValidation {
                     $ -> new ValidationNotice(
                         getStringArray($, "subjects"),
                         $.asJsonObject().getString("message"))));
-      case "NO_SUCH_ACTIVITY_TYPE" -> new NoSuchActivityTypeFailure(errors.getJsonObject("noSuchActivityError").getString("message"), errors.getJsonObject("noSuchActivityError").getString("activity_type"));
+      case "NO_SUCH_ACTIVITY_TYPE" -> new NoSuchActivityTypeFailure(
+          errors.getJsonObject("noSuchActivityError").getString("message"),
+          errors.getJsonObject("noSuchActivityError").getJsonObject("data").getString("activity_type"));
       case "NO_SUCH_MISSION_MODEL" -> new NoSuchMissionModelFailure(
           errors.getJsonObject("noSuchMissionModelError").getString("message"),
-          errors.getJsonObject("noSuchMissionModelError").getJsonNumber("mission_model_id").longValue()
+          errors.getJsonObject("noSuchMissionModelError").getJsonObject("data").getJsonNumber("mission_model_id").longValue()
       );
       default -> throw new RuntimeException("Unhandled error type: " + type);
     };

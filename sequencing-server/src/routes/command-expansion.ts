@@ -405,8 +405,6 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       { simulationDatasetId },
     );
 
-    console.log("HERE!")
-  
     const latestRequest = constraint_request[0];
     if (latestRequest === undefined) {
       throw new Error(
@@ -427,7 +425,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       );
     }
   }
-  
+
 
   //  1. Load simulated activities and templates
   const [sequenceTemplates, filteredSimulatedActivitiesBySeqId] = await Promise.all([
@@ -697,8 +695,6 @@ commandExpansionRouter.post('/expand-all-activity-instances', async (req, res, n
       { simulationDatasetId },
     );
 
-    console.log("HERE!")
-  
     const latestRequest = constraint_request[0];
     if (latestRequest === undefined) {
       throw new Error(

@@ -15,12 +15,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-java@v5
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
           distribution: temurin
           java-version: "21"
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
         with:
           # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
           cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
@@ -57,7 +57,7 @@ jobs:
           cp -a ./scheduler-worker/build/docs/javadoc ./build/javadoc/scheduler-worker
           cp -a ./procedural/build/dokka/htmlMultiModule ./build/procedural-apis
       - name: Upload Artifact
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 #v5.0.0
         with:
           path: build/
 
@@ -70,4 +70,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

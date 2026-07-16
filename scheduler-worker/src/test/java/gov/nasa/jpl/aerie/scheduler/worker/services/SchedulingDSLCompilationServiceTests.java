@@ -25,15 +25,12 @@ import gov.nasa.jpl.aerie.constraints.tree.ValueAt;
 import gov.nasa.jpl.aerie.constraints.tree.WindowsFromSpans;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.scheduler.TimeUtility;
 import gov.nasa.jpl.aerie.scheduler.constraints.timeexpressions.TimeAnchor;
 import gov.nasa.jpl.aerie.scheduler.model.GoalId;
 import gov.nasa.jpl.aerie.scheduler.model.PersistentTimeAnchor;
 import gov.nasa.jpl.aerie.scheduler.model.Problem;
-import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchPlanException;
-import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonException;
 import gov.nasa.jpl.aerie.scheduler.server.models.DatasetId;
 import gov.nasa.jpl.aerie.scheduler.server.models.ExternalProfiles;
 import gov.nasa.jpl.aerie.scheduler.server.models.MerlinPlan;
@@ -42,7 +39,6 @@ import gov.nasa.jpl.aerie.scheduler.server.models.PlanMetadata;
 import gov.nasa.jpl.aerie.scheduler.server.models.ResourceType;
 import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingDSL;
 import gov.nasa.jpl.aerie.scheduler.server.services.MerlinDatabaseService;
-import gov.nasa.jpl.aerie.scheduler.server.services.MerlinServiceException;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import org.apache.commons.lang3.tuple.Pair;
@@ -115,7 +111,6 @@ class SchedulingDSLCompilationServiceTests {
 
     @Override
     public Map<String, List<ExternalEvent>> getExternalEvents(final PlanId planId, final Instant horizonStart)
-    throws MerlinServiceException, IOException
     {
       return Map.of();
     }
@@ -127,7 +122,6 @@ class SchedulingDSLCompilationServiceTests {
 
     @Override
     public Map<ActivityDirectiveId, GoalId> getActivityIdToGoalIdMap(final PlanId planId)
-    throws MerlinServiceException, IOException
     {
       return Map.of();
     }

@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.services;
 
+import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
 import gov.nasa.jpl.aerie.types.MissionModelId;
@@ -43,7 +44,7 @@ public record GenerateConstraintsLibAction(TypescriptCodeGenerationServiceAdapte
                  "constraints-ast.ts", constraintsAst,
                  "TemporalPolyfillTypes.ts", temporalPolyfillTypes
           ));
-    } catch (MissionModelService.NoSuchMissionModelException | NoSuchPlanException | IOException e) {
+    } catch (MissionModelService.NoSuchMissionModelException | NoSuchPlanException | IOException | MissionModelLoader.MissionModelLoadException e) {
       return new Response.Failure(e.getMessage());
     }
   }

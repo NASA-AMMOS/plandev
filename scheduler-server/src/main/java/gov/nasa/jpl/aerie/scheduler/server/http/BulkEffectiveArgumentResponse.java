@@ -9,6 +9,7 @@ import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSchedulingGoalExcept
 import java.util.Map;
 
 public sealed interface BulkEffectiveArgumentResponse {
+  GoalId goalId();
   record Success(GoalId goalId, Map<String, SerializedValue> effectiveArguments) implements  BulkEffectiveArgumentResponse { }
   record NoGoalFailure(GoalId goalId, NoSuchSchedulingGoalException ex) implements  BulkEffectiveArgumentResponse { }
   record InstantiationFailure(GoalId goalId, InstantiationException ex) implements  BulkEffectiveArgumentResponse { }

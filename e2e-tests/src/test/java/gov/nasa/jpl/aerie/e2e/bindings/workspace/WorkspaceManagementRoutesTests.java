@@ -93,7 +93,7 @@ public class WorkspaceManagementRoutesTests {
       final var body = getBody(response);
       assertEquals("FORBIDDEN", body.getString("type"));
       assertEquals("Role 'viewer' is not allowed to perform action 'create_workspace'", body.getString("message"));
-      assertEquals("aerie_workspace", body.getString("service"));
+      assertEquals("aerie_permissions", body.getString("service"));
     }
 
     @ParameterizedTest
@@ -202,7 +202,7 @@ public class WorkspaceManagementRoutesTests {
       assertEquals(("User 'bindings_not_owner' with role 'user' cannot perform 'delete_workspace' "
                     + "because they are not a 'OWNER' for workspace with id '%d'").formatted(workspaceId),
                    body.getString("message"));
-      assertEquals("aerie_workspace", body.getString("service"));
+      assertEquals("aerie_permissions", body.getString("service"));
     }
 
     /**
@@ -218,7 +218,7 @@ public class WorkspaceManagementRoutesTests {
       assertEquals(("User 'bindings_not_owner' with role 'user' cannot perform 'delete_workspace' "
                     + "because they are not a 'OWNER' for workspace with id '%d'").formatted(workspaceId),
                    body.getString("message"));
-      assertEquals("aerie_workspace", body.getString("service"));
+      assertEquals("aerie_permissions", body.getString("service"));
     }
 
     /**

@@ -1,6 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.services;
 
-import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
+import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader.MissionModelLoadException;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import gov.nasa.jpl.aerie.types.Plan;
@@ -28,7 +28,7 @@ public interface MissionModelService {
   throws NoSuchMissionModelException;
 
   Map<String, ValueSchema> getResourceSchemas(MissionModelId missionModelId)
-  throws NoSuchMissionModelException;
+  throws NoSuchMissionModelException, MissionModelLoadException;
 
   /**
    * getActivityTypes uses the cached result of refreshActivityTypes. For this reason, refreshActivityTypes
@@ -38,42 +38,41 @@ public interface MissionModelService {
   throws NoSuchMissionModelException;
   // TODO: Provide a finer-scoped validation return type. Mere strings make all validations equally severe.
   List<ValidationNotice> validateActivityArguments(MissionModelId missionModelId, SerializedActivity activity)
-  throws NoSuchMissionModelException, InstantiationException;
+  throws NoSuchMissionModelException, MissionModelLoadException, InstantiationException;
 
   Map<ActivityDirectiveId, ActivityInstantiationFailure> validateActivityInstantiations(
       MissionModelId missionModelId,
       Map<ActivityDirectiveId,
       SerializedActivity> activities
-  ) throws NoSuchMissionModelException, LocalMissionModelService.MissionModelLoadException;
+  ) throws NoSuchMissionModelException, MissionModelLoadException;
 
   List<BulkEffectiveArgumentResponse> getActivityEffectiveArgumentsBulk(
       MissionModelId missionModelId,
       List<SerializedActivity> serializedActivities)
-  throws NoSuchMissionModelException;
+  throws NoSuchMissionModelException, MissionModelLoadException;
 
   List<ValidationNotice> validateModelArguments(MissionModelId missionModelId, Map<String, SerializedValue> arguments)
-  throws NoSuchMissionModelException,
-         LocalMissionModelService.MissionModelLoadException,
-         InstantiationException;
+  throws NoSuchMissionModelException, MissionModelLoadException, InstantiationException;
 
   List<Parameter> getModelParameters(MissionModelId missionModelId)
-  throws NoSuchMissionModelException, MissionModelLoader.MissionModelLoadException;
+  throws NoSuchMissionModelException, MissionModelLoadException;
 
   Map<String, SerializedValue> getModelEffectiveArguments(MissionModelId missionModelId, Map<String, SerializedValue> arguments)
-  throws NoSuchMissionModelException,
-         LocalMissionModelService.MissionModelLoadException,
-         InstantiationException;
+  throws NoSuchMissionModelException, MissionModelLoadException, InstantiationException;
 
   SimulationResults runSimulation(
       final Plan plan,
       final Consumer<Duration> writer,
       final Supplier<Boolean> canceledListener,
       final SimulationResourceManager resourceManager
-  ) throws NoSuchMissionModelException, MissionModelService.NoSuchActivityTypeException;
+  ) throws NoSuchMissionModelException, MissionModelService.NoSuchActivityTypeException, MissionModelLoadException;
 
-  void refreshModelParameters(MissionModelId missionModelId) throws NoSuchMissionModelException;
-  void refreshActivityTypes(MissionModelId missionModelId) throws NoSuchMissionModelException;
-  void refreshResourceTypes(MissionModelId missionModelId) throws NoSuchMissionModelException;
+  void refreshModelParameters(MissionModelId missionModelId)
+  throws NoSuchMissionModelException, MissionModelLoadException;
+  void refreshActivityTypes(MissionModelId missionModelId) throws NoSuchMissionModelException,
+                                                                  MissionModelLoadException;
+  void refreshResourceTypes(MissionModelId missionModelId) throws NoSuchMissionModelException,
+                                                                  MissionModelLoadException;
 
   sealed interface ActivityInstantiationFailure {
     record NoSuchActivityType(NoSuchActivityTypeException ex) implements ActivityInstantiationFailure { }
@@ -95,7 +94,7 @@ public interface MissionModelService {
     public final String activityTypeId;
 
     public NoSuchActivityTypeException(final String activityTypeId, final Throwable cause) {
-      super(cause);
+      super("No such activity type " + activityTypeId, cause);
       this.activityTypeId = activityTypeId;
     }
 

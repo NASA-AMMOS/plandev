@@ -1,7 +1,7 @@
 package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalSource;
-import gov.nasa.jpl.aerie.merlin.server.http.InvalidEntityException;
+import gov.nasa.jpl.aerie.merlin.server.http.InvalidJsonEntityException;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
 import org.intellij.lang.annotations.Language;
 
@@ -33,7 +33,7 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
   }
 
   public Map<String, ExternalSource> get(final PlanId planId)
-  throws SQLException, InvalidEntityException
+  throws SQLException, InvalidJsonEntityException
   {
     final var result = new HashMap<String, ExternalSource>();
     this.statement.setLong(1, planId.id());
@@ -44,7 +44,7 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
       final String key = resultSet.getString("key");
       // get source attributes
       final var attributes = getJsonColumn(resultSet, "attributes", eventAttributesP)
-          .getSuccessOrThrow(reason -> new InvalidEntityException(List.of(reason)));
+          .getSuccessOrThrow(reason -> new InvalidJsonEntityException(List.of(reason)));
       // get derivation group
       final String derivationGroup = resultSet.getString("derivation_group_name");
 

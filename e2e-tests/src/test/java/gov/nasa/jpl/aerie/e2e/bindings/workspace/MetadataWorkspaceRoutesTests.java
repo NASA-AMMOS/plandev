@@ -231,7 +231,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals("FORBIDDEN", body.getString("type"));
       assertEquals("Role 'viewer' is not allowed to perform action 'write_file_directory'",
                    body.getString("message"));
-      assertEquals("aerie_workspace", body.getString("service"));
+      assertEquals("aerie_permissions", body.getString("service"));
     }
 
     /**
@@ -247,7 +247,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals(("User '%s' with role 'user' cannot perform 'write_file_directory' "
                     + "because they are not a 'OWNER_COLLABORATOR' for workspace with id '%d'").formatted(nonOwner.name(), workspaceId),
                    body.getString("message"));
-      assertEquals("aerie_workspace", body.getString("service"));
+      assertEquals("aerie_permissions", body.getString("service"));
     }
 
     /**
@@ -259,7 +259,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals(404, resp.status());
       final var body = getBody(resp);
       assertEquals("NO_SUCH_WORKSPACE", body.getString("type"));
-      assertEquals("Could not check permissions on Workspace -1.", body.getString("message"));
+      assertEquals("Could not check permissions on workspace -1: workspace does not exist.", body.getString("message"));
     }
 
     /**
@@ -719,7 +719,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals("FORBIDDEN", body.getString("type"));
       assertEquals("Role 'viewer' is not allowed to perform action 'write_file_directory'",
                    body.getString("message"));
-      assertEquals("aerie_workspace", body.getString("service"));
+      assertEquals("aerie_permissions", body.getString("service"));
     }
 
     /**
@@ -735,7 +735,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals(("User '%s' with role 'user' cannot perform 'write_file_directory' "
                     + "because they are not a 'OWNER_COLLABORATOR' for workspace with id '%d'").formatted(nonOwner.name(), workspaceId),
                    body.getString("message"));
-      assertEquals("aerie_workspace", body.getString("service"));
+      assertEquals("aerie_permissions", body.getString("service"));
     }
 
     /**
@@ -747,7 +747,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals(404, resp.status());
       final var body = getBody(resp);
       assertEquals("NO_SUCH_WORKSPACE", body.getString("type"));
-      assertEquals("Could not check permissions on Workspace -1.", body.getString("message"));
+      assertEquals("Could not check permissions on workspace -1: workspace does not exist.", body.getString("message"));
     }
 
     /**
@@ -1099,7 +1099,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals("FORBIDDEN", body.getString("type"));
       assertEquals(("Role 'viewer' is not allowed to perform action 'delete_file_directory'"),
                    body.getString("message"));
-      assertEquals("aerie_workspace", body.getString("service"));
+      assertEquals("aerie_permissions", body.getString("service"));
     }
 
     /**
@@ -1115,7 +1115,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals(("User '%s' with role 'user' cannot perform 'delete_file_directory' "
                     + "because they are not a 'OWNER_COLLABORATOR' for workspace with id '%d'").formatted(nonOwner.name(), workspaceId),
                    body.getString("message"));
-      assertEquals("aerie_workspace", body.getString("service"));
+      assertEquals("aerie_permissions", body.getString("service"));
     }
 
     /**
@@ -1127,7 +1127,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals(404, resp.status());
       final var body = getBody(resp);
       assertEquals("NO_SUCH_WORKSPACE", body.getString("type"));
-      assertEquals("Could not check permissions on Workspace -1.", body.getString("message"));
+      assertEquals("Could not check permissions on workspace -1: workspace does not exist.", body.getString("message"));
     }
 
     /**

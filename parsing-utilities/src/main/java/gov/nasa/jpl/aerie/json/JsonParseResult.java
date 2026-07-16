@@ -1,7 +1,9 @@
 package gov.nasa.jpl.aerie.json;
 
 import org.apache.commons.lang3.tuple.Pair;
+import org.jetbrains.annotations.NotNull;
 
+import javax.json.Json;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiFunction;
@@ -103,6 +105,16 @@ public sealed interface JsonParseResult<T> {
     public FailureReason prependBreadcrumb(Breadcrumb breadcrumb) {
       this.breadcrumbs.add(0, breadcrumb);
       return this;
+    }
+
+    @Override
+    public @NotNull String toString() {
+      final var breadcrumbsArray = Json.createArrayBuilder();
+      breadcrumbs.forEach(b -> breadcrumbsArray.add(b.toString()));
+      return Json.createObjectBuilder()
+                 .add("breadcrumbs", breadcrumbsArray)
+                 .add("message", reason())
+                 .build().toString();
     }
   }
 }

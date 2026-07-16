@@ -3,6 +3,7 @@ package gov.nasa.jpl.aerie.merlin.server.services;
 import gov.nasa.jpl.aerie.merlin.driver.DirectiveTypeRegistry;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
+import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader.MissionModelLoadException;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import gov.nasa.jpl.aerie.types.Plan;
@@ -69,7 +70,7 @@ public final class LocalMissionModelService implements MissionModelService {
   public MissionModelJar getMissionModelById(final MissionModelId missionModelId) throws NoSuchMissionModelException {
     try {
       return this.missionModelRepository.getMissionModel(missionModelId);
-    } catch (MissionModelRepository.NoSuchMissionModelException ex) {
+    } catch (NoSuchMissionModelException ex) {
       throw new NoSuchMissionModelException(missionModelId, ex);
     }
   }
@@ -101,11 +102,7 @@ public final class LocalMissionModelService implements MissionModelService {
   public Map<String, ActivityType> getActivityTypes(final MissionModelId missionModelId)
   throws NoSuchMissionModelException
   {
-    try {
-      return missionModelRepository.getActivityTypes(missionModelId);
-    } catch (MissionModelRepository.NoSuchMissionModelException e) {
-      throw new NoSuchMissionModelException(missionModelId, e);
-    }
+    return missionModelRepository.getActivityTypes(missionModelId);
   }
 
   /**
@@ -290,7 +287,7 @@ public final class LocalMissionModelService implements MissionModelService {
       final Consumer<Duration> simulationExtentConsumer,
       final Supplier<Boolean> canceledListener,
       final SimulationResourceManager resourceManager)
-  throws NoSuchMissionModelException
+  throws NoSuchMissionModelException, MissionModelLoadException
   {
     final var config = plan.simulationConfiguration();
     if (config.isEmpty()) {
@@ -316,64 +313,47 @@ public final class LocalMissionModelService implements MissionModelService {
 
   @Override
   public void refreshModelParameters(final MissionModelId missionModelId)
-  throws NoSuchMissionModelException
+  throws NoSuchMissionModelException, MissionModelLoadException
   {
-    try {
-      this.missionModelRepository.updateModelParameters(missionModelId, getModelParameters(missionModelId));
-    } catch (final MissionModelRepository.NoSuchMissionModelException ex) {
-      throw new NoSuchMissionModelException(missionModelId, ex);
-    }
+    this.missionModelRepository.updateModelParameters(missionModelId, getModelParameters(missionModelId));
   }
 
   @Override
   public void refreshActivityTypes(final MissionModelId missionModelId)
-  throws NoSuchMissionModelException
+  throws NoSuchMissionModelException, MissionModelLoadException
   {
-    try {
-      final var modelType = this.loadMissionModelType(missionModelId);
-      final var registry = DirectiveTypeRegistry.extract(modelType);
-      final var activityTypes = new HashMap<String, ActivityType>();
-      registry.directiveTypes().forEach((name, directiveType) -> {
-        final var inputType = directiveType.getInputType();
-        final var outputType = directiveType.getOutputType();
-        activityTypes.put(name, new ActivityType(
-            name,
-            inputType.getParameters(),
-            inputType.getRequiredParameters(),
-            outputType.getSchema(),
-            directiveType.getSubsystem(),
-            directiveType.getDescription()
-        ));
-      });
-      final var subsystems = modelType.getSubsystems();
-      this.missionModelRepository.updateActivityTypes(missionModelId, activityTypes, subsystems);
-    } catch (final MissionModelRepository.NoSuchMissionModelException ex) {
-      throw new NoSuchMissionModelException(missionModelId, ex);
-    }
+    final var modelType = this.loadMissionModelType(missionModelId);
+    final var registry = DirectiveTypeRegistry.extract(modelType);
+    final var activityTypes = new HashMap<String, ActivityType>();
+    registry.directiveTypes().forEach((name, directiveType) -> {
+      final var inputType = directiveType.getInputType();
+      final var outputType = directiveType.getOutputType();
+      activityTypes.put(
+          name, new ActivityType(
+              name,
+              inputType.getParameters(),
+              inputType.getRequiredParameters(),
+              outputType.getSchema(),
+              directiveType.getSubsystem(),
+              directiveType.getDescription()
+          ));
+    });
+    final var subsystems = modelType.getSubsystems();
+    this.missionModelRepository.updateActivityTypes(missionModelId, activityTypes, subsystems);
   }
 
   @Override
   public void refreshResourceTypes(final MissionModelId missionModelId)
   throws NoSuchMissionModelException, MissionModelLoadException {
-    try {
-      final var model = this.loadAndInstantiateMissionModel(missionModelId);
-      this.missionModelRepository.updateResourceTypes(missionModelId, model.getResources());
-    } catch (MissionModelRepository.NoSuchMissionModelException e) {
-      throw new NoSuchMissionModelException(missionModelId);
-    }
+    final var model = this.loadAndInstantiateMissionModel(missionModelId);
+    this.missionModelRepository.updateResourceTypes(missionModelId, model.getResources());
   }
 
   private ModelType<?, ?> loadMissionModelType(final MissionModelId missionModelId)
   throws NoSuchMissionModelException, MissionModelLoadException
   {
-    try {
-      final var missionModelJar = this.missionModelRepository.getMissionModel(missionModelId);
-      return MissionModelLoader.loadModelType(missionModelDataPath.resolve(missionModelJar.path), missionModelJar.name, missionModelJar.version);
-    } catch (final MissionModelRepository.NoSuchMissionModelException ex) {
-      throw new NoSuchMissionModelException(missionModelId, ex);
-    } catch (final MissionModelLoader.MissionModelLoadException ex) {
-      throw new MissionModelLoadException(ex);
-    }
+    final var missionModelJar = this.missionModelRepository.getMissionModel(missionModelId);
+    return MissionModelLoader.loadModelType(missionModelDataPath.resolve(missionModelJar.path), missionModelJar.name, missionModelJar.version);
   }
 
   /**
@@ -407,22 +387,12 @@ public final class LocalMissionModelService implements MissionModelService {
       final SerializedValue configuration)
   throws NoSuchMissionModelException, MissionModelLoadException
   {
-    try {
-      final var missionModelJar = this.missionModelRepository.getMissionModel(missionModelId);
-      return MissionModelLoader.loadMissionModel(
-          planStart,
-          configuration,
-          missionModelDataPath.resolve(missionModelJar.path),
-          missionModelJar.name,
-          missionModelJar.version);
-    } catch (final MissionModelRepository.NoSuchMissionModelException ex) {
-      throw new NoSuchMissionModelException(missionModelId, ex);
-    } catch (final MissionModelLoader.MissionModelLoadException ex) {
-      throw new MissionModelLoadException(ex);
-    }
-  }
-
-  public static class MissionModelLoadException extends RuntimeException {
-    public MissionModelLoadException(final Throwable cause) { super(cause); }
+    final var missionModelJar = this.missionModelRepository.getMissionModel(missionModelId);
+    return MissionModelLoader.loadMissionModel(
+        planStart,
+        configuration,
+        missionModelDataPath.resolve(missionModelJar.path),
+        missionModelJar.name,
+        missionModelJar.version);
   }
 }

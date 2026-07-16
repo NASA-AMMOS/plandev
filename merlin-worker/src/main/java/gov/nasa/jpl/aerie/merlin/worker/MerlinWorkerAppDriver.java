@@ -2,6 +2,7 @@ package gov.nasa.jpl.aerie.merlin.worker;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import gov.nasa.jpl.aerie.json.FormattedError;
 import gov.nasa.jpl.aerie.merlin.driver.resources.StreamingSimulationResourceManager;
 import gov.nasa.jpl.aerie.merlin.server.ResultsProtocol;
 import gov.nasa.jpl.aerie.merlin.server.config.PostgresStore;
@@ -101,13 +102,18 @@ public final class MerlinWorkerAppDriver {
               canceledListener,
               new StreamingSimulationResourceManager(streamer));
         } catch (final Throwable ex) {
-          ex.printStackTrace(System.err);
+          final var formattedError = new FormattedError(
+              FormattedError.AerieService.SIMULATION_WORKER,
+              "UNEXPECTED_SIMULATION_EXCEPTION",
+              "Something went wrong while simulating",
+              ex);
           writer.failWith(b -> b
-              .type("UNEXPECTED_SIMULATION_EXCEPTION")
-              .message("Something went wrong while simulating")
+              .type(formattedError.getType())
+              .message(formattedError.getMessage())
+              .data(formattedError.toJson())
               .trace(ex));
-        }
-        finally {
+          ex.printStackTrace(System.err);
+        } finally {
           canceledListener.unregister();
         }
       }

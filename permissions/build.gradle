@@ -11,6 +11,8 @@ java {
 
 dependencies {
   implementation 'org.glassfish:javax.json:1.1.4'
+  implementation("com.fasterxml.jackson.core:jackson-databind:2.20.1")
+  implementation project(':parsing-utilities')
 }
 
 // NOTE: This module is published ONLY to satisfy a transitive dependency in orchestration-utils.

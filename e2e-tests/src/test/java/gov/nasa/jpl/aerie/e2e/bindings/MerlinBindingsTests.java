@@ -110,7 +110,7 @@ public class MerlinBindingsTests {
                               .toString();
       final var response = request.post("/getSimulationResults", RequestOptions.create().setData(data));
       assertEquals(404, response.status());
-      assertEquals("no such plan", getBody(response).getString("message"));
+      assertEquals("No plan exists with id `-1`", getBody(response).getString("message"));
     }
 
     @Test
@@ -184,7 +184,6 @@ public class MerlinBindingsTests {
     @Test
     void invalidPlanId() {
       // Returns a 404 if the PlanId is invalid
-      // message is "no such plan"
       final String data = Json.createObjectBuilder()
                               .add("action", Json.createObjectBuilder().add("name", "resource_samples"))
                               .add("input", Json.createObjectBuilder().add("planId", -1))
@@ -194,7 +193,7 @@ public class MerlinBindingsTests {
                               .toString();
       final var response = request.post("/resourceSamples", RequestOptions.create().setData(data));
       assertEquals(404, response.status());
-      assertEquals("no such plan", getBody(response).getString("message"));
+      assertEquals("No plan exists with id `-1`", getBody(response).getString("message"));
     }
 
     @Test
@@ -259,13 +258,12 @@ public class MerlinBindingsTests {
                               .toString();
       final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
       assertEquals(404, response.status());
-      assertEquals("no such plan", getBody(response).getString("message"));
+      assertEquals("No plan exists with id `-1`", getBody(response).getString("message"));
     }
 
     @Test
     void invalidSimDatasetId() throws IOException {
       // Returns a 404 if the SimDatasetId is invalid
-      // Message is an "input mismatch exception"
       hasura.awaitSimulation(planId);
       final String data = Json.createObjectBuilder()
                               .add("action", Json.createObjectBuilder().add("name", "check_constraints"))
@@ -279,15 +277,17 @@ public class MerlinBindingsTests {
                               .toString();
       final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
       assertEquals(404, response.status());
-      final var expectedResponse = Json.createObjectBuilder()
-                                       .add("message", "input mismatch exception")
-                                       .add(
-                                           "extensions", Json.createObjectBuilder()
-                                                             .add(
-                                                                 "cause",
-                                                                 "simulation dataset with id `-1` does not exist"))
-                                       .build();
-      assertEquals(expectedResponse, getBody(response));
+
+      final var body = getBody(response);
+      final var extensions = body.getJsonObject("extensions");
+      // Check the message field
+      final var expectedMessage = "simulation dataset with id `-1` does not exist";
+      assertEquals(expectedMessage, body.getString("message"));
+
+      // Check the extensions
+      assertEquals("INPUT_MISMATCH_EXCEPTION", extensions.getString("type"));
+      assertEquals(expectedMessage, extensions.getString("message"));
+      assertEquals("aerie_merlin", extensions.getString("service"));
     }
 
     @Test
@@ -303,7 +303,6 @@ public class MerlinBindingsTests {
         final int simDatasetId = hasura.awaitSimulation(secondPlanId).simDatasetId();
 
         // Returns a 404 because the simDataset belonged to a different plan
-        // Message is 'simulation dataset mismatch exception'
         final String data = Json.createObjectBuilder()
                                 .add("action", Json.createObjectBuilder().add("name", "check_constraints"))
                                 .add(
@@ -316,13 +315,19 @@ public class MerlinBindingsTests {
                                 .toString();
         final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
         assertEquals(404, response.status());
-        final var expectedCause =
-            "Simulation Dataset with id `" + simDatasetId + "` does not belong to Plan with id `" + planId + "`";
-        final var expectedResponse = Json.createObjectBuilder()
-                                         .add("message", "simulation dataset mismatch exception")
-                                         .add("extensions", Json.createObjectBuilder().add("cause", expectedCause))
-                                         .build();
-        assertEquals(expectedResponse, getBody(response));
+
+        // Check the response
+        final var body = getBody(response);
+        final var extensions = body.getJsonObject("extensions");
+
+        // Check the message field
+        final var expectedMessage = "Simulation Dataset with id `" + simDatasetId + "` does not belong to Plan with id `" + planId + "`";
+        assertEquals(expectedMessage, body.getString("message"));
+
+        // Check the extensions object
+        assertEquals("SIM_DATASET_MISMATCH_EXCEPTION", extensions.getString("type"));
+        assertEquals(expectedMessage, extensions.getString("message"));
+        assertEquals("aerie_merlin", extensions.getString("service"));
       } finally {
         hasura.deletePlan(secondPlanId);
       }
@@ -358,12 +363,19 @@ public class MerlinBindingsTests {
                               .toString();
       final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
       assertEquals(404, response.status());
-      final var expectedCause = "plan with id " + planId + " has not yet been simulated at its current revision";
-      final var expectedBody = Json.createObjectBuilder()
-                                   .add("message", "input mismatch exception")
-                                   .add("extensions", Json.createObjectBuilder().add("cause", expectedCause))
-                                   .build();
-      assertEquals(expectedBody, getBody(response));
+
+      // Check the response
+      final var body = getBody(response);
+      final var extensions = body.getJsonObject("extensions");
+
+      // Check the message field
+      final var expectedMessage = "plan with id " + planId + " has not yet been simulated at its current revision";
+      assertEquals(expectedMessage, body.getString("message"));
+
+      // Check the extensions object
+      assertEquals("INPUT_MISMATCH_EXCEPTION", extensions.getString("type"));
+      assertEquals(expectedMessage, extensions.getString("message"));
+      assertEquals("aerie_merlin", extensions.getString("service"));
     }
 
     @Test
@@ -434,7 +446,7 @@ public class MerlinBindingsTests {
                               .toString();
       final var response = request.post("/refreshModelParameters", RequestOptions.create().setData(data));
       assertEquals(404, response.status());
-      assertEquals("no such mission model", getBody(response).getString("message"));
+      assertEquals("No mission model exists with id `-1`", getBody(response).getString("message"));
     }
 
     @Test
@@ -474,7 +486,7 @@ public class MerlinBindingsTests {
                               .toString();
       final var response = request.post("/refreshActivityTypes", RequestOptions.create().setData(data));
       assertEquals(404, response.status());
-      assertEquals("no such mission model", getBody(response).getString("message"));
+      assertEquals("No mission model exists with id `-1`", getBody(response).getString("message"));
     }
 
     @Test
@@ -502,7 +514,6 @@ public class MerlinBindingsTests {
     @Test
     void invalidMissionModelId() {
       // Returns a 404 if the MissionModelId is invalid
-      // message is "no such mission model"
       final String data = Json.createObjectBuilder()
                               .add(
                                   "event", Json.createObjectBuilder()
@@ -514,7 +525,7 @@ public class MerlinBindingsTests {
                               .toString();
       final var response = request.post("/refreshResourceTypes", RequestOptions.create().setData(data));
       assertEquals(404, response.status());
-      assertEquals("no such mission model", getBody(response).getString("message"));
+      assertEquals("No mission model exists with id `-1`", getBody(response).getString("message"));
     }
 
     @Test
@@ -542,7 +553,6 @@ public class MerlinBindingsTests {
     @Test
     void invalidMissionModelId() {
       // Returns a 404 if the MissionModelId is invalid
-      // message is "no such mission model"
       final String data = Json.createObjectBuilder()
                               .add("action", Json.createObjectBuilder().add("name", "validateActivityArguments"))
                               .add(
@@ -556,7 +566,10 @@ public class MerlinBindingsTests {
                               .toString();
       final var response = request.post("/validateActivityArguments", RequestOptions.create().setData(data));
       assertEquals(404, response.status());
-      assertEquals("no such mission model", getBody(response).getString("message"));
+      final var body = getBody(response);
+      assertEquals("No mission model exists with id `-1`", body.getString("message"));
+      assertTrue(body.containsKey("extensions"));
+      assertEquals("NO_SUCH_MISSION_MODEL", body.getJsonObject("extensions").getString("type"));
     }
 
     @Test
@@ -585,7 +598,6 @@ public class MerlinBindingsTests {
     @Test
     void invalidMissionModelId() {
       // Returns a 404 if the MissionModelId is invalid
-      // message is "no such mission model"
       final String data = Json.createObjectBuilder()
                               .add("action", Json.createObjectBuilder().add("name", "validateModelArguments"))
                               .add(
@@ -598,7 +610,7 @@ public class MerlinBindingsTests {
                               .toString();
       final var response = request.post("/validateModelArguments", RequestOptions.create().setData(data));
       assertEquals(404, response.status());
-      assertEquals("no such mission model", getBody(response).getString("message"));
+      assertEquals("No mission model exists with id `-1`", getBody(response).getString("message"));
     }
 
     @Test
@@ -636,7 +648,7 @@ public class MerlinBindingsTests {
                               .toString();
       final var response = request.post("/validatePlan", RequestOptions.create().setData(data));
       assertEquals(404, response.status());
-      assertEquals("no such plan", getBody(response).getString("message"));
+      assertEquals("No plan exists with id `-1`", getBody(response).getString("message"));
     }
 
     @Test
@@ -674,7 +686,7 @@ public class MerlinBindingsTests {
                               .toString();
       final var response = request.post("/getModelEffectiveArguments", RequestOptions.create().setData(data));
       assertEquals(404, response.status());
-      assertEquals("no such mission model", getBody(response).getString("message"));
+      assertEquals("No mission model exists with id `-1`", getBody(response).getString("message"));
     }
 
     @Test
@@ -733,7 +745,7 @@ public class MerlinBindingsTests {
                               .toString();
       final var response = request.post("/getActivityEffectiveArgumentsBulk", RequestOptions.create().setData(data));
       assertEquals(404, response.status());
-      assertEquals("no such mission model", getBody(response).getString("message"));
+      assertEquals("No mission model exists with id `-1`", getBody(response).getString("message"));
     }
 
     @Test
@@ -818,7 +830,7 @@ public class MerlinBindingsTests {
                               .toString();
       final var response = request.post("/addExternalDataset", RequestOptions.create().setData(data));
       assertEquals(404, response.status());
-      assertEquals("no such plan", getBody(response).getString("message"));
+      assertEquals("No plan exists with id `-1`", getBody(response).getString("message"));
     }
 
     @Test
@@ -885,7 +897,7 @@ public class MerlinBindingsTests {
                               .toString();
       final var response = request.post("/extendExternalDataset", RequestOptions.create().setData(data));
       assertEquals(404, response.status());
-      assertEquals("no such plan dataset", getBody(response).getString("message"));
+      assertEquals("No plan dataset exists with id `-1`", getBody(response).getString("message"));
     }
 
     @Test

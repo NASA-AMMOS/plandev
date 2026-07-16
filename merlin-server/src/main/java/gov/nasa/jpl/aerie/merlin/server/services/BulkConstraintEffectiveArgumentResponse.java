@@ -8,6 +8,7 @@ import gov.nasa.jpl.aerie.merlin.server.models.ProcedureLoader;
 import java.util.Map;
 
 public sealed interface BulkConstraintEffectiveArgumentResponse {
+  ConstraintId constraintId();
   record Success(ConstraintId constraintId, Map<String, SerializedValue> effectiveArguments) implements  BulkConstraintEffectiveArgumentResponse { }
   record NoConstraintFailure(ConstraintId constraintId) implements  BulkConstraintEffectiveArgumentResponse { }
   record InstantiationFailure(ConstraintId constraintId, InstantiationException ex) implements  BulkConstraintEffectiveArgumentResponse { }

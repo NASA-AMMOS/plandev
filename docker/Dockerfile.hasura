@@ -1,2 +1,12 @@
 FROM hasura/graphql-engine:v2.12.1.cli-migrations-v3
+
+# update libc to mitigate CVE-2022-49770 from scan
+# remove pgdg to make install succeed due to https://www.postgresql.org/message-id/aCtIvml4sCYnRSjp%40msg.df7cb.de
+# (may not be needed after base image update)
+RUN rm -f /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
+    && apt-get install --no-install-recommends -y --only-upgrade linux-libc-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+
 COPY deployment/hasura/metadata /hasura-metadata

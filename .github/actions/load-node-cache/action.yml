@@ -4,7 +4,7 @@ runs:
   using: composite
   steps:
     - name: Cache global ~/.npm cache
-      uses: actions/cache@v5
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.2.0
       with:
         path: ~/.npm
         key: npm-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}

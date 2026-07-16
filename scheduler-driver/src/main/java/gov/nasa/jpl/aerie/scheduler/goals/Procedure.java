@@ -171,11 +171,12 @@ public class Procedure extends Goal {
       final DeletedAnchorStrategy strategy,
       final Map<ActivityDirectiveId, GoalId> sourceSchedulingGoals
   ) {
-    for (final var activity: ((SchedulerPlanEditAdapter) plan.getAdapter()).getPlan().getActivities()) {
-      final var goalId = sourceSchedulingGoals.getOrDefault(activity.id(), null);
-      if (goalId != null && goalId.goalInvocationId().equals(this.goalId.goalInvocationId())) {
-        plan.delete(activity.id(), strategy);
-      }
-    }
+    sourceSchedulingGoals
+        .entrySet()
+        .stream()
+        // Filter the sourceSchedulingGoals map to get the set of ActivityDirectiveIds placed by this procedure
+        .filter(entry -> entry.getValue() != null && entry.getValue().goalInvocationId().equals(this.goalId.goalInvocationId()))
+        .map(Map.Entry::getKey)
+        .forEach(id -> plan.deleteIfExists(id, strategy));
   }
 }

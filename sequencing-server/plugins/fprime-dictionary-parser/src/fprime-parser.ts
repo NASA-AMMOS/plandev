@@ -49,10 +49,10 @@ function getEnums(dictionary: FPPDictionary): ampcs.Enum[] {
       .map(
         (type: any) =>
           ({
-            name: type.qualifiedName.replaceAll('.', '_'),
+            name: type.qualifiedName,
             values: type.enumeratedConstants.map((enumConstant: any) => ({
               numeric: enumConstant.value,
-              symbol: enumConstant.name.replaceAll('.', '_'),
+              symbol: enumConstant.name,
             })),
           } as ampcs.Enum),
       ) ?? []
@@ -61,7 +61,7 @@ function getEnums(dictionary: FPPDictionary): ampcs.Enum[] {
 
 function createEnumMap(enums: ampcs.Enum[]): ampcs.EnumMap {
   return enums.reduce((acc, enumDef) => {
-    acc[enumDef.name.replaceAll('.', '_')] = enumDef;
+    acc[enumDef.name] = enumDef;
     return acc;
   }, {} as ampcs.EnumMap);
 }
@@ -110,7 +110,7 @@ function argsToAMPCSArgs(
   });
   return {
     argumentMap: ampcsArguments.reduce((acc, arg) => {
-      acc[arg.name.replaceAll('.', '_')] = arg;
+      acc[arg.name] = arg;
       return acc;
     }, {} as ampcs.FswCommandArgumentMap),
     arguments: ampcsArguments,
@@ -132,7 +132,7 @@ function argToFSWArg(
           bit_length: arg.type.size ?? null,
           default_value: 0,
           description: arg.annotation ?? '',
-          name: arg.name.replaceAll('.', '_'),
+          name: arg.name,
           range: null,
           units: '',
         } as ampcs.FswCommandArgumentInteger;
@@ -142,7 +142,7 @@ function argToFSWArg(
           bit_length: arg.type.size ?? null,
           default_value: 0,
           description: arg.annotation ?? '',
-          name: arg.name.replaceAll('.', '_'),
+          name: arg.name,
           range: null,
           units: '',
         } as ampcs.FswCommandArgumentUnsigned;
@@ -153,7 +153,7 @@ function argToFSWArg(
         bit_length: arg.type.size ?? null,
         default_value: 0,
         description: arg.annotation ?? '',
-        name: arg.name.replaceAll('.', '_'),
+        name: arg.name,
         range: null,
         units: '',
       } as ampcs.FswCommandArgumentFloat;
@@ -161,7 +161,7 @@ function argToFSWArg(
       return {
         arg_type: 'boolean',
         description: arg.annotation ?? '',
-        name: arg.name.replaceAll('.', '_'),
+        name: arg.name,
         bit_length: arg.type.size ?? null,
         default_value: 'true',
         format: null,
@@ -170,7 +170,7 @@ function argToFSWArg(
       return {
         arg_type: 'var_string',
         description: arg.annotation ?? '',
-        name: arg.name.replaceAll('.', '_'),
+        name: arg.name,
       } as ampcs.FswCommandArgumentVarString;
     case 'qualifiedIdentifier': {
       if (!typeDefinitions || !typeDefinitions.length) {
@@ -200,22 +200,22 @@ function argToFSWArg(
             bit_length: arg.type.size ?? null,
             default_value: typeDefinition.default.split('.').pop() ?? null,
             description: arg.annotation ?? '',
-            enum_name: typeDefinition.qualifiedName.replaceAll('.', '_'),
-            name: arg.name.replaceAll('.', '_'),
+            enum_name: typeDefinition.qualifiedName,
+            name: arg.name,
             range: null,
           } as ampcs.FswCommandArgumentEnum;
         case 'array':
           return {
             arg_type: 'repeat',
             description: typeDefinition.annotation ?? '',
-            name: typeDefinition.qualifiedName.replaceAll('.', '_'),
+            name: typeDefinition.qualifiedName,
             prefix_bit_length: typeDefinition.elementType.size ?? null,
             repeat: {
               argumentMap: {},
               arguments: [
                 argToFSWArg(
                   {
-                    name: typeDefinition.elementType.name.replaceAll('.', '_'),
+                    name: typeDefinition.elementType.name,
                     type: typeDefinition.elementType,
                     ref: false,
                     annotation: '',
@@ -231,7 +231,7 @@ function argToFSWArg(
           return {
             arg_type: 'repeat',
             description: typeDefinition.annotation ?? '',
-            name: typeDefinition.qualifiedName.replaceAll('.', '_'),
+            name: typeDefinition.qualifiedName,
             prefix_bit_length: null,
             repeat: {
               argumentMap: {},
@@ -242,7 +242,7 @@ function argToFSWArg(
                 }
                 return argToFSWArg(
                   {
-                    name: memberName.replaceAll('.', '_'),
+                    name: memberName,
                     type: member.type,
                     ref: false,
                     annotation: member.annotation,

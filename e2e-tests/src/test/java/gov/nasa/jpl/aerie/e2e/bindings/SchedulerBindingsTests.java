@@ -89,7 +89,6 @@ public class SchedulerBindingsTests {
     @Test
     void invalidSpecId(){
       // Returns a 404 if the SpecId is invalid
-      // message is "no such scheduling specification"
       final String data = Json.createObjectBuilder()
                               .add("action", Json.createObjectBuilder().add("name", "scheduler"))
                               .add("input", Json.createObjectBuilder().add("specificationId", -1))
@@ -99,7 +98,19 @@ public class SchedulerBindingsTests {
                               .toString();
       final var response = request.post("/schedule", RequestOptions.create().setData(data));
       assertEquals(404, response.status());
-      assertEquals("no such scheduling specification", getBody(response).getString("message"));
+
+      // Check the response
+      final var body = getBody(response);
+      final var extensions = body.getJsonObject("extensions");
+
+      // Check the message field
+      final var expectedMessage = "Could not check permissions on scheduling specification -1: specification does not exist.";
+      assertEquals(expectedMessage, body.getString("message"));
+
+      // Check the extensions object
+      assertEquals("NO_SUCH_SCHEDULING_SPECIFICATION", extensions.getString("type"));
+      assertEquals(expectedMessage, extensions.getString("message"));
+      assertEquals("aerie_permissions", extensions.getString("service"));
     }
     @Test
     void forbidden(){
@@ -172,7 +183,7 @@ public class SchedulerBindingsTests {
       assertEquals(200, response.status());
       final var expectedBody = Json.createObjectBuilder()
                                    .add("status", "failure")
-                                   .add("reason", "No plan exists with id `PlanId[id=-1]`")
+                                   .add("reason", "No plan exists with id `-1`")
                                    .build();
       assertEquals(expectedBody, getBody(response));
     }

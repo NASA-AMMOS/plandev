@@ -1,8 +1,7 @@
 package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
 
 import gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser;
-import gov.nasa.jpl.aerie.scheduler.server.http.InvalidEntityException;
-import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonException;
+import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonEntityException;
 import gov.nasa.jpl.aerie.scheduler.model.GoalId;
 import gov.nasa.jpl.aerie.scheduler.server.models.GoalInvocationRecord;
 import gov.nasa.jpl.aerie.scheduler.server.models.GoalSource;
@@ -68,7 +67,7 @@ import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.parseJso
         ));
       }
       return goals;
-    } catch (InvalidJsonException | InvalidEntityException e) {
+    } catch (InvalidJsonEntityException e) {
       throw new SQLException(e);
     }
   }

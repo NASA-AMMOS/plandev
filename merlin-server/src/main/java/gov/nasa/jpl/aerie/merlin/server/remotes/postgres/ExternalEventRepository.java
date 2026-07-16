@@ -2,7 +2,7 @@ package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
 
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalSource;
-import gov.nasa.jpl.aerie.merlin.server.http.InvalidEntityException;
+import gov.nasa.jpl.aerie.merlin.server.http.InvalidJsonEntityException;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
 
 import java.sql.Connection;
@@ -16,7 +16,7 @@ import java.util.Map;
     final Connection connection,
     final PlanId planId,
     final Instant horizonStart
-  ) throws SQLException, InvalidEntityException
+  ) throws SQLException, InvalidJsonEntityException
   {
     try (final var getPlanExternalEventsAction = new GetPlanExternalEventsAction(connection)) {
         Map<String, ExternalSource> sourceMap = getExternalSources(connection, planId);
@@ -27,7 +27,7 @@ import java.util.Map;
   static Map<String, ExternalSource> getExternalSources(
       final Connection connection,
       final PlanId planId
-  ) throws SQLException, InvalidEntityException {
+  ) throws SQLException, InvalidJsonEntityException {
     try (final var getExternalSourcesMapAction = new GetExternalSourcesMapAction(connection)) {
       return getExternalSourcesMapAction.get(planId);
     }

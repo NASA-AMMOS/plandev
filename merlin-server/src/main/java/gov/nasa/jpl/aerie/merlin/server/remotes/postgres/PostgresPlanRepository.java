@@ -6,7 +6,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
-import gov.nasa.jpl.aerie.merlin.server.http.InvalidEntityException;
+import gov.nasa.jpl.aerie.merlin.server.http.InvalidJsonEntityException;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.server.models.DatasetId;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
@@ -283,7 +283,7 @@ public final class PostgresPlanRepository implements PlanRepository {
     } catch (final SQLException ex) {
       throw new DatabaseException(
           "Failed to get external events for plan with id `%s`".formatted(planId), ex);
-    } catch (final InvalidEntityException in) {
+    } catch (final InvalidJsonEntityException in) {
       throw new RuntimeException(
           ("Failed to get external events for plan with id `%s; "
            + "failed to parse jsonb for external event/source attributes`").formatted(planId), in);

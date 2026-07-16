@@ -16,6 +16,9 @@ on:
     - cron: '42 2 * * 0' # weekly cron scan
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
@@ -45,12 +48,6 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd #v6.0.2
         with:
           fetch-depth: 0
-
-      # Add any setup steps before running the `github/codeql-action/init` action.
-      # This includes steps like installing compilers or runtimes (`actions/setup-node`
-      # or others). This is typically only required for manual builds.
-      # - name: Setup runtime (example)
-      #   uses: actions/setup-example@v1
 
       # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
@@ -137,13 +134,13 @@ jobs:
           fetch-depth: 0
 
       - name: Download CodeQL Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: codeql-artifacts-*
           path: codeql-results
 
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
           distribution: "temurin"
           java-version: "21"
@@ -161,7 +158,7 @@ jobs:
           build-mode: manual
 
       - name: Build Java
-        run: ./gradlew build
+        run: ./gradlew assemble
 
       - name: Perform Java CodeQL Analysis
         uses: github/codeql-action/analyze@9e0d7b8d25671d64c341c19c0152d693099fb5ba #4.35.5
@@ -184,7 +181,7 @@ jobs:
         with:
           name: codeql-artifacts-java-kotlin
           path: ${{ env.JAVA_RESULTS_DIR }}
-      
+
       # Collect all the scrubbed .sarif file outputs from the CodeQL analyses
       # to be uploaded to SonarCloud in addition to its own sonar scan
       - name: collect stripped .sarif file paths
@@ -203,11 +200,12 @@ jobs:
 
       # PlanDev Sonar scans are run with the sonarqube gradle plugin instead of the Sonar GH action
       # this allows discovery + analysis of build artifacts via normal Gradle build process instead of complex Sonar config
+      # Run test + jacocoTestReport first to generate coverage reports for scan
       - name: Run Sonar scan
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: >
-          ./gradlew sonar
+          ./gradlew test jacocoTestReport sonar
           -Dsonar.verbose=true
           -Dsonar.gradle.scanAll=true
           -Dsonar.sarifReportPaths="${{ env.SARIF_REPORT_PATHS }}"

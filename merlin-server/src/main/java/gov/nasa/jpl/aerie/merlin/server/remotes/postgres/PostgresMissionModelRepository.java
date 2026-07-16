@@ -7,6 +7,7 @@ import gov.nasa.jpl.aerie.merlin.server.models.ActivityType;
 import gov.nasa.jpl.aerie.merlin.server.models.MissionModelJar;
 import gov.nasa.jpl.aerie.merlin.server.remotes.MissionModelRepository;
 import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService;
+import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService.NoSuchMissionModelException;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -48,7 +49,7 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
         return getMissionModelAction
             .get(missionModelId.id())
             .map(PostgresMissionModelRepository::missionModelRecordToMissionModelJar)
-            .orElseThrow(NoSuchMissionModelException::new);
+            .orElseThrow(() -> new NoSuchMissionModelException(missionModelId));
       }
     } catch (final SQLException ex) {
       throw new DatabaseException("Failed to retrieve mission model with id `%s`".formatted(missionModelId), ex);
@@ -56,7 +57,7 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
   }
 
   @Override
-  public Map<String, ActivityType> getActivityTypes(final MissionModelId missionModelId) throws NoSuchMissionModelException {
+  public Map<String, ActivityType> getActivityTypes(final MissionModelId missionModelId) {
     try (final var connection = this.dataSource.getConnection()) {
       try (final var getActivityTypesAction = new GetActivityTypesAction(connection)) {
         final var id = missionModelId.id();
@@ -74,7 +75,7 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
 
   @Override
   public void updateModelParameters(final MissionModelId missionModelId, final List<Parameter> modelParameters)
-  throws NoSuchMissionModelException {
+  {
     try (final var connection = this.dataSource.getConnection()) {
       try (final var createModelParametersAction = new CreateModelParametersAction(connection)) {
         final var id = missionModelId.id();
@@ -88,7 +89,7 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
 
   @Override
   public void updateActivityTypes(final MissionModelId missionModelId, final Map<String, ActivityType> activityTypes, final List<String> subsystems)
-  throws NoSuchMissionModelException {
+  {
     try (final var connection = this.dataSource.getConnection()) {
       final Map<String, Integer> mapSubsystemsToIds;
       try (final var insertSubsystemsAction = new InsertSubsystemsAction(connection)) {
@@ -110,7 +111,7 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
 
   @Override
   public void updateResourceTypes(final MissionModelId missionModelId, final Map<String, Resource<?>> resources)
-  throws NoSuchMissionModelException {
+  {
     final var resourceTypes = resources.entrySet()
                                        .stream()
                                        .collect(Collectors.toMap(

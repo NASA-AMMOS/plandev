@@ -1,8 +1,7 @@
 package gov.nasa.jpl.aerie.scheduler.worker.services;
 
 import gov.nasa.jpl.aerie.json.JsonParser;
-import gov.nasa.jpl.aerie.scheduler.server.http.InvalidEntityException;
-import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonException;
+import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonEntityException;
 import gov.nasa.jpl.aerie.scheduler.server.models.PlanId;
 import gov.nasa.jpl.aerie.scheduler.server.models.ResourceType;
 import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingCompilationError;
@@ -130,9 +129,7 @@ public class SchedulingDSLCompilationService {
             yield new SchedulingDSLCompilationResult.Error<>(parseJson(
                 output,
                 SchedulingCompilationError.schedulingErrorJsonP));
-          } catch (InvalidJsonException e) {
-            throw new Error("Could not parse JSON returned from typescript: ", e);
-          } catch (InvalidEntityException e) {
+          } catch (InvalidJsonEntityException e) {
             throw new Error("Could not parse JSON returned from typescript: " + e.failures + "\n" + output);
           }
         }
@@ -140,9 +137,7 @@ public class SchedulingDSLCompilationService {
           final var output = outputReader.readLine();
           try {
             yield new SchedulingDSLCompilationResult.Success<>(parseJson(output, parser));
-          } catch (InvalidJsonException e) {
-            throw new Error("Could not parse JSON returned from typescript: " + output, e);
-          } catch (InvalidEntityException e) {
+          } catch (InvalidJsonEntityException e) {
             throw new Error("Could not parse JSON returned from typescript: " + e.failures + "\n" + output, e);
           }
         }
@@ -154,14 +149,12 @@ public class SchedulingDSLCompilationService {
   }
 
   private static <T> T parseJson(final String jsonStr, final JsonParser<T> parser)
-  throws InvalidJsonException, InvalidEntityException
+  throws JsonParsingException, InvalidJsonEntityException
   {
     try (final var reader = Json.createReader(new StringReader(jsonStr))) {
       final var requestJson = reader.readValue();
       final var result = parser.parse(requestJson);
-      return result.getSuccessOrThrow(reason -> new InvalidEntityException(List.of(reason)));
-    } catch (JsonParsingException e) {
-      throw new InvalidJsonException(e);
+      return result.getSuccessOrThrow(reason -> new InvalidJsonEntityException(List.of(reason)));
     }
   }
 

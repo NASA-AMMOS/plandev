@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.workspace.server;
 
+import gov.nasa.jpl.aerie.workspace.server.exceptions.NoSuchFileException;
 import gov.nasa.jpl.aerie.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.RenderType;
@@ -21,6 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.security.DigestInputStream;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -42,8 +44,9 @@ import javax.json.stream.JsonGenerator;
 
 public class WorkspaceFileSystemService implements WorkspaceService {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceFileSystemService.class);
+
   // Configure how the Metadata JSONs are written
-  private final static Map<String,String> config = Map.of(JsonGenerator.PRETTY_PRINTING, "");
+  private static final Map<String,String> config = Map.of(JsonGenerator.PRETTY_PRINTING, "");
 
   final WorkspacePostgresRepository postgresRepository;
 
@@ -115,7 +118,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var baseFilePath = resolveWritingPath(rootPath, filePath);
 
     // Check that the given filepath is not a directory or a metadata file, both of which are not allowed to have associated metadata files
-    if(baseFilePath.toFile().isDirectory()) {
+    if(Files.isDirectory(baseFilePath)) {
       throw new WorkspaceFileOpException("Cannot resolve metadata file path: %s is a directory.".formatted(baseFilePath.getFileName()));
     }
 
@@ -128,7 +131,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var metadataFileName = RenderType.toMetadataFileName(baseFilePath.getFileName().toString());
     final var metadataFilePath = baseFilePath.resolveSibling(metadataFileName); // Metadata files are hidden sibling files
 
-    if(metadataFilePath.toFile().isDirectory()) {
+    if(Files.isDirectory(metadataFilePath)) {
       throw new WorkspaceFileOpException("Cannot retrieve metadata file: %s is a directory".formatted(metadataFilePath.getFileName()));
     }
 
@@ -226,7 +229,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     }
 
     for(final var f : contents) {
-      if(Files.isSymbolicLink(f.toPath()) || !f.isDirectory()) {
+      if(Files.isSymbolicLink(f.toPath()) || !Files.isDirectory(f.toPath())) {
         success = rm(f) && success;
       } else {
         success = rmDirectory(f) && success;
@@ -260,7 +263,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   @Override
   public boolean isDirectory(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException {
     final var path = resolveReadingPath(workspaceId, filePath);
-    return path.toFile().isDirectory();
+    return Files.isDirectory(path);
   }
 
   @Override
@@ -299,15 +302,68 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   //region File Operations
   @Override
-  public FileStream loadFile(final int workspaceId, final Path filePath) throws IOException, NoSuchWorkspaceException {
+  public FileStream loadFile(final int workspaceId, final Path filePath)
+  throws IOException, NoSuchWorkspaceException, NoSuchFileException, WorkspaceFileOpException
+  {
     final var path = resolveReadingPath(workspaceId, filePath);
     final var file = path.toFile();
 
-    return new FileStream(new FileInputStream(file), file.getName(), Files.size(file.toPath()));
+    if(Files.isDirectory(path)) {
+      throw new WorkspaceFileOpException("Cannot get the file contents of a directory.");
+    }
+    if(RenderType.isAerieMetadataFile(file.getName())) {
+      throw new WorkspaceFileOpException("Cannot load a metadata file directly.");
+    }
+    if(!Files.exists(path)) {
+      throw new NoSuchFileException(workspaceId, filePath);
+    }
+
+    return new FileStream(new FileInputStream(file), file.getName(), Files.size(file.toPath()), getETag(path));
   }
 
   @Override
-  public boolean saveFile(final int workspaceId, final Path filePath, final UploadedFile file, final String userId)
+  public String getETag(final int workspaceId, final Path filePath)
+  throws IOException, NoSuchWorkspaceException, NoSuchFileException, WorkspaceFileOpException {
+    final var path = resolveReadingPath(workspaceId, filePath);
+    if(Files.isDirectory(path)) {
+      throw new WorkspaceFileOpException("Cannot compute the Entity Tag for a directory.");
+    }
+    if(!Files.exists(path)) {
+      throw new NoSuchFileException(workspaceId, filePath);
+    }
+    return getETag(path);
+  }
+
+  /**
+   * Override of getETag that takes in a resolved, tested file path
+   * @param filePath the resolved path to a file in the workspace
+   * @return the file's current Entity Tag
+   * @throws IOException If there is an I/O Error while reading the file's contents
+   */
+  private String getETag(final Path filePath) throws IOException{
+    // Read the file in 1 MB chunks to avoid loading it all into memory at once
+    final var md = WorkspaceService.newSHA256Digest();
+    try(final var inputStream = new DigestInputStream(new FileInputStream(filePath.toFile()), md)) {
+      final var buffer = new byte[1048576]; // 1 MB
+      while(inputStream.read(buffer) > 0) {
+        // This while body is left intentionally empty, since the DigestInputStream automatically
+        // processes the chunk as part of read().
+      }
+      return WorkspaceService.eTagFromDigest(md.digest());
+    }
+  }
+
+  @Override
+  public LastEditInfo getLastEditInfo(final int workspaceId, final Path filePath)
+  throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException {
+    final var metadata = readMetadataFile(resolveMetadataPath(workspaceId, filePath).toFile());
+    return new LastEditInfo(
+        metadata.getString(MetadataKeys.lastEditedBy.name(), null),
+        metadata.getString(MetadataKeys.lastEditedAt.name(), null));
+  }
+
+  @Override
+  public Optional<String> saveFile(final int workspaceId, final Path filePath, final UploadedFile file, final String userId)
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException
   {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
@@ -318,11 +374,15 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         .lastEditedBy(userId)
         .build();
 
-    if(path.toFile().isDirectory()) return false;
+    if(Files.isDirectory(path)) return Optional.empty();
 
-    FileUtil.streamToFile(file.content(), path.toString());
+    // Hash while streaming to disk so the returned ETag matches what we wrote, with no extra read.
+    final var md = WorkspaceService.newSHA256Digest();
+    try (final var contentStream = new DigestInputStream(file.content(), md)) {
+      FileUtil.streamToFile(contentStream, path.toString());
+    }
     updateMetadataKeys(metadataFilePath, metadataUpdates, MetadataMergeBehavior.deepMerge);
-    return true;
+    return Optional.of(WorkspaceService.eTagFromDigest(md.digest()));
   }
 
   @Override
@@ -431,7 +491,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   public DirectoryTree listFiles(final int workspaceId, final Path directoryPath, final int depth, final boolean withMetadata)
   throws SQLException, NoSuchWorkspaceException, IOException {
     final var path = resolveReadingPath(workspaceId, directoryPath);
-    if(!path.toFile().isDirectory()) {
+    if(!Files.isDirectory(path)) {
       return null;
     }
     return listFiles(path, depth, withMetadata);
@@ -572,7 +632,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
     final var directoryPath = resolveReadingPath(repoPath, dirPath);
 
-    if(!directoryPath.toFile().isDirectory()) {
+    if(!Files.isDirectory(directoryPath)) {
       if(isReadOnly(repoPath, dirPath)) {
         return List.of(directoryPath);
       }
@@ -606,6 +666,22 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     }
   }
 
+  /**
+   * Generates a generic FileStream response to use as a fallback in the event
+   * that a user attempts to load a non-existent metadata file.
+   * @param metadataFileName the name of the metadata file
+   */
+  private FileStream generateFallbackMetadataResponse(final String metadataFileName) {
+    final byte[] fallbackResponse = Json.createObjectBuilder()
+                                        .add("version", "1")
+                                        .build()
+                                        .toString()
+                                        .getBytes(StandardCharsets.UTF_8);
+    final var inputStream = new ByteArrayInputStream(fallbackResponse);
+    final var eTag = WorkspaceService.computeETag(fallbackResponse);
+    return new FileStream(inputStream, metadataFileName, fallbackResponse.length, eTag);
+  }
+
   @Override
   public FileStream loadMetadataFile(final int workspaceId, final Path filePath)
   throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException
@@ -615,16 +691,19 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
     // If the file doesn't exist, return a file containing just the current metadata file version
     if(!metadataFile.exists()) {
-      final byte[] fallbackResponse = Json.createObjectBuilder()
-                                          .add("version", "1")
-                                          .build()
-                                          .toString()
-                                          .getBytes(StandardCharsets.UTF_8);
-      final var inputStream = new ByteArrayInputStream(fallbackResponse);
-      return new FileStream(inputStream, metadataFile.getName(), fallbackResponse.length);
+      return generateFallbackMetadataResponse(metadataFile.getName());
     }
 
-    return new FileStream(new FileInputStream(metadataFile), metadataFile.getName(), Files.size(metadataFile.toPath()));
+    try {
+      return new FileStream(
+          new FileInputStream(metadataFile),
+          metadataFile.getName(),
+          Files.size(metadataFile.toPath()),
+          getETag(workspaceId, filePath));
+    } catch (NoSuchFileException nfe) {
+      logger.error("Metadata file deleted mid-read.");
+      return generateFallbackMetadataResponse(metadataFile.getName());
+    }
   }
 
   @Override

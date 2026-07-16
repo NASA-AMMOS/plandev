@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import gov.nasa.jpl.aerie.json.FormattedError;
 import gov.nasa.jpl.aerie.scheduler.server.ResultsProtocol;
 import gov.nasa.jpl.aerie.scheduler.server.config.PlanOutputMode;
 import gov.nasa.jpl.aerie.scheduler.server.config.PostgresStore;
@@ -108,11 +109,17 @@ public final class SchedulerWorkerAppDriver {
               canceledListener,
               config.maxCachedSimulationEngines());
         } catch (final Throwable ex) {
-          ex.printStackTrace(System.err);
+          final var formattedError = new FormattedError(
+              FormattedError.AerieService.SCHEDULER_WORKER,
+              "UNEXPECTED_SCHEDULER_EXCEPTION",
+              "Something went wrong while scheduling",
+              ex);
           writer.failWith(b -> b
-              .type("UNEXPECTED_SCHEDULER_EXCEPTION")
-              .message("Something went wrong while scheduling")
+              .type(formattedError.getType())
+              .message(formattedError.getMessage())
+              .data(formattedError.toJson())
               .trace(ex));
+          ex.printStackTrace(System.err);
         }
         finally {
           canceledListener.unregister();

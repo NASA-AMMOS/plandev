@@ -2,6 +2,7 @@
 package gov.nasa.jpl.aerie.merlin.server.services;
 
 import gov.nasa.jpl.aerie.constraints.TypescriptCodeGenerationService;
+import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
@@ -23,7 +24,7 @@ public class TypescriptCodeGenerationServiceAdapter {
   }
 
   public String generateTypescriptTypes(final MissionModelId missionModelId, final Optional<PlanId> planId, final Optional<SimulationDatasetId> simulationDatasetId)
-  throws MissionModelService.NoSuchMissionModelException, NoSuchPlanException
+  throws MissionModelService.NoSuchMissionModelException, NoSuchPlanException, MissionModelLoader.MissionModelLoadException
   {
     return TypescriptCodeGenerationService
         .generateTypescriptTypes(
@@ -55,7 +56,7 @@ public class TypescriptCodeGenerationServiceAdapter {
       final PlanService planService,
       final Optional<PlanId> planId,
       final Optional<SimulationDatasetId> simulationDatasetId
-  ) throws MissionModelService.NoSuchMissionModelException, NoSuchPlanException {
+  ) throws MissionModelService.NoSuchMissionModelException, NoSuchPlanException, MissionModelLoader.MissionModelLoadException {
     final var simulatedResourceSchemas = missionModelService.getResourceSchemas(modelId);
     final var results = new HashMap<String, ValueSchema>(simulatedResourceSchemas);
     if (planId.isPresent()) {

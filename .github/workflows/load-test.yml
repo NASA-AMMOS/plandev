@@ -3,6 +3,10 @@ name: Load Test
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: read
+
 env:
   AERIE_USERNAME: "aerie"
   AERIE_PASSWORD: "aerie"
@@ -25,14 +29,14 @@ jobs:
     environment: load-test
     steps:
       - name: Checkout Repo
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
           distribution: "temurin"
           java-version: "21"
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
         with:
           # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
           cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
@@ -52,7 +56,7 @@ jobs:
           ./load-test.sh
       - name: Upload Load Test Results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: Load Test Results
           path: "**/load-tests/load-report.*"

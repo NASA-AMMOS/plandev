@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.json.Json;
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,7 +35,8 @@ public class BasicSchedulingTests extends ProceduralTestingSetup {
         "Test Scheduling Procedure 1",
         dumbRecurrenceGoalJarId,
         specId,
-        0
+        0,
+        true
     );
   }
 
@@ -62,7 +64,7 @@ public class BasicSchedulingTests extends ProceduralTestingSetup {
   void executeSchedulingRunWithoutArguments() throws IOException {
     final var resp = hasura.awaitFailingScheduling(specId);
     final var message = resp.reason().getString("message");
-    assertTrue(message.contains("java.lang.RuntimeException: gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException: Invalid arguments for input type \"DumbRecurrenceGoal\": extraneous arguments: [], unconstructable arguments: [], missing arguments: [MissingArgument[parameterName=biteSize, schema=IntSchema[]]], valid arguments: [ValidArgument[parameterName=quantity, serializedValue=NumericValue[value=360]]]"));
+    assertTrue(message.contains("gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException: Invalid arguments for input type \"DumbRecurrenceGoal\": extraneous arguments: [], unconstructable arguments: [], missing arguments: [MissingArgument[parameterName=biteSize, schema=IntSchema[]]], valid arguments: [ValidArgument[parameterName=quantity, serializedValue=NumericValue[value=360]]]"));
   }
 
   /**
@@ -184,7 +186,7 @@ public class BasicSchedulingTests extends ProceduralTestingSetup {
    * Run a spec that includes unfinished activities
    */
   @Test
-  void IncludesUnfinishedActivities() throws IOException {
+  void includesUnfinishedActivities() throws IOException {
     // Disable the recurrence goal to simplify scheduling results
     hasura.updateSchedulingSpecEnabled(dumbRecurrenceGoalId.invocationId(), false);
 
@@ -225,5 +227,48 @@ public class BasicSchedulingTests extends ProceduralTestingSetup {
     for(final var act : simResults.activities()) {
       assertNull(act.duration());
     }
+  }
+
+  /**
+   * Scheduling can handle two activities with the same parameters located that start at the same time without
+   * throwing an IllegalStateException.
+   *
+   * Uses DumbRecurrenceGoal for testing, as it will always place duplicate directives when the spec is rescheduled.
+   */
+  @Test
+  void duplicateActivitiesSupportedOnRerun() throws IOException {
+    final var args = Json.createObjectBuilder().add("quantity", 2).add("biteSize", 1).build();
+    hasura.updateSchedulingSpecGoalArguments(dumbRecurrenceGoalId.invocationId(), args);
+
+    hasura.awaitScheduling(planId);
+
+    final var initialActivities = hasura.getPlan(planId).activityDirectives();
+
+    // Rerun scheduling
+    hasura.updatePlanRevisionSchedulingSpec(planId);
+    hasura.awaitScheduling(planId);
+
+    final var updatedActivities = hasura.getPlan(planId).activityDirectives();
+
+    // Two new directives should have been placed on the plan
+    assertEquals(2, initialActivities.size());
+    assertEquals(4, updatedActivities.size());
+
+    // Sort the activities by start time
+    initialActivities.sort(Comparator.comparing(Plan.ActivityDirective::startOffset));
+    updatedActivities.sort(Comparator.comparing(Plan.ActivityDirective::startOffset));
+
+    // Check that the four activities are grouped into two sets of two.
+    final var firstStartTime = initialActivities.getFirst().startOffset();
+    assertEquals(2, updatedActivities.stream()
+                                     .filter(dir -> dir.startOffset().equals(firstStartTime))
+                                     .toList()
+                                     .size());
+
+    final var secondStartTime = initialActivities.getLast().startOffset();
+    assertEquals(2, updatedActivities.stream()
+                                     .filter(dir -> dir.startOffset().equals(secondStartTime))
+                                     .toList()
+                                     .size());
   }
 }

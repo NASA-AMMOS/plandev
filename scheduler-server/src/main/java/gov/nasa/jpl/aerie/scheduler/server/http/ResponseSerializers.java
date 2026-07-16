@@ -6,20 +6,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import gov.nasa.jpl.aerie.json.JsonParseResult;
-import gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser;
+
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
-import gov.nasa.jpl.aerie.scheduler.ProcedureLoader;
-import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchPlanException;
-import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSchedulingGoalException;
-import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSpecificationException;
 import gov.nasa.jpl.aerie.scheduler.model.GoalId;
 import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingCompilationError;
 import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleAction;
 import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleResults;
-import gov.nasa.jpl.aerie.scheduler.server.services.UnexpectedSubtypeError;
 import org.apache.commons.lang3.tuple.Pair;
 
 import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
@@ -53,38 +46,35 @@ public class ResponseSerializers {
    * @return a json serialization of the scheduling run result
    */
   public static JsonValue serializeScheduleResultsResponse(final ScheduleAction.Response response) {
-    if (response instanceof final ScheduleAction.Response.Pending r) {
-      return Json
-          .createObjectBuilder()
-          .add("status", "pending")
-          .add("analysisId", r.analysisId())
-          .build();
-    } else if (response instanceof ScheduleAction.Response.Incomplete r) {
-      return Json
-          .createObjectBuilder()
-          .add("status", "incomplete")
-          .add("analysisId", r.analysisId())
-          .build();
-    } else if (response instanceof ScheduleAction.Response.Failed r) {
-      return Json
-          .createObjectBuilder()
-          .add("status", "failed")
-          .add("reason", SchedulerParsers.scheduleFailureP.unparse(r.reason()))
-          .add("analysisId", r.analysisId())
-          .build();
-    } else if (response instanceof ScheduleAction.Response.Complete r) {
-      final var responseJson = Json
-          .createObjectBuilder()
-          .add("status", "complete")
-          .add("results", serializeScheduleResults(r.results()))
-          .add("analysisId", r.analysisId());
-      if(r.datasetId().isPresent()){
-        responseJson.add("datasetId", r.datasetId().get());
+    return switch (response) {
+      case ScheduleAction.Response.Pending p ->
+          Json.createObjectBuilder()
+              .add("status", "pending")
+              .add("analysisId", p.analysisId())
+              .build();
+      case ScheduleAction.Response.Incomplete i ->
+          Json.createObjectBuilder()
+              .add("status", "incomplete")
+              .add("analysisId", i.analysisId())
+              .build();
+      case ScheduleAction.Response.Failed f ->
+          Json.createObjectBuilder()
+              .add("status", "failed")
+              .add("reason", SchedulerParsers.scheduleFailureP.unparse(f.reason()))
+              .add("analysisId", f.analysisId())
+              .build();
+      case ScheduleAction.Response.Complete c -> {
+        final var responseJson = Json
+            .createObjectBuilder()
+            .add("status", "complete")
+            .add("results", serializeScheduleResults(c.results()))
+            .add("analysisId", c.analysisId());
+        if(c.datasetId().isPresent()){
+          responseJson.add("datasetId", c.datasetId().get());
+        }
+        yield responseJson.build();
       }
-      return responseJson.build();
-    } else {
-      throw new UnexpectedSubtypeError(ScheduleAction.Response.class, response);
-    }
+    };
   }
 
   public static JsonValue serializeArgument(final SerializedValue parameter) {
@@ -97,57 +87,44 @@ public class ResponseSerializers {
   }
 
   public static JsonValue serializeBulkEffectiveArgumentResponse(BulkEffectiveArgumentResponse response) {
-    // TODO use pattern matching in switch statement with JDK 21
-    if (response instanceof BulkEffectiveArgumentResponse.Success(
-        GoalId goalId, Map<String, SerializedValue> effectiveArguments)) {
-      return Json.createObjectBuilder()
-                 .add("id", goalId.id())
-                 .add("revision", goalId.revision())
-                 .add("success", JsonValue.TRUE)
-                 .add("arguments",
-                      serializeMap(
-                          ResponseSerializers::serializeArgument,
-                          effectiveArguments))
-                 .build();
-    } else if (response instanceof BulkEffectiveArgumentResponse.TypeFailure(GoalId goalId)) {
-      return Json.createObjectBuilder()
-                 .add("id", goalId.id())
-                 .add("revision", goalId.revision())
-                 .add("success", JsonValue.FALSE)
-                 .add("errors", "Goal is not procedural")
-                 .build();
-    } else if (response instanceof BulkEffectiveArgumentResponse.InstantiationFailure(
-        GoalId goalId,
-        InstantiationException ex)) {
-      return Json.createObjectBuilder(serializeInstantiationException(ex).asJsonObject())
-                 .add("id", goalId.id())
-                 .add("revision", goalId.revision())
-                 .build();
-    }
-    else if (response instanceof BulkEffectiveArgumentResponse.NoGoalFailure(
-        GoalId goalId,
-        NoSuchSchedulingGoalException ex)) {
-      return Json.createObjectBuilder()
-                 .add("success", JsonValue.FALSE)
-                 .add("id", goalId.id())
-                 .add("revision", goalId.revision())
-                 .add("errors", "There is no goal with this id")
-                 .build();
-    }
-    else if (response instanceof BulkEffectiveArgumentResponse.ProcedureLoadFailure(
-       GoalId goalId,
-       ProcedureLoader.ProcedureLoadException ex)) {
-      return Json.createObjectBuilder()
-                 .add("success", JsonValue.FALSE)
-                 .add("id", goalId.id())
-                 .add("revision", goalId.revision())
-                 .add("errors", "Error when loading the procedure jar")
-                 .build();
-    }
-    return Json.createObjectBuilder()
-               .add("success", JsonValue.FALSE)
-               .add("errors", String.format("Internal error: %s", response))
-               .build();
+    return switch (response) {
+      case BulkEffectiveArgumentResponse.Success s ->
+          Json.createObjectBuilder()
+              .add("id", s.goalId().id())
+              .add("revision", s.goalId().revision())
+              .add("success", JsonValue.TRUE)
+              .add("arguments",
+                   serializeMap(
+                       ResponseSerializers::serializeArgument,
+                       s.effectiveArguments()))
+              .build();
+      case BulkEffectiveArgumentResponse.TypeFailure tf ->
+          Json.createObjectBuilder()
+              .add("id", tf.goalId().id())
+              .add("revision", tf.goalId().revision())
+              .add("success", JsonValue.FALSE)
+              .add("errors", "Goal is not procedural")
+              .build();
+      case BulkEffectiveArgumentResponse.InstantiationFailure inf ->
+          Json.createObjectBuilder(serializeInstantiationException(inf.ex()).asJsonObject())
+              .add("id", inf.goalId().id())
+              .add("revision", inf.goalId().revision())
+              .build();
+      case BulkEffectiveArgumentResponse.NoGoalFailure ngf ->
+          Json.createObjectBuilder()
+             .add("success", JsonValue.FALSE)
+             .add("id", ngf.goalId().id())
+             .add("revision", ngf.goalId().revision())
+             .add("errors", "There is no goal with this id")
+             .build();
+      case BulkEffectiveArgumentResponse.ProcedureLoadFailure plf ->
+          Json.createObjectBuilder()
+              .add("success", JsonValue.FALSE)
+              .add("id", plf.goalId().id())
+              .add("revision", plf.goalId().revision())
+              .add("errors", "Error when loading the procedure jar")
+              .build();
+    };
   }
 
   public static JsonValue serializeInstantiationException(final gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException ex) {
@@ -237,67 +214,5 @@ public class ResponseSerializers {
             .add("errors", serializeIterable(ResponseSerializers::serializeUserCodeError, goalFailures.getValue()))
             .build(),
         failedGoals);
-  }
-
-  public static JsonValue serializeNoSuchSpecificationException(final NoSuchSpecificationException e) {
-    return Json.createObjectBuilder().add("specification_id", e.specificationId.id()).build();
-  }
-
-  public static JsonValue serializeNoSuchPlanException(final NoSuchPlanException e) {
-    return Json.createObjectBuilder().add("specification_id", e.getInvalidPlanId().id()).build();
-  }
-
-  /**
-   * create report of given exception that can be passed as json payload
-   *
-   * @param e the exception to generate json report for
-   * @return a json serialization of the exception details
-   */
-  public static JsonValue serializeException(final Exception e) {
-    //TODO: stack trace or other details back to ui / client?
-    return Json.createObjectBuilder()
-               .add("message", e.toString())
-               .build();
-  }
-
-  public static JsonValue serializeFailureReason(final JsonParseResult.FailureReason failure) {
-    return Json.createObjectBuilder()
-               .add("breadcrumbs", serializeIterable(ResponseSerializers::serializeParseFailureBreadcrumb, failure.breadcrumbs()))
-               .add("message", failure.reason())
-               .build();
-  }
-
-  public static JsonValue serializeParseFailureBreadcrumb(final gov.nasa.jpl.aerie.json.Breadcrumb breadcrumb) {
-    return breadcrumb.visit(new gov.nasa.jpl.aerie.json.Breadcrumb.BreadcrumbVisitor<>() {
-      @Override
-      public JsonValue onString(final String s) {
-        return Json.createValue(s);
-      }
-
-      @Override
-      public JsonValue onInteger(final Integer i) {
-        return Json.createValue(i);
-      }
-    });
-  }
-
-  public static JsonValue serializeInvalidJsonException(final InvalidJsonException ex) {
-    return Json.createObjectBuilder()
-               .add("kind", "invalid-entity")
-               .add("message", "invalid json")
-               .build();
-  }
-
-  public static JsonValue serializeInvalidEntityException(final InvalidEntityException ex) {
-    return Json.createObjectBuilder()
-               .add("kind", "invalid-entity")
-               .add("failures", serializeIterable(ResponseSerializers::serializeFailureReason, ex.failures))
-               .build();
-  }
-
-  public static JsonValue serializeValueSchema(final ValueSchema schema) {
-    if (schema == null) return JsonValue.NULL;
-
-    return new ValueSchemaJsonParser().unparse(schema);
   }
 }

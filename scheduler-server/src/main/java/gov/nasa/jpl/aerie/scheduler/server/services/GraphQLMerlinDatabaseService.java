@@ -31,8 +31,7 @@ import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchMissionModelExceptio
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.scheduler.server.graphql.GraphQLParsers;
 import gov.nasa.jpl.aerie.scheduler.server.http.EventGraphFlattener;
-import gov.nasa.jpl.aerie.scheduler.server.http.InvalidEntityException;
-import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonException;
+import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonEntityException;
 import gov.nasa.jpl.aerie.scheduler.server.models.ActivityAttributesRecord;
 import gov.nasa.jpl.aerie.scheduler.server.models.ActivityType;
 import gov.nasa.jpl.aerie.scheduler.server.models.DatasetId;
@@ -278,7 +277,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
         final var args = sims.getJsonObject(0).getJsonObject("arguments");
         modelConfiguration = BasicParsers
             .mapP(serializedValueP).parse(args)
-            .getSuccessOrThrow((reason) -> new InvalidJsonException(new InvalidEntityException(List.of(reason))));
+            .getSuccessOrThrow((reason) -> new InvalidJsonEntityException(List.of(reason)));
       }
 
       final var endTime = startTime.toInstant().plusNanos(1000L * duration.in(MICROSECOND));
@@ -293,7 +292,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           modelName,
           modelVersion,
           modelConfiguration);
-    } catch (ClassCastException | ArithmeticException | InvalidJsonException e) {
+    } catch (ClassCastException | ArithmeticException | InvalidJsonEntityException e) {
       //TODO: better error reporting upward to service response (NSPEx doesn't allow passing e as cause)
       throw new NoSuchPlanException(planId);
     }
@@ -305,7 +304,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
    */
   @Override
   public MerlinPlan getPlanActivityDirectives(final PlanMetadata planMetadata, final Problem problem)
-  throws IOException, NoSuchPlanException, MerlinServiceException, InvalidJsonException, InstantiationException
+  throws IOException, NoSuchPlanException, MerlinServiceException, InstantiationException, InvalidJsonEntityException
   {
     final var merlinPlan = new MerlinPlan();
     final var request =
@@ -324,7 +323,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
       final var deserializedArguments = BasicParsers
           .mapP(serializedValueP)
           .parse(arguments)
-          .getSuccessOrThrow((reason) -> new InvalidJsonException(new InvalidEntityException(List.of(reason))));
+          .getSuccessOrThrow((reason) -> new InvalidJsonEntityException(List.of(reason)));
       final var effectiveArguments = problem
           .getActivityType(type)
           .getSpecType()
@@ -964,7 +963,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
   }
 
   private Map<ActivityInstanceId, ActivityInstance> getSimulatedActivities(SimulationDatasetId datasetId, Instant startSimulation)
-  throws MerlinServiceException, IOException, InvalidJsonException
+  throws MerlinServiceException, IOException, InvalidJsonEntityException
   {
     final var request = """
         query{
@@ -1143,7 +1142,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
 
   @Override
   public Map<String, List<ExternalEvent>> getExternalEvents(final PlanId planId, final Instant horizonStart)
-  throws MerlinServiceException, IOException, InvalidEntityException
+  throws MerlinServiceException, IOException, InvalidJsonEntityException
   {
     final var derivationGroupsRequest = """
         query DerivationGroupsForPlan($planId: Int!) {
@@ -1321,7 +1320,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
   }
 
   private List<ExternalEvent> parseExternalEvents(final JsonArray eventsJson, final Instant horizonStart)
-  throws InvalidEntityException
+  throws InvalidJsonEntityException
   {
     final var result = new ArrayList<ExternalEvent>();
     for (final var eventJson : eventsJson) {
@@ -1333,13 +1332,13 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
 
       final var eventAttributes = new SerializedValueJsonParser()
           .parse(e.getJsonObject("attributes"))
-          .getSuccessOrThrow(reason -> new InvalidEntityException(List.of(reason)))
+          .getSuccessOrThrow(reason -> new InvalidJsonEntityException(List.of(reason)))
           .asMap()
           .get();
 
       final var sourceAttributes = new SerializedValueJsonParser()
           .parse(e.getJsonObject("external_source").getJsonObject("attributes"))
-          .getSuccessOrThrow(reason -> new InvalidEntityException(List.of(reason)))
+          .getSuccessOrThrow(reason -> new InvalidJsonEntityException(List.of(reason)))
           .asMap()
           .get();
 
@@ -1359,7 +1358,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
   }
 
   private Map<ActivityInstanceId, ActivityInstance> parseSimulatedActivities(JsonArray simulatedActivitiesArray, Instant simulationStart)
-  throws InvalidJsonException
+  throws InvalidJsonEntityException
   {
     final var simulatedActivities = new HashMap<ActivityInstanceId, ActivityInstance>();
     for(final var simulatedActivityJson: simulatedActivitiesArray) {
@@ -1379,7 +1378,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
       final var deserializedArguments = BasicParsers
           .mapP(serializedValueP)
           .parse(activityDirectiveArguments)
-          .getSuccessOrThrow((reason) -> new InvalidJsonException(new InvalidEntityException(List.of(reason))));
+          .getSuccessOrThrow((reason) -> new InvalidJsonEntityException(List.of(reason)));
       final var activityType = activityDirective.getString("type");
       final var simulatedActivity = new ActivityInstance(
           activityType,

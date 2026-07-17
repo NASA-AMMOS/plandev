@@ -4,7 +4,7 @@ COPY plandev/merlin-worker/build/distributions/*.tar /usr/src/app/server.tar
 RUN mkdir /usr/src/app/extracted
 RUN cd /usr/src/app && tar --strip-components 1 -xf server.tar -C extracted
 
-FROM eclipse-temurin:21-jre-jammy
+FROM container-registry.oracle.com/graalvm/jdk:21
 
 RUN apt update && apt install --no-install-recommends -y python3 python3-pip \
     && rm -rf /var/lib/apt/lists/*

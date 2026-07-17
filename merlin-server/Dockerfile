@@ -4,7 +4,7 @@ COPY plandev/merlin-server/build/distributions/*.tar /usr/src/app/server.tar
 RUN mkdir /usr/src/app/extracted
 RUN cd /usr/src/app && tar --strip-components 1 -xf server.tar -C extracted
 
-FROM eclipse-temurin:21-jre-jammy
+FROM container-registry.oracle.com/graalvm/jdk:21
 
 ENV NODE_VERSION=20.12.1
 ENV NVM_DIR=/usr/src/.nvm

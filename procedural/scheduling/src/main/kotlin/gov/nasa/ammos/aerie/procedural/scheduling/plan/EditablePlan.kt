@@ -54,6 +54,12 @@ interface EditablePlan: Plan {
    */
   fun delete(directive: Directive<AnyDirective>, strategy: DeletedAnchorStrategy)
 
+  /**
+   * Delete an activity if it exists with a strategy to handle activities that are anchored to it.
+   *
+   * If other anchored activities are affected, extra addition and deletion edits may be created.
+   */
+  fun deleteIfExists(id: ActivityDirectiveId, strategy: DeletedAnchorStrategy)
 
   /** Commit plan edits, making them final. */
   fun commit()

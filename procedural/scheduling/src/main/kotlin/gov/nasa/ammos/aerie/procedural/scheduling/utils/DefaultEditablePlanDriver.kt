@@ -260,6 +260,14 @@ class DefaultEditablePlanDriver(
     delete(matchingDirectives.first(), strategy)
   }
 
+  override fun deleteIfExists(id: ActivityDirectiveId, strategy: DeletedAnchorStrategy) {
+    val matchingDirectives = directives().filter { it.id == id }.collect()
+    if (matchingDirectives.isEmpty()) return;
+    if (matchingDirectives.size > 1) throw Exception("multiple activities with ID found: $id")
+
+    delete(matchingDirectives.first(), strategy)
+  }
+
   override fun commit() {
     // Early return if there are no changes. This prevents multiple commits from sharing ownership of the set,
     // because new sets are only created when edits are made.

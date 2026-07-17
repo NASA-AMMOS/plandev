@@ -4,12 +4,18 @@ COPY plandev/merlin-server/build/distributions/*.tar /usr/src/app/server.tar
 RUN mkdir /usr/src/app/extracted
 RUN cd /usr/src/app && tar --strip-components 1 -xf server.tar -C extracted
 
-FROM container-registry.oracle.com/graalvm/jdk:21
+FROM ghcr.io/graalvm/jdk-community:21
 
 ENV NODE_VERSION=20.12.1
 ENV NVM_DIR=/usr/src/.nvm
 ENV PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}"
-RUN apt update && apt install --no-install-recommends -y curl python3 python3-pip \
+# See merlin-worker/Dockerfile for why python3.11 is pulled explicitly and
+# symlinked over python3/pip3 (Oracle Linux 9's default python3 is 3.9;
+# pymerlin requires >=3.10).
+RUN microdnf install -y curl gzip findutils python3.11 python3.11-pip \
+    && microdnf clean all \
+    && ln -sf /usr/bin/python3.11 /usr/bin/python3 \
+    && ln -sf /usr/bin/pip3.11 /usr/bin/pip3 \
     && mkdir -p $NVM_DIR \
     && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash \
     &&. "$NVM_DIR/nvm.sh" \

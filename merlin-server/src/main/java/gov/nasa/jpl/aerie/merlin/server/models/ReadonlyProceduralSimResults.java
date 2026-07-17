@@ -129,7 +129,8 @@ public class ReadonlyProceduralSimResults implements SimulationResults {
   }
 
   /** Build the raw segments list for a single resource (real or discrete). */
-  private List<Segment<SerializedValue>> rawResource(final String name) {
+  @Override
+  public List<Segment<SerializedValue>> rawResource(final String name) {
     final List<Segment<SerializedValue>> segments = new ArrayList<>();
     if (merlinResults.realProfiles.containsKey(name)) {
       final var s = merlinResults.realProfiles
@@ -186,6 +187,7 @@ public class ReadonlyProceduralSimResults implements SimulationResults {
   /** All resource profiles as raw serialized segments, keyed by resource name. */
   @NotNull
   @Override
+  @Deprecated
   public Map<String, List<Segment<SerializedValue>>> rawResources() {
     final var out = new HashMap<String, List<Segment<SerializedValue>>>();
     for (final var name : resourceNames()) {

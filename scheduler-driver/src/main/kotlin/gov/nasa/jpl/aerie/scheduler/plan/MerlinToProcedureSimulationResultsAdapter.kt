@@ -62,12 +62,21 @@ open class MerlinToProcedureSimulationResultsAdapter(
   override fun resourceNames(): Set<String> =
       results.discreteProfiles.keys + results.realProfiles.keys
 
+  @Deprecated("Iterate over resourceNames and call the singular `rawResource` instead")
   override fun rawResources(): Map<String, List<Segment<SerializedValue>>> {
     val out = HashMap<String, List<Segment<SerializedValue>>>(
         results.discreteProfiles.size + results.realProfiles.size)
     for (name in results.discreteProfiles.keys) out[name] = discreteProfileSegments(name)
     for (name in results.realProfiles.keys)     out[name] = realProfileSegments(name)
     return out
+  }
+
+  override fun rawResource(name: String): List<Segment<SerializedValue>> {
+    val profile =
+        if (results.discreteProfiles.containsKey(name)) discreteProfileSegments(name)
+        else if (results.realProfiles.containsKey(name)) realProfileSegments(name)
+        else throw IllegalArgumentException("No such resource $name")
+    return profile
   }
 
   private fun discreteProfileSegments(name: String): List<Segment<SerializedValue>> =

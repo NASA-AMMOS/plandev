@@ -46,9 +46,28 @@ interface SimulationResults {
    *
    * Implementations that do not support enumerating resources should throw
    * [UnsupportedOperationException] (the default behavior).
+   *
+   * @deprecated SimulationResults tend to be large, and in most implementations of this method require creating
+   * a full copy of that data.
    */
+  @Deprecated("Iterate over resourceNames and call the singular `rawResource` instead")
   fun rawResources(): Map<String, List<Segment<SerializedValue>>> =
     throw UnsupportedOperationException("This SimulationResults implementation does not support enumerating resources.")
+
+  /**
+   * Query a given resource profile from this simulation dataset as raw serialized segments.
+   *
+   * This is a type-agnostic accessor: the profile is returned as its raw
+   * `List<Segment<SerializedValue>>`, leaving deserialization (and the choice of
+   * timeline type — `Real`, `Discrete<T>`, etc.) up to the caller. Useful when
+   * resources have heterogeneous value types and a single deserializer can't
+   * handle them all.
+   *
+   * Implementations that do not support enumerating resources should throw
+   * [UnsupportedOperationException] (the default behavior).
+   */
+  fun rawResource(name: String): List<Segment<SerializedValue>> =
+    throw UnsupportedOperationException("This SimulationResults implementation does not support rawResource")
 
   /**
    * Query activity instances.

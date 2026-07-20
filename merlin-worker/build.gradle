@@ -43,13 +43,23 @@ dependencies {
   //
   // Version comes from gradle.properties; keep it in lockstep with
   // pymerlin's java/pymerlin-shim/build.gradle and with the Dockerfile.
+  //
+  // Deliberately NOT including org.graalvm.polyglot:python (a Maven-only
+  // <type>pom</type> artifact, no jar of its own). An earlier version of this
+  // block declared it -- reasoning "GraalPy's README Gradle snippet omits it
+  // but the Maven snippet doesn't, so include it for safety." That reasoning
+  // was wrong for Gradle specifically: declared as a plain `implementation`
+  // dependency it resolves to the bare .pom file sitting on the runtime
+  // classpath, which is harmless on its own but leaks -- via `implementation`
+  // project-dependency transitivity -- through orchestration-utils's
+  // `implementation project(':merlin-server')` into stateless-aerie's fat-jar
+  // `jar` task, whose `zipTree(it)` step cannot unzip a .pom file:
+  // "Cannot expand ZIP '.../python-25.0.2.pom'." Broke `./gradlew assemble`
+  // in practice. Removed; GraalPy's own current Gradle docs never list this
+  // dependency, only `polyglot` + `python-embedding`, and GraalPyPreflight's
+  // `context.eval("python", "1+1")` already passed on real builds without it
+  // -- `python-embedding` pulls in what's actually needed transitively.
   implementation "org.graalvm.polyglot:polyglot:${graalPyVersion}"
-  // `python` is a pom-packaged module: it carries no jar of its own, it pulls in
-  // the Python language implementation plus the Truffle runtime. Without it you
-  // get a working polyglot API and "A language with id 'python' is not installed"
-  // at runtime. GraalPy's README Gradle snippet omits it (the Maven snippet does
-  // not) -- do not "clean it up" on the strength of that snippet.
-  implementation "org.graalvm.polyglot:python:${graalPyVersion}"
   // GraalPyResources.contextBuilder(Path) -- external-directory mode (roadmap §2).
   implementation "org.graalvm.python:python-embedding:${graalPyVersion}"
 }

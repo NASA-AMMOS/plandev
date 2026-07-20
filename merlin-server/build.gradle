@@ -108,8 +108,20 @@ dependencies {
   // §11.1 leaves open a better end-state -- moving activity-type registration
   // wholly worker-side, so only one image carries a Python runtime. If that
   // lands, delete this block.
+  //
+  // Deliberately NOT including org.graalvm.polyglot:python (a Maven-only
+  // <type>pom</type> artifact, no jar of its own). Declared as a plain Gradle
+  // `implementation` dependency it resolves to the bare .pom file on the
+  // runtime classpath, which leaks -- via `implementation` project-dependency
+  // transitivity -- through orchestration-utils's
+  // `implementation project(':merlin-server')` into stateless-aerie's fat-jar
+  // `jar` task, whose `zipTree(it)` step cannot unzip a .pom file:
+  // "Cannot expand ZIP '.../python-25.0.2.pom'." Broke `./gradlew assemble`
+  // in practice. GraalPy's own current Gradle docs never list this dependency,
+  // only `polyglot` + `python-embedding`; confirmed unnecessary too --
+  // GraalPyPreflight's `context.eval("python", "1+1")` passed on real builds
+  // without it.
   implementation "org.graalvm.polyglot:polyglot:${graalPyVersion}"
-  implementation "org.graalvm.polyglot:python:${graalPyVersion}"
   implementation "org.graalvm.python:python-embedding:${graalPyVersion}"
 
   testImplementation project(':examples:foo-missionmodel')

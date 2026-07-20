@@ -30,7 +30,24 @@ jar {
     attributes('Main-Class': 'gov.nasa.jpl.aerie.stateless.Main')
   }
   from {
-    configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    // Was: configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    //
+    // That unconditionally zipTree()'d every resolved file, which broke when
+    // merlin-server (a transitive dep via orchestration-utils) added GraalPy:
+    // org.graalvm.python:python-embedding:25.0.2 itself transitively depends on
+    // org.graalvm.python:python:25.0.2, a POM-only aggregator artifact with no
+    // jar of its own ("This POM dependency includes GraalPy dependencies and
+    // Truffle Community Edition" -- it exists purely to pull in other real jars
+    // transitively). Gradle resolves it to its literal .pom file, and
+    // zipTree() can't unzip a POM: "Cannot expand ZIP '.../python-25.0.2.pom'."
+    //
+    // This is not GraalPy-specific -- any pom-only aggregator anywhere in the
+    // dependency graph would trip the same bug -- so the fix is general: only
+    // hand zipTree() actual jars (or directories), matching the safer pattern
+    // already used in examples/*/build.gradle's `jar` tasks.
+    configurations.runtimeClasspath
+        .findAll { it.isDirectory() || it.name.endsWith('.jar') }
+        .collect { it.isDirectory() ? it : zipTree(it) }
   }
 }
 

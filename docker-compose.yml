@@ -163,15 +163,15 @@ services:
     environment:
       NODE_TLS_REJECT_UNAUTHORIZED: "0"
       PUBLIC_AERIE_FILE_STORE_PREFIX: "/usr/src/app/merlin_file_store/"
-      ORIGIN: http://localhost
-      PUBLIC_ACTION_CLIENT_URL: http://localhost:27186
+      ORIGIN: http://${AERIE_HOST:-localhost}
+      PUBLIC_ACTION_CLIENT_URL: http://${AERIE_HOST:-localhost}:27186
       PUBLIC_ACTION_INCLUDE_CREDENTIALS: "false"
-      PUBLIC_GATEWAY_CLIENT_URL: http://localhost:9000
+      PUBLIC_GATEWAY_CLIENT_URL: http://${AERIE_HOST:-localhost}:9000
       PUBLIC_GATEWAY_SERVER_URL: http://aerie_gateway:9000
-      PUBLIC_HASURA_CLIENT_URL: http://localhost:8080/v1/graphql
+      PUBLIC_HASURA_CLIENT_URL: http://${AERIE_HOST:-localhost}:8080/v1/graphql
       PUBLIC_HASURA_SERVER_URL: http://hasura:8080/v1/graphql
-      PUBLIC_HASURA_WEB_SOCKET_URL: ws://localhost:8080/v1/graphql
-      PUBLIC_WORKSPACE_CLIENT_URL: http://localhost:28000
+      PUBLIC_HASURA_WEB_SOCKET_URL: ws://${AERIE_HOST:-localhost}:8080/v1/graphql
+      PUBLIC_WORKSPACE_CLIENT_URL: http://${AERIE_HOST:-localhost}:28000
       PUBLIC_COMMAND_EXPANSION_MODE: "typescript"
     image: "ghcr.io/nasa-ammos/aerie-ui:develop"
     ports: ["80:80"]

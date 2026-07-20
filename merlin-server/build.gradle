@@ -97,6 +97,21 @@ dependencies {
   implementation 'org.postgresql:postgresql:42.6.1'
   implementation 'com.zaxxer:HikariCP:5.0.1'
 
+  // --- GraalPy (roadmap §4.1, §11.1) ---
+  //
+  // merlin-server needs these for the same reason merlin-worker does, and this
+  // is not speculative: Gate A traced POST /refreshActivityTypes ->
+  // LocalMissionModelService.refreshActivityTypes() -> MissionModelLoader.loadModelType(),
+  // i.e. the server loads pymerlin model types in-process at model upload using
+  // the same loader as the worker.
+  //
+  // §11.1 leaves open a better end-state -- moving activity-type registration
+  // wholly worker-side, so only one image carries a Python runtime. If that
+  // lands, delete this block.
+  implementation "org.graalvm.polyglot:polyglot:${graalPyVersion}"
+  implementation "org.graalvm.polyglot:python:${graalPyVersion}"
+  implementation "org.graalvm.python:python-embedding:${graalPyVersion}"
+
   testImplementation project(':examples:foo-missionmodel')
   testImplementation project(':merlin-framework')
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:6.0.1'

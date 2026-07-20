@@ -1,0 +1,36 @@
+# PIP_CONSTRAINT for the pymerlin python-resources venv.
+# Consumed by install.sh in this directory. See roadmap §3.1 and Gate D-1 finding 5.
+#
+# WHY A CONSTRAINTS FILE AND NOT A PIN ON THE `pip install` LINE:
+#
+# GraalVM's wheel repository publishes a prebuilt numpy wheel for exactly one
+# version per GraalPy release (numpy==2.2.4 for GraalPy 25.0 / Python 3.12).
+# Installing numpy unpinned resolves to the latest release, finds no matching
+# wheel, and silently falls back to a ~15-minute from-source compile of ~868
+# files. That failure mode looks like a hang, not an error.
+#
+# Pinning on the top-level `pip install` line is NOT enough: spiceypy declares
+# numpy as a BUILD-time dependency, and pip's isolated build environments
+# re-resolve it independently of whatever is already in the venv -- so the same
+# slow compile happens a second time inside spiceypy's build sandbox. pip
+# applies PIP_CONSTRAINT inside those isolated build environments too, which is
+# why this has to be a constraints file. Gate D measured the difference: ~15
+# minutes -> 31 seconds.
+#
+# WHEN YOU BUMP graalPyVersion, RE-CHECK THIS PIN. It is tied to the GraalPy
+# release, not to pymerlin. The pin must still satisfy pymerlin's own
+# `numpy>=2.0.0` (pyproject.toml, `plotting` extra) or pip will report a
+# conflict. Check what GraalVM publishes for the new release before bumping:
+#   https://www.graalvm.org/python/wheels/
+numpy==2.2.4
+
+# DO NOT ADD A cython CONSTRAINT HERE.
+#
+# Gate D tried `cython<=3.0.12`, reasoning from GraalPy's pip printing a note
+# about which cython versions it carries compatibility patches for. That note is
+# informational, not a supported-version ceiling: spiceypy declares `cython>=3.1`
+# as a real build requirement, so the constraint produced an unsatisfiable
+# ResolutionImpossible. The lesson generalises -- "we have patches for version X"
+# is not "only X works", and pip's resolver is a better arbiter of real conflicts
+# than a defensively-added constraint. Only pin here when there is a specific,
+# demonstrated reason (like numpy's prebuilt-wheel pin above).

@@ -32,4 +32,24 @@ dependencies {
   implementation 'org.slf4j:slf4j-simple:2.0.7'
   implementation 'org.postgresql:postgresql:42.6.1'
   implementation 'com.zaxxer:HikariCP:5.0.1'
+
+  // --- GraalPy (roadmap §4.1) ---
+  //
+  // These sit on the worker's PARENT classpath. Mission-model shims are loaded
+  // from mission-model.jar by a CHILD classloader and declare the same
+  // coordinates as `compileOnly`, so the shim compiles against this API but
+  // resolves it from here at runtime. Gate A-2 confirmed Context creation works
+  // across that parent/child split.
+  //
+  // Version comes from gradle.properties; keep it in lockstep with
+  // pymerlin's java/pymerlin-shim/build.gradle and with the Dockerfile.
+  implementation "org.graalvm.polyglot:polyglot:${graalPyVersion}"
+  // `python` is a pom-packaged module: it carries no jar of its own, it pulls in
+  // the Python language implementation plus the Truffle runtime. Without it you
+  // get a working polyglot API and "A language with id 'python' is not installed"
+  // at runtime. GraalPy's README Gradle snippet omits it (the Maven snippet does
+  // not) -- do not "clean it up" on the strength of that snippet.
+  implementation "org.graalvm.polyglot:python:${graalPyVersion}"
+  // GraalPyResources.contextBuilder(Path) -- external-directory mode (roadmap §2).
+  implementation "org.graalvm.python:python-embedding:${graalPyVersion}"
 }

@@ -19,7 +19,49 @@ RUN microdnf install -y findutils python3.11 python3.11-pip \
 COPY --from=extractor /usr/src/app/extracted /usr/src/app
 
 COPY pymerlin /usr/src/pymerlin
+
+# --- CPython subprocess path (the CURRENT shim transport) ------------------------------
+#
+# Roadmap §4.2 says to *replace* this block with the GraalPy venv below. Doing that
+# now would be premature, so it stays for the moment -- deliberately, not by
+# oversight:
+#
+#   * Phase 2 (§5) selects the transport at runtime via `pymerlin.bridge=graal|subprocess`
+#     and its exit criterion is that demo/model.py "produces byte-identical simulation
+#     results under both bridges". SubprocessBridge wraps PythonProcess, which execs
+#     `python3 -m pymerlin._server`. Delete python3 here and the JSON path cannot run
+#     in the worker, so the regression oracle -- the entire justification for Phase 2's
+#     shape -- does not exist, and neither does the rollback switch.
+#   * The subprocess transport is retired in Phase 3, not Phase 1: §6.3 lists
+#     PythonProcess.java and Protocol.java on the deletion list. This block should be
+#     removed in the same change, together with PythonProcess.java's hardcoded
+#     site-packages scan (§8).
+#
+# So: Phase 1 is ADDITIVE. Both runtimes are present, GraalPy is not yet on any hot
+# path (the shim only gains compileOnly deps in §4.3), and Phase 1 stays revertible by
+# rebuilding the image.
 RUN pip3 install --no-cache-dir /usr/src/pymerlin
+
+# --- GraalPy path (roadmap §4.2) ------------------------------------------------------
+#
+# Builds the external-directory layout GraalPyResources expects:
+#   /opt/pymerlin/python-resources/{venv,src}
+#
+# TARGETARCH is declared so BuildKit populates it; install.sh maps it onto GraalPy's
+# arch naming (§11.7 -- the original snippet hardcoded linux-amd64 and broke on arm64
+# build hosts). GRAALPY_VERSION must match graalPyVersion in gradle.properties: this
+# builds the venv, that puts the matching language jars on the classpath, and a
+# mismatch surfaces as a confusing runtime failure rather than a build error.
+ARG GRAALPY_VERSION=25.0.2
+ARG TARGETARCH
+COPY plandev/docker/graalpy /tmp/graalpy
+RUN GRAALPY_VERSION="${GRAALPY_VERSION}" TARGETARCH="${TARGETARCH}" bash /tmp/graalpy/install.sh \
+    && rm -rf /tmp/graalpy
+
+# Consumed by GraalPyResources.contextBuilder(...) in Phase 2's PyContext (§5.2) and by
+# GraalPyPreflight. Set here so the path is image configuration rather than a constant
+# recompiled into the shim.
+ENV PYMERLIN_RESOURCES=/opt/pymerlin/python-resources
 
 WORKDIR /usr/src/app
 ENTRYPOINT ["/usr/src/app/bin/merlin-worker"]

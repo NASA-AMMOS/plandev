@@ -1,0 +1,160 @@
+#!/usr/bin/env bash
+#
+# Provision GraalPy and the pymerlin `python-resources` venv into an image.
+# Roadmap §4.2, with the fixes §3.1 and §11.7 require.
+#
+# Shared by merlin-worker/Dockerfile and merlin-server/Dockerfile. Both images
+# need this for the same reason -- Gate A traced POST /refreshActivityTypes ->
+# LocalMissionModelService.refreshActivityTypes() -> MissionModelLoader.loadModelType(),
+# so merlin-server loads pymerlin model types in-process exactly as the worker
+# does (roadmap §11.1). Keeping it in one script rather than duplicating ~40
+# lines of Dockerfile is what stops the two images from drifting apart.
+#
+# Produces the external-directory layout GraalPyResources.contextBuilder(root)
+# expects by convention (roadmap §2):
+#
+#   ${RESOURCES_ROOT}/venv   <- pymerlin + numpy + spiceypy
+#   ${RESOURCES_ROOT}/src    <- model .py, extracted from mission-model.jar at
+#                               instantiate() time (Phase 2, §5.3); empty here
+#
+# Env:
+#   GRAALPY_VERSION  (required)  e.g. 25.0.2 -- keep in lockstep with
+#                                graalPyVersion in gradle.properties
+#   TARGETARCH       (optional)  BuildKit-provided; falls back to `uname -m`
+#   RESOURCES_ROOT   (optional)  default /opt/pymerlin/python-resources
+#   PYMERLIN_SRC     (optional)  default /usr/src/pymerlin
+set -euo pipefail
+
+GRAALPY_VERSION="${GRAALPY_VERSION:?GRAALPY_VERSION must be set}"
+RESOURCES_ROOT="${RESOURCES_ROOT:-/opt/pymerlin/python-resources}"
+PYMERLIN_SRC="${PYMERLIN_SRC:-/usr/src/pymerlin}"
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONSTRAINTS_FILE="${SCRIPT_DIR}/constraints.txt"
+
+log() { echo "[graalpy-install] $*"; }
+
+# --- Architecture (roadmap §11.7) -------------------------------------------------------
+#
+# §4.2's original snippet hardcoded `linux-amd64`. The base JDK image and microdnf
+# resolve multi-arch automatically, but a manual curl to a hardcoded asset name does
+# not -- on an arm64 host that fails as `rosetta error: failed to open elf`, which
+# does not obviously point at the download. Gate D-1 hit exactly this.
+#
+# TARGETARCH is auto-populated by BuildKit. It is EMPTY under the legacy builder
+# (DOCKER_BUILDKIT=0), so fall back to uname rather than defaulting to amd64 --
+# defaulting would silently reintroduce the very bug this maps around.
+TARGETARCH="${TARGETARCH:-}"
+if [ -z "${TARGETARCH}" ]; then
+  case "$(uname -m)" in
+    x86_64)  TARGETARCH=amd64 ;;
+    aarch64) TARGETARCH=arm64 ;;
+    *) log "ERROR: cannot infer architecture from uname -m=$(uname -m)"; exit 1 ;;
+  esac
+  log "TARGETARCH was empty (legacy builder?); inferred ${TARGETARCH} from uname -m"
+fi
+
+# Docker's arch names are not GraalPy's arch names.
+case "${TARGETARCH}" in
+  amd64) GRAALPY_ARCH=amd64 ;;
+  arm64) GRAALPY_ARCH=aarch64 ;;
+  *) log "ERROR: unsupported TARGETARCH=${TARGETARCH} (expected amd64 or arm64)"; exit 1 ;;
+esac
+
+log "GraalPy ${GRAALPY_VERSION}, TARGETARCH=${TARGETARCH} -> GraalPy arch ${GRAALPY_ARCH}"
+
+# --- Build-time OS dependencies ---------------------------------------------------------
+#
+# The base image is Oracle Linux (ghcr.io/graalvm/jdk-community:21), not Debian/Ubuntu.
+# Everything below was established empirically by Gates A and D:
+#
+#   ca-certificates  Oracle Linux's minimal trust store does not validate every
+#                    legitimate cert chain we fetch over HTTPS at build time
+#                    (§3.1). Needs `update-ca-trust extract` to take effect.
+#   curl, tar, gzip  not all preinstalled; needed to fetch/unpack the GraalPy tarball.
+#   findutils        Gradle's application-plugin start scripts (bin/merlin-worker,
+#                    bin/merlin-server) shell out to xargs to split JAVA_OPTS (Gate A).
+#   git              spiceypy's scikit-build-core/CMake build clones the CSPICE
+#                    source; without it: "could not find git for clone of
+#                    cspice-populate" (Gate D-1 finding 3).
+#   gcc..zlib-devel  GraalPy-compatible wheels are not guaranteed to exist for every
+#                    package, so `pip install` can silently mean "compile from
+#                    source" -- CSPICE does exactly that, ~340s (Gate D-1 findings
+#                    2 and 6). A minimal runtime image fails on this.
+#
+# NOTE (image size): this leaves a full C toolchain in the final image. That is a
+# real cost and a known follow-up -- the fix is a builder stage that COPYs the
+# finished venv forward. It is deliberately NOT done here: Gate D validated the
+# single-stage shape, and Phase 1's exit criterion is "the worker can create a
+# Context", not image size. Measure, then decide.
+log "installing build dependencies"
+microdnf install -y \
+  ca-certificates curl tar gzip findutils git \
+  gcc gcc-c++ make patch \
+  openssl-devel bzip2-devel libffi-devel readline-devel sqlite-devel xz-devel zlib-devel
+update-ca-trust extract
+
+# --- GraalPy standalone -----------------------------------------------------------------
+#
+# This is the build-time CLI used to create the venv and run pip (Gate D-1's path).
+# It is distinct from the polyglot jars on the worker classpath, which are what
+# actually runs Python at simulation time (Gate D-2's path).
+GRAALPY_HOME="/opt/graalpy-community-${GRAALPY_VERSION}-linux-${GRAALPY_ARCH}"
+GRAALPY_URL="https://github.com/oracle/graalpython/releases/download/graal-${GRAALPY_VERSION}/graalpy-community-${GRAALPY_VERSION}-linux-${GRAALPY_ARCH}.tar.gz"
+
+log "downloading ${GRAALPY_URL}"
+curl -fsSL "${GRAALPY_URL}" | tar xz -C /opt
+ln -sf "${GRAALPY_HOME}/bin/graalpy" /usr/local/bin/graalpy
+
+log "graalpy reports: $(graalpy --version 2>&1 | head -1)"
+
+# --- The venv ---------------------------------------------------------------------------
+#
+# Use the venv's own pip -- GraalPy's patched one, preconfigured with the extra
+# graalvm.org wheel repository. NEVER a system pip: GraalPy's C API support extends
+# to the API, not the ABI, so prebuilt CPython wheels from pypi.org are not binary
+# compatible and must not be installed here.
+log "creating venv at ${RESOURCES_ROOT}/venv"
+graalpy -m venv "${RESOURCES_ROOT}/venv"
+
+VENV_PIP="${RESOURCES_ROOT}/venv/bin/pip"
+
+# Applied to isolated build environments too, not just this top-level install --
+# that is the whole point (see constraints.txt).
+export PIP_CONSTRAINT="${CONSTRAINTS_FILE}"
+log "PIP_CONSTRAINT=${PIP_CONSTRAINT}"
+
+# pymerlin is installed from local source, matching how the CPython subprocess path
+# already does it -- not from PyPI, so a model runs against the pymerlin in this
+# checkout.
+#
+# numpy and spiceypy are named explicitly rather than via pymerlin's `plotting` /
+# `spice` extras. `plotting` would also drag in bokeh, which nothing in Gate D
+# exercised under GraalPy; this keeps the venv to the set that was actually proven
+# (roadmap §4.2, §11.2's "start with a fixed package set").
+log "installing pymerlin + numpy + spiceypy (expect ~340s for the CSPICE source build)"
+"${VENV_PIP}" install --no-cache-dir \
+  "${PYMERLIN_SRC}" \
+  numpy \
+  spiceypy
+
+# ${root}/src is on the Python path by GraalPyResources convention. Phase 2 extracts
+# model sources here; it must exist now or contextBuilder(root) has nothing to point at.
+mkdir -p "${RESOURCES_ROOT}/src"
+
+# --- Verify ------------------------------------------------------------------------------
+#
+# Fail the BUILD, not the first simulation. This is the venv half of what
+# GraalPyPreflight re-checks from the JVM side at CI time.
+log "verifying venv imports"
+"${RESOURCES_ROOT}/venv/bin/python" -c "
+import pymerlin, numpy, spiceypy
+print('[graalpy-install] pymerlin  OK')
+print('[graalpy-install] numpy    ', numpy.__version__)
+print('[graalpy-install] spiceypy ', spiceypy.__version__)
+"
+
+microdnf clean all
+rm -rf /var/cache/dnf /var/cache/yum
+
+log "done: ${RESOURCES_ROOT}"

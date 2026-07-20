@@ -1,0 +1,152 @@
+# Permanent CI regression for roadmap Gate A, and the Phase 1 exit criteria.
+#
+# The roadmap is explicit that this must not stay a laptop result: "Gate A is now
+# permanently verified in CI, not just once on a laptop." (§4.3)
+#
+# WHY THIS IS NOT A JOB IN test.yml's `unit-test`:
+#
+# test.yml sets up `distribution: "temurin"` -- stock OpenJDK. That is precisely the
+# configuration Gate A-1 FAILED on ("JVMCI is not enabled for this JVM"), and it is why
+# both images were rebased onto ghcr.io/graalvm/jdk-community:21. A Context created under
+# `./gradlew test` on a temurin runner would run on Truffle's interpreter-only fallback
+# runtime and would assert the opposite of what Gate A concluded. The property under test
+# belongs to the built IMAGE -- its JDK, its classpath, its venv -- so the check has to
+# run inside the image.
+#
+# This lives in its own file rather than in test.yml because this fork tracks
+# NASA-AMMOS:develop and merges from it regularly; keeping GraalPy changes out of shared
+# files keeps those merges cheap.
+name: GraalPy Preflight
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - dev-[0-9]+.[0-9]+.[0-9]+
+  push:
+    branches:
+      - develop
+      - feature/pymerlin-shim-graalpy
+  workflow_dispatch:
+    inputs:
+      pymerlin_ref:
+        description: "pymerlin branch/ref to build the venv from"
+        required: false
+        default: feature/shim-graalpy
+
+permissions:
+  contents: read
+
+env:
+  # Must match `graalPyVersion` in gradle.properties and ext.graalPyVersion in
+  # pymerlin's java/pymerlin-shim/build.gradle. The "versions agree" step below
+  # asserts the first of those rather than trusting it.
+  GRAALPY_VERSION: "25.0.2"
+  PYMERLIN_REPO: "remy-rabideau/pymerlin"
+  PYMERLIN_REF: "feature/shim-graalpy"
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    # The image build compiles CSPICE from source (~340s, Gate D-1 finding 6) on top of a
+    # full C toolchain install, so this is minutes, not seconds. Fail loudly rather than
+    # hanging for the default 6h if something regresses into the unpinned-numpy
+    # from-source path, which looks like a hang rather than an error (Gate D-1 finding 5).
+    timeout-minutes: 45
+
+    steps:
+      # merlin-worker/Dockerfile builds from the PARENT directory as context and does
+      # `COPY plandev/...` and `COPY pymerlin/...` -- so CI has to reproduce the sibling
+      # layout that docker-compose.yml already assumes:
+      #
+      #   workspace/
+      #     plandev/
+      #     pymerlin/
+      - name: Checkout plandev
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          path: plandev
+
+      - name: Checkout pymerlin
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          repository: ${{ env.PYMERLIN_REPO }}
+          ref: ${{ github.event.inputs.pymerlin_ref || env.PYMERLIN_REF }}
+          path: pymerlin
+
+      - name: Setup Java
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: "temurin"
+          java-version: "21"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
+
+      # Cheap guard against the failure mode the version pins exist to prevent: the venv
+      # built from one GraalPy release, the language jars on the classpath from another.
+      # That mismatch does not fail the build -- it fails a simulation, later, elsewhere.
+      - name: Check GraalPy versions agree
+        working-directory: plandev
+        run: |
+          set -euo pipefail
+          gradle_version="$(grep -E '^graalPyVersion=' gradle.properties | cut -d= -f2)"
+          echo "gradle.properties : ${gradle_version}"
+          echo "workflow env      : ${GRAALPY_VERSION}"
+          if [ "${gradle_version}" != "${GRAALPY_VERSION}" ]; then
+            echo "::error::graalPyVersion=${gradle_version} in gradle.properties does not match GRAALPY_VERSION=${GRAALPY_VERSION} in this workflow"
+            exit 1
+          fi
+          shim_version="$(grep -E "^ext.graalPyVersion" ../pymerlin/java/pymerlin-shim/build.gradle | sed "s/.*'\(.*\)'.*/\1/")"
+          echo "pymerlin-shim     : ${shim_version}"
+          if [ "${shim_version}" != "${GRAALPY_VERSION}" ]; then
+            echo "::error::ext.graalPyVersion=${shim_version} in pymerlin-shim/build.gradle does not match ${GRAALPY_VERSION}. The shim would compile against an API the worker does not provide."
+            exit 1
+          fi
+
+      # The Dockerfile's extractor stage consumes merlin-worker/build/distributions/*.tar,
+      # so the distribution must exist before `docker build`.
+      - name: Build merlin-worker distribution
+        working-directory: plandev
+        run: ./gradlew merlin-worker:distTar -x javadoc -x javadocJar --parallel
+
+      # NOTE: ubuntu-latest is amd64, so this exercises only the amd64 leg of §11.7's
+      # arch mapping. The arm64 leg (Apple Silicon dev machines, Graviton) is implemented
+      # in docker/graalpy/install.sh but is NOT covered here. If arm64 builds ever become
+      # load-bearing, this is the job to add a matrix to.
+      - name: Build merlin-worker image
+        run: |
+          set -euo pipefail
+          docker build \
+            --file plandev/merlin-worker/Dockerfile \
+            --build-arg GRAALPY_VERSION="${GRAALPY_VERSION}" \
+            --tag aerie_merlin_worker:preflight \
+            .
+
+      # The actual gate. Creates a Context and evaluates 1+1 *in the worker* (§4.3's exit
+      # criteria), asserts the engine is not on the fallback runtime (Gate A-1), asserts a
+      # Context can be created from a child classloader (Gate A-2), and asserts the venv
+      # imports (§4.2 / Gate D). Non-zero exit fails the job.
+      - name: Run GraalPy preflight in the worker image
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --entrypoint java \
+            aerie_merlin_worker:preflight \
+            -cp '/usr/src/app/lib/*' \
+            gov.nasa.jpl.aerie.merlin.worker.GraalPyPreflight
+
+      # Phase 1 is additive: GraalPy joins the image, the CPython subprocess transport
+      # stays until Phase 3 (§6.3). Phase 2's regression oracle and rollback switch both
+      # depend on `python3 -m pymerlin._server` still working here, so guard it -- this
+      # step is what should fail if someone applies §4.2's "replace" literally before the
+      # subprocess bridge is retired.
+      - name: Check the CPython subprocess path still works
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --entrypoint python3 \
+            aerie_merlin_worker:preflight \
+            -c "import pymerlin, sys; print('CPython subprocess path OK:', sys.version)"

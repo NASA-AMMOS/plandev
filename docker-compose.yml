@@ -325,7 +325,6 @@ services:
     restart: always
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./deployment/postgres-init-db:/docker-entrypoint-initdb.d:z
 
 volumes:
   aerie_file_store:

@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.framework;
 
+import gov.nasa.jpl.aerie.merlin.protocol.driver.CellId;
 import gov.nasa.jpl.aerie.merlin.protocol.driver.Topic;
 import gov.nasa.jpl.aerie.merlin.protocol.model.TaskFactory;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
@@ -141,5 +142,9 @@ public /*non-final*/ class ModelActions {
 
   public static void waitUntil(final Condition condition) {
     context.get().waitUntil(condition);
+  }
+
+  public static <State> State ask(final CellId<State> cellId) {
+    return context.get().ask(cellId);
   }
 }

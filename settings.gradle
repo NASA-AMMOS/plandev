@@ -54,4 +54,5 @@ include 'stateless-aerie'
 include 'orchestration-utils'
 include 'type-utils'
 include 'workspace-server'
+include 'graalpy-engine-cache'
 

@@ -62,4 +62,9 @@ dependencies {
   implementation "org.graalvm.polyglot:polyglot:${graalPyVersion}"
   // GraalPyResources.contextBuilder(Path) -- external-directory mode (roadmap §2).
   implementation "org.graalvm.python:python-embedding:${graalPyVersion}"
+  // Shared GraalPy Engine, reused across every simulation this process ever runs
+  // (roadmap §11.3) -- must be a real runtime dependency here, not compileOnly in
+  // pymerlin-shim, so its statics survive the per-simulation URLClassLoader that
+  // MissionModelLoader creates for each uploaded model JAR.
+  implementation project(':graalpy-engine-cache')
 }

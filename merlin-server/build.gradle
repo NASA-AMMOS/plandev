@@ -123,6 +123,11 @@ dependencies {
   // without it.
   implementation "org.graalvm.polyglot:polyglot:${graalPyVersion}"
   implementation "org.graalvm.python:python-embedding:${graalPyVersion}"
+  // Shared GraalPy Engine, reused across every simulation this process ever runs
+  // (roadmap §11.3) -- must be a real runtime dependency here, not compileOnly in
+  // pymerlin-shim, so its statics survive the per-simulation URLClassLoader that
+  // MissionModelLoader creates for each uploaded model JAR.
+  implementation project(':graalpy-engine-cache')
 
   testImplementation project(':examples:foo-missionmodel')
   testImplementation project(':merlin-framework')

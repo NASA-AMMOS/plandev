@@ -16,8 +16,6 @@ RUN microdnf install -y findutils python3.11 python3.11-pip \
     && ln -sf /usr/bin/python3.11 /usr/bin/python3 \
     && ln -sf /usr/bin/pip3.11 /usr/bin/pip3
 
-COPY --from=extractor /usr/src/app/extracted /usr/src/app
-
 COPY pymerlin /usr/src/pymerlin
 
 # --- CPython subprocess path (the CURRENT shim transport) ------------------------------
@@ -62,6 +60,13 @@ RUN GRAALPY_VERSION="${GRAALPY_VERSION}" TARGETARCH="${TARGETARCH}" bash /tmp/gr
 # GraalPyPreflight. Set here so the path is image configuration rather than a constant
 # recompiled into the shim.
 ENV PYMERLIN_RESOURCES=/opt/pymerlin/python-resources
+
+# The app tar changes on every rebuild (new shim/model-loader code); the GraalPy/venv
+# layers above do not (same GRAALPY_VERSION, same install.sh) unless install.sh itself
+# or GRAALPY_VERSION changes. Keeping this COPY last means an app-only rebuild only
+# re-runs this cheap layer instead of invalidating (and re-running, ~340s+ spiceypy
+# compile included) everything above it.
+COPY --from=extractor /usr/src/app/extracted /usr/src/app
 
 WORKDIR /usr/src/app
 ENTRYPOINT ["/usr/src/app/bin/merlin-worker"]

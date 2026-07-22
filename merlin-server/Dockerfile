@@ -25,10 +25,6 @@ RUN microdnf install -y curl gzip findutils python3.11 python3.11-pip \
     && node --version \
     && npm --version
 
-COPY --from=extractor /usr/src/app/extracted /usr/src/app
-
-COPY plandev/merlin-server/constraints-dsl-compiler /usr/src/app/constraints-dsl-compiler
-
 COPY pymerlin /usr/src/pymerlin
 
 # CPython subprocess path. See merlin-worker/Dockerfile for why this stays through
@@ -58,6 +54,14 @@ ENV PYMERLIN_RESOURCES=/opt/pymerlin/python-resources
 ENV CONSTRAINTS_DSL_COMPILER_ROOT="/usr/src/app/constraints-dsl-compiler/"
 ENV CONSTRAINTS_DSL_COMPILER_COMMAND="./build/main.js"
 ENV NODE_PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin/node"
+
+# The app tar + constraints-dsl-compiler change on every rebuild (new shim/model-loader
+# code); the GraalPy/venv layers above do not (same GRAALPY_VERSION, same install.sh)
+# unless install.sh itself or GRAALPY_VERSION changes. Keeping these COPYs last means
+# an app-only rebuild only re-runs these cheap layers instead of invalidating (and
+# re-running, ~340s+ spiceypy compile included) everything above them.
+COPY --from=extractor /usr/src/app/extracted /usr/src/app
+COPY plandev/merlin-server/constraints-dsl-compiler /usr/src/app/constraints-dsl-compiler
 
 WORKDIR /usr/src/app
 ENTRYPOINT ["/usr/src/app/bin/merlin-server"]

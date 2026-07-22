@@ -63,7 +63,7 @@ interface SimulationResults {
    * resources have heterogeneous value types and a single deserializer can't
    * handle them all.
    *
-   * Implementations that do not support enumerating resources should throw
+   * Implementations that do not support this method should throw
    * [UnsupportedOperationException] (the default behavior).
    */
   fun rawResource(name: String): List<Segment<SerializedValue>> =

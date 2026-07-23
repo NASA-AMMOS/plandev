@@ -53,6 +53,8 @@ def bb_time_to_us_offset(ts, plan_start):
 
 # activity param types from CREATE_DICTIONARY (name -> [(paramName, bbType)])
 PARAM_TYPES = {}
+# activity param defaults from CREATE_DICTIONARY (name -> {paramName: defaultString})
+PARAM_DEFAULTS = {}
 # each resource's declared initial value (composite name -> value), captured from a zero-activity
 # REMODEL. Blackbird registers all resources at engine startup, so an empty sim reports every
 # resource's default BEFORE any real plan runs -- used to seed the t=0 profile segment correctly.
@@ -64,7 +66,9 @@ def load_dictionary(workdir):
     run_bb(script, workdir)
     d = json.load(open(dict_path))
     for name, meta in d.get("activities", {}).items():
-        PARAM_TYPES[name] = [(p["name"], p.get("type", "string")) for p in meta.get("parameters", [])]
+        params = meta.get("parameters", [])
+        PARAM_TYPES[name] = [(p["name"], p.get("type", "string")) for p in params]
+        PARAM_DEFAULTS[name] = {p["name"]: p.get("default") for p in params if p.get("default") not in (None, "")}
 
 def load_initials(workdir):
     """Run a zero-activity REMODEL and record each resource's initial/default value at sim start.
@@ -243,12 +247,72 @@ def simulate(req):
         rp, dp, spans = parse_output(xml_path, plan_start, sim_dur, directive_by_uuid)
         return {"realProfiles": rp, "discreteProfiles": dp, "spans": spans}
 
+def run_bb_ok(script, workdir):
+    """Run Blackbird for validation, returning (ok, stderr) instead of raising on failure."""
+    cmd = [JAVA_BIN, "-cp", BLACKBIRD_CP, "-Djava.library.path=%s" % JPLTIME_LIB, BLACKBIRD_MAIN, script]
+    p = subprocess.run(cmd, cwd=workdir, capture_output=True, text=True)
+    return (p.returncode == 0, p.stderr or "")
+
+def clean_bb_error(stderr):
+    """Pull the most informative line(s) out of Blackbird's stderr blob for a validation notice."""
+    lines = [l.strip() for l in stderr.splitlines() if l.strip()]
+    for i, l in enumerate(lines):
+        if "Error while creating activity" in l or "Root cause" in l:
+            return " ".join(lines[i:i + 3])[:400]
+    return (lines[0] if lines else "invalid arguments")[:400]
+
+def coerce_default(bbtype, dflt):
+    if bbtype in ("int", "integer", "long"):
+        try: return int(dflt)
+        except (ValueError, TypeError): return dflt
+    if bbtype in ("float", "double"):
+        try: return float(dflt)
+        except (ValueError, TypeError): return dflt
+    if bbtype in ("boolean", "bool"):
+        return str(dflt).lower() == "true"
+    return dflt  # string/duration/custom: best-effort passthrough
+
+def effective_args(typ, provided):
+    """Effective args = provided args with any missing parameters filled from dictionary defaults."""
+    eff = dict(provided or {})
+    ptypes = dict(PARAM_TYPES.get(typ, []))
+    for pname, dflt in PARAM_DEFAULTS.get(typ, {}).items():
+        if pname not in eff:
+            eff[pname] = coerce_default(ptypes.get(pname, "string"), dflt)
+    return eff
+
+def validate(req):
+    """Authoritatively validate each activity by attempting to construct it in Blackbird (dry OPEN_FILE,
+    no REMODEL). Returns one verdict per activity: {valid, notices[], effectiveArguments}."""
+    plan_start = datetime(2020, 1, 1, tzinfo=timezone.utc)  # arbitrary epoch; only construction matters
+    results = []
+    with tempfile.TemporaryDirectory() as wd:
+        for a in req.get("activities", []):
+            typ = a.get("type")
+            args = a.get("arguments") or {}
+            if typ not in PARAM_TYPES:
+                results.append({"valid": False,
+                                "notices": [{"subjects": [], "message": "unknown activity type '%s'" % typ}],
+                                "effectiveArguments": None})
+                continue
+            plan_json, _ = build_plan_json(plan_start, [{"id": 0, "type": typ, "startOffset": 0, "arguments": args}], wd)
+            script = os.path.join(wd, "validate.script")
+            open(script, "w").write("OPEN_FILE %s unfrozen decompose\n" % plan_json)  # construct only; no REMODEL
+            ok, stderr = run_bb_ok(script, wd)
+            if ok:
+                results.append({"valid": True, "notices": [], "effectiveArguments": effective_args(typ, args)})
+            else:
+                results.append({"valid": False,
+                                "notices": [{"subjects": [], "message": clean_bb_error(stderr)}],
+                                "effectiveArguments": None})
+    return {"results": results}
+
 class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
             n = int(self.headers.get("Content-Length", 0))
             req = json.loads(self.rfile.read(n) or b"{}")
-            resp = simulate(req)
+            resp = validate(req) if self.path.rstrip("/").endswith("/validate") else simulate(req)
             body = json.dumps(resp).encode()
             self.send_response(200); self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body))); self.end_headers()

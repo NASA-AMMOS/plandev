@@ -11,6 +11,20 @@ simulation. Directives in PlanDev → simulate → sent to Blackbird → Blackbi
 (resource profiles + activity spans) render natively. This is a working prototype, validated live
 end-to-end and containerized; it is **not** production-hardened.
 
+### Build-out progress since initial findings
+
+Two hardening items from the list below have since shipped on this branch (both validated live):
+
+- **Anchor resolution in the external simulate path** (`0dfa04547`) — offsets are now resolved via
+  `StartOffsetReducer` and keyed to simulation start (previously raw offsets were sent, so any anchored
+  directive simulated at the wrong time silently). Directives anchored to the *end* of another activity
+  are rejected with a clear error rather than misplaced.
+- **Wire-delegated validation** (`639d81303`) — the model is now the validation authority: argument
+  validation + effective-args delegate to the backend's `/validate` endpoint, with graceful fallback to
+  the shallow stored-schema check when the backend is unreachable. This catches, at *validation* time,
+  bad arguments a model rejects (e.g. `InitialConditionActivity {initialValues:"111"}`) that the stored
+  `ValueSchema` would have passed.
+
 ## Why
 
 The only way to run a Blackbird model in Aerie today is to **rewrite it as a Merlin model** (the

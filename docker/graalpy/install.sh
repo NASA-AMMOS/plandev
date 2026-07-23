@@ -22,12 +22,18 @@
 #                                graalPyVersion in gradle.properties
 #   TARGETARCH       (optional)  BuildKit-provided; falls back to `uname -m`
 #   RESOURCES_ROOT   (optional)  default /opt/pymerlin/python-resources
-#   PYMERLIN_SRC     (optional)  default /usr/src/pymerlin
+#   PYMERLIN_GIT_URL (optional)  default the pymerlin repo below; override to
+#                                point at a fork or an internal mirror
+#   PYMERLIN_REF     (optional)  default a pinned tag (see note at the pip
+#                                install call below) -- a tag or commit SHA,
+#                                NOT a branch name (branches move; the point of
+#                                pinning is that a rebuild is reproducible)
 set -euo pipefail
 
 GRAALPY_VERSION="${GRAALPY_VERSION:?GRAALPY_VERSION must be set}"
 RESOURCES_ROOT="${RESOURCES_ROOT:-/opt/pymerlin/python-resources}"
-PYMERLIN_SRC="${PYMERLIN_SRC:-/usr/src/pymerlin}"
+PYMERLIN_GIT_URL="${PYMERLIN_GIT_URL:-https://github.com/remy-rabideau/pymerlin.git}"
+PYMERLIN_REF="${PYMERLIN_REF:-v0.1.0}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONSTRAINTS_FILE="${SCRIPT_DIR}/constraints.txt"
@@ -124,17 +130,30 @@ VENV_PIP="${RESOURCES_ROOT}/venv/bin/pip"
 export PIP_CONSTRAINT="${CONSTRAINTS_FILE}"
 log "PIP_CONSTRAINT=${PIP_CONSTRAINT}"
 
-# pymerlin is installed from local source, matching how the CPython subprocess path
-# already does it -- not from PyPI, so a model runs against the pymerlin in this
-# checkout.
+# pymerlin is installed from a pinned git ref, NOT from a local checkout copied into
+# the build context. Earlier this installed `${PYMERLIN_SRC}` (a path populated by
+# `COPY pymerlin /usr/src/pymerlin` in the Dockerfile), which meant building this
+# image required the pymerlin repo checked out as a sibling of plandev's -- exactly
+# the coupling a standalone model-author workflow (`pip install pymerlin`, write a
+# model, `pymerlin package`) should not force onto image builders too. `git` is
+# already installed above for CSPICE's source clone, so `pip install git+...@ref`
+# needs nothing extra here.
+#
+# PYMERLIN_REF's default is `v0.1.0`, the tag matching pymerlin's own `pyproject.toml`
+# `version`. Bump this here every time a new pymerlin version should reach new
+# worker-image builds. Treat "this tag" and "the GraalPy version above" as a matched
+# pair: bumping one without checking the other risks a shim JAR built against a
+# different GraalPy API than what's on this image's classpath (see
+# pymerlin-shim/build.gradle's `graalPyVersion` comment, and roadmap.md §8.2's open
+# item about this check not being fully automated end-to-end yet).
 #
 # numpy and spiceypy are named explicitly rather than via pymerlin's `plotting` /
 # `spice` extras. `plotting` would also drag in bokeh, which nothing in Gate D
 # exercised under GraalPy; this keeps the venv to the set that was actually proven
 # (roadmap §4.2, §11.2's "start with a fixed package set").
-log "installing pymerlin + numpy + spiceypy (expect ~340s for the CSPICE source build)"
+log "installing pymerlin@${PYMERLIN_REF} + numpy + spiceypy (expect ~340s for the CSPICE source build)"
 "${VENV_PIP}" install --no-cache-dir \
-  "${PYMERLIN_SRC}" \
+  "git+${PYMERLIN_GIT_URL}@${PYMERLIN_REF}" \
   numpy \
   spiceypy
 

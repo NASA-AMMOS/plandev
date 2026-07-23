@@ -55,13 +55,16 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      # merlin-worker/Dockerfile builds from the PARENT directory as context and does
-      # `COPY plandev/...` and `COPY pymerlin/...` -- so CI has to reproduce the sibling
-      # layout that docker-compose.yml already assumes:
+      # merlin-worker/Dockerfile no longer needs a sibling pymerlin checkout to build --
+      # install.sh pip-installs pymerlin from a pinned git ref over the network instead
+      # of `COPY`ing in a local checkout (the point of decoupling the image build from
+      # requiring the pymerlin repo alongside plandev's). The build context is just
+      # `plandev/` now.
       #
-      #   workspace/
-      #     plandev/
-      #     pymerlin/
+      # The "Checkout pymerlin" step below still exists, but only to feed the version-
+      # agreement check further down -- it validates a *given* pymerlin ref's
+      # pymerlin-shim/build.gradle against this workflow's GRAALPY_VERSION, independent
+      # of whatever ref install.sh's own default happens to be pinned to right now.
       - name: Checkout plandev
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -117,10 +120,11 @@ jobs:
       # in docker/graalpy/install.sh but is NOT covered here. If arm64 builds ever become
       # load-bearing, this is the job to add a matrix to.
       - name: Build merlin-worker image
+        working-directory: plandev
         run: |
           set -euo pipefail
           docker build \
-            --file plandev/merlin-worker/Dockerfile \
+            --file merlin-worker/Dockerfile \
             --build-arg GRAALPY_VERSION="${GRAALPY_VERSION}" \
             --tag aerie_merlin_worker:preflight \
             .
@@ -137,16 +141,3 @@ jobs:
             aerie_merlin_worker:preflight \
             -cp '/usr/src/app/lib/*' \
             gov.nasa.jpl.aerie.merlin.worker.GraalPyPreflight
-
-      # Phase 1 is additive: GraalPy joins the image, the CPython subprocess transport
-      # stays until Phase 3 (§6.3). Phase 2's regression oracle and rollback switch both
-      # depend on `python3 -m pymerlin._server` still working here, so guard it -- this
-      # step is what should fail if someone applies §4.2's "replace" literally before the
-      # subprocess bridge is retired.
-      - name: Check the CPython subprocess path still works
-        run: |
-          set -euo pipefail
-          docker run --rm \
-            --entrypoint python3 \
-            aerie_merlin_worker:preflight \
-            -c "import pymerlin, sys; print('CPython subprocess path OK:', sys.version)"

@@ -6,3 +6,11 @@
 !merlin-server/build/distributions/*.tar
 !merlin-worker/build/distributions/*.tar
 !scheduler-server/build/distributions/*.tar
+
+# merlin-worker/Dockerfile and merlin-server/Dockerfile COPY these directly (roadmap
+# §8.2 narrowed their build context from the monorepo root to plandev/ itself, which is
+# what makes this .dockerignore apply to their builds at all for the first time -- under
+# the old `context: ..`, Docker looked for a .dockerignore at the monorepo root, found
+# none, and this file was never consulted).
+!docker/graalpy
+!merlin-server/constraints-dsl-compiler

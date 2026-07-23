@@ -190,7 +190,7 @@ effect-time decoupling, and the signal `result="after"` branch (confirmed via th
 | `SimulationBackend` as a real serialization boundary; make `registerModelTypes` atomic | MAJOR |
 | ~~End-anchor resolution~~ — **✅ shipped** (`0dfa04547`): anchors resolved via `StartOffsetReducer`; end-anchors rejected with a clear error | done |
 | Registration UI ("register external model" flow; currently a manual action call) | MODERATE |
-| UI type-support surface (Monaco typings, validation/anchor subscription tables, model-compat check) | MODERATE |
+| UI type-support surface — **Monaco typings ✅ already work** for external models (verified live: `getActivityTypeScript`, `constraintsDslTypescript`, `schedulingDslTypescript` all succeed off stored metadata). Remaining: `CHECK_MODEL_COMPATIBILITY_FOR_PLAN` + confirm `anchor_validation_status` for external | MINOR |
 | **UI: surface validation notices with empty `subjects`** — external (Blackbird) validation errors are *whole-activity* (no per-parameter attribution), so their notices carry `subjects:[]`; `plandev-ui` drops these at every render surface (`errors.ts:167-173` rollup + `effects.ts:8982-8990` inline map both key on parameter name), so a real `success:false` failure shows no badge/inline error and even prints "has 0 validation errors". Fix in `plandev-ui`: attribute subject-less notices at the directive level (fallback in `errors.ts`), optionally + an adapter heuristic to recover the param from the message. **Deferred.** | MODERATE |
 | Computed-attributes synthesis (expansion + finished/unfinished span classification) | MODERATE |
 | Sim cache key must include external model + config version | MODERATE |

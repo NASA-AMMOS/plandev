@@ -254,12 +254,22 @@ def run_bb_ok(script, workdir):
     return (p.returncode == 0, p.stderr or "")
 
 def clean_bb_error(stderr):
-    """Pull the most informative line(s) out of Blackbird's stderr blob for a validation notice."""
+    """Pull the most informative message out of Blackbird's stderr blob for a validation notice,
+    skipping the 'Exception in thread'/'HistoryReader' wrappers and stack-trace frames."""
     lines = [l.strip() for l in stderr.splitlines() if l.strip()]
-    for i, l in enumerate(lines):
-        if "Error while creating activity" in l or "Root cause" in l:
-            return " ".join(lines[i:i + 3])[:400]
-    return (lines[0] if lines else "invalid arguments")[:400]
+    meaningful = [l for l in lines if not l.startswith("at ")]
+    joined = " ".join(meaningful)
+    m = re.search(r"Root cause:\s*(.+?)(?:\s+at\s|$)", joined)
+    if m:
+        return m.group(1).strip()[:400]
+    for i, l in enumerate(meaningful):
+        if "Error while creating activity" in l:
+            return " ".join(meaningful[i:i + 3])[:400]
+    for l in meaningful:
+        if any(k in l for k in ("Not a JSON", "Index", "cannot", "Cannot", "NumberFormat",
+                                "IllegalArgument", "Invalid", "required")):
+            return l[:400]
+    return (meaningful[-1] if meaningful else "invalid arguments")[:400]
 
 def coerce_default(bbtype, dflt):
     if bbtype in ("int", "integer", "long"):
@@ -270,7 +280,10 @@ def coerce_default(bbtype, dflt):
         except (ValueError, TypeError): return dflt
     if bbtype in ("boolean", "bool"):
         return str(dflt).lower() == "true"
-    return dflt  # string/duration/custom: best-effort passthrough
+    if bbtype == "duration":
+        try: return bb_dur_to_us(dflt)  # serialized durations are microseconds, e.g. "00:01:00" -> 60000000
+        except Exception: return dflt
+    return dflt  # string/custom: best-effort passthrough
 
 def effective_args(typ, provided):
     """Effective args = provided args with any missing parameters filled from dictionary defaults."""
@@ -282,8 +295,13 @@ def effective_args(typ, provided):
     return eff
 
 def validate(req):
-    """Authoritatively validate each activity by attempting to construct it in Blackbird (dry OPEN_FILE,
-    no REMODEL). Returns one verdict per activity: {valid, notices[], effectiveArguments}."""
+    """Per activity: return {valid, notices[], effectiveArguments}.
+
+    effectiveArguments is ALWAYS computed statically from dictionary defaults + provided args (never via
+    construction), so form population works with partial/empty args. When effectiveOnly is set, that's all
+    we do. Otherwise we additionally attempt an authoritative construction check (dry OPEN_FILE, no REMODEL);
+    callers only send complete arg sets to this deep path, since Blackbird cannot construct partial args."""
+    effective_only = bool(req.get("effectiveOnly", False))
     plan_start = datetime(2020, 1, 1, tzinfo=timezone.utc)  # arbitrary epoch; only construction matters
     results = []
     with tempfile.TemporaryDirectory() as wd:
@@ -295,16 +313,17 @@ def validate(req):
                                 "notices": [{"subjects": [], "message": "unknown activity type '%s'" % typ}],
                                 "effectiveArguments": None})
                 continue
+            eff = effective_args(typ, args)
+            if effective_only:
+                results.append({"valid": True, "notices": [], "effectiveArguments": eff})
+                continue
             plan_json, _ = build_plan_json(plan_start, [{"id": 0, "type": typ, "startOffset": 0, "arguments": args}], wd)
             script = os.path.join(wd, "validate.script")
             open(script, "w").write("OPEN_FILE %s unfrozen decompose\n" % plan_json)  # construct only; no REMODEL
             ok, stderr = run_bb_ok(script, wd)
-            if ok:
-                results.append({"valid": True, "notices": [], "effectiveArguments": effective_args(typ, args)})
-            else:
-                results.append({"valid": False,
-                                "notices": [{"subjects": [], "message": clean_bb_error(stderr)}],
-                                "effectiveArguments": None})
+            results.append({"valid": ok,
+                            "notices": [] if ok else [{"subjects": [], "message": clean_bb_error(stderr)}],
+                            "effectiveArguments": eff})
     return {"results": results}
 
 class Handler(BaseHTTPRequestHandler):

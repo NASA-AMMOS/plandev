@@ -46,10 +46,12 @@ public final class ExternalValidationBackend {
 
   /**
    * POST the activities to the backend and return one verdict per activity, in input order.
+   * @param effectiveOnly when true, the backend only resolves effective arguments (defaults) and skips the
+   *   deep construction check — used for form population, where args may be partial and construction would fail.
    * @throws IOException / InterruptedException if the backend is unreachable or returns a non-2xx status.
    */
   public static List<ActivityValidation> validateActivities(
-      final String simulateUrl, final List<SerializedActivity> activities)
+      final String simulateUrl, final List<SerializedActivity> activities, final boolean effectiveOnly)
       throws IOException, InterruptedException
   {
     final var url = URI.create(simulateUrl).resolve("validate");
@@ -60,7 +62,10 @@ public final class ExternalValidationBackend {
           .add("type", act.getTypeName())
           .add("arguments", serializedValueP.unparse(SerializedValue.of(act.getArguments()))));
     }
-    final var body = Json.createObjectBuilder().add("activities", activitiesB).build().toString();
+    final var body = Json.createObjectBuilder()
+        .add("activities", activitiesB)
+        .add("effectiveOnly", effectiveOnly)
+        .build().toString();
 
     final var httpResponse = HTTP.send(
         HttpRequest.newBuilder(url)

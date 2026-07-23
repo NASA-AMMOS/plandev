@@ -120,12 +120,12 @@ public final class LocalMissionModelService implements MissionModelService {
    * Validation is on the interactive editing path, so a down backend must degrade, not hard-fail.
    */
   private List<ExternalValidationBackend.ActivityValidation> tryExternalValidate(
-      final MissionModelId missionModelId, final List<SerializedActivity> activities)
+      final MissionModelId missionModelId, final List<SerializedActivity> activities, final boolean effectiveOnly)
   {
     try {
       final var url = getMissionModelById(missionModelId).externalBackendUrl;
       if (url == null || url.isBlank()) return null;
-      return ExternalValidationBackend.validateActivities(url, activities);
+      return ExternalValidationBackend.validateActivities(url, activities, effectiveOnly);
     } catch (final Exception ex) {
       log.warn("External validation backend unavailable for model {}; falling back to stored-schema check ({})",
           missionModelId, ex.toString());
@@ -192,12 +192,15 @@ public final class LocalMissionModelService implements MissionModelService {
     if (isExternalModel(missionModelId)) {
       final var activityType = getActivityTypes(missionModelId).get(activity.getTypeName());
       if (activityType == null) return List.of(new ValidationNotice(List.of(), "unknown activity type"));
-      // Authoritative: let the model validate; empty notices == valid.
-      final var wire = tryExternalValidate(missionModelId, List.of(activity));
-      if (wire != null && !wire.isEmpty()) return wire.get(0).notices();
-      // Backend unreachable: fall back to shallow stored-parameter presence checks.
-      return validateAgainstStoredParameters(
+      // Cheap presence/required check first — catches an incomplete arg set (e.g. a form just opened with a
+      // required field still empty) with a clean notice, and without a backend call that would fail to construct.
+      final var presence = validateAgainstStoredParameters(
           activityType.parameters(), activityType.requiredParameters(), activity.getArguments());
+      if (!presence.isEmpty()) return presence;
+      // Required args present: delegate a deep, authoritative check to the model (catches e.g. a bad map value).
+      final var wire = tryExternalValidate(missionModelId, List.of(activity), false);
+      if (wire != null && !wire.isEmpty()) return wire.get(0).notices();
+      return List.of(); // backend unreachable but presence passed: accept
     }
     // TODO: [AERIE-1516] Teardown the missionModel after use to release any system resources (e.g. threads).
     final var modelType = this.loadMissionModelType(missionModelId);
@@ -219,27 +222,39 @@ public final class LocalMissionModelService implements MissionModelService {
           .collect(Collectors.toList());
     }
     if (externalActivityTypes != null) {
-      // One wire call for the whole batch; null => backend down, fall back to stored-schema per directive.
-      final var wire = tryExternalValidate(
-          missionModelId, activities.stream().map(ActivityDirectiveForValidation::activity).toList());
-      final var responses = new ArrayList<BulkArgumentValidationResponse>();
+      final var responses = new BulkArgumentValidationResponse[activities.size()];
+      // Presence/required check per directive first; only directives with a complete arg set are sent to the
+      // backend for the deep construction check (Blackbird can't construct partial args). This keeps a
+      // just-opened form's "missing required parameter" clean and avoids a doomed backend call.
+      final var deep = new ArrayList<SerializedActivity>();
+      final var deepIndex = new ArrayList<Integer>();
       for (int i = 0; i < activities.size(); i++) {
         final var directive = activities.get(i);
         final var typeName = directive.activity().getTypeName();
         final var activityType = externalActivityTypes.get(typeName);
         if (activityType == null) {
-          responses.add(new BulkArgumentValidationResponse.NoSuchActivityError(new NoSuchActivityTypeException(typeName)));
+          responses[i] = new BulkArgumentValidationResponse.NoSuchActivityError(new NoSuchActivityTypeException(typeName));
           continue;
         }
-        final var notices = (wire != null)
-            ? wire.get(i).notices()
-            : validateAgainstStoredParameters(
-                activityType.parameters(), activityType.requiredParameters(), directive.activity().getArguments());
-        responses.add(notices.isEmpty()
-            ? new BulkArgumentValidationResponse.Success()
-            : new BulkArgumentValidationResponse.Validation(notices));
+        final var presence = validateAgainstStoredParameters(
+            activityType.parameters(), activityType.requiredParameters(), directive.activity().getArguments());
+        if (!presence.isEmpty()) {
+          responses[i] = new BulkArgumentValidationResponse.Validation(presence);
+        } else {
+          deepIndex.add(i);
+          deep.add(directive.activity());
+        }
       }
-      return responses;
+      final var wire = deep.isEmpty() ? null : tryExternalValidate(missionModelId, deep, false);
+      for (int k = 0; k < deepIndex.size(); k++) {
+        final int i = deepIndex.get(k);
+        // Backend down but presence already passed: accept (can't deep-validate).
+        final List<ValidationNotice> notices = (wire != null) ? wire.get(k).notices() : List.of();
+        responses[i] = notices.isEmpty()
+            ? new BulkArgumentValidationResponse.Success()
+            : new BulkArgumentValidationResponse.Validation(notices);
+      }
+      return java.util.Arrays.asList(responses);
     }
 
     // load mission model once for all activities
@@ -344,8 +359,8 @@ public final class LocalMissionModelService implements MissionModelService {
   throws NoSuchMissionModelException, MissionModelLoadException {
       if (isExternalModel(missionModelId)) {
         final var activityTypes = getActivityTypes(missionModelId);
-        // Ask the backend to resolve defaults; effectiveArguments comes back per activity when available.
-        final var wire = tryExternalValidate(missionModelId, serializedActivities);
+        // Ask the backend to resolve defaults (effectiveOnly: no construction, so partial args don't fail).
+        final var wire = tryExternalValidate(missionModelId, serializedActivities, true);
         final var externalResponse = new ArrayList<BulkEffectiveArgumentResponse>();
         for (int i = 0; i < serializedActivities.size(); i++) {
           final var activity = serializedActivities.get(i);

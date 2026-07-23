@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'maven-publish'
 }
 
 java {
@@ -10,4 +11,30 @@ java {
 
 dependencies {
     implementation "org.graalvm.polyglot:polyglot:${graalPyVersion}"
+}
+
+// pymerlin-shim (a separate Gradle build, in the pymerlin repo) needs this module to
+// compile GraalBridge against -- it's `compileOnly` there since the worker/server
+// provide it at runtime the same way as polyglot/python-embedding. Published so that
+// build no longer needs a local plandev checkout to resolve it.
+publishing {
+  publications {
+    library(MavenPublication) {
+      version = findProperty('publishing.version')
+      from components.java
+    }
+  }
+
+  publishing {
+    repositories {
+      maven {
+        name = findProperty("publishing.name")
+        url = findProperty("publishing.url")
+        credentials {
+          username = System.getenv(findProperty("publishing.usernameEnvironmentVariable"))
+          password = System.getenv(findProperty("publishing.passwordEnvironmentVariable"))
+        }
+      }
+    }
+  }
 }

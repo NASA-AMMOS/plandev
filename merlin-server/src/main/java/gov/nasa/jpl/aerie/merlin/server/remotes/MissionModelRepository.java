@@ -16,7 +16,6 @@ public interface MissionModelRepository {
     // Queries
     Map<MissionModelId, MissionModelJar> getAllMissionModels();
     MissionModelJar getMissionModel(MissionModelId id) throws NoSuchMissionModelException;
-    MissionModelId createExternalModel(String name, String version, String mission, String backendUrl);
     Map<String, ActivityType> getActivityTypes(MissionModelId missionModelId) throws NoSuchMissionModelException;
     List<Parameter> getModelParameters(MissionModelId missionModelId) throws NoSuchMissionModelException;
     Map<String, gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema> getResourceTypes(MissionModelId missionModelId) throws NoSuchMissionModelException;

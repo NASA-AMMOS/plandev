@@ -12,8 +12,13 @@ public final class MissionModelJar {
   /** Discriminator for how this model is backed: "jar" (Java JAR) or "external" (foreign backend). */
   public String modelType;
 
-  /** For external models: the HTTP endpoint of the backend that simulates this model. Null for JAR models. */
-  public String externalBackendUrl;
+  /** For external models: the name of the trusted backend (from EXTERNAL_MODEL_BACKENDS config) that
+   *  hosts this model. Merlin resolves it to a URL. Null for JAR models. */
+  public String externalBackend;
+
+  /** For external models: the key selecting which model to use on {@link #externalBackend} (a backend may
+   *  host several). Null for JAR models. */
+  public String externalModelKey;
 
   /**
    * The path to the Mission Model JAR
@@ -38,7 +43,8 @@ public final class MissionModelJar {
               && Objects.equals(this.mission, other.mission)
               && Objects.equals(this.owner, other.owner)
               && Objects.equals(this.modelType, other.modelType)
-              && Objects.equals(this.externalBackendUrl, other.externalBackendUrl)
+              && Objects.equals(this.externalBackend, other.externalBackend)
+              && Objects.equals(this.externalModelKey, other.externalModelKey)
               && Objects.equals(this.path, other.path)
               );
   }
@@ -51,7 +57,8 @@ public final class MissionModelJar {
         mission,
         owner,
         modelType,
-        externalBackendUrl,
+        externalBackend,
+        externalModelKey,
         path
     );
   }

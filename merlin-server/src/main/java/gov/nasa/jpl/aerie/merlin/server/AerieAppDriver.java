@@ -52,10 +52,17 @@ public final class AerieAppDriver {
     final var configuration = loadConfiguration();
     final var stores = loadStores(configuration);
 
+    // Trusted external-model backends, configured by the operator (never user input). Shared by the
+    // model service (resolve backend ref -> URL for introspect/simulate/validate) and the HTTP bindings
+    // (discovery catalog).
+    final var externalModelBackends =
+        gov.nasa.jpl.aerie.merlin.server.services.ExternalModelBackends.fromEnv();
+
     final var missionModelController = new LocalMissionModelService(
         configuration.merlinFileStore(),
         stores.missionModels(),
-        configuration.untruePlanStart());
+        configuration.untruePlanStart(),
+        externalModelBackends);
 
     if (configuration.enableContinuousValidationThread()) {
       final var validationWorker = new ValidationWorker(
@@ -105,7 +112,7 @@ public final class AerieAppDriver {
         constraintAction,
         permissionsService,
         stores.externalSimulationResults(),
-        gov.nasa.jpl.aerie.merlin.server.services.ExternalModelBackends.fromEnv()
+        externalModelBackends
     );
     // Configure an HTTP server.
     //default javalin jetty server has a QueuedThreadPool with maxThreads to 250

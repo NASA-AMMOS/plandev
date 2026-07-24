@@ -8,5 +8,6 @@ public record MissionModelRecord(
     String version,
     String owner,
     String modelType,
-    String externalBackendUrl,
+    String externalBackend,
+    String externalModelKey,
     Path path) {}

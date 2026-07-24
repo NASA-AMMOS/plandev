@@ -147,37 +147,6 @@ public final class MerlinBindings implements Plugin {
     ctx.status(200).result(catalog.build().toString());
   }
 
-  /** Introspect-on-select: create an external mission_model from a configured backend + model key, and
-   *  populate its activity/resource/config types by pulling GET {url}/introspect?model=<key>. */
-  private void registerExternalModel(final Context ctx) {
-    try {
-      final var input = Json.createReader(new java.io.StringReader(ctx.body())).readObject().getJsonObject("input");
-      final var backend = input.getString("backend");
-      final var modelKey = input.getString("modelKey");
-      final var name = input.getString("name");
-      final var version = input.getString("version", "1.0.0");
-      final var baseUrl = this.externalModelBackends.url(backend).orElse(null);
-      if (baseUrl == null) {
-        ctx.status(404).result(Json.createObjectBuilder().add("error", "unknown backend '" + backend + "'").build().toString());
-        return;
-      }
-      final var introspection = gov.nasa.jpl.aerie.merlin.server.services.ExternalModelDiscovery.introspect(baseUrl, modelKey);
-      final var backendUrl = baseUrl + (baseUrl.endsWith("/") ? "" : "/") + "simulate?model="
-          + java.net.URLEncoder.encode(modelKey, java.nio.charset.StandardCharsets.UTF_8);
-      final var modelId = this.missionModelService.createExternalModel(name, version, name, backendUrl);
-      this.missionModelService.registerModelTypes(
-          modelId, introspection.activityTypes(), introspection.resourceTypes(), introspection.parameters());
-      ctx.status(200).result(Json.createObjectBuilder()
-          .add("modelId", modelId.id())
-          .add("activityTypeCount", introspection.activityTypes().size())
-          .add("resourceTypeCount", introspection.resourceTypes().size())
-          .add("identityHash", introspection.identityHash())
-          .build().toString());
-    } catch (final Exception ex) {
-      ctx.status(500).result(Json.createObjectBuilder().add("error", ex.toString()).build().toString());
-    }
-  }
-
   private void ingestExternalSimulationResults(final Context ctx) {
     try {
       final var body = parseJson(ctx.body(), hasuraIngestExternalSimulationResultsActionP);
@@ -214,7 +183,6 @@ public final class MerlinBindings implements Plugin {
       path("registerModelTypes", () -> post(this::registerModelTypes));
       path("ingestExternalSimulationResults", () -> post(this::ingestExternalSimulationResults));
       path("getExternalModelCatalog", () -> post(this::getExternalModelCatalog));
-      path("registerExternalModel", () -> post(this::registerExternalModel));
       path("validateActivityArguments", () -> post(this::validateActivityArguments));
       path("validateModelArguments", () -> post(this::validateModelArguments));
       path("validatePlan", () -> post(this::validatePlan));

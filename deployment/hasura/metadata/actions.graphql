@@ -417,10 +417,6 @@ type Query {
   getExternalModelCatalog: [ExternalBackendCatalog!]!
 }
 
-type Mutation {
-  registerExternalModel(backend: String!, modelKey: String!, name: String!, version: String!): RegisterExternalModelResponse
-}
-
 type ExternalBackendCatalog {
   backend: String!
   reachable: Boolean!
@@ -432,13 +428,6 @@ type DiscoveredExternalModel {
   key: String!
   name: String!
   version: String!
-  identityHash: String!
-}
-
-type RegisterExternalModelResponse {
-  modelId: Int!
-  activityTypeCount: Int!
-  resourceTypeCount: Int!
   identityHash: String!
 }
 

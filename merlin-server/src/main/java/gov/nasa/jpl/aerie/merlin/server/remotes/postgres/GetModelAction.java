@@ -10,7 +10,7 @@ import java.util.Optional;
 
 /*package-local*/ final class GetModelAction implements AutoCloseable {
   private static final @Language("SQL") String sql = """
-    select m.mission, m.name, m.version, m.owner, m.model_type, m.external_backend_url, encode(f.path, 'escape')
+    select m.mission, m.name, m.version, m.owner, m.model_type, m.external_backend, m.external_model_key, encode(f.path, 'escape')
     from merlin.mission_model AS m
     left join merlin.uploaded_file AS f
       on m.jar_id = f.id
@@ -35,8 +35,9 @@ import java.util.Optional;
       final var version = results.getString(3);
       final var owner = results.getString(4);
       final var modelType = results.getString(5);
-      final var externalBackendUrl = results.getString(6);
-      final var pathString = results.getString(7);
+      final var externalBackend = results.getString(6);
+      final var externalModelKey = results.getString(7);
+      final var pathString = results.getString(8);
       final var path = (pathString == null) ? null : Path.of(pathString);
 
       return Optional.of(new MissionModelRecord(
@@ -45,7 +46,8 @@ import java.util.Optional;
               version,
               owner,
               modelType,
-              externalBackendUrl,
+              externalBackend,
+              externalModelKey,
               path));
     }
   }

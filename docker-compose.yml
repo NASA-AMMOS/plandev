@@ -190,6 +190,9 @@ services:
       MERLIN_DB_USER: "${MERLIN_USERNAME}"
       MERLIN_DB_PASSWORD: "${MERLIN_PASSWORD}"
       MERLIN_WORKER_LOCAL_STORE: /usr/src/app/merlin_file_store
+      # Must match aerie_merlin: the worker resolves an external model's backend name -> URL from here
+      # (backend refs are stored on the model row; the actual URL only ever comes from this trusted config).
+      EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://host.docker.internal:5011"},{"name":"python-lab","url":"http://host.docker.internal:5002"}]'
       SIMULATION_PROGRESS_POLL_PERIOD_MILLIS: 2000
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
@@ -214,6 +217,9 @@ services:
       MERLIN_DB_USER: "${MERLIN_USERNAME}"
       MERLIN_DB_PASSWORD: "${MERLIN_PASSWORD}"
       MERLIN_WORKER_LOCAL_STORE: /usr/src/app/merlin_file_store
+      # Must match aerie_merlin: the worker resolves an external model's backend name -> URL from here
+      # (backend refs are stored on the model row; the actual URL only ever comes from this trusted config).
+      EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://host.docker.internal:5011"},{"name":"python-lab","url":"http://host.docker.internal:5002"}]'
       SIMULATION_PROGRESS_POLL_PERIOD_MILLIS: 2000
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005

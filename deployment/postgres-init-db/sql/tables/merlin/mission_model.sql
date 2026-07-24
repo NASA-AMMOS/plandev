@@ -11,7 +11,8 @@ create table merlin.mission_model (
   owner text,
   jar_id integer,
   model_type text not null default 'jar',
-  external_backend_url text,
+  external_backend text,
+  external_model_key text,
 
   created_at timestamptz not null default now(),
 
@@ -55,6 +56,12 @@ comment on column merlin.mission_model.jar_id is e''
 comment on column merlin.mission_model.model_type is e''
   'The kind of backend that defines this mission model.\n'
   '"jar" is a Java JAR uploaded to Aerie; "external" is a foreign model backend served outside Aerie.';
+comment on column merlin.mission_model.external_backend is e''
+  'For model_type="external": the name of a trusted backend declared in merlin''s EXTERNAL_MODEL_BACKENDS '
+  'config. Merlin resolves this name to the backend''s URL. Null for JAR models.';
+comment on column merlin.mission_model.external_model_key is e''
+  'For model_type="external": the key selecting which model to use on its backend (a backend may host '
+  'several). Null for JAR models.';
 comment on column merlin.mission_model.created_at is e''
   'The time this mission model was uploaded into Aerie.';
 comment on column merlin.mission_model.description is e''

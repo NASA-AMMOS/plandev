@@ -56,7 +56,8 @@ public final class MerlinWorkerAppDriver {
     final var missionModelController = new LocalMissionModelService(
         configuration.merlinFileStore(),
         stores.missionModels(),
-        configuration.untruePlanStart()
+        configuration.untruePlanStart(),
+        gov.nasa.jpl.aerie.merlin.server.services.ExternalModelBackends.fromEnv()
     );
     final var planController = new LocalPlanService(stores.plans());
     final var simulationAgent = new SimulationAgent(

@@ -25,6 +25,9 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -51,15 +54,20 @@ public final class LocalMissionModelService implements MissionModelService {
   private final Path missionModelDataPath;
   private final MissionModelRepository missionModelRepository;
   private final Instant untruePlanStart;
+  /** Trusted, operator-configured external backends. External models name one of these; merlin resolves
+   *  the name to a URL here, so backend URLs never come from user-supplied data. */
+  private final ExternalModelBackends externalModelBackends;
 
   public LocalMissionModelService(
       final Path missionModelDataPath,
       final MissionModelRepository missionModelRepository,
-      final Instant untruePlanStart
+      final Instant untruePlanStart,
+      final ExternalModelBackends externalModelBackends
   ) {
     this.missionModelDataPath = missionModelDataPath;
     this.missionModelRepository = missionModelRepository;
     this.untruePlanStart = untruePlanStart;
+    this.externalModelBackends = externalModelBackends;
   }
 
   @Override
@@ -84,6 +92,43 @@ public final class LocalMissionModelService implements MissionModelService {
   private boolean isExternalModel(final MissionModelId missionModelId)
   throws NoSuchMissionModelException {
     return MODEL_TYPE_EXTERNAL.equals(getMissionModelById(missionModelId).modelType);
+  }
+
+  /**
+   * Resolve an external model's {@code /simulate} URL from its backend *reference* (backend name + model
+   * key) against the trusted config. Returns {@code null} if the backend is unknown/unconfigured or the
+   * model has no key — never from a user-supplied URL. The model key is carried as {@code ?model=<key>} so
+   * one backend can serve several models (the validate URL is derived from this, preserving the query).
+   */
+  private String externalSimulateUrl(final MissionModelJar model) {
+    final var baseUrl = this.externalModelBackends.url(model.externalBackend).orElse(null);
+    if (baseUrl == null || model.externalModelKey == null || model.externalModelKey.isBlank()) return null;
+    return baseUrl + (baseUrl.endsWith("/") ? "" : "/")
+        + "simulate?model=" + URLEncoder.encode(model.externalModelKey, StandardCharsets.UTF_8);
+  }
+
+  /**
+   * Pull an external model's activity/resource/config types from its backend by resolving the backend
+   * reference to a URL and calling {@code GET /introspect?model=<key>}. Invoked by the {@code refresh*}
+   * handlers when the Hasura event trigger fires on a newly-inserted external model (the same lifecycle
+   * that class-loads a JAR), so a model created via an ordinary insert gets populated without merlin
+   * having to insert the row itself.
+   */
+  private ExternalModelDiscovery.Introspection introspectExternal(final MissionModelId missionModelId)
+  throws NoSuchMissionModelException {
+    final var model = getMissionModelById(missionModelId);
+    final var baseUrl = this.externalModelBackends.url(model.externalBackend).orElse(null);
+    if (baseUrl == null) {
+      throw new RuntimeException(
+          "External model %s references backend '%s', which is not declared in EXTERNAL_MODEL_BACKENDS."
+              .formatted(missionModelId, model.externalBackend));
+    }
+    try {
+      return ExternalModelDiscovery.introspect(baseUrl, model.externalModelKey);
+    } catch (final IOException | InterruptedException ex) {
+      throw new RuntimeException(
+          "Failed to introspect external model %s from backend '%s'".formatted(missionModelId, model.externalBackend), ex);
+    }
   }
 
   /**
@@ -123,8 +168,8 @@ public final class LocalMissionModelService implements MissionModelService {
       final MissionModelId missionModelId, final List<SerializedActivity> activities, final boolean effectiveOnly)
   {
     try {
-      final var url = getMissionModelById(missionModelId).externalBackendUrl;
-      if (url == null || url.isBlank()) return null;
+      final var url = externalSimulateUrl(getMissionModelById(missionModelId));
+      if (url == null) return null;
       return ExternalValidationBackend.validateActivities(url, activities, effectiveOnly);
     } catch (final Exception ex) {
       log.warn("External validation backend unavailable for model {}; falling back to stored-schema check ({})",
@@ -473,10 +518,12 @@ public final class LocalMissionModelService implements MissionModelService {
       // External models are simulated by their external backend (e.g. the Blackbird adapter service):
       // Merlin sends the plan's directives + config there and ingests the returned results through the
       // normal resource-manager + succeedWith persistence path.
-      final var backendUrl = getMissionModelById(plan.missionModelId()).externalBackendUrl;
-      if (backendUrl == null || backendUrl.isBlank()) {
+      final var model = getMissionModelById(plan.missionModelId());
+      final var backendUrl = externalSimulateUrl(model);
+      if (backendUrl == null) {
         throw new IllegalStateException(
-            "External mission model `%s` has no external_backend_url configured.".formatted(plan.missionModelId()));
+            "External mission model `%s` references backend '%s', which is not declared in EXTERNAL_MODEL_BACKENDS (or has no model key)."
+                .formatted(plan.missionModelId(), model.externalBackend));
       }
       return ExternalSimulationBackend.simulate(backendUrl, plan, resourceManager);
     }
@@ -506,7 +553,15 @@ public final class LocalMissionModelService implements MissionModelService {
   public void refreshModelParameters(final MissionModelId missionModelId)
   throws NoSuchMissionModelException
   {
-    if (isExternalModel(missionModelId)) return; // external: metadata pushed directly; nothing to load
+    if (isExternalModel(missionModelId)) {
+      // External: no JAR to load; pull config parameters from the backend's /introspect over the wire.
+      try {
+        this.missionModelRepository.updateModelParameters(missionModelId, introspectExternal(missionModelId).parameters());
+      } catch (final MissionModelRepository.NoSuchMissionModelException ex) {
+        throw new NoSuchMissionModelException(missionModelId, ex);
+      }
+      return;
+    }
     try {
       this.missionModelRepository.updateModelParameters(missionModelId, getModelParameters(missionModelId));
     } catch (final MissionModelRepository.NoSuchMissionModelException ex) {
@@ -518,7 +573,18 @@ public final class LocalMissionModelService implements MissionModelService {
   public void refreshActivityTypes(final MissionModelId missionModelId)
   throws NoSuchMissionModelException
   {
-    if (isExternalModel(missionModelId)) return; // external: metadata pushed directly; nothing to load
+    if (isExternalModel(missionModelId)) {
+      // External: no JAR to load; pull activity types from the backend's /introspect over the wire.
+      try {
+        final var activityTypes = introspectExternal(missionModelId).activityTypes();
+        final var subsystems = activityTypes.values().stream()
+            .map(ActivityType::subsystem).flatMap(Optional::stream).distinct().toList();
+        this.missionModelRepository.updateActivityTypes(missionModelId, activityTypes, subsystems);
+      } catch (final MissionModelRepository.NoSuchMissionModelException ex) {
+        throw new NoSuchMissionModelException(missionModelId, ex);
+      }
+      return;
+    }
     try {
       final var modelType = this.loadMissionModelType(missionModelId);
       final var registry = DirectiveTypeRegistry.extract(modelType);
@@ -545,19 +611,21 @@ public final class LocalMissionModelService implements MissionModelService {
   @Override
   public void refreshResourceTypes(final MissionModelId missionModelId)
   throws NoSuchMissionModelException, MissionModelLoadException {
-    if (isExternalModel(missionModelId)) return; // external: metadata pushed directly; nothing to load
+    if (isExternalModel(missionModelId)) {
+      // External: no JAR to instantiate; pull resource schemas from the backend's /introspect over the wire.
+      try {
+        this.missionModelRepository.updateResourceTypeSchemas(missionModelId, introspectExternal(missionModelId).resourceTypes());
+      } catch (final MissionModelRepository.NoSuchMissionModelException ex) {
+        throw new NoSuchMissionModelException(missionModelId, ex);
+      }
+      return;
+    }
     try {
       final var model = this.loadAndInstantiateMissionModel(missionModelId);
       this.missionModelRepository.updateResourceTypes(missionModelId, model.getResources());
     } catch (MissionModelRepository.NoSuchMissionModelException e) {
       throw new NoSuchMissionModelException(missionModelId);
     }
-  }
-
-  @Override
-  public MissionModelId createExternalModel(
-      final String name, final String version, final String mission, final String backendUrl) {
-    return missionModelRepository.createExternalModel(name, version, mission, backendUrl);
   }
 
   @Override

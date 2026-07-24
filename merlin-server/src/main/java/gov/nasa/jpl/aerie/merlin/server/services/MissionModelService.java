@@ -75,9 +75,6 @@ public interface MissionModelService {
   void refreshActivityTypes(MissionModelId missionModelId) throws NoSuchMissionModelException;
   void refreshResourceTypes(MissionModelId missionModelId) throws NoSuchMissionModelException;
 
-  /** Create a non-JAR ("external") mission model row pointing at the given backend URL; returns its id. */
-  MissionModelId createExternalModel(String name, String version, String mission, String backendUrl);
-
   /** Register activity/resource/config type metadata for a non-JAR ("external") mission model. */
   void registerModelTypes(
       MissionModelId missionModelId,

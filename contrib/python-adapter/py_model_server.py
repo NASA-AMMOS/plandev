@@ -19,11 +19,13 @@ Endpoints (same shape as the Blackbird adapter):
 
 Run:  python3 py_model_server.py [port]   (stdlib only)
 """
-import json, sys
+import hashlib, json, sys
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import urlparse
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 5002
+MODEL_KEY, MODEL_NAME, MODEL_VERSION = "battery", "battery", "1.0.0"
 US_PER_S = 1_000_000
 SOC_INIT, CYCLES_INIT = 50.0, 0
 
@@ -122,6 +124,12 @@ def simulate(req):
         "spans": spans,
     }
 
+def identity_hash():
+    return hashlib.sha256(json.dumps({
+        "acts": {t: [(n, s) for n, s, _ in ps] for t, ps in MODEL.items()},
+        "res": RESOURCE_TYPES,
+    }, sort_keys=True).encode()).hexdigest()[:16]
+
 def introspect():
     return {
         "activityTypes": [{"name": t, "parameters": [{"name": n, "schema": s} for n, s, _ in ps],
@@ -129,7 +137,12 @@ def introspect():
                           for t, ps in MODEL.items()],
         "resourceTypes": [{"name": n, "schema": s} for n, s in RESOURCE_TYPES.items()],
         "parameters": [],
+        "identityHash": identity_hash(),
     }
+
+def models_list():
+    return {"models": [{"key": MODEL_KEY, "name": MODEL_NAME, "version": MODEL_VERSION,
+                        "identityHash": identity_hash()}]}
 
 class Handler(BaseHTTPRequestHandler):
     def _send(self, code, obj):
@@ -138,8 +151,11 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
 
     def do_GET(self):
-        if self.path.rstrip("/").endswith("/introspect"):
-            self._send(200, introspect())
+        path = urlparse(self.path).path.rstrip("/")
+        if path.endswith("/models"):
+            self._send(200, models_list())          # discovery
+        elif path.endswith("/introspect"):
+            self._send(200, introspect())            # model key optional (single model)
         else:
             self._send(404, {"error": "not found"})
 
@@ -147,7 +163,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             n = int(self.headers.get("Content-Length", 0))
             req = json.loads(self.rfile.read(n) or b"{}")
-            if self.path.rstrip("/").endswith("/validate"):
+            if urlparse(self.path).path.rstrip("/").endswith("/validate"):
                 self._send(200, {"results": [validate_one(a.get("type"), a.get("arguments") or {},
                                                            bool(req.get("effectiveOnly"))) for a in req.get("activities", [])]})
             else:

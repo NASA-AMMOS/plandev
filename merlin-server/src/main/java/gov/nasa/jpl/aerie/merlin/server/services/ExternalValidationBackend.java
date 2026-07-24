@@ -54,7 +54,16 @@ public final class ExternalValidationBackend {
       final String simulateUrl, final List<SerializedActivity> activities, final boolean effectiveOnly)
       throws IOException, InterruptedException
   {
-    final var url = URI.create(simulateUrl).resolve("validate");
+    // Derive the /validate URL from the /simulate URL, PRESERVING the query string (URI.resolve drops it).
+    // The query can carry the model key (?model=<key>) when one backend serves multiple models.
+    final var base = URI.create(simulateUrl);
+    final URI url;
+    try {
+      final var validatePath = base.getPath().replaceAll("/[^/]*$", "/validate");
+      url = new URI(base.getScheme(), base.getAuthority(), validatePath, base.getQuery(), null);
+    } catch (final java.net.URISyntaxException ex) {
+      throw new IOException("Could not derive /validate URL from " + simulateUrl, ex);
+    }
 
     final var activitiesB = Json.createArrayBuilder();
     for (final var act : activities) {

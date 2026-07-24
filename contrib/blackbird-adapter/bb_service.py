@@ -1,28 +1,38 @@
 #!/usr/bin/env python3
-"""Blackbird external-model backend SERVICE.
+"""Blackbird external-model backend SERVICE (multi-model).
 
-PlanDev's merlin simulation route (for model_type='external') POSTs to /simulate:
-  { planStart: <ISO>, duration: <us>, configuration: {..}, directives: [ {id,type,startOffset(us),arguments} ] }
-This service converts the directives to a Blackbird .plan.json, runs Blackbird
-(OPEN_FILE unfrozen decompose -> REMODEL -> WRITE), translates the XMLTOL output, and returns:
-  { realProfiles: {name:{schema,segments:[{duration,dynamics:{initial,rate}}]}},
-    discreteProfiles: {name:{schema,segments:[{duration,dynamics}]}},
-    spans: [{spanId,type,startOffset,duration,arguments,parentId?}] }
+One generic, model-agnostic adapter that can serve one OR many Blackbird adaptations. It speaks the
+PlanDev external-model wire contract; PlanDev only ever talks to a backend at an operator-configured URL.
 
-Run:  BLACKBIRD_CP=... JPLTIME_LIB=... python3 bb_service.py [port]
+Endpoints (each addresses a model by key; if only one model is configured the key is optional):
+  GET  /models                         -> { models: [{key, name, version, identityHash}] }   (discovery)
+  GET  /introspect?model=<key>         -> { activityTypes, resourceTypes, parameters }
+  POST /simulate?model=<key>           { planStart, duration(us), configuration, directives[] }
+                                       -> { realProfiles, discreteProfiles, spans }
+  POST /validate?model=<key>           { activities[], effectiveOnly }
+                                       -> { results: [{valid, notices[], effectiveArguments}] }
+
+Config: BB_MODELS = JSON map of {modelKey: classpath}. (Back-compat: if unset, a single model "default"
+uses BLACKBIRD_CP.) Each classpath is Blackbird core + jpl_time + exactly one adaptation.
+
+Run:  BB_MODELS='{"orbiter":"/cp/a","lander":"/cp/b"}' python3 bb_service.py [port]
 stdlib only.
 """
-import json, os, re, subprocess, sys, tempfile, uuid
+import hashlib, json, os, re, subprocess, sys, tempfile, uuid
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import urlparse, parse_qs
 
-BLACKBIRD_CP = os.environ["BLACKBIRD_CP"]
 BLACKBIRD_MAIN = os.environ.get("BLACKBIRD_MAIN", "gov.nasa.jpl.Blackbird")
 JPLTIME_LIB = os.environ.get("JPLTIME_LIB", "jplTime/lib")
 JAVA_BIN = os.environ.get("JAVA_BIN", "java")
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 5001
 
+# modelKey -> {cp, name, version, param_types, param_defaults, res_specs, initials, identity}
+MODELS = {}
+
+# ---------- time / value helpers (pure) ----------
 def iso_to_dt(iso):
     return datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone(timezone.utc)
 
@@ -51,101 +61,44 @@ def bb_time_to_us_offset(ts, plan_start):
     t = datetime(y, 1, 1, tzinfo=timezone.utc) + timedelta(days=doy-1, hours=hh, minutes=mm, seconds=ss, microseconds=micros)
     return round((t - plan_start).total_seconds() * 1_000_000)
 
-# activity param types from CREATE_DICTIONARY (name -> [(paramName, bbType)])
-PARAM_TYPES = {}
-# activity param defaults from CREATE_DICTIONARY (name -> {paramName: defaultString})
-PARAM_DEFAULTS = {}
-# each resource's declared initial value (composite name -> value), captured from a zero-activity
-# REMODEL. Blackbird registers all resources at engine startup, so an empty sim reports every
-# resource's default BEFORE any real plan runs -- used to seed the t=0 profile segment correctly.
-INITIALS = {}
-def load_dictionary(workdir):
-    dict_path = os.path.join(workdir, "model.dict.json")
-    script = os.path.join(workdir, "dict.script")
-    open(script, "w").write("CREATE_DICTIONARY %s\n" % dict_path)
-    run_bb(script, workdir)
-    d = json.load(open(dict_path))
-    for name, meta in d.get("activities", {}).items():
-        params = meta.get("parameters", [])
-        PARAM_TYPES[name] = [(p["name"], p.get("type", "string")) for p in params]
-        PARAM_DEFAULTS[name] = {p["name"]: p.get("default") for p in params if p.get("default") not in (None, "")}
+def composite_name(el):
+    """Flatten Blackbird arrayed resources: <Name> + <Index level=N>idx</Index>... -> dotted name."""
+    base = el.findtext("Name")
+    idxs = [i.text or "" for i in el.findall("Index")]
+    return base + "".join("." + i for i in idxs)
 
-def load_initials(workdir):
-    """Run a zero-activity REMODEL and record each resource's initial/default value at sim start.
-    This is also proof that resource *types* are knowable pre-simulation (see the ResourceSpec dump)."""
-    plan = os.path.join(workdir, "empty.plan.json")
-    json.dump({"activities": []}, open(plan, "w"))
-    xml = os.path.join(workdir, "empty.xml")
-    script = os.path.join(workdir, "init.script")
-    open(script, "w").write("OPEN_FILE %s unfrozen decompose\nREMODEL\nWRITE %s\n" % (plan, xml))
-    run_bb(script, workdir)
-    root = ET.parse(xml).getroot()
-    seen = {}
-    for rec in root.iter("TOLrecord"):
-        if rec.get("type") != "RES_VAL":
-            continue
-        r = rec.find("Resource"); name = composite_name(r)
-        if name in seen:  # keep earliest (initial) sample only
-            continue
-        for tag in ("DoubleValue", "IntegerValue", "IntValue", "StringValue", "DurationValue"):
-            e = r.find(tag)
-            if e is not None:
-                if tag == "DoubleValue":                  seen[name] = float(e.text)
-                elif tag in ("IntegerValue", "IntValue"): seen[name] = int(e.text)
-                elif tag == "DurationValue":              seen[name] = bb_dur_to_us(e.text)
-                else:                                     seen[name] = e.text
-                break
-    INITIALS.update(seen)
-
-def run_bb(script, workdir):
-    cmd = [JAVA_BIN, "-cp", BLACKBIRD_CP, "-Djava.library.path=%s" % JPLTIME_LIB, BLACKBIRD_MAIN, script]
-    p = subprocess.run(cmd, cwd=workdir, capture_output=True, text=True)
-    if p.returncode != 0:
-        # surface BB's stderr + the generated inputs for debugging
-        try:
-            planj = open(os.path.join(workdir, "in.plan.json")).read()
-        except Exception:
-            planj = "(no in.plan.json)"
-        raise RuntimeError("Blackbird exit %d\nSTDERR:\n%s\nSTDOUT:\n%s\nPLAN:\n%s"
-                           % (p.returncode, p.stderr[-1500:], p.stdout[-500:], planj[:1500]))
+def bbtype_to_schema(bt):
+    bt = (bt or "").lower()
+    if bt in ("double", "float", "real"): return {"type": "real"}
+    if bt in ("int", "integer", "long"): return {"type": "int"}
+    if bt == "duration": return {"type": "duration"}
+    if bt in ("boolean", "bool"): return {"type": "boolean"}
+    return {"type": "string"}  # map<>/list<>/custom -> string (best-effort)
 
 def fmt_param(bbtype, value):
     if bbtype == "duration" and isinstance(value, (int, float)):
         return us_to_bbdur(int(value))
     if bbtype == "string":
         return '"%s"' % value
-    return value  # numbers/bools raw; lists/maps best-effort
+    return value
 
-def build_plan_json(plan_start, directives, workdir):
-    acts = []
-    directive_by_uuid = {}  # Blackbird activity UUID -> originating PlanDev directive id
-    for d in directives:
-        typ = d["type"]
-        start = dt_to_bbtime(plan_start + timedelta(microseconds=d["startOffset"]))
-        ptypes = dict(PARAM_TYPES.get(typ, []))
-        params = []
-        for pname, pval in (d.get("arguments") or {}).items():
-            bt = ptypes.get(pname, "string")
-            v = fmt_param(bt, pval)
-            params.append({"name": pname, "type": bt, "value": v if isinstance(v, str) else json.dumps(v)})
-        # Blackbird requires a UUID id; derive a stable one from the PlanDev directive id.
-        bb_id = str(uuid.uuid5(uuid.NAMESPACE_OID, "plandev-directive-" + str(d["id"])))
-        directive_by_uuid[bb_id] = d["id"]
-        acts.append({"type": typ, "start": start, "parameters": params, "notes": "", "id": bb_id, "parent": None})
-    path = os.path.join(workdir, "in.plan.json")
-    json.dump({"activities": acts}, open(path, "w"))
-    return path, directive_by_uuid
+# ---------- Blackbird invocation (classpath per model) ----------
+def run_bb(script, workdir, cp):
+    cmd = [JAVA_BIN, "-cp", cp, "-Djava.library.path=%s" % JPLTIME_LIB, BLACKBIRD_MAIN, script]
+    p = subprocess.run(cmd, cwd=workdir, capture_output=True, text=True)
+    if p.returncode != 0:
+        try: planj = open(os.path.join(workdir, "in.plan.json")).read()
+        except Exception: planj = "(no in.plan.json)"
+        raise RuntimeError("Blackbird exit %d\nSTDERR:\n%s\nSTDOUT:\n%s\nPLAN:\n%s"
+                           % (p.returncode, p.stderr[-1500:], p.stdout[-500:], planj[:1500]))
 
-def composite_name(el):
-    """Blackbird arrayed resources emit <Name> + one or more <Index level=N>idx</Index>;
-    flatten to a PlanDev-friendly dotted name, e.g. PositionVector.x, ExampleBodyState.Earth.x."""
-    base = el.findtext("Name")
-    idxs = [i.text or "" for i in el.findall("Index")]
-    return base + "".join("." + i for i in idxs)
+def run_bb_ok(script, workdir, cp):
+    cmd = [JAVA_BIN, "-cp", cp, "-Djava.library.path=%s" % JPLTIME_LIB, BLACKBIRD_MAIN, script]
+    p = subprocess.run(cmd, cwd=workdir, capture_output=True, text=True)
+    return (p.returncode == 0, p.stderr or "")
 
-def parse_output(xml_path, plan_start, sim_duration_us, directive_by_uuid=None):
-    directive_by_uuid = directive_by_uuid or {}
-    root = ET.parse(xml_path).getroot()
+def parse_res_specs(root):
+    """resource composite-name -> (ValueSchema, is_real)."""
     res_specs = {}
     for spec in root.iter("ResourceSpec"):
         name = composite_name(spec)
@@ -165,10 +118,77 @@ def parse_output(xml_path, plan_start, sim_duration_us, directive_by_uuid=None):
         else:
             vs, is_real = {"type": "string"}, False
         res_specs[name] = (vs, is_real)
+    return res_specs
 
-    # Two passes so decomposition children (which may appear before their parent in the
-    # TOL) can resolve their parent's spanId: first assign a sequential spanId per
-    # activity instance keyed by Blackbird's own UUID, then link Parent UUID -> spanId.
+def parse_initials(root):
+    """resource composite-name -> earliest (initial) value."""
+    seen = {}
+    for rec in root.iter("TOLrecord"):
+        if rec.get("type") != "RES_VAL":
+            continue
+        r = rec.find("Resource"); name = composite_name(r)
+        if name in seen:
+            continue
+        for tag in ("DoubleValue", "IntegerValue", "IntValue", "StringValue", "DurationValue"):
+            e = r.find(tag)
+            if e is not None:
+                if tag == "DoubleValue":                  seen[name] = float(e.text)
+                elif tag in ("IntegerValue", "IntValue"): seen[name] = int(e.text)
+                elif tag == "DurationValue":              seen[name] = bb_dur_to_us(e.text)
+                else:                                     seen[name] = e.text
+                break
+    return seen
+
+def load_model(key, cp):
+    """Introspect one adaptation: activity param types/defaults (CREATE_DICTIONARY) + resource
+    schemas/initials (zero-activity REMODEL). Identity = hash of the introspected types."""
+    with tempfile.TemporaryDirectory() as wd:
+        dpath = os.path.join(wd, "model.dict.json"); s = os.path.join(wd, "d.script")
+        open(s, "w").write("CREATE_DICTIONARY %s\n" % dpath); run_bb(s, wd, cp)
+        d = json.load(open(dpath))
+        param_types, param_defaults = {}, {}
+        for name, meta in d.get("activities", {}).items():
+            ps = meta.get("parameters", [])
+            param_types[name] = [(p["name"], p.get("type", "string")) for p in ps]
+            param_defaults[name] = {p["name"]: p.get("default") for p in ps if p.get("default") not in (None, "")}
+        plan = os.path.join(wd, "empty.plan.json"); json.dump({"activities": []}, open(plan, "w"))
+        xml = os.path.join(wd, "empty.xml"); s2 = os.path.join(wd, "i.script")
+        open(s2, "w").write("OPEN_FILE %s unfrozen decompose\nREMODEL\nWRITE %s\n" % (plan, xml)); run_bb(s2, wd, cp)
+        root = ET.parse(xml).getroot()
+        res_specs = parse_res_specs(root)
+        initials = parse_initials(root)
+    identity = hashlib.sha256(json.dumps({
+        "acts": {n: sorted(param_types[n]) for n in param_types},
+        "res": {n: vs for n, (vs, _) in res_specs.items()},
+    }, sort_keys=True).encode()).hexdigest()[:16]
+    return {"cp": cp, "name": key, "version": "1.0.0", "param_types": param_types,
+            "param_defaults": param_defaults, "res_specs": res_specs, "initials": initials, "identity": identity}
+
+# ---------- plan build / output parse (per-model) ----------
+def build_plan_json(plan_start, directives, workdir, param_types):
+    acts = []
+    directive_by_uuid = {}
+    for d in directives:
+        typ = d["type"]
+        start = dt_to_bbtime(plan_start + timedelta(microseconds=d["startOffset"]))
+        ptypes = dict(param_types.get(typ, []))
+        params = []
+        for pname, pval in (d.get("arguments") or {}).items():
+            bt = ptypes.get(pname, "string")
+            v = fmt_param(bt, pval)
+            params.append({"name": pname, "type": bt, "value": v if isinstance(v, str) else json.dumps(v)})
+        bb_id = str(uuid.uuid5(uuid.NAMESPACE_OID, "plandev-directive-" + str(d["id"])))
+        directive_by_uuid[bb_id] = d["id"]
+        acts.append({"type": typ, "start": start, "parameters": params, "notes": "", "id": bb_id, "parent": None})
+    path = os.path.join(workdir, "in.plan.json")
+    json.dump({"activities": acts}, open(path, "w"))
+    return path, directive_by_uuid
+
+def parse_output(xml_path, plan_start, sim_duration_us, initials, directive_by_uuid=None):
+    directive_by_uuid = directive_by_uuid or {}
+    root = ET.parse(xml_path).getroot()
+    res_specs = parse_res_specs(root)
+
     act_recs = [r for r in root.iter("TOLrecord") if r.get("type") == "ACT_START"]
     uuid_to_sid = {r.find("Instance").findtext("ID"): i for i, r in enumerate(act_recs, start=1)}
     spans = []
@@ -176,8 +196,6 @@ def parse_output(xml_path, plan_start, sim_duration_us, directive_by_uuid=None):
         inst = rec.find("Instance")
         parent_uuid = (inst.findtext("Parent") or "").strip()
         parent_sid = uuid_to_sid.get(parent_uuid) if parent_uuid else None
-        # a top-level instance carrying our correlation UUID links back to its PlanDev directive;
-        # spawned/decomposed instances have no directive (they are pure sim output).
         directive_id = directive_by_uuid.get(inst.findtext("ID"))
         start = span = None; args = {}
         for a in inst.findall("./Attributes/Attribute"):
@@ -220,9 +238,7 @@ def parse_output(xml_path, plan_start, sim_duration_us, directive_by_uuid=None):
         vs, is_real = res_specs[name]
         segs.sort(key=lambda x: x[0])
         if segs[0][0] > 0:
-            # Blackbird only samples a resource once an activity touches it; before that the
-            # resource holds its declared initial value, not its first post-activity value.
-            segs.insert(0, (0, INITIALS.get(name, segs[0][1])))
+            segs.insert(0, (0, initials.get(name, segs[0][1])))
         out_segs = []
         for i, (off, v) in enumerate(segs):
             end = segs[i+1][0] if i+1 < len(segs) else sim_duration_us
@@ -234,28 +250,8 @@ def parse_output(xml_path, plan_start, sim_duration_us, directive_by_uuid=None):
         (real_profiles if is_real else discrete_profiles)[name] = {"schema": vs, "segments": out_segs}
     return real_profiles, discrete_profiles, spans
 
-def simulate(req):
-    plan_start = iso_to_dt(req["planStart"])
-    sim_dur = int(req["duration"])
-    with tempfile.TemporaryDirectory() as wd:
-        plan_json, directive_by_uuid = build_plan_json(plan_start, req.get("directives", []), wd)
-        xml_path = os.path.join(wd, "out.xml")
-        script = os.path.join(wd, "sim.script")
-        open(script, "w").write(
-            "OPEN_FILE %s unfrozen decompose\nREMODEL\nWRITE %s\n" % (plan_json, xml_path))
-        run_bb(script, wd)
-        rp, dp, spans = parse_output(xml_path, plan_start, sim_dur, directive_by_uuid)
-        return {"realProfiles": rp, "discreteProfiles": dp, "spans": spans}
-
-def run_bb_ok(script, workdir):
-    """Run Blackbird for validation, returning (ok, stderr) instead of raising on failure."""
-    cmd = [JAVA_BIN, "-cp", BLACKBIRD_CP, "-Djava.library.path=%s" % JPLTIME_LIB, BLACKBIRD_MAIN, script]
-    p = subprocess.run(cmd, cwd=workdir, capture_output=True, text=True)
-    return (p.returncode == 0, p.stderr or "")
-
+# ---------- validation / effective args (per-model) ----------
 def clean_bb_error(stderr):
-    """Pull the most informative message out of Blackbird's stderr blob for a validation notice,
-    skipping the 'Exception in thread'/'HistoryReader' wrappers and stack-trace frames."""
     lines = [l.strip() for l in stderr.splitlines() if l.strip()]
     meaningful = [l for l in lines if not l.startswith("at ")]
     joined = " ".join(meaningful)
@@ -281,73 +277,126 @@ def coerce_default(bbtype, dflt):
     if bbtype in ("boolean", "bool"):
         return str(dflt).lower() == "true"
     if bbtype == "duration":
-        try: return bb_dur_to_us(dflt)  # serialized durations are microseconds, e.g. "00:01:00" -> 60000000
+        try: return bb_dur_to_us(dflt)
         except Exception: return dflt
-    return dflt  # string/custom: best-effort passthrough
+    return dflt
 
-def effective_args(typ, provided):
-    """Effective args = provided args with any missing parameters filled from dictionary defaults."""
+def effective_args(typ, provided, param_types, param_defaults):
     eff = dict(provided or {})
-    ptypes = dict(PARAM_TYPES.get(typ, []))
-    for pname, dflt in PARAM_DEFAULTS.get(typ, {}).items():
+    ptypes = dict(param_types.get(typ, []))
+    for pname, dflt in param_defaults.get(typ, {}).items():
         if pname not in eff:
             eff[pname] = coerce_default(ptypes.get(pname, "string"), dflt)
     return eff
 
-def validate(req):
-    """Per activity: return {valid, notices[], effectiveArguments}.
+# ---------- endpoint impls ----------
+def introspect(model):
+    acts = []
+    for name, params in model["param_types"].items():
+        defaults = model["param_defaults"].get(name, {})
+        acts.append({"name": name,
+                     "parameters": [{"name": pn, "schema": bbtype_to_schema(bt)} for pn, bt in params],
+                     "requiredParameters": [pn for pn, _ in params if pn not in defaults]})
+    res = [{"name": n, "schema": vs} for n, (vs, _) in model["res_specs"].items()]
+    return {"activityTypes": acts, "resourceTypes": res, "parameters": [],
+            "identityHash": model["identity"]}
 
-    effectiveArguments is ALWAYS computed statically from dictionary defaults + provided args (never via
-    construction), so form population works with partial/empty args. When effectiveOnly is set, that's all
-    we do. Otherwise we additionally attempt an authoritative construction check (dry OPEN_FILE, no REMODEL);
-    callers only send complete arg sets to this deep path, since Blackbird cannot construct partial args."""
+def simulate(req, model):
+    plan_start = iso_to_dt(req["planStart"])
+    sim_dur = int(req["duration"])
+    with tempfile.TemporaryDirectory() as wd:
+        plan_json, directive_by_uuid = build_plan_json(plan_start, req.get("directives", []), wd, model["param_types"])
+        xml_path = os.path.join(wd, "out.xml")
+        script = os.path.join(wd, "sim.script")
+        open(script, "w").write("OPEN_FILE %s unfrozen decompose\nREMODEL\nWRITE %s\n" % (plan_json, xml_path))
+        run_bb(script, wd, model["cp"])
+        rp, dp, spans = parse_output(xml_path, plan_start, sim_dur, model["initials"], directive_by_uuid)
+        return {"realProfiles": rp, "discreteProfiles": dp, "spans": spans}
+
+def validate(req, model):
     effective_only = bool(req.get("effectiveOnly", False))
-    plan_start = datetime(2020, 1, 1, tzinfo=timezone.utc)  # arbitrary epoch; only construction matters
+    plan_start = datetime(2020, 1, 1, tzinfo=timezone.utc)
+    pt, pd = model["param_types"], model["param_defaults"]
     results = []
     with tempfile.TemporaryDirectory() as wd:
         for a in req.get("activities", []):
-            typ = a.get("type")
-            args = a.get("arguments") or {}
-            if typ not in PARAM_TYPES:
+            typ = a.get("type"); args = a.get("arguments") or {}
+            if typ not in pt:
                 results.append({"valid": False,
                                 "notices": [{"subjects": [], "message": "unknown activity type '%s'" % typ}],
                                 "effectiveArguments": None})
                 continue
-            eff = effective_args(typ, args)
+            eff = effective_args(typ, args, pt, pd)
             if effective_only:
-                results.append({"valid": True, "notices": [], "effectiveArguments": eff})
-                continue
-            plan_json, _ = build_plan_json(plan_start, [{"id": 0, "type": typ, "startOffset": 0, "arguments": args}], wd)
+                results.append({"valid": True, "notices": [], "effectiveArguments": eff}); continue
+            plan_json, _ = build_plan_json(plan_start, [{"id": 0, "type": typ, "startOffset": 0, "arguments": args}], wd, pt)
             script = os.path.join(wd, "validate.script")
-            open(script, "w").write("OPEN_FILE %s unfrozen decompose\n" % plan_json)  # construct only; no REMODEL
-            ok, stderr = run_bb_ok(script, wd)
+            open(script, "w").write("OPEN_FILE %s unfrozen decompose\n" % plan_json)
+            ok, stderr = run_bb_ok(script, wd, model["cp"])
             results.append({"valid": ok,
                             "notices": [] if ok else [{"subjects": [], "message": clean_bb_error(stderr)}],
                             "effectiveArguments": eff})
     return {"results": results}
 
+def models_list():
+    return {"models": [{"key": k, "name": m["name"], "version": m["version"], "identityHash": m["identity"]}
+                       for k, m in MODELS.items()]}
+
+# ---------- HTTP ----------
 class Handler(BaseHTTPRequestHandler):
+    def _send(self, code, obj):
+        body = json.dumps(obj).encode()
+        self.send_response(code); self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body))); self.end_headers(); self.wfile.write(body)
+
+    def _resolve(self, key):
+        """Model by key; if none given and exactly one is configured, use it. Raises KeyError otherwise."""
+        if key and key in MODELS:
+            return MODELS[key]
+        if not key and len(MODELS) == 1:
+            return next(iter(MODELS.values()))
+        raise KeyError("unknown or unspecified model '%s'; available: %s" % (key, list(MODELS)))
+
+    def _key(self, body=None):
+        q = parse_qs(urlparse(self.path).query).get("model")
+        return (q[0] if q else None) or (body or {}).get("model")
+
+    def do_GET(self):
+        try:
+            path = urlparse(self.path).path.rstrip("/")
+            if path.endswith("/models"):
+                self._send(200, models_list())
+            elif path.endswith("/introspect"):
+                self._send(200, introspect(self._resolve(self._key())))
+            else:
+                self._send(404, {"error": "not found"})
+        except Exception as e:
+            self._send(400 if isinstance(e, KeyError) else 500, {"error": str(e)})
+
     def do_POST(self):
         try:
             n = int(self.headers.get("Content-Length", 0))
             req = json.loads(self.rfile.read(n) or b"{}")
-            resp = validate(req) if self.path.rstrip("/").endswith("/validate") else simulate(req)
-            body = json.dumps(resp).encode()
-            self.send_response(200); self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body))); self.end_headers()
-            self.wfile.write(body)
+            path = urlparse(self.path).path.rstrip("/")
+            model = self._resolve(self._key(req))
+            if path.endswith("/validate"):
+                self._send(200, validate(req, model))
+            elif path.endswith("/introspect"):
+                self._send(200, introspect(model))
+            else:
+                self._send(200, simulate(req, model))
         except Exception as e:
             import traceback; traceback.print_exc()
-            body = json.dumps({"error": str(e)}).encode()
-            self.send_response(500); self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body))); self.end_headers()
-            self.wfile.write(body)
+            self._send(400 if isinstance(e, KeyError) else 500, {"error": str(e)})
+
     def log_message(self, *a): pass
 
 if __name__ == "__main__":
-    with tempfile.TemporaryDirectory() as wd:
-        load_dictionary(wd)
-        load_initials(wd)
-    print("Blackbird backend service on :%d  (activity types: %d, resource initials: %d)"
-          % (PORT, len(PARAM_TYPES), len(INITIALS)), flush=True)
+    cfg = os.environ.get("BB_MODELS")
+    cp_map = json.loads(cfg) if cfg else {"default": os.environ["BLACKBIRD_CP"]}
+    for key, cp in cp_map.items():
+        MODELS[key] = load_model(key, cp)
+    summary = ", ".join("%s(%d acts/%d res, id=%s)" % (k, len(m["param_types"]), len(m["res_specs"]), m["identity"])
+                        for k, m in MODELS.items())
+    print("Blackbird multi-model backend on :%d  models: %s" % (PORT, summary), flush=True)
     HTTPServer(("0.0.0.0", PORT), Handler).serve_forever()

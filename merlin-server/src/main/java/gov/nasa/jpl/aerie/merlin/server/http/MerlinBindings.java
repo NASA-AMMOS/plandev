@@ -73,6 +73,7 @@ public final class MerlinBindings implements Plugin {
   private final ConstraintAction constraintAction;
   private final PermissionsService permissionsService;
   private final ExternalSimulationResultsRepository externalSimulationResultsRepository;
+  private final gov.nasa.jpl.aerie.merlin.server.services.ExternalModelBackends externalModelBackends;
 
   public MerlinBindings(
       final MissionModelService missionModelService,
@@ -81,7 +82,8 @@ public final class MerlinBindings implements Plugin {
       final GenerateConstraintsLibAction generateConstraintsLibAction,
       final ConstraintAction constraintAction,
       final PermissionsService permissionsService,
-      final ExternalSimulationResultsRepository externalSimulationResultsRepository
+      final ExternalSimulationResultsRepository externalSimulationResultsRepository,
+      final gov.nasa.jpl.aerie.merlin.server.services.ExternalModelBackends externalModelBackends
   ) {
     this.missionModelService = missionModelService;
     this.planService = planService;
@@ -90,6 +92,7 @@ public final class MerlinBindings implements Plugin {
     this.constraintAction = constraintAction;
     this.permissionsService = permissionsService;
     this.externalSimulationResultsRepository = externalSimulationResultsRepository;
+    this.externalModelBackends = externalModelBackends;
   }
 
   private void registerModelTypes(final Context ctx) {
@@ -117,6 +120,61 @@ public final class MerlinBindings implements Plugin {
       ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
     } catch (final MissionModelService.NoSuchMissionModelException ex) {
       ctx.status(404).result(ResponseSerializers.serializeNoSuchMissionModelException(ex).toString());
+    }
+  }
+
+  /** Discovery: for each operator-configured backend, list the models it hosts (via GET {url}/models). */
+  private void getExternalModelCatalog(final Context ctx) {
+    final var catalog = Json.createArrayBuilder();
+    for (final var name : this.externalModelBackends.names()) {
+      final var url = this.externalModelBackends.url(name).orElseThrow();
+      final var entry = Json.createObjectBuilder().add("backend", name);
+      try {
+        final var models = Json.createArrayBuilder();
+        for (final var m : gov.nasa.jpl.aerie.merlin.server.services.ExternalModelDiscovery.listModels(url)) {
+          models.add(Json.createObjectBuilder()
+              .add("key", m.key()).add("name", m.name())
+              .add("version", m.version()).add("identityHash", m.identityHash()));
+        }
+        entry.add("reachable", true).add("models", models);
+      } catch (final Exception ex) {
+        entry.add("reachable", false)
+             .add("error", ex.getMessage() == null ? ex.toString() : ex.getMessage())
+             .add("models", Json.createArrayBuilder());
+      }
+      catalog.add(entry);
+    }
+    ctx.status(200).result(catalog.build().toString());
+  }
+
+  /** Introspect-on-select: create an external mission_model from a configured backend + model key, and
+   *  populate its activity/resource/config types by pulling GET {url}/introspect?model=<key>. */
+  private void registerExternalModel(final Context ctx) {
+    try {
+      final var input = Json.createReader(new java.io.StringReader(ctx.body())).readObject().getJsonObject("input");
+      final var backend = input.getString("backend");
+      final var modelKey = input.getString("modelKey");
+      final var name = input.getString("name");
+      final var version = input.getString("version", "1.0.0");
+      final var baseUrl = this.externalModelBackends.url(backend).orElse(null);
+      if (baseUrl == null) {
+        ctx.status(404).result(Json.createObjectBuilder().add("error", "unknown backend '" + backend + "'").build().toString());
+        return;
+      }
+      final var introspection = gov.nasa.jpl.aerie.merlin.server.services.ExternalModelDiscovery.introspect(baseUrl, modelKey);
+      final var backendUrl = baseUrl + (baseUrl.endsWith("/") ? "" : "/") + "simulate?model="
+          + java.net.URLEncoder.encode(modelKey, java.nio.charset.StandardCharsets.UTF_8);
+      final var modelId = this.missionModelService.createExternalModel(name, version, name, backendUrl);
+      this.missionModelService.registerModelTypes(
+          modelId, introspection.activityTypes(), introspection.resourceTypes(), introspection.parameters());
+      ctx.status(200).result(Json.createObjectBuilder()
+          .add("modelId", modelId.id())
+          .add("activityTypeCount", introspection.activityTypes().size())
+          .add("resourceTypeCount", introspection.resourceTypes().size())
+          .add("identityHash", introspection.identityHash())
+          .build().toString());
+    } catch (final Exception ex) {
+      ctx.status(500).result(Json.createObjectBuilder().add("error", ex.toString()).build().toString());
     }
   }
 
@@ -155,6 +213,8 @@ public final class MerlinBindings implements Plugin {
       path("refreshResourceTypes", () -> post(this::postRefreshResourceTypes));
       path("registerModelTypes", () -> post(this::registerModelTypes));
       path("ingestExternalSimulationResults", () -> post(this::ingestExternalSimulationResults));
+      path("getExternalModelCatalog", () -> post(this::getExternalModelCatalog));
+      path("registerExternalModel", () -> post(this::registerExternalModel));
       path("validateActivityArguments", () -> post(this::validateActivityArguments));
       path("validateModelArguments", () -> post(this::validateModelArguments));
       path("validatePlan", () -> post(this::validatePlan));

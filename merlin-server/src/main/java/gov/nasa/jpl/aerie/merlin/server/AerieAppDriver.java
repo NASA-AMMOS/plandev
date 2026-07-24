@@ -104,7 +104,8 @@ public final class AerieAppDriver {
         generateConstraintsLibAction,
         constraintAction,
         permissionsService,
-        stores.externalSimulationResults()
+        stores.externalSimulationResults(),
+        gov.nasa.jpl.aerie.merlin.server.services.ExternalModelBackends.fromEnv()
     );
     // Configure an HTTP server.
     //default javalin jetty server has a QueuedThreadPool with maxThreads to 250

@@ -555,6 +555,12 @@ public final class LocalMissionModelService implements MissionModelService {
   }
 
   @Override
+  public MissionModelId createExternalModel(
+      final String name, final String version, final String mission, final String backendUrl) {
+    return missionModelRepository.createExternalModel(name, version, mission, backendUrl);
+  }
+
+  @Override
   public void registerModelTypes(
       final MissionModelId missionModelId,
       final Map<String, ActivityType> activityTypes,

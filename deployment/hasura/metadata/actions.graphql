@@ -413,6 +413,35 @@ type RegisterModelTypesResponse {
   parameterCount: Int!
 }
 
+type Query {
+  getExternalModelCatalog: [ExternalBackendCatalog!]!
+}
+
+type Mutation {
+  registerExternalModel(backend: String!, modelKey: String!, name: String!, version: String!): RegisterExternalModelResponse
+}
+
+type ExternalBackendCatalog {
+  backend: String!
+  reachable: Boolean!
+  error: String
+  models: [DiscoveredExternalModel!]!
+}
+
+type DiscoveredExternalModel {
+  key: String!
+  name: String!
+  version: String!
+  identityHash: String!
+}
+
+type RegisterExternalModelResponse {
+  modelId: Int!
+  activityTypeCount: Int!
+  resourceTypeCount: Int!
+  identityHash: String!
+}
+
 type IngestExternalSimulationResultsResponse {
   simulationDatasetId: Int!
 }

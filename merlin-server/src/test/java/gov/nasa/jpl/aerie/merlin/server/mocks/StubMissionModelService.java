@@ -223,6 +223,12 @@ public final class StubMissionModelService implements MissionModelService {
   public void refreshResourceTypes(final MissionModelId missionModelId) {}
 
   @Override
+  public MissionModelId createExternalModel(
+      final String name, final String version, final String mission, final String backendUrl) {
+    throw new UnsupportedOperationException("stub");
+  }
+
+  @Override
   public void registerModelTypes(
       final MissionModelId missionModelId,
       final java.util.Map<String, ActivityType> activityTypes,

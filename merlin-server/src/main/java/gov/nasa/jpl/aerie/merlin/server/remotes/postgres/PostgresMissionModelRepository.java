@@ -56,6 +56,17 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
   }
 
   @Override
+  public MissionModelId createExternalModel(
+      final String name, final String version, final String mission, final String backendUrl) {
+    try (final var connection = this.dataSource.getConnection();
+         final var createAction = new CreateMissionModelAction(connection)) {
+      return new MissionModelId(createAction.apply(mission, name, version, backendUrl));
+    } catch (final SQLException ex) {
+      throw new DatabaseException("Failed to create external mission model `%s`".formatted(name), ex);
+    }
+  }
+
+  @Override
   public Map<String, ActivityType> getActivityTypes(final MissionModelId missionModelId) throws NoSuchMissionModelException {
     try (final var connection = this.dataSource.getConnection()) {
       try (final var getActivityTypesAction = new GetActivityTypesAction(connection)) {

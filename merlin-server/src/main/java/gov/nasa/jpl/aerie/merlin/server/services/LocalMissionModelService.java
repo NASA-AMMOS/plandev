@@ -525,7 +525,7 @@ public final class LocalMissionModelService implements MissionModelService {
             "External mission model `%s` references backend '%s', which is not declared in EXTERNAL_MODEL_BACKENDS (or has no model key)."
                 .formatted(plan.missionModelId(), model.externalBackend));
       }
-      return ExternalSimulationBackend.simulate(backendUrl, plan, resourceManager);
+      return ExternalSimulationBackend.simulate(backendUrl, plan, resourceManager, canceledListener);
     }
     final var config = plan.simulationConfiguration();
     if (config.isEmpty()) {

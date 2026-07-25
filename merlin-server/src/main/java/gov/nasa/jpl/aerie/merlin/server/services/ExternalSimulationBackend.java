@@ -18,7 +18,7 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import javax.json.Json;
 import javax.json.JsonObject;
-import java.io.StringReader;
+import javax.json.stream.JsonParser;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.function.Supplier;
 
 import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
 import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
@@ -41,12 +42,27 @@ import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueS
  * and returns a {@link SimulationResults} whose spans persist through the normal succeedWith path.
  */
 public final class ExternalSimulationBackend {
-  private static final HttpClient HTTP = HttpClient.newHttpClient();
+  // Deliberately NO total-request timeout and NO response-size cap: a legitimate simulation can run
+  // for hours and return a very large result, and killing it on either axis would be wrong. What we
+  // DO bound is liveness -- the backend must accept a connection and begin responding -- after which
+  // the body streams for as long as it takes. Runaway/wedged backends are caught by the cancel check
+  // during streaming (below), not by a size limit.
+  private static final HttpClient HTTP = HttpClient.newBuilder()
+      .connectTimeout(java.time.Duration.ofSeconds(10))
+      .build();
+  /** Bounds time-to-response-HEADERS only. With BodyHandlers.ofInputStream(), send() returns as soon
+   *  as headers arrive, so this does not limit how long the simulation itself may take. */
+  private static final java.time.Duration HEADERS_TIMEOUT = java.time.Duration.ofMinutes(10);
+  /** An error body is small by nature; bound it so a broken backend can't OOM us on the error path. */
+  private static final int MAX_ERROR_BODY_BYTES = 64 * 1024;
+  /** How often to poll the cancel flag while streaming results. */
+  private static final int CANCEL_CHECK_INTERVAL = 256;
 
   public static SimulationResults simulate(
       final String backendUrl,
       final Plan plan,
-      final SimulationResourceManager resourceManager)
+      final SimulationResourceManager resourceManager,
+      final Supplier<Boolean> canceledListener)
   {
     // Offsets and results are keyed to the SIMULATION start (matching the jar simulate path in
     // SimulationDriver), which may differ from the plan start.
@@ -93,65 +109,99 @@ public final class ExternalSimulationBackend {
         .add("directives", directivesB)
         .build().toString();
 
-    // --- call the backend ---
-    final JsonObject response;
-    try {
-      final var httpResponse = HTTP.send(
-          HttpRequest.newBuilder(URI.create(backendUrl))
-              .header("Content-Type", "application/json")
-              .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-              .build(),
-          HttpResponse.BodyHandlers.ofString());
-      if (httpResponse.statusCode() / 100 != 2) {
-        throw new RuntimeException("External backend returned HTTP " + httpResponse.statusCode() + ": " + httpResponse.body());
-      }
-      try (final var reader = Json.createReader(new StringReader(httpResponse.body()))) {
-        response = reader.readObject();
-      }
-    } catch (final java.io.IOException | InterruptedException ex) {
-      throw new RuntimeException("Failed to reach external simulation backend at " + backendUrl, ex);
-    }
-
     // --- parse profiles ---
     final var realProfiles = new HashMap<String, ResourceProfile<RealDynamics>>();
     final var discreteProfiles = new HashMap<String, ResourceProfile<SerializedValue>>();
     // time -> updates, for streaming into the resource manager (monotonic)
     final var realUpdatesByTime = new TreeMap<Long, Map<String, Pair<ValueSchema, RealDynamics>>>();
     final var discreteUpdatesByTime = new TreeMap<Long, Map<String, Pair<ValueSchema, SerializedValue>>>();
+    final var spanObjects = new ArrayList<JsonObject>();
 
-    final var realIn = response.getJsonObject("realProfiles");
-    if (realIn != null) for (final var name : realIn.keySet()) {
-      final var prof = realIn.getJsonObject(name);
-      final var schema = valueSchemaP.parse(prof.get("schema")).getSuccessOrThrow();
-      final var segs = new ArrayList<ProfileSegment<RealDynamics>>();
-      long offset = 0;
-      for (final var segV : prof.getJsonArray("segments")) {
-        final var seg = segV.asJsonObject();
-        final long durUs = seg.getJsonNumber("duration").longValue();
-        final var dyn = seg.getJsonObject("dynamics");
-        final var rd = RealDynamics.linear(dyn.getJsonNumber("initial").doubleValue(), dyn.getJsonNumber("rate").doubleValue());
-        segs.add(new ProfileSegment<>(Duration.of(durUs, Duration.MICROSECONDS), rd));
-        realUpdatesByTime.computeIfAbsent(offset, k -> new HashMap<>()).put(name, Pair.of(schema, rd));
-        offset += durUs;
-      }
-      realProfiles.put(name, ResourceProfile.of(schema, segs));
-    }
+    // --- call the backend and STREAM the response ---
+    // The body is parsed incrementally straight off the socket. Reading it into a String first (and
+    // then into a whole JsonObject tree) cost roughly 3x the final footprint and put a hard ceiling
+    // on simulation size; a large sim could OOM merlin before producing anything. Streaming keeps
+    // peak memory at "the results themselves plus one resource/span subtree", which is parity with
+    // the in-process JAR path -- it holds a full SimulationResults too.
+    try {
+      final var httpResponse = HTTP.send(
+          HttpRequest.newBuilder(URI.create(backendUrl))
+              .header("Content-Type", "application/json")
+              .timeout(HEADERS_TIMEOUT)
+              .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+              .build(),
+          HttpResponse.BodyHandlers.ofInputStream());
 
-    final var discreteIn = response.getJsonObject("discreteProfiles");
-    if (discreteIn != null) for (final var name : discreteIn.keySet()) {
-      final var prof = discreteIn.getJsonObject(name);
-      final var schema = valueSchemaP.parse(prof.get("schema")).getSuccessOrThrow();
-      final var segs = new ArrayList<ProfileSegment<SerializedValue>>();
-      long offset = 0;
-      for (final var segV : prof.getJsonArray("segments")) {
-        final var seg = segV.asJsonObject();
-        final long durUs = seg.getJsonNumber("duration").longValue();
-        final var val = serializedValueP.parse(seg.get("dynamics")).getSuccessOrThrow();
-        segs.add(new ProfileSegment<>(Duration.of(durUs, Duration.MICROSECONDS), val));
-        discreteUpdatesByTime.computeIfAbsent(offset, k -> new HashMap<>()).put(name, Pair.of(schema, val));
-        offset += durUs;
+      try (final var body = httpResponse.body()) {
+        if (httpResponse.statusCode() / 100 != 2) {
+          throw new RuntimeException("External backend returned HTTP " + httpResponse.statusCode()
+              + ": " + readBounded(body, MAX_ERROR_BODY_BYTES));
+        }
+        try (final var parser = Json.createParser(body)) {
+          if (!parser.hasNext() || parser.next() != JsonParser.Event.START_OBJECT) {
+            throw new RuntimeException("External backend response was not a JSON object");
+          }
+          while (parser.hasNext()) {
+            final var event = parser.next();
+            if (event == JsonParser.Event.END_OBJECT) break;
+            if (event != JsonParser.Event.KEY_NAME) continue;
+            switch (parser.getString()) {
+              case "realProfiles" -> streamProfiles(parser, canceledListener, (name, prof) -> {
+                final var schema = valueSchemaP.parse(prof.get("schema")).getSuccessOrThrow();
+                final var segs = new ArrayList<ProfileSegment<RealDynamics>>();
+                long offset = 0;
+                for (final var segV : prof.getJsonArray("segments")) {
+                  final var seg = segV.asJsonObject();
+                  final long durUs = seg.getJsonNumber("duration").longValue();
+                  final var dyn = seg.getJsonObject("dynamics");
+                  final var rd = RealDynamics.linear(
+                      dyn.getJsonNumber("initial").doubleValue(), dyn.getJsonNumber("rate").doubleValue());
+                  segs.add(new ProfileSegment<>(Duration.of(durUs, Duration.MICROSECONDS), rd));
+                  realUpdatesByTime.computeIfAbsent(offset, k -> new HashMap<>()).put(name, Pair.of(schema, rd));
+                  offset += durUs;
+                }
+                realProfiles.put(name, ResourceProfile.of(schema, segs));
+              });
+              case "discreteProfiles" -> streamProfiles(parser, canceledListener, (name, prof) -> {
+                final var schema = valueSchemaP.parse(prof.get("schema")).getSuccessOrThrow();
+                final var segs = new ArrayList<ProfileSegment<SerializedValue>>();
+                long offset = 0;
+                for (final var segV : prof.getJsonArray("segments")) {
+                  final var seg = segV.asJsonObject();
+                  final long durUs = seg.getJsonNumber("duration").longValue();
+                  final var val = serializedValueP.parse(seg.get("dynamics")).getSuccessOrThrow();
+                  segs.add(new ProfileSegment<>(Duration.of(durUs, Duration.MICROSECONDS), val));
+                  discreteUpdatesByTime.computeIfAbsent(offset, k -> new HashMap<>()).put(name, Pair.of(schema, val));
+                  offset += durUs;
+                }
+                discreteProfiles.put(name, ResourceProfile.of(schema, segs));
+              });
+              case "spans" -> {
+                if (parser.next() != JsonParser.Event.START_ARRAY) {
+                  throw new RuntimeException("`spans` was not a JSON array");
+                }
+                var seen = 0;
+                while (parser.hasNext()) {
+                  final var e = parser.next();
+                  if (e == JsonParser.Event.END_ARRAY) break;
+                  if (e != JsonParser.Event.START_OBJECT) continue;
+                  spanObjects.add(parser.getObject());
+                  if (++seen % CANCEL_CHECK_INTERVAL == 0) checkCanceled(canceledListener);
+                }
+              }
+              // Unknown top-level keys are skipped rather than buffered, so a backend can extend the
+              // response without forcing us to hold data we don't understand.
+              default -> {
+                final var e = parser.next();
+                if (e == JsonParser.Event.START_OBJECT) parser.skipObject();
+                else if (e == JsonParser.Event.START_ARRAY) parser.skipArray();
+              }
+            }
+          }
+        }
       }
-      discreteProfiles.put(name, ResourceProfile.of(schema, segs));
+    } catch (final java.io.IOException | InterruptedException ex) {
+      throw new RuntimeException("Failed to reach external simulation backend at " + backendUrl, ex);
     }
 
     // --- stream profiles into the resource manager at each (monotonic) change time, then flush ---
@@ -169,18 +219,15 @@ public final class ExternalSimulationBackend {
     // --- parse spans -> simulated activities ---
     final var simulatedActivities = new HashMap<ActivityInstanceId, ActivityInstance>();
     final var childIds = new HashMap<Long, List<ActivityInstanceId>>();
-    final var spansArr = response.getJsonArray("spans");
-    if (spansArr != null) {
+    {
       // first pass: collect children per parent
-      for (final var spanV : spansArr) {
-        final var span = spanV.asJsonObject();
-        if (!span.isNull("parentId") && span.containsKey("parentId")) {
+      for (final var span : spanObjects) {
+        if (span.containsKey("parentId") && !span.isNull("parentId")) {
           final long parent = span.getJsonNumber("parentId").longValue();
           childIds.computeIfAbsent(parent, k -> new ArrayList<>()).add(new ActivityInstanceId(span.getJsonNumber("spanId").longValue()));
         }
       }
-      for (final var spanV : spansArr) {
-        final var span = spanV.asJsonObject();
+      for (final var span : spanObjects) {
         final long spanId = span.getJsonNumber("spanId").longValue();
         final long startUs = span.getJsonNumber("startOffset").longValue();
         final long durUs = span.getJsonNumber("duration").longValue();
@@ -215,6 +262,53 @@ public final class ExternalSimulationBackend {
         simDuration,
         List.of(),         // topics
         Map.of());         // events
+  }
+
+  /**
+   * Stream a {@code {name: {schema, segments}}} map, materializing ONE resource's subtree at a time
+   * so the whole profile set is never held twice.
+   */
+  private static void streamProfiles(
+      final JsonParser parser,
+      final Supplier<Boolean> canceledListener,
+      final java.util.function.BiConsumer<String, JsonObject> consumer)
+  {
+    if (parser.next() != JsonParser.Event.START_OBJECT) {
+      throw new RuntimeException("expected a JSON object of profiles");
+    }
+    var seen = 0;
+    while (parser.hasNext()) {
+      final var event = parser.next();
+      if (event == JsonParser.Event.END_OBJECT) break;
+      if (event != JsonParser.Event.KEY_NAME) continue;
+      final var name = parser.getString();
+      if (parser.next() != JsonParser.Event.START_OBJECT) {
+        throw new RuntimeException("profile `" + name + "` was not a JSON object");
+      }
+      consumer.accept(name, parser.getObject());
+      if (++seen % CANCEL_CHECK_INTERVAL == 0) checkCanceled(canceledListener);
+    }
+  }
+
+  /**
+   * Abort a stream the user has canceled. Unlike the in-process JAR path -- where the driver stops
+   * mid-run and the agent reports partial results -- an external backend's response is all-or-nothing,
+   * so there is nothing partial to keep. Throwing here closes the body stream, which tears down the
+   * HTTP exchange and frees the worker instead of leaving it blocked on a backend nobody wants.
+   */
+  private static void checkCanceled(final Supplier<Boolean> canceledListener) {
+    if (canceledListener != null && canceledListener.get()) {
+      throw new RuntimeException("External simulation canceled; aborted while streaming results.");
+    }
+  }
+
+  /** Read at most {@code max} bytes of text. Used only for error bodies, which are small by nature. */
+  private static String readBounded(final java.io.InputStream in, final int max) {
+    try {
+      return new String(in.readNBytes(max), java.nio.charset.StandardCharsets.UTF_8);
+    } catch (final java.io.IOException ex) {
+      return "<error body unreadable: " + ex + ">";
+    }
   }
 
   private ExternalSimulationBackend() {}

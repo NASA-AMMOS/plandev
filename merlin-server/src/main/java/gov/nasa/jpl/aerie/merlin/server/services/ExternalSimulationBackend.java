@@ -62,7 +62,8 @@ public final class ExternalSimulationBackend {
       final String backendUrl,
       final Plan plan,
       final SimulationResourceManager resourceManager,
-      final Supplier<Boolean> canceledListener)
+      final Supplier<Boolean> canceledListener,
+      final ExternalResultsGate gate)
   {
     // Offsets and results are keyed to the SIMULATION start (matching the jar simulate path in
     // SimulationDriver), which may differ from the plan start.
@@ -148,6 +149,7 @@ public final class ExternalSimulationBackend {
             switch (parser.getString()) {
               case "realProfiles" -> streamProfiles(parser, canceledListener, (name, prof) -> {
                 final var schema = valueSchemaP.parse(prof.get("schema")).getSuccessOrThrow();
+                gate.checkResourceProfile(name, schema);
                 final var segs = new ArrayList<ProfileSegment<RealDynamics>>();
                 long offset = 0;
                 for (final var segV : prof.getJsonArray("segments")) {
@@ -156,6 +158,7 @@ public final class ExternalSimulationBackend {
                   final var dyn = seg.getJsonObject("dynamics");
                   final var rd = RealDynamics.linear(
                       dyn.getJsonNumber("initial").doubleValue(), dyn.getJsonNumber("rate").doubleValue());
+                  gate.checkRealSegment(name, durUs, rd.initial, rd.rate);
                   segs.add(new ProfileSegment<>(Duration.of(durUs, Duration.MICROSECONDS), rd));
                   realUpdatesByTime.computeIfAbsent(offset, k -> new HashMap<>()).put(name, Pair.of(schema, rd));
                   offset += durUs;
@@ -164,12 +167,14 @@ public final class ExternalSimulationBackend {
               });
               case "discreteProfiles" -> streamProfiles(parser, canceledListener, (name, prof) -> {
                 final var schema = valueSchemaP.parse(prof.get("schema")).getSuccessOrThrow();
+                gate.checkResourceProfile(name, schema);
                 final var segs = new ArrayList<ProfileSegment<SerializedValue>>();
                 long offset = 0;
                 for (final var segV : prof.getJsonArray("segments")) {
                   final var seg = segV.asJsonObject();
                   final long durUs = seg.getJsonNumber("duration").longValue();
                   final var val = serializedValueP.parse(seg.get("dynamics")).getSuccessOrThrow();
+                  gate.checkDiscreteSegment(name, durUs, val);
                   segs.add(new ProfileSegment<>(Duration.of(durUs, Duration.MICROSECONDS), val));
                   discreteUpdatesByTime.computeIfAbsent(offset, k -> new HashMap<>()).put(name, Pair.of(schema, val));
                   offset += durUs;
@@ -204,19 +209,9 @@ public final class ExternalSimulationBackend {
       throw new RuntimeException("Failed to reach external simulation backend at " + backendUrl, ex);
     }
 
-    // --- stream profiles into the resource manager at each (monotonic) change time, then flush ---
-    final var allTimes = new java.util.TreeSet<Long>();
-    allTimes.addAll(realUpdatesByTime.keySet());
-    allTimes.addAll(discreteUpdatesByTime.keySet());
-    for (final long t : allTimes) {
-      resourceManager.acceptUpdates(
-          Duration.of(t, Duration.MICROSECONDS),
-          realUpdatesByTime.getOrDefault(t, Map.of()),
-          discreteUpdatesByTime.getOrDefault(t, Map.of()));
-    }
-    final ResourceProfiles flushed = resourceManager.computeProfiles(simDuration); // flushes to the streamer
-
     // --- parse spans -> simulated activities ---
+    // Done BEFORE anything is handed to the resource manager, so the gate below still has a clean abort:
+    // profiles have only been buffered in memory to this point, and nothing has reached Postgres.
     final var simulatedActivities = new HashMap<ActivityInstanceId, ActivityInstance>();
     final var childIds = new HashMap<Long, List<ActivityInstanceId>>();
     {
@@ -241,6 +236,10 @@ public final class ExternalSimulationBackend {
             (span.containsKey("directiveId") && !span.isNull("directiveId"))
                 ? Optional.of(new ActivityDirectiveId(span.getJsonNumber("directiveId").longValue()))
                 : Optional.empty();
+        gate.checkSpan(
+            spanId, span.getString("type"), startUs, durUs, args,
+            parentId == null ? null : parentId.id(),
+            directiveId.map(ActivityDirectiveId::id).orElse(null));
         simulatedActivities.put(new ActivityInstanceId(spanId), new ActivityInstance(
             span.getString("type"),
             args,
@@ -252,6 +251,21 @@ public final class ExternalSimulationBackend {
             SerializedValue.of(Map.of())));
       }
     }
+
+    // Last point at which rejecting costs nothing: everything after this writes.
+    gate.finish();
+
+    // --- stream profiles into the resource manager at each (monotonic) change time, then flush ---
+    final var allTimes = new java.util.TreeSet<Long>();
+    allTimes.addAll(realUpdatesByTime.keySet());
+    allTimes.addAll(discreteUpdatesByTime.keySet());
+    for (final long t : allTimes) {
+      resourceManager.acceptUpdates(
+          Duration.of(t, Duration.MICROSECONDS),
+          realUpdatesByTime.getOrDefault(t, Map.of()),
+          discreteUpdatesByTime.getOrDefault(t, Map.of()));
+    }
+    final ResourceProfiles flushed = resourceManager.computeProfiles(simDuration); // flushes to the streamer
 
     return new SimulationResults(
         flushed.realProfiles(),

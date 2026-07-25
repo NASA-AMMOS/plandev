@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -128,6 +129,27 @@ public final class LocalMissionModelService implements MissionModelService {
     } catch (final IOException | InterruptedException ex) {
       throw new RuntimeException(
           "Failed to introspect external model %s from backend '%s'".formatted(missionModelId, model.externalBackend), ex);
+    }
+  }
+
+  /**
+   * Build the closed world an external backend's results are checked against: the activity and resource
+   * types the model registered, and the directive ids we are about to send it. A JAR model needs no such
+   * check -- the object that declares a type is the object that produces its output -- but an external
+   * backend is a separately-versioned process whose results nothing else re-validates before they reach
+   * {@code span} and {@code profile_segment}.
+   */
+  private ExternalResultsGate externalResultsGate(final Plan plan) throws NoSuchMissionModelException {
+    final var missionModelId = plan.missionModelId();
+    try {
+      return ExternalResultsGate.of(
+          "mission model " + missionModelId,
+          this.missionModelRepository.getActivityTypes(missionModelId),
+          this.missionModelRepository.getResourceTypes(missionModelId),
+          plan.activityDirectives().keySet().stream().map(ActivityDirectiveId::id).collect(Collectors.toSet()),
+          plan.simulationDuration().in(Duration.MICROSECONDS));
+    } catch (final MissionModelRepository.NoSuchMissionModelException ex) {
+      throw new NoSuchMissionModelException(missionModelId, ex);
     }
   }
 
@@ -525,7 +547,8 @@ public final class LocalMissionModelService implements MissionModelService {
             "External mission model `%s` references backend '%s', which is not declared in EXTERNAL_MODEL_BACKENDS (or has no model key)."
                 .formatted(plan.missionModelId(), model.externalBackend));
       }
-      return ExternalSimulationBackend.simulate(backendUrl, plan, resourceManager, canceledListener);
+      return ExternalSimulationBackend.simulate(
+          backendUrl, plan, resourceManager, canceledListener, externalResultsGate(plan));
     }
     final var config = plan.simulationConfiguration();
     if (config.isEmpty()) {
@@ -638,6 +661,13 @@ public final class LocalMissionModelService implements MissionModelService {
     try {
       // Fail fast with 404 (not 500) if the model does not exist.
       getMissionModelById(missionModelId);
+      // Here the adapter is DECLARING the closed world rather than being checked against it, so all we
+      // can catch is a declaration that will not work downstream: a name SQL/Hasura/TS cannot carry, or a
+      // required parameter that does not exist. Both would otherwise surface as a broken UI form.
+      final var gate = ExternalResultsGate.of(
+          "registerModelTypes for mission model " + missionModelId, Map.of(), Map.of(), Set.of(), Long.MAX_VALUE);
+      gate.checkDeclaredTypes(activityTypes, resourceTypes);
+      gate.finish();
       final var subsystems = activityTypes.values().stream()
           .map(ActivityType::subsystem)
           .flatMap(Optional::stream)

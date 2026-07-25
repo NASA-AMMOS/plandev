@@ -72,6 +72,10 @@ services:
       # to this compose network. Keep this list identical in merlin AND every worker below: merlin
       # introspects, the workers simulate, and drift means "registers fine, won't simulate".
       EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://blackbird-adapter:5011"},{"name":"python-lab","url":"http://python-adapter:5002"}]'
+      # Closed-world checking of what an external backend returns (unknown resources, schema drift,
+      # spans claiming directives we never sent). warn = log and continue, reject = fail the ingest,
+      # off = skip. Start at warn; move to reject once a backend has been quiet for a while.
+      EXTERNAL_INGEST_GATE: warn
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
         -Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG
@@ -198,6 +202,10 @@ services:
       # Must match aerie_merlin: the worker resolves an external model's backend name -> URL from here
       # (backend refs are stored on the model row; the actual URL only ever comes from this trusted config).
       EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://blackbird-adapter:5011"},{"name":"python-lab","url":"http://python-adapter:5002"}]'
+      # Closed-world checking of what an external backend returns (unknown resources, schema drift,
+      # spans claiming directives we never sent). warn = log and continue, reject = fail the ingest,
+      # off = skip. Start at warn; move to reject once a backend has been quiet for a while.
+      EXTERNAL_INGEST_GATE: warn
       SIMULATION_PROGRESS_POLL_PERIOD_MILLIS: 2000
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
@@ -225,6 +233,10 @@ services:
       # Must match aerie_merlin: the worker resolves an external model's backend name -> URL from here
       # (backend refs are stored on the model row; the actual URL only ever comes from this trusted config).
       EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://blackbird-adapter:5011"},{"name":"python-lab","url":"http://python-adapter:5002"}]'
+      # Closed-world checking of what an external backend returns (unknown resources, schema drift,
+      # spans claiming directives we never sent). warn = log and continue, reject = fail the ingest,
+      # off = skip. Start at warn; move to reject once a backend has been quiet for a while.
+      EXTERNAL_INGEST_GATE: warn
       SIMULATION_PROGRESS_POLL_PERIOD_MILLIS: 2000
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005

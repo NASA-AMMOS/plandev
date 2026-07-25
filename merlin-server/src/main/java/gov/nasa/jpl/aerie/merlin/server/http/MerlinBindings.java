@@ -2,8 +2,11 @@ package gov.nasa.jpl.aerie.merlin.server.http;
 
 import gov.nasa.jpl.aerie.constraints.InputMismatchException;
 import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
+import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
+import gov.nasa.jpl.aerie.merlin.server.services.ExternalResultsGate;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.SimulationDatasetMismatchException;
@@ -66,6 +69,8 @@ import static io.javalin.apibuilder.ApiBuilder.get;
  * an object implementing the interface defines the action to take for each HTTP request in an HTTP-independent way.
  */
 public final class MerlinBindings implements Plugin {
+  private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(MerlinBindings.class);
+
   private final MissionModelService missionModelService;
   private final PlanService planService;
   private final GetSimulationResultsAction simulationAction;
@@ -147,12 +152,40 @@ public final class MerlinBindings implements Plugin {
     ctx.status(200).result(catalog.build().toString());
   }
 
+  /**
+   * Resolve the closed world for a pushed result set: the plan's model types plus the directives the plan
+   * actually holds. Best-effort by design -- if the plan or its model cannot be read we degrade to an
+   * unchecked ingest rather than failing it, because a gate we could not build is our problem, not the
+   * caller's.
+   */
+  private ExternalResultsGate gateForPlan(final PlanId planId, final Duration duration) {
+    try {
+      final var plan = this.planService.getPlanForSimulation(planId);
+      return ExternalResultsGate.of(
+          "plan " + planId + " (mission model " + plan.missionModelId() + ")",
+          this.missionModelService.getActivityTypes(plan.missionModelId()),
+          this.missionModelService.getResourceSchemas(plan.missionModelId()),
+          plan.activityDirectives().keySet().stream().map(ActivityDirectiveId::id).collect(Collectors.toSet()),
+          duration.in(Duration.MICROSECONDS));
+    } catch (final Exception ex) {
+      log.warn("Could not build an ingest gate for plan {}; ingesting unchecked ({})", planId, ex.toString());
+      return ExternalResultsGate.disabled();
+    }
+  }
+
   private void ingestExternalSimulationResults(final Context ctx) {
     try {
       final var body = parseJson(ctx.body(), hasuraIngestExternalSimulationResultsActionP);
       final var input = body.input();
       final var results = input.results();
       final var requestedBy = body.session().hasuraUserId();
+
+      // Same closed-world gate the pull path applies while streaming. Without it this action would be a
+      // way to write spans and profiles that the model never declared -- straight past the checks that
+      // ExternalSimulationBackend performs.
+      final var gate = gateForPlan(input.planId(), results.duration());
+      gate.checkIngest(results.profiles(), results.spans());
+      gate.finish();
 
       final var simulationDatasetId = this.externalSimulationResultsRepository.insertExternalSimulationResults(
           input.planId(), input.simulationId(),

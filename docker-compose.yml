@@ -66,7 +66,12 @@ services:
       MERLIN_LOCAL_STORE: /usr/src/app/merlin_file_store
       MERLIN_PORT: 27183
       # Operator-configured trusted external-model backends (the SSRF/trust boundary; users never type URLs).
-      EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://host.docker.internal:5011"},{"name":"python-lab","url":"http://host.docker.internal:5002"}]'
+      # Adapters are IN-CLUSTER components reached by service name, exactly like aerie_sequencing --
+      # not third-party endpoints. Plan data never leaves the cluster, so the exposure here matches
+      # every other PlanDev service. Run them from plandev-examples/external-model-backends, attached
+      # to this compose network. Keep this list identical in merlin AND every worker below: merlin
+      # introspects, the workers simulate, and drift means "registers fine, won't simulate".
+      EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://blackbird-adapter:5011"},{"name":"python-lab","url":"http://python-adapter:5002"}]'
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
         -Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG
@@ -192,7 +197,7 @@ services:
       MERLIN_WORKER_LOCAL_STORE: /usr/src/app/merlin_file_store
       # Must match aerie_merlin: the worker resolves an external model's backend name -> URL from here
       # (backend refs are stored on the model row; the actual URL only ever comes from this trusted config).
-      EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://host.docker.internal:5011"},{"name":"python-lab","url":"http://host.docker.internal:5002"}]'
+      EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://blackbird-adapter:5011"},{"name":"python-lab","url":"http://python-adapter:5002"}]'
       SIMULATION_PROGRESS_POLL_PERIOD_MILLIS: 2000
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
@@ -219,7 +224,7 @@ services:
       MERLIN_WORKER_LOCAL_STORE: /usr/src/app/merlin_file_store
       # Must match aerie_merlin: the worker resolves an external model's backend name -> URL from here
       # (backend refs are stored on the model row; the actual URL only ever comes from this trusted config).
-      EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://host.docker.internal:5011"},{"name":"python-lab","url":"http://host.docker.internal:5002"}]'
+      EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://blackbird-adapter:5011"},{"name":"python-lab","url":"http://python-adapter:5002"}]'
       SIMULATION_PROGRESS_POLL_PERIOD_MILLIS: 2000
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005

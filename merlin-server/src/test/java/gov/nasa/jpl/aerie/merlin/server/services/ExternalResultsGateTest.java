@@ -56,9 +56,9 @@ public final class ExternalResultsGateTest {
     gate.checkResourceProfile("Mode", RESOURCES.get("Mode"));
     gate.checkDiscreteSegment("Mode", 3_600_000_000L, SerializedValue.of("On"));
     gate.checkSpan(10, "CollectScience", 0, 60_000_000L,
-                   Map.of("d", SerializedValue.of(60_000_000L), "label", SerializedValue.of("pass 1")), null, 1L);
+                   Map.of("d", SerializedValue.of(60_000_000L), "label", SerializedValue.of("pass 1")), null, 1L, null);
     gate.checkSpan(11, "CollectScience", 60_000_000L, 60_000_000L,
-                   Map.of("d", SerializedValue.of(60_000_000L)), 10L, null);
+                   Map.of("d", SerializedValue.of(60_000_000L)), 10L, null, null);
     assertDoesNotThrow(gate::finish);
     assertEquals(List.of(), gate.findings());
   }
@@ -125,7 +125,7 @@ public final class ExternalResultsGateTest {
       final var gate = ExternalResultsGate.withMode(
           ExternalResultsGate.Mode.REJECT, Map.of(), Map.of(), Set.of(), SIM_DURATION_US);
       gate.checkResourceProfile("Anything", ValueSchema.REAL);
-      gate.checkSpan(1, "AnyType", 0, 0L, Map.of(), null, 99L);
+      gate.checkSpan(1, "AnyType", 0, 0L, Map.of(), null, 99L, null);
       assertDoesNotThrow(gate::finish);
     }
   }
@@ -135,7 +135,7 @@ public final class ExternalResultsGateTest {
     @Test
     void flagsAnUnregisteredActivityType() {
       final var gate = gate();
-      gate.checkSpan(1, "NotAThing", 0, 0L, Map.of(), null, null);
+      gate.checkSpan(1, "NotAThing", 0, 0L, Map.of(), null, null, null);
       assertTrue(only(gate).contains("not a registered activity type"), only(gate));
     }
 
@@ -143,7 +143,7 @@ public final class ExternalResultsGateTest {
     @Test
     void flagsADirectiveIdWeNeverSent() {
       final var gate = gate();
-      gate.checkSpan(1, "CollectScience", 0, 0L, Map.of("d", SerializedValue.of(1L)), null, 77L);
+      gate.checkSpan(1, "CollectScience", 0, 0L, Map.of("d", SerializedValue.of(1L)), null, 77L, null);
       assertTrue(only(gate).contains("claims directiveId 77"), only(gate));
     }
 
@@ -151,7 +151,7 @@ public final class ExternalResultsGateTest {
     @Test
     void acceptsAnAnonymousSpan() {
       final var gate = gate();
-      gate.checkSpan(1, "CollectScience", 0, 0L, Map.of("d", SerializedValue.of(1L)), null, null);
+      gate.checkSpan(1, "CollectScience", 0, 0L, Map.of("d", SerializedValue.of(1L)), null, null, null);
       assertEquals(List.of(), gate.findings());
     }
 
@@ -159,15 +159,15 @@ public final class ExternalResultsGateTest {
     void flagsDuplicateSpanIds() {
       final var gate = gate();
       final var args = Map.of("d", SerializedValue.of(1L));
-      gate.checkSpan(5, "CollectScience", 0, 0L, args, null, null);
-      gate.checkSpan(5, "CollectScience", 0, 0L, args, null, null);
+      gate.checkSpan(5, "CollectScience", 0, 0L, args, null, null, null);
+      gate.checkSpan(5, "CollectScience", 0, 0L, args, null, null, null);
       assertTrue(only(gate).contains("duplicate spanId 5"), only(gate));
     }
 
     @Test
     void flagsAParentThatIsNotInTheResult() {
       final var gate = gate();
-      gate.checkSpan(1, "CollectScience", 0, 0L, Map.of("d", SerializedValue.of(1L)), 999L, null);
+      gate.checkSpan(1, "CollectScience", 0, 0L, Map.of("d", SerializedValue.of(1L)), 999L, null, null);
       gate.finish();
       assertTrue(only(gate).contains("parentId 999"), only(gate));
     }
@@ -177,8 +177,8 @@ public final class ExternalResultsGateTest {
     void flagsAParentCycle() {
       final var gate = gate();
       final var args = Map.of("d", SerializedValue.of(1L));
-      gate.checkSpan(1, "CollectScience", 0, 0L, args, 2L, null);
-      gate.checkSpan(2, "CollectScience", 0, 0L, args, 1L, null);
+      gate.checkSpan(1, "CollectScience", 0, 0L, args, 2L, null, null);
+      gate.checkSpan(2, "CollectScience", 0, 0L, args, 1L, null, null);
       gate.finish();
       assertTrue(gate.findings().stream().anyMatch(f -> f.contains("parent cycle")), gate.findings().toString());
     }
@@ -187,9 +187,9 @@ public final class ExternalResultsGateTest {
     void flagsOutOfBoundsTiming() {
       final var gate = gate();
       final var args = Map.of("d", SerializedValue.of(1L));
-      gate.checkSpan(1, "CollectScience", -1, 0L, args, null, null);
-      gate.checkSpan(2, "CollectScience", SIM_DURATION_US + 1, 0L, args, null, null);
-      gate.checkSpan(3, "CollectScience", 0, -5L, args, null, null);
+      gate.checkSpan(1, "CollectScience", -1, 0L, args, null, null, null);
+      gate.checkSpan(2, "CollectScience", SIM_DURATION_US + 1, 0L, args, null, null, null);
+      gate.checkSpan(3, "CollectScience", 0, -5L, args, null, null, null);
       assertEquals(3, gate.findings().size(), gate.findings().toString());
     }
 
@@ -202,7 +202,7 @@ public final class ExternalResultsGateTest {
     void flagsASpanThatEndsPastTheSimulation() {
       final var gate = gate();
       gate.checkSpan(1, "CollectScience", SIM_DURATION_US - 1_000, 60_000_000L,
-                     Map.of("d", SerializedValue.of(60_000_000L)), null, null);
+                     Map.of("d", SerializedValue.of(60_000_000L)), null, null, null);
       assertTrue(only(gate).contains("past the simulation"), only(gate));
     }
 
@@ -216,7 +216,7 @@ public final class ExternalResultsGateTest {
     void acceptsAnUnfinishedSpanWithNoDuration() {
       final var gate = gate(ExternalResultsGate.Mode.REJECT);
       gate.checkSpan(1, "CollectScience", SIM_DURATION_US - 1_000, null,
-                     Map.of("d", SerializedValue.of(60_000_000L)), null, 1L);
+                     Map.of("d", SerializedValue.of(60_000_000L)), null, 1L, null);
       assertDoesNotThrow(gate::finish);
       assertEquals(List.of(), gate.findings());
     }
@@ -225,8 +225,67 @@ public final class ExternalResultsGateTest {
     @Test
     void stillChecksAnUnfinishedSpanAgainstTheModel() {
       final var gate = gate();
-      gate.checkSpan(1, "NotAThing", 0, null, Map.of(), null, null);
+      gate.checkSpan(1, "NotAThing", 0, null, Map.of(), null, null, null);
       assertTrue(only(gate).contains("not a registered activity type"), only(gate));
+    }
+
+    /**
+     * Computed attributes are what command expansion reads as {@code computed.*}. A backend that emits
+     * them without declaring them is storing values expansion cannot type, so they are held to the
+     * declared schema -- which defaults to a CLOSED EMPTY struct. That default is the trap worth pinning:
+     * it means "produces nothing", so undeclared provenance is rejected rather than silently stored.
+     */
+    @Test
+    void flagsComputedAttributesTheModelNeverDeclared() {
+      final var gate = gate();
+      gate.checkSpan(1, "CollectScience", 0, 0L, Map.of("d", SerializedValue.of(1L)), null, null,
+                     SerializedValue.of(Map.of("blackbirdId", SerializedValue.of("abc-123"))));
+      assertTrue(only(gate).contains("computed attributes"), only(gate));
+      assertTrue(only(gate).contains("computedAttributesSchema"), only(gate));
+    }
+
+    @Test
+    void acceptsComputedAttributesThatMatchTheDeclaredSchema() {
+      final var withComputed = new ActivityType(
+          "CollectScience", COLLECT.parameters(), COLLECT.requiredParameters(),
+          ValueSchema.ofStruct(Map.of("blackbirdId", ValueSchema.STRING)),
+          Optional.empty(), Optional.empty());
+      final var gate = ExternalResultsGate.withMode(
+          ExternalResultsGate.Mode.REJECT, Map.of("CollectScience", withComputed), RESOURCES,
+          Set.of(1L, 2L), SIM_DURATION_US);
+      gate.checkSpan(1, "CollectScience", 0, 0L, Map.of("d", SerializedValue.of(1L)), null, null,
+                     SerializedValue.of(Map.of("blackbirdId", SerializedValue.of("abc-123"))));
+      assertDoesNotThrow(gate::finish);
+      assertEquals(List.of(), gate.findings());
+    }
+
+    /**
+     * An unfinished span has not produced its final values, so it carries no computed attributes and
+     * must not be held to the declared schema. Checking it anyway reported every unfinished span as
+     * "missing field", which is how this surfaced -- against a real model whose activity outlived the
+     * simulation window.
+     */
+    @Test
+    void doesNotDemandComputedAttributesFromAnUnfinishedSpan() {
+      final var withComputed = new ActivityType(
+          "CollectScience", COLLECT.parameters(), COLLECT.requiredParameters(),
+          ValueSchema.ofStruct(Map.of("socDelta", ValueSchema.REAL)),
+          Optional.empty(), Optional.empty());
+      final var gate = ExternalResultsGate.withMode(
+          ExternalResultsGate.Mode.REJECT, Map.of("CollectScience", withComputed), RESOURCES,
+          Set.of(1L, 2L), SIM_DURATION_US);
+      gate.checkSpan(1, "CollectScience", 0, null, Map.of("d", SerializedValue.of(1L)), null, 1L, null);
+      assertDoesNotThrow(gate::finish);
+      assertEquals(List.of(), gate.findings());
+    }
+
+    /** An empty map is what a backend producing nothing sends, and it must stay unremarkable. */
+    @Test
+    void acceptsEmptyComputedAttributes() {
+      final var gate = gate();
+      gate.checkSpan(1, "CollectScience", 0, 0L, Map.of("d", SerializedValue.of(1L)), null, null,
+                     SerializedValue.of(Map.of()));
+      assertEquals(List.of(), gate.findings());
     }
 
     /** A span ending exactly at the simulation end is fine, not an overrun. */
@@ -234,7 +293,7 @@ public final class ExternalResultsGateTest {
     void acceptsASpanEndingExactlyAtTheSimulationEnd() {
       final var gate = gate();
       gate.checkSpan(1, "CollectScience", SIM_DURATION_US - 60_000_000L, 60_000_000L,
-                     Map.of("d", SerializedValue.of(60_000_000L)), null, null);
+                     Map.of("d", SerializedValue.of(60_000_000L)), null, null, null);
       assertEquals(List.of(), gate.findings());
     }
 
@@ -242,7 +301,7 @@ public final class ExternalResultsGateTest {
     void checksSpanArgumentsAgainstTheDeclaredParameters() {
       final var gate = gate();
       gate.checkSpan(1, "CollectScience", 0, 0L,
-                     Map.of("d", SerializedValue.of("not a duration"), "bogus", SerializedValue.of(1)), null, null);
+                     Map.of("d", SerializedValue.of("not a duration"), "bogus", SerializedValue.of(1)), null, null, null);
       assertEquals(2, gate.findings().size(), gate.findings().toString());
       assertTrue(gate.findings().stream().anyMatch(f -> f.contains("not a declared parameter")), gate.findings().toString());
     }
@@ -250,7 +309,7 @@ public final class ExternalResultsGateTest {
     @Test
     void flagsAMissingRequiredParameter() {
       final var gate = gate();
-      gate.checkSpan(1, "CollectScience", 0, 0L, Map.of("label", SerializedValue.of("x")), null, null);
+      gate.checkSpan(1, "CollectScience", 0, 0L, Map.of("label", SerializedValue.of("x")), null, null, null);
       assertTrue(only(gate).contains("missing required parameter 'd'"), only(gate));
     }
   }
@@ -315,7 +374,7 @@ public final class ExternalResultsGateTest {
     void rejectAbortsWithEveryFindingInTheMessage() {
       final var gate = gate(ExternalResultsGate.Mode.REJECT);
       gate.checkResourceProfile("Ghost", ValueSchema.REAL);
-      gate.checkSpan(1, "NotAThing", 0, 0L, Map.of(), null, null);
+      gate.checkSpan(1, "NotAThing", 0, 0L, Map.of(), null, null, null);
       final var thrown = assertThrows(RuntimeException.class, gate::finish);
       assertTrue(thrown.getMessage().contains("Ghost"), thrown.getMessage());
       assertTrue(thrown.getMessage().contains("NotAThing"), thrown.getMessage());
@@ -325,7 +384,7 @@ public final class ExternalResultsGateTest {
     void offChecksNothing() {
       final var gate = ExternalResultsGate.disabled();
       gate.checkResourceProfile("Ghost", ValueSchema.REAL);
-      gate.checkSpan(1, "NotAThing", -1, -1L, Map.of(), 999L, 999L);
+      gate.checkSpan(1, "NotAThing", -1, -1L, Map.of(), 999L, 999L, null);
       assertDoesNotThrow(gate::finish);
       assertEquals(List.of(), gate.findings());
     }

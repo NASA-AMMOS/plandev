@@ -78,9 +78,15 @@ public final class ExternalModelDiscovery {
       final var rArr = a.getJsonArray("requiredParameters");
       if (rArr != null) for (final var s : rArr) required.add(((JsonString) s).getString());
       final var name = a.getString("name");
-      // External models have no engine-produced computed attributes; register an empty struct schema.
+      // A backend MAY declare computed attributes -- values its model derives while running an activity,
+      // which command expansion reads as `computed.*`. Defaults to a closed empty struct, which is both
+      // the back-compatible answer and the honest one for a backend that declares nothing: it means "this
+      // activity produces no computed attributes", and the ingest gate will hold it to that.
+      final var computedSchema = (a.containsKey("computedAttributesSchema") && !a.isNull("computedAttributesSchema"))
+          ? valueSchemaP.parse(a.get("computedAttributesSchema")).getSuccessOrThrow()
+          : ValueSchema.ofStruct(Map.of());
       activityTypes.put(name, new ActivityType(
-          name, params, required, ValueSchema.ofStruct(Map.of()), Optional.empty(), Optional.empty()));
+          name, params, required, computedSchema, Optional.empty(), Optional.empty()));
     }
 
     final var resourceTypes = new LinkedHashMap<String, ValueSchema>();

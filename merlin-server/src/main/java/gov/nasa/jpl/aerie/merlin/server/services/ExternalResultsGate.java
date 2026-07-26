@@ -216,6 +216,10 @@ public final class ExternalResultsGate {
    * @param parentId    null for a root span
    * @param directiveId null for a span the backend created on its own (decomposition, or -- for a
    *                    forward-dispatch model like Blackbird -- its own scheduler placing an activity)
+   * @param computedAttributes values the model derived while running the activity; null to skip the
+   *                    check. Held to the schema the model declared, which defaults to a closed empty
+   *                    struct -- so a backend that emits computed attributes without declaring them is
+   *                    flagged rather than silently storing values command expansion cannot type.
    */
   public void checkSpan(
       final long spanId,
@@ -224,7 +228,8 @@ public final class ExternalResultsGate {
       final Long durationUs,
       final Map<String, SerializedValue> arguments,
       final Long parentId,
-      final Long directiveId)
+      final Long directiveId,
+      final SerializedValue computedAttributes)
   {
     if (this.mode == Mode.OFF) return;
     this.spanCount++;
@@ -240,6 +245,13 @@ public final class ExternalResultsGate {
       }
     } else {
       checkArguments("span " + spanId + " (" + type + ")", activityType, arguments);
+      if (computedAttributes != null) {
+        final var problem = nonconformance(computedAttributes, activityType.computedAttributesValueSchema());
+        if (problem != null) {
+          finding("span " + spanId + " (" + type + ") computed attributes " + problem
+                  + " -- declare them in the activity type's computedAttributesSchema if the model produces them");
+        }
+      }
     }
 
     // A span may only claim a directive we actually sent. Anything else would attach simulation output
@@ -329,7 +341,8 @@ public final class ExternalResultsGate {
           span.duration().map(d -> d.in(Duration.MICROSECONDS)).orElse(null),
           span.arguments(),
           span.parentId().orElse(null),
-          span.directiveId().orElse(null));
+          span.directiveId().orElse(null),
+          span.computedAttributes().orElse(null));
     }
   }
 

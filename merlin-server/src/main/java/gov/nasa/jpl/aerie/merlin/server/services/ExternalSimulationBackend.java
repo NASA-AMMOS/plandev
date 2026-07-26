@@ -243,10 +243,24 @@ public final class ExternalSimulationBackend {
             (span.containsKey("directiveId") && !span.isNull("directiveId"))
                 ? Optional.of(new ActivityDirectiveId(span.getJsonNumber("directiveId").longValue()))
                 : Optional.empty();
+        // Values the model derived while running the activity. Command expansion reads these as
+        // `computed.*`, so a backend that leaves them empty cannot drive expansion at all.
+        //
+        // Only FINISHED spans have them, and the distinction runs all the way down:
+        // PostgresResultsCellRepository classifies a span as simulated only if it has both a duration
+        // and computed attributes, and UnfinishedActivity has no field for them at all. So a finished
+        // span defaults to an EMPTY MAP (present, or it would read back as unfinished) while an
+        // unfinished one gets null -- which also keeps it out of the gate's schema check, since an
+        // activity that has not finished cannot be expected to have produced its final values.
+        final SerializedValue computed = (durUs == null) ? null
+            : (span.containsKey("computedAttributes") && !span.isNull("computedAttributes"))
+                ? serializedValueP.parse(span.get("computedAttributes")).getSuccessOrThrow()
+                : SerializedValue.of(Map.of());
         gate.checkSpan(
             spanId, span.getString("type"), startUs, durUs, args,
             parentId == null ? null : parentId.id(),
-            directiveId.map(ActivityDirectiveId::id).orElse(null));
+            directiveId.map(ActivityDirectiveId::id).orElse(null),
+            computed);
         final var start = simStart.plus(java.time.Duration.of(startUs, java.time.temporal.ChronoUnit.MICROS));
         if (durUs == null) {
           // UnfinishedActivity carries no duration by construction, and PostSpansAction writes a null
@@ -268,7 +282,7 @@ public final class ExternalSimulationBackend {
               parentId,
               childIds.getOrDefault(spanId, List.of()),
               directiveId,
-              SerializedValue.of(Map.of())));
+              computed));
         }
       }
     }

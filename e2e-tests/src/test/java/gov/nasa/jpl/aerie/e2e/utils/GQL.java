@@ -429,6 +429,84 @@ public enum GQL {
         }
       }
     }"""),
+  GET_EXTERNAL_MODEL_CATALOG("""
+    query GetExternalModelCatalog {
+      getExternalModelCatalog {
+        backend
+        reachable
+        error
+        models {
+          key
+          name
+          version
+          identityHash
+        }
+      }
+    }"""),
+  GET_MISSION_MODEL("""
+    query GetMissionModel($id: Int!) {
+      mission_model: mission_model_by_pk(id: $id) {
+        id
+        revision
+        mission
+        name
+        version
+        model_type
+        external_backend
+        external_model_key
+        external_identity_hash
+      }
+    }"""),
+  GET_MISSION_MODEL_PARAMETERS("""
+    query GetMissionModelParameters($modelId: Int!) {
+      mission_model_parameters(where: {model_id: {_eq: $modelId}}) {
+        parameters
+      }
+    }"""),
+  GET_ACTIVITY_TYPES_RAW("""
+    query GetActivityTypesRaw($missionModelId: Int!) {
+      activity_type(where: {model_id: {_eq: $missionModelId}}, order_by: {name: asc}) {
+        name
+        parameters
+        required_parameters
+        computed_attributes_value_schema
+      }
+    }"""),
+  GET_SPANS("""
+    query GetSpans($datasetId: Int!) {
+      span(where: {dataset_id: {_eq: $datasetId}}, order_by: {span_id: asc}) {
+        span_id
+        parent_id
+        type
+        start_offset
+        duration
+        attributes
+      }
+    }"""),
+  GET_SIMULATION_DATASET_REVISIONS("""
+    query GetSimulationDatasetRevisions($id: Int!) {
+      simulation_dataset_by_pk(id: $id) {
+        id
+        dataset_id
+        model_revision
+        plan_revision
+        status
+      }
+    }"""),
+  UPDATE_EXTERNAL_IDENTITY_HASH("""
+    mutation UpdateExternalIdentityHash($id: Int!, $hash: String) {
+      update_mission_model_by_pk(pk_columns: {id: $id}, _set: {external_identity_hash: $hash}) {
+        id
+        revision
+        external_identity_hash
+      }
+    }"""),
+  UPDATE_RESOURCE_TYPE_SCHEMA("""
+    mutation UpdateResourceTypeSchema($modelId: Int!, $name: String!, $schema: jsonb!) {
+      update_resource_type(where: {model_id: {_eq: $modelId}, name: {_eq: $name}}, _set: {schema: $schema}) {
+        affected_rows
+      }
+    }"""),
   GET_MODEL_EVENT_LOGS("""
     query getModelLogs($modelId: Int!) {
       mission_model: mission_model_by_pk(id:$modelId) {

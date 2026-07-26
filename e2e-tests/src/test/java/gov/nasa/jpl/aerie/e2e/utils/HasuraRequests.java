@@ -101,6 +101,115 @@ public class HasuraRequests implements AutoCloseable {
   //region Records
   public record ExternalEvent(String key, String event_type_name, String source_key, String derivation_group_name, String start_time, String duration, JsonObject attributes) {}
   public record ExternalSource(String key, String source_type_name, String derivation_group_name, String valid_at, String start_time, String end_time, String created_at, JsonObject attributes){}
+
+  /** The raw {@code mission_model} row, including the external-model reference columns. */
+  public record MissionModelRow(
+      int id,
+      int revision,
+      String mission,
+      String name,
+      String version,
+      String modelType,
+      String externalBackend,
+      String externalModelKey,
+      String externalIdentityHash)
+  {
+    public static MissionModelRow fromJSON(JsonObject json) {
+      return new MissionModelRow(
+          json.getInt("id"),
+          json.getInt("revision"),
+          json.getString("mission"),
+          json.getString("name"),
+          json.getString("version"),
+          json.getString("model_type"),
+          json.isNull("external_backend") ? null : json.getString("external_backend"),
+          json.isNull("external_model_key") ? null : json.getString("external_model_key"),
+          json.isNull("external_identity_hash") ? null : json.getString("external_identity_hash"));
+    }
+  }
+
+  /** One entry of {@code getExternalModelCatalog}: what a configured backend reports over {@code GET /models}. */
+  public record ExternalBackendCatalog(String backend, boolean reachable, String error, List<ExternalCatalogModel> models) {
+    public static ExternalBackendCatalog fromJSON(JsonObject json) {
+      return new ExternalBackendCatalog(
+          json.getString("backend"),
+          json.getBoolean("reachable"),
+          // absent entirely when the backend answered; only populated on a failed probe
+          json.containsKey("error") && !json.isNull("error") ? json.getString("error") : null,
+          json.getJsonArray("models").getValuesAs(ExternalCatalogModel::fromJSON));
+    }
+  }
+
+  public record ExternalCatalogModel(String key, String name, String version, String identityHash) {
+    public static ExternalCatalogModel fromJSON(JsonObject json) {
+      return new ExternalCatalogModel(
+          json.getString("key"),
+          json.getString("name"),
+          json.getString("version"),
+          json.isNull("identityHash") ? null : json.getString("identityHash"));
+    }
+  }
+
+  /**
+   * An {@code activity_type} row exactly as stored, with no interpretation. Deliberately raw JSON so a test
+   * can compare it byte-for-byte against what a backend's {@code /introspect} reported.
+   */
+  public record RawActivityType(
+      String name,
+      JsonObject parameters,
+      List<String> requiredParameters,
+      JsonObject computedAttributesValueSchema)
+  {
+    public static RawActivityType fromJSON(JsonObject json) {
+      return new RawActivityType(
+          json.getString("name"),
+          json.getJsonObject("parameters"),
+          json.getJsonArray("required_parameters").getValuesAs(v -> ((javax.json.JsonString) v).getString()),
+          json.getJsonObject("computed_attributes_value_schema"));
+    }
+  }
+
+  /** A {@code span} row, including its {@code attributes} (arguments, directiveId, computedAttributes). */
+  public record Span(long spanId, Long parentId, String type, String startOffset, String duration, JsonObject attributes) {
+    public static Span fromJSON(JsonObject json) {
+      return new Span(
+          json.getJsonNumber("span_id").longValue(),
+          json.isNull("parent_id") ? null : json.getJsonNumber("parent_id").longValue(),
+          json.getString("type"),
+          json.getString("start_offset"),
+          json.isNull("duration") ? null : json.getString("duration"),
+          json.getJsonObject("attributes"));
+    }
+
+    /** The arguments the backend reported for this span. */
+    public JsonObject arguments() {
+      return attributes.getJsonObject("arguments");
+    }
+
+    /** The computed attributes the backend reported, or null if it reported none. */
+    public JsonObject computedAttributes() {
+      if (!attributes.containsKey("computedAttributes") || attributes.isNull("computedAttributes")) return null;
+      return attributes.getJsonObject("computedAttributes");
+    }
+
+    /** The directive this span was produced by, or null for a backend-created (child/dispatched) span. */
+    public Long directiveId() {
+      if (!attributes.containsKey("directiveId") || attributes.isNull("directiveId")) return null;
+      return attributes.getJsonNumber("directiveId").longValue();
+    }
+  }
+
+  /** The revisions a simulation_dataset was stamped with -- what invalidates the simulation cache. */
+  public record SimulationDatasetRevisions(int id, int datasetId, int modelRevision, int planRevision, String status) {
+    public static SimulationDatasetRevisions fromJSON(JsonObject json) {
+      return new SimulationDatasetRevisions(
+          json.getInt("id"),
+          json.getInt("dataset_id"),
+          json.getInt("model_revision"),
+          json.getInt("plan_revision"),
+          json.getString("status"));
+    }
+  }
   //endregion Records
 
   //region Mission Model
@@ -120,6 +229,115 @@ public class HasuraRequests implements AutoCloseable {
     // Necessary for TS compilation
     awaitModelEventLogs(modelId);
     return modelId;
+  }
+
+  /**
+   * Register an EXTERNAL mission model: a model with no JAR, which instead references an operator-configured
+   * backend by name plus the key of the model that backend hosts. This is the production registration path --
+   * a plain insert, whose {@code refresh*} event triggers drive merlin to introspect the backend over the
+   * wire and populate activity_type / resource_type / mission_model_parameters.
+   *
+   * <p>Returns as soon as the insert lands; introspection is asynchronous. Follow with
+   * {@link #awaitExternalModelIntrospection}.
+   */
+  public int createExternalMissionModel(
+      String mission,
+      String name,
+      String version,
+      String backend,
+      String modelKey
+  ) throws IOException {
+    final var insertModelBuilder = Json.createObjectBuilder()
+                                       .add("mission", mission)
+                                       .add("name", name)
+                                       .add("version", version)
+                                       .add("model_type", "external")
+                                       .add("external_backend", backend)
+                                       .add("external_model_key", modelKey);
+    final var variables = Json.createObjectBuilder().add("model", insertModelBuilder).build();
+    return makeRequest(GQL.CREATE_MISSION_MODEL, variables).getJsonObject("insert_mission_model_one").getInt("id");
+  }
+
+  /**
+   * Block until an external model's introspection has landed: activity types, resource types, model
+   * parameters, and the identity hash the backend attested to.
+   *
+   * @param timeout how long to wait, in seconds
+   */
+  public void awaitExternalModelIntrospection(int modelId, int timeout) throws IOException {
+    for (int i = 0; i < timeout; ++i) {
+      final var model = getMissionModel(modelId);
+      final var populated = !getActivityTypes(modelId).isEmpty()
+                            && !getResourceTypes(modelId).isEmpty()
+                            && getMissionModelParameters(modelId) != null
+                            && model.externalIdentityHash() != null;
+      if (populated) return;
+      try {
+        Thread.sleep(1000); // 1s
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      }
+    }
+    throw new TimeoutError("External model " + modelId + " was not introspected within " + timeout + " seconds");
+  }
+
+  public MissionModelRow getMissionModel(int modelId) throws IOException {
+    final var variables = Json.createObjectBuilder().add("id", modelId).build();
+    return MissionModelRow.fromJSON(makeRequest(GQL.GET_MISSION_MODEL, variables).getJsonObject("mission_model"));
+  }
+
+  /** The model's simulation-configuration parameters, or null if no row has been written yet. */
+  public JsonObject getMissionModelParameters(int modelId) throws IOException {
+    final var variables = Json.createObjectBuilder().add("modelId", modelId).build();
+    final var rows = makeRequest(GQL.GET_MISSION_MODEL_PARAMETERS, variables).getJsonArray("mission_model_parameters");
+    if (rows.isEmpty()) return null;
+    return rows.getJsonObject(0).getJsonObject("parameters");
+  }
+
+  public List<RawActivityType> getActivityTypesRaw(int modelId) throws IOException {
+    final var variables = Json.createObjectBuilder().add("missionModelId", modelId).build();
+    return makeRequest(GQL.GET_ACTIVITY_TYPES_RAW, variables)
+        .getJsonArray("activity_type")
+        .getValuesAs(RawActivityType::fromJSON);
+  }
+
+  /** Everything each configured external backend reports from {@code GET /models}, live over the wire. */
+  public List<ExternalBackendCatalog> getExternalModelCatalog() throws IOException {
+    return makeRequest(GQL.GET_EXTERNAL_MODEL_CATALOG, JsonValue.EMPTY_JSON_OBJECT)
+        .getJsonArray("getExternalModelCatalog")
+        .getValuesAs(ExternalBackendCatalog::fromJSON);
+  }
+
+  /**
+   * Overwrite the identity a model was attested to. Only the Hasura admin role may write this column --
+   * merlin owns it -- so this exists to simulate backend drift, not as a supported operation.
+   *
+   * @return the model's revision after the write
+   */
+  public int setExternalIdentityHash(int modelId, String hash) throws IOException {
+    final var variables = Json.createObjectBuilder()
+                              .add("id", modelId)
+                              .add("hash", hash == null ? JsonValue.NULL : Json.createValue(hash))
+                              .build();
+    return makeRequest(GQL.UPDATE_EXTERNAL_IDENTITY_HASH, variables, Map.of("x-hasura-role", "admin"))
+        .getJsonObject("update_mission_model_by_pk")
+        .getInt("revision");
+  }
+
+  /**
+   * Overwrite a stored resource type's schema. Only the Hasura admin role may write this table -- merlin
+   * owns it -- so this exists to simulate the stored types drifting away from the backend.
+   */
+  public void setResourceTypeSchema(int modelId, String name, JsonObject schema) throws IOException {
+    final var variables = Json.createObjectBuilder()
+                              .add("modelId", modelId)
+                              .add("name", name)
+                              .add("schema", schema)
+                              .build();
+    final var affected = makeRequest(GQL.UPDATE_RESOURCE_TYPE_SCHEMA, variables, Map.of("x-hasura-role", "admin"))
+        .getJsonObject("update_resource_type")
+        .getInt("affected_rows");
+    assertEquals(1, affected, "expected to update exactly one resource_type row named " + name);
   }
 
   public void deleteMissionModel(int id) throws IOException {
@@ -526,6 +744,35 @@ public class HasuraRequests implements AutoCloseable {
           }
           default -> fail("Simulation returned bad status " + response.status() + " with reason " +response.reason());
         }
+    }
+    throw new TimeoutError("Simulation timed out after " + timeout + " seconds");
+  }
+
+  /**
+   * Simulate the specified plan, potentially forcibly, with a set timeout.
+   * Used when the simulation is expected to fail.
+   *
+   * @param planId the plan to simulate
+   * @param force whether to forcibly resimulate in the event of an existing dataset
+   * @param timeout the length of the timeout, in seconds
+   */
+  public SimulationResponse awaitFailingSimulation(int planId, Boolean force, int timeout) throws IOException {
+    for(int i = 0; i < timeout; ++i){
+      // Only use force on the initial request to avoid an infinite loop of making new sim requests
+      final var response = (i == 0) ? simulateForce(planId, force) : simulate(planId);
+      switch (response.status()) {
+        case "pending", "incomplete" -> {
+          try {
+            Thread.sleep(1000); // 1s
+          } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+          }
+        }
+        case "failed" -> {
+          return response;
+        }
+        default -> fail("Simulation returned bad status " + response.status() + " with reason " + response.reason());
+      }
     }
     throw new TimeoutError("Simulation timed out after " + timeout + " seconds");
   }
@@ -951,6 +1198,19 @@ public class HasuraRequests implements AutoCloseable {
     assert(data.size() == 1);
     return SimulationDataset.fromJSON(data.getJsonObject(0));
   }
+  /** Every span stored for a dataset, in span_id order, with its raw {@code attributes}. */
+  public List<Span> getSpans(int datasetId) throws IOException {
+    final var variables = Json.createObjectBuilder().add("datasetId", datasetId).build();
+    return makeRequest(GQL.GET_SPANS, variables).getJsonArray("span").getValuesAs(Span::fromJSON);
+  }
+
+  /** The model and plan revisions a simulation dataset was stamped with. */
+  public SimulationDatasetRevisions getSimulationDatasetRevisions(int simDatasetId) throws IOException {
+    final var variables = Json.createObjectBuilder().add("id", simDatasetId).build();
+    return SimulationDatasetRevisions.fromJSON(
+        makeRequest(GQL.GET_SIMULATION_DATASET_REVISIONS, variables).getJsonObject("simulation_dataset_by_pk"));
+  }
+
   public Map<String, List<ProfileSegment>> getProfiles(int datasetId) throws IOException {
     final var variables = Json.createObjectBuilder().add("datasetId", datasetId).build();
     final var profiles = makeRequest(GQL.GET_PROFILES, variables).getJsonArray("profile");

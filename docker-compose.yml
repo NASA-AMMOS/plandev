@@ -74,8 +74,12 @@ services:
       EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://blackbird-adapter:5011"},{"name":"python-lab","url":"http://python-adapter:5002"}]'
       # Closed-world checking of what an external backend returns (unknown resources, schema drift,
       # spans claiming directives we never sent). warn = log and continue, reject = fail the ingest,
-      # off = skip. Start at warn; move to reject once a backend has been quiet for a while.
-      EXTERNAL_INGEST_GATE: warn
+      # off = skip. Now `reject`: warn-only did its job -- it surfaced three real adapter defects and
+      # one bug in the gate itself -- and both shipped adapters have been gating clean since. Merlin's
+      # own default stays `warn`, so a deployment bringing up an unproven third-party adapter still
+      # starts in observation mode; this line is the deliberate promotion for a stack whose backends
+      # have been quiet.
+      EXTERNAL_INGEST_GATE: reject
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
         -Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG
@@ -204,8 +208,12 @@ services:
       EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://blackbird-adapter:5011"},{"name":"python-lab","url":"http://python-adapter:5002"}]'
       # Closed-world checking of what an external backend returns (unknown resources, schema drift,
       # spans claiming directives we never sent). warn = log and continue, reject = fail the ingest,
-      # off = skip. Start at warn; move to reject once a backend has been quiet for a while.
-      EXTERNAL_INGEST_GATE: warn
+      # off = skip. Now `reject`: warn-only did its job -- it surfaced three real adapter defects and
+      # one bug in the gate itself -- and both shipped adapters have been gating clean since. Merlin's
+      # own default stays `warn`, so a deployment bringing up an unproven third-party adapter still
+      # starts in observation mode; this line is the deliberate promotion for a stack whose backends
+      # have been quiet.
+      EXTERNAL_INGEST_GATE: reject
       SIMULATION_PROGRESS_POLL_PERIOD_MILLIS: 2000
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
@@ -235,8 +243,12 @@ services:
       EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://blackbird-adapter:5011"},{"name":"python-lab","url":"http://python-adapter:5002"}]'
       # Closed-world checking of what an external backend returns (unknown resources, schema drift,
       # spans claiming directives we never sent). warn = log and continue, reject = fail the ingest,
-      # off = skip. Start at warn; move to reject once a backend has been quiet for a while.
-      EXTERNAL_INGEST_GATE: warn
+      # off = skip. Now `reject`: warn-only did its job -- it surfaced three real adapter defects and
+      # one bug in the gate itself -- and both shipped adapters have been gating clean since. Merlin's
+      # own default stays `warn`, so a deployment bringing up an unproven third-party adapter still
+      # starts in observation mode; this line is the deliberate promotion for a stack whose backends
+      # have been quiet.
+      EXTERNAL_INGEST_GATE: reject
       SIMULATION_PROGRESS_POLL_PERIOD_MILLIS: 2000
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005

@@ -2,6 +2,7 @@ package gov.nasa.jpl.aerie.merlin.server.services;
 
 import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.driver.StartOffsetReducer;
+import gov.nasa.jpl.aerie.merlin.driver.UnfinishedActivity;
 import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfile;
 import gov.nasa.jpl.aerie.merlin.driver.engine.ProfileSegment;
 import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfiles;
@@ -213,6 +214,7 @@ public final class ExternalSimulationBackend {
     // Done BEFORE anything is handed to the resource manager, so the gate below still has a clean abort:
     // profiles have only been buffered in memory to this point, and nothing has reached Postgres.
     final var simulatedActivities = new HashMap<ActivityInstanceId, ActivityInstance>();
+    final var unfinishedActivities = new HashMap<ActivityInstanceId, UnfinishedActivity>();
     final var childIds = new HashMap<Long, List<ActivityInstanceId>>();
     {
       // first pass: collect children per parent
@@ -225,7 +227,12 @@ public final class ExternalSimulationBackend {
       for (final var span : spanObjects) {
         final long spanId = span.getJsonNumber("spanId").longValue();
         final long startUs = span.getJsonNumber("startOffset").longValue();
-        final long durUs = span.getJsonNumber("duration").longValue();
+        // A span with no duration was STILL RUNNING when the simulation ended. That is a real state in
+        // PlanDev -- an unfinished activity, stored with a null end -- and it is the honest answer for an
+        // activity that outlives its window. Without it a backend has to either clamp (claiming the
+        // activity ended when it did not) or overrun (a span longer than the dataset it lives in).
+        final Long durUs = (span.containsKey("duration") && !span.isNull("duration"))
+            ? span.getJsonNumber("duration").longValue() : null;
         final var args = serializedValueP.parse(span.get("arguments")).getSuccessOrThrow().asMap().orElse(Map.of());
         final ActivityInstanceId parentId =
             (span.containsKey("parentId") && !span.isNull("parentId"))
@@ -240,15 +247,29 @@ public final class ExternalSimulationBackend {
             spanId, span.getString("type"), startUs, durUs, args,
             parentId == null ? null : parentId.id(),
             directiveId.map(ActivityDirectiveId::id).orElse(null));
-        simulatedActivities.put(new ActivityInstanceId(spanId), new ActivityInstance(
-            span.getString("type"),
-            args,
-            simStart.plus(java.time.Duration.of(startUs, java.time.temporal.ChronoUnit.MICROS)),
-            Duration.of(durUs, Duration.MICROSECONDS),
-            parentId,
-            childIds.getOrDefault(spanId, List.of()),
-            directiveId,
-            SerializedValue.of(Map.of())));
+        final var start = simStart.plus(java.time.Duration.of(startUs, java.time.temporal.ChronoUnit.MICROS));
+        if (durUs == null) {
+          // UnfinishedActivity carries no duration by construction, and PostSpansAction writes a null
+          // end for it, so this reaches Postgres as a span with a start and no end -- exactly how the
+          // JAR path records an activity the simulation ended in the middle of.
+          unfinishedActivities.put(new ActivityInstanceId(spanId), new UnfinishedActivity(
+              span.getString("type"),
+              args,
+              start,
+              parentId,
+              childIds.getOrDefault(spanId, List.of()),
+              directiveId));
+        } else {
+          simulatedActivities.put(new ActivityInstanceId(spanId), new ActivityInstance(
+              span.getString("type"),
+              args,
+              start,
+              Duration.of(durUs, Duration.MICROSECONDS),
+              parentId,
+              childIds.getOrDefault(spanId, List.of()),
+              directiveId,
+              SerializedValue.of(Map.of())));
+        }
       }
     }
 
@@ -271,7 +292,7 @@ public final class ExternalSimulationBackend {
         flushed.realProfiles(),
         flushed.discreteProfiles(),
         simulatedActivities,
-        Map.of(),          // unfinished activities
+        unfinishedActivities,
         simStart,
         simDuration,
         List.of(),         // topics

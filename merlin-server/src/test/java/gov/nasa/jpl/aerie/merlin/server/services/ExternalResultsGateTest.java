@@ -125,7 +125,7 @@ public final class ExternalResultsGateTest {
       final var gate = ExternalResultsGate.withMode(
           ExternalResultsGate.Mode.REJECT, Map.of(), Map.of(), Set.of(), SIM_DURATION_US);
       gate.checkResourceProfile("Anything", ValueSchema.REAL);
-      gate.checkSpan(1, "AnyType", 0, 0, Map.of(), null, 99L);
+      gate.checkSpan(1, "AnyType", 0, 0L, Map.of(), null, 99L);
       assertDoesNotThrow(gate::finish);
     }
   }
@@ -135,7 +135,7 @@ public final class ExternalResultsGateTest {
     @Test
     void flagsAnUnregisteredActivityType() {
       final var gate = gate();
-      gate.checkSpan(1, "NotAThing", 0, 0, Map.of(), null, null);
+      gate.checkSpan(1, "NotAThing", 0, 0L, Map.of(), null, null);
       assertTrue(only(gate).contains("not a registered activity type"), only(gate));
     }
 
@@ -143,7 +143,7 @@ public final class ExternalResultsGateTest {
     @Test
     void flagsADirectiveIdWeNeverSent() {
       final var gate = gate();
-      gate.checkSpan(1, "CollectScience", 0, 0, Map.of("d", SerializedValue.of(1L)), null, 77L);
+      gate.checkSpan(1, "CollectScience", 0, 0L, Map.of("d", SerializedValue.of(1L)), null, 77L);
       assertTrue(only(gate).contains("claims directiveId 77"), only(gate));
     }
 
@@ -151,7 +151,7 @@ public final class ExternalResultsGateTest {
     @Test
     void acceptsAnAnonymousSpan() {
       final var gate = gate();
-      gate.checkSpan(1, "CollectScience", 0, 0, Map.of("d", SerializedValue.of(1L)), null, null);
+      gate.checkSpan(1, "CollectScience", 0, 0L, Map.of("d", SerializedValue.of(1L)), null, null);
       assertEquals(List.of(), gate.findings());
     }
 
@@ -159,15 +159,15 @@ public final class ExternalResultsGateTest {
     void flagsDuplicateSpanIds() {
       final var gate = gate();
       final var args = Map.of("d", SerializedValue.of(1L));
-      gate.checkSpan(5, "CollectScience", 0, 0, args, null, null);
-      gate.checkSpan(5, "CollectScience", 0, 0, args, null, null);
+      gate.checkSpan(5, "CollectScience", 0, 0L, args, null, null);
+      gate.checkSpan(5, "CollectScience", 0, 0L, args, null, null);
       assertTrue(only(gate).contains("duplicate spanId 5"), only(gate));
     }
 
     @Test
     void flagsAParentThatIsNotInTheResult() {
       final var gate = gate();
-      gate.checkSpan(1, "CollectScience", 0, 0, Map.of("d", SerializedValue.of(1L)), 999L, null);
+      gate.checkSpan(1, "CollectScience", 0, 0L, Map.of("d", SerializedValue.of(1L)), 999L, null);
       gate.finish();
       assertTrue(only(gate).contains("parentId 999"), only(gate));
     }
@@ -177,8 +177,8 @@ public final class ExternalResultsGateTest {
     void flagsAParentCycle() {
       final var gate = gate();
       final var args = Map.of("d", SerializedValue.of(1L));
-      gate.checkSpan(1, "CollectScience", 0, 0, args, 2L, null);
-      gate.checkSpan(2, "CollectScience", 0, 0, args, 1L, null);
+      gate.checkSpan(1, "CollectScience", 0, 0L, args, 2L, null);
+      gate.checkSpan(2, "CollectScience", 0, 0L, args, 1L, null);
       gate.finish();
       assertTrue(gate.findings().stream().anyMatch(f -> f.contains("parent cycle")), gate.findings().toString());
     }
@@ -187,16 +187,61 @@ public final class ExternalResultsGateTest {
     void flagsOutOfBoundsTiming() {
       final var gate = gate();
       final var args = Map.of("d", SerializedValue.of(1L));
-      gate.checkSpan(1, "CollectScience", -1, 0, args, null, null);
-      gate.checkSpan(2, "CollectScience", SIM_DURATION_US + 1, 0, args, null, null);
-      gate.checkSpan(3, "CollectScience", 0, -5, args, null, null);
+      gate.checkSpan(1, "CollectScience", -1, 0L, args, null, null);
+      gate.checkSpan(2, "CollectScience", SIM_DURATION_US + 1, 0L, args, null, null);
+      gate.checkSpan(3, "CollectScience", 0, -5L, args, null, null);
       assertEquals(3, gate.findings().size(), gate.findings().toString());
+    }
+
+    /**
+     * The overrun that actually persists. Merlin clamps profiles at the simulation duration on the way
+     * to Postgres, but nothing clamps spans -- a real Python-adapter run stored a Discharge span of
+     * "365 days 01:06:40" inside a one-day plan, and only the profile overrun was flagged.
+     */
+    @Test
+    void flagsASpanThatEndsPastTheSimulation() {
+      final var gate = gate();
+      gate.checkSpan(1, "CollectScience", SIM_DURATION_US - 1_000, 60_000_000L,
+                     Map.of("d", SerializedValue.of(60_000_000L)), null, null);
+      assertTrue(only(gate).contains("past the simulation"), only(gate));
+    }
+
+    /**
+     * A span with no duration was still running when the simulation ended. That is a state PlanDev
+     * models directly (an unfinished activity, stored with a null end), so none of the duration checks
+     * apply -- including the overrun check, which is the whole point: an activity that outlives the
+     * window should say so rather than claim an end the simulation never reached.
+     */
+    @Test
+    void acceptsAnUnfinishedSpanWithNoDuration() {
+      final var gate = gate(ExternalResultsGate.Mode.REJECT);
+      gate.checkSpan(1, "CollectScience", SIM_DURATION_US - 1_000, null,
+                     Map.of("d", SerializedValue.of(60_000_000L)), null, 1L);
+      assertDoesNotThrow(gate::finish);
+      assertEquals(List.of(), gate.findings());
+    }
+
+    /** An unfinished span still has to be a registered type with conforming arguments. */
+    @Test
+    void stillChecksAnUnfinishedSpanAgainstTheModel() {
+      final var gate = gate();
+      gate.checkSpan(1, "NotAThing", 0, null, Map.of(), null, null);
+      assertTrue(only(gate).contains("not a registered activity type"), only(gate));
+    }
+
+    /** A span ending exactly at the simulation end is fine, not an overrun. */
+    @Test
+    void acceptsASpanEndingExactlyAtTheSimulationEnd() {
+      final var gate = gate();
+      gate.checkSpan(1, "CollectScience", SIM_DURATION_US - 60_000_000L, 60_000_000L,
+                     Map.of("d", SerializedValue.of(60_000_000L)), null, null);
+      assertEquals(List.of(), gate.findings());
     }
 
     @Test
     void checksSpanArgumentsAgainstTheDeclaredParameters() {
       final var gate = gate();
-      gate.checkSpan(1, "CollectScience", 0, 0,
+      gate.checkSpan(1, "CollectScience", 0, 0L,
                      Map.of("d", SerializedValue.of("not a duration"), "bogus", SerializedValue.of(1)), null, null);
       assertEquals(2, gate.findings().size(), gate.findings().toString());
       assertTrue(gate.findings().stream().anyMatch(f -> f.contains("not a declared parameter")), gate.findings().toString());
@@ -205,7 +250,7 @@ public final class ExternalResultsGateTest {
     @Test
     void flagsAMissingRequiredParameter() {
       final var gate = gate();
-      gate.checkSpan(1, "CollectScience", 0, 0, Map.of("label", SerializedValue.of("x")), null, null);
+      gate.checkSpan(1, "CollectScience", 0, 0L, Map.of("label", SerializedValue.of("x")), null, null);
       assertTrue(only(gate).contains("missing required parameter 'd'"), only(gate));
     }
   }
@@ -270,7 +315,7 @@ public final class ExternalResultsGateTest {
     void rejectAbortsWithEveryFindingInTheMessage() {
       final var gate = gate(ExternalResultsGate.Mode.REJECT);
       gate.checkResourceProfile("Ghost", ValueSchema.REAL);
-      gate.checkSpan(1, "NotAThing", 0, 0, Map.of(), null, null);
+      gate.checkSpan(1, "NotAThing", 0, 0L, Map.of(), null, null);
       final var thrown = assertThrows(RuntimeException.class, gate::finish);
       assertTrue(thrown.getMessage().contains("Ghost"), thrown.getMessage());
       assertTrue(thrown.getMessage().contains("NotAThing"), thrown.getMessage());
@@ -280,7 +325,7 @@ public final class ExternalResultsGateTest {
     void offChecksNothing() {
       final var gate = ExternalResultsGate.disabled();
       gate.checkResourceProfile("Ghost", ValueSchema.REAL);
-      gate.checkSpan(1, "NotAThing", -1, -1, Map.of(), 999L, 999L);
+      gate.checkSpan(1, "NotAThing", -1, -1L, Map.of(), 999L, 999L);
       assertDoesNotThrow(gate::finish);
       assertEquals(List.of(), gate.findings());
     }

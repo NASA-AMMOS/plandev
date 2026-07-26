@@ -210,6 +210,9 @@ public final class ExternalResultsGate {
   // --- spans ----------------------------------------------------------------------------------
 
   /**
+   * @param durationUs  null for an UNFINISHED span -- one still running when the simulation ended. That
+   *                    is a legitimate state, not a missing field, so none of the duration-dependent
+   *                    checks below apply to it.
    * @param parentId    null for a root span
    * @param directiveId null for a span the backend created on its own (decomposition, or -- for a
    *                    forward-dispatch model like Blackbird -- its own scheduler placing an activity)
@@ -218,7 +221,7 @@ public final class ExternalResultsGate {
       final long spanId,
       final String type,
       final long startOffsetUs,
-      final long durationUs,
+      final Long durationUs,
       final Map<String, SerializedValue> arguments,
       final Long parentId,
       final Long directiveId)
@@ -245,11 +248,24 @@ public final class ExternalResultsGate {
       finding("span " + spanId + " claims directiveId " + directiveId + ", which was not sent to the backend");
     }
 
-    if (durationUs < 0) finding("span " + spanId + " has negative duration (" + durationUs + "us)");
+    if (durationUs != null && durationUs < 0) {
+      finding("span " + spanId + " has negative duration (" + durationUs + "us)");
+    }
     if (startOffsetUs < 0) finding("span " + spanId + " starts before the simulation (" + startOffsetUs + "us)");
     if (startOffsetUs > this.simDurationUs) {
       finding("span " + spanId + " starts at " + startOffsetUs + "us, past the simulation duration of "
               + this.simDurationUs + "us");
+    }
+    // A span that starts inside the window but ENDS outside it is the case that actually persists.
+    // Merlin's resource manager clamps profiles at the simulation duration, so an overrunning profile
+    // is caught and truncated on the way to Postgres -- but nothing clamps spans, so an activity
+    // running past the end would be stored at its full length inside a shorter dataset.
+    // A backend with an activity that outlives the window should report it UNFINISHED (no duration)
+    // rather than claiming an end time the simulation never reached.
+    else if (durationUs != null && durationUs > 0 && startOffsetUs + durationUs > this.simDurationUs) {
+      finding("span " + spanId + " runs to " + (startOffsetUs + durationUs) + "us, past the simulation "
+              + "duration of " + this.simDurationUs + "us; report it as unfinished (omit `duration`) "
+              + "instead of claiming an end the simulation never reached");
     }
   }
 
@@ -308,8 +324,9 @@ public final class ExternalResultsGate {
           span.spanId(),
           span.type(),
           span.startOffset().in(Duration.MICROSECONDS),
-          // An unfinished span has no duration yet; that is a state, not a bad value.
-          span.duration().map(d -> d.in(Duration.MICROSECONDS)).orElse(0L),
+          // An unfinished span has no duration; that is a state, not a bad value. Passing null (rather
+          // than the 0 this used to substitute) keeps it out of the duration-dependent checks.
+          span.duration().map(d -> d.in(Duration.MICROSECONDS)).orElse(null),
           span.arguments(),
           span.parentId().orElse(null),
           span.directiveId().orElse(null));

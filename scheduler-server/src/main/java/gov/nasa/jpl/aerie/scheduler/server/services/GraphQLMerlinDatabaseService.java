@@ -246,7 +246,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
         + "plan_by_pk( id: %s ) { "
         + "  id revision start_time duration "
         + "  mission_model { "
-        + "    id name version "
+        + "    id name version model_type "
         + "    uploaded_file { name } "
         + "  } "
         + "  simulations(limit:1, order_by:{revision:desc} ) { arguments }"
@@ -266,8 +266,23 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
       final var modelName = model.getString("name");
       final var modelVersion = model.getString("version");
 
-      final var file = model.getJsonObject("uploaded_file");
-      final var modelPath = Path.of(file.getString("name"));
+      // Read the raw value: for an external model `uploaded_file` is JSON null, and getJsonObject would
+      // throw ClassCastException on the cast -- which the catch below turns into "no plan exists", a
+      // thoroughly misleading way to report "this model has no JAR".
+      final var fileValue = model.get("uploaded_file");
+      if (fileValue == null || fileValue.getValueType() == JsonValue.ValueType.NULL) {
+        // An EXTERNAL model has no JAR, so there is nothing here to classload. The scheduler simulates
+        // in-process against a loaded MissionModel; driving an external backend instead needs a
+        // PlanEditAdapter over the external SimulationBackend, which does not exist yet. Until it does,
+        // say so plainly -- this used to be a NullPointerException with no indication of the cause.
+        throw new MerlinServiceException(
+            ("Plan %s uses mission model %s (\"%s\"), which is an external model with no JAR. Scheduling "
+             + "is not yet supported for external models: the scheduler simulates against a classloaded "
+             + "model, and driving an external backend requires a plan-edit adapter that has not been "
+             + "built. Simulation, constraints and plan editing all work for this model.")
+                .formatted(planId, modelId, modelName));
+      }
+      final var modelPath = Path.of(((JsonObject) fileValue).getString("name"));
       //NB: not using the "path" field because it is just a hex-encoded duplicate of the name field anyway
       //NB: the name includes the .jar extension
 

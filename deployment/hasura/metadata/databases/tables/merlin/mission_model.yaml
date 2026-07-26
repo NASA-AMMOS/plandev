@@ -132,6 +132,8 @@ event_triggers:
       update:
         columns:
           - jar_id
+          - external_backend
+          - external_model_key
     name: refreshActivityTypes
     retry_conf:
       interval_sec: 10
@@ -145,6 +147,8 @@ event_triggers:
       update:
         columns:
         - jar_id
+        - external_backend
+        - external_model_key
     name: refreshModelParameters
     retry_conf:
       interval_sec: 10
@@ -158,6 +162,8 @@ event_triggers:
       update:
         columns:
           - jar_id
+          - external_backend
+          - external_model_key
     name: refreshResourceTypes
     retry_conf:
       interval_sec: 10

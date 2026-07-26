@@ -124,12 +124,62 @@ public final class LocalMissionModelService implements MissionModelService {
           "External model %s references backend '%s', which is not declared in EXTERNAL_MODEL_BACKENDS."
               .formatted(missionModelId, model.externalBackend));
     }
+    final ExternalModelDiscovery.Introspection introspection;
     try {
-      return ExternalModelDiscovery.introspect(baseUrl, model.externalModelKey);
+      introspection = ExternalModelDiscovery.introspect(baseUrl, model.externalModelKey);
     } catch (final IOException | InterruptedException ex) {
       throw new RuntimeException(
           "Failed to introspect external model %s from backend '%s'".formatted(missionModelId, model.externalBackend), ex);
     }
+    // Attest what we just read the types from. All three refresh* handlers introspect, but the write is
+    // conditional on the value actually differing, so the first one records it and the others are no-ops
+    // -- important, because any write here bumps the model revision.
+    if (introspection.identityHash() != null && !introspection.identityHash().isBlank()) {
+      if (this.missionModelRepository.updateExternalIdentityHash(missionModelId, introspection.identityHash())) {
+        log.info("External model {} now attested to backend '{}' identity {}; model revision bumped.",
+            missionModelId, model.externalBackend, introspection.identityHash());
+      }
+    }
+    return introspection;
+  }
+
+  /**
+   * Refuse to simulate when the backend no longer serves the model this row was registered against.
+   *
+   * <p>The stored activity_type and resource_type rows -- what the plan editor validated against, what
+   * constraints are written against, what the generated typings describe -- were derived from one
+   * introspection of one deployment. An adapter is redeployable, and nothing else in the system notices
+   * when it comes back declaring a different type surface. Simulating anyway would produce results shaped
+   * by a model that no longer matches its own metadata, and they would look entirely normal.
+   *
+   * <p>This is a hard stop rather than a warning because, unlike the ingest gate, there is a correct and
+   * cheap remedy: re-introspect, which rewrites the stored types and bumps the revision. Note the hash
+   * covers the declared INTERFACE only, so a behavior-only change to a model does not trip this -- it
+   * catches "the stored types are wrong", not "the answers changed".
+   */
+  private void checkExternalIdentity(final MissionModelJar model, final MissionModelId missionModelId) {
+    final var attested = model.externalIdentityHash;
+    if (attested == null || attested.isBlank()) return;   // registered before we recorded identity
+    final var baseUrl = this.externalModelBackends.url(model.externalBackend).orElse(null);
+    if (baseUrl == null) return;                          // the caller already reports an unresolvable backend
+    final String current;
+    try {
+      current = ExternalModelDiscovery.introspect(baseUrl, model.externalModelKey).identityHash();
+    } catch (final Exception ex) {
+      // A backend that cannot be introspected is about to fail the simulation on its own terms, with a
+      // better message than anything we could produce here.
+      log.warn("Could not verify identity of external model {} before simulating ({})", missionModelId, ex.toString());
+      return;
+    }
+    if (current == null || current.isBlank() || current.equals(attested)) return;
+    throw new RuntimeException(
+        ("External mission model %s was registered against backend '%s' model '%s' with identity %s, but that "
+         + "backend now reports identity %s. Its activity types, parameters, or resource schemas have changed, "
+         + "so the types stored for this model no longer describe what would run. Re-introspect to pick up the "
+         + "new types -- invoke the refreshActivityTypes / refreshResourceTypes / refreshModelParameters event "
+         + "triggers manually -- or register the changed model as a new mission model to keep existing plans "
+         + "pinned to the version they were built against.")
+            .formatted(missionModelId, model.externalBackend, model.externalModelKey, attested, current));
   }
 
   /**
@@ -547,6 +597,7 @@ public final class LocalMissionModelService implements MissionModelService {
             "External mission model `%s` references backend '%s', which is not declared in EXTERNAL_MODEL_BACKENDS (or has no model key)."
                 .formatted(plan.missionModelId(), model.externalBackend));
       }
+      checkExternalIdentity(model, plan.missionModelId());
       return ExternalSimulationBackend.simulate(
           backendUrl, plan, resourceManager, canceledListener, externalResultsGate(plan));
     }

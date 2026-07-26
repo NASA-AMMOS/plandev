@@ -13,6 +13,7 @@ create table merlin.mission_model (
   model_type text not null default 'jar',
   external_backend text,
   external_model_key text,
+  external_identity_hash text,
 
   created_at timestamptz not null default now(),
 
@@ -62,6 +63,13 @@ comment on column merlin.mission_model.external_backend is e''
 comment on column merlin.mission_model.external_model_key is e''
   'For model_type="external": the key selecting which model to use on its backend (a backend may host '
   'several). Null for JAR models.';
+comment on column merlin.mission_model.external_identity_hash is e''
+  'For model_type="external": the identityHash the backend reported for this model when it was last '
+  'introspected -- a digest of its declared activity types, parameters, and resource schemas. Merlin '
+  'compares the backend''s current hash against this before simulating, so a backend redeployed with a '
+  'different type surface is detected instead of silently simulating against stale stored types. '
+  'Updating it bumps the model revision, which stamps results and invalidates the simulation cache. '
+  'Null for JAR models, and for external models registered before this was recorded.';
 comment on column merlin.mission_model.created_at is e''
   'The time this mission model was uploaded into Aerie.';
 comment on column merlin.mission_model.description is e''

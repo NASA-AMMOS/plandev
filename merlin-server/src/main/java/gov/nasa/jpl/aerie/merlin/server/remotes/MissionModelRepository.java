@@ -21,6 +21,15 @@ public interface MissionModelRepository {
     Map<String, gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema> getResourceTypes(MissionModelId missionModelId) throws NoSuchMissionModelException;
 
     // Mutations
+    /**
+     * Record the identity an external backend reported for this model, if it differs from what is stored.
+     *
+     * @return true if the stored hash changed. Because any mission_model update bumps its revision, a
+     *         true here means the model revision moved -- which stamps subsequent results and invalidates
+     *         cached simulations. Implementations must therefore not write an unchanged value.
+     */
+    boolean updateExternalIdentityHash(MissionModelId missionModelId, String identityHash);
+
     void updateModelParameters(MissionModelId missionModelId, final List<Parameter> modelParameters) throws NoSuchMissionModelException;
     void updateActivityTypes(MissionModelId missionModelId, final Map<String, ActivityType> activityTypes, final List<String> subsystems) throws NoSuchMissionModelException;
     void updateResourceTypes(MissionModelId missionModelId, final Map<String, Resource<?>> resourceTypes) throws NoSuchMissionModelException;

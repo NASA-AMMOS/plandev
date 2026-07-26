@@ -20,6 +20,13 @@ public final class MissionModelJar {
    *  host several). Null for JAR models. */
   public String externalModelKey;
 
+  /** For external models: the identityHash the backend reported at the last introspection -- a digest of
+   *  its declared activity types, parameters, and resource schemas. Compared against the backend's
+   *  current hash before simulating, so a redeployed backend with a different type surface is detected
+   *  rather than silently simulated against stale stored types. Null for JAR models, and for external
+   *  models registered before it was recorded. */
+  public String externalIdentityHash;
+
   /**
    * The path to the Mission Model JAR
    *
@@ -45,6 +52,7 @@ public final class MissionModelJar {
               && Objects.equals(this.modelType, other.modelType)
               && Objects.equals(this.externalBackend, other.externalBackend)
               && Objects.equals(this.externalModelKey, other.externalModelKey)
+              && Objects.equals(this.externalIdentityHash, other.externalIdentityHash)
               && Objects.equals(this.path, other.path)
               );
   }
@@ -59,6 +67,7 @@ public final class MissionModelJar {
         modelType,
         externalBackend,
         externalModelKey,
+        externalIdentityHash,
         path
     );
   }

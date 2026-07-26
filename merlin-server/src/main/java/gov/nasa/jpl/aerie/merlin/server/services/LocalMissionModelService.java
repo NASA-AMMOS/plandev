@@ -172,7 +172,8 @@ public final class LocalMissionModelService implements MissionModelService {
       return;
     }
     if (current == null || current.isBlank() || current.equals(attested)) return;
-    throw new RuntimeException(
+    throw new ExternalModelException(
+        ExternalModelException.Kind.IDENTITY_DRIFT,
         ("External mission model %s was registered against backend '%s' model '%s' with identity %s, but that "
          + "backend now reports identity %s. Its activity types, parameters, or resource schemas have changed, "
          + "so the types stored for this model no longer describe what would run. Re-introspect to pick up the "

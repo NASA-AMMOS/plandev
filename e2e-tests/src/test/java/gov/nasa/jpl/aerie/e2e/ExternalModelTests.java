@@ -669,14 +669,15 @@ public class ExternalModelTests {
     assertEquals(SimulationDataset.SimulationStatus.failed, failedDataset.status());
     assertTrue(failedDataset.reason().isPresent());
     final var reason = failedDataset.reason().get();
-    // NOTE: the identity check throws a plain RuntimeException, which SimulationAgent does not classify, so
-    // it reaches the worker's catch-all. The `type` and `message` a client sees are therefore generic and the
-    // actual diagnosis is only in the trace -- asserted here so a change to that surface is noticed.
-    assertEquals("UNEXPECTED_SIMULATION_EXCEPTION", reason.type());
-    assertEquals("Something went wrong while simulating", reason.message());
-    assertTrue(reason.trace().contains("was registered against backend")
-               && reason.trace().contains("now reports identity"),
-               "the failure must name the drift; got:\n" + reason.trace());
+    // The client-visible message must BE the diagnosis, not a generic catch-all with the diagnosis
+    // buried in the trace -- this failure is actionable and the message says what to do.
+    assertEquals("EXTERNAL_MODEL_EXCEPTION", reason.type());
+    assertEquals("IDENTITY_DRIFT", reason.data().getString("kind"));
+    assertTrue(reason.message().contains("was registered against backend")
+               && reason.message().contains("now reports identity"),
+               "the message must name the drift; got:\n" + reason.message());
+    assertTrue(reason.message().contains("refreshActivityTypes"),
+               "the message must name the remedy; got:\n" + reason.message());
     assertTrue(reason.trace().contains("0000drifted0000"), "the failure must quote the stale attestation");
 
     // --- remedy: re-introspect, exactly as the error message instructs ---
@@ -742,15 +743,13 @@ public class ExternalModelTests {
     assertEquals(SimulationDataset.SimulationStatus.failed, failedDataset.status());
     assertTrue(failedDataset.reason().isPresent());
     final var reason = failedDataset.reason().get();
-    // As with the identity check, the gate throws a plain RuntimeException, so the client-visible type and
-    // message are the worker's generic catch-all and the findings live in the trace.
-    assertEquals("UNEXPECTED_SIMULATION_EXCEPTION", reason.type());
-    assertEquals("Something went wrong while simulating", reason.message());
-    assertTrue(reason.trace().contains("closed-world check"),
-               "the gate should have refused the ingest; got:\n" + reason.trace());
+    assertEquals("EXTERNAL_MODEL_EXCEPTION", reason.type());
+    assertEquals("INGEST_GATE", reason.data().getString("kind"));
+    assertTrue(reason.message().contains("closed-world check"),
+               "the gate should have refused the ingest; got:\n" + reason.message());
     // The finding names the resource, what the backend produced, and what PlanDev believed it was.
-    assertTrue(reason.trace().contains("resource 'SoC' has schema RealSchema[] but is registered as IntSchema[]"),
-               "the gate should name the offending resource and both schemas; got:\n" + reason.trace());
+    assertTrue(reason.message().contains("resource 'SoC' has schema RealSchema[] but is registered as IntSchema[]"),
+               "the gate should name the offending resource and both schemas; got:\n" + reason.message());
 
     // Nothing was committed: the failed dataset holds no SoC profile.
     final var profiles = hasura.getProfiles(failedDataset.datasetId());
@@ -791,12 +790,12 @@ public class ExternalModelTests {
     assertEquals(SimulationDataset.SimulationStatus.failed, failedDataset.status());
     assertTrue(failedDataset.reason().isPresent());
     final var reason = failedDataset.reason().get();
-    assertEquals("UNEXPECTED_SIMULATION_EXCEPTION", reason.type());
-    assertEquals("Something went wrong while simulating", reason.message());
-    assertTrue(reason.trace().contains("do not support directives anchored to the end of another activity"),
-               "the failure must explain why an end-anchor cannot be honoured; got:\n" + reason.trace());
-    assertTrue(reason.trace().contains(String.valueOf(endAnchored)),
-               "the failure must name the offending directive; got:\n" + reason.trace());
+    assertEquals("EXTERNAL_MODEL_EXCEPTION", reason.type());
+    assertEquals("UNSUPPORTED_PLAN", reason.data().getString("kind"));
+    assertTrue(reason.message().contains("do not support directives anchored to the end of another activity"),
+               "the failure must explain why an end-anchor cannot be honoured; got:\n" + reason.message());
+    assertTrue(reason.message().contains(String.valueOf(endAnchored)),
+               "the failure must name the offending directive; got:\n" + reason.message());
   }
 
   /**

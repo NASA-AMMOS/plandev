@@ -83,7 +83,8 @@ public final class ExternalSimulationBackend {
         .flatMap(e -> e.getValue().stream().map(p -> p.getKey().id()))
         .sorted().toList();
     if (!endAnchored.isEmpty()) {
-      throw new RuntimeException(
+      throw new ExternalModelException(
+          ExternalModelException.Kind.UNSUPPORTED_PLAN,
           "External models do not support directives anchored to the end of another activity "
           + "(their start depends on a simulated duration). Offending directive id(s): " + endAnchored);
     }
@@ -136,7 +137,9 @@ public final class ExternalSimulationBackend {
 
       try (final var body = httpResponse.body()) {
         if (httpResponse.statusCode() / 100 != 2) {
-          throw new RuntimeException("External backend returned HTTP " + httpResponse.statusCode()
+          throw new ExternalModelException(
+              ExternalModelException.Kind.BACKEND_UNAVAILABLE,
+              "External backend returned HTTP " + httpResponse.statusCode()
               + ": " + readBounded(body, MAX_ERROR_BODY_BYTES));
         }
         try (final var parser = Json.createParser(body)) {
@@ -207,7 +210,9 @@ public final class ExternalSimulationBackend {
         }
       }
     } catch (final java.io.IOException | InterruptedException ex) {
-      throw new RuntimeException("Failed to reach external simulation backend at " + backendUrl, ex);
+      throw new ExternalModelException(
+          ExternalModelException.Kind.BACKEND_UNAVAILABLE,
+          "Failed to reach external simulation backend at " + backendUrl + ": " + ex, ex);
     }
 
     // --- parse spans -> simulated activities ---
@@ -347,7 +352,8 @@ public final class ExternalSimulationBackend {
    */
   private static void checkCanceled(final Supplier<Boolean> canceledListener) {
     if (canceledListener != null && canceledListener.get()) {
-      throw new RuntimeException("External simulation canceled; aborted while streaming results.");
+      throw new ExternalModelException(
+          ExternalModelException.Kind.CANCELED, "External simulation canceled; aborted while streaming results.");
     }
   }
 

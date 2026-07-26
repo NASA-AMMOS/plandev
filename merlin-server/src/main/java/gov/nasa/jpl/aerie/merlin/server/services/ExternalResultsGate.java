@@ -413,7 +413,8 @@ public final class ExternalResultsGate {
             this.findingCount, this.context, this.spanCount, this.segmentCount,
             this.findingCount > this.findings.size() ? " First " + this.findings.size() + " shown:" : "");
     if (this.mode == Mode.REJECT) {
-      throw new RuntimeException(summary + "\n  " + String.join("\n  ", this.findings));
+      throw new ExternalModelException(
+          ExternalModelException.Kind.INGEST_GATE, summary + "\n  " + String.join("\n  ", this.findings));
     }
     log.warn("{}\n  {}", summary, String.join("\n  ", this.findings));
   }

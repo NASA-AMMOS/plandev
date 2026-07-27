@@ -219,4 +219,13 @@ public abstract class HasuraParsers {
               .map(
                   untuple(HasuraAction.UploadSimulationDatasetInput::new),
                   $ -> tuple($.planId(), $.simulationResults())));
+
+  public static final JsonParser<HasuraAction<HasuraAction.DownloadSimulationDatasetInput>> hasuraDownloadSimulationDatasetActionP
+      = hasuraActionF(
+          productP
+              .field("planId", planIdP)
+              .field("simulationDatasetId", longP)
+              .map(
+                  untuple(HasuraAction.DownloadSimulationDatasetInput::new),
+                  $ -> tuple($.planId(), $.simulationDatasetId())));
 }

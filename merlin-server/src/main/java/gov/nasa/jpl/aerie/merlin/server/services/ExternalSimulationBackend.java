@@ -137,8 +137,15 @@ public final class ExternalSimulationBackend {
 
       try (final var body = httpResponse.body()) {
         if (httpResponse.statusCode() / 100 != 2) {
+          // A 4xx is the backend saying it will not run THIS PLAN -- an argument it cannot accept, a
+          // duration its integrator cannot represent. The backend answered, so calling it
+          // unavailable sends the operator to look at a service that is fine while the actionable
+          // detail sits in the message. Everything else (5xx, and the IOExceptions below) really is
+          // the backend being unable to answer.
           throw new ExternalModelException(
-              ExternalModelException.Kind.BACKEND_UNAVAILABLE,
+              httpResponse.statusCode() / 100 == 4
+                  ? ExternalModelException.Kind.UNSUPPORTED_PLAN
+                  : ExternalModelException.Kind.BACKEND_UNAVAILABLE,
               "External backend returned HTTP " + httpResponse.statusCode()
               + ": " + readBounded(body, MAX_ERROR_BODY_BYTES));
         }

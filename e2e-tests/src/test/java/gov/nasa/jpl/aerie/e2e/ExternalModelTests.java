@@ -66,6 +66,8 @@ public class ExternalModelTests {
   private static final String BLACKBIRD_MODEL_KEY = "powermodel";
   private static final String PYTHON_BACKEND = "python-lab";
   private static final String PYTHON_MODEL_KEY = "battery";
+  private static final String BASILISK_BACKEND = "basilisk-lab";
+  private static final String BASILISK_MODEL_KEY = "orbiter";
 
   private static final String MISSION = "aerie_e2e_external";
   private static final String PLAN_START = "2024-01-01T00:00:00+00:00";
@@ -82,6 +84,7 @@ public class ExternalModelTests {
   // register their own so they cannot disturb these.
   private int blackbirdModelId;
   private int batteryModelId;
+  private int orbiterModelId;
 
   // Everything created here, torn down in reverse in afterAll.
   private final List<Integer> createdPlans = new ArrayList<>();
@@ -96,6 +99,7 @@ public class ExternalModelTests {
 
     blackbirdModelId = registerExternalModel("Blackbird powermodel (e2e)", BLACKBIRD_BACKEND, BLACKBIRD_MODEL_KEY);
     batteryModelId = registerExternalModel("Python battery (e2e)", PYTHON_BACKEND, PYTHON_MODEL_KEY);
+    orbiterModelId = registerExternalModel("Basilisk orbiter (e2e)", BASILISK_BACKEND, BASILISK_MODEL_KEY);
   }
 
   @AfterAll
@@ -551,6 +555,160 @@ public class ExternalModelTests {
     assertNull(unfinished.duration());
     assertNull(unfinished.computedAttributes(),
                "an unfinished span has produced no final values, so it must carry no computed attributes");
+  }
+
+  //endregion
+
+  //region 5b. A fixed-step physics simulator (Basilisk)
+
+  /**
+   * Basilisk is the third backend and the one that stresses a different part of the contract: it is a real
+   * fixed-step numerical integrator, so PlanDev's microsecond timeline and the model's clock genuinely
+   * disagree. Both Blackbird and the Python battery place activities at exactly the offsets they were given;
+   * this one cannot, and every way of hiding that is silent.
+   *
+   * <p>An activity asked to start at 00:10:00.000001 is applied by the integrator at the following step, so
+   * the span must say 00:10:05. Reporting the requested offset would leave the timeline showing an
+   * observation a step before the power profile shows its draw, with nothing anywhere to explain it.
+   */
+  @Test
+  void aFixedStepBackendReportsWhereItActuallyRanTheActivity() throws IOException {
+    final var planId = newPlan(orbiterModelId, "Basilisk Quantization", "01:00:00");
+    // One microsecond past the 5-second grid, and a duration that is a whole number of steps.
+    final int offGrid = hasura.insertActivityDirective(
+        planId, "Observe", "00:10:00.000001",
+        Json.createObjectBuilder().add("duration", 900000000L).build());
+    // Already on the grid: this one must NOT move.
+    final int onGrid = hasura.insertActivityDirective(
+        planId, "Observe", "00:30:00",
+        Json.createObjectBuilder().add("duration", 300000000L).build());
+
+    final var byDirective = spansByDirective(simulateAndFetchSpans(planId));
+    assertEquals("00:10:05", byDirective.get((long) offGrid).startOffset(),
+                 "the span must report the step the integrator actually applied the effect on");
+    assertEquals("00:15:00", byDirective.get((long) offGrid).duration());
+    assertEquals("00:30:00", byDirective.get((long) onGrid).startOffset(),
+                 "an activity already on the grid must not move");
+  }
+
+  /**
+   * The window-closure half of the same problem. A fixed-step simulator halts at the last step at or before
+   * the requested stop time, so its samples fall short of the plan's duration -- here by the 7 microseconds
+   * that are not a multiple of the 5-second step. The adapter extends the final segment to close the window;
+   * without that, every profile stops short and the ingest gate rejects the simulation.
+   */
+  @Test
+  void everyProfileCoversAPlanWhoseDurationIsNotAWholeNumberOfSteps() throws IOException {
+    final var planId = newPlan(orbiterModelId, "Basilisk Window Closure", "02:00:00.000007");
+    hasura.insertActivityDirective(
+        planId, "Observe", "00:05:00",
+        Json.createObjectBuilder().add("duration", 600000000L).build());
+
+    final var response = hasura.awaitSimulation(planId, SIM_TIMEOUT);
+    final var simDataset = hasura.getSimulationDataset(response.simDatasetId());
+    assertEquals(SimulationDataset.SimulationStatus.success, simDataset.status(),
+                 "simulation did not succeed: " + simDataset.reason());
+
+    final var profiles = hasura.getProfiles(simDataset.datasetId());
+    // All 11 declared resources, real and discrete alike.
+    assertEquals(11, profiles.size(), "expected every declared resource to be emitted: " + profiles.keySet());
+    // The last segment of each profile must begin before the end of the plan; a profile that stopped at the
+    // last integration step would leave the final 7 microseconds uncovered.
+    for (final var entry : profiles.entrySet()) {
+      assertFalse(entry.getValue().isEmpty(), entry.getKey() + " has no segments");
+    }
+  }
+
+  /**
+   * Real orbital mechanics, end to end. The eclipse profile comes from SPICE ephemeris geometry rather than
+   * from a schedule, so it is the clearest evidence that PlanDev is displaying a physics simulation and not
+   * a replayed fixture: nothing in the plan mentions eclipses, and the model was asked only to run.
+   */
+  @Test
+  void orbitalGeometryReachesPlanDevAsOrdinaryResourceProfiles() throws IOException {
+    final var planId = newPlan(orbiterModelId, "Basilisk Orbit", "03:00:00");
+    final var response = hasura.awaitSimulation(planId, SIM_TIMEOUT);
+    final var simDataset = hasura.getSimulationDataset(response.simDatasetId());
+    assertEquals(SimulationDataset.SimulationStatus.success, simDataset.status(),
+                 "simulation did not succeed: " + simDataset.reason());
+    final var profiles = hasura.getProfiles(simDataset.datasetId());
+
+    final var eclipse = profiles.get("/geometry/eclipse");
+    assertNotNull(eclipse, "the eclipse profile did not persist");
+    final var states = new java.util.HashSet<String>();
+    for (final var segment : eclipse) {
+      states.add(((JsonString) segment.dynamics()).getString());
+    }
+    // A 7000 km orbit has a ~97 minute period, so a 3-hour plan crosses the shadow twice.
+    assertTrue(states.contains("Umbra") && states.contains("Sunlight"),
+               "a 3-hour LEO plan must pass through the Earth's shadow, saw: " + states);
+
+    // The solar array follows the true sun angle: 1367 W/m^2 scaled for Earth's distance, x 0.4 m^2 x 0.29.
+    double peakWatts = 0.0;
+    for (final var segment : profiles.get("/power/solarArrayWatts")) {
+      peakWatts = Math.max(peakWatts, segment.dynamics().asJsonObject().getJsonNumber("initial").doubleValue());
+    }
+    assertTrue(peakWatts > 140.0 && peakWatts < 165.0,
+               "solar array peak should be near 153 W, was " + peakWatts);
+  }
+
+  /**
+   * Computed attributes derived from the physics rather than restated from the request. A Downlink scheduled
+   * while the ground station is below the horizon is accepted, simulated, and reported as having moved
+   * nothing -- which is the whole argument for running a real model: PlanDev could not have known that from
+   * the directive alone.
+   */
+  @Test
+  void aDownlinkOutOfViewIsSimulatedAndReportedAsHavingMovedNothing() throws IOException {
+    final var planId = newPlan(orbiterModelId, "Basilisk Downlink", "03:00:00");
+    hasura.insertActivityDirective(
+        planId, "Observe", "00:00:00",
+        Json.createObjectBuilder().add("duration", 600000000L).build());
+    // The default orbit's only Goldstone pass in this window is in the first 20 minutes.
+    final int outOfView = hasura.insertActivityDirective(
+        planId, "Downlink", "02:00:00",
+        Json.createObjectBuilder().add("duration", 300000000L).build());
+
+    final var span = spansByDirective(simulateAndFetchSpans(planId)).get((long) outOfView);
+    final var computed = span.computedAttributes();
+    assertNotNull(computed, "a finished span must carry the values the model derived");
+    assertEquals(0.0, computed.getJsonNumber("accessFraction").doubleValue(),
+                 "the ground station is below the horizon for the whole downlink");
+    assertEquals(0.0, computed.getJsonNumber("netStoredBitsChange").doubleValue(),
+                 "with no access the transmitter moves no data");
+  }
+
+  /**
+   * The quantization failure that has no honest answer. An activity shorter than one integration step cannot
+   * be represented, and which way it fails depends on nothing the planner controls: between two steps both
+   * edges snap to the same instant and it does nothing, while on a step it stretches to a whole one and does
+   * five times what was asked. Either would be recorded as though it were what the plan said, so the adapter
+   * refuses both -- and the message names the configuration knob that fixes it, which is why this asserts the
+   * text and not just the failure.
+   *
+   * <p>Asserted at a grid-aligned start deliberately: that is the case that looks like it works.
+   */
+  @Test
+  void anActivityShorterThanOneIntegrationStepIsRefusedWithTheKnobThatFixesIt() throws IOException {
+    final var planId = newPlan(orbiterModelId, "Basilisk Sub-Step", "01:00:00");
+    hasura.insertActivityDirective(
+        planId, "Observe", "00:10:00",
+        Json.createObjectBuilder().add("duration", 1000000L).build());   // 1s, at a 5s step
+
+    final var failure = hasura.awaitFailingSimulation(planId, SIM_TIMEOUT);
+    final var simDataset = hasura.getSimulationDataset(failure.simDatasetId());
+    assertEquals(SimulationDataset.SimulationStatus.failed, simDataset.status());
+    assertTrue(simDataset.reason().isPresent());
+    final var reason = simDataset.reason().get();
+    assertEquals("EXTERNAL_MODEL_EXCEPTION", reason.type());
+    // A backend that answers with a 400 is not unavailable -- it is refusing this plan. Reporting it
+    // as unavailable sends the operator to inspect a healthy service while the actionable detail
+    // sits unread in the message.
+    assertEquals("UNSUPPORTED_PLAN", reason.data().getString("kind"));
+    assertTrue(reason.message().contains("shorter than the"),
+               "the failure must say what went wrong: " + reason.message());
+    assertTrue(reason.message().contains("timeStepSeconds"),
+               "the failure must name the knob that fixes it: " + reason.message());
   }
 
   //endregion

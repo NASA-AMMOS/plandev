@@ -41,4 +41,6 @@ public record HasuraAction<I extends HasuraAction.Input>(String name, I input, S
   public record ConstraintArguments(List<ConstraintArgumentItem> items) implements Input {}
   public record UploadSimulationDatasetInput(PlanId planId,
                                              SimulationResults simulationResults) implements Input {}
+  public record DownloadSimulationDatasetInput(PlanId planId,
+                                               long simulationDatasetId) implements Input {}
 }

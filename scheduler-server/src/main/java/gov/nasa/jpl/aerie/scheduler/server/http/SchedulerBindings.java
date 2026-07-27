@@ -1,9 +1,11 @@
 package gov.nasa.jpl.aerie.scheduler.server.http;
 
 import javax.json.Json;
+import javax.json.JsonException;
 import javax.json.stream.JsonParsingException;
 import java.io.IOException;
 import java.io.StringReader;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Objects;
 
@@ -13,22 +15,25 @@ import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.hasuraSc
 import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.hasuraSchedulingGoalEventTriggerP;
 import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.hasuraSpecificationActionP;
 import static io.javalin.apibuilder.ApiBuilder.*;
+
+import gov.nasa.jpl.aerie.json.FormattedError;
+import gov.nasa.jpl.aerie.json.FormattedError.AerieService;
 import gov.nasa.jpl.aerie.json.JsonParser;
 import gov.nasa.jpl.aerie.permissions.HasuraAction;
 import gov.nasa.jpl.aerie.permissions.PermissionsService;
-import gov.nasa.jpl.aerie.permissions.exceptions.ExceptionSerializers;
-import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException;
-import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchSchedulingSpecificationException;
-import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
-import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
+import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsException;
 import gov.nasa.jpl.aerie.permissions.gql.SchedulingSpecificationId;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSpecificationException;
+import gov.nasa.jpl.aerie.scheduler.server.exceptions.SchedulerFormattedError;
+import gov.nasa.jpl.aerie.scheduler.server.remotes.postgres.DatabaseException;
 import gov.nasa.jpl.aerie.scheduler.server.services.GenerateSchedulingLibAction;
 import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleAction;
 import gov.nasa.jpl.aerie.scheduler.server.services.SchedulerService;
 import gov.nasa.jpl.aerie.scheduler.server.services.SpecificationService;
 import io.javalin.Javalin;
 import io.javalin.http.Context;
+import io.javalin.http.HttpResponseException;
+import io.javalin.http.UnauthorizedResponse;
 import io.javalin.plugin.Plugin;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,7 +60,7 @@ public record SchedulerBindings(
     Objects.requireNonNull(permissionsService);
   }
 
-  private static final Logger log = LoggerFactory.getLogger(SchedulerBindings.class);
+  private static final Logger logger = LoggerFactory.getLogger(SchedulerBindings.class);
 
   /**
    * apply all scheduler http bindings to the provided javalin server
@@ -64,6 +69,9 @@ public record SchedulerBindings(
    */
   @Override
   public void apply(final Javalin javalin) {
+    // Since all of these endpoints are Hasura Actions, toggle Formatted Error writing to Hasura style
+    FormattedError.FormattedErrorSerializer.USE_HASURA_FORMATTING = true;
+
     javalin.routes(() -> {
       before(ctx -> ctx.contentType("application/json"));
 
@@ -72,6 +80,55 @@ public record SchedulerBindings(
       path("schedulingDslTypescript", () -> post(this::getSchedulingDslTypescript));
       path("refreshSchedulingProcedureParameterTypes", () -> post(this::refreshSchedulingProcedureParameterTypes));
       path("getSchedulingProcedureEffectiveArgumentsBulk", () -> post(this::getSchedulingProcedureEffectiveArgumentsBulk));
+    });
+
+    // Default exception handlers for common endpoint exceptions
+    javalin.exception(
+        JsonException.class,
+        (ex, ctx) -> ctx.status(400)
+                        .json(new FormattedError(AerieService.SCHEDULER_SERVER, ex)));
+    javalin.exception(IOException.class, (ex, ctx) -> {
+      final var fe = new FormattedError(AerieService.SCHEDULER_SERVER, ex);
+      logger.warn("IO Exception: {}", fe);
+      ctx.status(500).json(fe);
+    });
+    javalin.exception(
+        SQLException.class, (ex, ctx) -> {
+          final var fe = new FormattedError(AerieService.SCHEDULER_SERVER, ex);
+          logger.warn("SQL Exception: {}", fe);
+          ctx.status(500).json(fe);
+        });
+    javalin.exception(
+        DatabaseException.class, (ex, ctx) -> {
+      final var fe = new SchedulerFormattedError(ex);
+      logger.warn("Database Exception: {}", fe);
+      ctx.status(500).json(fe);
+    });
+    javalin.exception(
+        UnauthorizedResponse.class, (ex, ctx) -> {
+          final var message = ex.getMessage() != null ? ex.getMessage() : "Unauthorized";
+          logger.warn("401 Unauthorized: {}", message);
+          ctx.status(401).json(new FormattedError(AerieService.SCHEDULER_SERVER, ex));
+        });
+    javalin.exception(NumberFormatException.class, (ex, ctx) ->
+        ctx.status(400).json(new FormattedError(AerieService.SCHEDULER_SERVER, ex)));
+    javalin.exception(SecurityException.class, (ex, ctx) -> {
+      final var fe = new FormattedError(AerieService.SCHEDULER_SERVER, ex);
+      logger.warn("Security Exception: {}", fe);
+      ctx.status(500).json(fe);
+    });
+    //javalin.exception(
+      //  MissionModelLoader.MissionModelLoadException.class, (ex, ctx) ->
+        //    ctx.status(500).json(new MerlinFormattedError(ex)));
+    javalin.exception(
+        HttpResponseException.class, (ex, ctx) ->
+            ctx.status(ex.getStatus()).json(new FormattedError(AerieService.SCHEDULER_SERVER, "HTTP_RESPONSE_EXCEPTION", ex)));
+    javalin.exception(Exception.class, (ex, ctx) -> {
+      // Catch-all for unexpected issues
+      final var message = ex.getMessage() != null ? ex.getMessage() : "Unknown error.";
+      final var fe = new FormattedError(AerieService.SCHEDULER_SERVER, "UNKNOWN_ERROR", message, ex);
+      logger.error("Unexpected error processing request: {}", fe);
+      ctx.status(500).json(fe);
     });
   }
 
@@ -88,32 +145,23 @@ public record SchedulerBindings(
 
       final var session = body.session();
       final var permissionsSpecId = new SchedulingSpecificationId(specificationId.id());
-      try {
-        permissionsService.check(HasuraAction.schedule, session.hasuraRole(), session.hasuraUserId(), permissionsSpecId);
-      } catch (final IOException ex) {
-        // this IOException is caught here so that it isn't mistaken for an IOException during scheduling
-        ctx.status(500).result(ExceptionSerializers.serializeIOException(ex).toString());
-      }
+
+      permissionsService.check(HasuraAction.schedule, session.hasuraRole(), session.hasuraUserId(), permissionsSpecId);
 
       final var response = this.scheduleAction.run(specificationId, session);
       ctx.result(serializeScheduleResultsResponse(response).toString());
+    } catch (final PermissionsException pe) {
+      if (pe.httpStatusCode() == 500) {
+        logger.warn("Permissions Service Exception: {}", pe.formattedError());
+      }
+      ctx.status(pe.httpStatusCode()).json(pe.formattedError());
     } catch (final IOException e) {
-      log.error("low level input/output problem during scheduling", e);
-      ctx.status(500).result(serializeException(e).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(serializeInvalidEntityException(ex).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(serializeInvalidJsonException(ex).toString());
+      logger.error("IO Exception: ", e);
+      ctx.status(500).json(new FormattedError(AerieService.SCHEDULER_SERVER, e));
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new SchedulerFormattedError(ex));
     } catch (final NoSuchSpecificationException ex) {
-      ctx.status(404).result(serializeException(ex).toString());
-    } catch (final NoSuchPlanException ex) {
-      ctx.status(404).result(ExceptionSerializers.serializeNoSuchPlanException(ex).toString());
-    } catch (final NoSuchSchedulingSpecificationException ex) {
-      ctx.status(404).result(ExceptionSerializers.serializeNoSuchSchedulingSpecificationException(ex).toString());
-    } catch (final PermissionsServiceException ex) {
-      ctx.status(503).result(ExceptionSerializers.serializePermissionsServiceException(ex).toString());
-    } catch (final Forbidden ex) {
-      ctx.status(403).result(ExceptionSerializers.serializeForbiddenException(ex).toString());
+      ctx.status(404).json(new SchedulerFormattedError(ex));
     }
   }
 
@@ -153,10 +201,8 @@ public record SchedulerBindings(
         throw new Error("Unhandled variant of Response: " + response);
       }
       ctx.result(resultString);
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(serializeInvalidEntityException(ex).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(serializeInvalidJsonException(ex).toString());
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new SchedulerFormattedError(ex));
     }
   }
 
@@ -174,10 +220,8 @@ public record SchedulerBindings(
       final var revision = body.revision();
       this.specificationService.refreshSchedulingProcedureParameterTypes(goalId, revision);
       ctx.status(200);
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(serializeInvalidEntityException(ex).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(serializeInvalidJsonException(ex).toString());
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new SchedulerFormattedError(ex));
     }
   }
 
@@ -187,10 +231,8 @@ public record SchedulerBindings(
 
       final var responses = this.specificationService.getSchedulingProcedureEffectiveArguments(input.input().items());
       ctx.result(ResponseSerializers.serializeBulkEffectiveArgumentResponseList(responses).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new SchedulerFormattedError(ex));
     }
   }
 
@@ -201,20 +243,15 @@ public record SchedulerBindings(
    * @param parser the parser to use to convert it to an object
    * @param <T> the data type of the returned object
    * @return the object represented by the input json string
-   * @throws InvalidEntityException if the parser rejects the input json
-   * @throws InvalidJsonException if the json structure itself is malformed
+   * @throws InvalidJsonEntityException if the parser rejects the input json
    */
   //TODO: unify these little parser utility methods nearby parser code itself (copied from MerlinBindings)
   //TODO: elevate these exceptions to json utility itself
   private <T> T parseJson(final String jsonStr, final JsonParser<T> parser)
-  throws InvalidJsonException, InvalidEntityException
+  throws JsonParsingException, InvalidJsonEntityException
   {
-    try {
-      final var requestJson = Json.createReader(new StringReader(jsonStr)).readValue();
-      final var result = parser.parse(requestJson);
-      return result.getSuccessOrThrow(reason -> new InvalidEntityException(List.of(reason)));
-    } catch (JsonParsingException e) {
-      throw new InvalidJsonException(e);
-    }
+    final var requestJson = Json.createReader(new StringReader(jsonStr)).readValue();
+    final var result = parser.parse(requestJson);
+    return result.getSuccessOrThrow(reason -> new InvalidJsonEntityException(List.of(reason)));
   }
 }

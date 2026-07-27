@@ -1,10 +1,12 @@
 package gov.nasa.jpl.aerie.merlin.server.services;
 
 import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
+import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchConstraintException;
 import gov.nasa.jpl.aerie.merlin.server.http.Fallible;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintId;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.server.models.DBConstraintResult;
+import gov.nasa.jpl.aerie.merlin.server.models.ProcedureLoader;
 import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
 
 import java.util.List;
@@ -14,6 +16,7 @@ public interface ConstraintService {
   int createConstraintRuns(final ConstraintRequestConfiguration requestConfiguration,
                             final Map<ConstraintRecord, Fallible<ConstraintResult, List<? extends Exception>>> constraintToResultsMap);
   Map<ConstraintRecord, DBConstraintResult> getValidConstraintRuns(List<ConstraintRecord> constraints, SimulationDatasetId simulationDatasetId);
-  void refreshConstraintProcedureParameterTypes(long constraintId, long revision);
+  void refreshConstraintProcedureParameterTypes(long constraintId, long revision) throws NoSuchConstraintException,
+                                                                                         ProcedureLoader.ProcedureLoadException;
   Map<ConstraintId, ConstraintRecord> getConstraintsById(List<ConstraintId> constraintIds);
 }

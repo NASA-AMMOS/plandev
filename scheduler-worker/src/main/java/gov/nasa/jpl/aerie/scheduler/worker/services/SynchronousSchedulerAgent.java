@@ -22,6 +22,8 @@ import java.util.jar.JarFile;
 import java.util.stream.Collectors;
 
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
+import gov.nasa.jpl.aerie.json.FormattedError;
+import gov.nasa.jpl.aerie.json.FormattedError.AerieService;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationEngineConfiguration;
@@ -45,9 +47,9 @@ import gov.nasa.jpl.aerie.scheduler.server.config.PlanOutputMode;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSpecificationException;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.ResultsProtocolFailure;
+import gov.nasa.jpl.aerie.scheduler.server.exceptions.SchedulerFormattedError;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.SpecificationLoadException;
-import gov.nasa.jpl.aerie.scheduler.server.http.InvalidEntityException;
-import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonException;
+import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonEntityException;
 import gov.nasa.jpl.aerie.scheduler.server.http.ResponseSerializers;
 import gov.nasa.jpl.aerie.scheduler.server.models.DatasetId;
 import gov.nasa.jpl.aerie.scheduler.server.models.ExternalProfiles;
@@ -291,10 +293,11 @@ public record SynchronousSchedulerAgent(
       LOGGER.info("Simulation cache saved " + cachedEngineStore.getTotalSavedSimulationTime() + " in simulation time");
       writer.succeedWith(results, datasetId);
     } catch (final SpecificationLoadException e) {
+      final var fe = new SchedulerFormattedError(e);
       writer.failWith(b -> b
-          .type("SPECIFICATION_LOAD_EXCEPTION")
-          .message(e.toString())
-          .data(SchedulingCompilationError.schedulingErrorJsonP.unparse(e.errors))
+          .type(fe.getType())
+          .message(fe.getMessage())
+          .data(fe.toJson())
           .trace(e));
     } catch (final ResultsProtocolFailure e) {
       writer.failWith(b -> b
@@ -302,33 +305,41 @@ public record SynchronousSchedulerAgent(
           .message(e.toString())
           .trace(e));
     } catch (final NoSuchSpecificationException e) {
+      final var fe = new SchedulerFormattedError(e);
       writer.failWith(b -> b
-          .type("NO_SUCH_SPECIFICATION")
-          .message(e.toString())
-          .data(ResponseSerializers.serializeNoSuchSpecificationException(e))
+          .type(fe.getType())
+          .message(fe.getMessage())
+          .data(fe.toJson())
           .trace(e));
     } catch (final NoSuchPlanException e) {
+      final var fe = new SchedulerFormattedError(e);
       writer.failWith(b -> b
-          .type("NO_SUCH_PLAN")
-          .message(e.toString())
-          .data(ResponseSerializers.serializeNoSuchPlanException(e))
+          .type(fe.getType())
+          .message(fe.getMessage())
+          .data(fe.toJson())
           .trace(e));
     } catch (final MerlinServiceException e) {
+      final var fe = new SchedulerFormattedError(e);
       writer.failWith(b -> b
-          .type("PLAN_SERVICE_EXCEPTION")
-          .message(e.toString())
+          .type(fe.getType())
+          .message(fe.getMessage())
+          .data(fe.toJson())
           .trace(e));
     } catch (final IOException e) {
+      final var fe = new FormattedError(AerieService.SCHEDULER_SERVER, e);
       writer.failWith(b -> b
-          .type("IO_EXCEPTION")
-          .message(e.toString())
+          .type(fe.getType())
+          .message(fe.getMessage())
+          .data(fe.toJson())
           .trace(e));
     } catch (SchedulingInterruptedException e) {
       writer.reportCanceled(e);
     } catch (Exception e) {
+      final var fe = new FormattedError(AerieService.SCHEDULER_SERVER, "INTERNAL_ERROR", e);
       writer.failWith(b -> b
-          .type("OTHER_EXCEPTION")
-          .message(e.toString())
+          .type(fe.getType())
+          .message(fe.getMessage())
+          .data(fe.toJson())
           .trace(e));
     }
   }
@@ -336,7 +347,7 @@ public record SynchronousSchedulerAgent(
   private Optional<Pair<SimulationResults, DatasetId>> loadSimulationResults(final PlanMetadata planMetadata){
     try {
       return merlinDatabaseService.getSimulationResults(planMetadata);
-    } catch (MerlinServiceException | IOException | InvalidJsonException e) {
+    } catch (MerlinServiceException | IOException e) {
       throw new ResultsProtocolFailure(e);
     }
   }
@@ -348,7 +359,7 @@ public record SynchronousSchedulerAgent(
   }
 
   private Map<String, List<ExternalEvent>> loadExternalEvents(final PlanId planId, final Instant horizonStart)
-  throws MerlinServiceException, IOException, InvalidJsonException, InvalidEntityException
+  throws MerlinServiceException, IOException, InvalidJsonEntityException
   {
     return merlinDatabaseService.getExternalEvents(planId, horizonStart);
   }

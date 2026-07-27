@@ -1,15 +1,15 @@
-import * as ampcs from '@nasa-jpl/aerie-ampcs';
-import { FormalParameter, FPPJSONDictionarySchema as FPPDictionary } from '../schema/fprime-types.js';
-import { ChannelDictionary, CommandDictionary, ParameterDictionary } from '@nasa-jpl/aerie-ampcs';
+import type * as ampcs from '@nasa-jpl/aerie-ampcs';
+import type { FormalParameter, FPPJSONDictionarySchema as FPPDictionary } from '../schema/fprime-types.js';
+import type { ChannelDictionary, CommandDictionary, ParameterDictionary } from '@nasa-jpl/aerie-ampcs';
 
 export default {
   name: 'fprime-parser',
   version: '1.0.0',
-  author: 'Ryan Goetz',
+  author: 'AMMOS SeqDev',
   parseDictionary(dictionaryString: string): {
-    commandDictionary?: CommandDictionary,
-    channelDictionary?: ChannelDictionary,
-    parameterDictionary?: ParameterDictionary
+    commandDictionary?: CommandDictionary;
+    channelDictionary?: ChannelDictionary;
+    parameterDictionary?: ParameterDictionary;
   } {
     const dictionary = JSON.parse(dictionaryString) as FPPDictionary;
 
@@ -34,10 +34,10 @@ export default {
         hwCommands: [],
         id: '',
         path: null,
-      }
-    }
+      },
+    };
   },
-  processDictionary(parsedDictionary: ampcs.CommandDictionary) {
+  processDictionary(_parsedDictionary: ampcs.CommandDictionary) {
     return '';
   },
 };
@@ -49,10 +49,10 @@ function getEnums(dictionary: FPPDictionary): ampcs.Enum[] {
       .map(
         (type: any) =>
           ({
-            name: type.qualifiedName.replaceAll('.', '_'),
+            name: type.qualifiedName,
             values: type.enumeratedConstants.map((enumConstant: any) => ({
               numeric: enumConstant.value,
-              symbol: enumConstant.name.replaceAll('.', '_'),
+              symbol: enumConstant.name,
             })),
           } as ampcs.Enum),
       ) ?? []
@@ -61,7 +61,7 @@ function getEnums(dictionary: FPPDictionary): ampcs.Enum[] {
 
 function createEnumMap(enums: ampcs.Enum[]): ampcs.EnumMap {
   return enums.reduce((acc, enumDef) => {
-    acc[enumDef.name.replaceAll('.', '_')] = enumDef;
+    acc[enumDef.name] = enumDef;
     return acc;
   }, {} as ampcs.EnumMap);
 }
@@ -93,7 +93,7 @@ function commandToAMPCSCommand(
   return {
     ...argsToAMPCSArgs(fppCommand.formalParams, typeDefinitions),
     description: fppCommand.annotation ?? '',
-    stem: fppCommand.name.replaceAll('.', '_'),
+    stem: fppCommand.name,
     type: 'fsw_command',
   };
 }
@@ -110,7 +110,7 @@ function argsToAMPCSArgs(
   });
   return {
     argumentMap: ampcsArguments.reduce((acc, arg) => {
-      acc[arg.name.replaceAll('.', '_')] = arg;
+      acc[arg.name] = arg;
       return acc;
     }, {} as ampcs.FswCommandArgumentMap),
     arguments: ampcsArguments,
@@ -132,7 +132,7 @@ function argToFSWArg(
           bit_length: arg.type.size ?? null,
           default_value: 0,
           description: arg.annotation ?? '',
-          name: arg.name.replaceAll('.', '_'),
+          name: arg.name,
           range: null,
           units: '',
         } as ampcs.FswCommandArgumentInteger;
@@ -142,7 +142,7 @@ function argToFSWArg(
           bit_length: arg.type.size ?? null,
           default_value: 0,
           description: arg.annotation ?? '',
-          name: arg.name.replaceAll('.', '_'),
+          name: arg.name,
           range: null,
           units: '',
         } as ampcs.FswCommandArgumentUnsigned;
@@ -153,7 +153,7 @@ function argToFSWArg(
         bit_length: arg.type.size ?? null,
         default_value: 0,
         description: arg.annotation ?? '',
-        name: arg.name.replaceAll('.', '_'),
+        name: arg.name,
         range: null,
         units: '',
       } as ampcs.FswCommandArgumentFloat;
@@ -161,7 +161,7 @@ function argToFSWArg(
       return {
         arg_type: 'boolean',
         description: arg.annotation ?? '',
-        name: arg.name.replaceAll('.', '_'),
+        name: arg.name,
         bit_length: arg.type.size ?? null,
         default_value: 'true',
         format: null,
@@ -170,39 +170,52 @@ function argToFSWArg(
       return {
         arg_type: 'var_string',
         description: arg.annotation ?? '',
-        name: arg.name.replaceAll('.', '_'),
+        name: arg.name,
       } as ampcs.FswCommandArgumentVarString;
     case 'qualifiedIdentifier': {
       if (!typeDefinitions || !typeDefinitions.length) {
         throw new Error(`${arg.name} has no type defined in typeDefinitions`);
       }
-      const typeDefinition = typeDefinitions.find(typeDefinition => typeDefinition.qualifiedName === arg.type.name);
+      const typeDefinition = typeDefinitions.find(typeDefinition => typeDefinition.qualifiedName === arg.type.name) as
+        | NonNullable<FPPDictionary['typeDefinitions']>[number]
+        | undefined;
       if (!typeDefinition) {
         throw new Error(`${arg.name} has no type defined in typeDefinitions`);
       }
       switch (typeDefinition.kind) {
+        case 'alias':
+          // Recursively resolve the alias to its underlying type
+          return argToFSWArg(
+            {
+              name: arg.name,
+              type: typeDefinition.underlyingType,
+              ref: arg.ref,
+              annotation: arg.annotation,
+            } as FormalParameter,
+            typeDefinitions,
+          );
         case 'enum':
           return {
             arg_type: 'enum',
             bit_length: arg.type.size ?? null,
             default_value: typeDefinition.default.split('.').pop() ?? null,
             description: arg.annotation ?? '',
-            enum_name: typeDefinition.qualifiedName.replaceAll('.', '_'),
-            name: arg.name.replaceAll('.', '_'),
+            enum_name: typeDefinition.qualifiedName,
+            name: arg.name,
             range: null,
           } as ampcs.FswCommandArgumentEnum;
         case 'array':
           return {
             arg_type: 'repeat',
             description: typeDefinition.annotation ?? '',
-            name: typeDefinition.qualifiedName.replaceAll('.', '_'),
+            name: typeDefinition.qualifiedName,
             prefix_bit_length: typeDefinition.elementType.size ?? null,
             repeat: {
               argumentMap: {},
               arguments: [
                 argToFSWArg(
                   {
-                    name: typeDefinition.elementType.name.replaceAll('.', '_'),
+                    name: typeDefinition.elementType.name,
                     type: typeDefinition.elementType,
                     ref: false,
                     annotation: '',
@@ -218,23 +231,27 @@ function argToFSWArg(
           return {
             arg_type: 'repeat',
             description: typeDefinition.annotation ?? '',
-            name: typeDefinition.qualifiedName.replaceAll('.', '_'),
+            name: typeDefinition.qualifiedName,
             prefix_bit_length: null,
             repeat: {
               argumentMap: {},
               arguments: Object.keys(typeDefinition.members).map(memberName => {
+                const member = typeDefinition.members[memberName];
+                if (!member) {
+                  throw new Error(`Member ${memberName} not found in struct definition`);
+                }
                 return argToFSWArg(
                   {
-                    name: memberName.replaceAll('.', '_'),
-                    type: typeDefinition.members[memberName].type,
+                    name: memberName,
+                    type: member.type,
                     ref: false,
-                    annotation: typeDefinition.members[memberName].annotation,
+                    annotation: member.annotation,
                   } as FormalParameter,
                   typeDefinitions,
                 );
               }),
               min: 0,
-              max: typeDefinition.size,
+              max: typeDefinition['size'],
             },
           } as ampcs.FswCommandArgumentRepeat;
         default:

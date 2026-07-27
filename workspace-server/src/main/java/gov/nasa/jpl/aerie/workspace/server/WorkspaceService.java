@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.workspace.server;
 
+import gov.nasa.jpl.aerie.workspace.server.exceptions.NoSuchFileException;
 import gov.nasa.jpl.aerie.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.jpl.aerie.workspace.server.postgres.RenderType;
@@ -10,7 +11,10 @@ import javax.json.JsonException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.SQLException;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -20,12 +24,46 @@ import java.util.Set;
  */
 public interface WorkspaceService {
   /**
+   * Compute a byte array into a strong Entity Tag (lowercase hex) using the SHA-256 algorithm.
+   * @param content a byte array containing the original (non-digested) content
+   */
+  static String computeETag(final byte[] content) {
+    return eTagFromDigest(newSHA256Digest().digest(content));
+  }
+
+  /**
+   * Quote a digest as a strong ETag (lowercase hex).
+   * @param digestBytes the message digest to be quoted
+   */
+  static String eTagFromDigest(final byte[] digestBytes) {
+    return "\"" + HexFormat.of().formatHex(digestBytes) + "\"";
+  }
+
+  /** A fresh SHA-256 digest (always available on the JVM). */
+  static MessageDigest newSHA256Digest() {
+    try {
+      return MessageDigest.getInstance("SHA-256");
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException("SHA-256 algorithm not available", e);
+    }
+  }
+
+  /**
    * A record containing a File ready to be streamed over the network
    * @param readingStream a stream of the file's contents
    * @param fileName the file's name, for the purpose of the "filename" header
    * @param fileSize the file's length, for the purpose of the "content-length" header
+   * @param etag the file's entity version tag, generated as its SHA-256 checksum, for the purpose of the "ETag" header
    */
-  record FileStream(InputStream readingStream, String fileName, long fileSize){}
+  record FileStream(InputStream readingStream, String fileName, long fileSize, String etag){}
+
+  /**
+   * Lightweight last-edit info read from a file's metadata, used to describe a save conflict.
+   * Either field may be null if the metadata does not record it.
+   * @param lastEditedBy the user who last edited the file
+   * @param lastEditedAt the ISO-8601 timestamp of the last edit
+   */
+  record LastEditInfo(String lastEditedBy, String lastEditedAt){}
 
   /**
    * Create a new workspace
@@ -69,26 +107,53 @@ public interface WorkspaceService {
   RenderType getFileType(final Path filePath) throws SQLException;
 
   /**
-   * Load a file to send over a multipart HTTP response
+   * Load a file to send over as a multipart HTTP response
    * @param workspaceId the id of the workspace the file lives in
    * @param filePath the path to the file, relative to the workspace's root
    * @return a FileStream with a handler to the file's contents,
-   *         as well as the values to fill in for the "filename" and "content-length" headers
+   *         as well as the values to fill in for the "filename", "content-length", and "ETag" headers
    * @throws IOException if an I/O error occurs while attempting to open the file
    * @throws NoSuchWorkspaceException if the specified workspace does not exist
+   * @throws NoSuchFileException if the specified file does not exist
+   * @throws WorkspaceFileOpException if a 'filePath' refers to a directory or metadata file
    */
-  FileStream loadFile(final int workspaceId, final Path filePath) throws IOException, NoSuchWorkspaceException;
+  FileStream loadFile(final int workspaceId, final Path filePath)
+  throws IOException, NoSuchWorkspaceException, NoSuchFileException, WorkspaceFileOpException;
 
   /**
-   * Save an uploaded file to a workspace
+   * Get the current concurrency token (ETag) for a file.
+   * Used to validate an If-Match precondition on save.
+   * @param workspaceId the id of the workspace the file lives in
+   * @param filePath the path to the file, relative to the workspace's root
+   * @throws IOException if an I/O error occurs while reading the file
+   * @throws NoSuchWorkspaceException if the specified workspace does not exist
+   * @throws NoSuchFileException if the specified file does not exist
+   * @throws WorkspaceFileOpException if "filePath" refers to a directory
+   */
+  String getETag(final int workspaceId, final Path filePath)
+  throws IOException, NoSuchWorkspaceException, NoSuchFileException, WorkspaceFileOpException;
+
+  /**
+   * Read the last-edit info (editor and timestamp) from a file's metadata, used to describe a save conflict.
+   * @param workspaceId the id of the workspace the file lives in
+   * @param filePath the path to the file, relative to the workspace's root
+   * @throws IOException if the metadata file cannot be opened for reasons other than nonexistence
+   * @throws NoSuchWorkspaceException if the specified workspace does not exist
+   * @throws WorkspaceFileOpException if "filePath" refers to a metadata file or directory
+   */
+  LastEditInfo getLastEditInfo(final int workspaceId, final Path filePath)
+  throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException;
+
+  /**
+   * Save an uploaded file to a workspace.
    *
    * @param workspaceId the id of the workspace
    * @param filePath the path, relative to the workspace's root, to save the file at
    * @param file the contents of the file to be saved
    * @param userId the userId of the user saving the file
-   * @return true if the file was saved, false otherwise
+   * @return the saved file's new concurrency token (ETag), or an empty Optional if it was not saved
    */
-  boolean saveFile(final int workspaceId, final Path filePath, final UploadedFile file, final String userId)
+  Optional<String> saveFile(final int workspaceId, final Path filePath, final UploadedFile file, final String userId)
   throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException;
 
   /**

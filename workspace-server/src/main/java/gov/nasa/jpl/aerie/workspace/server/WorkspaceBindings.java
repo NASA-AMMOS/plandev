@@ -1,10 +1,11 @@
 package gov.nasa.jpl.aerie.workspace.server;
 
 import com.auth0.jwt.exceptions.JWTVerificationException;
+import gov.nasa.jpl.aerie.json.FormattedError;
+import gov.nasa.jpl.aerie.json.FormattedError.AerieService;
 import gov.nasa.jpl.aerie.permissions.PermissionsService;
 import gov.nasa.jpl.aerie.permissions.WorkspaceAction;
-import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
-import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
+import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsException;
 import gov.nasa.jpl.aerie.permissions.gql.WorkspaceId;
 import gov.nasa.jpl.aerie.workspace.server.exceptions.FileLockedException;
 import gov.nasa.jpl.aerie.workspace.server.exceptions.MalformedRequest;
@@ -91,6 +92,9 @@ public class WorkspaceBindings implements Plugin {
 
   @Override
   public void apply(final Javalin javalin) {
+    // Since none of these endpoints are Hasura Actions, ensure that Formatted Errors are not using the Hasura style
+    FormattedError.FormattedErrorSerializer.USE_HASURA_FORMATTING = false;
+
     javalin.routes(() -> {
       before("/ws/*", ctx -> {
         // don't force auth on health check
@@ -144,38 +148,39 @@ public class WorkspaceBindings implements Plugin {
 
     // Default exception handlers for common endpoint exceptions
     javalin.exception(NoSuchWorkspaceException.class,
-                      (ex, ctx) -> ctx.status(404).json(new FormattedError(ex)));
-    javalin.exception(NoSuchFileException.class, (ex, ctx) -> ctx.status(404).json(new FormattedError(ex)));
-    javalin.exception(MalformedRequest.class, (ex, ctx) -> ctx.status(400).json(new FormattedError(ex)));
-    javalin.exception(FileLockedException.class, (ex, ctx) -> ctx.status(423).json(new FormattedError(ex)));
+                      (ex, ctx) -> ctx.status(404).json(new WorkspaceFormattedError(ex)));
+    javalin.exception(NoSuchFileException.class, (ex, ctx) -> ctx.status(404).json(new WorkspaceFormattedError(ex)));
+    javalin.exception(MalformedRequest.class, (ex, ctx) -> ctx.status(400).json(new WorkspaceFormattedError(ex)));
+    javalin.exception(FileLockedException.class, (ex, ctx) -> ctx.status(423).json(new WorkspaceFormattedError(ex)));
     javalin.exception(IOException.class, (ex, ctx) -> {
-      final var fe = new FormattedError(ex);
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ex);
       logger.warn("IO Exception: {}", fe);
       ctx.status(500).json(fe);
     });
     javalin.exception(SQLException.class, (ex, ctx) -> {
-      final var fe = new FormattedError(ex);
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ex);
       logger.warn("SQL Exception: {}", fe);
       ctx.status(500).json(fe);
     });
     javalin.exception(UnauthorizedResponse.class, (ex, ctx) -> {
       final var message = ex.getMessage() != null ? ex.getMessage() : "Unauthorized";
       logger.warn("401 Unauthorized: {}", message);
-      ctx.status(401).json(new FormattedError(ex));
+      ctx.status(401).json(new FormattedError(AerieService.WORKSPACE_SERVER, ex));
     });
-    javalin.exception(NumberFormatException.class,
-                      (ex, ctx) -> ctx.status(400).json(new FormattedError(ex)));
+    javalin.exception(NumberFormatException.class, (ex, ctx) ->
+        ctx.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, ex)));
     javalin.exception(SecurityException.class, (ex, ctx) -> {
-      final var fe = new FormattedError(ex);
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ex);
       logger.warn("Security Exception: {}", fe);
       ctx.status(500).json(fe);
     });
-    javalin.exception(HttpResponseException.class, (ex, ctx) -> ctx.status(ex.getStatus()).json(new FormattedError("HTTP_RESPONSE_EXCEPTION", ex)));
+    javalin.exception(HttpResponseException.class, (ex, ctx) ->
+        ctx.status(ex.getStatus()).json(new FormattedError(AerieService.WORKSPACE_SERVER, "HTTP_RESPONSE_EXCEPTION", ex)));
     javalin.exception(Exception.class, (ex, ctx) -> {
       // Catch-all for unexpected issues
       final var message = ex.getMessage() != null ? ex.getMessage() : "Unknown error.";
-      final var fe = new FormattedError("UNKNOWN_ERROR", message, ex);
-      logger.error("Unexpected error processing workspace request {}", fe);
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, "UNKNOWN_ERROR", message, ex);
+      logger.error("Unexpected error processing request: {}", fe);
       ctx.status(500).json(fe);
     });
   }
@@ -229,21 +234,11 @@ public class WorkspaceBindings implements Plugin {
           user.userId(),
           new WorkspaceId(workspaceId));
       return true;
-    } catch (Forbidden ue) {
-      context.status(403).json(new FormattedError(ue));
-      return false;
-    } catch (IOException ioe) {
-      final var fe = new FormattedError(ioe, "Could not check permissions.");
-      logger.warn("PERMISSIONS SERVICE: IO Exception: {}", fe);
-      context.status(500).json(fe);
-      return false;
-    } catch (PermissionsServiceException pse) {
-      final var fe = new FormattedError(pse, "Could not check permissions.");
-      logger.warn("PERMISSIONS SERVICE: Permissions Service Exception: {}", fe);
-      context.status(500).json(new FormattedError(pse, "Could not check permissions."));
-      return false;
-    } catch (gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException nsw) {
-      context.status(404).json(new FormattedError(nsw, "Could not check permissions on Workspace %d.".formatted(nsw.id.id())));
+    } catch (PermissionsException pe) {
+      if (pe.httpStatusCode() == 500) {
+        logger.warn("PERMISSIONS SERVICE: Permissions Service Exception: {}", pe.formattedError());
+      }
+      context.status(pe.httpStatusCode()).json(pe.formattedError());
       return false;
     }
   }
@@ -255,18 +250,11 @@ public class WorkspaceBindings implements Plugin {
     try {
       final var user = authorize(context);
       permissionsService.checkCoarseGrained(WorkspaceAction.create_workspace, user.activeRole());
-    } catch (Forbidden ue) {
-      context.status(403).json(new FormattedError(ue));
-      return;
-    } catch (IOException ioe) {
-      final var fe = new FormattedError(ioe, "Could not create workspace.");
-      logger.warn("CREATE WORKSPACE: IO Exception: {}", fe);
-      context.status(500).json(fe);
-      return;
-    } catch (PermissionsServiceException pse) {
-      final var fe = new FormattedError(pse, "Could not create workspace.");
-      logger.warn("Permissions Service Exception: {}", fe);
-      context.status(500).json(fe);
+    } catch (PermissionsException pe) {
+      if (pe.httpStatusCode() == 500) {
+        logger.warn("CREATE WORKSPACE: Permissions Service Exception: {}", pe.formattedError());
+      }
+      context.status(pe.httpStatusCode()).json(pe.formattedError());
       return;
     }
 
@@ -289,23 +277,23 @@ public class WorkspaceBindings implements Plugin {
 
       // Parcel Id
       if (!bodyJson.containsKey("parcelId") || bodyJson.isNull("parcelId")) {
-        context.status(400).json(new FormattedError(errorMsg.formatted("parcelId")));
+        context.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, errorMsg.formatted("parcelId")));
         return;
       }
       parcelId = bodyJson.getInt("parcelId");
 
       // Workspace Location
       if (!bodyJson.containsKey("workspaceLocation") || bodyJson.isNull("workspaceLocation")) {
-        context.status(400).json(new FormattedError(errorMsg.formatted("workspaceLocation")));
+        context.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, errorMsg.formatted("workspaceLocation")));
         return;
       }
       final var workspaceString = bodyJson.getString("workspaceLocation");
       if(workspaceString.contains("/") || workspaceString.contains(".") || workspaceString.contains("~")){
-        context.status(400).json(new FormattedError("Workspace location may not contain '/' or '.' or '~'"));
+        context.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, "Workspace location may not contain '/' or '.' or '~'"));
         return;
       }
       if(workspaceString.isBlank()) {
-        context.status(400).json(new FormattedError("Workspace location may not be blank."));
+        context.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, "Workspace location may not be blank."));
         return;
       }
       workspaceLocation = Path.of(workspaceString);
@@ -313,17 +301,17 @@ public class WorkspaceBindings implements Plugin {
       // Workspace Name
       if(bodyJson.containsKey("workspaceName")) {
         if(bodyJson.isNull("workspaceName")) {
-          context.status(400).json(new FormattedError("Workspace name may not be null."));
+          context.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, "Workspace name may not be null."));
         }
         workspaceName = bodyJson.getString("workspaceName");
         if(workspaceName.isBlank()) {
-          context.status(400).json(new FormattedError("Workspace name may not be blank"));
+          context.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, "Workspace name may not be blank"));
         }
       } else {
         workspaceName = workspaceString;
       }
     } catch (JsonException je) {
-      context.status(400).json(new FormattedError(je, "Request body is malformed. Request body format is:\n" + helpText));
+      context.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, je, "Request body is malformed. Request body format is:\n" + helpText));
       return;
     }
 
@@ -343,7 +331,7 @@ public class WorkspaceBindings implements Plugin {
           \tParcel ID: {},
           \tUser: {} (active role: {})
           """, workspaceLocation, workspaceName, parcelId, user.userId(), user.activeRole());
-      context.status(500).json(new FormattedError("Unable to create workspace."));
+      context.status(500).json(new FormattedError(AerieService.WORKSPACE_SERVER, "Unable to create workspace."));
     }
   }
 
@@ -360,12 +348,12 @@ public class WorkspaceBindings implements Plugin {
         context.status(200).result("Workspace deleted.");
       } else {
         logger.warn(errorMsg);
-        context.status(500).json(new FormattedError(errorMsg));
+        context.status(500).json(new FormattedError(AerieService.WORKSPACE_SERVER, errorMsg));
       }
     } catch (NoSuchWorkspaceException ex) {
-      context.status(404).json(new FormattedError(ex, errorMsg));
+      context.status(404).json(new WorkspaceFormattedError(ex, errorMsg));
     } catch (SQLException e) {
-      final var fe = new FormattedError(e, errorMsg);
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, e, errorMsg);
       logger.warn("DELETE WORKSPACE: SQL Exception: {}", fe);
       context.status(500).json(fe);
     }
@@ -398,20 +386,20 @@ public class WorkspaceBindings implements Plugin {
     try {
       final var fileTree = workspaceService.listFiles(workspaceId, directoryPath, depth, withMetadata);
       if (fileTree == null) {
-        context.status(404).json(new FormattedError("No such directory."));
+        context.status(404).json(new FormattedError(AerieService.WORKSPACE_SERVER, "No such directory."));
         return;
       }
       context.status(200).json(fileTree.toJson().toString());
     } catch (IOException ioe) {
-      final var fe = new FormattedError(ioe);
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ioe);
       logger.warn("LIST CONTENTS: IO Exception: {}", fe);
       context.status(500).json(fe);
     } catch (SQLException se) {
-      final var fe = new FormattedError(se);
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, se);
       logger.warn("LIST CONTENTS: SQL Exception: {}", fe);
       context.status(500).json(fe);
     } catch (NoSuchWorkspaceException ex) {
-      context.status(404).json(new FormattedError(ex));
+      context.status(404).json(new WorkspaceFormattedError(ex));
     }
   }
 
@@ -426,25 +414,30 @@ public class WorkspaceBindings implements Plugin {
       listContents(context);
     } else {
       if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
-        context.status(404).json(new FormattedError(new NoSuchFileException(pathInfo.workspaceId, pathInfo.filePath)));
+        context.status(404).json(new WorkspaceFormattedError(new NoSuchFileException(pathInfo.workspaceId, pathInfo.filePath)));
         return;
       }
 
       try {
         final var fileStream = workspaceService.loadFile(pathInfo.workspaceId, pathInfo.filePath());
-        final var inputStream = fileStream.readingStream();
         context.header("x-render-type", workspaceService.getFileType(pathInfo.filePath).name());
         context.contentType(ContentType.OCTET_STREAM);
-        context.header("Content-Disposition", "attachment; filename=\"" + pathInfo.fileName() + "\"");
-        context.status(200).result(inputStream);
+        context.header("Content-Disposition", "attachment; filename=\"" + fileStream.fileName() + "\"");
+        // The client sends this ETag back as If-Match when it saves.
+        context.header("ETag", fileStream.etag());
+        context.status(200).result(fileStream.readingStream()); // Javalin auto-closes InputStreams once it has sent the contents
       } catch (IOException ioe) {
-        final var fe = new FormattedError(ioe, "Could not load file " + pathInfo.fileName());
+        final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ioe, "Could not load file " + pathInfo.fileName());
         logger.warn("GET FILE: IO Exception: {}", fe);
         context.status(500).json(fe);
       } catch (SQLException se) {
-        final var fe = new FormattedError(se, "Could not load file " + pathInfo.fileName());
+        final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, se, "Could not load file " + pathInfo.fileName());
         logger.warn("GET FILE: SQL Exception: {}", fe);
         context.status(500).json(fe);
+      } catch (NoSuchFileException nfe) {
+        context.status(404).json(new WorkspaceFormattedError(nfe));
+      } catch (WorkspaceFileOpException wfe) {
+        context.status(415).json(new WorkspaceFormattedError(wfe));
       }
     }
   }
@@ -469,10 +462,10 @@ public class WorkspaceBindings implements Plugin {
       final var overwriteValidator =  context.queryParamAsClass("overwrite", Boolean.class);
       overwrite = overwriteValidator.hasValue() ? Optional.of(overwriteValidator.get()) : Optional.empty();
     } catch (ValidationException ve) {
-      context.status(400).json(new FormattedError(ve));
+      context.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, ve));
       return;
     } catch (IllegalArgumentException iae) {
-      context.status(400).json(new FormattedError(iae));
+      context.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, iae));
       return;
     }
 
@@ -481,31 +474,37 @@ public class WorkspaceBindings implements Plugin {
       final var file = context.uploadedFile("file");
       // Reject the request if the file isn't provided.
       if (file == null || !pathInfo.fileName().equals(file.filename())) {
-        context.status(400).json(new FormattedError("No file provided with the name " + pathInfo.fileName()));
+        context.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, "No file provided with the name " + pathInfo.fileName()));
         return;
       }
 
+      final var ifMatch = context.header("If-Match");
       uploadResults = handleFileUpload(
           pathInfo.workspaceId,
           pathInfo.filePath,
           file,
           overwrite.orElse(false),
+          ifMatch,
           authorize(context).userId());
 
     } else if (type == ItemType.directory) {
       // Reject the request if the "overwrite" flag is supplied
       if(overwrite.isPresent()) {
-        context.status(400).json(new FormattedError("Query parameter 'overwrite' is not permitted when creating a directory."));
+        context.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, "Query parameter 'overwrite' is not permitted when creating a directory."));
         return;
       }
       uploadResults = handleCreateDirectory(pathInfo.workspaceId(), pathInfo.filePath());
     } else {
-      context.status(400).json(new FormattedError("Query param 'type' has invalid value "+type));
+      context.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, "Query param 'type' has invalid value "+type));
       return;
     }
 
     switch (uploadResults){
-      case HandlerResult.Success success -> context.status(success.status()).result(success.response());
+      case HandlerResult.Success success -> {
+        // Return the saved file's new ETag so the client can keep saving without re-fetching.
+        success.etag().ifPresent(et -> context.header("ETag", et));
+        context.status(success.status()).result(success.response());
+      }
       case HandlerResult.Failure failure -> context.status(failure.status()).json(failure.error());
     }
   }
@@ -541,12 +540,12 @@ public class WorkspaceBindings implements Plugin {
 
     // Get body
     if(!ContentType.JSON.equals(context.contentType())) {
-      context.status(400).json(new FormattedError("Body must be type "+ContentType.JSON));
+      context.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, "Body must be type "+ContentType.JSON));
     }
     try(final var bodyReader = Json.createReader(new StringReader(context.body()))){
       body = PostBody.fromJson(bodyReader.readObject(), sourceWorkspace);
     } catch (JsonException je) {
-      context.status(400).json(new FormattedError(
+      context.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER,
           je,
           "Invalid body format. Expected body format is an array of JSON objects with the form:\n\n"+helpText));
       return;
@@ -594,7 +593,7 @@ public class WorkspaceBindings implements Plugin {
           case HandlerResult.Failure failure -> context.status(failure.status()).json(failure.error());
         }
       }
-      default -> context.status(501).json(new FormattedError("Unsupported post action: " + body.action().name()).toJson());
+      default -> context.status(501).json(new FormattedError(AerieService.WORKSPACE_SERVER, "Unsupported post action: " + body.action().name()).toJson());
     }
   }
 
@@ -620,47 +619,76 @@ public class WorkspaceBindings implements Plugin {
       Path uploadPath,
       UploadedFile file,
       boolean overwrite,
+      String ifMatch,
       final String userId) {
     try {
       // Verify the user isn't attempting to save a metadata file using the main file api
       if(RenderType.isAerieMetadataFile(uploadPath.getFileName().toString())) {
         return new HandlerResult.Failure(
             405,
-            new FormattedError(
+            new WorkspaceFormattedError(
                 new MalformedRequest("Could not save file.",
                     "Metadata files may not be uploaded via the file API."
                     + " Use the metadata API (located at /metadata/{workspaceId}/<basefilepath>) instead.")));
       }
 
-      // Report a "Conflict" status if the file already exists and "overwrite" is false
-      // "overwrite" defaults to "false" if unspecified
-      if (workspaceService.checkFileExists(workspaceId, uploadPath) && !overwrite) {
-        return new HandlerResult.Failure(409, new FormattedError(uploadPath + " already exists."));
+      // Conflict if the file already exists and "overwrite" is false (defaults to false).
+      // An If-Match means the client is editing a known file, so let the version check below handle it.
+      if (ifMatch == null && workspaceService.checkFileExists(workspaceId, uploadPath) && !overwrite) {
+        return new HandlerResult.Failure(409, new FormattedError(AerieService.WORKSPACE_SERVER, uploadPath + " already exists."));
       }
 
       // Report a "Locked" status if the file is currently marked as "readOnly"
       if(workspaceService.isReadOnly(workspaceId, uploadPath)) {
-        return new HandlerResult.Failure(423, new FormattedError(new FileLockedException(uploadPath), "Cannot update file at " + uploadPath));
+        return new HandlerResult.Failure(423, new WorkspaceFormattedError(new FileLockedException(uploadPath), "Cannot update file at " + uploadPath));
       }
 
-      if (workspaceService.saveFile(workspaceId, uploadPath, file, userId)) {
+      // Reject the save if the file changed since the client loaded it. "*" or no If-Match means force-overwrite.
+      if (ifMatch != null && !ifMatch.equals("*")) {
+        try {
+          final var currentETag = workspaceService.getETag(workspaceId, uploadPath);
+          if (!currentETag.equals(ifMatch)) {
+            // Who/when is best-effort detail for the modal; don't let a metadata read failure make this a 500.
+            String lastEditedBy = null;
+            String lastEditedAt = null;
+            try {
+              final var editInfo = workspaceService.getLastEditInfo(workspaceId, uploadPath);
+              lastEditedBy = editInfo.lastEditedBy();
+              lastEditedAt = editInfo.lastEditedAt();
+            } catch (IOException | NoSuchWorkspaceException | WorkspaceFileOpException | JsonException e) {
+              logger.warn("UPLOAD FILE: could not read last-edit info for conflict on {}: {}", uploadPath, e.getMessage());
+            }
+            return new HandlerResult.Failure(
+                412,
+                WorkspaceFormattedError.saveConflict("conflict", currentETag, lastEditedBy, lastEditedAt));
+          }
+        } catch (NoSuchFileException nfe) {
+          // File is gone — deleted or moved out from under the editor.
+          return new HandlerResult.Failure(412, WorkspaceFormattedError.saveConflict("deleted", null, null, null));
+        }
+      }
+
+      // saveFile hashes as it writes and returns the new ETag, so we don't re-read the file.
+      final var newETag = workspaceService.saveFile(workspaceId, uploadPath, file, userId);
+      if (newETag.isPresent()) {
         return new HandlerResult.Success(
             200,
-            "File " + uploadPath.getFileName() + " uploaded to " + uploadPath);
+            "File " + uploadPath.getFileName() + " uploaded to " + uploadPath,
+            newETag);
       } else {
         logger.warn("UPLOAD FILE: Save File failed for path {}", uploadPath);
-        return new HandlerResult.Failure(500, new FormattedError("Could not save file."));
+        return new HandlerResult.Failure(500, new FormattedError(AerieService.WORKSPACE_SERVER, "Could not save file."));
       }
     } catch (IOException ioe) {
-      final var fe = new FormattedError(ioe, "Could not save file.");
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ioe, "Could not save file.");
       logger.warn("UPLOAD FILE: IOException: {}", fe);
       return new HandlerResult.Failure(500, fe);
     } catch (WorkspaceFileOpException wfe) {
-      final var fe = new FormattedError(wfe, "Could not save file.");
+      final var fe = new WorkspaceFormattedError(wfe, "Could not save file.");
       logger.warn("UPLOAD FILE: WorkspaceFileOpException: {}", fe);
       return new HandlerResult.Failure(500, fe);
     } catch (NoSuchWorkspaceException nsw) {
-      return new HandlerResult.Failure(404, new FormattedError(nsw, "Could not create directory."));
+      return new HandlerResult.Failure(404, new WorkspaceFormattedError(nsw, "Could not create directory."));
     }
   }
 
@@ -670,16 +698,16 @@ public class WorkspaceBindings implements Plugin {
         return new HandlerResult.Success(200, "Directory created.");
       } else {
         logger.warn("CREATE DIRECTORY: Create Directory failed for path {}", destinationPath);
-        return new HandlerResult.Failure(500, new FormattedError("Could not create directory."));
+        return new HandlerResult.Failure(500, new FormattedError(AerieService.WORKSPACE_SERVER, "Could not create directory."));
       }
     } catch (IOException ioe) {
       logger.warn("CREATE DIRECTORY: IOException: {}", destinationPath);
-      return new HandlerResult.Failure(500, new FormattedError(ioe, "Could not create directory."));
+      return new HandlerResult.Failure(500, new FormattedError(AerieService.WORKSPACE_SERVER, ioe, "Could not create directory."));
     } catch (WorkspaceFileOpException wfe) {
       logger.warn("CREATE DIRECTORY: WorkspaceFileOpException: {}", destinationPath);
-      return new HandlerResult.Failure(500, new FormattedError(wfe, "Could not create directory."));
+      return new HandlerResult.Failure(500, new WorkspaceFormattedError(wfe, "Could not create directory."));
     } catch (NoSuchWorkspaceException nsw) {
-      return new HandlerResult.Failure(404, new FormattedError(nsw, "Could not create directory."));
+      return new HandlerResult.Failure(404, new WorkspaceFormattedError(nsw, "Could not create directory."));
     }
   }
 
@@ -720,7 +748,7 @@ public class WorkspaceBindings implements Plugin {
     if(RenderType.isAerieMetadataFile(toMove.getFileName().toString())) {
       return new HandlerResult.Failure(
           405,
-          new FormattedError(
+          new WorkspaceFormattedError(
               new MalformedRequest(
                   errorMsg,
                   "Metadata files may not be directly moved via the file API. Move the main file instead.")));
@@ -730,21 +758,21 @@ public class WorkspaceBindings implements Plugin {
     if(RenderType.isAerieMetadataFile(destinationPath.getFileName().toString())) {
       return new HandlerResult.Failure(
           405,
-          new FormattedError(
+          new WorkspaceFormattedError(
               new MalformedRequest(errorMsg, "Normal files may not be renamed to metadata files.")));
     }
 
     if (!workspaceService.checkFileExists(sourceWorkspaceId, toMove)) {
       return new HandlerResult.Failure(
           404,
-          new FormattedError(
+          new WorkspaceFormattedError(
               new NoSuchFileException(sourceWorkspaceId, toMove),
               errorMsg));
     }
 
     final var destinationFileExists = workspaceService.checkFileExists(destinationWorkspaceId, destinationPath);
     if (destinationFileExists && !overwrite) {
-      return new HandlerResult.Failure(409, new FormattedError(errorMsg, destinationPath + " already exists."));
+      return new HandlerResult.Failure(409, new FormattedError(AerieService.WORKSPACE_SERVER, errorMsg, destinationPath + " already exists."));
     }
 
     try {
@@ -756,40 +784,40 @@ public class WorkspaceBindings implements Plugin {
           // at the destination, the source will only overwrite that folder if it is empty (meaning it cannot contain a locked file)
           final var readOnlyFiles = workspaceService.getReadOnlyFiles(sourceWorkspaceId, toMove);
           if(!readOnlyFiles.isEmpty()){
-            return new HandlerResult.Failure(423, new FormattedError(new FileLockedException(toMove, readOnlyFiles), errorMsg));
+            return new HandlerResult.Failure(423, new WorkspaceFormattedError(new FileLockedException(toMove, readOnlyFiles), errorMsg));
           }
         }
 
         if (workspaceService.moveDirectory(sourceWorkspaceId, toMove, destinationWorkspaceId, destinationPath)) {
           return new HandlerResult.Success(200, successMsg);
         } else {
-          return new HandlerResult.Failure(500, new FormattedError(errorMsg));
+          return new HandlerResult.Failure(500, new FormattedError(AerieService.WORKSPACE_SERVER, errorMsg));
         }
       } else {
         // Report a "Locked" status if either file is currently marked as "readOnly"
         if(workspaceService.isReadOnly(sourceWorkspaceId, toMove)) {
-          return new HandlerResult.Failure(423, new FormattedError(new FileLockedException(toMove), errorMsg));
+          return new HandlerResult.Failure(423, new WorkspaceFormattedError(new FileLockedException(toMove), errorMsg));
         }
         if (destinationFileExists && workspaceService.isReadOnly(destinationWorkspaceId, destinationPath)) {
-          return new HandlerResult.Failure(423, new FormattedError(new FileLockedException(destinationPath), errorMsg));
+          return new HandlerResult.Failure(423, new WorkspaceFormattedError(new FileLockedException(destinationPath), errorMsg));
         }
 
         if (workspaceService.moveFile(sourceWorkspaceId, toMove, destinationWorkspaceId, destinationPath, userId)) {
           return new HandlerResult.Success(200, successMsg);
         } else {
-          return new HandlerResult.Failure(500, new FormattedError(errorMsg));
+          return new HandlerResult.Failure(500, new FormattedError(AerieService.WORKSPACE_SERVER, errorMsg));
         }
       }
     } catch (IOException ioe) {
-      final var fe = new FormattedError(ioe, errorMsg);
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ioe, errorMsg);
       logger.warn("MOVE: IO EXCEPTION: {}", fe);
       return new HandlerResult.Failure(500, fe);
     } catch (WorkspaceFileOpException wfe) {
-      final var fe = new FormattedError(wfe, errorMsg);
+      final var fe = new WorkspaceFormattedError(wfe, errorMsg);
       logger.warn("MOVE: WORKSPACE FILE OP EXCEPTION: {}", fe);
       return new HandlerResult.Failure(500, fe);
     } catch (SQLException se) {
-      final var fe = new FormattedError(se);
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, se, errorMsg);
       logger.warn("MOVE: SQL EXCEPTION: {}", fe);
       return new HandlerResult.Failure(500, fe);
     }
@@ -813,7 +841,7 @@ public class WorkspaceBindings implements Plugin {
     if(RenderType.isAerieMetadataFile(toCopy.getFileName().toString())) {
       return new HandlerResult.Failure(
           405,
-          new FormattedError(
+          new WorkspaceFormattedError(
               new MalformedRequest(
                   errorMsg,
                   "Metadata files may not be directly copied via the file API. Copy the main file instead.")));
@@ -823,19 +851,19 @@ public class WorkspaceBindings implements Plugin {
     if(RenderType.isAerieMetadataFile(destinationPath.getFileName().toString())) {
       return new HandlerResult.Failure(
           405,
-          new FormattedError(
+          new WorkspaceFormattedError(
               new MalformedRequest(errorMsg, "Normal files may not be renamed to metadata files.")));
     }
 
     if (!workspaceService.checkFileExists(sourceWorkspaceId, toCopy)) {
       return new HandlerResult.Failure(
           404,
-          new FormattedError(new NoSuchFileException(sourceWorkspaceId, toCopy), errorMsg));
+          new WorkspaceFormattedError(new NoSuchFileException(sourceWorkspaceId, toCopy), errorMsg));
     }
 
     final var destinationFileExists = workspaceService.checkFileExists(destinationWorkspaceId, destinationPath);
     if (destinationFileExists && !overwrite) {
-      return new HandlerResult.Failure(409, new FormattedError(errorMsg, destinationPath + " already exists."));
+      return new HandlerResult.Failure(409, new FormattedError(AerieService.WORKSPACE_SERVER, errorMsg, destinationPath + " already exists."));
     }
 
     try {
@@ -843,26 +871,26 @@ public class WorkspaceBindings implements Plugin {
         if (workspaceService.copyDirectory(sourceWorkspaceId, toCopy, destinationWorkspaceId, destinationPath)) {
           return new HandlerResult.Success(200, successMsg);
         } else {
-          return new HandlerResult.Failure(500, new FormattedError(errorMsg));
+          return new HandlerResult.Failure(500, new FormattedError(AerieService.WORKSPACE_SERVER, errorMsg));
         }
       } else {
         // Report a "Locked" status if the destination file is currently marked as "readOnly"
         if(destinationFileExists && workspaceService.isReadOnly(destinationWorkspaceId, destinationPath)) {
-          return new HandlerResult.Failure(423, new FormattedError(new FileLockedException(destinationPath), errorMsg));
+          return new HandlerResult.Failure(423, new WorkspaceFormattedError(new FileLockedException(destinationPath), errorMsg));
         }
 
         if (workspaceService.copyFile(sourceWorkspaceId, toCopy, destinationWorkspaceId, destinationPath, userId)) {
           return new HandlerResult.Success(200, successMsg);
         } else {
-          return new HandlerResult.Failure(500, new FormattedError(errorMsg));
+          return new HandlerResult.Failure(500, new FormattedError(AerieService.WORKSPACE_SERVER, errorMsg));
         }
       }
     } catch (WorkspaceFileOpException wfe) {
-      final var fe = new FormattedError(wfe, errorMsg);
+      final var fe = new WorkspaceFormattedError(wfe, errorMsg);
       logger.warn("COPY: WORKSPACE FILE OP EXCEPTION: {}", fe);
       return new HandlerResult.Failure(500, fe);
     } catch (IOException ioe) {
-      final var fe = new FormattedError(ioe, errorMsg);
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ioe, errorMsg);
       logger.warn("COPY: IO EXCEPTION: {}", fe);
       return new HandlerResult.Failure(500, fe);
     }
@@ -876,7 +904,7 @@ public class WorkspaceBindings implements Plugin {
       if(RenderType.isAerieMetadataFile(filePath.getFileName().toString())) {
         return new HandlerResult.Failure(
             405,
-            new FormattedError(
+            new WorkspaceFormattedError(
                 new MalformedRequest(
                     errorMsg,
                     "Metadata files may not be directly deleted via the file API. "
@@ -884,47 +912,47 @@ public class WorkspaceBindings implements Plugin {
       }
 
       if (!workspaceService.checkFileExists(workspaceId, filePath)) {
-        return new HandlerResult.Failure(404, new FormattedError(new NoSuchFileException(workspaceId, filePath)));
+        return new HandlerResult.Failure(404, new WorkspaceFormattedError(new NoSuchFileException(workspaceId, filePath)));
       }
 
       if (workspaceService.isDirectory(workspaceId, filePath)) {
         // Report a "Locked" status if there is a locked file within the directory
         final var readOnlyFiles = workspaceService.getReadOnlyFiles(workspaceId, filePath);
         if(!readOnlyFiles.isEmpty()){
-          return new HandlerResult.Failure(423, new FormattedError(new FileLockedException(filePath, readOnlyFiles), errorMsg));
+          return new HandlerResult.Failure(423, new WorkspaceFormattedError(new FileLockedException(filePath, readOnlyFiles), errorMsg));
         }
 
         if (workspaceService.deleteDirectory(workspaceId, filePath)) {
           return new HandlerResult.Success(200, "Directory deleted.");
         } else {
           logger.warn("DELETE: Delete Directory failed for path {}", filePath);
-          return new HandlerResult.Failure(500, new FormattedError(errorMsg));
+          return new HandlerResult.Failure(500, new FormattedError(AerieService.WORKSPACE_SERVER, errorMsg));
         }
       } else {
         // Report a "Locked" status if the file is currently marked as "readOnly"
         if(workspaceService.isReadOnly(workspaceId, filePath)) {
-          return new HandlerResult.Failure(423, new FormattedError(new FileLockedException(filePath), errorMsg));
+          return new HandlerResult.Failure(423, new WorkspaceFormattedError(new FileLockedException(filePath), errorMsg));
         }
 
         if (workspaceService.deleteFile(workspaceId, filePath)) {
           return new HandlerResult.Success(200, "File deleted.");
         } else {
           logger.warn("DELETE: Delete File failed for path {}", filePath);
-          return new HandlerResult.Failure(500, new FormattedError(errorMsg));
+          return new HandlerResult.Failure(500, new FormattedError(AerieService.WORKSPACE_SERVER, errorMsg));
         }
       }
     } catch (NoSuchWorkspaceException nsw) {
-      return new HandlerResult.Failure(404, new FormattedError(nsw));
+      return new HandlerResult.Failure(404, new WorkspaceFormattedError(nsw));
     } catch (WorkspaceFileOpException wfe) {
-      final var fe = new FormattedError(wfe);
+      final var fe = new WorkspaceFormattedError(wfe);
       logger.warn("DELETE: WORKSPACE FILE OP EXCEPTION: {}", fe);
       return new HandlerResult.Failure(500, fe);
     } catch (IOException ioe) {
-      final var fe = new FormattedError(ioe);
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ioe);
       logger.warn("DELETE: IO EXCEPTION: {}", fe);
       return new HandlerResult.Failure(500, fe);
     } catch (SQLException se) {
-      final var fe = new FormattedError(se);
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, se);
       logger.warn("DELETE: SQL EXCEPTION: {}", fe);
       return new HandlerResult.Failure(500, fe);
     }
@@ -978,7 +1006,7 @@ public class WorkspaceBindings implements Plugin {
 
     // Get body
     if(!context.isMultipartFormData() || context.formParam("body") == null) {
-      context.status(400).json(new FormattedError(
+      context.status(400).json(new WorkspaceFormattedError(
           new MalformedRequest(
               "Invalid body format.",
               """
@@ -991,6 +1019,7 @@ public class WorkspaceBindings implements Plugin {
       toUpload = bodyReader.readArray().getValuesAs(obj -> BulkPutItem.fromJson(obj.asJsonObject()));
     } catch (JsonException je) {
       context.status(400).json(new FormattedError(
+          AerieService.WORKSPACE_SERVER,
           je,
           "Invalid body format. Expected body format is an array of JSON objects with the form:\n\n"+helpText));
       return;
@@ -999,7 +1028,7 @@ public class WorkspaceBindings implements Plugin {
     // Ensure that the user has specified at least one file or directory to upload
     if(toUpload.isEmpty()) {
       context.status(400).json(
-          new FormattedError(new MalformedRequest("Cannot process request: at least one item must be specified.")));
+          new WorkspaceFormattedError(new MalformedRequest("Cannot process request: at least one item must be specified.")));
       return;
     }
 
@@ -1015,7 +1044,7 @@ public class WorkspaceBindings implements Plugin {
 
     // Check that files all had unique upload names:
     if(fileList.size() != fileMap.size()) {
-      context.status(400).json(new FormattedError(
+      context.status(400).json(new WorkspaceFormattedError(
           new MalformedRequest(
               "Cannot process request: multiple files are attached under the same name.",
               "Attach file contents under unique names.\n\n" + helpText)));
@@ -1026,7 +1055,7 @@ public class WorkspaceBindings implements Plugin {
     final var destinationSet = toUpload.stream().map(BulkPutItem::path).collect(Collectors.toSet());
     if(destinationSet.size() != toUpload.size()) {
       context.status(409).json(
-          new FormattedError(
+          new WorkspaceFormattedError(
               new MalformedRequest(
                   "Multiple items are attempting to be uploaded to the same location. Please give all items unique names.")));
       return;
@@ -1056,7 +1085,7 @@ public class WorkspaceBindings implements Plugin {
         if(file == null) {
           response.add("status", 400)
                   .add("response",
-                       new FormattedError(
+                       new WorkspaceFormattedError(
                           new MalformedRequest(
                               "No file provided with the name " + uploadedFileName,
                               "Attach file contents under the 'files' part of the request."))
@@ -1065,11 +1094,13 @@ public class WorkspaceBindings implements Plugin {
           continue;
         }
 
+        // Bulk uploads have no per-item If-Match; pass null to skip the version check (unchanged behavior).
         uploadResults = handleFileUpload(
             workspaceId,
             item.path(),
             file,
             item.overwrite(),
+            null,
             userId
         );
         response.add("status", uploadResults.status())
@@ -1082,7 +1113,10 @@ public class WorkspaceBindings implements Plugin {
       } else {
         logger.debug("BULK UPLOAD: Unsupported item upload type: {}", item.uploadType());
         response.add("status", 501)
-                .add("response", new FormattedError("Unsupported item upload type: "+item.uploadType().name()).toJson());
+                .add("response", new FormattedError(
+                    AerieService.WORKSPACE_SERVER,
+                    "Unsupported item upload type: "+item.uploadType().name()
+                ).toJson());
       }
       // Add response to array
       responseArray.add(response);
@@ -1152,7 +1186,7 @@ public class WorkspaceBindings implements Plugin {
 
     // Get body
     if(!ContentType.JSON.equals(context.contentType())) {
-      context.status(400).json(new FormattedError(new MalformedRequest("Body must be type "+ContentType.JSON)));
+      context.status(400).json(new WorkspaceFormattedError(new MalformedRequest("Body must be type "+ContentType.JSON)));
       return;
     }
 
@@ -1162,7 +1196,9 @@ public class WorkspaceBindings implements Plugin {
       items = jsonBody.getJsonArray("items")
                       .getValuesAs(o -> BulkPostItem.fromJson(o.asJsonObject(), body.destinationPath()));
     } catch (JsonException je) {
-      context.status(400).json(new FormattedError(
+      context.status(400).json(
+          new FormattedError(
+          AerieService.WORKSPACE_SERVER,
           je,
           "Invalid body format. Expected body format is a JSON object with the form:\n\n"+helpText));
       return;
@@ -1170,7 +1206,7 @@ public class WorkspaceBindings implements Plugin {
 
     // Ensure that the user has specified at least one item to alter
     if(items.isEmpty()) {
-      context.status(400).json(new FormattedError(new MalformedRequest(
+      context.status(400).json(new WorkspaceFormattedError(new MalformedRequest(
           "Cannot process request: at least one item must be specified.")));
       return;
     }
@@ -1178,7 +1214,7 @@ public class WorkspaceBindings implements Plugin {
     // Ensure that no two inputs will try to write to the same location
     final var destinationSet = items.stream().map(BulkPostItem::newPath).collect(Collectors.toSet());
     if(destinationSet.size() != items.size()) {
-      context.status(409).json(new FormattedError(new MalformedRequest(
+      context.status(409).json(new WorkspaceFormattedError(new MalformedRequest(
           "Multiple entries in 'item' have the same destination location. Use \"renameTo\" to resolve conflicts.")));
       return;
     }
@@ -1217,7 +1253,9 @@ public class WorkspaceBindings implements Plugin {
         );
         context.status(207).json(copyResults.toString());
       }
-      default -> context.status(501).json(new FormattedError("Unsupported post action: " + body.action().name()).toJson());
+      default -> context.status(501).json(
+          new FormattedError(AerieService.WORKSPACE_SERVER,
+                             "Unsupported post action: " + body.action().name()).toJson());
     }
   }
 
@@ -1292,18 +1330,21 @@ public class WorkspaceBindings implements Plugin {
 
     // Get body
     if(!ContentType.JSON.equals(context.contentType())) {
-      context.status(400).json(new FormattedError(new MalformedRequest("Body must be type "+ContentType.JSON)));
+      context.status(400).json(new WorkspaceFormattedError(new MalformedRequest("Body must be type "+ContentType.JSON)));
       return;
     }
     try(final var bodyReader = Json.createReader(new StringReader(context.body()))){
       toDelete = bodyReader.readArray().getValuesAs(JsonString::getString);
     } catch (JsonException je) {
-      context.status(400).json(new FormattedError(je, "Invalid body format. Expected body format is an array of paths."));
+      context.status(400).json(new FormattedError(
+          AerieService.WORKSPACE_SERVER,
+          je,
+          "Invalid body format. Expected body format is an array of paths."));
       return;
     }
     // Ensure that the user has specified at least one file or directory to get the contents of
     if(toDelete.isEmpty()) {
-      context.status(400).json(new FormattedError(new MalformedRequest(
+      context.status(400).json(new WorkspaceFormattedError(new MalformedRequest(
           "Cannot process request: at least one item must be specified.")));
       return;
     }
@@ -1350,25 +1391,29 @@ public class WorkspaceBindings implements Plugin {
 
     // Check that the underlying file exists
     if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
-      context.status(404).json(new FormattedError(new NoSuchFileException(pathInfo.workspaceId, pathInfo.filePath)));
+      context.status(404).json(new WorkspaceFormattedError(new NoSuchFileException(pathInfo.workspaceId, pathInfo.filePath)));
       return;
     }
 
     try {
       final var fileStream = workspaceService.loadMetadataFile(pathInfo.workspaceId, pathInfo.filePath());
-      final var inputStream = fileStream.readingStream();
 
       // Set up headers for file response
       context.header("x-render-type", RenderType.METADATA.name());
       context.contentType(ContentType.OCTET_STREAM);
-      context.header("Content-Disposition", "attachment; filename=\"" + pathInfo.metadataFileName() + "\"");
-      context.status(200).result(inputStream);
+      // The client sends this ETag back as If-Match when it saves.
+      context.header("ETag", fileStream.etag());
+      context.header("Content-Disposition", "attachment; filename=\"" + fileStream.fileName() + "\"");
+      context.status(200).result(fileStream.readingStream()); // Javalin auto-closes InputStreams once it has sent the contents
     } catch (WorkspaceFileOpException wfe) {
-      final var fe = new FormattedError(wfe, "Could not retrieve metadata file for file "+pathInfo.fileName());
+      final var fe = new WorkspaceFormattedError(wfe, "Could not retrieve metadata file for file "+pathInfo.fileName());
       context.status(400).json(fe);
     }
     catch (IOException ioe) {
-      final var fe = new FormattedError(ioe, "Could not retrieve metadata file for file " + pathInfo.fileName());
+      final var fe = new FormattedError(
+          AerieService.WORKSPACE_SERVER,
+          ioe,
+          "Could not retrieve metadata file for file " + pathInfo.fileName());
       logger.warn("GET METADATA: IO Exception: {}", fe);
       context.status(500).json(fe);
     }
@@ -1408,19 +1453,16 @@ public class WorkspaceBindings implements Plugin {
       final var mergeBehaviorParam = context.queryParamAsClass("mergeBehavior", String.class).getOrDefault("shallow");
       mergeBehavior = MetadataMergeBehavior.of(mergeBehaviorParam);
     } catch (ValidationException ve) {
-      context.status(400).json(new FormattedError(ve));
+      context.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, ve));
       return;
     } catch (IllegalArgumentException iae) {
-      context.status(400).json(new FormattedError(iae));
+      context.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, iae));
       return;
     }
 
     // Get body
     if(!ContentType.JSON.equals(context.contentType())) {
-      context.status(400).json(new FormattedError(
-          "MALFORMED_REQUEST",
-          "Body must be type "+ContentType.JSON,
-          Optional.empty()));
+      context.status(400).json(new WorkspaceFormattedError(new MalformedRequest("Body must be type "+ContentType.JSON)));
       return;
     }
 
@@ -1430,23 +1472,24 @@ public class WorkspaceBindings implements Plugin {
       updates = MetadataUpdates.fromEndpointBodyJson(authorize(context).userId(), jsonBody);
     } catch (JsonException je) {
       context.status(400).json(new FormattedError(
+          AerieService.WORKSPACE_SERVER,
           je,
           "Invalid body format. Expected body format is a JSON object with the set of keys to be updated."));
       return;
     } catch (MalformedRequest mr) {
-      context.status(400).json(new FormattedError(mr));
+      context.status(400).json(new WorkspaceFormattedError(mr));
       return;
     }
 
     // Ensure that the user has specified at least one key to alter
     if(updates.noUserUpdates()) {
-      context.status(400).json(new FormattedError(new MalformedRequest("Cannot process request: at least one key must be specified.")));
+      context.status(400).json(new WorkspaceFormattedError(new MalformedRequest("Cannot process request: at least one key must be specified.")));
       return;
     }
 
     // Check that the underlying file exists
     if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
-      context.status(404).json(new FormattedError(new NoSuchFileException(pathInfo.workspaceId, pathInfo.filePath)));
+      context.status(404).json(new WorkspaceFormattedError(new NoSuchFileException(pathInfo.workspaceId, pathInfo.filePath)));
       return;
     }
 
@@ -1455,20 +1498,23 @@ public class WorkspaceBindings implements Plugin {
       if(workspaceService.updateMetadataKeys(pathInfo.workspaceId, pathInfo.filePath, updates, mergeBehavior)) {
         context.status(200).result("Metadata for file %s updated successfully.".formatted(pathInfo.filePath));
       } else {
-        context.status(500).json(new FormattedError("Unable to update metadata for file %s".formatted(pathInfo.filePath)));
+        context.status(500).json(new FormattedError(AerieService.WORKSPACE_SERVER, "Unable to update metadata for file %s".formatted(pathInfo.filePath)));
       }
     } catch (NoSuchWorkspaceException nsw) {
-      context.status(404).json(new FormattedError(nsw));
+      context.status(404).json(new WorkspaceFormattedError(nsw));
     } catch (IOException ioe) {
-      final var fe = new FormattedError(ioe);
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ioe);
       logger.warn("SET METADATA: IO Exception: {}", fe);
       context.status(500).json(fe);
     } catch (WorkspaceFileOpException wfe) {
-      final var fe = new FormattedError(wfe, "Could not update metadata.");
+      final var fe = new WorkspaceFormattedError(wfe, "Could not update metadata.");
       logger.warn("SET METADATA: WorkspaceFileOpException: {}", fe);
       context.status(500).json(fe);
     } catch (JsonException je) {
-      final var fe = new FormattedError(je, "Metadata for file %s is malformed.".formatted(pathInfo.filePath));
+      final var fe = new FormattedError(
+          AerieService.WORKSPACE_SERVER,
+          je,
+          "Metadata for file %s is malformed.".formatted(pathInfo.filePath));
       logger.warn("SET METADATA: JsonException: {}", fe);
       context.status(500).json(fe);
     }
@@ -1490,7 +1536,7 @@ public class WorkspaceBindings implements Plugin {
 
     // Get body
     if(!ContentType.JSON.equals(context.contentType())) {
-      context.status(400).json(new FormattedError(new MalformedRequest("Body must be type "+ContentType.JSON)));
+      context.status(400).json(new WorkspaceFormattedError(new MalformedRequest("Body must be type "+ContentType.JSON)));
       return;
     }
 
@@ -1502,7 +1548,7 @@ public class WorkspaceBindings implements Plugin {
         if(!key.startsWith("user.")) {
           if(!MetadataKeys.whitelist.contains(key)) {
             context.status(400).json(
-                new FormattedError(
+                new WorkspaceFormattedError(
                     new MalformedRequest("Request body contains unpermitted keys. "
                                          + "Only the following keys may be updated: "
                                          + String.join(", ", MetadataKeys.whitelist))));
@@ -1514,6 +1560,7 @@ public class WorkspaceBindings implements Plugin {
       toUnset = new HashSet<>(unsetList);
     } catch (JsonException je) {
       context.status(400).json(new FormattedError(
+          AerieService.WORKSPACE_SERVER,
           je,
           "Invalid body format. Expected body format is a JSON array with the set of keys to be removed."));
       return;
@@ -1521,13 +1568,13 @@ public class WorkspaceBindings implements Plugin {
 
     // Ensure that the user has specified at least one key to alter
     if(toUnset.isEmpty()) {
-      context.status(400).json(new FormattedError(new MalformedRequest("Cannot process request: at least one key must be specified.")));
+      context.status(400).json(new WorkspaceFormattedError(new MalformedRequest("Cannot process request: at least one key must be specified.")));
       return;
     }
 
     // Check that the underlying file exists
     if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
-      context.status(404).json(new FormattedError(new NoSuchFileException(pathInfo.workspaceId, pathInfo.filePath)));
+      context.status(404).json(new WorkspaceFormattedError(new NoSuchFileException(pathInfo.workspaceId, pathInfo.filePath)));
       return;
     }
 
@@ -1536,20 +1583,25 @@ public class WorkspaceBindings implements Plugin {
       if(workspaceService.unsetMetadataKeys(pathInfo.workspaceId, pathInfo.filePath, toUnset, authorize(context).userId())) {
         context.status(200).result("Metadata for file %s updated successfully.".formatted(pathInfo.filePath));
       } else {
-        context.status(500).json(new FormattedError("Unable to update metadata for file %s".formatted(pathInfo.filePath)));
+        context.status(500).json(new FormattedError(
+            AerieService.WORKSPACE_SERVER,
+            "Unable to update metadata for file %s".formatted(pathInfo.filePath)));
       }
     } catch (NoSuchWorkspaceException nsw) {
-      context.status(404).json(new FormattedError(nsw));
+      context.status(404).json(new WorkspaceFormattedError(nsw));
     } catch (IOException ioe) {
-      final var fe = new FormattedError(ioe);
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ioe);
       logger.warn("UNSET METADATA: IO Exception: {}", fe);
       context.status(500).json(fe);
     } catch (WorkspaceFileOpException wfe) {
-      final var fe = new FormattedError(wfe, "Could not update metadata.");
+      final var fe = new WorkspaceFormattedError(wfe, "Could not update metadata.");
       logger.warn("UNSET METADATA: WorkspaceFileOpException: {}", fe);
       context.status(500).json(fe);
     } catch (JsonException je) {
-      final var fe = new FormattedError(je, "Metadata for file %s is malformed.".formatted(pathInfo.filePath));
+      final var fe = new FormattedError(
+          AerieService.WORKSPACE_SERVER,
+          je,
+          "Metadata for file %s is malformed.".formatted(pathInfo.filePath));
       logger.warn("UNSET METADATA: JsonException: {}", fe);
       context.status(500).json(fe);
     }
@@ -1571,12 +1623,14 @@ public class WorkspaceBindings implements Plugin {
       if(workspaceService.deleteMetadataFile(pathInfo.workspaceId, pathInfo.filePath)) {
         context.status(200).result("Metadata for file %s deleted.".formatted(pathInfo.filePath));
       } else {
-        context.status(500).json(new FormattedError("Unable to delete metadata for file %s".formatted(pathInfo.filePath)));
+        context.status(500).json(new FormattedError(
+            AerieService.WORKSPACE_SERVER,
+            "Unable to delete metadata for file %s".formatted(pathInfo.filePath)));
       }
     } catch (NoSuchWorkspaceException nsw) {
-      context.status(404).json(new FormattedError(nsw));
+      context.status(404).json(new WorkspaceFormattedError(nsw));
     } catch (WorkspaceFileOpException wfe) {
-      final var fe = new FormattedError(wfe, "Could not delete metadata.");
+      final var fe = new WorkspaceFormattedError(wfe, "Could not delete metadata.");
       logger.warn("DELETE METADATA: WorkspaceFileOpException: {}", fe);
       context.status(500).json(fe);
     }

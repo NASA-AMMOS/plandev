@@ -1,7 +1,13 @@
 package gov.nasa.jpl.aerie.merlin.server.http;
 
 import gov.nasa.jpl.aerie.constraints.InputMismatchException;
-import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
+import gov.nasa.jpl.aerie.json.FormattedError;
+import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader.MissionModelLoadException;
+import gov.nasa.jpl.aerie.merlin.server.exceptions.MerlinFormattedError;
+import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchConstraintException;
+import gov.nasa.jpl.aerie.merlin.server.models.ProcedureLoader;
+import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.DatabaseException;
+import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsException;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
@@ -11,20 +17,23 @@ import gov.nasa.jpl.aerie.merlin.server.services.ConstraintAction;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
 import gov.nasa.jpl.aerie.merlin.server.services.GenerateConstraintsLibAction;
 import gov.nasa.jpl.aerie.merlin.server.services.GetSimulationResultsAction;
-import gov.nasa.jpl.aerie.merlin.server.services.LocalMissionModelService;
 import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService;
 import gov.nasa.jpl.aerie.merlin.server.services.PlanService;
 import gov.nasa.jpl.aerie.permissions.HasuraAction;
 import gov.nasa.jpl.aerie.permissions.PermissionsService;
-import gov.nasa.jpl.aerie.permissions.exceptions.ExceptionSerializers;
-import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsServiceException;
 import io.javalin.Javalin;
 import io.javalin.http.Context;
+import io.javalin.http.HttpResponseException;
+import io.javalin.http.UnauthorizedResponse;
 import io.javalin.plugin.Plugin;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.json.Json;
+import javax.json.JsonException;
 import javax.json.stream.JsonParsingException;
 import java.io.IOException;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -71,6 +80,7 @@ public final class MerlinBindings implements Plugin {
   private final GenerateConstraintsLibAction generateConstraintsLibAction;
   private final ConstraintAction constraintAction;
   private final PermissionsService permissionsService;
+  private static final Logger logger = LoggerFactory.getLogger(MerlinBindings.class);
 
   public MerlinBindings(
       final MissionModelService missionModelService,
@@ -90,6 +100,9 @@ public final class MerlinBindings implements Plugin {
 
   @Override
   public void apply(final Javalin javalin) {
+    // Since all of these endpoints are Hasura Actions, toggle Formatted Error writing to Hasura style
+    FormattedError.FormattedErrorSerializer.USE_HASURA_FORMATTING = true;
+
     javalin.routes(() -> {
       before(ctx -> ctx.contentType("application/json"));
 
@@ -116,11 +129,53 @@ public final class MerlinBindings implements Plugin {
       path("health", () -> get(ctx -> ctx.status(200)));
     });
 
-    // This exception is expected when the request body entity is not a legal JsonValue.
-    javalin.exception(JsonParsingException.class, (ex, ctx) -> ctx
-        .status(400)
-        .result(ResponseSerializers.serializeJsonParsingException(ex).toString())
-        .contentType("application/json"));
+    // Default exception handlers for common endpoint exceptions
+    javalin.exception(JsonException.class,
+                      (ex, ctx) -> ctx.status(400)
+                                      .json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex)));
+    javalin.exception(NoSuchPlanException.class,
+                      (ex, ctx) -> ctx.status(404).json(new MerlinFormattedError(ex)));
+    javalin.exception(IOException.class, (ex, ctx) -> {
+      final var fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex);
+      logger.warn("IO Exception: {}", fe);
+      ctx.status(500).json(fe);
+    });
+    javalin.exception(
+        SQLException.class, (ex, ctx) -> {
+          final var fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex);
+          logger.warn("SQL Exception: {}", fe);
+          ctx.status(500).json(fe);
+        });
+    javalin.exception(
+        UnauthorizedResponse.class, (ex, ctx) -> {
+          final var message = ex.getMessage() != null ? ex.getMessage() : "Unauthorized";
+          logger.warn("401 Unauthorized: {}", message);
+          ctx.status(401).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+        });
+    javalin.exception(NumberFormatException.class, (ex, ctx) ->
+        ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex)));
+    javalin.exception(SecurityException.class, (ex, ctx) -> {
+      final var fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex);
+      logger.warn("Security Exception: {}", fe);
+      ctx.status(500).json(fe);
+    });
+    javalin.exception(DatabaseException.class, (ex, ctx) -> {
+      final var fe = new MerlinFormattedError(ex);
+      logger.warn("Database Exception: {}", fe);
+      ctx.status(500).json(fe);
+    });
+    javalin.exception(MissionModelLoadException.class, (ex, ctx) ->
+        ctx.status(500).json(new MerlinFormattedError(ex)));
+    javalin.exception(
+        HttpResponseException.class, (ex, ctx) ->
+            ctx.status(ex.getStatus()).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, "HTTP_RESPONSE_EXCEPTION", ex)));
+    javalin.exception(Exception.class, (ex, ctx) -> {
+      // Catch-all for unexpected issues
+      final var message = ex.getMessage() != null ? ex.getMessage() : "Unknown error.";
+      final var fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, "UNKNOWN_ERROR", message, ex);
+      logger.error("Unexpected error processing request: {}", fe);
+      ctx.status(500).json(fe);
+    });
   }
 
   private void postRefreshModelParameters(final Context ctx) {
@@ -128,14 +183,14 @@ public final class MerlinBindings implements Plugin {
       final var missionModelId = parseJson(ctx.body(), hasuraMissionModelEventTriggerP).missionModelId();
       this.missionModelService.refreshModelParameters(missionModelId);
       ctx.status(200);
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     } catch (final MissionModelService.NoSuchMissionModelException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeNoSuchMissionModelException(ex).toString());
-    } catch (final LocalMissionModelService.MissionModelLoadException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeMissionModelLoadException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    } catch (final MissionModelLoadException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     }
   }
 
@@ -144,14 +199,14 @@ public final class MerlinBindings implements Plugin {
       final var missionModelId = parseJson(ctx.body(), hasuraMissionModelEventTriggerP).missionModelId();
       this.missionModelService.refreshActivityTypes(missionModelId);
       ctx.status(200);
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     } catch (final MissionModelService.NoSuchMissionModelException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeNoSuchMissionModelException(ex).toString());
-    } catch (final LocalMissionModelService.MissionModelLoadException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeMissionModelLoadException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    } catch (final MissionModelLoadException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     }
   }
 
@@ -160,14 +215,14 @@ public final class MerlinBindings implements Plugin {
       final var missionModelId = parseJson(ctx.body(), hasuraMissionModelEventTriggerP).missionModelId();
       this.missionModelService.refreshResourceTypes(missionModelId);
       ctx.status(200);
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     } catch (final MissionModelService.NoSuchMissionModelException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeNoSuchMissionModelException(ex).toString());
-    } catch (final LocalMissionModelService.MissionModelLoadException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeMissionModelLoadException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    } catch (final MissionModelLoadException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     }
   }
 
@@ -179,14 +234,14 @@ public final class MerlinBindings implements Plugin {
       final var schemaMap = this.missionModelService.getResourceSchemas(missionModelId);
 
       ctx.result(ResponseSerializers.serializeValueSchemas(schemaMap).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     } catch (final MissionModelService.NoSuchMissionModelException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeNoSuchMissionModelException(ex).toString());
-    } catch (final LocalMissionModelService.MissionModelLoadException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeMissionModelLoadException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    } catch (final MissionModelLoadException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     }
   }
 
@@ -204,10 +259,14 @@ public final class MerlinBindings implements Plugin {
       final var revision = body.revision();
       this.constraintAction.refreshConstraintProcedureParameterTypes(constraintId, revision);
       ctx.status(200);
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    } catch (NoSuchConstraintException ex) {
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    } catch (ProcedureLoader.ProcedureLoadException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     }
   }
 
@@ -221,22 +280,19 @@ public final class MerlinBindings implements Plugin {
 
       final var response = this.simulationAction.run(planId, force, body.session());
       ctx.result(ResponseSerializers.serializeSimulationResultsResponse(response).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
-    } catch(final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
+    } catch (PermissionsException pe) {
+      if (pe.httpStatusCode() == 500) {
+        logger.warn("Permissions Service Exception: {}", pe.formattedError());
+      }
+      ctx.status(pe.httpStatusCode()).json(pe.formattedError());
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
+    } catch(final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
     } catch (final NoSuchPlanException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeNoSuchPlanException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
     } catch (final MissionModelService.NoSuchMissionModelException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeNoSuchMissionModelException(ex).toString());
-    } catch (final gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException ex) {
-      ctx.status(404).result(ExceptionSerializers.serializeNoSuchPlanException(ex).toString());
-    } catch (final PermissionsServiceException ex) {
-      ctx.status(503).result(ExceptionSerializers.serializePermissionsServiceException(ex).toString());
-    } catch (final Forbidden ex) {
-      ctx.status(403).result(ExceptionSerializers.serializeForbiddenException(ex).toString());
-    } catch (final IOException ex) {
-      ctx.status(500).result(ExceptionSerializers.serializeIOException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
     }
   }
 
@@ -248,23 +304,20 @@ public final class MerlinBindings implements Plugin {
       this.checkPermissions(HasuraAction.resource_samples, body.session(), planId);
 
       final var resourceSamples = this.simulationAction.getResourceSamples(planId);
-      ctx.result(ResponseSerializers.serializeResourceSamples(resourceSamples).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
+      ctx.json(ResponseSerializers.serializeResourceSamples(resourceSamples).toString());
+    } catch (PermissionsException pe) {
+      if (pe.httpStatusCode() == 500) {
+        logger.warn("Permissions Service Exception: {}", pe.formattedError());
+      }
+      ctx.status(pe.httpStatusCode()).json(pe.formattedError());
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     } catch (final NoSuchPlanException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeNoSuchPlanException(ex).toString());
-    } catch (final gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException ex) {
-      ctx.status(404).result(ExceptionSerializers.serializeNoSuchPlanException(ex).toString());
-    } catch (final PermissionsServiceException ex) {
-      ctx.status(503).result(ExceptionSerializers.serializePermissionsServiceException(ex).toString());
-    } catch (final Forbidden ex) {
-      ctx.status(403).result(ExceptionSerializers.serializeForbiddenException(ex).toString());
-    } catch (final IOException ex) {
-      ctx.status(500).result(ExceptionSerializers.serializeIOException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
     }
-}
+  }
   private void getConstraintViolations(final Context ctx) {
     try {
       final var body = parseJson(ctx.body(), hasuraConstraintsViolationsActionP);
@@ -279,26 +332,23 @@ public final class MerlinBindings implements Plugin {
       final var constraintViolations = this.constraintAction.getViolations(planId, simulationDatasetId, force, body.session());
 
       ctx.result(ResponseSerializers.serializeConstraintResults(constraintViolations.getLeft(), constraintViolations.getRight()).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
+    } catch (PermissionsException pe) {
+      if (pe.httpStatusCode() == 500) {
+        logger.warn("Permissions Service Exception: {}", pe.formattedError());
+      }
+      ctx.status(pe.httpStatusCode()).json(pe.formattedError());
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex).toString());
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     } catch (final NoSuchPlanException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeNoSuchPlanException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
     } catch (final MissionModelService.NoSuchMissionModelException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeNoSuchMissionModelException(ex).toString());
-    } catch (final gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException ex) {
-      ctx.status(404).result(ExceptionSerializers.serializeNoSuchPlanException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
     } catch (final InputMismatchException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeInputMismatchException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
     } catch (SimulationDatasetMismatchException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeSimulationDatasetMismatchException(ex).toString());
-    } catch (final PermissionsServiceException ex) {
-      ctx.status(503).result(ExceptionSerializers.serializePermissionsServiceException(ex).toString());
-    } catch (final Forbidden ex) {
-      ctx.status(403).result(ExceptionSerializers.serializeForbiddenException(ex).toString());
-    } catch (final IOException ex) {
-      ctx.status(500).result(ExceptionSerializers.serializeIOException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
     }
   }
 
@@ -319,13 +369,13 @@ public final class MerlinBindings implements Plugin {
       ctx.status(400)
          .result(ResponseSerializers.serializeFailures(List.of(ex.getMessage())).toString());
     } catch (final MissionModelService.NoSuchMissionModelException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeNoSuchMissionModelException(ex).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
-    } catch (final LocalMissionModelService.MissionModelLoadException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeMissionModelLoadException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
+    } catch (final MissionModelLoadException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     }
   }
 
@@ -339,16 +389,14 @@ public final class MerlinBindings implements Plugin {
 
       ctx.result(ResponseSerializers.serializeValidationNotices(notices).toString());
     } catch (final MissionModelService.NoSuchMissionModelException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeNoSuchMissionModelException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
     } catch (final InstantiationException ex) {
       ctx.status(400)
          .result(ResponseSerializers.serializeFailures(List.of(ex.getMessage())).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
-    } catch (final LocalMissionModelService.MissionModelLoadException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeMissionModelLoadException(ex).toString());
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
+    } catch (final MissionModelLoadException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     }
   }
 
@@ -363,16 +411,16 @@ public final class MerlinBindings implements Plugin {
       final var failures = this.missionModelService.validateActivityInstantiations(plan.missionModelId(), activities);
 
       ctx.result(ResponseSerializers.serializeUnconstructableActivityFailures(failures).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     } catch (final NoSuchPlanException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeNoSuchPlanException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
     } catch (final MissionModelService.NoSuchMissionModelException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeNoSuchMissionModelException(ex).toString());
-    } catch (final LocalMissionModelService.MissionModelLoadException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeMissionModelLoadException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    } catch (final MissionModelLoadException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     }
   }
 
@@ -387,13 +435,13 @@ public final class MerlinBindings implements Plugin {
     } catch (final InstantiationException ex) {
       ctx.status(200).result(ResponseSerializers.serializeInstantiationException(ex).toString());
     } catch (final MissionModelService.NoSuchMissionModelException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeNoSuchMissionModelException(ex).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
-    } catch (final LocalMissionModelService.MissionModelLoadException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeMissionModelLoadException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
+    } catch (final MissionModelLoadException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     }
   }
 
@@ -414,13 +462,13 @@ public final class MerlinBindings implements Plugin {
 
       ctx.result(ResponseSerializers.serializeBulkEffectiveArgumentResponse(arguments.get(0)).toString());
     } catch (final MissionModelService.NoSuchMissionModelException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeNoSuchMissionModelException(ex).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
-    } catch (final LocalMissionModelService.MissionModelLoadException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeMissionModelLoadException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
+    } catch (final MissionModelLoadException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     }
   }
 
@@ -434,13 +482,13 @@ public final class MerlinBindings implements Plugin {
 
       ctx.result(ResponseSerializers.serializeBulkEffectiveArgumentResponseList(response).toString());
     } catch (final MissionModelService.NoSuchMissionModelException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeNoSuchMissionModelException(ex).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
-    } catch (final LocalMissionModelService.MissionModelLoadException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeMissionModelLoadException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
+    } catch (final MissionModelLoadException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     }
   }
 
@@ -450,10 +498,8 @@ public final class MerlinBindings implements Plugin {
       final var responses = this.constraintAction.getConstraintProcedureEffectiveArgumentsBulk(input.input());
       ctx.result(ResponseSerializers.serializeIterable(
           ResponseSerializers::serializeConstraintBulkEffectiveArgumentResponse, responses).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     }
   }
 
@@ -473,20 +519,17 @@ public final class MerlinBindings implements Plugin {
       final var datasetId = this.planService.addExternalDataset(planId, simulationDatasetId, datasetStart, profileSet);
 
       ctx.status(201).result(ResponseSerializers.serializeCreatedDatasetId(datasetId).toString());
+    } catch (PermissionsException pe) {
+      if (pe.httpStatusCode() == 500) {
+        logger.warn("Permissions Service Exception: {}", pe.formattedError());
+      }
+      ctx.status(pe.httpStatusCode()).json(pe.formattedError());
     } catch (final NoSuchPlanException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeNoSuchPlanException(ex).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
-    } catch (final gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException ex) {
-      ctx.status(404).result(ExceptionSerializers.serializeNoSuchPlanException(ex).toString());
-    } catch (final PermissionsServiceException ex) {
-      ctx.status(503).result(ExceptionSerializers.serializePermissionsServiceException(ex).toString());
-    } catch (final Forbidden ex) {
-      ctx.status(403).result(ExceptionSerializers.serializeForbiddenException(ex).toString());
-    } catch (final IOException ex) {
-      ctx.status(500).result(ExceptionSerializers.serializeIOException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     }
   }
 
@@ -504,20 +547,17 @@ public final class MerlinBindings implements Plugin {
           body.session().hasuraUserId());
 
       ctx.status(201).result(ResponseSerializers.serializeCreatedSimulationDatasetId(simulationDatasetId).toString());
+    } catch (PermissionsException pe) {
+      if (pe.httpStatusCode() == 500) {
+        logger.warn("Permissions Service Exception: {}", pe.formattedError());
+      }
+      ctx.status(pe.httpStatusCode()).json(pe.formattedError());
     } catch (final NoSuchPlanException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeNoSuchPlanException(ex).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
-    } catch (final gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException ex) {
-      ctx.status(404).result(ExceptionSerializers.serializeNoSuchPlanException(ex).toString());
-    } catch (final PermissionsServiceException ex) {
-      ctx.status(503).result(ExceptionSerializers.serializePermissionsServiceException(ex).toString());
-    } catch (final Forbidden ex) {
-      ctx.status(403).result(ExceptionSerializers.serializeForbiddenException(ex).toString());
-    } catch (final IOException ex) {
-      ctx.status(500).result(ExceptionSerializers.serializeIOException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     }
   }
 
@@ -535,20 +575,17 @@ public final class MerlinBindings implements Plugin {
 
       ctx.status(200).result(
           ResponseSerializers.serializeSimulationResultsForDownload(simulationResults).toString());
+    } catch (PermissionsException pe) {
+      if (pe.httpStatusCode() == 500) {
+        logger.warn("Permissions Service Exception: {}", pe.formattedError());
+      }
+      ctx.status(pe.httpStatusCode()).json(pe.formattedError());
     } catch (final NoSuchPlanException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeNoSuchPlanException(ex).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
-    } catch (final gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException ex) {
-      ctx.status(404).result(ExceptionSerializers.serializeNoSuchPlanException(ex).toString());
-    } catch (final PermissionsServiceException ex) {
-      ctx.status(503).result(ExceptionSerializers.serializePermissionsServiceException(ex).toString());
-    } catch (final Forbidden ex) {
-      ctx.status(403).result(ExceptionSerializers.serializeForbiddenException(ex).toString());
-    } catch (final IOException ex) {
-      ctx.status(500).result(ExceptionSerializers.serializeIOException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     }
   }
 
@@ -566,11 +603,11 @@ public final class MerlinBindings implements Plugin {
               .add("datasetId", datasetId.id())
               .build().toString());
     } catch (final NoSuchPlanDatasetException ex) {
-      ctx.status(404).result(ResponseSerializers.serializeNoSuchPlanDatasetException(ex).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     }
   }
 
@@ -608,13 +645,14 @@ public final class MerlinBindings implements Plugin {
             .add("reason", r.reason())
             .build().toString();
       } else {
-        throw new Error("Unhandled variant of Response: " + response);
+        ctx.status(500).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, "Unhandled variant of Constraints Response: " + response));
+        return;
       }
       ctx.result(resultString);
-    } catch (final InvalidEntityException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
-    } catch (final InvalidJsonException ex) {
-      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
     }
   }
 
@@ -622,8 +660,7 @@ public final class MerlinBindings implements Plugin {
       final HasuraAction action,
       final gov.nasa.jpl.aerie.merlin.server.models.HasuraAction.Session session,
       final PlanId planId
-  ) throws gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException, Forbidden, IOException, PermissionsServiceException
-  {
+  ) throws PermissionsException {
     final var permissionsPlanId = new gov.nasa.jpl.aerie.permissions.gql.PlanId(planId.id());
     permissionsService.check(action, session.hasuraRole(), session.hasuraUserId(), permissionsPlanId);
   }

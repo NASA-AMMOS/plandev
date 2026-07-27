@@ -8,16 +8,19 @@ import org.junit.jupiter.api.Test;
 
 import javax.json.Json;
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class AutoDeletionTests extends ProceduralTestingSetup {
   private GoalInvocationId edslId;
   private GoalInvocationId procedureId;
+  private GoalInvocationId cascadeProcedureId;
 
   @BeforeEach
   void localBeforeEach() throws IOException {
@@ -51,7 +54,7 @@ public class AutoDeletionTests extends ProceduralTestingSetup {
           false
       );
 
-      int procedureJarId = gateway.uploadJarFile("build/libs/ActivityAutoDeletionGoal.jar");
+      final int procedureJarId = gateway.uploadJarFile("build/libs/ActivityAutoDeletionGoal.jar");
       // Add Scheduling Procedure
       procedureId = hasura.createSchedulingSpecProcedure(
           "Test Scheduling Procedure",
@@ -60,11 +63,23 @@ public class AutoDeletionTests extends ProceduralTestingSetup {
           1,
           false
       );
+
+      // Upload and by default disable the cascade test procedure
+      final int cascadeJarProcedureId = gateway.uploadJarFile("build/libs/AnchorCascadeDeleteGoal.jar");
+      cascadeProcedureId = hasura.createSchedulingSpecProcedure(
+          "Anchor Deletion Cascade Mode Test Procedure",
+          cascadeJarProcedureId,
+          specId,
+          2,
+          true
+      );
+      hasura.updateSchedulingSpecEnabled(cascadeProcedureId.invocationId(), false);
     }
   }
 
   @AfterEach
   void localAfterEach() throws IOException {
+    hasura.deleteSchedulingGoal(cascadeProcedureId.goalId());
     hasura.deleteSchedulingGoal(procedureId.goalId());
     hasura.deleteSchedulingGoal(edslId.goalId());
   }
@@ -184,6 +199,54 @@ public class AutoDeletionTests extends ProceduralTestingSetup {
       assertTrue(activities.stream().anyMatch(
           it -> Objects.equals(it.type(), "BiteBanana")
       ));
+    }
+  }
+
+  @Test
+  void schedulerDeletesCascade() throws IOException {
+    // Enable the cascade test, disable the other two
+    hasura.updateSchedulingSpecEnabled(cascadeProcedureId.invocationId(), true);
+    hasura.updateSchedulingSpecEnabled(procedureId.invocationId(), false);
+    hasura.updateSchedulingSpecEnabled(edslId.invocationId(), false);
+
+    // Run Scheduling
+    hasura.awaitScheduling(specId);
+
+    // Get a record of the plan post-scheduling
+    final var originalActivities = hasura.getPlan(planId).activityDirectives();
+
+    // Run Scheduling again. This will trigger the goal's autodeletion behavior
+    hasura.updatePlanRevisionSchedulingSpec(planId);
+    hasura.awaitScheduling(specId);
+
+    // Get a new copy of the plan
+    final var updatedActivities = hasura.getPlan(planId).activityDirectives();
+
+    // Sort the activities on their bite size
+    originalActivities.sort(Comparator.comparingInt(a -> a.arguments().getInt("biteSize")));
+    updatedActivities.sort(Comparator.comparingInt(a -> a.arguments().getInt("biteSize")));
+
+    // Prove that the activities were deleted and remade during scheduling
+    assertEquals(originalActivities.size(), updatedActivities.size());
+    for(int i = 0; i < originalActivities.size(); ++i) {
+      final var originalAct = originalActivities.get(i);
+      final var updatedAct = updatedActivities.get(i);
+
+      // The Activities should be identical, except for their ids, which should differ
+      assertNotEquals(originalAct.id(), updatedAct.id());
+
+      if(originalAct.anchorId() == null) {
+        assertNull(updatedAct.anchorId());
+      } else {
+        assertNotEquals(originalAct.anchorId(), updatedAct.anchorId());
+      }
+
+      assertEquals(originalAct.planId(), updatedAct.planId());
+      assertEquals(originalAct.type(), updatedAct.type());
+      assertEquals(originalAct.startOffset(), updatedAct.startOffset());
+      assertEquals(originalAct.arguments(), updatedAct.arguments());
+      assertEquals(originalAct.name(), updatedAct.name());
+      assertEquals(originalAct.anchoredToStart(), updatedAct.anchoredToStart());
     }
   }
 }

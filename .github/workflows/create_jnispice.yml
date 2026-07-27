@@ -12,6 +12,8 @@ jobs:
   # The Windows build does not contain the problematic "-flat_namespace" flag in its build script for JNISpice.dll,
   # so we do not need to recompile
   retrieve_SPICE_windows:
+    permissions:
+      contents: read
     runs-on: windows-latest
     steps:
       - name: Download and Unpack JNISpice ZIP
@@ -20,7 +22,7 @@ jobs:
           7z x JNISpice.zip
           echo "JNISpice unpacked"
       - name: Upload DLL
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: Windows Spice
           path: JNISpice/lib/JNISpice.dll
@@ -28,6 +30,8 @@ jobs:
   # The Linux build does not contain the problematic "-flat_namespace" flag in its build script for libJNISpice.so,
   # so we do not need to recompile
   retrieve_SPICE_x86_linux:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Download and Unpack JNISpice TAR
@@ -39,7 +43,7 @@ jobs:
         run: mv libJNISpice.so libJNISpice_Intel.so
         working-directory: JNISpice/lib
       - name: Upload .so
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: x86 Linux Spice
           path: JNISpice/lib/libJNISpice_Intel.so
@@ -47,6 +51,8 @@ jobs:
   # The Mac build contains the problematic "-flat_namespace -undefined suppress" flags in its build script
   # for libJNISpice.jnilib, so we must remove the flag and recompile
   compile_SPICE_x86_mac:
+    permissions:
+      contents: read
     runs-on: macos-latest
     steps:
       - name: Download and Unpack JNISpice TAR
@@ -64,17 +70,19 @@ jobs:
         working-directory: JNISpice/src/JNISpice
         shell: csh {0}
       - name: Upload Intel Mac .jnilib
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: x86 Mac Spice
           path: JNISpice/lib/libJNISpice_Intel.jnilib
 
   # Recompiles the Java code, then removes all unneeded files and creates a JAR
   compile_JNI_JAR:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
         with:
           distribution: "temurin"
           java-version: "21"
@@ -104,7 +112,7 @@ jobs:
         working-directory: JNISpice/src/JNISpice
       - name: Upload JAR
         if: success()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: JNISpice Jar
           path: JNISpice/src/JNISpice/JNISpice-*.jar

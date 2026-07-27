@@ -119,15 +119,11 @@ public abstract class MerlinParsers {
 
 
   public static <T> T parseJson(final String subject, final JsonParser<T> parser)
-  throws InvalidJsonException, InvalidEntityException
+  throws JsonParsingException, InvalidJsonEntityException
   {
-    try {
       final var requestJson = Json.createReader(new StringReader(subject)).readValue();
       final var result = parser.parse(requestJson);
-      return result.getSuccessOrThrow($ -> new InvalidEntityException(List.of($)));
-    } catch (JsonParsingException e) {
-      throw new InvalidJsonException(e);
-    }
+      return result.getSuccessOrThrow($ -> new InvalidJsonEntityException(List.of($)));
   }
 
 }

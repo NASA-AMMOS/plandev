@@ -11,8 +11,7 @@ import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchActivityInstanceException;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchMissionModelException;
 import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchPlanException;
-import gov.nasa.jpl.aerie.scheduler.server.http.InvalidEntityException;
-import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonException;
+import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonEntityException;
 import gov.nasa.jpl.aerie.scheduler.server.models.ActivityType;
 import gov.nasa.jpl.aerie.scheduler.server.models.DatasetId;
 import gov.nasa.jpl.aerie.scheduler.server.models.ExternalProfiles;
@@ -72,7 +71,7 @@ public interface MerlinDatabaseService {
      * @throws NoSuchPlanException when the plan container does not exist in aerie
      */
     MerlinPlan getPlanActivityDirectives(final PlanMetadata planMetadata, final Problem mission)
-    throws IOException, NoSuchPlanException, MerlinServiceException, InvalidJsonException, InstantiationException;
+    throws IOException, NoSuchPlanException, MerlinServiceException, InvalidJsonEntityException, InstantiationException;
 
     /**
      * confirms that the specified plan exists in the aerie database, throwing exception if not
@@ -91,7 +90,7 @@ public interface MerlinDatabaseService {
      * @param planMetadata the plan metadata
      * @return optionally: simulation results and its dataset id
      */
-    Optional<Pair<SimulationResults, DatasetId>> getSimulationResults(PlanMetadata planMetadata) throws MerlinServiceException, IOException, InvalidJsonException;
+    Optional<Pair<SimulationResults, DatasetId>> getSimulationResults(PlanMetadata planMetadata) throws MerlinServiceException, IOException;
 
 
     /**
@@ -104,7 +103,7 @@ public interface MerlinDatabaseService {
     throws MerlinServiceException, IOException;
 
     Map<String, List<ExternalEvent>> getExternalEvents(final PlanId planId, final Instant horizonStart)
-            throws MerlinServiceException, IOException, InvalidEntityException;
+            throws MerlinServiceException, IOException, InvalidJsonEntityException;
 
     /**
      * Gets resource types associated to a plan, those coming from the mission model as well as those coming from external dataset resources

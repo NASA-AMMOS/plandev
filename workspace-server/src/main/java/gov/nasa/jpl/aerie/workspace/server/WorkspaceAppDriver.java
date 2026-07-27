@@ -11,15 +11,12 @@ import gov.nasa.jpl.aerie.workspace.server.config.UnexpectedSubtypeError;
 import gov.nasa.jpl.aerie.workspace.server.postgres.WorkspacePostgresRepository;
 import io.javalin.Javalin;
 import io.javalin.config.SizeUnit;
-import io.javalin.http.UnauthorizedResponse;
-import io.javalin.plugin.bundled.CorsPluginConfig;
 import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.LowResourceMonitor;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.handler.StatisticsHandler;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
-import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.json.Json;
@@ -29,9 +26,6 @@ import java.net.URI;
 import java.nio.file.Path;
 
 public final class WorkspaceAppDriver {
-
-  private static final Logger logger = LoggerFactory.getLogger(WorkspaceBindings.class);
-
   public static void main(final String[] args) {
     // Fetch application configuration properties.
     final var configuration = loadConfiguration();
@@ -56,6 +50,9 @@ public final class WorkspaceAppDriver {
     server.insertHandler(new StatisticsHandler());
     server.setConnectors(new Connector[]{connector});
     final var javalin = Javalin.create(config -> {
+      // Have Javalin generate Entity Tags automatically for endpoints that respond with a simple JSON object (like listFiles)
+      // We have to generate them manually for endpoints that respond with an InputStream (such as getFile) (not supported by Javalin)
+      config.http.generateEtags = true;
       config.showJavalinBanner = false;
       if (configuration.enableJavalinDevLogging()) config.plugins.enableDevLogging();
 
@@ -65,7 +62,11 @@ public final class WorkspaceAppDriver {
       config.jetty.multipartConfig.maxInMemoryFileSize(10, SizeUnit.MB); //the maximum file size to handle in memory
       config.jetty.multipartConfig.maxTotalRequestSize(1, SizeUnit.GB); //the maximum size of the entire multipart request
 
-      config.plugins.enableCors(cors -> cors.add(CorsPluginConfig::anyHost));
+      config.plugins.enableCors(cors -> cors.add(it -> {
+        it.anyHost();
+        // Expose ETag so the browser client can read it cross-origin (not exposed by default).
+        it.exposeHeader("ETag");
+      }));
       config.plugins.register(workspaceBindings);
       config.jetty.server(() -> server);
     });

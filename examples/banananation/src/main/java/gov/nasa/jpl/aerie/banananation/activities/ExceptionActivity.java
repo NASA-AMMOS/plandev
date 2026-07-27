@@ -1,6 +1,8 @@
 package gov.nasa.jpl.aerie.banananation.activities;
 
+import gov.nasa.jpl.aerie.banananation.Mission;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
+import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType.EffectModel;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Parameter;
 import gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Validation;
 
@@ -21,7 +23,8 @@ public final class ExceptionActivity {
     return true;
   }
 
-  public void run() {
+  @EffectModel
+  public void run(final Mission mission) {
     if (this.throwException) {
       throw new RuntimeException("Throwing runtime exception during runtime");
     }

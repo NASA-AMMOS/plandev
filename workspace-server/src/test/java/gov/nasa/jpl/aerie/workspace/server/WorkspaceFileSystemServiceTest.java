@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.FieldSource;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -154,6 +155,36 @@ class WorkspaceFileSystemServiceTest {
       assertDoesNotThrow(() -> service.validatePath(Path.of("my.file")));
       assertDoesNotThrow(() -> service.validatePath(Path.of("my.folder","my.file")));
       assertDoesNotThrow(() -> service.validatePath(Path.of("my.folder",".my.file")));
+    }
+  }
+
+  @Nested
+  class ETagTests {
+    private static byte[] bytes(String s) {
+      return s.getBytes(StandardCharsets.UTF_8);
+    }
+
+    @Test
+    void sameContentProducesSameToken() {
+      assertEquals(
+          WorkspaceService.computeETag(bytes("command ABC;")),
+          WorkspaceService.computeETag(bytes("command ABC;")));
+    }
+
+    @Test
+    void differentContentProducesDifferentToken() {
+      assertNotEquals(
+          WorkspaceService.computeETag(bytes("command ABC;")),
+          WorkspaceService.computeETag(bytes("command XYZ;")));
+    }
+
+    @Test
+    void tokenIsQuotedLowercaseSha256Hex() {
+      final var token = WorkspaceService.computeETag(new byte[0]);
+      // Strong ETag: a quoted, 64-char lowercase-hex SHA-256 digest.
+      assertTrue(token.matches("\"[0-9a-f]{64}\""), "unexpected token format: " + token);
+      // SHA-256 of empty input is a well-known constant; pins the algorithm and encoding.
+      assertEquals("\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"", token);
     }
   }
 }

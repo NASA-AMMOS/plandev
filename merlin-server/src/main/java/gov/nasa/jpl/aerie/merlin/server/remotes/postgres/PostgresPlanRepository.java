@@ -21,6 +21,7 @@ import gov.nasa.jpl.aerie.types.Plan;
 import gov.nasa.jpl.aerie.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 
+import javax.json.Json;
 import javax.sql.DataSource;
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -282,6 +283,72 @@ public final class PostgresPlanRepository implements PlanRepository {
           "Failed to upload simulation dataset for plan with id `%s`".formatted(planId), ex);
     } catch (final NoSuchSimulationDatasetException ex) {
       throw new Error("Simulation dataset was created but then not found", ex);
+    }
+  }
+
+  @Override
+  public SimulationResults downloadSimulationDataset(
+      final PlanId planId,
+      final long simulationDatasetId
+  ) throws NoSuchPlanException {
+    try (final var connection = this.dataSource.getConnection()) {
+      // Verify the plan exists
+      getPlanRecord(connection, planId);
+
+      // Fetch the simulation dataset record
+      final SimulationDatasetRecord record;
+      try (final var getAction = new GetSimulationDatasetByIdAction(connection)) {
+        record = getAction.get(simulationDatasetId)
+            .orElseThrow(() -> new RuntimeException(
+                "No simulation dataset with id `%s` exists".formatted(simulationDatasetId)));
+      }
+
+      final var startTimestamp = record.simulationStartTime();
+      final var simulationStart = startTimestamp.toInstant();
+      final var simulationDuration = Duration.of(
+          startTimestamp.microsUntil(record.simulationEndTime()),
+          Duration.MICROSECONDS);
+
+      final var profiles = ProfileRepository.getProfiles(connection, record.datasetId());
+      final var activities = PostgresResultsCellRepository.getActivities(connection, record.datasetId(), startTimestamp);
+      final var topics = PostgresResultsCellRepository.getSimulationTopics(connection, record.datasetId());
+      final var events = PostgresResultsCellRepository.getSimulationEvents(connection, record.datasetId());
+
+      // Fetch simulation arguments from the simulation_dataset row
+      final Map<String, SerializedValue> simulationArguments;
+      try (final var getArgsStatement = connection.prepareStatement(
+          "select arguments from merlin.simulation_dataset where id = ?")) {
+        getArgsStatement.setLong(1, simulationDatasetId);
+        try (final var rs = getArgsStatement.executeQuery()) {
+          if (rs.next()) {
+            final var argsJson = rs.getString("arguments");
+            if (argsJson != null) {
+              simulationArguments = PostgresParsers.simulationArgumentsP
+                  .parse(Json.createReader(new java.io.StringReader(argsJson)).readValue())
+                  .getSuccessOrThrow(e -> new RuntimeException(
+                      "Failed to parse simulation arguments for dataset id `%s`".formatted(simulationDatasetId)));
+            } else {
+              simulationArguments = Map.of();
+            }
+          } else {
+            simulationArguments = Map.of();
+          }
+        }
+      }
+
+      return new SimulationResults(
+          ProfileSet.unwrapOptional(profiles.realProfiles()),
+          ProfileSet.unwrapOptional(profiles.discreteProfiles()),
+          activities.getLeft(),
+          activities.getRight(),
+          simulationStart,
+          simulationDuration,
+          topics,
+          events,
+          simulationArguments);
+    } catch (final SQLException ex) {
+      throw new DatabaseException(
+          "Failed to download simulation dataset with id `%s` for plan `%s`".formatted(simulationDatasetId, planId), ex);
     }
   }
 

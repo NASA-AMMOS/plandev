@@ -72,6 +72,15 @@ public final class LocalPlanService implements PlanService {
   }
 
   @Override
+  public SimulationResults downloadSimulationDataset(
+      final PlanId planId,
+      final long simulationDatasetId)
+  throws NoSuchPlanException
+  {
+    return this.planRepository.downloadSimulationDataset(planId, simulationDatasetId);
+  }
+
+  @Override
   public void extendExternalDataset(final DatasetId datasetId, final ProfileSet profileSet)
   throws NoSuchPlanDatasetException
   {

@@ -38,6 +38,7 @@ import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraConstrai
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraConstraintsViolationsActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraSimulateActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraUploadExternalDatasetActionP;
+import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraDownloadSimulationDatasetActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraUploadSimulationDatasetActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraMissionModelActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraMissionModelArgumentsActionP;
@@ -108,6 +109,7 @@ public final class MerlinBindings implements Plugin {
       path("addExternalDataset", () -> post(this::addExternalDataset));
       path("extendExternalDataset", () -> post(this::extendExternalDataset));
       path("uploadSimulationDataset", () -> post(this::uploadSimulationDataset));
+      path("downloadSimulationDataset", () -> post(this::downloadSimulationDataset));
       path("constraintsDslTypescript", () -> post(this::getConstraintsDslTypescript));
       path("refreshConstraintProcedureParameterTypes", () -> post(this::refreshConstrainProcedureParameterTypes));
       path("getConstraintProcedureEffectiveArgumentsBulk", () -> post(this::getConstraintProcedureEffectiveArgumentsBulk));
@@ -502,6 +504,37 @@ public final class MerlinBindings implements Plugin {
           body.session().hasuraUserId());
 
       ctx.status(201).result(ResponseSerializers.serializeCreatedSimulationDatasetId(simulationDatasetId).toString());
+    } catch (final NoSuchPlanException ex) {
+      ctx.status(404).result(ResponseSerializers.serializeNoSuchPlanException(ex).toString());
+    } catch (final InvalidJsonException ex) {
+      ctx.status(400).result(ResponseSerializers.serializeInvalidJsonException(ex).toString());
+    } catch (final InvalidEntityException ex) {
+      ctx.status(400).result(ResponseSerializers.serializeInvalidEntityException(ex).toString());
+    } catch (final gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException ex) {
+      ctx.status(404).result(ExceptionSerializers.serializeNoSuchPlanException(ex).toString());
+    } catch (final PermissionsServiceException ex) {
+      ctx.status(503).result(ExceptionSerializers.serializePermissionsServiceException(ex).toString());
+    } catch (final Forbidden ex) {
+      ctx.status(403).result(ExceptionSerializers.serializeForbiddenException(ex).toString());
+    } catch (final IOException ex) {
+      ctx.status(500).result(ExceptionSerializers.serializeIOException(ex).toString());
+    }
+  }
+
+  private void downloadSimulationDataset(final Context ctx) {
+    try {
+      final var body = parseJson(ctx.body(), hasuraDownloadSimulationDatasetActionP);
+      final var input = body.input();
+
+      final var planId = input.planId();
+      this.checkPermissions(HasuraAction.simulate, body.session(), planId);
+
+      final var simulationResults = this.planService.downloadSimulationDataset(
+          planId,
+          input.simulationDatasetId());
+
+      ctx.status(200).result(
+          ResponseSerializers.serializeSimulationResultsForDownload(simulationResults).toString());
     } catch (final NoSuchPlanException ex) {
       ctx.status(404).result(ResponseSerializers.serializeNoSuchPlanException(ex).toString());
     } catch (final InvalidJsonException ex) {

@@ -109,6 +109,18 @@ public final class StubPlanService implements PlanService {
   }
 
   @Override
+  public SimulationResults downloadSimulationDataset(
+      final PlanId planId,
+      final long simulationDatasetId)
+  throws NoSuchPlanException
+  {
+    if (!Objects.equals(planId, EXISTENT_PLAN_ID)) {
+      throw new NoSuchPlanException(planId);
+    }
+    throw new UnsupportedOperationException("StubPlanService does not support downloading simulation datasets");
+  }
+
+  @Override
   public void extendExternalDataset(final DatasetId datasetId, final ProfileSet profileSet) {
     throw new UnsupportedOperationException("StubPlanService does not store external datasets, so they cannot be extended");
   }

@@ -144,6 +144,14 @@ public final class InMemoryPlanRepository implements PlanRepository {
   }
 
   @Override
+  public SimulationResults downloadSimulationDataset(
+      final PlanId planId,
+      final long simulationDatasetId)
+  {
+    throw new UnsupportedOperationException("InMemoryPlanRepository does not support downloading simulation datasets");
+  }
+
+  @Override
   public void extendExternalDataset(final DatasetId datasetId, final ProfileSet profileSet) {
     throw new UnsupportedOperationException("InMemoryPlanRepository does not store external datasets, so they cannot be extended");
   }

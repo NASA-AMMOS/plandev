@@ -23,6 +23,14 @@ actions:
     permissions:
       - role: aerie_admin
       - role: user
+  - name: downloadSimulationDataset
+    definition:
+      kind: synchronous
+      handler: "{{AERIE_MERLIN_URL}}/downloadSimulationDataset"
+      timeout: 300
+    permissions:
+      - role: aerie_admin
+      - role: user
   - name: uploadDictionary
     definition:
       kind: synchronous
@@ -276,6 +284,7 @@ custom_types:
     - name: EffectiveArgumentsResponse
     - name: AddExternalDatasetResponse
     - name: UploadSimulationDatasetResponse
+    - name: DownloadSimulationDatasetResponse
     - name: SchedulingResponse
     - name: DslTypescriptResponse
     - name: DictionaryResponse
@@ -299,3 +308,5 @@ custom_types:
     - name: SequenceSeqJson
     - name: CommandSeqJson
     - name: Any
+    - name: SimulationResultsInput
+    - name: SimulationResultsOutput

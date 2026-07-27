@@ -145,6 +145,13 @@ type Query {
 }
 
 type Query {
+  downloadSimulationDataset(
+    planId: Int!,
+    simulationDatasetId: Int!
+  ): DownloadSimulationDatasetResponse
+}
+
+type Query {
   simulate(planId: Int!, force: Boolean): MerlinSimulationResponse
 }
 
@@ -252,6 +259,10 @@ type AddExternalDatasetResponse {
 
 type UploadSimulationDatasetResponse {
   simulationDatasetId: Int!
+}
+
+type DownloadSimulationDatasetResponse {
+  simulationResults: SimulationResultsOutput!
 }
 
 type SchedulingResponse {
@@ -384,6 +395,8 @@ scalar ProcedureArguments
 scalar ProfileSet
 
 scalar SimulationResultsInput
+
+scalar SimulationResultsOutput
 
 scalar SchedulingFailureReason
 

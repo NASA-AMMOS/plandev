@@ -573,8 +573,10 @@ public final class MerlinBindings implements Plugin {
           planId,
           input.simulationDatasetId());
 
-      ctx.status(200).result(
-          ResponseSerializers.serializeSimulationResultsForDownload(simulationResults).toString());
+      final var responseJson = Json.createObjectBuilder()
+          .add("simulationResults", ResponseSerializers.serializeSimulationResultsForDownload(simulationResults))
+          .build();
+      ctx.status(200).result(responseJson.toString());
     } catch (PermissionsException pe) {
       if (pe.httpStatusCode() == 500) {
         logger.warn("Permissions Service Exception: {}", pe.formattedError());

@@ -24,6 +24,25 @@
 #   https://www.graalvm.org/python/wheels/
 numpy==2.2.4
 
+# spiceypy is pinned for the same class of reason as numpy above, but the
+# mechanics are the reverse: numpy's pin matches a wheel ORACLE publishes;
+# this one matches a wheel THIS REPO builds and commits itself
+# (docker/graalpy/wheels/, built natively per-arch -- see install.sh). If
+# spiceypy resolved unpinned here, a future run could pick a newer release
+# than whatever version the committed wheels were built against, pip would
+# reject the mismatched local wheel file, and the build would silently fall
+# back to compiling CSPICE from source (~200s+) with no obvious error --
+# the same "looks like a hang, not an error" failure mode numpy's pin above
+# exists to prevent, just triggered by our own artifact going stale instead
+# of GraalVM's.
+#
+# WHEN YOU BUMP THIS PIN, THE COMMITTED WHEELS GO STALE. Rebuild
+# docker/graalpy/wheels/*.whl for every supported arch (currently amd64 and
+# aarch64, built natively -- QEMU-emulated compiles of CSPICE are painfully
+# slow) before or alongside bumping this line, or every build pays the full
+# source-compile cost again until someone does.
+spiceypy==8.1.2
+
 # DO NOT ADD A cython CONSTRAINT HERE.
 #
 # Gate D tried `cython<=3.0.12`, reasoning from GraalPy's pip printing a note

@@ -151,11 +151,54 @@ log "PIP_CONSTRAINT=${PIP_CONSTRAINT}"
 # `spice` extras. `plotting` would also drag in bokeh, which nothing in Gate D
 # exercised under GraalPy; this keeps the venv to the set that was actually proven
 # (roadmap §4.2, §11.2's "start with a fixed package set").
-log "installing pymerlin@${PYMERLIN_REF} + numpy + spiceypy (expect ~340s for the CSPICE source build)"
+#
+# --- spiceypy: prefer a prebuilt wheel, fall back to source ------------------------------
+#
+# spiceypy has no prebuilt wheel in GraalVM's own wheel repository (unlike numpy above),
+# so it normally means a ~340s from-source CSPICE compile on every image build.
+# build-spiceypy-wheel.sh (this directory) can build one ahead of time, natively per-arch
+# (QEMU-emulated CSPICE compiles are painfully slow, so this only makes sense built on
+# real hardware), committed to wheels/spiceypy/.
+#
+# The version baked into the glob below comes from THIS SAME constraints.txt pin, the
+# same file build-spiceypy-wheel.sh reads it from when building -- so this can never
+# silently reuse a stale wheel after the pin bumps. If the pin changes and nobody
+# rebuilds the wheels, the glob simply finds nothing (the old wheel's filename still has
+# the old version baked in) and this correctly falls back to a fresh compile, not a
+# wrong-version install. The wheel is purely a speed optimization; it must never be a
+# new way for the build to break or to silently install the wrong version.
+SPICEYPY_VERSION="$(grep -E '^spiceypy==' "${CONSTRAINTS_FILE}" | cut -d= -f3)"
+case "${GRAALPY_ARCH}" in
+  amd64)   SPICEYPY_WHEEL_PLATFORM="x86_64" ;;
+  aarch64) SPICEYPY_WHEEL_PLATFORM="aarch64" ;;
+esac
+
+SPICEYPY_TARGET="spiceypy"
+if [ -n "${SPICEYPY_VERSION}" ]; then
+  SPICEYPY_WHEELS_DIR="${SCRIPT_DIR}/wheels/spiceypy"
+  shopt -s nullglob
+  # No literal separator hardcoded between `*` and the platform tag: pip's own wheel
+  # naming puts it as e.g. `..._native-linux_aarch64.whl` (underscore before the arch,
+  # not hyphen) -- verified directly against a real built wheel before trusting this.
+  SPICEYPY_WHEEL_MATCHES=("${SPICEYPY_WHEELS_DIR}"/spiceypy-"${SPICEYPY_VERSION}"-*"${SPICEYPY_WHEEL_PLATFORM}".whl)
+  shopt -u nullglob
+
+  if [ "${#SPICEYPY_WHEEL_MATCHES[@]}" -eq 1 ]; then
+    SPICEYPY_TARGET="${SPICEYPY_WHEEL_MATCHES[0]}"
+    log "using prebuilt spiceypy wheel: ${SPICEYPY_TARGET}"
+  elif [ "${#SPICEYPY_WHEEL_MATCHES[@]}" -gt 1 ]; then
+    SPICEYPY_TARGET="$(ls -t "${SPICEYPY_WHEEL_MATCHES[@]}" | head -1)"
+    log "WARNING: ${#SPICEYPY_WHEEL_MATCHES[@]} spiceypy==${SPICEYPY_VERSION} wheels matched ${SPICEYPY_WHEEL_PLATFORM}; using newest (${SPICEYPY_TARGET}) -- clean up ${SPICEYPY_WHEELS_DIR}"
+  else
+    log "no prebuilt spiceypy==${SPICEYPY_VERSION} wheel for ${SPICEYPY_WHEEL_PLATFORM} in ${SPICEYPY_WHEELS_DIR} -- falling back to source build"
+  fi
+fi
+
+log "installing pymerlin@${PYMERLIN_REF} + numpy + spiceypy (source build, if triggered, is ~340s for CSPICE)"
 "${VENV_PIP}" install --no-cache-dir \
   "git+${PYMERLIN_GIT_URL}@${PYMERLIN_REF}" \
   numpy \
-  spiceypy
+  "${SPICEYPY_TARGET}"
 
 # ${root}/src is on the Python path by GraalPyResources convention. Phase 2 extracts
 # model sources here; it must exist now or contextBuilder(root) has nothing to point at.

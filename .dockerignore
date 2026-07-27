@@ -13,4 +13,7 @@
 # the old `context: ..`, Docker looked for a .dockerignore at the monorepo root, found
 # none, and this file was never consulted).
 !docker/graalpy
+!docker/graalpy/wheels
+!docker/graalpy/wheels/spiceypy
+!docker/graalpy/wheels/spiceypy/*.whl
 !merlin-server/constraints-dsl-compiler

@@ -49,6 +49,9 @@ public interface PlanRepository {
       PlanId planId,
       SimulationResults simulationResults,
       String requestedBy) throws NoSuchPlanException;
+  SimulationResults downloadSimulationDataset(
+      PlanId planId,
+      long simulationDatasetId) throws NoSuchPlanException;
   void extendExternalDataset(DatasetId datasetId, ProfileSet profileSet) throws NoSuchPlanDatasetException;
   List<Pair<Duration, ProfileSet>> getExternalDatasets(
       PlanId planId,

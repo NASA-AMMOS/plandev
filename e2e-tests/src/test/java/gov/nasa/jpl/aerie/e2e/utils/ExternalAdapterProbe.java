@@ -14,9 +14,16 @@ import java.util.concurrent.TimeUnit;
  * <p>The adapters are deliberately <em>in-cluster</em>: they join PlanDev's docker network as peers of
  * {@code aerie_merlin} and publish no host ports, because an adapter is an operator-run component inside
  * the trust boundary rather than a third-party endpoint. That means the test host cannot reach
- * {@code blackbird-adapter:5011} at all. The request is therefore issued from inside the adapter's own
- * container -- real HTTP against the real server, just originated on the right side of the network
- * boundary. Nothing here mocks or reimplements the adapter.
+ * {@code blackbird-adapter:5011} at all. The request is therefore issued from a throwaway container that
+ * <em>shares the adapter's network namespace</em> ({@code --network=container:<adapter>}), so
+ * {@code localhost:<port>} resolves to the adapter itself -- real HTTP against the real server, just
+ * originated on the right side of the network boundary. Nothing here mocks or reimplements the adapter.
+ *
+ * <p>The sidecar exists because the obvious approach -- {@code docker exec <adapter> python3} -- probes
+ * the adapter through a tool that happens to be installed in it. Both shipped adapters are Python, so
+ * that held; a {@code scratch} or distroless adapter has no interpreter and no shell, and the probe
+ * fails with no HTTP ever attempted. Language-neutrality is the point of the external-backend contract,
+ * so the test harness must not require the backend to be written in any particular language either.
  */
 public final class ExternalAdapterProbe {
   /** The Blackbird backend declared to merlin as {@code blackbird-lab}. */
@@ -48,9 +55,36 @@ public final class ExternalAdapterProbe {
         + "sys.stdout.write(urllib.request.urlopen('http://localhost:%d%s', timeout=300).read().decode())"
             .formatted(this.port, path);
 
-    final var process = new ProcessBuilder("docker", "exec", this.container, "python3", "-c", script)
-        .redirectErrorStream(false)
-        .start();
+    final var stdout = run(
+        "Probing " + this.container + path,
+        "docker", "run", "--rm", "--network=container:" + this.container,
+        "--entrypoint", "python3", sidecarImage(), "-c", script);
+
+    try (final var reader = Json.createReader(new StringReader(stdout))) {
+      return reader.readObject();
+    }
+  }
+
+  /**
+   * Image for the sidecar. Any image with a python3 on its PATH works; we ask docker which image the
+   * Python adapter is running rather than naming one, because that image is necessarily present on the
+   * host already -- so the probe never pulls from a registry, including in CI with no egress.
+   */
+  private static synchronized String sidecarImage() throws IOException, InterruptedException {
+    if (sidecarImage == null) {
+      final var override = System.getProperty(PROBE_IMAGE_PROPERTY);
+      sidecarImage = (override != null && !override.isBlank())
+          ? override.strip()
+          : run("Resolving the probe sidecar image",
+                "docker", "inspect", "--format={{.Config.Image}}", PYTHON.container).strip();
+    }
+    return sidecarImage;
+  }
+
+  private static String run(final String what, final String... command)
+  throws IOException, InterruptedException
+  {
+    final var process = new ProcessBuilder(command).redirectErrorStream(false).start();
 
     final String stdout;
     final String stderr;
@@ -60,13 +94,16 @@ public final class ExternalAdapterProbe {
     }
     if (!process.waitFor(5, TimeUnit.MINUTES)) {
       process.destroyForcibly();
-      throw new IOException("Timed out probing " + this.container + path);
+      throw new IOException(what + " timed out");
     }
     if (process.exitValue() != 0) {
-      throw new IOException("Probing " + this.container + path + " failed (exit " + process.exitValue() + "):\n" + stderr);
+      throw new IOException(what + " failed (exit " + process.exitValue() + "):\n" + stderr);
     }
-    try (final var reader = Json.createReader(new StringReader(stdout))) {
-      return reader.readObject();
-    }
+    return stdout;
   }
+
+  /** Override the sidecar image, for a stack that does not run the Python adapter. */
+  private static final String PROBE_IMAGE_PROPERTY = "aerie.e2e.probeImage";
+
+  private static String sidecarImage = null;
 }

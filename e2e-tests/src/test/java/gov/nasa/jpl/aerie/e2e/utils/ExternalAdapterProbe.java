@@ -30,6 +30,8 @@ public final class ExternalAdapterProbe {
   public static final ExternalAdapterProbe BLACKBIRD = new ExternalAdapterProbe("blackbird-adapter", 5011);
   /** The pure-Python backend declared to merlin as {@code python-lab}. */
   public static final ExternalAdapterProbe PYTHON = new ExternalAdapterProbe("python-adapter", 5002);
+  /** The Basilisk astrodynamics backend declared to merlin as {@code basilisk-lab}. */
+  public static final ExternalAdapterProbe BASILISK = new ExternalAdapterProbe("basilisk-adapter", 5021);
 
   private final String container;
   private final int port;

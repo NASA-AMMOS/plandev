@@ -27,6 +27,12 @@ public final class MissionModelJar {
    *  models registered before it was recorded. */
   public String externalIdentityHash;
 
+  /** For external models: the raw jsonb of what the backend says PlanDev may DO with this model --
+   *  see merlin.mission_model.external_capabilities. Carried as text because merlin does not
+   *  interpret it; the client does. Null for JAR models, and for external models registered before
+   *  it was recorded. */
+  public String externalCapabilities;
+
   /**
    * The path to the Mission Model JAR
    *
@@ -53,6 +59,7 @@ public final class MissionModelJar {
               && Objects.equals(this.externalBackend, other.externalBackend)
               && Objects.equals(this.externalModelKey, other.externalModelKey)
               && Objects.equals(this.externalIdentityHash, other.externalIdentityHash)
+              && Objects.equals(this.externalCapabilities, other.externalCapabilities)
               && Objects.equals(this.path, other.path)
               );
   }
@@ -68,6 +75,7 @@ public final class MissionModelJar {
         externalBackend,
         externalModelKey,
         externalIdentityHash,
+        externalCapabilities,
         path
     );
   }

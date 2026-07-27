@@ -140,6 +140,15 @@ public final class LocalMissionModelService implements MissionModelService {
             missionModelId, model.externalBackend, introspection.identityHash());
       }
     }
+    // Which PlanDev features apply to this model. Stored on the same terms as the types: the backend
+    // is the authority, PlanDev keeps a copy, and the copy is refreshed by re-introspecting. Written
+    // even when empty -- "this backend declares no capabilities" is a fact worth recording, and it is
+    // distinct from "this row predates capabilities entirely", which stays null.
+    if (this.missionModelRepository.updateExternalCapabilities(
+            missionModelId, introspection.capabilities().toString())) {
+      log.info("External model {} capabilities now {}; model revision bumped.",
+          missionModelId, introspection.capabilities());
+    }
     return introspection;
   }
 

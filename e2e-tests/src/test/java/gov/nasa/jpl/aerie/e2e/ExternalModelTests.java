@@ -713,6 +713,75 @@ public class ExternalModelTests {
 
   //endregion
 
+  //region 5c. Capabilities
+
+  /**
+   * A model's declared types say what it IS. They say nothing about which PlanDev features apply to it,
+   * and the features genuinely differ in ways PlanDev cannot infer -- so the backend declares them and
+   * merlin stores them.
+   *
+   * <p>The two archetypes are both registered here, which is the point. The Python and Basilisk models
+   * are pure simulators: directives in, profiles and spans out, placing nothing of their own, so
+   * PlanDev's scheduler could drive them. Blackbird is not: its own dispatcher places activities during
+   * the run, so its schedule is an output and running PlanDev's scheduler as well would put two
+   * schedulers on one plan. Nothing in either model's activity types distinguishes those cases.
+   */
+  @Test
+  void backendsDeclareWhichPlanDevFeaturesApplyToTheirModels() throws IOException {
+    final var blackbird = hasura.getMissionModel(blackbirdModelId).externalCapabilities();
+    assertNotNull(blackbird, "the backend declared capabilities, so merlin must have stored them");
+    final JsonObject scheduling = blackbird.getJsonObject("plandevScheduling");
+    assertNotNull(scheduling);
+    assertFalse(scheduling.getBoolean("supported"),
+                "Blackbird places its own activities, so PlanDev scheduling does not apply");
+    // The reason is the whole point of the object-not-boolean shape: it is what lets merlin and the UI
+    // explain the refusal without either of them containing a sentence about Blackbird.
+    assertFalse(scheduling.getString("reason", "").isBlank(),
+                "an unsupported capability must carry the backend's own explanation");
+
+    for (final var pureSimulator : List.of(batteryModelId, orbiterModelId)) {
+      final var capabilities = hasura.getMissionModel(pureSimulator).externalCapabilities();
+      assertNotNull(capabilities);
+      assertTrue(capabilities.getJsonObject("plandevScheduling").getBoolean("supported"),
+                 "a pure simulator can be driven by PlanDev's scheduler");
+    }
+  }
+
+  /**
+   * Capabilities must survive the trip from the backend intact, exactly like the types do. Merlin does
+   * not interpret them -- a backend declaring a capability this merlin has never heard of should reach a
+   * newer UI unchanged rather than be dropped by an older server -- so the stored value is compared
+   * against what the adapter itself reports over HTTP.
+   */
+  @Test
+  void storedCapabilitiesAreWhatTheBackendActuallyReported() throws IOException, InterruptedException {
+    final var reported = ExternalAdapterProbe.BLACKBIRD.introspect(BLACKBIRD_MODEL_KEY)
+                                             .getJsonObject("capabilities");
+    assertEquals(reported, hasura.getMissionModel(blackbirdModelId).externalCapabilities());
+  }
+
+  /**
+   * Capabilities are part of the identity attestation, and this is what that buys.
+   *
+   * <p>Merlin keeps a COPY of something the backend owns, and the copy can go stale under a redeployed
+   * adapter -- as true of capabilities as of types. A backend that quietly started placing its own
+   * activities while PlanDev went on offering to schedule for it would put two schedulers on one plan,
+   * which is exactly the failure the attestation exists to prevent for types. So a capability change has
+   * to move the hash, and therefore the model revision, which is what invalidates cached results.
+   */
+  @Test
+  void aCapabilityChangeIsDetectableDrift() throws IOException, InterruptedException {
+    final var model = hasura.getMissionModel(orbiterModelId);
+    final var live = ExternalAdapterProbe.BASILISK.introspect(BASILISK_MODEL_KEY);
+    // The hash the backend reports is computed over its capabilities as well as its types, so the
+    // attested value and the live one agree only while both are unchanged.
+    assertEquals(live.getString("identityHash"), model.externalIdentityHash());
+    assertNotNull(model.externalCapabilities());
+    assertTrue(model.revision() > 0, "storing the attestation and capabilities bumps the revision");
+  }
+
+  //endregion
+
   //region 6. Simulation configuration
 
   /**

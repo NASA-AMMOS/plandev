@@ -11,4 +11,5 @@ public record MissionModelRecord(
     String externalBackend,
     String externalModelKey,
     String externalIdentityHash,
+    String externalCapabilities,
     Path path) {}

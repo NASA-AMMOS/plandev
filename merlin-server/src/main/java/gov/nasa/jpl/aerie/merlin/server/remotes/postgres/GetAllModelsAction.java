@@ -11,7 +11,7 @@ import java.util.Map;
 
 /*package-local*/ final class GetAllModelsAction implements AutoCloseable {
   private static final @Language("SQL") String sql = """
-    select m.id, m.mission, m.name, m.version, m.owner, m.model_type, m.external_backend, m.external_model_key, m.external_identity_hash, f.path
+    select m.id, m.mission, m.name, m.version, m.owner, m.model_type, m.external_backend, m.external_model_key, m.external_identity_hash, m.external_capabilities::text, f.path
     from merlin.mission_model as m
     left join merlin.uploaded_file as f on m.jar_id = f.id
     """;
@@ -36,7 +36,8 @@ import java.util.Map;
         final var externalBackend = results.getString(7);
         final var externalModelKey = results.getString(8);
         final var externalIdentityHash = results.getString(9);
-        final var pathString = results.getString(10);
+        final var externalCapabilities = results.getString(10);
+        final var pathString = results.getString(11);
         final var path = (pathString == null) ? null : Path.of(pathString);
 
         missionModels.put(
@@ -50,6 +51,7 @@ import java.util.Map;
                 externalBackend,
                 externalModelKey,
                 externalIdentityHash,
+                externalCapabilities,
                 path));
       }
 

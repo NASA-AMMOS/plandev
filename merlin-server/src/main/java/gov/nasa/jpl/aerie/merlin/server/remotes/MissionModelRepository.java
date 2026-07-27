@@ -30,6 +30,15 @@ public interface MissionModelRepository {
      */
     boolean updateExternalIdentityHash(MissionModelId missionModelId, String identityHash);
 
+    /**
+     * Record what an external backend says PlanDev may do with this model, as raw jsonb text.
+     *
+     * @return true if the stored capabilities changed, with the same revision consequences as
+     *         {@link #updateExternalIdentityHash}. Implementations compare as jsonb rather than as
+     *         text, so a backend that reorders its keys between deployments is not a change.
+     */
+    boolean updateExternalCapabilities(MissionModelId missionModelId, String capabilitiesJson);
+
     void updateModelParameters(MissionModelId missionModelId, final List<Parameter> modelParameters) throws NoSuchMissionModelException;
     void updateActivityTypes(MissionModelId missionModelId, final Map<String, ActivityType> activityTypes, final List<String> subsystems) throws NoSuchMissionModelException;
     void updateResourceTypes(MissionModelId missionModelId, final Map<String, Resource<?>> resourceTypes) throws NoSuchMissionModelException;

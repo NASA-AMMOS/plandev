@@ -455,6 +455,7 @@ public enum GQL {
         external_backend
         external_model_key
         external_identity_hash
+        external_capabilities
       }
     }"""),
   GET_MISSION_MODEL_PARAMETERS("""

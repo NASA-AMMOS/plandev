@@ -241,12 +241,58 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
   public PlanMetadata getPlanMetadata(final PlanId planId)
   throws IOException, NoSuchPlanException, MerlinServiceException
   {
+    return getPlanMetadataImpl(planId);
+  }
+
+  /**
+   * Why scheduling is refused for an external model. Three different reasons, three different remedies,
+   * and conflating them sends people to fix the wrong thing.
+   *
+   * <ul>
+   *   <li><b>The backend declares {@code plandevScheduling} unsupported.</b> A permanent property of the
+   *       framework rather than a gap in PlanDev -- Blackbird's own dispatcher places activities during
+   *       the simulation, so its schedule is an output. The backend supplies the explanation and it is
+   *       repeated VERBATIM, so that neither this service nor the UI contains a sentence about
+   *       Blackbird. Adding a fourth framework must not require editing this file. Nothing to fix.
+   *   <li><b>The backend declares it supported.</b> PlanDev is the one that cannot: the scheduler
+   *       simulates against a classloaded model, and the plan-edit adapter over an external backend has
+   *       not been built. A PlanDev gap, and saying so is the honest answer.
+   *   <li><b>Nothing is declared.</b> Either the backend predates capabilities or the model has not been
+   *       re-introspected since. Unknown is treated as unsupported -- the safe direction, since guessing
+   *       "supported" for a forward-dispatch model would put two schedulers on one plan -- but it is
+   *       reported as unknown, because unlike the other two this one has a remedy: re-introspect.
+   * </ul>
+   */
+  private static String externalSchedulingRefusal(final JsonObject model) {
+    final var declared = model.get("external_capabilities");
+    if (declared instanceof JsonObject capabilities
+        && capabilities.get("plandevScheduling") instanceof JsonObject entry) {
+      if (!entry.getBoolean("supported", false)) {
+        final var reason = entry.getString("reason", "");
+        return reason.isBlank()
+            ? "Its backend reports that PlanDev scheduling does not apply to this model."
+            : reason;
+      }
+      return "Its backend reports that PlanDev scheduling applies to this model, but PlanDev cannot "
+             + "drive it yet: the scheduler simulates against a classloaded model, and the plan-edit "
+             + "adapter over an external backend has not been built. Simulation, constraints and plan "
+             + "editing all work for this model.";
+    }
+    return "Its backend does not declare whether PlanDev scheduling applies to this model, so it is "
+           + "treated as unsupported. Re-introspect the model (invoke the refreshActivityTypes / "
+           + "refreshResourceTypes / refreshModelParameters event triggers) to pick up the backend's "
+           + "declared capabilities. Simulation, constraints and plan editing all work regardless.";
+  }
+
+  private PlanMetadata getPlanMetadataImpl(final PlanId planId)
+  throws IOException, NoSuchPlanException, MerlinServiceException
+  {
     final var request = (
         "query getPlanMetadata { "
         + "plan_by_pk( id: %s ) { "
         + "  id revision start_time duration "
         + "  mission_model { "
-        + "    id name version model_type "
+        + "    id name version model_type external_capabilities "
         + "    uploaded_file { name } "
         + "  } "
         + "  simulations(limit:1, order_by:{revision:desc} ) { arguments }"
@@ -276,11 +322,8 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
         // PlanEditAdapter over the external SimulationBackend, which does not exist yet. Until it does,
         // say so plainly -- this used to be a NullPointerException with no indication of the cause.
         throw new MerlinServiceException(
-            ("Plan %s uses mission model %s (\"%s\"), which is an external model with no JAR. Scheduling "
-             + "is not yet supported for external models: the scheduler simulates against a classloaded "
-             + "model, and driving an external backend requires a plan-edit adapter that has not been "
-             + "built. Simulation, constraints and plan editing all work for this model.")
-                .formatted(planId, modelId, modelName));
+            ("Plan %s uses mission model %s (\"%s\"), which is an external model with no JAR. %s")
+                .formatted(planId, modelId, modelName, externalSchedulingRefusal(model)));
       }
       final var modelPath = Path.of(((JsonObject) fileValue).getString("name"));
       //NB: not using the "path" field because it is just a hex-encoded duplicate of the name field anyway

@@ -110,6 +110,17 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
   }
 
   @Override
+  public boolean updateExternalCapabilities(final MissionModelId missionModelId, final String capabilitiesJson) {
+    try (final var connection = this.dataSource.getConnection();
+         final var action = new UpdateExternalCapabilitiesAction(connection)) {
+      return action.apply(missionModelId.id(), capabilitiesJson);
+    } catch (final SQLException ex) {
+      throw new DatabaseException(
+          "Failed to record external capabilities for mission model with id `%s`".formatted(missionModelId), ex);
+    }
+  }
+
+  @Override
   public void updateActivityTypes(final MissionModelId missionModelId, final Map<String, ActivityType> activityTypes, final List<String> subsystems)
   throws NoSuchMissionModelException {
     try (final var connection = this.dataSource.getConnection()) {
@@ -208,6 +219,7 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
     model.externalBackend = record.externalBackend();
     model.externalModelKey = record.externalModelKey();
     model.externalIdentityHash = record.externalIdentityHash();
+    model.externalCapabilities = record.externalCapabilities();
     model.path = record.path();
 
     return model;

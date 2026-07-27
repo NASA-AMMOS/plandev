@@ -7,6 +7,7 @@ import gov.nasa.jpl.aerie.merlin.server.models.ActivityType;
 import javax.json.Json;
 import javax.json.JsonObject;
 import javax.json.JsonString;
+import javax.json.JsonValue;
 import java.io.IOException;
 import java.io.StringReader;
 import java.net.URI;
@@ -36,11 +37,20 @@ public final class ExternalModelDiscovery {
 
   public record DiscoveredModel(String key, String name, String version, String identityHash) {}
 
+  /**
+   * @param capabilities what the backend says PlanDev may DO with this model, keyed by capability
+   *   name -- see merlin.mission_model.external_capabilities. Stored verbatim rather than parsed
+   *   into a Java type on purpose: merlin's job is to carry it to the client, and a backend
+   *   declaring a capability this merlin has never heard of should reach a newer UI intact rather
+   *   than be dropped by an older server. Empty when the backend declares none, which reads as
+   *   "nothing supported".
+   */
   public record Introspection(
       Map<String, ActivityType> activityTypes,
       Map<String, ValueSchema> resourceTypes,
       List<Parameter> parameters,
-      String identityHash) {}
+      String identityHash,
+      JsonObject capabilities) {}
 
   /** The backend's model catalog (one entry for a single-model backend). */
   public static List<DiscoveredModel> listModels(final String baseUrl) throws IOException, InterruptedException {
@@ -103,7 +113,10 @@ public final class ExternalModelDiscovery {
       parameters.add(new Parameter(p.getString("name"), valueSchemaP.parse(p.get("schema")).getSuccessOrThrow()));
     }
 
-    return new Introspection(activityTypes, resourceTypes, parameters, o.getString("identityHash", ""));
+    final var capabilities = o.get("capabilities");
+    return new Introspection(
+        activityTypes, resourceTypes, parameters, o.getString("identityHash", ""),
+        (capabilities instanceof JsonObject obj) ? obj : JsonValue.EMPTY_JSON_OBJECT);
   }
 
   private static String join(final String base, final String path) {

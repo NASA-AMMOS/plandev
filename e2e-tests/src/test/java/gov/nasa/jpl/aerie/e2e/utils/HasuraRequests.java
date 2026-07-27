@@ -112,7 +112,9 @@ public class HasuraRequests implements AutoCloseable {
       String modelType,
       String externalBackend,
       String externalModelKey,
-      String externalIdentityHash)
+      String externalIdentityHash,
+      /** Raw jsonb: what the backend says PlanDev may DO with this model. Null when never declared. */
+      JsonObject externalCapabilities)
   {
     public static MissionModelRow fromJSON(JsonObject json) {
       return new MissionModelRow(
@@ -124,7 +126,8 @@ public class HasuraRequests implements AutoCloseable {
           json.getString("model_type"),
           json.isNull("external_backend") ? null : json.getString("external_backend"),
           json.isNull("external_model_key") ? null : json.getString("external_model_key"),
-          json.isNull("external_identity_hash") ? null : json.getString("external_identity_hash"));
+          json.isNull("external_identity_hash") ? null : json.getString("external_identity_hash"),
+          json.isNull("external_capabilities") ? null : json.getJsonObject("external_capabilities"));
     }
   }
 

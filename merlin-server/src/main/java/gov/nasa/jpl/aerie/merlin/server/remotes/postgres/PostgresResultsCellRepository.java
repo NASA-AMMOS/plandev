@@ -294,7 +294,7 @@ public final class PostgresResultsCellRepository implements ResultsCellRepositor
     }
   }
 
-  private static List<Triple<Integer, String, ValueSchema>> getSimulationTopics(Connection connection, long datasetId)
+  static List<Triple<Integer, String, ValueSchema>> getSimulationTopics(Connection connection, long datasetId)
   throws SQLException
   {
     try (final var getSimulationTopicsAction = new GetSimulationTopicsAction(connection)) {
@@ -302,7 +302,7 @@ public final class PostgresResultsCellRepository implements ResultsCellRepositor
     }
   }
 
-  private static SortedMap<Duration, List<EventGraph<EventRecord>>>
+  static SortedMap<Duration, List<EventGraph<EventRecord>>>
   getSimulationEvents(
       final Connection connection,
       final long datasetId
@@ -313,7 +313,7 @@ public final class PostgresResultsCellRepository implements ResultsCellRepositor
     }
   }
 
-  private static Pair<Map<ActivityInstanceId, ActivityInstance>, Map<ActivityInstanceId, UnfinishedActivity>> getActivities(
+  static Pair<Map<ActivityInstanceId, ActivityInstance>, Map<ActivityInstanceId, UnfinishedActivity>> getActivities(
       final Connection connection,
       final long datasetId,
       final Timestamp startTime

@@ -539,7 +539,9 @@ public final class MerlinBindings implements Plugin {
       final var input = body.input();
 
       final var planId = input.planId();
-      this.checkPermissions(HasuraAction.insert_ext_dataset, body.session(), planId);
+      // Uploading produces a simulation dataset, the same artifact running a simulation
+      // produces, so it is gated on `simulate` rather than on external-dataset insertion.
+      this.checkPermissions(HasuraAction.simulate, body.session(), planId);
 
       final var simulationDatasetId = this.planService.uploadSimulationDataset(
           planId,
@@ -567,7 +569,10 @@ public final class MerlinBindings implements Plugin {
       final var input = body.input();
 
       final var planId = input.planId();
-      this.checkPermissions(HasuraAction.simulate, body.session(), planId);
+      // Downloading is a read-only export of existing results, so it is gated on
+      // `resource_samples` — the same permission that reads simulated resource data,
+      // and one the `viewer` role holds.
+      this.checkPermissions(HasuraAction.resource_samples, body.session(), planId);
 
       final var simulationResults = this.planService.downloadSimulationDataset(
           planId,

@@ -31,6 +31,7 @@ actions:
     permissions:
       - role: aerie_admin
       - role: user
+      - role: viewer
   - name: uploadDictionary
     definition:
       kind: synchronous

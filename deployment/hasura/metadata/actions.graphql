@@ -13,6 +13,17 @@ interface Fallible {
 }
 
 type Mutation {
+  importExternalPlan(
+    missionModelId: String!
+    format: String!
+    content: String!
+    planName: String
+    planStart: String
+    durationDays: Int
+  ): ImportedExternalPlan!
+}
+
+type Mutation {
   addExternalDataset(
     planId: Int!,
     simulationDatasetId: Int,
@@ -415,6 +426,25 @@ type RegisterModelTypesResponse {
 
 type Query {
   getExternalModelCatalog: [ExternalBackendCatalog!]!
+}
+
+"""
+A plan written in a foreign framework's own format, converted to a PlanDev plan.
+
+`format` is one of the keys the model's `planImport` capability advertises, and `content` is the
+file's text -- merlin forwards bytes, never a path. The result is a PlanTransfer document, the same
+thing PlanDev's existing plan import already consumes, so this adds a SOURCE of plans rather than a
+second way to import one.
+"""
+type ImportedExternalPlan {
+  plan: json!
+  notices: [ExternalPlanNotice!]!
+}
+
+type ExternalPlanNotice {
+  severity: String!
+  message: String!
+  subjects: [String!]
 }
 
 type ExternalBackendCatalog {

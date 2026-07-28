@@ -153,6 +153,109 @@ public final class MerlinBindings implements Plugin {
   }
 
   /**
+   * Convert a plan written in a foreign framework's own format into a PlanDev plan.
+   *
+   * <p>Merlin's job here is only to be the trust boundary and to resolve the model. The CONVERSION
+   * belongs in the backend, because it is the only thing that knows both encodings, and it is the only
+   * thing holding the model whose schemas the arguments have to be re-encoded against. Nothing about any
+   * particular framework's file format reaches merlin.
+   *
+   * <p>What comes back is a PlanTransfer document -- the format PlanDev's existing import flow already
+   * accepts -- so this endpoint adds a source of plans rather than a second way to import one.
+   */
+  private void importExternalPlan(final Context ctx) {
+    try {
+      // Read the body directly rather than through a MerlinParsers product parser: `content` is an
+      // opaque document in a foreign framework's format that merlin forwards without interpreting, so
+      // there is no domain object here to parse it into.
+      final javax.json.JsonObject input;
+      try (final var reader = Json.createReader(new java.io.StringReader(ctx.body()))) {
+        input = reader.readObject().getJsonObject("input");
+      }
+      final var modelId = new gov.nasa.jpl.aerie.types.MissionModelId(
+          Long.parseLong(input.getString("missionModelId")));
+      final var model = this.missionModelService.getMissionModelById(modelId);
+
+      final String refusal = whyPlanImportUnavailable(model, modelId);
+      if (refusal != null) {
+        ctx.status(422).result(Json.createObjectBuilder().add("message", refusal).build().toString());
+        return;
+      }
+
+      final var request = Json.createObjectBuilder()
+          .add("format", input.getString("format"))
+          .add("content", input.getString("content"));
+      for (final var optional : List.of("planName", "planStart")) {
+        if (input.containsKey(optional) && !input.isNull(optional)) {
+          request.add(optional, input.getString(optional));
+        }
+      }
+      if (input.containsKey("durationDays") && !input.isNull("durationDays")) {
+        request.add("durationDays", input.getJsonNumber("durationDays").intValue());
+      }
+
+      final var baseUrl = this.externalModelBackends.url(model.externalBackend).orElseThrow();
+      ctx.status(200).result(gov.nasa.jpl.aerie.merlin.server.services.ExternalModelDiscovery
+          .importPlan(baseUrl, model.externalModelKey, request.build()).toString());
+    } catch (final JsonParsingException | NullPointerException | ClassCastException
+                   | NumberFormatException ex) {
+      ctx.status(400).result(Json.createObjectBuilder()
+          .add("message", "malformed importExternalPlan request: " + ex).build().toString());
+    } catch (final MissionModelService.NoSuchMissionModelException ex) {
+      ctx.status(404).result(ResponseSerializers.serializeNoSuchMissionModelException(ex).toString());
+    } catch (final gov.nasa.jpl.aerie.merlin.server.services.ExternalModelDiscovery.BackendRefused ex) {
+      // The backend answered and declined this request -- 400, and its message passed through, because
+      // the thing that knows why is the thing that knows the file format.
+      ctx.status(400).result(Json.createObjectBuilder()
+          .add("message", ex.getMessage()).build().toString());
+    } catch (final IOException | InterruptedException ex) {
+      // The backend could not answer at all. 502 rather than 500: the failure is on the far side of the
+      // trust boundary, which is the difference between "check the adapter" and "check merlin".
+      ctx.status(502).result(Json.createObjectBuilder()
+          .add("message", "External backend could not import the plan: " + ex.getMessage())
+          .build().toString());
+    }
+  }
+
+  /**
+   * Why this model cannot import a plan, or null if it can.
+   *
+   * <p>The stored capability is checked here as well as in the adapter, deliberately. This is what
+   * PlanDev persisted and what the UI offered the user, so if it and the backend disagree the refusal
+   * should name the stored answer and its remedy -- re-introspect -- rather than reporting whatever the
+   * backend happens to do today.
+   */
+  private String whyPlanImportUnavailable(
+      final gov.nasa.jpl.aerie.merlin.server.models.MissionModelJar model,
+      final gov.nasa.jpl.aerie.types.MissionModelId modelId)
+  {
+    if (!"external".equals(model.modelType)) {
+      return "Mission model %s is a JAR model. Importing a plan from a foreign framework's own format "
+             .formatted(modelId) + "is a capability of external backends.";
+    }
+    if (this.externalModelBackends.url(model.externalBackend).isEmpty()) {
+      return "Mission model %s references backend '%s', which is not declared in EXTERNAL_MODEL_BACKENDS."
+          .formatted(modelId, model.externalBackend);
+    }
+    if (!declaresPlanImport(model.externalCapabilities)) {
+      return ("Mission model %s (\"%s\") does not declare the planImport capability. If its backend has "
+              + "gained one, re-introspect the model to pick it up.").formatted(modelId, model.name);
+    }
+    return null;
+  }
+
+  /** Whether a model's stored capabilities say its backend can import plans. Absent means no. */
+  private static boolean declaresPlanImport(final String capabilitiesJson) {
+    if (capabilitiesJson == null || capabilitiesJson.isBlank()) return false;
+    try (final var reader = Json.createReader(new java.io.StringReader(capabilitiesJson))) {
+      return reader.readObject().get("planImport") instanceof javax.json.JsonObject entry
+             && entry.getBoolean("supported", false);
+    } catch (final Exception ex) {                       // NOSONAR -- unparseable means undeclared
+      return false;
+    }
+  }
+
+  /**
    * Resolve the closed world for a pushed result set: the plan's model types plus the directives the plan
    * actually holds. Best-effort by design -- if the plan or its model cannot be read we degrade to an
    * unchecked ingest rather than failing it, because a gate we could not build is our problem, not the
@@ -216,6 +319,7 @@ public final class MerlinBindings implements Plugin {
       path("registerModelTypes", () -> post(this::registerModelTypes));
       path("ingestExternalSimulationResults", () -> post(this::ingestExternalSimulationResults));
       path("getExternalModelCatalog", () -> post(this::getExternalModelCatalog));
+      path("importExternalPlan", () -> post(this::importExternalPlan));
       path("validateActivityArguments", () -> post(this::validateActivityArguments));
       path("validateModelArguments", () -> post(this::validateModelArguments));
       path("validatePlan", () -> post(this::validatePlan));

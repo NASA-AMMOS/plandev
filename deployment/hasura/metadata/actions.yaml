@@ -250,6 +250,14 @@ actions:
     permissions:
       - role: aerie_admin
       - role: user
+  - name: importExternalPlan
+    definition:
+      kind: synchronous
+      handler: "{{AERIE_MERLIN_URL}}/importExternalPlan"
+      timeout: 300
+    permissions:
+      - role: aerie_admin
+      - role: user
   - name: ingestExternalSimulationResults
     definition:
       kind: synchronous

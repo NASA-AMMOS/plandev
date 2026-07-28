@@ -126,6 +126,12 @@ public final class AerieAppDriver {
     server.setConnectors(new Connector[]{connector});
     final var javalin = Javalin.create(config -> {
       config.showJavalinBanner = false;
+      // Javalin's own default is 1 MB, which silently 413s the two endpoints that carry a whole
+      // artifact rather than a few fields: a full simulation result set (a day of one external model
+      // is 5.6 MB, a week 38.6 MB) and a foreign-format plan file. The limit is GLOBAL, so raising it
+      // here admits a large body on every route -- MerlinBindings puts the 1 MB limit back for every
+      // path that has not earned the exemption, which is all but two of them.
+      config.http.maxRequestSize = 256L * 1024 * 1024;
       if (configuration.enableJavalinDevLogging()) config.plugins.enableDevLogging();
       config.plugins.enableCors(cors -> cors.add(it -> it.anyHost()));
       config.plugins.register(merlinBindings);

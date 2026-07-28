@@ -304,10 +304,47 @@ public final class MerlinBindings implements Plugin {
     }
   }
 
+  /**
+   * Routes that legitimately receive a large body, and are therefore exempt from
+   * {@link #ORDINARY_MAX_REQUEST_BYTES}.
+   *
+   * <p>Both carry a whole artifact rather than a handful of fields: a full simulation result set, or a
+   * plan file written by a foreign framework. A day of Basilisk output is 5.6 MB and a week is 38.6 MB,
+   * so the ordinary limit is not a tight fit for these -- it is the wrong order of magnitude.
+   */
+  private static final java.util.Set<String> LARGE_BODY_PATHS =
+      java.util.Set.of("/ingestExternalSimulationResults", "/importExternalPlan");
+
+  /**
+   * What every OTHER route may accept. This is Javalin's own former default, kept deliberately.
+   *
+   * <p>Javalin's size limit is global, so admitting a large body anywhere admits one everywhere --
+   * which would put a 256 MB allocation behind every endpoint merlin serves, most of which take a plan
+   * id and a couple of strings. Raising the engine's ceiling and re-imposing the small limit here for
+   * everything not on the list above keeps the exemption where it is earned.
+   */
+  private static final long ORDINARY_MAX_REQUEST_BYTES = 1024L * 1024L;
+
+  /**
+   * Reject an oversized body before a handler allocates it.
+   *
+   * <p>Thrown rather than written: a {@code before} handler that merely sets a status does not stop
+   * the endpoint that follows it, so the request would be answered twice -- once with the refusal and
+   * once by a handler reading the body this was supposed to prevent.
+   */
+  private static void enforceRequestSize(final Context ctx) {
+    if (LARGE_BODY_PATHS.contains(ctx.path())) return;
+    if (ctx.contentLength() <= ORDINARY_MAX_REQUEST_BYTES) return;
+    throw new io.javalin.http.ContentTooLargeResponse(
+        "request body is %d bytes; %s accepts at most %d"
+            .formatted(ctx.contentLength(), ctx.path(), ORDINARY_MAX_REQUEST_BYTES));
+  }
+
   @Override
   public void apply(final Javalin javalin) {
     javalin.routes(() -> {
       before(ctx -> ctx.contentType("application/json"));
+      before(MerlinBindings::enforceRequestSize);
 
       path("resourceTypes", () -> post(this::getResourceTypes));
       path("getSimulationResults", () -> post(this::getSimulationResults));

@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -69,6 +70,8 @@ public class ExternalModelTests {
   private static final String PYTHON_MODEL_KEY = "battery";
   private static final String BASILISK_BACKEND = "basilisk-lab";
   private static final String BASILISK_MODEL_KEY = "orbiter";
+  private static final String NEXOSIM_BACKEND = "nexosim-lab";
+  private static final String NEXOSIM_MODEL_KEY = "cryo";
 
   private static final String MISSION = "aerie_e2e_external";
   private static final String PLAN_START = "2024-01-01T00:00:00+00:00";
@@ -86,6 +89,7 @@ public class ExternalModelTests {
   private int blackbirdModelId;
   private int batteryModelId;
   private int orbiterModelId;
+  private int cryoModelId;
 
   // Everything created here, torn down in reverse in afterAll.
   private final List<Integer> createdPlans = new ArrayList<>();
@@ -101,6 +105,7 @@ public class ExternalModelTests {
     blackbirdModelId = registerExternalModel("Blackbird powermodel (e2e)", BLACKBIRD_BACKEND, BLACKBIRD_MODEL_KEY);
     batteryModelId = registerExternalModel("Python battery (e2e)", PYTHON_BACKEND, PYTHON_MODEL_KEY);
     orbiterModelId = registerExternalModel("Basilisk orbiter (e2e)", BASILISK_BACKEND, BASILISK_MODEL_KEY);
+    cryoModelId = registerExternalModel("NeXosim cryo (e2e)", NEXOSIM_BACKEND, NEXOSIM_MODEL_KEY);
   }
 
   @AfterAll
@@ -899,6 +904,120 @@ public class ExternalModelTests {
         blackbirdModelId, "not-a-format", BLACKBIRD_PLAN_FILE, "nope"));
     assertTrue(thrown.getMessage().contains("blackbird-plan-json"),
                "the refusal must list the formats that do work: " + thrown.getMessage());
+  }
+
+  //endregion
+
+  //region 5e. A model in another language, and another process
+
+  /**
+   * The NeXosim backend's MODEL is a Rust binary the adapter spawns over a stdio protocol. Everything
+   * PlanDev sees of it -- types, defaults, validation, the identity hash, the results -- is produced by
+   * the shared Python host, and not one line of Rust knows what an identity hash is.
+   *
+   * <p>It is here because it exercises the parts of {@code ValueSchema} the other three never did.
+   * Until this model, only real, boolean, variant and duration had ever crossed the wire, so
+   * "PlanDev stores whatever a backend declares" was a claim about four types out of nine.
+   */
+  @Test
+  void schemaTypesNoOtherBackendUsesSurviveStorage() throws IOException {
+    final var byName = hasura.getResourceTypes(cryoModelId).stream()
+                             .collect(Collectors.toMap(ResourceType::name, ResourceType::schema));
+    assertEquals(ValueSchema.VALUE_SCHEMA_STRING, byName.get("/instrument/target"));
+    assertEquals(ValueSchema.VALUE_SCHEMA_INT, byName.get("/recorder/framesStored"));
+
+    // A struct's fields are themselves schemas, and a MIXED one is the interesting case: nothing
+    // before this model stored a resource whose value is an object of three different types. Parsing
+    // it back through ValueSchema.fromJSON is itself the assertion -- an unparseable schema throws.
+    assertInstanceOf(ValueSchema.ValueSchemaStruct.class, byName.get("/recorder/newestFrame"));
+    final var frame = ((ValueSchema.ValueSchemaStruct) byName.get("/recorder/newestFrame")).items();
+    assertEquals(ValueSchema.VALUE_SCHEMA_STRING, frame.get("target"));
+    assertEquals(ValueSchema.VALUE_SCHEMA_INT, frame.get("frameId"));
+    assertEquals(ValueSchema.VALUE_SCHEMA_REAL, frame.get("detectorKelvin"));
+  }
+
+  /**
+   * An activity type with NO duration parameter, which every other model in this suite has. It is
+   * instantaneous, so its span is zero-length -- and a zero-length span is a real thing PlanDev models,
+   * distinct from an unfinished one, which has no duration at all.
+   */
+  @Test
+  void anInstantaneousActivityProducesAZeroDurationSpan() throws IOException {
+    final var planId = newPlan(cryoModelId, "NeXosim Instantaneous", "02:00:00");
+    final int setpoint = hasura.insertActivityDirective(
+        planId, "SetCoolerSetpoint", "00:05:00",
+        Json.createObjectBuilder().add("setpointKelvin", 95.0).build());
+
+    final var span = spansByDirective(simulateAndFetchSpans(planId)).get((long) setpoint);
+    assertEquals("00:00:00", span.duration(), "an instantaneous activity is zero-length, not unfinished");
+    assertNotNull(span.computedAttributes(), "and it is FINISHED, so it carries computed attributes");
+  }
+
+  /**
+   * The whole out-of-process path, end to end through merlin with the ingest gate in reject mode: a
+   * Rust binary's output becomes PlanDev profiles and spans. The gate is what makes this an assertion
+   * rather than an observation -- struct, string and int resources had never been through it.
+   */
+  @Test
+  void aRustModelsOutputPassesTheIngestGate() throws IOException {
+    final var planId = newPlan(cryoModelId, "NeXosim Run", "08:00:00");
+    hasura.insertActivityDirective(planId, "Observe", "00:30:00",
+                                   Json.createObjectBuilder().add("duration", 3600000000L).build());
+    hasura.insertActivityDirective(planId, "Downlink", "02:00:00",
+                                   Json.createObjectBuilder().add("duration", 1200000000L).build());
+
+    final var response = hasura.awaitSimulation(planId, SIM_TIMEOUT);
+    final var simDataset = hasura.getSimulationDataset(response.simDatasetId());
+    assertEquals(SimulationDataset.SimulationStatus.success, simDataset.status(),
+                 "simulation did not succeed: " + simDataset.reason());
+
+    final var profiles = hasura.getProfiles(simDataset.datasetId());
+    assertEquals(6, profiles.size(), "every declared resource must be emitted: " + profiles.keySet());
+    // The struct resource, as stored: an object, not a string that happens to look like one.
+    final var frame = profiles.get("/recorder/newestFrame").stream()
+                              .map(s -> s.dynamics())
+                              .filter(d -> d.getValueType() == JsonValue.ValueType.OBJECT)
+                              .findFirst()
+                              .orElseThrow(() -> new AssertionError("no struct-valued segment"));
+    assertNotNull(frame.asJsonObject().get("frameId"));
+  }
+
+  //endregion
+
+  //region 5f. Request size
+
+  /**
+   * Two endpoints carry a whole artifact -- a full simulation result set, or a foreign-format plan
+   * file -- and Javalin's 1 MB default silently 413s both. A day of one external model's output is
+   * 5.6 MB and a week is 38.6 MB, so the default is the wrong order of magnitude for them.
+   *
+   * <p>Javalin's limit is global, so the exemption has to be re-narrowed by hand. Both halves are
+   * asserted, because raising the ceiling and forgetting to put it back is the failure that turns one
+   * exemption into a large allocation behind every endpoint merlin serves.
+   */
+  @Test
+  void largeBodiesReachOnlyTheEndpointsThatEarnedThem() {
+    final var oversized = "x".repeat(2 * 1024 * 1024);
+
+    // An ordinary route still refuses, and says which path and what limit.
+    final var refused = merlin.post("/resourceTypes", RequestOptions.create()
+        .setHeader("Content-Type", "application/json")
+        .setData(Json.createObjectBuilder().add("padding", oversized).build().toString()));
+    assertEquals(413, refused.status());
+    assertTrue(refused.text().contains("/resourceTypes"), refused.text());
+
+    // The import route accepts the body and fails on its CONTENT instead, which is the proof it got
+    // through: a 413 never reaches a handler.
+    final var accepted = merlin.post("/importExternalPlan", RequestOptions.create()
+        .setHeader("Content-Type", "application/json")
+        .setData(Json.createObjectBuilder()
+            .add("input", Json.createObjectBuilder()
+                .add("missionModelId", String.valueOf(blackbirdModelId))
+                .add("format", "blackbird-plan-json")
+                .add("content", oversized))
+            .build().toString()));
+    assertEquals(400, accepted.status());
+    assertTrue(accepted.text().contains("not a Blackbird"), accepted.text());
   }
 
   //endregion

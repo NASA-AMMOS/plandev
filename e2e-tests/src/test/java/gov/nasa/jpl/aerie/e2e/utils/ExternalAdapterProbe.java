@@ -32,6 +32,9 @@ public final class ExternalAdapterProbe {
   public static final ExternalAdapterProbe PYTHON = new ExternalAdapterProbe("python-adapter", 5002);
   /** The Basilisk astrodynamics backend declared to merlin as {@code basilisk-lab}. */
   public static final ExternalAdapterProbe BASILISK = new ExternalAdapterProbe("basilisk-adapter", 5021);
+  /** The NeXosim backend declared to merlin as {@code nexosim-lab}. Its MODEL is a Rust binary the
+   *  adapter spawns, which is why the sidecar above cannot assume the target image has an interpreter. */
+  public static final ExternalAdapterProbe NEXOSIM = new ExternalAdapterProbe("nexosim-adapter", 5031);
 
   private final String container;
   private final int port;

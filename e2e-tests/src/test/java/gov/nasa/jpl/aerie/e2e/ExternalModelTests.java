@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -778,6 +779,126 @@ public class ExternalModelTests {
     assertEquals(live.getString("identityHash"), model.externalIdentityHash());
     assertNotNull(model.externalCapabilities());
     assertTrue(model.revision() > 0, "storing the attestation and capabilities bumps the revision");
+  }
+
+  //endregion
+
+  //region 5d. Plan import
+
+  /**
+   * A Blackbird plan file, written the way Blackbird's own {@code JSONPlanWriter} writes one.
+   *
+   * <p>Three activities, chosen so the two silent failure modes are both present. The third is a
+   * DECOMPOSITION CHILD: it is the same type as the first, and it starts at the same instant as its
+   * parent, so no heuristic on type or start time could tell it apart -- {@code parent} is the only
+   * correct rule. Importing it would double-count, because PlanDev would run it AND regenerate it from
+   * its parent's decomposition, and nothing downstream flags that. The durations are in Blackbird's
+   * {@code "HH:MM:SS.ffffff"} encoding, which is not what PlanDev stores.
+   */
+  private static final String BLACKBIRD_PLAN_FILE = """
+      {"activities": [
+        {"type": "ActivityOne", "start": "2024-001T01:00:00.000000", "notes": "first pass",
+         "parameters": [{"name": "d", "type": "duration", "value": "01:00:00.000000"}],
+         "id": "aaaaaaaa-0000-0000-0000-000000000001", "parent": null},
+        {"type": "ActivityTwo", "start": "2024-001T02:00:00.000000", "notes": "",
+         "parameters": [{"name": "amount", "type": "double", "value": 42.5}],
+         "id": "aaaaaaaa-0000-0000-0000-000000000002", "parent": null},
+        {"type": "ActivityOne", "start": "2024-001T02:00:00.000000", "notes": "",
+         "parameters": [{"name": "d", "type": "duration", "value": "00:30:00.000000"}],
+         "id": "aaaaaaaa-0000-0000-0000-000000000003",
+         "parent": "aaaaaaaa-0000-0000-0000-000000000002"}
+      ]}""";
+
+  /**
+   * A plan authored in Blackbird becomes a PlanDev plan, converted by the only thing that knows both
+   * encodings and holds the model the arguments have to be re-encoded against: the backend.
+   *
+   * <p>What comes back is a PlanTransfer document -- the format PlanDev's existing plan import already
+   * consumes -- so this adds a source of plans rather than a second way to import one.
+   */
+  @Test
+  void aPlanAuthoredInBlackbirdImportsAsPlanDevDirectives() throws IOException {
+    final var imported = hasura.importExternalPlan(
+        blackbirdModelId, "blackbird-plan-json", BLACKBIRD_PLAN_FILE, "imported ops");
+    final var plan = imported.getJsonObject("plan");
+
+    assertEquals("2", plan.getString("version"), "PlanTransfer v2 is what the import flow reads");
+    assertEquals("imported ops", plan.getString("name"));
+
+    final var activities = plan.getJsonArray("activities");
+    assertEquals(2, activities.size(),
+                 "three activities in, two directives out: the decomposition child is not a directive");
+    assertEquals(List.of("ActivityOne", "ActivityTwo"),
+                 activities.stream().map(a -> a.asJsonObject().getString("type")).toList());
+
+    // Blackbird writes "01:00:00.000000"; PlanDev stores microseconds. Copying the value across
+    // unchanged would produce a well-formed plan that fails, or silently coerces, at simulation.
+    assertEquals(3600000000L, activities.getJsonObject(0).getJsonObject("arguments")
+                                        .getJsonNumber("d").longValue());
+    assertEquals(42.5, activities.getJsonObject(1).getJsonObject("arguments")
+                                 .getJsonNumber("amount").doubleValue());
+
+    // The correlation id survives, which is what lets an imported directive be traced back to the
+    // Blackbird activity it came from.
+    assertEquals("aaaaaaaa-0000-0000-0000-000000000001",
+                 activities.getJsonObject(0).getJsonObject("metadata").getString("blackbirdId"));
+
+    final var notices = imported.getJsonArray("notices");
+    assertTrue(notices.stream().noneMatch(n -> "error".equals(n.asJsonObject().getString("severity"))),
+               "a clean file must import with no errors: " + notices);
+    // The dropped child is REPORTED, not silently discarded -- an operator who expected three
+    // activities needs to know why they got two.
+    assertTrue(notices.stream().anyMatch(n -> n.asJsonObject().getString("message").contains("decomposition")),
+               "the dropped decomposition child must be reported: " + notices);
+    // Blackbird's plan file has no header, so the window is derived from the activities and said out
+    // loud rather than quietly assumed.
+    assertTrue(notices.stream().anyMatch(n -> n.asJsonObject().getString("message").contains("plan window derived")),
+               "the derived plan window must be reported: " + notices);
+  }
+
+  /**
+   * The imported plan must be usable, which is the only claim that matters. Directives converted by the
+   * backend go into a real plan and simulate against the same model that produced them.
+   */
+  @Test
+  void importedDirectivesSimulateOnTheModelTheyCameFrom() throws IOException {
+    final var imported = hasura.importExternalPlan(
+        blackbirdModelId, "blackbird-plan-json", BLACKBIRD_PLAN_FILE, "imported ops");
+    final var planId = newPlan(blackbirdModelId, "External Plan Import", "24:00:00");
+
+    for (final var activity : imported.getJsonObject("plan").getJsonArray("activities")) {
+      final var directive = activity.asJsonObject();
+      hasura.insertActivityDirective(planId, directive.getString("type"),
+                                     directive.getString("start_offset"),
+                                     directive.getJsonObject("arguments"));
+    }
+    final var spans = simulateAndFetchSpans(planId);
+    assertFalse(spans.isEmpty(), "an imported plan must actually simulate");
+  }
+
+  /**
+   * A model whose backend does not offer plan import refuses, and says the capability is the reason.
+   * The check is against what PlanDev STORED, so the answer is the same one the UI showed the user.
+   */
+  @Test
+  void aModelWithoutThePlanImportCapabilityRefuses() {
+    final var thrown = assertThrows(RuntimeException.class, () -> hasura.importExternalPlan(
+        orbiterModelId, "blackbird-plan-json", BLACKBIRD_PLAN_FILE, "nope"));
+    assertTrue(thrown.getMessage().contains("planImport"),
+               "the refusal must name the capability: " + thrown.getMessage());
+  }
+
+  /**
+   * An unknown format is the CALLER's error, not the backend's failure. Reporting it as a backend
+   * problem sends an operator to inspect a service that answered correctly, with the actionable detail
+   * -- which formats do work -- sitting unread inside the message.
+   */
+  @Test
+  void anUnknownPlanFormatIsReportedAsABadRequestListingTheOnesThatWork() {
+    final var thrown = assertThrows(RuntimeException.class, () -> hasura.importExternalPlan(
+        blackbirdModelId, "not-a-format", BLACKBIRD_PLAN_FILE, "nope"));
+    assertTrue(thrown.getMessage().contains("blackbird-plan-json"),
+               "the refusal must list the formats that do work: " + thrown.getMessage());
   }
 
   //endregion

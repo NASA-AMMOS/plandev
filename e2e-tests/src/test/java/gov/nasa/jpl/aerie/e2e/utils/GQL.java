@@ -443,6 +443,14 @@ public enum GQL {
         }
       }
     }"""),
+  IMPORT_EXTERNAL_PLAN("""
+    mutation ImportExternalPlan($missionModelId: String!, $format: String!, $content: String!, $planName: String) {
+      importExternalPlan(missionModelId: $missionModelId, format: $format, content: $content, planName: $planName) {
+        plan
+        notices { severity message subjects }
+      }
+    }"""),
+
   GET_MISSION_MODEL("""
     query GetMissionModel($id: Int!) {
       mission_model: mission_model_by_pk(id: $id) {

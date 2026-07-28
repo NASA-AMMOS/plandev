@@ -317,6 +317,22 @@ public class HasuraRequests implements AutoCloseable {
    *
    * @return the model's revision after the write
    */
+  /**
+   * Convert a plan written in a foreign framework's own format into a PlanDev plan, via the backend.
+   * Returns the whole payload: the PlanTransfer document plus the notices raised converting it.
+   */
+  public JsonObject importExternalPlan(int modelId, String format, String content, String planName)
+  throws IOException
+  {
+    final var variables = Json.createObjectBuilder()
+                              .add("missionModelId", String.valueOf(modelId))
+                              .add("format", format)
+                              .add("content", content)
+                              .add("planName", planName)
+                              .build();
+    return makeRequest(GQL.IMPORT_EXTERNAL_PLAN, variables).getJsonObject("importExternalPlan");
+  }
+
   public int setExternalIdentityHash(int modelId, String hash) throws IOException {
     final var variables = Json.createObjectBuilder()
                               .add("id", modelId)

@@ -286,7 +286,7 @@ public final class SimulationResultsParser {
                     discreteList.forEach(e -> discrete.put(e.getKey(), e.getValue()));
                     return Map.<Map<String, ResourceProfile<RealDynamics>>, Map<String, ResourceProfile<SerializedValue>>>entry(real, discrete);
                   }),
-                  profiles -> tuple(List.of(), List.of())))
+                  profiles -> { throw new UnsupportedOperationException("simulationResultsP is parse-only"); }))
           .field("spans", productP
               .field("simulatedActivities", listP(indexedSimulatedActivityP))
               .field("unfinishedActivities", listP(indexedUnfinishedActivityP))
@@ -298,7 +298,7 @@ public final class SimulationResultsParser {
                     unfinList.forEach(e -> unfinMap.put(new ActivityInstanceId(e.getKey()), e.getValue()));
                     return Map.<Map<ActivityInstanceId, ActivityInstance>, Map<ActivityInstanceId, UnfinishedActivity>>entry(simMap, unfinMap);
                   }),
-                  spans -> tuple(List.of(), List.of())))
+                  spans -> { throw new UnsupportedOperationException("simulationResultsP is parse-only"); }))
           .optionalField("simulationArguments", mapP(serializedValueP))
           .optionalField("topics", mapP(productP
               .field("schema", valueSchemaP)
@@ -330,12 +330,6 @@ public final class SimulationResultsParser {
                     events,
                     simArgs.orElse(Map.of()));
               }),
-              results -> tuple(
-                  new Timestamp(results.startTime),
-                  new Timestamp(results.startTime).plusMicros(results.duration.in(Duration.MICROSECONDS)),
-                  Map.entry(Map.of(), Map.of()),
-                  Map.entry(Map.of(), Map.of()),
-                  Optional.ofNullable(results.simulationArguments.isEmpty() ? null : results.simulationArguments),
-                  Optional.empty(),
-                  Optional.empty()));
+              results -> { throw new UnsupportedOperationException(
+                  "simulationResultsP is parse-only; use ResponseSerializers.serializeSimulationResultsForDownload() to serialize"); });
 }

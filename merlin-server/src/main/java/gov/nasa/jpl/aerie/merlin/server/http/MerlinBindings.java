@@ -10,6 +10,7 @@ import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.DatabaseException;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsException;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
+import gov.nasa.jpl.aerie.merlin.server.exceptions.InvalidSimulationDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.SimulationDatasetMismatchException;
@@ -556,6 +557,8 @@ public final class MerlinBindings implements Plugin {
       ctx.status(pe.httpStatusCode()).json(pe.formattedError());
     } catch (final NoSuchPlanException ex) {
       ctx.status(404).json(new MerlinFormattedError(ex));
+    } catch (final InvalidSimulationDatasetException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
     } catch (final JsonParsingException ex) {
       ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
     } catch (final InvalidJsonEntityException ex) {

@@ -5,8 +5,10 @@ import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.jpl.aerie.merlin.server.exceptions.InvalidSimulationDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
+import gov.nasa.jpl.aerie.merlin.server.models.ActivityType;
 import gov.nasa.jpl.aerie.merlin.server.http.InvalidJsonEntityException;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
 import gov.nasa.jpl.aerie.merlin.server.models.DatasetId;
@@ -29,6 +31,7 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -234,9 +237,14 @@ public final class PostgresPlanRepository implements PlanRepository {
       final PlanId planId,
       final SimulationResults simulationResults,
       final String requestedBy
-  ) throws NoSuchPlanException {
+  ) throws NoSuchPlanException, InvalidSimulationDatasetException {
     try (final var connection = this.dataSource.getConnection();
          final var transactionContext = new TransactionContext(connection)) {
+      final var planRecord = getPlanRecord(connection, planId);
+
+      // Validate that all activity types in the dataset exist in the plan's mission model
+      validateActivityTypes(connection, planRecord.missionModelId(), simulationResults);
+
       final var simulation = getSimulation(connection, planId);
       final var simulationStart = new Timestamp(simulationResults.startTime);
       final var simulationEnd = simulationStart.plusMicros(simulationResults.duration.in(Duration.MICROSECONDS));
@@ -473,6 +481,34 @@ public final class PostgresPlanRepository implements PlanRepository {
   ) throws SQLException {
     try (final var createPlanDatasetAction = new CreatePlanDatasetAction(connection)) {
       return createPlanDatasetAction.apply(planId.id(), simulationDatasetId, planStart, datasetStart);
+    }
+  }
+
+  private static void validateActivityTypes(
+      final Connection connection,
+      final long missionModelId,
+      final SimulationResults simulationResults
+  ) throws SQLException, InvalidSimulationDatasetException {
+    final var datasetActivityTypes = new HashSet<String>();
+    simulationResults.simulatedActivities.values().forEach(a -> datasetActivityTypes.add(a.type()));
+    simulationResults.unfinishedActivities.values().forEach(a -> datasetActivityTypes.add(a.type()));
+
+    if (datasetActivityTypes.isEmpty()) return;
+
+    try (final var getActivityTypesAction = new GetActivityTypesAction(connection)) {
+      final var modelActivityTypeNames = getActivityTypesAction.get(missionModelId)
+          .stream()
+          .map(ActivityType::name)
+          .collect(Collectors.toSet());
+
+      final var unknownTypes = datasetActivityTypes.stream()
+          .filter(t -> !modelActivityTypeNames.contains(t))
+          .sorted()
+          .toList();
+
+      if (!unknownTypes.isEmpty()) {
+        throw new InvalidSimulationDatasetException(unknownTypes);
+      }
     }
   }
 

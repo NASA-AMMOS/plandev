@@ -257,5 +257,36 @@ public class UploadSimulationDatasetTests {
       final var response = request.post("/uploadSimulationDataset", RequestOptions.create().setData(data));
       assertEquals(403, response.status());
     }
+
+    @Test
+    void rejectsUnknownActivityTypes() {
+      final var simResults = Json.createObjectBuilder()
+          .add("simulationStartTime", "2024-001T00:00:00.000")
+          .add("simulationEndTime", "2024-001T12:00:00.000")
+          .add("profiles", Json.createObjectBuilder()
+              .add("realProfiles", Json.createArrayBuilder())
+              .add("discreteProfiles", Json.createArrayBuilder()))
+          .add("spans", Json.createObjectBuilder()
+              .add("simulatedActivities", Json.createArrayBuilder()
+                  .add(Json.createObjectBuilder()
+                      .add("id", 1)
+                      .addNull("directiveId")
+                      .addNull("parentId")
+                      .add("childIds", Json.createArrayBuilder())
+                      .add("type", "NonExistentActivityType")
+                      .add("duration", "00:30:00.000000")
+                      .add("attributes", Json.createObjectBuilder()
+                          .add("type", "string")
+                          .add("value", "done"))
+                      .add("arguments", Json.createObjectBuilder())
+                      .add("startTime", "2024-001T01:00:00.000")))
+              .add("unfinishedActivities", Json.createArrayBuilder()))
+          .build();
+
+      final String data = buildRequest(planId, simResults, admin.getSession());
+      final var response = request.post("/uploadSimulationDataset", RequestOptions.create().setData(data));
+      assertEquals(400, response.status());
+      assertTrue(getBody(response).getString("message").contains("NonExistentActivityType"));
+    }
   }
 }

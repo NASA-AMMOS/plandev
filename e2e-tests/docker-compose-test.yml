@@ -65,6 +65,14 @@ services:
       MERLIN_DB_PASSWORD: "${MERLIN_PASSWORD}"
       MERLIN_LOCAL_STORE: /usr/src/app/merlin_file_store
       MERLIN_PORT: 27183
+      # External mission-model backends. All four are declared unconditionally: merlin's catalog
+      # reports an absent one as unreachable, and ExternalModelTests skips that backend's tests
+      # rather than failing, so CI can run the adapters it can afford to build without this file
+      # having to know which those are.
+      EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://blackbird-adapter:5011"},{"name":"python-lab","url":"http://python-adapter:5002"},{"name":"basilisk-lab","url":"http://basilisk-adapter:5021"},{"name":"nexosim-lab","url":"http://nexosim-adapter:5031"}]'
+      # reject, not warn: a closed-world violation in what a backend returns must FAIL the
+      # simulation, so "the simulation succeeded" is itself an assertion about the contract.
+      EXTERNAL_INGEST_GATE: reject
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
         -Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG
@@ -181,6 +189,8 @@ services:
       MERLIN_DB_USER: "${MERLIN_USERNAME}"
       MERLIN_DB_PASSWORD: "${MERLIN_PASSWORD}"
       MERLIN_WORKER_LOCAL_STORE: /usr/src/app/merlin_file_store
+      EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://blackbird-adapter:5011"},{"name":"python-lab","url":"http://python-adapter:5002"},{"name":"basilisk-lab","url":"http://basilisk-adapter:5021"},{"name":"nexosim-lab","url":"http://nexosim-adapter:5031"}]'
+      EXTERNAL_INGEST_GATE: reject
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
         -Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG
@@ -204,6 +214,8 @@ services:
       MERLIN_DB_USER: "${MERLIN_USERNAME}"
       MERLIN_DB_PASSWORD: "${MERLIN_PASSWORD}"
       MERLIN_WORKER_LOCAL_STORE: /usr/src/app/merlin_file_store
+      EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://blackbird-adapter:5011"},{"name":"python-lab","url":"http://python-adapter:5002"},{"name":"basilisk-lab","url":"http://basilisk-adapter:5021"},{"name":"nexosim-lab","url":"http://nexosim-adapter:5031"}]'
+      EXTERNAL_INGEST_GATE: reject
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
         -Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG

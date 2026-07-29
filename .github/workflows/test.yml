@@ -158,6 +158,84 @@ jobs:
       - name: Shutdown E2E Test Backend
         uses: ./.github/actions/shutdown-test-backend
 
+  external-model-e2e-tests:
+    runs-on: ubuntu-latest
+    environment: e2e-test
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v6
+      # The adapters live in plandev-examples: they are demonstration backends, not part of this
+      # build, and keeping them out of this repo is what makes "a backend is just something that
+      # speaks the contract" true rather than aspirational.
+      - name: Checkout example backends
+        uses: actions/checkout@v6
+        with:
+          repository: NASA-AMMOS/plandev-examples
+          path: plandev-examples
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: "temurin"
+          java-version: "21"
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
+      - name: Start E2E Test Backend
+        uses: ./.github/actions/start-test-backend
+
+      # WHICH adapters run here, and why not all four.
+      #
+      # The Python battery and the NeXosim model are cheap and self-contained: stdlib, and a Rust
+      # build that finishes in seconds. Between them they cover the whole generic contract -- the
+      # ingest gate, identity attestation, capabilities, computed attributes, unfinished spans -- plus
+      # the out-of-process ExecBackend path and the ValueSchema types (struct, string, int) that only
+      # the Rust model exercises.
+      #
+      # Blackbird and Basilisk are deliberately NOT built. Blackbird compiles jplTime and Blackbird
+      # from source with Maven and needs a JNISpice jar; Basilisk downloads 128 MB of SPICE kernels
+      # from naif.jpl.nasa.gov and produces a 1.3 GB image. Each would add three network dependencies
+      # that can fail for reasons unrelated to the change under test, and the NAIF download on every
+      # pull request would be both slow and rude.
+      #
+      # BE HONEST ABOUT WHAT THIS COVERS: 9 of the 27 tests run here. The other 18 skip, and the skip
+      # names the backend, so the gap is visible in the report rather than silently absent. What runs
+      # is the generic contract -- ingest gate rejection, identity drift and recovery, unfinished
+      # spans, anchor resolution, stored capabilities, the out-of-process ExecBackend path, and the
+      # struct/string/int ValueSchema types. What does not is everything Blackbird- or
+      # Basilisk-specific, plus the handful of tests that assert across two backends at once.
+      #
+      # To run the whole suite, bring up all four adapters against a local stack:
+      #   cd plandev-examples/external-model-backends && PLANDEV_NETWORK=<net> docker compose up -d
+      - name: Build and start the cheap adapters
+        working-directory: plandev-examples/external-model-backends
+        run: |
+          docker build -q -f python/Dockerfile -t plandev/python-adapter .
+          docker build -q -f nexosim/Dockerfile -t plandev/nexosim-adapter .
+          # Join the network the test stack created, and use the service names merlin was configured
+          # with in docker-compose-test.yml.
+          NETWORK=$(docker inspect aerie_merlin --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}{{end}}')
+          docker run -d --name python-adapter  --network "$NETWORK" plandev/python-adapter
+          docker run -d --name nexosim-adapter --network "$NETWORK" plandev/nexosim-adapter
+          docker ps --format '{{.Names}}\t{{.Status}}'
+
+      - name: Run External Model E2E Tests
+        run: ./gradlew :e2e-tests:e2eTest --tests '*ExternalModelTests*'
+      - name: Upload External Model E2E Test Results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: External Model E2E Test Results
+          path: |
+            **/e2e-tests/build/reports/tests/e2eTest
+      - name: Adapter logs
+        if: failure()
+        run: docker logs python-adapter; docker logs nexosim-adapter
+      - name: Shutdown E2E Test Backend
+        uses: ./.github/actions/shutdown-test-backend
+
   java-e2e-test:
     runs-on: ubuntu-latest
     environment: e2e-test

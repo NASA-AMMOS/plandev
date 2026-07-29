@@ -38,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
@@ -86,10 +87,16 @@ public class ExternalModelTests {
 
   // Models shared by the read-only tests. Tests that deliberately corrupt a model's stored metadata
   // register their own so they cannot disturb these.
-  private int blackbirdModelId;
-  private int batteryModelId;
-  private int orbiterModelId;
-  private int cryoModelId;
+  // Nullable: a backend that is not running leaves its model unregistered, and the tests that need
+  // it SKIP rather than fail. Not a convenience -- it is what lets CI run the cheap adapters without
+  // building a JVM adaptation and downloading 128 MB of SPICE kernels on every pull request, and it
+  // lets a developer working on one adapter run its tests without starting the other three.
+  private Integer blackbirdModelId;
+  private Integer batteryModelId;
+  private Integer orbiterModelId;
+  private Integer cryoModelId;
+  /** Why a backend's model could not be registered, so a skip says something more than "skipped". */
+  private final Map<String, String> unavailableBackends = new HashMap<>();
 
   // Everything created here, torn down in reverse in afterAll.
   private final List<Integer> createdPlans = new ArrayList<>();
@@ -102,10 +109,10 @@ public class ExternalModelTests {
     merlin = playwright.request().newContext(
         new APIRequest.NewContextOptions().setBaseURL(BaseURL.MERLIN_SERVER.url));
 
-    blackbirdModelId = registerExternalModel("Blackbird powermodel (e2e)", BLACKBIRD_BACKEND, BLACKBIRD_MODEL_KEY);
-    batteryModelId = registerExternalModel("Python battery (e2e)", PYTHON_BACKEND, PYTHON_MODEL_KEY);
-    orbiterModelId = registerExternalModel("Basilisk orbiter (e2e)", BASILISK_BACKEND, BASILISK_MODEL_KEY);
-    cryoModelId = registerExternalModel("NeXosim cryo (e2e)", NEXOSIM_BACKEND, NEXOSIM_MODEL_KEY);
+    blackbirdModelId = tryRegister("Blackbird powermodel (e2e)", BLACKBIRD_BACKEND, BLACKBIRD_MODEL_KEY);
+    batteryModelId = tryRegister("Python battery (e2e)", PYTHON_BACKEND, PYTHON_MODEL_KEY);
+    orbiterModelId = tryRegister("Basilisk orbiter (e2e)", BASILISK_BACKEND, BASILISK_MODEL_KEY);
+    cryoModelId = tryRegister("NeXosim cryo (e2e)", NEXOSIM_BACKEND, NEXOSIM_MODEL_KEY);
   }
 
   @AfterAll
@@ -125,6 +132,62 @@ public class ExternalModelTests {
    * backend and a model key, with no JAR anywhere. The insert's {@code refresh*} event triggers are what
    * drive merlin to introspect the backend over the wire.
    */
+  /**
+   * Register a backend's model, or record why not.
+   *
+   * <p>Deliberately swallowing: an adapter that is not running is a fact about the environment, not
+   * a failure of the contract, and the tests that do not touch it are still worth running. What is
+   * NOT swallowed is a backend that answers wrongly -- registration only fails silently when the
+   * model never becomes introspectable at all.
+   */
+  private Integer tryRegister(String name, String backend, String modelKey) {
+    // Reachability is checked FIRST, via the catalog merlin already polls. Registering blind and
+    // waiting for introspection to time out costs two minutes per absent backend -- four and a half
+    // minutes of a five-minute run, spent discovering something one query answers immediately.
+    final var unreachable = whyUnreachable(backend);
+    if (unreachable != null) {
+      unavailableBackends.put(backend, unreachable);
+      return null;
+    }
+    try {
+      return registerExternalModel(name, backend, modelKey);
+    } catch (final Exception ex) {
+      unavailableBackends.put(backend, ex.getMessage() == null ? ex.toString() : ex.getMessage());
+      return null;
+    }
+  }
+
+  /** Why merlin cannot reach `backend` right now, or null if it can. */
+  private String whyUnreachable(String backend) {
+    try {
+      final var entry = hasura.getExternalModelCatalog().stream()
+                              .filter(c -> backend.equals(c.backend()))
+                              .findFirst();
+      if (entry.isEmpty()) {
+        return "not declared in EXTERNAL_MODEL_BACKENDS";
+      }
+      if (!entry.get().reachable()) {
+        return "unreachable: " + entry.get().error();
+      }
+      return null;
+    } catch (final Exception ex) {
+      return "could not read the backend catalog: " + ex;
+    }
+  }
+
+  /** The model id, or SKIP this test because its backend is not running. */
+  private int requireBackend(Integer modelId, String backend) {
+    assumeTrue(modelId != null,
+               () -> "backend '" + backend + "' is not running, so this test cannot run: "
+                     + unavailableBackends.getOrDefault(backend, "no model was registered"));
+    return modelId;
+  }
+
+  private int blackbird() { return requireBackend(blackbirdModelId, BLACKBIRD_BACKEND); }
+  private int battery()   { return requireBackend(batteryModelId, PYTHON_BACKEND); }
+  private int orbiter()   { return requireBackend(orbiterModelId, BASILISK_BACKEND); }
+  private int cryo()      { return requireBackend(cryoModelId, NEXOSIM_BACKEND); }
+
   private int registerExternalModel(String name, String backend, String modelKey) throws IOException {
     final var modelId = hasura.createExternalMissionModel(
         MISSION, name, "1.0.0-" + System.nanoTime(), backend, modelKey);
@@ -214,12 +277,14 @@ public class ExternalModelTests {
    */
   @Test
   void blackbirdModelIntrospectsOverTheWire() throws IOException, InterruptedException {
-    final var reported = ExternalAdapterProbe.BLACKBIRD.introspect(BLACKBIRD_MODEL_KEY);
-    assertIntrospectionMatchesStorage(blackbirdModelId, reported);
+    // Resolved first: probing a stopped adapter raises an IOException, and a backend that is not
+    // running has to SKIP this test rather than fail it.
+    final int modelId = blackbird();
+    assertIntrospectionMatchesStorage(modelId, ExternalAdapterProbe.BLACKBIRD.introspect(BLACKBIRD_MODEL_KEY));
 
     // Spot-check the parameter shapes this model exists to exercise, so a wholesale change to the mapping
     // cannot pass by agreeing with itself.
-    final var byName = hasura.getActivityTypesRaw(blackbirdModelId)
+    final var byName = hasura.getActivityTypesRaw(blackbird())
                              .stream().collect(Collectors.toMap(RawActivityType::name, Function.identity()));
     assertEquals(
         Json.createObjectBuilder().add("type", "series")
@@ -241,14 +306,14 @@ public class ExternalModelTests {
   /** The same round trip against a backend that shares no code, no language, and no runtime with Blackbird. */
   @Test
   void pythonModelIntrospectsOverTheWire() throws IOException, InterruptedException {
-    final var reported = ExternalAdapterProbe.PYTHON.introspect(PYTHON_MODEL_KEY);
-    assertIntrospectionMatchesStorage(batteryModelId, reported);
+    final int modelId = battery();   // resolved before probing -- see above
+    assertIntrospectionMatchesStorage(modelId, ExternalAdapterProbe.PYTHON.introspect(PYTHON_MODEL_KEY));
 
-    final var activityTypes = hasura.getActivityTypesRaw(batteryModelId);
+    final var activityTypes = hasura.getActivityTypesRaw(battery());
     assertEquals(List.of("Charge", "Discharge"), activityTypes.stream().map(RawActivityType::name).toList());
     assertEquals(
         List.of("Cycles", "Mode", "SoC"),
-        hasura.getResourceTypes(batteryModelId).stream().map(ResourceType::name).toList());
+        hasura.getResourceTypes(battery()).stream().map(ResourceType::name).toList());
   }
 
   private void assertIntrospectionMatchesStorage(int modelId, JsonObject reported) throws IOException {
@@ -335,7 +400,7 @@ public class ExternalModelTests {
    */
   @Test
   void argumentValuesRoundTripThroughTheBackend() throws IOException {
-    final var planId = newPlan(blackbirdModelId, "External Args Round Trip", "24:00:00");
+    final var planId = newPlan(blackbird(), "External Args Round Trip", "24:00:00");
 
     final var stringList = List.of("alpha", "beta", "gamma");
     final var stringMap = new LinkedHashMap<String, String>();
@@ -435,7 +500,7 @@ public class ExternalModelTests {
    */
   @Test
   void decompositionRoundTripsAsAParentAndTwoChildren() throws IOException {
-    final var planId = newPlan(blackbirdModelId, "External Decomposition", "24:00:00");
+    final var planId = newPlan(blackbird(), "External Decomposition", "24:00:00");
     final int directiveId = hasura.insertActivityDirective(
         planId, "SciencePass", "01:00:00", JsonValue.EMPTY_JSON_OBJECT);
 
@@ -478,7 +543,7 @@ public class ExternalModelTests {
    */
   @Test
   void unfinishedActivitiesComeBackWithNullDuration() throws IOException {
-    final var planId = newPlan(batteryModelId, "External Unfinished", "02:00:00");
+    final var planId = newPlan(battery(), "External Unfinished", "02:00:00");
 
     // 3h of discharge inside a 2h plan.
     final int longDischarge = hasura.insertActivityDirective(
@@ -520,7 +585,7 @@ public class ExternalModelTests {
   @Test
   void computedAttributesRoundTrip() throws IOException {
     // --- the declared schemas, as stored ---
-    final var blackbirdTypes = hasura.getActivityTypesRaw(blackbirdModelId);
+    final var blackbirdTypes = hasura.getActivityTypesRaw(blackbird());
     final var blackbirdSchema = Json.createObjectBuilder()
                                     .add("type", "struct")
                                     .add("items", Json.createObjectBuilder()
@@ -536,13 +601,13 @@ public class ExternalModelTests {
                                   .add("items", Json.createObjectBuilder()
                                                     .add("socDelta", Json.createObjectBuilder().add("type", "real")))
                                   .build();
-    for (final var type : hasura.getActivityTypesRaw(batteryModelId)) {
+    for (final var type : hasura.getActivityTypesRaw(battery())) {
       assertEquals(batterySchema, type.computedAttributesValueSchema(),
                    "the Python model declares socDelta on " + type.name());
     }
 
     // --- the values, as produced ---
-    final var planId = newPlan(batteryModelId, "External Computed Attributes", "02:00:00");
+    final var planId = newPlan(battery(), "External Computed Attributes", "02:00:00");
     final int finishedId = hasura.insertActivityDirective(
         planId, "Charge", "00:10:00",
         Json.createObjectBuilder().add("duration", 600000000L).add("rate", 1.5).build());
@@ -579,7 +644,7 @@ public class ExternalModelTests {
    */
   @Test
   void aFixedStepBackendReportsWhereItActuallyRanTheActivity() throws IOException {
-    final var planId = newPlan(orbiterModelId, "Basilisk Quantization", "01:00:00");
+    final var planId = newPlan(orbiter(), "Basilisk Quantization", "01:00:00");
     // One microsecond past the 5-second grid, and a duration that is a whole number of steps.
     final int offGrid = hasura.insertActivityDirective(
         planId, "Observe", "00:10:00.000001",
@@ -605,7 +670,7 @@ public class ExternalModelTests {
    */
   @Test
   void everyProfileCoversAPlanWhoseDurationIsNotAWholeNumberOfSteps() throws IOException {
-    final var planId = newPlan(orbiterModelId, "Basilisk Window Closure", "02:00:00.000007");
+    final var planId = newPlan(orbiter(), "Basilisk Window Closure", "02:00:00.000007");
     hasura.insertActivityDirective(
         planId, "Observe", "00:05:00",
         Json.createObjectBuilder().add("duration", 600000000L).build());
@@ -632,7 +697,7 @@ public class ExternalModelTests {
    */
   @Test
   void orbitalGeometryReachesPlanDevAsOrdinaryResourceProfiles() throws IOException {
-    final var planId = newPlan(orbiterModelId, "Basilisk Orbit", "03:00:00");
+    final var planId = newPlan(orbiter(), "Basilisk Orbit", "03:00:00");
     final var response = hasura.awaitSimulation(planId, SIM_TIMEOUT);
     final var simDataset = hasura.getSimulationDataset(response.simDatasetId());
     assertEquals(SimulationDataset.SimulationStatus.success, simDataset.status(),
@@ -666,7 +731,7 @@ public class ExternalModelTests {
    */
   @Test
   void aDownlinkOutOfViewIsSimulatedAndReportedAsHavingMovedNothing() throws IOException {
-    final var planId = newPlan(orbiterModelId, "Basilisk Downlink", "03:00:00");
+    final var planId = newPlan(orbiter(), "Basilisk Downlink", "03:00:00");
     hasura.insertActivityDirective(
         planId, "Observe", "00:00:00",
         Json.createObjectBuilder().add("duration", 600000000L).build());
@@ -696,7 +761,7 @@ public class ExternalModelTests {
    */
   @Test
   void anActivityShorterThanOneIntegrationStepIsRefusedWithTheKnobThatFixesIt() throws IOException {
-    final var planId = newPlan(orbiterModelId, "Basilisk Sub-Step", "01:00:00");
+    final var planId = newPlan(orbiter(), "Basilisk Sub-Step", "01:00:00");
     hasura.insertActivityDirective(
         planId, "Observe", "00:10:00",
         Json.createObjectBuilder().add("duration", 1000000L).build());   // 1s, at a 5s step
@@ -734,7 +799,7 @@ public class ExternalModelTests {
    */
   @Test
   void backendsDeclareWhichPlanDevFeaturesApplyToTheirModels() throws IOException {
-    final var blackbird = hasura.getMissionModel(blackbirdModelId).externalCapabilities();
+    final var blackbird = hasura.getMissionModel(blackbird()).externalCapabilities();
     assertNotNull(blackbird, "the backend declared capabilities, so merlin must have stored them");
     final JsonObject scheduling = blackbird.getJsonObject("plandevScheduling");
     assertNotNull(scheduling);
@@ -745,7 +810,7 @@ public class ExternalModelTests {
     assertFalse(scheduling.getString("reason", "").isBlank(),
                 "an unsupported capability must carry the backend's own explanation");
 
-    for (final var pureSimulator : List.of(batteryModelId, orbiterModelId)) {
+    for (final var pureSimulator : List.of(battery(), orbiter())) {
       final var capabilities = hasura.getMissionModel(pureSimulator).externalCapabilities();
       assertNotNull(capabilities);
       assertTrue(capabilities.getJsonObject("plandevScheduling").getBoolean("supported"),
@@ -761,9 +826,10 @@ public class ExternalModelTests {
    */
   @Test
   void storedCapabilitiesAreWhatTheBackendActuallyReported() throws IOException, InterruptedException {
+    final int modelId = blackbird();   // resolved before probing -- see above
     final var reported = ExternalAdapterProbe.BLACKBIRD.introspect(BLACKBIRD_MODEL_KEY)
                                              .getJsonObject("capabilities");
-    assertEquals(reported, hasura.getMissionModel(blackbirdModelId).externalCapabilities());
+    assertEquals(reported, hasura.getMissionModel(modelId).externalCapabilities());
   }
 
   /**
@@ -777,7 +843,7 @@ public class ExternalModelTests {
    */
   @Test
   void aCapabilityChangeIsDetectableDrift() throws IOException, InterruptedException {
-    final var model = hasura.getMissionModel(orbiterModelId);
+    final var model = hasura.getMissionModel(orbiter());
     final var live = ExternalAdapterProbe.BASILISK.introspect(BASILISK_MODEL_KEY);
     // The hash the backend reports is computed over its capabilities as well as its types, so the
     // attested value and the live one agree only while both are unchanged.
@@ -824,7 +890,7 @@ public class ExternalModelTests {
   @Test
   void aPlanAuthoredInBlackbirdImportsAsPlanDevDirectives() throws IOException {
     final var imported = hasura.importExternalPlan(
-        blackbirdModelId, "blackbird-plan-json", BLACKBIRD_PLAN_FILE, "imported ops");
+        blackbird(), "blackbird-plan-json", BLACKBIRD_PLAN_FILE, "imported ops");
     final var plan = imported.getJsonObject("plan");
 
     assertEquals("2", plan.getString("version"), "PlanTransfer v2 is what the import flow reads");
@@ -868,8 +934,8 @@ public class ExternalModelTests {
   @Test
   void importedDirectivesSimulateOnTheModelTheyCameFrom() throws IOException {
     final var imported = hasura.importExternalPlan(
-        blackbirdModelId, "blackbird-plan-json", BLACKBIRD_PLAN_FILE, "imported ops");
-    final var planId = newPlan(blackbirdModelId, "External Plan Import", "24:00:00");
+        blackbird(), "blackbird-plan-json", BLACKBIRD_PLAN_FILE, "imported ops");
+    final var planId = newPlan(blackbird(), "External Plan Import", "24:00:00");
 
     for (final var activity : imported.getJsonObject("plan").getJsonArray("activities")) {
       final var directive = activity.asJsonObject();
@@ -887,8 +953,12 @@ public class ExternalModelTests {
    */
   @Test
   void aModelWithoutThePlanImportCapabilityRefuses() {
+    // Resolved OUTSIDE the lambda on purpose. JUnit signals a skip by throwing TestAbortedException,
+    // which is a RuntimeException -- so a `requireBackend` call inside `assertThrows` is caught as
+    // the expected exception and the test fails on the message instead of skipping.
+    final int modelId = orbiter();
     final var thrown = assertThrows(RuntimeException.class, () -> hasura.importExternalPlan(
-        orbiterModelId, "blackbird-plan-json", BLACKBIRD_PLAN_FILE, "nope"));
+        modelId, "blackbird-plan-json", BLACKBIRD_PLAN_FILE, "nope"));
     assertTrue(thrown.getMessage().contains("planImport"),
                "the refusal must name the capability: " + thrown.getMessage());
   }
@@ -900,8 +970,9 @@ public class ExternalModelTests {
    */
   @Test
   void anUnknownPlanFormatIsReportedAsABadRequestListingTheOnesThatWork() {
+    final int modelId = blackbird();   // outside the lambda -- see above
     final var thrown = assertThrows(RuntimeException.class, () -> hasura.importExternalPlan(
-        blackbirdModelId, "not-a-format", BLACKBIRD_PLAN_FILE, "nope"));
+        modelId, "not-a-format", BLACKBIRD_PLAN_FILE, "nope"));
     assertTrue(thrown.getMessage().contains("blackbird-plan-json"),
                "the refusal must list the formats that do work: " + thrown.getMessage());
   }
@@ -921,7 +992,7 @@ public class ExternalModelTests {
    */
   @Test
   void schemaTypesNoOtherBackendUsesSurviveStorage() throws IOException {
-    final var byName = hasura.getResourceTypes(cryoModelId).stream()
+    final var byName = hasura.getResourceTypes(cryo()).stream()
                              .collect(Collectors.toMap(ResourceType::name, ResourceType::schema));
     assertEquals(ValueSchema.VALUE_SCHEMA_STRING, byName.get("/instrument/target"));
     assertEquals(ValueSchema.VALUE_SCHEMA_INT, byName.get("/recorder/framesStored"));
@@ -943,7 +1014,7 @@ public class ExternalModelTests {
    */
   @Test
   void anInstantaneousActivityProducesAZeroDurationSpan() throws IOException {
-    final var planId = newPlan(cryoModelId, "NeXosim Instantaneous", "02:00:00");
+    final var planId = newPlan(cryo(), "NeXosim Instantaneous", "02:00:00");
     final int setpoint = hasura.insertActivityDirective(
         planId, "SetCoolerSetpoint", "00:05:00",
         Json.createObjectBuilder().add("setpointKelvin", 95.0).build());
@@ -960,7 +1031,7 @@ public class ExternalModelTests {
    */
   @Test
   void aRustModelsOutputPassesTheIngestGate() throws IOException {
-    final var planId = newPlan(cryoModelId, "NeXosim Run", "08:00:00");
+    final var planId = newPlan(cryo(), "NeXosim Run", "08:00:00");
     hasura.insertActivityDirective(planId, "Observe", "00:30:00",
                                    Json.createObjectBuilder().add("duration", 3600000000L).build());
     hasura.insertActivityDirective(planId, "Downlink", "02:00:00",
@@ -1012,7 +1083,7 @@ public class ExternalModelTests {
         .setHeader("Content-Type", "application/json")
         .setData(Json.createObjectBuilder()
             .add("input", Json.createObjectBuilder()
-                .add("missionModelId", String.valueOf(blackbirdModelId))
+                .add("missionModelId", String.valueOf(blackbird()))
                 .add("format", "blackbird-plan-json")
                 .add("content", oversized))
             .build().toString()));
@@ -1033,7 +1104,7 @@ public class ExternalModelTests {
   @Test
   void simulationConfigurationIsAppliedNotJustAccepted() throws IOException {
     // Blackbird surfaces its adaptation globals under their Blackbird-side dotted names.
-    final var blackbirdParams = hasura.getMissionModelParameters(blackbirdModelId);
+    final var blackbirdParams = hasura.getMissionModelParameters(blackbird());
     assertNotNull(blackbirdParams);
     assertEquals(
         java.util.Set.of("AdaptationGlobals.NumStarTrackers",
@@ -1047,12 +1118,12 @@ public class ExternalModelTests {
     assertEquals("string", blackbirdParams.getJsonObject("AdaptationGlobals.LANDING_EPOCH")
                                           .getJsonObject("schema").getString("type"));
 
-    final var batteryParams = hasura.getMissionModelParameters(batteryModelId);
+    final var batteryParams = hasura.getMissionModelParameters(battery());
     assertNotNull(batteryParams);
     assertEquals(java.util.Set.of("initialSoC", "initialCycles"), batteryParams.keySet());
 
     // --- the round trip: change initialSoC, watch the first SoC segment move ---
-    final var planId = newPlan(batteryModelId, "External Config Round Trip", "02:00:00");
+    final var planId = newPlan(battery(), "External Config Round Trip", "02:00:00");
     hasura.insertActivityDirective(
         planId, "Discharge", "00:00:00",
         Json.createObjectBuilder().add("duration", 1800000000L).add("load", 2.0).build());
@@ -1243,7 +1314,7 @@ public class ExternalModelTests {
    */
   @Test
   void directivesAnchoredToTheEndOfAnotherActivityAreRejected() throws IOException {
-    final var planId = newPlan(batteryModelId, "External End Anchor", "02:00:00");
+    final var planId = newPlan(battery(), "External End Anchor", "02:00:00");
     final int anchor = hasura.insertActivityDirective(
         planId, "Charge", "00:10:00",
         Json.createObjectBuilder().add("duration", 600000000L).add("rate", 1.0).build());
@@ -1271,7 +1342,7 @@ public class ExternalModelTests {
    */
   @Test
   void directivesAnchoredToTheStartOfAnotherActivityResolve() throws IOException {
-    final var planId = newPlan(batteryModelId, "External Start Anchor", "02:00:00");
+    final var planId = newPlan(battery(), "External Start Anchor", "02:00:00");
     final int anchor = hasura.insertActivityDirective(
         planId, "Charge", "00:10:00",
         Json.createObjectBuilder().add("duration", 600000000L).add("rate", 1.0).build());

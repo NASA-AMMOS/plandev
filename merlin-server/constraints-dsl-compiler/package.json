@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Typescript compiler for the constraints DSL",
   "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "build": "rm -rf build; tsc",
     "test": "npm run build && node build/main.js",

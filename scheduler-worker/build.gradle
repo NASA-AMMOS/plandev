@@ -98,7 +98,7 @@ jacocoTestReport {
 }
 
 application {
-  mainClass = 'gov.nasa.jpl.aerie.scheduler.worker.SchedulerWorkerAppDriver'
+  mainClass = 'gov.nasa.ammos.plandev.scheduler.worker.SchedulerWorkerAppDriver'
   applicationDefaultJvmArgs = ['-Xmx2g']
 }
 

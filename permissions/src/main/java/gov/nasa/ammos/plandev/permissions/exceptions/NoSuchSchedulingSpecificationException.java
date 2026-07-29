@@ -1,0 +1,13 @@
+package gov.nasa.ammos.plandev.permissions.exceptions;
+
+
+import gov.nasa.ammos.plandev.permissions.gql.SchedulingSpecificationId;
+
+public final class NoSuchSchedulingSpecificationException extends Exception {
+  public final SchedulingSpecificationId id;
+
+  public NoSuchSchedulingSpecificationException(final SchedulingSpecificationId specificationId) {
+    super("No scheduling specification exists with id '%s'".formatted(specificationId.id()));
+    this.id = specificationId;
+  }
+}

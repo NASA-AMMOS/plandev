@@ -1,0 +1,26 @@
+package gov.nasa.ammos.plandev.procedural.utils
+
+import gov.nasa.ammos.plandev.procedural.timeline.Interval
+import gov.nasa.ammos.plandev.procedural.timeline.collections.Directives
+import gov.nasa.ammos.plandev.procedural.timeline.collections.Instances
+import gov.nasa.ammos.plandev.procedural.timeline.ops.SerialSegmentOps
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.Segment
+import gov.nasa.ammos.plandev.procedural.timeline.plan.SimulationResults
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue
+
+/**
+ * A stub of the [SimulationResults] interface that throws an exception
+ * on all methods. Used for testing by overriding methods with
+ * hard-coded outputs. You only need to implement the methods
+ * you intend to call.
+ */
+open class StubSimulationResults: SimulationResults {
+  override fun isStale(): Boolean = TODO()
+  override fun simBounds(): Interval = TODO()
+  override fun <V : Any, TL: SerialSegmentOps<V, TL>> resource(
+    name: String,
+    deserializer: (List<Segment<SerializedValue>>) -> TL
+  ): TL = TODO()
+  override fun <A : Any> instances(type: String?, deserializer: (SerializedValue) -> A): Instances<A> = TODO()
+  override fun <A : Any> inputDirectives(deserializer: (SerializedValue) -> A): Directives<A> = TODO()
+}

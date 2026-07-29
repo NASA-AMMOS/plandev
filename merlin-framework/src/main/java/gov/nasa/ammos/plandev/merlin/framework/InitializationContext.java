@@ -1,0 +1,76 @@
+package gov.nasa.ammos.plandev.merlin.framework;
+
+import gov.nasa.ammos.plandev.merlin.protocol.driver.CellId;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Initializer;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Topic;
+import gov.nasa.ammos.plandev.merlin.protocol.model.CellType;
+import gov.nasa.ammos.plandev.merlin.protocol.model.TaskFactory;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InSpan;
+
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.function.Supplier;
+
+public final class InitializationContext implements Context {
+  private final Initializer builder;
+
+  public InitializationContext(final Initializer builder) {
+    this.builder = Objects.requireNonNull(builder);
+  }
+
+  public static <T>
+  T initializing(final Initializer builder, final Supplier<T> initializer) {
+    try (final var restore = ModelActions.context.set(new InitializationContext(builder))) {
+      return initializer.get();
+    }
+  }
+
+  @Override
+  public ContextType getContextType() {
+    return ContextType.Initializing;
+  }
+
+  @Override
+  public <State> State ask(final CellId<State> cellId) {
+    return this.builder.getInitialState(cellId);
+  }
+
+  @Override
+  public <Event, Effect, State>
+  CellId<State> allocate(
+      final State initialState,
+      final CellType<Effect, State> cellType,
+      final Function<Event, Effect> interpretation,
+      final Topic<Event> topic
+  ) {
+    return this.builder.allocate(initialState, cellType, interpretation, topic);
+  }
+
+  @Override
+  public <Event> void emit(final Event event, final Topic<Event> topic) {
+    throw new IllegalStateException("Cannot update simulation state during initialization");
+  }
+
+  @Override
+  public void spawn(final InSpan _inSpan, final TaskFactory<?> task) {
+    // As top-level tasks, daemons always get their own span.
+    // TODO: maybe produce a warning if inSpan is not Fresh in initialization context
+    this.builder.daemon(task);
+  }
+
+  @Override
+  public <Return> void call(final InSpan inSpan, final TaskFactory<Return> task) {
+    throw new IllegalStateException("Cannot yield during initialization");
+  }
+
+  @Override
+  public void delay(final Duration duration) {
+    throw new IllegalStateException("Cannot yield during initialization");
+  }
+
+  @Override
+  public void waitUntil(final Condition condition) {
+    throw new IllegalStateException("Cannot yield during initialization");
+  }
+}

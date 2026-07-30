@@ -1,12 +1,13 @@
-import './libs/polyfills.js'
 import fs from 'fs';
 import ts from 'typescript';
 import { UserCodeRunner } from '@nasa-jpl/aerie-ts-user-code-runner';
-import type { Constraint } from './libs/constraints-edsl-fluent-api.js';
 import * as readline from 'readline';
-import vm from "node:vm";
 
 const codeRunner = new UserCodeRunner();
+const guestRuntimeModuleTypes = fs.readFileSync(
+  `${process.env['CONSTRAINTS_DSL_COMPILER_ROOT']}/src/libs/guest-runtime-modules.d.ts`,
+  'utf8',
+);
 const constraintsEDSL = fs.readFileSync(
   `${process.env['CONSTRAINTS_DSL_COMPILER_ROOT']}/src/libs/constraints-edsl-fluent-api.ts`,
   'utf8',
@@ -16,8 +17,21 @@ const constraintsAST = fs.readFileSync(
   'utf8',
 );
 const temporalPolyfillTypes = fs.readFileSync(
-    `${process.env['CONSTRAINTS_DSL_COMPILER_ROOT']}/src/libs/TemporalPolyfillTypes.ts`,
+    `${process.env['CONSTRAINTS_DSL_COMPILER_ROOT']}/src/libs/TemporalPolyfillTypes.d.ts`,
     'utf8',
+);
+const temporalPolyfillBundle = fs.readFileSync(
+  // import the *built* version of the Temporal bundle, which has all imports resolved into a single file
+  `${process.env['CONSTRAINTS_DSL_COMPILER_ROOT']}/build/libs/temporal-polyfill-bundle.js`,
+  'utf8',
+);
+const temporalBootstrap = fs.readFileSync(
+  `${process.env['CONSTRAINTS_DSL_COMPILER_ROOT']}/src/libs/constraints-temporal-bootstrap.ts`,
+  'utf8',
+);
+const constraintResultSerializer = fs.readFileSync(
+  `${process.env['CONSTRAINTS_DSL_COMPILER_ROOT']}/src/libs/constraint-result-serializer.ts`,
+  'utf8',
 );
 const tsConfig = JSON.parse(fs.readFileSync(new URL('../tsconfig.json', import.meta.url).pathname, 'utf-8'));
 const { options } = ts.parseJsonConfigFileContent(tsConfig, ts.sys, '');
@@ -26,7 +40,7 @@ const compilerTarget = options.target ?? ts.ScriptTarget.ES2021
 process.on('uncaughtException', err => {
   console.error('uncaughtException');
   console.error(err && err.stack ? err.stack : err);
-  process.stdout.write('panic\n' + err.stack ?? err.message);
+  process.stdout.write('panic\n' + (err.stack ?? err.message));
   process.exit(1);
 });
 
@@ -66,23 +80,35 @@ async function handleRequest(data: Buffer) {
       expectedReturnType: string;
     };
 
-    const additionalSourceFiles: { 'filename': string, 'contents': string}[] = [
-      { 'filename': 'constraints-ast.ts', 'contents': constraintsAST },
-      { 'filename': 'constraints-edsl-fluent-api.ts', 'contents': constraintsEDSL },
-      { 'filename': 'mission-model-generated-code.ts', 'contents': missionModelGeneratedCode },
-      { 'filename': 'TemporalPolyfillTypes.ts', 'contents': temporalPolyfillTypes }
+    const additionalSourceFiles: {
+      filename: string;
+      contents: string;
+    }[] = [
+      { filename: 'guest-runtime-modules.d.ts', contents: guestRuntimeModuleTypes },
+      { filename: 'temporal-polyfill-bundle.js', contents: temporalPolyfillBundle },
+      { filename: 'constraints-temporal-bootstrap.ts', contents: temporalBootstrap },
+      { filename: 'constraint-result-serializer.ts', contents: constraintResultSerializer },
+      { filename: 'constraints-ast.ts', contents: constraintsAST },
+      { filename: 'constraints-edsl-fluent-api.ts', contents: constraintsEDSL },
+      { filename: 'mission-model-generated-code.ts', contents: missionModelGeneratedCode },
+      { filename: 'TemporalPolyfillTypes.d.ts', contents: temporalPolyfillTypes },
     ];
 
-    const result = await codeRunner.executeUserCode<[], AstNode>(
-        constraintCode,
-        [],
-        expectedReturnType,
-        [],
-        10000,
-        additionalSourceFiles.map(({filename, contents}) => ts.createSourceFile(filename, contents, compilerTarget)),
-        vm.createContext({
-          Temporal,
-        }),
+    // we expect a JSON string back since the serializer runs within the guest VM
+    const result = await codeRunner.executeUserCode<[], string>(
+      constraintCode,
+      [],
+      expectedReturnType,
+      [],
+      10000,
+      additionalSourceFiles.map(({ filename, contents }) => ts.createSourceFile(filename, contents, compilerTarget)),
+      {
+        memoryLimitMb: 128,
+        resultSerializer: {
+          moduleName: 'constraint-result-serializer',
+          outputType: 'string'
+        },
+      },
     );
 
     if (result.isErr()) {
@@ -93,20 +119,12 @@ async function handleRequest(data: Buffer) {
       return;
     }
 
-    const stringified = JSON.stringify(
-        result.unwrap().__astNode,
-        function replacer(key, value) {
-          if (this[key] instanceof Temporal.Duration) {
-            return this[key].total({ unit: "microseconds" });
-          }
-          return value;
-        }
-    );
-    if (stringified === undefined) {
-      throw Error(JSON.stringify(result.unwrap()) + ' was not JSON serializable');
+    const stringResult: string = result.unwrap();
+    if (stringResult === undefined) {
+      throw new Error('constraint result was undefined');
     }
-    process.stdout.write('success\n')
-    process.stdout.write(stringified + '\n');
+    process.stdout.write('success\n');
+    process.stdout.write(stringResult + '\n');
   } catch (error: any) {
     process.stdout.write('panic\n');
     process.stdout.write(JSON.stringify(error.stack ?? error.message) + ' attempted to handle: ' + data.toString() + '\n');

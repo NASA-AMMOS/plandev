@@ -34,7 +34,7 @@ public class ConstraintsDSLCompilationService {
     final var constraintsDslCompilerRoot = System.getenv("CONSTRAINTS_DSL_COMPILER_ROOT");
     final var constraintsDslCompilerCommand = System.getenv("CONSTRAINTS_DSL_COMPILER_COMMAND");
     final var nodePath = System.getenv("NODE_PATH");
-    final var processBuilder = new ProcessBuilder(nodePath, "--experimental-vm-modules", constraintsDslCompilerCommand)
+    final var processBuilder = new ProcessBuilder(nodePath, "--no-node-snapshot", constraintsDslCompilerCommand)
         .redirectError(ProcessBuilder.Redirect.INHERIT)
         .directory(new File(constraintsDslCompilerRoot));
     processBuilder.environment().put("NODE_NO_WARNINGS", "1");

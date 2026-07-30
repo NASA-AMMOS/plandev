@@ -1,4 +1,4 @@
-/// <reference path="./TemporalPolyfillTypes.ts"; />
+/// <reference path="./TemporalPolyfillTypes.d.ts"; />
 import type * as API from "./constraints-edsl-fluent-api";
 
 export enum NodeKind {

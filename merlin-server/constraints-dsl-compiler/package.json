@@ -7,14 +7,15 @@
     "node": "24.x"
   },
   "scripts": {
-    "build": "rm -rf build; tsc",
+    "build": "rm -rf build && tsc && npm run build:guest-libs",
+    "build:guest-libs": "esbuild src/libs/temporal-polyfill-entry.ts --bundle --platform=neutral --format=esm --target=es2021 --main-fields=module,main --outfile=build/libs/temporal-polyfill-bundle.js",
     "test": "npm run build && node build/main.js",
     "reformat": "npx prettier --config ./.prettierrc -w ./src",
     "generate-doc": "rm -rf build/docs; npx typedoc src/libs/constraints-edsl-fluent-api.ts --excludePrivate --excludeInternal --out ./build/docs --name \"Constraints eDSL Documentation\" --readme none --gitRevision develop --validation.notExported false --logLevel Warn"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.4.0",
-    "@nasa-jpl/aerie-ts-user-code-runner": "0.5.0",
+    "@nasa-jpl/aerie-ts-user-code-runner": "file:../../../aerie-ts-user-code-runner/nasa-jpl-aerie-ts-user-code-runner-0.7.0.tgz",
     "prettier": "^2.6.2",
     "source-map": "^0.7.3",
     "typescript": "^4.5.5"
@@ -22,6 +23,12 @@
   "devDependencies": {
     "@tsconfig/node16-strictest-esm": "^1.0.2",
     "@types/node": "^24.13.3",
+    "esbuild": "0.28.1",
     "typedoc": "^0.23.10"
+  },
+  "allowScripts": {
+    "file:/Users/delany/Documents/jpl/repos/aerie-ts-user-code-runner/nasa-jpl-aerie-ts-user-code-runner-0.7.0.tgz": true,
+    "isolated-vm@6.0.2": true,
+    "esbuild@0.28.1": true
   }
 }

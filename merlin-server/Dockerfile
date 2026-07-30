@@ -4,15 +4,15 @@ COPY build/distributions/*.tar /usr/src/app/server.tar
 RUN mkdir -p /usr/src/app/extracted \
     && tar --strip-components 1 -xf /usr/src/app/server.tar -C /usr/src/app/extracted
 
-
 FROM eclipse-temurin:21-jre-jammy
 
 ENV NODE_VERSION=24.18.0
 ENV NVM_DIR=/usr/src/.nvm
 ENV PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}"
-# nvm expects bash. build tools are required to compile isolated-vm for linux.
+# nvm expects bash.
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# build-essential and python3 are needed to build isolated-vm dependency
 RUN apt-get update \
     && apt-get install --no-install-recommends -y build-essential ca-certificates curl python3 \
     && mkdir -p "${NVM_DIR}" \
@@ -24,11 +24,10 @@ RUN apt-get update \
     && npm --version \
     && rm -rf /var/lib/apt/lists/*
 
-
 # copy java app
 COPY --from=extractor /usr/src/app/extracted /usr/src/app
 
-# copy constraints-dsl-compiler node app, package metadata first so dependency installation can be cached.
+# copy constraints-dsl-compiler node app package metadata first, so dependency installation can be cached.
 WORKDIR /usr/src/app/constraints-dsl-compiler
 COPY constraints-dsl-compiler/package.json \
      constraints-dsl-compiler/package-lock.json \
@@ -41,7 +40,6 @@ COPY constraints-dsl-compiler/vendor ./vendor
 RUN npm ci
 # copy DSL Compiler *code* - node_modules and build files are .dockerignore'd
 COPY constraints-dsl-compiler/ ./
-
 RUN npm run build
 
 ENV CONSTRAINTS_DSL_COMPILER_ROOT="/usr/src/app/constraints-dsl-compiler/"

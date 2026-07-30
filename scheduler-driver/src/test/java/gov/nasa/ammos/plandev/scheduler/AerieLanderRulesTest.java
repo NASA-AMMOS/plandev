@@ -1,14 +1,14 @@
-//package gov.nasa.jpl.aerie.scheduler;
+//package gov.nasa.ammos.plandev.scheduler;
 //
-//import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
-//import gov.nasa.jpl.aerie.scheduler.goals.Goal;
-//import gov.nasa.jpl.aerie.scheduler.model.ActivityInstance;
-//import gov.nasa.jpl.aerie.scheduler.model.Plan;
-//import gov.nasa.jpl.aerie.scheduler.model.PlanInMemory;
-//import gov.nasa.jpl.aerie.scheduler.model.PlanningHorizon;
-//import gov.nasa.jpl.aerie.scheduler.model.Problem;
-//import gov.nasa.jpl.aerie.scheduler.solver.PrioritySolver;
-//import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+//import gov.nasa.ammos.plandev.merlin.driver.MissionModel;
+//import gov.nasa.ammos.plandev.scheduler.goals.Goal;
+//import gov.nasa.ammos.plandev.scheduler.model.ActivityInstance;
+//import gov.nasa.ammos.plandev.scheduler.model.Plan;
+//import gov.nasa.ammos.plandev.scheduler.model.PlanInMemory;
+//import gov.nasa.ammos.plandev.scheduler.model.PlanningHorizon;
+//import gov.nasa.ammos.plandev.scheduler.model.Problem;
+//import gov.nasa.ammos.plandev.scheduler.solver.PrioritySolver;
+//import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 //import org.junit.jupiter.api.BeforeEach;
 //import org.junit.jupiter.api.Test;
 //

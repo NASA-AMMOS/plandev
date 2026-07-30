@@ -114,7 +114,7 @@ public final class AerieAppDriver {
     final var javalin = Javalin.create(config -> {
       config.showJavalinBanner = false;
       if (configuration.enableJavalinDevLogging()) config.plugins.enableDevLogging();
-      config.http.maxRequestSize = 256L * 1024 * 1024; // 256 MB – large simulation dataset uploads
+      config.http.maxRequestSize = 64L * 1024 * 1024 * 1024;
       config.plugins.enableCors(cors -> cors.add(it -> it.anyHost()));
       config.plugins.register(merlinBindings);
       config.jetty.server(() -> server);

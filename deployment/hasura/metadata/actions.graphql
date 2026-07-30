@@ -261,10 +261,6 @@ type UploadSimulationDatasetResponse {
   simulationDatasetId: Int!
 }
 
-type DownloadSimulationDatasetResponse {
-  simulationResults: SimulationResultsOutput!
-}
-
 type SchedulingResponse {
   status: SchedulingStatus!
   reason: SchedulingFailureReason
@@ -395,8 +391,6 @@ scalar ProcedureArguments
 scalar ProfileSet
 
 scalar SimulationResultsInput
-
-scalar SimulationResultsOutput
 
 scalar SchedulingFailureReason
 

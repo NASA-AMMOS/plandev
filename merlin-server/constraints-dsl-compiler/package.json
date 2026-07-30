@@ -7,10 +7,10 @@
     "node": "24.x"
   },
   "scripts": {
-    "build": "rm -rf build; tsc",
+    "build": "rm -rf build && tsc",
     "test": "npm run build && node build/main.js",
     "reformat": "npx prettier --config ./.prettierrc -w ./src",
-    "generate-doc": "rm -rf build/docs; npx typedoc src/libs/constraints-edsl-fluent-api.ts --excludePrivate --excludeInternal --out ./build/docs --name \"Constraints eDSL Documentation\" --readme none --gitRevision develop --validation.notExported false --logLevel Warn"
+    "generate-doc": "rm -rf build/docs && npx typedoc src/libs/constraints-edsl-fluent-api.ts --excludePrivate --excludeInternal --out ./build/docs --name \"Constraints eDSL Documentation\" --readme none --gitRevision develop --validation.notExported false --logLevel Warn"
   },
   "dependencies": {
     "@js-temporal/polyfill": "0.4.3",

@@ -11,10 +11,10 @@
     "build:guest-libs": "esbuild src/libs/temporal-polyfill-entry.ts --bundle --platform=neutral --format=esm --target=es2021 --main-fields=module,main --outfile=build/libs/temporal-polyfill-bundle.js",
     "test": "npm run build && node build/main.js",
     "reformat": "npx prettier --config ./.prettierrc -w ./src",
-    "generate-doc": "rm -rf build/docs; npx typedoc src/libs/constraints-edsl-fluent-api.ts --excludePrivate --excludeInternal --out ./build/docs --name \"Constraints eDSL Documentation\" --readme none --gitRevision develop --validation.notExported false --logLevel Warn"
+    "generate-doc": "rm -rf build/docs && npx typedoc src/libs/constraints-edsl-fluent-api.ts --excludePrivate --excludeInternal --out ./build/docs --name \"Constraints eDSL Documentation\" --readme none --gitRevision develop --validation.notExported false --logLevel Warn"
   },
   "dependencies": {
-    "@js-temporal/polyfill": "^0.4.0",
+    "@js-temporal/polyfill": "0.4.3",
     "@nasa-jpl/aerie-ts-user-code-runner": "file:vendor/nasa-jpl-aerie-ts-user-code-runner-0.7.0.tgz",
     "prettier": "^2.6.2",
     "source-map": "^0.7.3",

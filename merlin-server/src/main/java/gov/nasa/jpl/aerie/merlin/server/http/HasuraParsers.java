@@ -24,8 +24,6 @@ import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.simulationData
 import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.timestampP;
 import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.profileSetP;
 
-
-
 public abstract class HasuraParsers {
   private HasuraParsers() {}
 

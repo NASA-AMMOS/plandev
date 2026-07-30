@@ -165,15 +165,15 @@ For other dynamics, `DynamicsMonad.effect` lets you describe the effect in terms
 which is the easiest general-purpose way to write a new effect.
 Some examples:
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.monads.DynamicsMonad;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.monads.DynamicsMonad;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.discreteResource;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteDynamicsMonad.effect;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialResources.polynomialResource;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteResources.discreteResource;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.monads.DiscreteDynamicsMonad.effect;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.PolynomialResources.polynomialResource;
 
 class Model {
     MutableResource<Discrete<String>> message = discreteResource("");
@@ -190,16 +190,16 @@ This provides the minimum necessary to get the effect to work.
 That said, it's good practice to include a name for the effect, for debugging it later.
 For names without arguments, there's a convenient overload of `emit`, and for formatted names, we can use `Naming.name`.
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.monads.DynamicsMonad;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.monads.DynamicsMonad;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.name;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.discreteResource;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteDynamicsMonad.effect;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialResources.polynomialResource;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Naming.name;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteResources.discreteResource;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.monads.DiscreteDynamicsMonad.effect;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.PolynomialResources.polynomialResource;
 
 class Model {
   MutableResource<Discrete<String>> message = discreteResource("");
@@ -219,14 +219,14 @@ On the other hand, if this effect is meant to be a reusable, shared function, we
 static utility function, similar to how `*Effects` classes are constructed.
 This will let others use the effect on any compatible resource.
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.monads.DynamicsMonad;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.monads.DynamicsMonad;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.name;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteDynamicsMonad.effect;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Naming.name;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.monads.DiscreteDynamicsMonad.effect;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
 
 class SpecialEffects {
     public void exclaim(MutableResource<Discrete<String>> resource) {
@@ -246,11 +246,11 @@ In these cases, the `bindEffect` method may be helpful, or you can construct the
 For example,
 
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.core.*;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.core.*;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiring.expiring;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.name;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Expiring.expiring;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Naming.name;
 
 class SpecialEffects {
     // Note: This effect is a *bad* idea, it's only here to illustrate a highly unusual need and technique.
@@ -285,13 +285,13 @@ Note that the streamline framework tries to minimize the depth of `step` calls, 
 For example, rather than `step`ping three times, one minute each time, it would try to step once for 3 minutes total.
 For this reason, there's little need to implement your own cumulative-error mitigations.
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.core.Dynamics;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Dynamics;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import org.apache.commons.math3.geometry.euclidean.threed.Rotation;
 import org.apache.commons.math3.geometry.euclidean.threed.RotationConvention;
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D;
 
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECONDS;
 
 // Note that we can define extract just by naming that field in the record "extract".
 record LinearAttitude(Rotation extract, Vector3D axis, double radianPerSecond) implements Dynamics<Rotation, LinearAttitude> {
@@ -311,20 +311,20 @@ nor `*Effects` effects methods for working with them.
 While we could do all resource derivations and effects in-line, it's usually more legible to pull those out into utility
 classes. Here are a few examples you might define:
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.core.Dynamics;
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Dynamics;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resource;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import org.apache.commons.math3.geometry.euclidean.threed.Rotation;
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.resource;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Reactions.wheneverDynamicsChange;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentValue;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.DynamicsMonad.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.name;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource.resource;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Reactions.wheneverDynamicsChange;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Resources.currentValue;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.monads.DynamicsMonad.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Naming.name;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECONDS;
 import static org.apache.commons.math3.geometry.euclidean.threed.RotationConvention.VECTOR_OPERATOR;
 
 record LinearAttitude(Rotation extract, Vector3D axis, double radianPerSecond) implements Dynamics<Rotation, LinearAttitude> {
@@ -400,12 +400,12 @@ Note that while we could use the more general `MutableResource.resource` and `Di
 `discreteResource` will handle issues with floating-point precision automatically if the value is a double.
 
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.resource;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete.discrete;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.discreteResource;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource.resource;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete.discrete;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteResources.discreteResource;
 
 class Model {
     // Preferred:
@@ -429,13 +429,13 @@ and perhaps more importantly, avoid incorrect results.
 For example, here's one way we could model a counter:
 
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentValue;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteEffects.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.discreteResource;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteDynamicsMonad.effect;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Resources.currentValue;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteEffects.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteResources.discreteResource;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.monads.DiscreteDynamicsMonad.effect;
 
 class Model {
     MutableResource<Discrete<Integer>> counter = discreteResource(0);
@@ -487,14 +487,14 @@ For example, a data rate may be defined by the instruments, while the stored dat
 Fortunately, basic calculus is built into the framework using `PolynomialResources`.
 For example:
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resource;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.discreteResource;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialResources.asPolynomial;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialResources.integrate;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteResources.discreteResource;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.PolynomialResources.asPolynomial;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.PolynomialResources.integrate;
 
 class Model {
     MutableResource<Discrete<Double>> dataRateInBitsPerSecond = discreteResource(0.0);
@@ -525,14 +525,14 @@ For example, the amount of stored data can't be negative, and can't exceed the c
 The `clampedIntegrate` method will respect these limits, and will also report over- and underflow when limits are hit.
 Our data model from before might be more accurately modeled like so:
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialResources;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resource;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.PolynomialResources;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.discreteResource;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialResources.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteResources.discreteResource;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.PolynomialResources.*;
 
 class Model {
     MutableResource<Discrete<Double>> dataRateInBitsPerSecond;
@@ -567,20 +567,20 @@ and a `VariableClock` that runs at either -1x (backwards) or 0x (stopped) can fu
 For an example of both:
 
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.VariableClock;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.clocks.VariableClock;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.resource;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.set;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.VariableClock.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.VariableClockEffects.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.VariableClockResources.lessThanOrEquals;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.constant;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.when;
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.waitUntil;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MINUTES;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.ZERO;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource.resource;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource.set;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.clocks.VariableClock.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.clocks.VariableClockEffects.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.clocks.VariableClockResources.lessThanOrEquals;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteResources.constant;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteResources.when;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.waitUntil;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MINUTES;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.ZERO;
 
 class Model {
   MutableResource<VariableClock> stopwatch = resource(pausedStopwatch());
@@ -685,16 +685,16 @@ For discrete resources in particular, we can also easily define an arbitrary der
 `DiscreteResourceMonad.map` function. This takes one or more discrete resources, and a function on their values, and
 returns a discrete resource whose value is the result of that function at all times. For example,
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resource;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.List;
 import java.util.Map;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad.map;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad.map;
 
 class Model {
   MutableResource<Discrete<List<String>>> names;
@@ -740,14 +740,14 @@ To do this, we should check the appropriate `*Resources` class for methods that 
 For discrete resources, we may need to use `DiscreteResourceMonad.map` to write the comparison ourselves.
 For example:
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resource;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteResources;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad.map;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialResources.greaterThanOrEquals;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad.map;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.PolynomialResources.greaterThanOrEquals;
 
 class Model {
   Resource<Polynomial> dataVolume;
@@ -761,11 +761,11 @@ class Model {
 Once we have a boolean resource indicating whether a limit is reached or not, we may want to derive another value from it.
 Of these, one of the most useful methods is `choose`, which acts like a resource-level ternary operator. For example,
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resource;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.choose;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteResources.choose;
 
 class Model {
     Resource<Discrete<Boolean>> dataIsFull;
@@ -786,14 +786,14 @@ which is Merlin's native way of describing when an event of interest happens.
 The `when` method converts a discrete boolean resource into a `Condition` that fires when the resource is true.
 For example:
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.core.Reactions;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Reactions;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resource;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.not;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.when;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialResources.*;
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.waitUntil;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteResources.not;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteResources.when;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.PolynomialResources.*;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.waitUntil;
 
 class Model {
     Resource<Polynomial> dataVolume;
@@ -820,11 +820,11 @@ Generally, these tasks are either run at regular time intervals, or in reaction 
 We've seen reactions to a condition [in another section](#comparisons-and-thresholds),
 so we'll show an example of periodic activity here, using `Reactions.every`:
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.core.Reactions;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Reactions;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.HOURS;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.HOURS;
 
 class Model {
     public Model() {
@@ -839,21 +839,21 @@ and less frequently otherwise, to balance performance and simulation fidelity.
 There are two main ways to accomplish this, demonstrated below:
 
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.VariableClock;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.VariableClockEffects;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.VariableClockResources;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resource;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.clocks.VariableClock;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.clocks.VariableClockEffects;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.clocks.VariableClockResources;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.resource;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Reactions.every;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Reactions.whenever;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentValue;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.VariableClock.runningStopwatch;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.VariableClockEffects.restart;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.VariableClockResources.greaterThanOrEquals;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource.resource;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Reactions.every;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Reactions.whenever;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Resources.currentValue;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.clocks.VariableClock.runningStopwatch;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.clocks.VariableClockEffects.restart;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.clocks.VariableClockResources.greaterThanOrEquals;
 
 class Model {
     public Resource<Discrete<Duration>> samplePeriod;
@@ -907,18 +907,18 @@ In particular, for polynomial resources, we have the `PolynomialEffects` class. 
 
 For example:
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialEffects;
-import gov.nasa.jpl.aerie.merlin.framework.ModelActions;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.PolynomialEffects;
+import gov.nasa.ammos.plandev.merlin.framework.ModelActions;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialEffects.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialResources.polynomialResource;
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.delay;
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.spawn;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.PolynomialEffects.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.PolynomialResources.polynomialResource;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.delay;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.spawn;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.*;
 
 class Model {
     MutableResource<Polynomial> fuelInKg = polynomialResource(100);
@@ -1023,16 +1023,16 @@ In this case, it sounds like the inflow is derived from other nodes' outflows, s
 By contrast, the output control sounds more like a private state of this node, so we'll construct it in the node and
 add methods to the node class to turn the output on and off.
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resource;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteEffects.turnOff;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteEffects.turnOn;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.choose;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.discreteResource;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialResources.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteEffects.turnOff;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteEffects.turnOn;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteResources.choose;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteResources.discreteResource;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.PolynomialResources.*;
 
 class ControllableFlowNode {
     private final MutableResource<Discrete<Boolean>> outflowEnabled;
@@ -1090,12 +1090,12 @@ We'll make all three inputs to the network mutable polynomial resources for now.
 We'll also integrate the final output of the network, so we can track how much flow in total is passed through the network.
 
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.Registrar;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resource;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.Registrar;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialResources.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.PolynomialResources.*;
 
 class Model {
     public final MutableResource<Polynomial> inputA, inputB, inputC;
@@ -1138,13 +1138,13 @@ class Model {
 Finally, let's mock up an activity that adjusts some of these resources' states.
 
 ```java
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteEffects;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialEffects;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteEffects;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.PolynomialEffects;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.ActivityType;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialEffects.providing;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MINUTES;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.PolynomialEffects.providing;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MINUTES;
 
 class Activity {
     @ActivityType.EffectModel

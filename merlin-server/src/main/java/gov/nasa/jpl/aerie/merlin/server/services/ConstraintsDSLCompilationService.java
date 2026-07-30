@@ -11,6 +11,8 @@ import gov.nasa.jpl.aerie.constraints.json.ConstraintParsers;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
 import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
 import gov.nasa.jpl.aerie.types.MissionModelId;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.json.Json;
 import javax.json.JsonObject;
@@ -26,6 +28,7 @@ public class ConstraintsDSLCompilationService {
 
   private final Process nodeProcess;
   private final TypescriptCodeGenerationServiceAdapter typescriptCodeGenerationService;
+  private static final Logger logger = LoggerFactory.getLogger(ConstraintsDSLCompilationService.class);
 
   public ConstraintsDSLCompilationService(final TypescriptCodeGenerationServiceAdapter typescriptCodeGenerationService)
   throws IOException
@@ -34,7 +37,10 @@ public class ConstraintsDSLCompilationService {
     final var constraintsDslCompilerRoot = System.getenv("CONSTRAINTS_DSL_COMPILER_ROOT");
     final var constraintsDslCompilerCommand = System.getenv("CONSTRAINTS_DSL_COMPILER_COMMAND");
     final var nodePath = System.getenv("NODE_PATH");
-    final var processBuilder = new ProcessBuilder(nodePath, "--no-node-snapshot", constraintsDslCompilerCommand)
+    // --no-node-snapshot is required to use isolated-vm (dependency of plandev-ts-user-code-runner)
+    final var nodeFlags = "--no-node-snapshot";
+    logger.info("Starting Constraints DSL compilation service subprocess with: {} {} {}", nodePath, nodeFlags, constraintsDslCompilerCommand);
+    final var processBuilder = new ProcessBuilder(nodePath, nodeFlags, constraintsDslCompilerCommand)
         .redirectError(ProcessBuilder.Redirect.INHERIT)
         .directory(new File(constraintsDslCompilerRoot));
     processBuilder.environment().put("NODE_NO_WARNINGS", "1");
@@ -46,6 +52,7 @@ public class ConstraintsDSLCompilationService {
     if (!Objects.equals(this.nodeProcess.inputReader().readLine(), "pong")) {
       throw new Error("Could not create node subprocess");
     }
+    logger.info("Constraints DSL compilation service started successfully");
   }
 
   public void close() {
@@ -63,12 +70,23 @@ public class ConstraintsDSLCompilationService {
   ) throws MissionModelService.NoSuchMissionModelException, NoSuchPlanException,
            MissionModelLoader.MissionModelLoadException
   {
+    final long startNanos = System.nanoTime();
+    logger.info("Compiling constraint DSL ({} characters)", constraintTypescript.length());
+
     final var missionModelGeneratedCode = this.typescriptCodeGenerationService.generateTypescriptTypes(missionModelId, planId, simulationDatasetId);
+    logger.info(
+        "Generated mission model TypeScript types for model {}, plan {}, simulation dataset {}",
+        missionModelId,
+        planId.orElse(null),
+        simulationDatasetId.orElse(null)
+    );
+
     final JsonObject messageJson = Json.createObjectBuilder()
         .add("constraintCode", constraintTypescript)
         .add("missionModelGeneratedCode", missionModelGeneratedCode)
         .add("expectedReturnType", "Constraint")
         .build();
+
     /*
      * PROTOCOL:
      *   denote this java program as JAVA, and the node subprocess as NODE
@@ -88,6 +106,7 @@ public class ConstraintsDSLCompilationService {
         case "error" -> {
           final var output = outputReader.readLine();
           try {
+            logger.info("Received error from constraint DSL compilation process");
             yield new ConstraintsDSLCompilationResult.Error(parseJson(output, ConstraintsCompilationError.constraintsErrorJsonP));
           } catch (JsonParsingException | InvalidJsonEntityException e) {
             throw new Error("Could not parse error JSON returned from typescript: " + output, e);
@@ -95,16 +114,20 @@ public class ConstraintsDSLCompilationService {
         }
         case "success" -> {
           final var output = outputReader.readLine();
+          logger.info("Compiled constraint DSL successfully ({} characters)", constraintTypescript.length());
           try {
             yield new ConstraintsDSLCompilationResult.Success(parseJson(output, ConstraintParsers.constraintP));
           } catch (JsonParsingException | InvalidJsonEntityException e) {
             throw new Error("Could not parse success JSON returned from typescript: " + output, e);
           }
         }
-        default -> throw new Error("constraints dsl compiler returned unexpected status: " + status);
+        default -> throw new Error("Constraints DSL compiler returned unexpected status: " + status);
       };
     } catch (IOException e) {
       throw new Error(e);
+    } finally {
+      final long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
+      logger.info("Constraint DSL compilation completed in {} ms", elapsedMs);
     }
   }
 

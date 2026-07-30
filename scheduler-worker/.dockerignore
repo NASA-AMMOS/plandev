@@ -1,0 +1,4 @@
+# force scheduling DSL node modules & build files to be installed/built inside the image
+scheduling-dsl-compiler/node_modules
+scheduling-dsl-compiler/build
+scheduling-dsl-compiler/*.tsbuildinfo

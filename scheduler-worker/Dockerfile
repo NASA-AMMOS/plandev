@@ -1,27 +1,43 @@
 FROM alpine:3.15 AS extractor
 
 COPY build/distributions/*.tar /usr/src/app/server.tar
-RUN mkdir /usr/src/app/extracted
-RUN cd /usr/src/app && tar --strip-components 1 -xf server.tar -C extracted
+RUN mkdir -p /usr/src/app/extracted \
+    && tar --strip-components 1 -xf /usr/src/app/server.tar -C /usr/src/app/extracted
 
 FROM eclipse-temurin:21-jre-jammy
 
 ENV NODE_VERSION=24.18.0
 ENV NVM_DIR=/usr/src/.nvm
 ENV PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}"
-RUN apt update && apt install --no-install-recommends -y curl \
-    && mkdir -p $NVM_DIR \
-    && curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash \
-    &&. "$NVM_DIR/nvm.sh" \
-    && nvm install -b ${NODE_VERSION} \
-    && nvm use v${NODE_VERSION} \
-    && nvm alias default v${NODE_VERSION} \
-    && node --version \
-    && npm --version
+# nvm expects bash.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y ca-certificates curl \
+    && mkdir -p "${NVM_DIR}" \
+    && curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash \
+    && source "${NVM_DIR}/nvm.sh" \
+    && nvm install -b "${NODE_VERSION}" \
+    && nvm alias default "${NODE_VERSION}" \
+    && node --version \
+    && npm --version \
+    && rm -rf /var/lib/apt/lists/*
+
+# copy java app
 COPY --from=extractor /usr/src/app/extracted /usr/src/app
 
-COPY scheduling-dsl-compiler /usr/src/app/scheduling-dsl-compiler
+# copy scheduling-dsl-compiler node app package metadata first, so dependency installation can be cached.
+WORKDIR /usr/src/app/scheduling-dsl-compiler
+COPY scheduling-dsl-compiler/package.json \
+     scheduling-dsl-compiler/package-lock.json \
+     ./
+
+# install dependencies inside the image so native addons are built for the container's OS & architecture
+RUN npm ci
+# copy DSL Compiler *code* and build inside the container - node_modules and build files are .dockerignore'd
+COPY scheduling-dsl-compiler/ ./
+RUN npm run build
+
 ENV SCHEDULING_DSL_COMPILER_ROOT="/usr/src/app/scheduling-dsl-compiler/"
 ENV SCHEDULING_DSL_COMPILER_COMMAND="./build/main.js"
 ENV NODE_PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin/node"

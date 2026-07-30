@@ -4,7 +4,6 @@ COPY build/distributions/*.tar /usr/src/app/server.tar
 RUN mkdir -p /usr/src/app/extracted \
     && tar --strip-components 1 -xf /usr/src/app/server.tar -C /usr/src/app/extracted
 
-
 FROM eclipse-temurin:21-jre-jammy
 
 ENV NODE_VERSION=24.18.0
@@ -27,7 +26,7 @@ RUN apt-get update \
 # copy java app
 COPY --from=extractor /usr/src/app/extracted /usr/src/app
 
-# copy constraints-dsl-compiler node app, package metadata first so dependency installation can be cached.
+# copy constraints-dsl-compiler node app package metadata first, so dependency installation can be cached.
 WORKDIR /usr/src/app/constraints-dsl-compiler
 COPY constraints-dsl-compiler/package.json \
      constraints-dsl-compiler/package-lock.json \

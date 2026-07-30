@@ -1,0 +1,4 @@
+# force constraint DSL node modules & build files to be installed/built inside the image
+constraints-dsl-compiler/node_modules
+constraints-dsl-compiler/build
+constraints-dsl-compiler/*.tsbuildinfo

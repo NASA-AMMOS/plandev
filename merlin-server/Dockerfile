@@ -4,47 +4,39 @@ COPY build/distributions/*.tar /usr/src/app/server.tar
 RUN mkdir -p /usr/src/app/extracted \
     && tar --strip-components 1 -xf /usr/src/app/server.tar -C /usr/src/app/extracted
 
-FROM eclipse-temurin:21-jre-jammy
+FROM node:24.18.0-bullseye-slim AS dsl-node-builder
 
-ENV NODE_VERSION=24.18.0
-ENV NVM_DIR=/usr/src/.nvm
-ENV PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}"
-# nvm expects bash.
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+WORKDIR /opt/constraints-dsl-compiler
 
 # build-essential and python3 are needed to build isolated-vm dependency
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y build-essential ca-certificates curl python3 \
-    && mkdir -p "${NVM_DIR}" \
-    && curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash \
-    && source "${NVM_DIR}/nvm.sh" \
-    && nvm install -b "${NODE_VERSION}" \
-    && nvm alias default "${NODE_VERSION}" \
-    && node --version \
-    && npm --version \
+    && apt-get install --no-install-recommends -y build-essential python3 \
     && rm -rf /var/lib/apt/lists/*
 
-# copy java app
-COPY --from=extractor /usr/src/app/extracted /usr/src/app
-
 # copy constraints-dsl-compiler node app package metadata first, so dependency installation can be cached.
-WORKDIR /usr/src/app/constraints-dsl-compiler
-COPY constraints-dsl-compiler/package.json \
-     constraints-dsl-compiler/package-lock.json \
-     ./
-
-# TEMPORARY: copy packed user-code-runner NPM bundle into image (remove when published & package.json updated)
+COPY constraints-dsl-compiler/package.json constraints-dsl-compiler/package-lock.json ./
+# TEMPORARY: copy packed vendor/user-code-runner NPM bundle into image (remove when published & package.json updated)
 COPY constraints-dsl-compiler/vendor ./vendor
-
 # install dependencies inside the image so native addons are built for the container's OS & architecture
 RUN npm ci
-# copy DSL Compiler *code* - node_modules and build files are .dockerignore'd
+# copy DSL Compiler *code* and build inside the container - node_modules and build files are .dockerignore'd
 COPY constraints-dsl-compiler/ ./
-RUN npm run build
+RUN npm run build && npm prune --omit=dev
+
+FROM eclipse-temurin:21-jre-jammy
+
+COPY --from=extractor /usr/src/app/extracted /usr/src/app
+COPY --from=dsl-node-builder /usr/local/bin/node /usr/local/bin/node
+COPY --from=dsl-node-builder /opt/constraints-dsl-compiler /usr/src/app/constraints-dsl-compiler
+
+RUN ldd /usr/local/bin/node \
+    && node --version \
+    && test -f /usr/src/app/constraints-dsl-compiler/build/main.js
 
 ENV CONSTRAINTS_DSL_COMPILER_ROOT="/usr/src/app/constraints-dsl-compiler/"
 ENV CONSTRAINTS_DSL_COMPILER_COMMAND="./build/main.js"
-ENV NODE_PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin/node"
+ENV NODE_PATH="/usr/local/bin/node"
 
 WORKDIR /usr/src/app
 ENTRYPOINT ["/usr/src/app/bin/merlin-server"]
+

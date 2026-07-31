@@ -17,8 +17,8 @@ const constraintsAST = fs.readFileSync(
   'utf8',
 );
 const temporalPolyfillTypes = fs.readFileSync(
-    `${process.env['CONSTRAINTS_DSL_COMPILER_ROOT']}/src/libs/TemporalPolyfillTypes.d.ts`,
-    'utf8',
+  `${process.env['CONSTRAINTS_DSL_COMPILER_ROOT']}/src/libs/TemporalPolyfillTypes.d.ts`,
+  'utf8',
 );
 const temporalPolyfillBundle = fs.readFileSync(
   // import the *built* version of the Temporal bundle, which has all imports resolved into a single file
@@ -26,7 +26,7 @@ const temporalPolyfillBundle = fs.readFileSync(
   'utf8',
 );
 const temporalBootstrap = fs.readFileSync(
-  `${process.env['CONSTRAINTS_DSL_COMPILER_ROOT']}/src/libs/constraints-temporal-bootstrap.ts`,
+  `${process.env['CONSTRAINTS_DSL_COMPILER_ROOT']}/src/libs/temporal-bootstrap.ts`,
   'utf8',
 );
 const constraintResultSerializer = fs.readFileSync(
@@ -86,7 +86,7 @@ async function handleRequest(data: Buffer) {
     }[] = [
       { filename: 'guest-runtime-modules.d.ts', contents: guestRuntimeModuleTypes },
       { filename: 'temporal-polyfill-bundle.js', contents: temporalPolyfillBundle },
-      { filename: 'constraints-temporal-bootstrap.ts', contents: temporalBootstrap },
+      { filename: 'temporal-bootstrap.ts', contents: temporalBootstrap },
       { filename: 'constraint-result-serializer.ts', contents: constraintResultSerializer },
       { filename: 'constraints-ast.ts', contents: constraintsAST },
       { filename: 'constraints-edsl-fluent-api.ts', contents: constraintsEDSL },
@@ -103,7 +103,7 @@ async function handleRequest(data: Buffer) {
       10000,
       additionalSourceFiles.map(({ filename, contents }) => ts.createSourceFile(filename, contents, compilerTarget)),
       {
-        memoryLimitMb: 128,
+        memoryLimitMb: 1024,
         resultSerializer: {
           moduleName: 'constraint-result-serializer',
           outputType: 'string'

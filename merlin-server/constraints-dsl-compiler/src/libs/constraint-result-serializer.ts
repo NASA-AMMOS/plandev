@@ -10,7 +10,7 @@ export default function serializeConstraintResult(result: ConstraintResult): str
     result.__astNode,
     function replacer(key, value) {
       // replace all instances of (unserializable) Temporal.Duration in AST with microsecond duration number (serializable)
-      const originalValue = this[key];
+      const originalValue: any = this[key];
       if (originalValue instanceof Temporal.Duration) {
         return originalValue.total({
           unit: 'microseconds',

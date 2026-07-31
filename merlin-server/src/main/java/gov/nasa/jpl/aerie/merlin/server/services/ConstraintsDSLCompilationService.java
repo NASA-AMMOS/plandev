@@ -11,8 +11,6 @@ import gov.nasa.jpl.aerie.constraints.json.ConstraintParsers;
 import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
 import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
 import gov.nasa.jpl.aerie.types.MissionModelId;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.json.Json;
 import javax.json.JsonObject;
@@ -23,6 +21,8 @@ import java.io.StringReader;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ConstraintsDSLCompilationService {
 

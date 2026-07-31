@@ -4,43 +4,31 @@ COPY build/distributions/*.tar /usr/src/app/server.tar
 RUN mkdir -p /usr/src/app/extracted \
     && tar --strip-components 1 -xf /usr/src/app/server.tar -C /usr/src/app/extracted
 
-FROM eclipse-temurin:21-jre-jammy
+FROM node:24.18.0-bullseye-slim AS dsl-node-builder
 
-ENV NODE_VERSION=24.18.0
-ENV NVM_DIR=/usr/src/.nvm
-ENV PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin:${PATH}"
-# nvm expects bash.
-SHELL ["/bin/bash", "-o", "pipefail", "-c"]
-
-RUN apt-get update \
-    && apt-get install --no-install-recommends -y ca-certificates curl \
-    && mkdir -p "${NVM_DIR}" \
-    && curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash \
-    && source "${NVM_DIR}/nvm.sh" \
-    && nvm install -b "${NODE_VERSION}" \
-    && nvm alias default "${NODE_VERSION}" \
-    && node --version \
-    && npm --version \
-    && rm -rf /var/lib/apt/lists/*
-
-# copy java app
-COPY --from=extractor /usr/src/app/extracted /usr/src/app
+WORKDIR /opt/scheduling-dsl-compiler
 
 # copy scheduling-dsl-compiler node app package metadata first, so dependency installation can be cached.
-WORKDIR /usr/src/app/scheduling-dsl-compiler
-COPY scheduling-dsl-compiler/package.json \
-     scheduling-dsl-compiler/package-lock.json \
-     ./
-
+COPY scheduling-dsl-compiler/package.json scheduling-dsl-compiler/package-lock.json ./
 # install dependencies inside the image so native addons are built for the container's OS & architecture
 RUN npm ci
 # copy DSL Compiler *code* and build inside the container - node_modules and build files are .dockerignore'd
 COPY scheduling-dsl-compiler/ ./
-RUN npm run build
+RUN npm run build && npm prune --omit=dev
+
+FROM eclipse-temurin:21-jre-jammy
+
+COPY --from=extractor /usr/src/app/extracted /usr/src/app
+COPY --from=dsl-node-builder /usr/local/bin/node /usr/local/bin/node
+COPY --from=dsl-node-builder /opt/scheduling-dsl-compiler /usr/src/app/scheduling-dsl-compiler
+
+RUN ldd /usr/local/bin/node \
+    && node --version \
+    && test -f /usr/src/app/scheduling-dsl-compiler/build/main.js
 
 ENV SCHEDULING_DSL_COMPILER_ROOT="/usr/src/app/scheduling-dsl-compiler/"
 ENV SCHEDULING_DSL_COMPILER_COMMAND="./build/main.js"
-ENV NODE_PATH="${NVM_DIR}/versions/node/v${NODE_VERSION}/bin/node"
+ENV NODE_PATH="/usr/local/bin/node"
 
 WORKDIR /usr/src/app
 ENTRYPOINT ["/usr/src/app/bin/scheduler-worker"]

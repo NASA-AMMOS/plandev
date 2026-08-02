@@ -14,8 +14,7 @@
 # expects by convention (roadmap §2):
 #
 #   ${RESOURCES_ROOT}/venv   <- pymerlin + numpy + spiceypy
-#   ${RESOURCES_ROOT}/src    <- model .py, extracted from mission-model.jar at
-#                               instantiate() time (Phase 2, §5.3); empty here
+#   ${RESOURCES_ROOT}/src    <- stays empty; see the mkdir near the end of this file
 #
 # Env:
 #   GRAALPY_VERSION  (required)  e.g. 25.0.2 -- keep in lockstep with
@@ -200,8 +199,12 @@ log "installing pymerlin@${PYMERLIN_REF} + numpy + spiceypy (source build, if tr
   numpy \
   "${SPICEYPY_TARGET}"
 
-# ${root}/src is on the Python path by GraalPyResources convention. Phase 2 extracts
-# model sources here; it must exist now or contextBuilder(root) has nothing to point at.
+# ${root}/src is on the Python path by GraalPyResources convention, and contextBuilder(root)
+# needs it to exist -- so create it even though it stays empty. Model sources do NOT land
+# here: the shim extracts the .py out of the uploaded JAR into its own /tmp/pymerlin-model-*
+# directory and puts that on sys.path directly, then deletes it when the simulation ends.
+# Moving the source in here instead would only be necessary if filesystem access were
+# sandboxed, which would stop the shim reading an arbitrary temp path.
 mkdir -p "${RESOURCES_ROOT}/src"
 
 # --- Verify ------------------------------------------------------------------------------

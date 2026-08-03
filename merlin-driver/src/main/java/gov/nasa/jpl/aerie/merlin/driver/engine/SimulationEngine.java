@@ -196,6 +196,8 @@ public final class SimulationEngine implements AutoCloseable {
     return elapsedTime;
   }
 
+  int stepCount = 0;
+
   /** Step the engine forward one batch. **/
   public Status step(Duration simulationDuration) throws Throwable {
     final var nextTime = this.peekNextTime().orElse(Duration.MAX_VALUE);
@@ -210,7 +212,8 @@ public final class SimulationEngine implements AutoCloseable {
     final var delta = batch.offsetFromStart().minus(elapsedTime);
     elapsedTime = batch.offsetFromStart();
     timeline.add(delta);
-    if (!delta.isZero()) {
+    if (stepCount++ > 1000) {
+        stepCount = 0;
         cells.stepUpAll();
     }
 

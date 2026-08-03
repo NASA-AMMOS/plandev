@@ -17,7 +17,7 @@ A model author writes Python, runs `pymerlin package`, uploads the resulting JAR
 ```shell
 python -m venv venv
 source venv/bin/activate
-pip install "git+https://github.com/remy-rabideau/pymerlin.git@v0.2.0"
+pip install "git+https://github.com/remy-rabideau/pymerlin.git@v0.2.1"
 ```
 
 ### 2. Write a model

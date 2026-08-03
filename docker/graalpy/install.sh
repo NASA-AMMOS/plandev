@@ -34,7 +34,7 @@ set -euo pipefail
 GRAALPY_VERSION="${GRAALPY_VERSION:?GRAALPY_VERSION must be set}"
 RESOURCES_ROOT="${RESOURCES_ROOT:-/opt/pymerlin/python-resources}"
 PYMERLIN_GIT_URL="${PYMERLIN_GIT_URL:-https://github.com/remy-rabideau/pymerlin.git}"
-PYMERLIN_REF="${PYMERLIN_REF:-v0.2.0}"
+PYMERLIN_REF="${PYMERLIN_REF:-v0.2.1}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONSTRAINTS_FILE="${SCRIPT_DIR}/constraints.txt"
@@ -140,7 +140,7 @@ log "PIP_CONSTRAINT=${PIP_CONSTRAINT}"
 # already installed above for CSPICE's source clone, so `pip install git+...@ref`
 # needs nothing extra here.
 #
-# PYMERLIN_REF's default is `v0.2.0`, the tag matching pymerlin's own `pyproject.toml`
+# PYMERLIN_REF's default is `v0.2.1`, the tag matching pymerlin's own `pyproject.toml`
 # `version`. Bump this here every time a new pymerlin version should reach new
 # worker-image builds. Treat "this tag" and "the GraalPy version above" as a matched
 # pair: bumping one without checking the other risks a shim JAR built against a

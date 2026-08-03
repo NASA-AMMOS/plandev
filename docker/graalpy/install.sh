@@ -13,8 +13,10 @@
 # Produces the external-directory layout GraalPyResources.contextBuilder(root)
 # expects by convention (roadmap §2):
 #
-#   ${RESOURCES_ROOT}/venv   <- pymerlin + numpy + spiceypy
-#   ${RESOURCES_ROOT}/src    <- stays empty; see the mkdir near the end of this file
+#   ${RESOURCES_ROOT}/venv            <- pymerlin + numpy + spiceypy
+#   ${RESOURCES_ROOT}/src             <- stays empty; see the mkdir near the end of this file
+#   ${RESOURCES_ROOT}/constraints.txt <- copy of this build's PIP_CONSTRAINT, kept for the
+#                                        model-declared installs the shim runs at load time
 #
 # Env:
 #   GRAALPY_VERSION  (required)  e.g. 25.0.2 -- keep in lockstep with
@@ -206,6 +208,15 @@ log "installing pymerlin@${PYMERLIN_REF} + numpy + spiceypy (source build, if tr
 # Moving the source in here instead would only be necessary if filesystem access were
 # sandboxed, which would stop the shim reading an arbitrary temp path.
 mkdir -p "${RESOURCES_ROOT}/src"
+
+# Keep the constraints alongside the venv they constrain. A model JAR can declare its own
+# Python packages, which the shim pip-installs into this venv at model-load time -- and
+# that install needs the same PIP_CONSTRAINT this build used, or a model asking for numpy
+# unpinned re-triggers the ~15-minute from-source compile the pin above exists to prevent.
+# This file cannot be read from its build location at runtime: the image build COPYs this
+# directory to /tmp/graalpy and deletes it afterwards.
+cp "${CONSTRAINTS_FILE}" "${RESOURCES_ROOT}/constraints.txt"
+log "constraints persisted to ${RESOURCES_ROOT}/constraints.txt (for model-declared installs)"
 
 # --- Verify ------------------------------------------------------------------------------
 #

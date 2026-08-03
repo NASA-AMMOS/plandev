@@ -46,6 +46,8 @@ pymerlin package --model model.py:Mission --out mission-model.jar
 
 Upload `mission-model.jar` to your PlanDev instance exactly as you would a Java model.
 
+For full documentation on writing Python mission models — cells, resources, activities, configuration, and more — see the [pymerlin README](https://github.com/remy-rabideau/pymerlin/blob/main/README.md).
+
 ## How it works
 
 ### SharedPythonEngine

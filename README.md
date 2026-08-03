@@ -12,9 +12,11 @@ A model author writes Python, runs `pymerlin package`, uploads the resulting JAR
 
 ## Quick start
 
-### 1. Install pymerlin
+### 1. Set up a virtual environment and install pymerlin
 
 ```shell
+python -m venv venv
+source venv/bin/activate
 pip install "git+https://github.com/remy-rabideau/pymerlin.git@v0.2.0"
 ```
 

@@ -1,89 +1,166 @@
-[![slack](https://img.shields.io/badge/slack-plandev-brightgreen?logo=slack)](https://join.slack.com/t/nasa-ammos/shared_invite/zt-1mlgmk5c2-MgqVSyKzVRUWrXy87FNqPw)
+# PlanDev — Python Modeling Branch (`pymerlin/develop`)
 
-<br>
-<div align="center">
-  <img alt="PlanDev" height="40" src="docs/img/plandev-logo-light.svg">
-</div>
-<br>
+> **This is not the main PlanDev branch.**
+> This branch adds Python mission modeling support via [pymerlin](https://github.com/remy-rabideau/pymerlin).
+> For the standard PlanDev documentation, see the [main branch README](https://github.com/NASA-AMMOS/aerie/blob/develop/README.md).
 
-PlanDev is a software framework for modeling spacecraft. Its main features include:
+## What this branch does
 
-- A Java-based mission modeling library
-- A discrete-event simulator
-- An embedded TypeScript DSL for defining and executing scheduling goals
-- An embedded TypeScript DSL for defining and executing constraints
-- An embedded TypeScript DSL for defining and executing activity command expansions
-- An embedded TypeScript DSL for defining sequences
-- A [GraphQL API](https://nasa-ammos.github.io/plandev-docs/api/introduction)
-- A web-based [client application][ui-repo]
+Standard PlanDev models are written in Java. This branch embeds a Python runtime ([GraalPy](https://www.graalvm.org/python/)) into the `merlin-worker` and `merlin-server` images so that mission models can be written entirely in Python using the `pymerlin` library — and uploaded as a JAR just like a Java model.
 
-## PlanDev & SeqDev Naming
+A model author writes Python, runs `pymerlin package`, uploads the resulting JAR to a deployed PlanDev instance, and simulates it through the normal PlanDev UI. No Java code is written; no separate Python process runs alongside PlanDev.
 
-As new mission communities have joined PlanDev, we've evolved our product focus and naming. What you need to know:
+## Quick start
 
-* The planning tool is now named PlanDev and the sequencing tool is now named SeqDev
-* Most repositories have been renamed, and the rest will be renamed soon. The repository code structure has not changed
-* Published code packages (NPM, Java, and Docker images) still retain their **old** names but will be renamed in a future version
-* Changes affecting your code will be announced in advance with upgrade guidance
+### 1. Install pymerlin
 
-For the latest documentation, visit: [PlanDev Documentation](https://nasa-ammos.github.io/plandev-docs/)
-
-
-## Getting Started
-
-To get started using PlanDev for the first time please do our [fast track tutorial][fast-track] on our documentation website.
-
-## Need Help?
-
-- Join us on the [NASA-AMMOS Slack](https://join.slack.com/t/nasa-ammos/shared_invite/zt-1mlgmk5c2-MgqVSyKzVRUWrXy87FNqPw) (#plandev-users)
-- Contact plandev-support@googlegroups.com
-
-## News and Updates
-
-- Join the [PlanDev Users](https://groups.google.com/u/3/g/plandev-users) group to stay up to date on news, releases, and our project roadmap. 
-
-## Directory Structure
-
-```sh
-.
-├── .github                     # GitHub metadata
-├── constraints                 # Java library for constraint checking
-├── contrib                     # Java convenience classes for mission models
-├── db-tests                    # Database unit tests
-├── deployment                  # Deployment artifacts and documentation
-├── docker                      # Additional Dockerfiles for PlanDev-specific images
-├── docs                        # Documentation
-├── e2e-tests                   # End-to-end tests
-├── examples                    # Example mission models
-├── gradle                      # Gradle Wrapper
-├── load-tests                  # Load testing code and configuration
-├── merlin-driver               # Java library for discrete-event simulation
-├── merlin-framework            # Java library for mission modeling
-├── merlin-framework-junit      # Extension of JUnit to unit test mission models
-├── merlin-framework-processor  # Java annotation processor for mission models
-├── merlin-sdk                  # Java interface between mission models and the merlin-driver
-├── merlin-server               # Service for planning and simulation
-├── merlin-worker               # Worker for executing simulations
-├── parsing-utilities           # Java classes for JSON serialization and deserialization
-├── permissions                 # Java library for authorizing endpoint requests
-├── scheduler-driver            # Java library for goal-oriented scheduling
-├── scheduler-server            # Service for scheduling
-├── scheduler-worker            # Worker for executing scheduling goals
-├── sequencing-server           # Service for sequence generation and management
-└── third-party                 # External Java dependencies that are not obtained from Maven
+```shell
+pip install pymerlin
 ```
 
-## Want to help?
+### 2. Write a model
 
-Want to file a bug, contribute some code, or improve documentation? Excellent! Read up on our guidelines for [contributing][contributing]. If you are a developer you can get started quickly by reading the [developer documentation][dev].
+```python
+from pymerlin import MissionModel, MissionModelBase
+from pymerlin.model_actions import delay, spawn
 
-## License
+@MissionModel
+class Mission(MissionModelBase):
+    def __init__(self, registrar):
+        self.counter = registrar.cell(0)
+        registrar.resource("/counter", self.counter)
 
-The scripts and documentation in this project are released under the [MIT License](LICENSE).
+@Mission.ActivityType
+def increment(mission, amount: int = 1):
+    mission.counter.emit(lambda x: x + amount)
+    delay("00:01:00")
+```
 
-[contributing]: ./docs/CONTRIBUTING.md
-[deployment]: ./deployment
-[dev]: ./docs/DEVELOPER.md
-[fast-track]: https://nasa-ammos.github.io/plandev-docs/introduction/#fast-track
-[ui-repo]: https://github.com/NASA-AMMOS/plandev-ui
+### 3. Package and upload
 
+```shell
+pymerlin package --model model.py:Mission --out mission-model.jar
+```
+
+Upload `mission-model.jar` to your PlanDev instance exactly as you would a Java model.
+
+## How it works
+
+### SharedPythonEngine
+
+`SharedPythonEngine.java` holds a JVM-wide GraalVM `Engine` singleton that parses and JIT-compiles Python source into machine code. It is shared across simulations to avoid reparsing and recompiling the Python interpreter, the standard library, pymerlin, and model modules on every run.
+
+It lives on both `merlin-worker`'s and `merlin-server`'s classpath:
+
+- **merlin-worker** runs simulations.
+- **merlin-server** handles model loading (`refreshActivityTypes`, `loadModelType`, `getModelParameters`) and also runs simulations.
+
+### Java → Python (model loading and setup)
+
+1. `ShimModelType.java` implements PlanDev's `ModelType` interface.
+2. PlanDev calls `ModelType.instantiate()`.
+3. `GraalBridge.java` creates a GraalPy `Context` and imports `_server.py` functions directly:
+   ```java
+   describeActivityTypes = ctx.eval("python", "_describe_activity_types");
+   ```
+4. Java asks Python for model information (activity types, configuration parameters, cells).
+5. For every cell in the Python model, `instantiate()` allocates one real PlanDev cell. They are tied together via **cell indices** — Python's `CellRef._cell_index` maps directly to Java's `cellsByIndex` list.
+
+### Simulation (runtime path)
+
+1. PlanDev's simulation engine schedules an activity directive (an instance of an activity type).
+2. `ShimModelType.runActivity()` calls `bridge.runActivityDirect()` (through the `PyBridge` interface), which calls `_server.py`'s `run_activity_direct()`.
+3. The activity's Python function runs on the calling Java `ThreadedTask` virtual thread.
+4. If an activity spawns a child, `ShimModelType.directSpawn()` schedules a fresh child `ThreadedTask`.
+
+### Python → Java (callbacks)
+
+While a Python activity function runs, it calls pymerlin APIs (`delay()`, `emit()`, `spawn()`, `call()`, `wait_until()`). Each call routes back into Java through `PyActions.java`, which delegates to `ShimModelType.java`, which in turn calls static methods in `ModelActions.java` — acting on whichever virtual thread is calling:
+
+| Python API | Java callback | PlanDev engine call |
+|---|---|---|
+| `delay(duration)` | `PyActions.delay()` | `ModelActions.delay()` — parks the virtual thread |
+| `cell.get()` | `PyActions.ask()` | `ModelActions.ask(cellId)` — reads from the real PlanDev cell |
+| `cell.emit(event)` | `PyActions.emitCell()` | `ModelActions.emit(topic)` — emits to the cell's topic |
+| `spawn(activity)` | `PyActions.spawnActivity()` | `ModelActions.spawnWithSpan()` — creates a new `ThreadedTask` |
+| `call(activity)` | `PyActions.callActivity()` | `ModelActions.callWithSpan()` — blocks caller until child completes |
+| `wait_until(pred)` | `PyActions.waitUntil()` | `ModelActions.waitUntil()` — Python predicate wrapped as `BooleanSupplier` |
+
+### In-process architecture
+
+**The big idea:** Python code runs inside the JVM via GraalPy. Python is a guest language on PlanDev's GraalVM runtime, executing on the same threads as Java. Method calls between Python and Java happen on the same thread — no subprocess, no sockets, no protocol, no serialization boundary.
+
+When a Python activity calls `delay()`, it parks the Java virtual thread it is running on — with Python frames still live on the stack. The PlanDev simulation engine picks up the next task. When time advances, the same thread resumes and the Python function continues where it left off.
+
+```
+PlanDev merlin-worker (JVM, GraalVM 21)
+  └── ShimModelType  (implements ModelType, loaded from mission-model.jar)
+        ├── PyBridge interface
+        │     └── GraalBridge  (sole implementation)
+        │           └── GraalPy Context (one per simulation)
+        │                 ↕ direct host calls (org.graalvm.polyglot.Value)
+        │               _server.py → model.py  (extracted from the JAR to a temp dir)
+        └── PyActions  (host object handed to Python for callbacks)
+              └── ShimModelType.direct*() → ModelActions.*()
+```
+
+## Worker image
+
+The `merlin-worker` and `merlin-server` Docker images are built on `ghcr.io/graalvm/jdk-community:21` and include:
+
+- An embedded GraalPy runtime (version set by `GRAALPY_VERSION` in the Dockerfile)
+- A pre-built virtual environment at `/opt/pymerlin/python-resources/` containing `pymerlin`, `numpy`, and `spiceypy`
+
+Both images are provisioned by the shared script [`docker/graalpy/install.sh`](docker/graalpy/install.sh). The model JAR does **not** carry its own Python runtime — the images supply it.
+
+### Adding a Python dependency
+
+A missing dependency requires an **image rebuild**, not a JAR change:
+
+1. Add the package to [`docker/graalpy/install.sh`](docker/graalpy/install.sh)
+2. Pin it in [`docker/graalpy/constraints.txt`](docker/graalpy/constraints.txt)
+3. Rebuild the `merlin-worker` and `merlin-server` images
+4. Redeploy
+
+Packages with native extensions must build cleanly under GraalPy. CPython wheels from PyPI are **not** binary-compatible.
+
+## Key files
+
+### Java shim (`docker/graalpy/pymerlin-src/java/pymerlin-shim/`)
+
+| File | Role |
+|---|---|
+| `ShimModelType.java` | PlanDev `ModelType` implementation; allocates cells, builds task factories, hosts `direct*()` callbacks |
+| `PyBridge.java` | Interface between `ShimModelType` and the Python runtime (pluggability seam) |
+| `GraalBridge.java` | Sole `PyBridge` implementation; creates GraalPy Context, calls `_server.py` functions |
+| `PyActions.java` | Stateless host object given to Python for `delay`/`emit`/`spawn`/`call`/`waitUntil` callbacks |
+| `ShimMerlinPlugin.java` | `MerlinPlugin` SPI entry point; PlanDev discovers the model through this |
+
+### Python runtime (`pymerlin/pymerlin/_internal/`)
+
+| File | Role |
+|---|---|
+| `_server.py` | In-process Python runtime: model loading, activity/config introspection, `run_activity_direct()` |
+| `_registrar.py` | `Registrar`, `CellRef`, `LinearCellRef`; declares cells, resources, and projections |
+| `_globals.py` | Thread-local state: `java_actions`, `cell_values_by_id`, reaction context |
+
+### Shared engine (`graalpy-engine-cache/`)
+
+| File | Role |
+|---|---|
+| `SharedPythonEngine.java` | JVM-wide GraalVM `Engine` singleton; caches compiled code across simulations |
+
+## Version compatibility
+
+The pymerlin ref pinned in `install.sh` (`PYMERLIN_REF`) must ship a `pymerlin-shim.jar` compiled against the **same** `graalPyVersion` as the image's `GRAALPY_VERSION`. A mismatch compiles fine but fails at simulation time. The CI workflow `graalpy-preflight.yml` partially automates this check.
+
+## Differences from upstream PlanDev
+
+This branch is a **superset** of upstream PlanDev. All standard Java modeling, scheduling, constraints, and sequencing functionality is unchanged. The additions are:
+
+- GraalPy runtime provisioned in the worker and server images
+- `graalpy-engine-cache` library (shared `Engine` singleton)
+- `pymerlin-shim` JAR (loaded from the uploaded model JAR via `MerlinPlugin` SPI)
+- `docker/graalpy/install.sh` and related provisioning scripts
+
+Java mission models continue to work exactly as before. The Python modeling path activates only when an uploaded JAR contains a `pymerlin-shim` plugin.

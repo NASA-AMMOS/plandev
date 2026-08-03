@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@js-temporal/polyfill": "0.4.3",
-    "@nasa-jpl/aerie-ts-user-code-runner": "file:vendor/nasa-jpl-aerie-ts-user-code-runner-0.7.0.tgz",
+    "@nasa-jpl/aerie-ts-user-code-runner": "1.0.0-rc0",
     "prettier": "^2.6.2",
     "source-map": "^0.7.3",
     "typescript": "^4.5.5"
@@ -27,7 +27,6 @@
     "typedoc": "^0.23.10"
   },
   "allowScripts": {
-    "file:/Users/delany/Documents/jpl/repos/aerie-ts-user-code-runner/nasa-jpl-aerie-ts-user-code-runner-0.7.0.tgz": true,
     "isolated-vm@6.0.2": true,
     "esbuild@0.28.1": true
   }

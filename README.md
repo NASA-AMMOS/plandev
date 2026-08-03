@@ -15,7 +15,7 @@ A model author writes Python, runs `pymerlin package`, uploads the resulting JAR
 ### 1. Install pymerlin
 
 ```shell
-pip install pymerlin
+pip install "git+https://github.com/remy-rabideau/pymerlin.git@v0.2.0"
 ```
 
 ### 2. Write a model

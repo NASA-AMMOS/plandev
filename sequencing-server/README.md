@@ -39,4 +39,4 @@ The scripts and documentation in this project are released under the [MIT Licens
 
 [contributing]: ../docs/CONTRIBUTING.md
 [dev]: ../docs/DEVELOPER.md
-[license]: ../LICENSE
+[license]: /LICENSE

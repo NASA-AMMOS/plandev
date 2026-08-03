@@ -35,9 +35,10 @@ Want to file a bug, contribute some code, or improve documentation? Excellent! R
 
 ## License
 
-The scripts and documentation in this project are released under the [MIT License](LICENSE).
+The scripts and documentation in this project are released under the [MIT License](license).
 
 [contributing]: ../docs/CONTRIBUTING.md
 [deployment]: ../deployment
 [dev]: ../docs/DEVELOPER.md
 [ui-repo]: https://github.com/NASA-AMMOS/plandev-ui
+[license]: ../LICENSE

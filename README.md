@@ -113,16 +113,27 @@ The `merlin-worker` and `merlin-server` Docker images are built on `ghcr.io/graa
 
 Both images are provisioned by the shared script [`docker/graalpy/install.sh`](docker/graalpy/install.sh). The model JAR does **not** carry its own Python runtime — the images supply it.
 
-### Adding a Python dependency
+### Python dependencies
 
-A missing dependency requires an **image rebuild**, not a JAR change:
+Model dependencies are handled automatically. When you `import` a third-party package in your model, `pymerlin package` detects it, generates a `requirements.txt` (pinned to the versions in your local environment), and bundles it inside the JAR. At model load time, the Java shim (`RequirementsInstaller`) reads this file and pip-installs anything missing into the GraalPy venv — no image rebuild required.
 
-1. Add the package to [`docker/graalpy/install.sh`](docker/graalpy/install.sh)
-2. Pin it in [`docker/graalpy/constraints.txt`](docker/graalpy/constraints.txt)
-3. Rebuild the `merlin-worker` and `merlin-server` images
-4. Redeploy
+The model author never writes a `requirements.txt`. The imports *are* the dependency list:
 
-Packages with native extensions must build cleanly under GraalPy. CPython wheels from PyPI are **not** binary-compatible.
+```
+model.py:   import toml    ←  this is all you do
+```
+```
+pymerlin package --model model.py:Mission --out model.jar
+# [pymerlin] Requirements:    generated from the model's imports
+# [pymerlin]                  toml==0.10.2
+```
+
+On first simulation, the worker installs any missing packages before creating the GraalPy Context. Subsequent simulations of the same model skip the install (marker-file caching).
+
+**Caveats:**
+- Packages with native extensions must build cleanly under GraalPy. CPython wheels from PyPI are **not** binary-compatible.
+- The worker container needs outbound network access for pip installs to succeed.
+- Dynamic imports (`importlib.import_module(...)`) are not detected by the static scanner. Work around this by also importing the package normally somewhere in the model.
 
 ## Key files
 

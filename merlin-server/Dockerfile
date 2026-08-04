@@ -11,7 +11,7 @@ WORKDIR /opt/constraints-dsl-compiler
 # copy constraints-dsl-compiler node app package metadata first, so dependency installation can be cached.
 COPY constraints-dsl-compiler/package.json constraints-dsl-compiler/package-lock.json ./
 # install dependencies inside the image so native addons are built for the container's OS & architecture
-RUN npm ci
+RUN npm ci --strict-allow-scripts
 # copy DSL Compiler *code* and build inside the container - node_modules and build files are .dockerignore'd
 COPY constraints-dsl-compiler/ ./
 RUN npm run build && npm prune --omit=dev

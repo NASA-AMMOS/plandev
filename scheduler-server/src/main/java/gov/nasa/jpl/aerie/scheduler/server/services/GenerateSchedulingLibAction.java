@@ -42,7 +42,7 @@ public record GenerateSchedulingLibAction(
       final var schedulerAst          = getTypescriptResource("scheduler-ast.ts");
       final var windowsDsl            = getTypescriptResource("constraints/constraints-edsl-fluent-api.ts");
       final var windowsAst            = getTypescriptResource("constraints/constraints-ast.ts");
-      final var temporalPolyfillTypes = getTypescriptResource("constraints/TemporalPolyfillTypes.ts");
+      final var temporalPolyfillTypes = getTypescriptResource("constraints/TemporalPolyfillTypes.d.ts");
 
 
       var missionModelTypes = merlinDatabaseService.getMissionModelTypes(missionModelId);

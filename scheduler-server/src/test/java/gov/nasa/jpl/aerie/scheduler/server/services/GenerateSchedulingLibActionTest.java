@@ -12,7 +12,7 @@ public final class GenerateSchedulingLibActionTest {
     assertTypescriptResourceLoaded("scheduler-ast.ts");
     assertTypescriptResourceLoaded("constraints-edsl-fluent-api.ts");
     assertTypescriptResourceLoaded("constraints-ast.ts");
-    assertTypescriptResourceLoaded("constraints/TemporalPolyfillTypes.ts");
+    assertTypescriptResourceLoaded("constraints/TemporalPolyfillTypes.d.ts");
   }
 
   private static void assertTypescriptResourceLoaded(final String basename) {

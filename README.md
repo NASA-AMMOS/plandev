@@ -2,7 +2,7 @@
 
 > **This is not the main PlanDev branch.**
 > This branch adds Python mission modeling support via [pymerlin](https://github.com/remy-rabideau/pymerlin).
-> For the standard PlanDev documentation, see the [main branch README](https://github.com/NASA-AMMOS/aerie/blob/develop/README.md).
+> For the standard PlanDev documentation, see the [main branch README](https://github.com/NASA-AMMOS/plandev/blob/develop/README.md).
 
 ## What this branch does
 

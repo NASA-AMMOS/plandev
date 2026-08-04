@@ -10,8 +10,9 @@ WORKDIR /opt/scheduling-dsl-compiler
 
 # copy scheduling-dsl-compiler node app package metadata first, so dependency installation can be cached.
 COPY scheduling-dsl-compiler/package.json scheduling-dsl-compiler/package-lock.json ./
-# install dependencies inside the image so native addons are built for the container's OS & architecture
-RUN npm ci --strict-allow-scripts
+# Install dependencies without lifecycle scripts, then only build deps approved by the package's allowScripts policy.
+RUN npm ci --ignore-scripts \
+    && npm rebuild --strict-allow-scripts
 # copy DSL Compiler *code* and build inside the container - node_modules and build files are .dockerignore'd
 COPY scheduling-dsl-compiler/ ./
 RUN npm run build && npm prune --omit=dev

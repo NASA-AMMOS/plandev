@@ -37,6 +37,6 @@ Want to file a bug, contribute some code, or improve documentation? Excellent! R
 
 The scripts and documentation in this project are released under the [MIT License][license].
 
-[contributing]: /docs/CONTRIBUTING.md
-[dev]: /docs/DEVELOPER.md
-[license]: /LICENSE
+[contributing]: ../docs/CONTRIBUTING.md
+[dev]: ../docs/DEVELOPER.md
+[license]: ../LICENSE

@@ -46,7 +46,7 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
                     .getSuccessOrThrow($ -> new Error("Corrupt activity arguments cannot be parsed: " + $.reason())),
                 (Integer)results.getObject("anchor_id"),
                 results.getBoolean("anchored_to_start"),
-                (String)results.getObject("name"))
+                results.getString("name"))
         );
       }
     }

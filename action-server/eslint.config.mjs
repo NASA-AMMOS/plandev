@@ -1,4 +1,5 @@
 import { sheriff, tseslint } from "eslint-config-sheriff";
+import { defineConfig } from "eslint/config";
 
 const sheriffOptions = {
   react: false,
@@ -11,7 +12,7 @@ const sheriffOptions = {
   vitest: false,
 };
 
-export default tseslint.config(sheriff(sheriffOptions), {
+export default defineConfig(sheriff(sheriffOptions), {
   rules: {
     "@typescript-eslint/no-explicit-any": ["off"],
     "@typescript-eslint/no-extraneous-class": "off",

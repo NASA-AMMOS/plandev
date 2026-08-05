@@ -3,7 +3,7 @@ plugins {
 }
 
 node {
-  version = '22.23.2'
+  version = '24.18.0'
   download = true
   npmInstallCommand = System.getenv("CI") ? 'ci' : 'install'
 }

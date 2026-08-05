@@ -62,7 +62,7 @@ services:
         -Dorg.slf4j.simpleLogger.logFile=System.err
       UNTRUE_PLAN_START: "2000-01-01T11:58:55.816Z"
     image: "${REPOSITORY_DOCKER_URL}/aerie-merlin:${DOCKER_TAG}"
-    ports: ["27183:27183"]
+    ports: ["27183:8080"]
     restart: always
     volumes:
       - aerie_file_store:/usr/src/app/merlin_file_store
@@ -105,7 +105,7 @@ services:
         -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
         -Dorg.slf4j.simpleLogger.logFile=System.err
     image: "${REPOSITORY_DOCKER_URL}/aerie-scheduler:${DOCKER_TAG}"
-    ports: ["27185:27185"]
+    ports: ["27185:8080"]
     restart: always
     volumes:
       - aerie_file_store:/usr/src/app/merlin_file_store
@@ -155,7 +155,7 @@ services:
       SEQUENCING_MAX_WORKER_HEAP_MB: 1000
       TRANSPILER_ENABLED: "true"
     image: "${REPOSITORY_DOCKER_URL}/aerie-sequencing:${DOCKER_TAG}"
-    ports: ["27184:27184"]
+    ports: ["27184:8080"]
     restart: always
     volumes:
       - aerie_file_store:/usr/src/app/sequencing_file_store

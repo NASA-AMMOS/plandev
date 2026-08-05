@@ -1,17 +1,16 @@
-# Permanent CI regression for roadmap Gate A, and the Phase 1 exit criteria.
-#
-# The roadmap is explicit that this must not stay a laptop result: "Gate A is now
-# permanently verified in CI, not just once on a laptop." (§4.3)
+# Permanent CI regression for the GraalPy embedding preconditions: that a Truffle Context
+# can be created inside the built worker image, on the optimizing runtime, from a child
+# classloader, against a venv that actually imports.
 #
 # WHY THIS IS NOT A JOB IN test.yml's `unit-test`:
 #
-# test.yml sets up `distribution: "temurin"` -- stock OpenJDK. That is precisely the
-# configuration Gate A-1 FAILED on ("JVMCI is not enabled for this JVM"), and it is why
-# both images were rebased onto ghcr.io/graalvm/jdk-community:21. A Context created under
-# `./gradlew test` on a temurin runner would run on Truffle's interpreter-only fallback
-# runtime and would assert the opposite of what Gate A concluded. The property under test
-# belongs to the built IMAGE -- its JDK, its classpath, its venv -- so the check has to
-# run inside the image.
+# test.yml sets up `distribution: "temurin"` -- stock OpenJDK, which has no JVMCI enabled.
+# A Context created under `./gradlew test` on a temurin runner falls back to Truffle's
+# interpreter-only runtime, so it would pass while asserting the opposite of what this
+# workflow exists to prove (it is why both images were rebased onto
+# ghcr.io/graalvm/jdk-community:21 in the first place). The property under test belongs to
+# the built IMAGE -- its JDK, its classpath, its venv -- so the check has to run inside the
+# image.
 #
 # This lives in its own file rather than in test.yml because this fork tracks
 # NASA-AMMOS:develop and merges from it regularly; keeping GraalPy changes out of shared
@@ -21,18 +20,20 @@ name: GraalPy Preflight
 on:
   pull_request:
     branches:
+      # pymerlin/develop is where the GraalPy work integrates. `develop` is listed too so
+      # the eventual pymerlin/develop -> develop PR runs this gate rather than skipping it
+      # at exactly the merge that matters most.
+      - pymerlin/develop
       - develop
-      - dev-[0-9]+.[0-9]+.[0-9]+
   push:
     branches:
-      - develop
-      - feature/pymerlin-shim-graalpy
+      - pymerlin/develop
   workflow_dispatch:
     inputs:
       pymerlin_ref:
-        description: "pymerlin branch/ref to build the venv from"
+        description: "pymerlin branch/ref to check out and build the venv from"
         required: false
-        default: feature/shim-graalpy
+        default: develop
 
 permissions:
   contents: read
@@ -40,31 +41,35 @@ permissions:
 env:
   # Must match `graalPyVersion` in gradle.properties and ext.graalPyVersion in
   # pymerlin's java/pymerlin-shim/build.gradle. The "versions agree" step below
-  # asserts the first of those rather than trusting it.
+  # asserts both of those rather than trusting them.
   GRAALPY_VERSION: "25.0.2"
   PYMERLIN_REPO: "remy-rabideau/pymerlin"
-  PYMERLIN_REF: "feature/shim-graalpy"
+  # Resolved once here so the checkout that gets version-checked and the venv that gets
+  # built are guaranteed to be the same ref -- see the docker build step.
+  PYMERLIN_REF: ${{ github.event.inputs.pymerlin_ref || 'develop' }}
 
 jobs:
   preflight:
     runs-on: ubuntu-latest
-    # The image build compiles CSPICE from source (~340s, Gate D-1 finding 6) on top of a
-    # full C toolchain install, so this is minutes, not seconds. Fail loudly rather than
-    # hanging for the default 6h if something regresses into the unpinned-numpy
-    # from-source path, which looks like a hang rather than an error (Gate D-1 finding 5).
+    # The image build compiles CSPICE from source (~340s) on top of a full C toolchain
+    # install, so this is minutes, not seconds. Fail loudly rather than hanging for the
+    # default 6h if something regresses into the unpinned-numpy from-source path, which
+    # looks like a hang rather than an error.
     timeout-minutes: 45
 
     steps:
-      # merlin-worker/Dockerfile no longer needs a sibling pymerlin checkout to build --
-      # install.sh pip-installs pymerlin from a pinned git ref over the network instead
-      # of `COPY`ing in a local checkout (the point of decoupling the image build from
+      # merlin-worker/Dockerfile does not need a sibling pymerlin checkout to build --
+      # install.sh pip-installs pymerlin from a git ref over the network instead of
+      # `COPY`ing in a local checkout (the point of decoupling the image build from
       # requiring the pymerlin repo alongside plandev's). The build context is just
-      # `plandev/` now.
+      # `plandev/`.
       #
-      # The "Checkout pymerlin" step below still exists, but only to feed the version-
-      # agreement check further down -- it validates a *given* pymerlin ref's
-      # pymerlin-shim/build.gradle against this workflow's GRAALPY_VERSION, independent
-      # of whatever ref install.sh's own default happens to be pinned to right now.
+      # The pymerlin checkout below is therefore only read by the version-agreement step:
+      # it validates PYMERLIN_REF's pymerlin-shim/build.gradle against GRAALPY_VERSION.
+      # The same PYMERLIN_REF is passed to `docker build` as a build arg, so the ref whose
+      # Java shim gets version-checked here is the ref whose Python package ends up in the
+      # venv -- without that build arg, install.sh would quietly use its own pinned release
+      # tag and this job would check one ref while testing another.
       - name: Checkout plandev
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -74,7 +79,7 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           repository: ${{ env.PYMERLIN_REPO }}
-          ref: ${{ github.event.inputs.pymerlin_ref || env.PYMERLIN_REF }}
+          ref: ${{ env.PYMERLIN_REF }}
           path: pymerlin
 
       - name: Setup Java
@@ -86,7 +91,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
         with:
-          cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
+          cache-read-only: ${{ github.ref != 'refs/heads/pymerlin/develop' }}
 
       # Cheap guard against the failure mode the version pins exist to prevent: the venv
       # built from one GraalPy release, the language jars on the classpath from another.
@@ -103,7 +108,7 @@ jobs:
             exit 1
           fi
           shim_version="$(grep -E "^ext.graalPyVersion" ../pymerlin/java/pymerlin-shim/build.gradle | sed "s/.*'\(.*\)'.*/\1/")"
-          echo "pymerlin-shim     : ${shim_version}"
+          echo "pymerlin-shim     : ${shim_version} (from ${PYMERLIN_REPO}@${PYMERLIN_REF})"
           if [ "${shim_version}" != "${GRAALPY_VERSION}" ]; then
             echo "::error::ext.graalPyVersion=${shim_version} in pymerlin-shim/build.gradle does not match ${GRAALPY_VERSION}. The shim would compile against an API the worker does not provide."
             exit 1
@@ -115,7 +120,11 @@ jobs:
         working-directory: plandev
         run: ./gradlew merlin-worker:distTar -x javadoc -x javadocJar --parallel
 
-      # NOTE: ubuntu-latest is amd64, so this exercises only the amd64 leg of §11.7's
+      # PYMERLIN_REF overrides install.sh's default (a pinned release tag) so this job
+      # tests the branch under development rather than the last release. Changing it
+      # invalidates the venv layer, which is why this job is minutes rather than seconds.
+      #
+      # NOTE: ubuntu-latest is amd64, so this exercises only the amd64 leg of install.sh's
       # arch mapping. The arm64 leg (Apple Silicon dev machines, Graviton) is implemented
       # in docker/graalpy/install.sh but is NOT covered here. If arm64 builds ever become
       # load-bearing, this is the job to add a matrix to.
@@ -126,13 +135,14 @@ jobs:
           docker build \
             --file merlin-worker/Dockerfile \
             --build-arg GRAALPY_VERSION="${GRAALPY_VERSION}" \
+            --build-arg PYMERLIN_REF="${PYMERLIN_REF}" \
             --tag aerie_merlin_worker:preflight \
             .
 
-      # The actual gate. Creates a Context and evaluates 1+1 *in the worker* (§4.3's exit
-      # criteria), asserts the engine is not on the fallback runtime (Gate A-1), asserts a
-      # Context can be created from a child classloader (Gate A-2), and asserts the venv
-      # imports (§4.2 / Gate D). Non-zero exit fails the job.
+      # The actual gate. Creates a Context and evaluates 1+1 *in the worker*, asserts the
+      # engine is not on the interpreter-only fallback runtime, asserts a Context can be
+      # created from a child classloader (how the worker loads mission-model JARs), and
+      # asserts the venv imports. Non-zero exit fails the job.
       - name: Run GraalPy preflight in the worker image
         run: |
           set -euo pipefail

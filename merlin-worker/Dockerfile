@@ -16,10 +16,17 @@ FROM ghcr.io/graalvm/jdk-community:21
 # build hosts). GRAALPY_VERSION must match graalPyVersion in gradle.properties: this
 # builds the venv, that puts the matching language jars on the classpath, and a
 # mismatch surfaces as a confusing runtime failure rather than a build error.
+#
+# PYMERLIN_REF selects which pymerlin ref install.sh pip-installs into the venv. It is
+# deliberately empty here rather than duplicating install.sh's pinned release tag: empty
+# lets install.sh's own `${PYMERLIN_REF:-<tag>}` default win, so the release tag stays
+# stated in exactly one place. Overriding it is for CI (graalpy-preflight.yml builds the
+# branch under test) and for local debugging -- normal builds should not pass it.
 ARG GRAALPY_VERSION=25.0.2
+ARG PYMERLIN_REF=
 ARG TARGETARCH
 COPY docker/graalpy /tmp/graalpy
-RUN GRAALPY_VERSION="${GRAALPY_VERSION}" TARGETARCH="${TARGETARCH}" bash /tmp/graalpy/install.sh \
+RUN GRAALPY_VERSION="${GRAALPY_VERSION}" PYMERLIN_REF="${PYMERLIN_REF}" TARGETARCH="${TARGETARCH}" bash /tmp/graalpy/install.sh \
     && rm -rf /tmp/graalpy
 
 # Consumed by GraalPyResources.contextBuilder(...) in Phase 2's PyContext (§5.2) and by

@@ -13,9 +13,10 @@
 # Produces the external-directory layout GraalPyResources.contextBuilder(root)
 # expects by convention (roadmap §2):
 #
-#   ${RESOURCES_ROOT}/venv   <- pymerlin + numpy + spiceypy
-#   ${RESOURCES_ROOT}/src    <- model .py, extracted from mission-model.jar at
-#                               instantiate() time (Phase 2, §5.3); empty here
+#   ${RESOURCES_ROOT}/venv            <- pymerlin + numpy + spiceypy
+#   ${RESOURCES_ROOT}/src             <- stays empty; see the mkdir near the end of this file
+#   ${RESOURCES_ROOT}/constraints.txt <- copy of this build's PIP_CONSTRAINT, kept for the
+#                                        model-declared installs the shim runs at load time
 #
 # Env:
 #   GRAALPY_VERSION  (required)  e.g. 25.0.2 -- keep in lockstep with
@@ -33,7 +34,7 @@ set -euo pipefail
 GRAALPY_VERSION="${GRAALPY_VERSION:?GRAALPY_VERSION must be set}"
 RESOURCES_ROOT="${RESOURCES_ROOT:-/opt/pymerlin/python-resources}"
 PYMERLIN_GIT_URL="${PYMERLIN_GIT_URL:-https://github.com/remy-rabideau/pymerlin.git}"
-PYMERLIN_REF="${PYMERLIN_REF:-v0.1.1}"
+PYMERLIN_REF="${PYMERLIN_REF:-v0.2.1}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONSTRAINTS_FILE="${SCRIPT_DIR}/constraints.txt"
@@ -139,7 +140,7 @@ log "PIP_CONSTRAINT=${PIP_CONSTRAINT}"
 # already installed above for CSPICE's source clone, so `pip install git+...@ref`
 # needs nothing extra here.
 #
-# PYMERLIN_REF's default is `v0.1.1`, the tag matching pymerlin's own `pyproject.toml`
+# PYMERLIN_REF's default is `v0.2.1`, the tag matching pymerlin's own `pyproject.toml`
 # `version`. Bump this here every time a new pymerlin version should reach new
 # worker-image builds. Treat "this tag" and "the GraalPy version above" as a matched
 # pair: bumping one without checking the other risks a shim JAR built against a
@@ -200,9 +201,22 @@ log "installing pymerlin@${PYMERLIN_REF} + numpy + spiceypy (source build, if tr
   numpy \
   "${SPICEYPY_TARGET}"
 
-# ${root}/src is on the Python path by GraalPyResources convention. Phase 2 extracts
-# model sources here; it must exist now or contextBuilder(root) has nothing to point at.
+# ${root}/src is on the Python path by GraalPyResources convention, and contextBuilder(root)
+# needs it to exist -- so create it even though it stays empty. Model sources do NOT land
+# here: the shim extracts the .py out of the uploaded JAR into its own /tmp/pymerlin-model-*
+# directory and puts that on sys.path directly, then deletes it when the simulation ends.
+# Moving the source in here instead would only be necessary if filesystem access were
+# sandboxed, which would stop the shim reading an arbitrary temp path.
 mkdir -p "${RESOURCES_ROOT}/src"
+
+# Keep the constraints alongside the venv they constrain. A model JAR can declare its own
+# Python packages, which the shim pip-installs into this venv at model-load time -- and
+# that install needs the same PIP_CONSTRAINT this build used, or a model asking for numpy
+# unpinned re-triggers the ~15-minute from-source compile the pin above exists to prevent.
+# This file cannot be read from its build location at runtime: the image build COPYs this
+# directory to /tmp/graalpy and deletes it afterwards.
+cp "${CONSTRAINTS_FILE}" "${RESOURCES_ROOT}/constraints.txt"
+log "constraints persisted to ${RESOURCES_ROOT}/constraints.txt (for model-declared installs)"
 
 # --- Verify ------------------------------------------------------------------------------
 #

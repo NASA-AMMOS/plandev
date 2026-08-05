@@ -66,3 +66,8 @@ docs/source/scheduling-edsl-api/
 *.log
 /sequencing-server/plugins/ampcs-dictionary-parser/ampcs-parser.js
 /sequencing-server/plugins/fprime-dictionary-parser/fprime-parser.js
+
+# DEV ONLY: local pymerlin checkout staged into the build context by
+# docker/graalpy/stage-local-pymerlin.sh. A machine-local snapshot of another repo --
+# never commit it here.
+# /docker/graalpy/pymerlin-src/

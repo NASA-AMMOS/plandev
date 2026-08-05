@@ -1,0 +1,6 @@
+pymerlin.clock.clock
+====================
+
+.. currentmodule:: pymerlin.clock
+
+.. autofunction:: clock

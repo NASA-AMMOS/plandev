@@ -1,0 +1,6 @@
+pymerlin.checkout
+=================
+
+.. currentmodule:: pymerlin
+
+.. autofunction:: checkout

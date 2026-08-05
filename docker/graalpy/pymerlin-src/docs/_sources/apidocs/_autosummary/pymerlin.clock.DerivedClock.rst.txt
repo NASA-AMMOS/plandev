@@ -1,0 +1,27 @@
+pymerlin.clock.DerivedClock
+===========================
+
+.. currentmodule:: pymerlin.clock
+
+.. autoclass:: DerivedClock
+   :members:
+   :show-inheritance:
+   :inherited-members:
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~DerivedClock.__init__
+      ~DerivedClock.get
+      ~DerivedClock.reset
+   
+   
+
+   
+   
+   

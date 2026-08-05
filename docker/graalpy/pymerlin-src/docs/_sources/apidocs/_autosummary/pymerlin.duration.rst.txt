@@ -1,0 +1,31 @@
+pymerlin.duration
+=================
+
+.. automodule:: pymerlin.duration
+
+   
+   
+   
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+      :toctree:
+      :template: custom-class-template.rst
+   
+      Duration
+   
+   
+
+   
+   
+   
+
+
+

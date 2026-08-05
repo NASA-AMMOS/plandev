@@ -1,0 +1,42 @@
+﻿pymerlin
+========
+
+.. automodule:: pymerlin
+
+   
+   
+   
+
+   
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+      :toctree:
+   
+      checkout
+   
+   
+
+   
+   
+   
+
+   
+   
+   
+
+
+
+.. rubric:: Modules
+
+.. autosummary::
+   :toctree:
+   :template: custom-module-template.rst
+   :recursive:
+
+   pymerlin.clock
+   pymerlin.duration
+   pymerlin.model_actions
+   pymerlin.reactions
+

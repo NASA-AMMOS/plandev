@@ -1,0 +1,6 @@
+pymerlin.model\_actions.wait\_until
+===================================
+
+.. currentmodule:: pymerlin.model_actions
+
+.. autofunction:: wait_until

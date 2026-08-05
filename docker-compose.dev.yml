@@ -1,0 +1,89 @@
+# DEV ONLY overlay: build the pymerlin-carrying images from a LOCAL pymerlin checkout
+# instead of the pinned git tag (v0.1.1) that docker/graalpy/install.sh installs.
+#
+# Purpose: test in-progress pymerlin work -- including uncommitted changes --
+# without having to commit, push, and tag first.
+#
+# This overlay swaps the dockerfile for the three services that carry a Python runtime and
+# bind-mounts the host pymerlin over the one in the image (see the mounts below).
+# Everything else (ports, env, images, the other services) is inherited unchanged from
+# docker-compose.yml, and no production file is modified. Service-level `volumes` merge by
+# target path, so the mounts here ADD to the ones docker-compose.yml already defines --
+# aerie_merlin keeps its aerie_file_store.
+#
+# Usage:
+#
+#   # Editing Python only -- the common case. The mount is live: edit, then
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml restart \
+#       aerie_merlin aerie_merlin_worker_1 aerie_merlin_worker_2
+#   # (restart, not rebuild -- a running process still holds the modules it imported)
+#
+#   # Editing Java, or changing pymerlin's dependencies -- rebuild:
+#   ./gradlew :merlin-server:assemble :merlin-worker:assemble   # once per plandev Java change
+#   docker/graalpy/stage-local-pymerlin.sh                      # snapshot into the build context
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build \
+#       aerie_merlin aerie_merlin_worker_1 aerie_merlin_worker_2
+#   # ...and for Java, repackage + re-upload the model JAR (see the mount comment below).
+#
+# The mounts make the image's own pymerlin irrelevant while these services run under this
+# overlay -- which is the point, but it also means a stale or pinned-ref image no longer
+# announces itself. The staged copy still matters for images built from Dockerfile.dev.
+#
+# Note the image: names are inherited, so a dev build OVERWRITES the local aerie_merlin /
+# aerie_merlin_worker_* tags. To get back to a pinned-ref build, rebuild without this
+# overlay (`docker compose build ...`).
+# Live host pymerlin, mounted over the copy pip installed into the image. Editing a .py
+# file on the host changes what the next simulation runs -- no stage, no build, no
+# reinstall. Anchored rather than repeated so the three services cannot drift apart.
+#
+# Why the site-packages path specifically, and not PYTHONPATH: the shim builds its GraalPy
+# context with GraalPyResources.contextBuilder(PYMERLIN_RESOURCES), which derives sys.path
+# from ${PYMERLIN_RESOURCES}/venv and ${PYMERLIN_RESOURCES}/src. An env var is not
+# consulted, and mounting somewhere else only to prepend a path leaves the shadowing order
+# up to chance. Landing on the exact directory the venv already imports removes the
+# question entirely.
+#
+# python3.12 is GraalPy 25.0.2's Python level -- it tracks GRAALPY_VERSION in the
+# Dockerfiles, so bumping GraalPy across a minor Python version means editing this path.
+# A wrong path here mounts a directory nothing imports, and the image's own pymerlin keeps
+# being used with no error anywhere.
+#
+# Read-only: the container has no business editing your checkout, and the only thing it
+# would otherwise write is __pycache__. GraalPy silently skips writing them when the
+# directory is unwritable -- imports still work, they just aren't cached.
+#
+# What this does NOT cover: Java shim changes. The shim classes that execute during a
+# simulation come from the UPLOADED model JAR (MissionModelLoader opens a URLClassLoader
+# over the JAR in merlin's file store), not from any path in this container -- so no mount
+# can deliver them. After changing anything under java/, still run:
+#     scripts/build-shim.sh && pymerlin package --model demo/model.py:Mission --out ../model.jar
+# and re-upload. Python-only changes need neither.
+x-pymerlin-dev-mounts: &pymerlin-dev-mounts
+  - ../pymerlin/pymerlin:/opt/pymerlin/python-resources/venv/lib/python3.12/site-packages/pymerlin:ro
+  # The whole checkout, for anything referencing model sources or test bundles by path
+  # (e.g. -Dpymerlin.model.ref=/usr/src/pymerlin/demo/model.py:Mission). Not on sys.path;
+  # the mount above is what makes `import pymerlin` resolve here.
+  - ../pymerlin:/usr/src/pymerlin:ro
+
+services:
+  # merlin-server needs the dev pymerlin too, not just the workers: it loads pymerlin
+  # model types in-process at model upload (POST /refreshActivityTypes ->
+  # MissionModelLoader.loadModelType()). If only the workers were rebuilt, upload and
+  # simulation would run different pymerlin versions.
+  aerie_merlin:
+    build:
+      context: .
+      dockerfile: merlin-server/Dockerfile.dev
+    volumes: *pymerlin-dev-mounts
+
+  aerie_merlin_worker_1:
+    build:
+      context: .
+      dockerfile: merlin-worker/Dockerfile.dev
+    volumes: *pymerlin-dev-mounts
+
+  aerie_merlin_worker_2:
+    build:
+      context: .
+      dockerfile: merlin-worker/Dockerfile.dev
+    volumes: *pymerlin-dev-mounts

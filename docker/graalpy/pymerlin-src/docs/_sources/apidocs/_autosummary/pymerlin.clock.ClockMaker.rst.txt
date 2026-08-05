@@ -1,0 +1,26 @@
+pymerlin.clock.ClockMaker
+=========================
+
+.. currentmodule:: pymerlin.clock
+
+.. autoclass:: ClockMaker
+   :members:
+   :show-inheritance:
+   :inherited-members:
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~ClockMaker.__init__
+      ~ClockMaker.start
+   
+   
+
+   
+   
+   

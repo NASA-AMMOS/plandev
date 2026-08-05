@@ -1,0 +1,47 @@
+pymerlin.duration.Duration
+==========================
+
+.. currentmodule:: pymerlin.duration
+
+.. autoclass:: Duration
+   :members:
+   :show-inheritance:
+   :inherited-members:
+
+   
+   .. automethod:: __init__
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+   
+      ~Duration.__init__
+      ~Duration.from_string
+      ~Duration.negate
+      ~Duration.of
+      ~Duration.plus
+      ~Duration.times
+      ~Duration.to_number_in
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+   
+      ~Duration.HOUR
+      ~Duration.HOURS
+      ~Duration.MICROSECOND
+      ~Duration.MICROSECONDS
+      ~Duration.MILLISECOND
+      ~Duration.MILLISECONDS
+      ~Duration.MINUTE
+      ~Duration.MINUTES
+      ~Duration.SECOND
+      ~Duration.SECONDS
+      ~Duration.ZERO
+   
+   

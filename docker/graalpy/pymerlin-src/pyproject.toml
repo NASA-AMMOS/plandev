@@ -1,0 +1,58 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pymerlin"
+version = "0.1.1"
+dependencies = []
+requires-python = ">=3.10"
+authors = [
+  {name = "Matthew Dailis", email = "matthew.l.dailis@jpl.nasa.gov"},
+]
+maintainers = [
+]
+description = "Python mission modeling framework for Aerie"
+readme = "README.md"
+license = {file = "LICENSE"}
+keywords = ["aerie", "merlin", "simulation", "discrete event"]
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Programming Language :: Python"
+]
+
+[project.optional-dependencies]
+plotting = [
+  "bokeh>=3.4.2",
+  "numpy>=2.0.0"
+]
+spice = ["spiceypy>=6.0.0"]
+#gui = ["PyQt5"]
+#cli = [
+#  "rich",
+#  "click",
+#]
+
+[project.urls]
+Homepage = "https://mattdailis.github.io/pymerlin"
+Documentation = "https://mattdailis.github.io/pymerlin"
+Repository = "https://github.com/mattdailis/pymerlin"
+"Bug Tracker" = "https://github.com/mattdailis/pymerlin/issues"
+Changelog = "https://github.com/mattdailis/pymerlin/blob/main/CHANGELOG.md"
+
+[project.scripts]
+pymerlin = "pymerlin._internal._cli:main"
+#
+#[project.gui-scripts]
+#spam-gui = "spam:main_gui"
+#
+#[project.entry-points."spam.magical"]
+#tomatoes = "spam:main_tomatoes"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "pymerlin",
+]
+exclude = [
+  "java", "docs", "tests"
+]

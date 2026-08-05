@@ -28,8 +28,15 @@ FROM base AS runtime
 
 ENV NODE_ENV=production
 
-COPY --from=build /app/package.json /app/package-lock.json ./
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/build ./build
+# copy built app files & make them owned by non-root `node` user
+COPY --from=build --chown=node:node /app/package.json /app/package-lock.json ./
+COPY --from=build --chown=node:node /app/node_modules ./node_modules
+COPY --from=build --chown=node:node /app/build ./build
 
+# npm is not required by the running service - remove to reduce vulnerable dependencies
+RUN rm -rf /usr/local/lib/node_modules/npm \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx
+
+# run app as `node` user
+USER node
 CMD ["node", "build/server.js"]

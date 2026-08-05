@@ -315,8 +315,9 @@ public final class PostgresPlanRepository implements PlanRepository {
                   Duration.of(a.startOffsetInMicros(), Duration.MICROSECONDS),
                   a.type(),
                   a.arguments(),
-                  a.anchorId()!=null? new ActivityDirectiveId(a.anchorId()): null,
-                  a.anchoredToStart())));
+                  a.anchorId()!=null ? new ActivityDirectiveId(a.anchorId()) : null,
+                  a.anchoredToStart(),
+                  a.name())));
     }
   }
 

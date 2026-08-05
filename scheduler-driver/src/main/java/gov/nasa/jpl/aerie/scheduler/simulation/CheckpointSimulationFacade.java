@@ -125,7 +125,8 @@ public class CheckpointSimulationFacade implements SimulationFacade {
               act.getValue().startOffset(),
               act.getValue().serializedActivity(),
               replacements.getValue(),
-              act.getValue().anchoredToStart());
+              act.getValue().anchoredToStart(),
+              act.getValue().name());
           planSimCorrespondence.directiveIdActivityDirectiveMap().put(act.getKey(), replacementActivity);
         }
       }

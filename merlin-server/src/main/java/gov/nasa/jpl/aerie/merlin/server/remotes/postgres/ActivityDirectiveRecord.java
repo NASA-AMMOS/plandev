@@ -10,5 +10,6 @@ public record ActivityDirectiveRecord(
     long startOffsetInMicros,
     Map<String, SerializedValue> arguments,
     Integer anchorId, // anchorId can be null (representing Plan)
-    boolean anchoredToStart
+    boolean anchoredToStart,
+    String name
 ) {}

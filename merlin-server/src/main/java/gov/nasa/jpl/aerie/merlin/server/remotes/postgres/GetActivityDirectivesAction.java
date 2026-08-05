@@ -19,7 +19,8 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
       ceil(extract(epoch from a.start_offset) * 1000*1000) as start_offset_in_micros,
       a.arguments,
       a.anchor_id,
-      a.anchored_to_start
+      a.anchored_to_start,
+      a.name
     from merlin.activity_directive as a
     where a.plan_id = ?
     """;
@@ -44,7 +45,8 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
                 getJsonColumn(results, "arguments", activityArgumentsP)
                     .getSuccessOrThrow($ -> new Error("Corrupt activity arguments cannot be parsed: " + $.reason())),
                 (Integer)results.getObject("anchor_id"),
-                results.getBoolean("anchored_to_start"))
+                results.getBoolean("anchored_to_start"),
+                (String)results.getObject("name"))
         );
       }
     }

@@ -1,8 +1,7 @@
 package gov.nasa.jpl.aerie.contrib.streamline.core;
 
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.Clock;
+import gov.nasa.jpl.aerie.contrib.streamline.StreamlineSystem;
 import gov.nasa.jpl.aerie.merlin.framework.Condition;
-import gov.nasa.jpl.aerie.merlin.framework.Scoped;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
 
@@ -19,7 +18,6 @@ import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiry.NEVER;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Reactions.wheneverDynamicsChange;
 import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Dependencies.addDependency;
 import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.Clock.clock;
 import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.*;
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.ZERO;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete.discrete;
@@ -29,32 +27,6 @@ import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete.d
  */
 public final class Resources {
   private Resources() {}
-
-  /**
-   * Ensure that Resources are initialized.
-   *
-   * <p>
-   *   This method needs to be called during simulation initialization.
-   *   This method is idempotent; calling it multiple times is the same as calling it once.
-   * </p>
-   */
-  public static void init() {
-    currentTime();
-  }
-
-  // TODO if Aerie provides either a `getElapsedTime` method or dynamic allocation of Cells, we can avoid this mutable static variable
-  private static Resource<Clock> CLOCK = resource(clock(ZERO));
-  public static Duration currentTime() {
-    try {
-      return currentValue(CLOCK);
-    } catch (Scoped.EmptyDynamicCellException | IllegalArgumentException e) {
-      // If we're running unit tests, several simulations can happen without reloading the Resources class.
-      // In that case, we'll have discarded the clock resource we were using, and get the above exception.
-      // REVIEW: Is there a cleaner way to make sure this resource gets (re-)initialized?
-      CLOCK = resource(clock(ZERO));
-      return currentValue(CLOCK);
-    }
-  }
 
   public static <D> D currentData(Resource<D> resource) {
     return data(resource.getDynamics());
@@ -96,10 +68,10 @@ public final class Resources {
    */
   public static <D extends Dynamics<?, D>> Condition dynamicsChange(Resource<D> resource) {
     final var startingDynamics = resource.getDynamics();
-    final Duration startTime = currentTime();
+    final Duration startTime = StreamlineSystem.currentTime();
     Condition result = (positive, atEarliest, atLatest) -> {
       var currentDynamics = resource.getDynamics();
-      var elapsedTime = currentTime().minus(startTime);
+      var elapsedTime = StreamlineSystem.currentTime().minus(startTime);
       boolean haveChanged = startingDynamics.match(
           start -> currentDynamics.match(
               current -> !current.data().equals(start.data().step(elapsedTime)) ||

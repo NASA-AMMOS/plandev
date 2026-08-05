@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete;
 
+import gov.nasa.jpl.aerie.contrib.streamline.StreamlineSystem;
 import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
 import gov.nasa.jpl.aerie.contrib.streamline.core.ErrorCatching;
 import gov.nasa.jpl.aerie.contrib.streamline.core.Resources;
@@ -14,7 +15,6 @@ import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.resource;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentTime;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentValue;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete.discrete;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteEffects.*;
@@ -41,7 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @TestInstance(Lifecycle.PER_CLASS)
 class DiscreteEffectsTest {
   public DiscreteEffectsTest(final Registrar registrar) {
-    Resources.init();
+    StreamlineSystem.init(StreamlineSystem.InitArgs.testBuilder().baseRegistrar(registrar).build());
   }
 
   private final MutableResource<Discrete<Integer>> settable = resource(discrete(42));
@@ -162,12 +162,12 @@ class DiscreteEffectsTest {
 
   @Test
   void using_runs_synchronously() {
-    Duration start = currentTime();
+      Duration start = StreamlineSystem.currentTime();
     using(nonconsumable, 3.14, () -> {
-      assertEquals(start, currentTime());
+        assertEquals(start, StreamlineSystem.currentTime());
       delay(MINUTE);
     });
-    assertEquals(start.plus(MINUTE), currentTime());
+      assertEquals(start.plus(MINUTE), StreamlineSystem.currentTime());
   }
 
   @Test

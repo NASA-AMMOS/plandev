@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete;
 
+import gov.nasa.jpl.aerie.contrib.streamline.StreamlineSystem;
 import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
 import gov.nasa.jpl.aerie.contrib.streamline.core.Resources;
 import gov.nasa.jpl.aerie.merlin.framework.Registrar;
@@ -16,6 +17,7 @@ import java.util.TreeMap;
 
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentValue;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.precomputed;
+import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.precomputed$;
 import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.delay;
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -27,11 +29,34 @@ import static org.junit.jupiter.api.Assertions.*;
 @TestInstance(Lifecycle.PER_CLASS)
 public class PrecomputedTest {
     public PrecomputedTest(final Registrar registrar) {
-        Resources.init();
+        StreamlineSystem.init(StreamlineSystem.InitArgs.testBuilder()
+                .baseRegistrar(registrar)
+                .planStart(Instant.parse("2023-10-18T00:00:00Z"))
+                .build());
+        precomputedAsAConstant = precomputed$(4, new TreeMap<>());
+        precomputedWithOneTransitionInFuture = precomputed$(0, new TreeMap<>(Map.of(MINUTE, 10)));
+        precomputedWithOneTransitionInPast = precomputed$(0, new TreeMap<>(Map.of(duration(-1, MINUTE), 10)));
+        precomputedWithMultipleTransitionsInFuture = precomputed$(0, new TreeMap<>(Map.of(
+                duration(2, MINUTE), 5,
+                duration(5, MINUTE), 10,
+                duration(6, MINUTE), 15)));
+        precomputedWithMultipleTransitionsInPast = precomputed$(0, new TreeMap<>(Map.of(
+                duration(-2, MINUTE), 5,
+                duration(-5, MINUTE), 10,
+                duration(-6, MINUTE), 15)));
+        precomputedWithTransitionsInPastAndFuture = precomputed$(0, new TreeMap<>(Map.of(
+                duration(-5, MINUTE), 25,
+                duration(-2, MINUTE), 5,
+                duration(5, MINUTE), 10,
+                duration(6, MINUTE), 15)));
+        precomputedWithInstantKeys = precomputed(0, new TreeMap<>(Map.of(
+                Instant.parse("2023-10-17T23:55:00Z"), 25,
+                Instant.parse("2023-10-17T23:58:00Z"), 5,
+                Instant.parse("2023-10-18T00:05:00Z"), 10,
+                Instant.parse("2023-10-18T00:06:00Z"), 15)));
     }
 
-    final Resource<Discrete<Integer>> precomputedAsAConstant =
-            precomputed(4, new TreeMap<>());
+    final Resource<Discrete<Integer>> precomputedAsAConstant;
     @Test
     void precomputed_with_no_transitions_uses_default_value_forever() {
         assertEquals(4, currentValue(precomputedAsAConstant));
@@ -41,8 +66,7 @@ public class PrecomputedTest {
         assertEquals(4, currentValue(precomputedAsAConstant));
     }
 
-    final Resource<Discrete<Integer>> precomputedWithOneTransitionInFuture =
-            precomputed(0, new TreeMap<>(Map.of(MINUTE, 10)));
+    final Resource<Discrete<Integer>> precomputedWithOneTransitionInFuture;
     @Test
     void precomputed_with_transition_in_future_changes_at_that_time() {
         assertEquals(0, currentValue(precomputedWithOneTransitionInFuture));
@@ -53,8 +77,7 @@ public class PrecomputedTest {
         assertEquals(10, currentValue(precomputedWithOneTransitionInFuture));
     }
 
-    final Resource<Discrete<Integer>> precomputedWithOneTransitionInPast =
-            precomputed(0, new TreeMap<>(Map.of(duration(-1, MINUTE), 10)));
+    final Resource<Discrete<Integer>> precomputedWithOneTransitionInPast;
     @Test
     void precomputed_with_transition_in_past_uses_that_value_forever() {
         assertEquals(10, currentValue(precomputedWithOneTransitionInPast));
@@ -64,11 +87,7 @@ public class PrecomputedTest {
         assertEquals(10, currentValue(precomputedWithOneTransitionInPast));
     }
 
-    final Resource<Discrete<Integer>> precomputedWithMultipleTransitionsInFuture =
-            precomputed(0, new TreeMap<>(Map.of(
-                    duration(2, MINUTE), 5,
-                    duration(5, MINUTE), 10,
-                    duration(6, MINUTE), 15)));
+    final Resource<Discrete<Integer>> precomputedWithMultipleTransitionsInFuture;
     @Test
     void precomputed_with_multiple_transitions_in_future_goes_through_each_in_turn() {
         assertEquals(0, currentValue(precomputedWithMultipleTransitionsInFuture));
@@ -81,11 +100,7 @@ public class PrecomputedTest {
         assertEquals(15, currentValue(precomputedWithMultipleTransitionsInFuture));
     }
 
-    final Resource<Discrete<Integer>> precomputedWithMultipleTransitionsInPast =
-            precomputed(0, new TreeMap<>(Map.of(
-                    duration(-2, MINUTE), 5,
-                    duration(-5, MINUTE), 10,
-                    duration(-6, MINUTE), 15)));
+    final Resource<Discrete<Integer>> precomputedWithMultipleTransitionsInPast;
     @Test
     void precomputed_with_multiple_transition_in_past_uses_last_value_forever() {
         assertEquals(5, currentValue(precomputedWithMultipleTransitionsInPast));
@@ -95,12 +110,7 @@ public class PrecomputedTest {
         assertEquals(5, currentValue(precomputedWithMultipleTransitionsInPast));
     }
 
-    final Resource<Discrete<Integer>> precomputedWithTransitionsInPastAndFuture =
-            precomputed(0, new TreeMap<>(Map.of(
-                    duration(-5, MINUTE), 25,
-                    duration(-2, MINUTE), 5,
-                    duration(5, MINUTE), 10,
-                    duration(6, MINUTE), 15)));
+    final Resource<Discrete<Integer>> precomputedWithTransitionsInPastAndFuture;
     @Test
     void precomputed_with_transitions_in_past_and_future_chooses_starting_value_and_changes_later() {
         assertEquals(5, currentValue(precomputedWithTransitionsInPastAndFuture));
@@ -112,13 +122,7 @@ public class PrecomputedTest {
         assertEquals(15, currentValue(precomputedWithTransitionsInPastAndFuture));
     }
 
-    final Resource<Discrete<Integer>> precomputedWithInstantKeys =
-            precomputed(0, new TreeMap<>(Map.of(
-                    Instant.parse("2023-10-17T23:55:00Z"), 25,
-                    Instant.parse("2023-10-17T23:58:00Z"), 5,
-                    Instant.parse("2023-10-18T00:05:00Z"), 10,
-                    Instant.parse("2023-10-18T00:06:00Z"), 15)),
-                    Instant.parse("2023-10-18T00:00:00Z"));
+    final Resource<Discrete<Integer>> precomputedWithInstantKeys;
     @Test
     void precomputed_with_instant_keys_behaves_identically_to_equivalent_duration_offsets() {
         assertEquals(5, currentValue(precomputedWithInstantKeys));

@@ -14,14 +14,10 @@ public final class Logging {
 
     /**
      * Initialize the primary logger.
-     * This is called when constructing a {@link gov.nasa.jpl.aerie.contrib.streamline.modeling.Registrar},
-     * and does not need to be called directly by the model.
+     * This is called by {@link gov.nasa.jpl.aerie.contrib.streamline.StreamlineSystem#init}
+     * and should not be called by the model directly.
      */
     public static void init(final Registrar registrar) {
-        if (LOGGER == null) {
-            LOGGER = new Logger(registrar);
-        } else {
-            LOGGER.warning("Attempting to re-initialize primary logger. This attempt is being ignored.");
-        }
+        LOGGER = new Logger(registrar);
     }
 }

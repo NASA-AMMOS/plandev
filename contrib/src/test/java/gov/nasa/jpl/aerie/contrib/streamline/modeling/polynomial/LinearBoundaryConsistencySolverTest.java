@@ -1,7 +1,9 @@
 package gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial;
 
+import gov.nasa.jpl.aerie.contrib.streamline.StreamlineSystem;
 import gov.nasa.jpl.aerie.contrib.streamline.core.*;
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.LinearBoundaryConsistencySolver.Domain;
+import gov.nasa.jpl.aerie.merlin.framework.Registrar;
 import gov.nasa.jpl.aerie.merlin.framework.junit.MerlinExtension;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import org.junit.jupiter.api.Nested;
@@ -25,11 +27,13 @@ class LinearBoundaryConsistencySolverTest {
   @ExtendWith(MerlinExtension.class)
   @TestInstance(Lifecycle.PER_CLASS)
   class SingleVariableSingleConstraint {
-    MutableResource<Polynomial> driver = resource(polynomial(10));
+    MutableResource<Polynomial> driver;
     Resource<Polynomial> result;
 
-    public SingleVariableSingleConstraint() {
-      Resources.init();
+    public SingleVariableSingleConstraint(final Registrar registrar) {
+      StreamlineSystem.init(StreamlineSystem.InitArgs.testBuilder().baseRegistrar(registrar).build());
+
+      driver = resource(polynomial(10));
 
       var solver = new LinearBoundaryConsistencySolver("SingleVariableSingleConstraint");
       var v = solver.variable("v", Domain::upperBound);
@@ -65,13 +69,15 @@ class LinearBoundaryConsistencySolverTest {
   @ExtendWith(MerlinExtension.class)
   @TestInstance(Lifecycle.PER_CLASS)
   class SingleVariableMultipleConstraint {
-    MutableResource<Polynomial> lowerBound1 = resource(polynomial(10));
-    MutableResource<Polynomial> lowerBound2 = resource(polynomial(20));
-    MutableResource<Polynomial> upperBound = resource(polynomial(30));
+    MutableResource<Polynomial> lowerBound1, lowerBound2, upperBound;
     Resource<Polynomial> result;
 
-    public SingleVariableMultipleConstraint() {
-      Resources.init();
+    public SingleVariableMultipleConstraint(final Registrar registrar) {
+      StreamlineSystem.init(StreamlineSystem.InitArgs.testBuilder().baseRegistrar(registrar).build());
+
+      lowerBound1 = resource(polynomial(10));
+      lowerBound2 = resource(polynomial(20));
+      upperBound = resource(polynomial(30));
 
       var solver = new LinearBoundaryConsistencySolver("SingleVariableMultipleConstraint");
       var v = solver.variable("v", Domain::lowerBound);
@@ -141,11 +147,13 @@ class LinearBoundaryConsistencySolverTest {
   @ExtendWith(MerlinExtension.class)
   @TestInstance(Lifecycle.PER_CLASS)
   class ScalingConstraint {
-    MutableResource<Polynomial> driver = resource(polynomial(10));
+    MutableResource<Polynomial> driver;
     Resource<Polynomial> result;
 
-    public ScalingConstraint() {
-      Resources.init();
+    public ScalingConstraint(final Registrar registrar) {
+      StreamlineSystem.init(StreamlineSystem.InitArgs.testBuilder().baseRegistrar(registrar).build());
+
+      driver = resource(polynomial(10));
 
       var solver = new LinearBoundaryConsistencySolver("ScalingConstraint");
       var v = solver.variable("v", Domain::upperBound);
@@ -171,12 +179,14 @@ class LinearBoundaryConsistencySolverTest {
   @ExtendWith(MerlinExtension.class)
   @TestInstance(Lifecycle.PER_CLASS)
   class MultipleVariables {
-    MutableResource<Polynomial> upperBound = resource(polynomial(10));
-    MutableResource<Polynomial> upperBoundOnC = resource(polynomial(5));
+    MutableResource<Polynomial> upperBound, upperBoundOnC;
     Resource<Polynomial> a, b, c;
 
-    public MultipleVariables() {
-      Resources.init();
+    public MultipleVariables(final Registrar registrar) {
+      StreamlineSystem.init(StreamlineSystem.InitArgs.testBuilder().baseRegistrar(registrar).build());
+
+      upperBound = resource(polynomial(10));
+      upperBoundOnC = resource(polynomial(5));
 
       var solver = new LinearBoundaryConsistencySolver("MultipleVariablesSingleConstraint");
       var a = solver.variable("a", Domain::upperBound);

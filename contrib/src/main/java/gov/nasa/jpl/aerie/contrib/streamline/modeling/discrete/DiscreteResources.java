@@ -19,6 +19,8 @@ import java.util.*;
 import java.util.function.BiPredicate;
 import java.util.function.Supplier;
 
+import static gov.nasa.jpl.aerie.contrib.streamline.StreamlineSystem.currentInstant;
+import static gov.nasa.jpl.aerie.contrib.streamline.StreamlineSystem.simulationClock;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.autoEffects;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.testing;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiring.expiring;
@@ -121,10 +123,9 @@ public final class DiscreteResources {
    * Resource value is the value associated with the greatest key in segments not exceeding
    * the current simulation time, or valueBeforeFirstEntry if every key exceeds current simulation time.
    */
-  public static <V> Resource<Discrete<V>> precomputed(
+  public static <V> Resource<Discrete<V>> precomputed$(
       final V valueBeforeFirstEntry, final NavigableMap<Duration, V> segments) {
-    var clock = clock();
-    return signalling(bind(clock, (Clock clock$) -> {
+    return signalling(bind(simulationClock(), (Clock clock$) -> {
       var t = clock$.extract();
       var entry = segments.floorEntry(t);
       var value = entry == null ? valueBeforeFirstEntry : entry.getValue();
@@ -139,14 +140,15 @@ public final class DiscreteResources {
    * the current simulation time, or valueBeforeFirstEntry if every key exceeds current simulation time.
    */
   public static <V> Resource<Discrete<V>> precomputed(
-      final V valueBeforeFirstEntry, final NavigableMap<Instant, V> segments, final Instant simulationStartTime) {
+      final V valueBeforeFirstEntry, final NavigableMap<Instant, V> segments) {
+    var simulationStartTime = currentInstant();
     var segmentsUsingDurationKeys = new TreeMap<Duration, V>();
     for (var entry : segments.entrySet()) {
       segmentsUsingDurationKeys.put(
           Duration.of(ChronoUnit.MICROS.between(simulationStartTime, entry.getKey()), Duration.MICROSECONDS),
           entry.getValue());
     }
-    return precomputed(valueBeforeFirstEntry, segmentsUsingDurationKeys);
+    return precomputed$(valueBeforeFirstEntry, segmentsUsingDurationKeys);
   }
 
   /**

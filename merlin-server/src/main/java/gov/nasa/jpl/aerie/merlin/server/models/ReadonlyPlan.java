@@ -94,7 +94,7 @@ public final class ReadonlyPlan implements Plan {
 
                                  return new Directive<A>(
                                      deserializer.invoke(SerializedValue.of(dir.serializedActivity().getArguments())),
-                                     dir.serializedActivity().getTypeName() + " " + dirId.id(),
+                                     dir.name(),
                                      dirId,
                                      dir.serializedActivity().getTypeName(),
                                      dirStart

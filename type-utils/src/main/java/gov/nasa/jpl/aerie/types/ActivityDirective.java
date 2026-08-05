@@ -9,17 +9,20 @@ public record ActivityDirective(
     Duration startOffset,
     SerializedActivity serializedActivity,
     ActivityDirectiveId anchorId, // anchorId can be null
-    boolean anchoredToStart
+    boolean anchoredToStart,
+    String name
 ) {
   public ActivityDirective(
       final Duration startOffset,
       final String type,
       final Map<String, SerializedValue> arguments,
       final ActivityDirectiveId anchorId,
-      final boolean anchoredToStart) {
+      final boolean anchoredToStart,
+      String name) {
     this(startOffset,
          new SerializedActivity(type, (arguments != null) ? Map.copyOf(arguments) : null),
          anchorId,
-         anchoredToStart);
+         anchoredToStart,
+         name);
   }
 }

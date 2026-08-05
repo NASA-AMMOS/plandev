@@ -11,7 +11,7 @@ data class NewDirective(
     val inner: AnyDirective,
 
     /** The name of the activity. */
-    val name: String,
+    val name: String?,
 
     /** The activity type. */
     val type: String,

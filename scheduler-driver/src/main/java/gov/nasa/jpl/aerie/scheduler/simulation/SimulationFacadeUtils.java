@@ -158,6 +158,7 @@ public class SimulationFacadeUtils {
         activity.startOffset(),
         serializedActivity,
         activity.anchorId(),
-        activity.anchoredToStart());
+        activity.anchoredToStart(),
+        activity.name());
   }
 }

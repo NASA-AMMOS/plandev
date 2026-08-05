@@ -64,7 +64,7 @@ public record TypeUtilsPlanAdapter(Plan plan) implements gov.nasa.ammos.aerie.pr
       final var act = $.getValue();
       return new Directive<>(
           (A) deserializer.invoke(SerializedValue.of(act.serializedActivity().getArguments())),
-          "Name unavailable",
+          act.name(),
           id,
           act.serializedActivity().getTypeName(),
           act.anchorId() == null

@@ -209,4 +209,22 @@ public abstract class HasuraParsers {
             .map(
                 untuple(HasuraAction.ExtendExternalDatasetInput::new),
                 $ -> tuple($.datasetId(), $.profileSet())));
+
+  public static final JsonParser<HasuraAction<HasuraAction.UploadSimulationDatasetInput>> hasuraUploadSimulationDatasetActionP
+      = hasuraActionF(
+          productP
+              .field("planId", planIdP)
+              .field("simulationResults", SimulationResultsParser.simulationResultsP)
+              .map(
+                  untuple(HasuraAction.UploadSimulationDatasetInput::new),
+                  $ -> tuple($.planId(), $.simulationResults())));
+
+  public static final JsonParser<HasuraAction<HasuraAction.DownloadSimulationDatasetInput>> hasuraDownloadSimulationDatasetActionP
+      = hasuraActionF(
+          productP
+              .field("planId", planIdP)
+              .field("simulationDatasetId", longP)
+              .map(
+                  untuple(HasuraAction.DownloadSimulationDatasetInput::new),
+                  $ -> tuple($.planId(), $.simulationDatasetId())));
 }

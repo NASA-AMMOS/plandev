@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.server.models;
 
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
@@ -38,4 +39,8 @@ public record HasuraAction<I extends HasuraAction.Input>(String name, I input, S
   public record NewConstraintRevisionEvent(long constraintId, long revision) implements Input {}
   public record ConstraintArgumentItem(long constraintId, long revision, Map<String, SerializedValue> arguments) implements Input {}
   public record ConstraintArguments(List<ConstraintArgumentItem> items) implements Input {}
+  public record UploadSimulationDatasetInput(PlanId planId,
+                                             SimulationResults simulationResults) implements Input {}
+  public record DownloadSimulationDatasetInput(PlanId planId,
+                                               long simulationDatasetId) implements Input {}
 }

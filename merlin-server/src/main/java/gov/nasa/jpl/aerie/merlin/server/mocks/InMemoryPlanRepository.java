@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.merlin.server.mocks;
 
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
@@ -131,6 +132,23 @@ public final class InMemoryPlanRepository implements PlanRepository {
       final ProfileSet profileSet)
   {
     return 0;
+  }
+
+  @Override
+  public long uploadSimulationDataset(
+      final PlanId planId,
+      final SimulationResults simulationResults,
+      final String requestedBy)
+  {
+    throw new UnsupportedOperationException("InMemoryPlanRepository does not support uploading simulation datasets");
+  }
+
+  @Override
+  public SimulationResults downloadSimulationDataset(
+      final PlanId planId,
+      final long simulationDatasetId)
+  {
+    throw new UnsupportedOperationException("InMemoryPlanRepository does not support downloading simulation datasets");
   }
 
   @Override

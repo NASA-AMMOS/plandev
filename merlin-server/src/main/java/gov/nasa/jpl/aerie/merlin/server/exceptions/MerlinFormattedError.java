@@ -96,6 +96,10 @@ public class MerlinFormattedError extends FormattedError {
     super(AerieService.MERLIN_SERVER, "SIM_DATASET_MISMATCH_EXCEPTION", ex);
   }
 
+  public MerlinFormattedError(InvalidSimulationDatasetException ex) {
+    super(AerieService.MERLIN_SERVER, "INVALID_SIMULATION_DATASET", ex);
+  }
+
   public MerlinFormattedError(DatabaseException ex) {
     super(AerieService.MERLIN_SERVER, "DATABASE_EXCEPTION", ex);
   }

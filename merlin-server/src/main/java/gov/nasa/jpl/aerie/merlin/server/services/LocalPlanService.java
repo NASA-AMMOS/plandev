@@ -1,8 +1,10 @@
 package gov.nasa.jpl.aerie.merlin.server.services;
 
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.jpl.aerie.merlin.server.exceptions.InvalidSimulationDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
@@ -58,6 +60,25 @@ public final class LocalPlanService implements PlanService {
   throws NoSuchPlanException
   {
     return this.planRepository.addExternalDataset(planId, simulationDatasetId, datasetStart, profileSet);
+  }
+
+  @Override
+  public long uploadSimulationDataset(
+      final PlanId planId,
+      final SimulationResults simulationResults,
+      final String requestedBy)
+  throws NoSuchPlanException, InvalidSimulationDatasetException
+  {
+    return this.planRepository.uploadSimulationDataset(planId, simulationResults, requestedBy);
+  }
+
+  @Override
+  public SimulationResults downloadSimulationDataset(
+      final PlanId planId,
+      final long simulationDatasetId)
+  throws NoSuchPlanException
+  {
+    return this.planRepository.downloadSimulationDataset(planId, simulationDatasetId);
   }
 
   @Override

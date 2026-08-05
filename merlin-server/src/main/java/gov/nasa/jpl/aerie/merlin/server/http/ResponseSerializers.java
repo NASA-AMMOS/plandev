@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.merlin.server.http;
 
 import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.MerlinFormattedError;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
@@ -11,12 +12,14 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import gov.nasa.jpl.aerie.merlin.server.models.ConstraintsCompilationError;
+import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.EventGraphFlattener;
 import gov.nasa.jpl.aerie.merlin.server.services.BulkConstraintEffectiveArgumentResponse;
 import gov.nasa.jpl.aerie.merlin.server.services.GetSimulationResultsAction;
 import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService;
 import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService.BulkEffectiveArgumentResponse;
 import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService.BulkArgumentValidationResponse;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.jpl.aerie.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.json.Json;
@@ -31,6 +34,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
+import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.realDynamicsP;
 
 public final class ResponseSerializers {
   public static <T> JsonValue
@@ -218,6 +223,12 @@ public final class ResponseSerializers {
   public static JsonValue serializeCreatedDatasetId(final long datasetId) {
     return Json.createObjectBuilder()
         .add("datasetId", datasetId)
+        .build();
+  }
+
+  public static JsonValue serializeCreatedSimulationDatasetId(final long simulationDatasetId) {
+    return Json.createObjectBuilder()
+        .add("simulationDatasetId", simulationDatasetId)
         .build();
   }
 
@@ -423,5 +434,178 @@ public final class ResponseSerializers {
       failureArrayBuilder.add(errorBuilder);
     }
     return failureArrayBuilder.build();
+  }
+
+  /**
+   * Serialize a {@link SimulationResults} object to the JSON format accepted by
+   * {@link SimulationResultsParser#simulationResultsP} and produced by
+   * {@link gov.nasa.jpl.aerie.orchestration.simulation.SimulationResultsWriter}.
+   *
+   * This enables round-trip fidelity: download → re-upload produces an equivalent dataset.
+   */
+  public static JsonValue serializeSimulationResultsForDownload(final SimulationResults results) {
+    final var startTimestamp = new Timestamp(results.startTime);
+    final var endTimestamp = startTimestamp.plusMicros(results.duration.in(Duration.MICROSECONDS));
+
+    final var builder = Json.createObjectBuilder()
+        .add("simulationStartTime", startTimestamp.toString())
+        .add("simulationEndTime", endTimestamp.toString())
+        .add("profiles", serializeDownloadProfiles(results))
+        .add("spans", serializeDownloadSpans(results, startTimestamp));
+
+    if (!results.simulationArguments.isEmpty()) {
+      builder.add("simulationArguments", serializeMap(ResponseSerializers::serializeArgument, results.simulationArguments));
+    }
+
+    if (!results.topics.isEmpty()) {
+      final var topicsBuilder = Json.createObjectBuilder();
+      for (final var topic : results.topics) {
+        topicsBuilder.add(topic.getMiddle(), Json.createObjectBuilder()
+            .add("schema", valueSchemaP.unparse(topic.getRight())));
+      }
+      builder.add("topics", topicsBuilder);
+    }
+
+    if (!results.events.isEmpty()) {
+      builder.add("events", serializeDownloadEvents(results));
+    }
+
+    return builder.build();
+  }
+
+  private static JsonValue serializeDownloadProfiles(final SimulationResults results) {
+    final var realProfiles = Json.createArrayBuilder();
+    for (final var entry : results.realProfiles.entrySet()) {
+      final var profile = entry.getValue();
+      final var segments = Json.createArrayBuilder();
+      for (final var seg : profile.segments()) {
+        segments.add(Json.createObjectBuilder()
+            .add("extent", seg.extent().toString())
+            .add("dynamics", realDynamicsP.unparse(seg.dynamics())));
+      }
+      realProfiles.add(Json.createObjectBuilder()
+          .add("name", entry.getKey())
+          .add("schema", valueSchemaP.unparse(profile.schema()))
+          .add("segments", segments));
+    }
+
+    final var discreteProfiles = Json.createArrayBuilder();
+    for (final var entry : results.discreteProfiles.entrySet()) {
+      final var profile = entry.getValue();
+      final var segments = Json.createArrayBuilder();
+      for (final var seg : profile.segments()) {
+        segments.add(Json.createObjectBuilder()
+            .add("extent", seg.extent().toString())
+            .add("dynamics", serializedValueP.unparse(seg.dynamics())));
+      }
+      discreteProfiles.add(Json.createObjectBuilder()
+          .add("name", entry.getKey())
+          .add("schema", valueSchemaP.unparse(profile.schema()))
+          .add("segments", segments));
+    }
+
+    return Json.createObjectBuilder()
+        .add("realProfiles", realProfiles)
+        .add("discreteProfiles", discreteProfiles)
+        .build();
+  }
+
+  private static JsonValue serializeDownloadSpans(final SimulationResults results, final Timestamp simStart) {
+    final var simulatedActivities = Json.createArrayBuilder();
+    for (final var entry : results.simulatedActivities.entrySet()) {
+      final var id = entry.getKey();
+      final var act = entry.getValue();
+      final var actBuilder = Json.createObjectBuilder()
+          .add("id", id.id())
+          .add("directiveId", act.directiveId()
+              .map(did -> (JsonValue) Json.createValue(did.id()))
+              .orElse(JsonValue.NULL))
+          .add("parentId", act.parentId() != null
+              ? Json.createValue(act.parentId().id())
+              : JsonValue.NULL);
+
+      final var childIdsArr = Json.createArrayBuilder();
+      for (final var ci : act.childIds()) childIdsArr.add(ci.id());
+      actBuilder.add("childIds", childIdsArr);
+
+      actBuilder
+          .add("type", act.type())
+          .add("duration", act.duration().toString())
+          .add("attributes", serializedValueP.unparse(act.computedAttributes()))
+          .add("arguments", serializeMap(ResponseSerializers::serializeArgument, act.arguments()))
+          .add("startTime", new Timestamp(act.start()).toString());
+
+      simulatedActivities.add(actBuilder);
+    }
+
+    final var unfinishedActivities = Json.createArrayBuilder();
+    for (final var entry : results.unfinishedActivities.entrySet()) {
+      final var id = entry.getKey();
+      final var act = entry.getValue();
+      final var actBuilder = Json.createObjectBuilder()
+          .add("id", id.id())
+          .add("directiveId", act.directiveId()
+              .map(did -> (JsonValue) Json.createValue(did.id()))
+              .orElse(JsonValue.NULL))
+          .add("parentId", act.parentId() != null
+              ? Json.createValue(act.parentId().id())
+              : JsonValue.NULL);
+
+      final var childIdsArr = Json.createArrayBuilder();
+      for (final var ci : act.childIds()) childIdsArr.add(ci.id());
+      actBuilder.add("childIds", childIdsArr);
+
+      actBuilder
+          .add("type", act.type())
+          .add("arguments", serializeMap(ResponseSerializers::serializeArgument, act.arguments()))
+          .add("startTime", new Timestamp(act.start()).toString());
+
+      unfinishedActivities.add(actBuilder);
+    }
+
+    return Json.createObjectBuilder()
+        .add("simulatedActivities", simulatedActivities)
+        .add("unfinishedActivities", unfinishedActivities)
+        .build();
+  }
+
+  private static JsonValue serializeDownloadEvents(final SimulationResults results) {
+    final var eventsArr = Json.createArrayBuilder();
+    final var simStart = new Timestamp(results.startTime);
+
+    for (final var timeEntry : results.events.entrySet()) {
+      final var realTimeOffset = timeEntry.getKey();
+      final var transactions = timeEntry.getValue();
+      final var realTimestamp = simStart.plusMicros(realTimeOffset.in(Duration.MICROSECONDS));
+
+      int transactionIndex = 0;
+      for (final var eventGraph : transactions) {
+        final var flattenedEvents = EventGraphFlattener.flatten(eventGraph);
+
+        for (final var flatEntry : flattenedEvents) {
+          final var event = flatEntry.getRight();
+          final var eventBuilder = Json.createObjectBuilder()
+              .add("causalTime", flatEntry.getLeft())
+              .add("realTime", realTimestamp.toString())
+              .add("transactionIndex", transactionIndex)
+              .add("value", serializedValueP.unparse(event.value()));
+
+          results.topics
+              .stream()
+              .filter(topic -> topic.getLeft() == event.topicId())
+              .findFirst()
+              .ifPresent(topic -> eventBuilder.add("topic", topic.getMiddle()));
+
+          eventBuilder.add("spanId", event.spanId()
+              .map(spanId -> (JsonValue) Json.createValue(spanId))
+              .orElse(JsonValue.NULL));
+
+          eventsArr.add(eventBuilder);
+        }
+        ++transactionIndex;
+      }
+    }
+
+    return eventsArr.build();
   }
 }

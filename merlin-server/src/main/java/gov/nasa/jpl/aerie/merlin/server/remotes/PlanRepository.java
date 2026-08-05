@@ -1,8 +1,10 @@
 package gov.nasa.jpl.aerie.merlin.server.remotes;
 
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.jpl.aerie.merlin.server.exceptions.InvalidSimulationDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.models.DatasetId;
@@ -44,6 +46,13 @@ public interface PlanRepository {
       Optional<SimulationDatasetId> simulationDatasetId,
       Timestamp datasetStart,
       ProfileSet profileSet) throws NoSuchPlanException;
+  long uploadSimulationDataset(
+      PlanId planId,
+      SimulationResults simulationResults,
+      String requestedBy) throws NoSuchPlanException, InvalidSimulationDatasetException;
+  SimulationResults downloadSimulationDataset(
+      PlanId planId,
+      long simulationDatasetId) throws NoSuchPlanException;
   void extendExternalDataset(DatasetId datasetId, ProfileSet profileSet) throws NoSuchPlanDatasetException;
   List<Pair<Duration, ProfileSet>> getExternalDatasets(
       PlanId planId,

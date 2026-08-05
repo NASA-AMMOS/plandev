@@ -29,6 +29,7 @@ public final class SimulationResults {
   public final Map<ActivityInstanceId, UnfinishedActivity> unfinishedActivities;
   public final List<Triple<Integer, String, ValueSchema>> topics;
   public final Map<Duration, List<EventGraph<EventRecord>>> events;
+  public final Map<String, SerializedValue> simulationArguments;
 
     public SimulationResults(
         final Map<String, ResourceProfile<RealDynamics>> realProfiles,
@@ -40,6 +41,21 @@ public final class SimulationResults {
         final List<Triple<Integer, String, ValueSchema>> topics,
         final Map<Duration, List<EventGraph<EventRecord>>> events)
   {
+    this(realProfiles, discreteProfiles, simulatedActivities, unfinishedActivities,
+         startTime, duration, topics, events, Map.of());
+  }
+
+    public SimulationResults(
+        final Map<String, ResourceProfile<RealDynamics>> realProfiles,
+        final Map<String, ResourceProfile<SerializedValue>> discreteProfiles,
+        final Map<ActivityInstanceId, ActivityInstance> simulatedActivities,
+        final Map<ActivityInstanceId, UnfinishedActivity> unfinishedActivities,
+        final Instant startTime,
+        final Duration duration,
+        final List<Triple<Integer, String, ValueSchema>> topics,
+        final Map<Duration, List<EventGraph<EventRecord>>> events,
+        final Map<String, SerializedValue> simulationArguments)
+  {
     this.startTime = startTime;
     this.duration = duration;
     this.realProfiles = realProfiles;
@@ -48,6 +64,7 @@ public final class SimulationResults {
     this.simulatedActivities = simulatedActivities;
     this.unfinishedActivities = unfinishedActivities;
     this.events = events;
+    this.simulationArguments = simulationArguments;
   }
 
   @Override

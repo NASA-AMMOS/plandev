@@ -26,6 +26,13 @@ type Mutation {
 }
 
 type Mutation {
+  uploadSimulationDataset(
+    planId: Int!,
+    simulationResults: SimulationResultsInput!
+  ): UploadSimulationDatasetResponse
+}
+
+type Mutation {
   uploadDictionary(dictionary: String!, persistDictionaryToFilesystem: Boolean!): DictionaryResponse
 }
 
@@ -138,6 +145,13 @@ type Query {
 }
 
 type Query {
+  downloadSimulationDataset(
+    planId: Int!,
+    simulationDatasetId: Int!
+  ): DownloadSimulationDatasetResponse
+}
+
+type Query {
   simulate(planId: Int!, force: Boolean): MerlinSimulationResponse
 }
 
@@ -241,6 +255,14 @@ type ProcedureEffectiveArgumentsResponse {
 
 type AddExternalDatasetResponse {
   datasetId: Int!
+}
+
+type UploadSimulationDatasetResponse {
+  simulationDatasetId: Int!
+}
+
+type DownloadSimulationDatasetResponse {
+  simulationResults: SimulationResultsOutput!
 }
 
 type SchedulingResponse {
@@ -371,6 +393,10 @@ scalar ActivityArguments
 scalar ProcedureArguments
 
 scalar ProfileSet
+
+scalar SimulationResultsInput
+
+scalar SimulationResultsOutput
 
 scalar SchedulingFailureReason
 

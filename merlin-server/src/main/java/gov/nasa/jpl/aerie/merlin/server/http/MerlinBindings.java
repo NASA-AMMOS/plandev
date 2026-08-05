@@ -10,6 +10,7 @@ import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.DatabaseException;
 import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsException;
 import gov.nasa.jpl.aerie.types.SerializedActivity;
 import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
+import gov.nasa.jpl.aerie.merlin.server.exceptions.InvalidSimulationDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
 import gov.nasa.jpl.aerie.merlin.server.exceptions.SimulationDatasetMismatchException;
@@ -47,6 +48,8 @@ import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraConstrai
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraConstraintsViolationsActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraSimulateActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraUploadExternalDatasetActionP;
+import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraDownloadSimulationDatasetActionP;
+import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraUploadSimulationDatasetActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraMissionModelActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraMissionModelArgumentsActionP;
 import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraMissionModelEventTriggerP;
@@ -119,6 +122,8 @@ public final class MerlinBindings implements Plugin {
       path("getActivityEffectiveArgumentsBulk", () -> post(this::getActivityEffectiveArgumentsBulk));
       path("addExternalDataset", () -> post(this::addExternalDataset));
       path("extendExternalDataset", () -> post(this::extendExternalDataset));
+      path("uploadSimulationDataset", () -> post(this::uploadSimulationDataset));
+      path("downloadSimulationDataset", () -> post(this::downloadSimulationDataset));
       path("constraintsDslTypescript", () -> post(this::getConstraintsDslTypescript));
       path("refreshConstraintProcedureParameterTypes", () -> post(this::refreshConstrainProcedureParameterTypes));
       path("getConstraintProcedureEffectiveArgumentsBulk", () -> post(this::getConstraintProcedureEffectiveArgumentsBulk));
@@ -515,6 +520,71 @@ public final class MerlinBindings implements Plugin {
       final var datasetId = this.planService.addExternalDataset(planId, simulationDatasetId, datasetStart, profileSet);
 
       ctx.status(201).result(ResponseSerializers.serializeCreatedDatasetId(datasetId).toString());
+    } catch (PermissionsException pe) {
+      if (pe.httpStatusCode() == 500) {
+        logger.warn("Permissions Service Exception: {}", pe.formattedError());
+      }
+      ctx.status(pe.httpStatusCode()).json(pe.formattedError());
+    } catch (final NoSuchPlanException ex) {
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
+    }
+  }
+
+  private void uploadSimulationDataset(final Context ctx) {
+    try {
+      final var body = parseJson(ctx.body(), hasuraUploadSimulationDatasetActionP);
+      final var input = body.input();
+
+      final var planId = input.planId();
+      // Uploading produces a simulation dataset, the same artifact running a simulation
+      // produces, so it is gated on `simulate` rather than on external-dataset insertion.
+      this.checkPermissions(HasuraAction.simulate, body.session(), planId);
+
+      final var simulationDatasetId = this.planService.uploadSimulationDataset(
+          planId,
+          input.simulationResults(),
+          body.session().hasuraUserId());
+
+      ctx.status(201).result(ResponseSerializers.serializeCreatedSimulationDatasetId(simulationDatasetId).toString());
+    } catch (PermissionsException pe) {
+      if (pe.httpStatusCode() == 500) {
+        logger.warn("Permissions Service Exception: {}", pe.formattedError());
+      }
+      ctx.status(pe.httpStatusCode()).json(pe.formattedError());
+    } catch (final NoSuchPlanException ex) {
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    } catch (final InvalidSimulationDatasetException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
+    }
+  }
+
+  private void downloadSimulationDataset(final Context ctx) {
+    try {
+      final var body = parseJson(ctx.body(), hasuraDownloadSimulationDatasetActionP);
+      final var input = body.input();
+
+      final var planId = input.planId();
+      // Downloading is a read-only export of existing results, so it is gated on
+      // `resource_samples` — the same permission that reads simulated resource data,
+      // and one the `viewer` role holds.
+      this.checkPermissions(HasuraAction.resource_samples, body.session(), planId);
+
+      final var simulationResults = this.planService.downloadSimulationDataset(
+          planId,
+          input.simulationDatasetId());
+
+      final var responseJson = Json.createObjectBuilder()
+          .add("simulationResults", ResponseSerializers.serializeSimulationResultsForDownload(simulationResults))
+          .build();
+      ctx.status(200).result(responseJson.toString());
     } catch (PermissionsException pe) {
       if (pe.httpStatusCode() == 500) {
         logger.warn("Permissions Service Exception: {}", pe.formattedError());

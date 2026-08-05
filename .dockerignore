@@ -17,14 +17,3 @@
 !docker/graalpy/wheels/spiceypy
 !docker/graalpy/wheels/spiceypy/*.whl
 !merlin-server/constraints-dsl-compiler
-
-# DEV ONLY (docker-compose.dev.yml): a local pymerlin checkout staged into the build
-# context by docker/graalpy/stage-local-pymerlin.sh, installed by install.dev.sh. Needs
-# its own recursive entry for the same reason wheels/spiceypy above does -- `!docker/graalpy`
-# alone does not re-include nested paths under an excluded root.
-#
-# This only makes the directory *sendable* when it exists; it is untracked and absent on a
-# normal checkout, so production builds (which use install.sh and the pinned git ref) are
-# unaffected either way.
-!docker/graalpy/pymerlin-src
-!docker/graalpy/pymerlin-src/**

@@ -1,6 +1,0 @@
-# Scheduling
-
-```mermaid
-A -> B
-```
-

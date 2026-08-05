@@ -67,7 +67,7 @@ services:
       MERLIN_PORT: 27183
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
-        -Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG
+        -Dorg.slf4j.simpleLogger.defaultLogLevel=INFO
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
         -Dorg.slf4j.simpleLogger.logFile=System.err
       UNTRUE_PLAN_START: "2000-01-01T11:58:55.816Z"
@@ -92,7 +92,7 @@ services:
       SCHEDULER_PORT: 27185
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
-        -Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG
+        -Dorg.slf4j.simpleLogger.defaultLogLevel=INFO
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
         -Dorg.slf4j.simpleLogger.logFile=System.err
     image: aerie_scheduler
@@ -191,7 +191,7 @@ services:
       SIMULATION_PROGRESS_POLL_PERIOD_MILLIS: 2000
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
-        -Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG
+        -Dorg.slf4j.simpleLogger.defaultLogLevel=INFO
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
         -Dorg.slf4j.simpleLogger.logFile=System.err
       UNTRUE_PLAN_START: "2000-01-01T11:58:55.816Z"
@@ -215,7 +215,7 @@ services:
       SIMULATION_PROGRESS_POLL_PERIOD_MILLIS: 2000
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
-        -Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG
+        -Dorg.slf4j.simpleLogger.defaultLogLevel=INFO
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
         -Dorg.slf4j.simpleLogger.logFile=System.err
       UNTRUE_PLAN_START: "2000-01-01T11:58:55.816Z"
@@ -242,7 +242,7 @@ services:
       MAX_NB_CACHED_SIMULATION_ENGINES: 1
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
-        -Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG
+        -Dorg.slf4j.simpleLogger.defaultLogLevel=INFO
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
         -Dorg.slf4j.simpleLogger.logFile=System.err
     image: "aerie_scheduler_worker_1"
@@ -268,7 +268,7 @@ services:
       MAX_NB_CACHED_SIMULATION_ENGINES: 1
       JAVA_OPTS: >
         -agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005
-        -Dorg.slf4j.simpleLogger.defaultLogLevel=DEBUG
+        -Dorg.slf4j.simpleLogger.defaultLogLevel=INFO
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
         -Dorg.slf4j.simpleLogger.logFile=System.err
     image: "aerie_scheduler_worker_2"

@@ -2,20 +2,23 @@
   "name": "scheduling-dsl-compiler",
   "description": "Typescript compiler for the scheduling server DSL",
   "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
-    "build": "rm -rf build; tsc",
+    "build": "rm -rf build && tsc",
     "test": "npm run build && node build/main.js",
-    "generate-doc": "rm -rf build/docs; npx typedoc src/libs/scheduler-edsl-fluent-api.ts src/libs/constraints-edsl-fluent-api.ts --excludePrivate --excludeInternal --out ./build/docs --name \"Scheduling eDSL Documentation\" --readme none --gitRevision develop --validation.notExported false --logLevel Warn"
+    "generate-doc": "rm -rf build/docs && npx typedoc src/libs/scheduler-edsl-fluent-api.ts src/libs/constraints-edsl-fluent-api.ts --excludePrivate --excludeInternal --out ./build/docs --name \"Scheduling eDSL Documentation\" --readme none --gitRevision develop --validation.notExported false --logLevel Warn"
   },
   "dependencies": {
+    "@js-temporal/polyfill": "0.4.3",
     "@nasa-jpl/aerie-ts-user-code-runner": "0.5.0",
-    "@js-temporal/polyfill": "^0.4.0",
     "source-map": "^0.7.3",
     "typescript": "^4.5.5"
   },
   "devDependencies": {
     "@tsconfig/node16-strictest-esm": "^1.0.2",
-    "@types/node": "^17.0.21",
+    "@types/node": "24.13.3",
     "typedoc": "^0.23.10"
   }
 }

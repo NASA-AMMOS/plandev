@@ -10,6 +10,8 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.api.extension.ExtendWith;
 
+import java.time.Instant;
+
 import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.*;
 import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentData;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.LinearBoundaryConsistencySolver.Comparison.*;
@@ -25,11 +27,13 @@ class LinearBoundaryConsistencySolverTest {
   @ExtendWith(MerlinExtension.class)
   @TestInstance(Lifecycle.PER_CLASS)
   class SingleVariableSingleConstraint {
-    MutableResource<Polynomial> driver = resource(polynomial(10));
+    MutableResource<Polynomial> driver;
     Resource<Polynomial> result;
 
-    public SingleVariableSingleConstraint() {
-      Resources.init();
+    SingleVariableSingleConstraint() {
+      Resources.init(Instant.EPOCH);
+
+      driver = resource(polynomial(10));
 
       var solver = new LinearBoundaryConsistencySolver("SingleVariableSingleConstraint");
       var v = solver.variable("v", Domain::upperBound);
@@ -65,13 +69,15 @@ class LinearBoundaryConsistencySolverTest {
   @ExtendWith(MerlinExtension.class)
   @TestInstance(Lifecycle.PER_CLASS)
   class SingleVariableMultipleConstraint {
-    MutableResource<Polynomial> lowerBound1 = resource(polynomial(10));
-    MutableResource<Polynomial> lowerBound2 = resource(polynomial(20));
-    MutableResource<Polynomial> upperBound = resource(polynomial(30));
+    MutableResource<Polynomial> lowerBound1, lowerBound2, upperBound;
     Resource<Polynomial> result;
 
-    public SingleVariableMultipleConstraint() {
-      Resources.init();
+    SingleVariableMultipleConstraint() {
+      Resources.init(Instant.EPOCH);
+
+      lowerBound1 = resource(polynomial(10));
+      lowerBound2 = resource(polynomial(20));
+      upperBound = resource(polynomial(30));
 
       var solver = new LinearBoundaryConsistencySolver("SingleVariableMultipleConstraint");
       var v = solver.variable("v", Domain::lowerBound);
@@ -141,11 +147,13 @@ class LinearBoundaryConsistencySolverTest {
   @ExtendWith(MerlinExtension.class)
   @TestInstance(Lifecycle.PER_CLASS)
   class ScalingConstraint {
-    MutableResource<Polynomial> driver = resource(polynomial(10));
+    MutableResource<Polynomial> driver;
     Resource<Polynomial> result;
 
-    public ScalingConstraint() {
-      Resources.init();
+    ScalingConstraint() {
+      Resources.init(Instant.EPOCH);
+
+      driver = resource(polynomial(10));
 
       var solver = new LinearBoundaryConsistencySolver("ScalingConstraint");
       var v = solver.variable("v", Domain::upperBound);
@@ -171,12 +179,14 @@ class LinearBoundaryConsistencySolverTest {
   @ExtendWith(MerlinExtension.class)
   @TestInstance(Lifecycle.PER_CLASS)
   class MultipleVariables {
-    MutableResource<Polynomial> upperBound = resource(polynomial(10));
-    MutableResource<Polynomial> upperBoundOnC = resource(polynomial(5));
+    MutableResource<Polynomial> upperBound, upperBoundOnC;
     Resource<Polynomial> a, b, c;
 
-    public MultipleVariables() {
-      Resources.init();
+    MultipleVariables() {
+      Resources.init(Instant.EPOCH);
+
+      upperBound = resource(polynomial(10));
+      upperBoundOnC = resource(polynomial(5));
 
       var solver = new LinearBoundaryConsistencySolver("MultipleVariablesSingleConstraint");
       var a = solver.variable("a", Domain::upperBound);

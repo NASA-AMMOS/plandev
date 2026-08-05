@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.merlin.protocol.types;
 
+import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
@@ -453,6 +454,11 @@ public record Duration(long micros) implements Comparable<Duration> {
     return instant
         .plusMillis(duration.dividedBy(Duration.MILLISECONDS))
         .plusNanos(1000 * duration.remainderOf(Duration.MILLISECONDS).dividedBy(Duration.MICROSECONDS));
+  }
+
+  /** Compute the duration between two {@link Instant}s. */
+  public static Duration between(Instant start, Instant end) {
+    return Duration.of(ChronoUnit.MICROS.between(start, end), Duration.MICROSECONDS);
   }
 
   /** @see Duration#add(Duration, Duration) */

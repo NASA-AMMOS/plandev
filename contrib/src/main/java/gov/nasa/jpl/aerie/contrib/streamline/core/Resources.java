@@ -1,11 +1,13 @@
 package gov.nasa.jpl.aerie.contrib.streamline.core;
 
 import gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.Clock;
+import gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.InstantClock;
 import gov.nasa.jpl.aerie.merlin.framework.Condition;
 import gov.nasa.jpl.aerie.merlin.framework.Scoped;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
@@ -20,6 +22,7 @@ import static gov.nasa.jpl.aerie.contrib.streamline.core.Reactions.wheneverDynam
 import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Dependencies.addDependency;
 import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.*;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.Clock.clock;
+import static gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.InstantClockResources.addToInstant;
 import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.*;
 import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.ZERO;
 import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete.discrete;
@@ -38,22 +41,26 @@ public final class Resources {
    *   This method is idempotent; calling it multiple times is the same as calling it once.
    * </p>
    */
-  public static void init() {
-    currentTime();
+  public static void init(Instant planStart) {
+    CLOCK = resource(clock(ZERO));
+    ABSOLUTE_CLOCK = name(addToInstant(planStart, CLOCK), "Global Absolute Simulation Clock");
   }
 
   // TODO if Aerie provides either a `getElapsedTime` method or dynamic allocation of Cells, we can avoid this mutable static variable
-  private static Resource<Clock> CLOCK = resource(clock(ZERO));
+  private static Resource<Clock> CLOCK;
+  private static Resource<InstantClock> ABSOLUTE_CLOCK;
   public static Duration currentTime() {
-    try {
-      return currentValue(CLOCK);
-    } catch (Scoped.EmptyDynamicCellException | IllegalArgumentException e) {
-      // If we're running unit tests, several simulations can happen without reloading the Resources class.
-      // In that case, we'll have discarded the clock resource we were using, and get the above exception.
-      // REVIEW: Is there a cleaner way to make sure this resource gets (re-)initialized?
-      CLOCK = resource(clock(ZERO));
-      return currentValue(CLOCK);
-    }
+    return currentValue(CLOCK);
+  }
+  public static Instant currentInstant() {
+    return currentValue(ABSOLUTE_CLOCK);
+  }
+
+  public static Resource<Clock> simulationClock() {
+    return CLOCK;
+  }
+  public static Resource<InstantClock> absoluteClock() {
+    return ABSOLUTE_CLOCK;
   }
 
   public static <D> D currentData(Resource<D> resource) {

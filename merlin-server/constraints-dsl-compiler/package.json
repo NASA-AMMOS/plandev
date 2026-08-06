@@ -23,5 +23,8 @@
     "@tsconfig/node16-strictest-esm": "^1.0.2",
     "@types/node": "^24.13.3",
     "typedoc": "^0.23.10"
+  },
+  "allowScripts": {
+    "isolated-vm": true
   }
 }

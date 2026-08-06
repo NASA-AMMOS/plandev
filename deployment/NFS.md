@@ -45,7 +45,7 @@ In this case, the IP (`172.27.0.2`) was obtained by running:
 
 ```sh
 $ docker-compose up --build --detach
-Creating network "aerie_default" with the default driver
+Creating network "plandev_net" with the default driver
 Creating nfs ... done
 $ docker container ls | grep nfs | cut -d " " -f1
 2724af1ec4d2

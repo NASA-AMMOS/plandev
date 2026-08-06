@@ -85,4 +85,6 @@ interface SimulationResults {
   fun <A: Any> inputDirectives(deserializer: (SerializedValue) -> A): Directives<A>
   /** The input directives that were used for this simulation, deserialized as [AnyDirective]. */
   fun inputDirectives() = inputDirectives(AnyDirective.deserializer())
+
+  fun rawDirectives(): Directives<*>
 }

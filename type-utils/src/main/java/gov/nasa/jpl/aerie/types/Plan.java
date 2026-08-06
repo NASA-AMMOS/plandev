@@ -17,7 +17,7 @@ public final class Plan {
   private final MissionModelId missionModelId;
   private final Timestamp startTimestamp;
   private final Timestamp endTimestamp;
-  private final Map<ActivityDirectiveId, ActivityDirective> activityDirectives;
+  private final Map<ActivityDirectiveId, ActivityDirective<?>> activityDirectives;
   private final Map<String, SerializedValue> configuration;
 
   // Simulation start and end times can be freely updated
@@ -29,7 +29,7 @@ public final class Plan {
       final MissionModelId missionModelId,
       final Timestamp startTimestamp,
       final Timestamp endTimestamp,
-      final Map<ActivityDirectiveId, ActivityDirective> activityDirectives
+      final Map<ActivityDirectiveId, ActivityDirective<?>> activityDirectives
   ) {
     this(
         name,
@@ -46,7 +46,7 @@ public final class Plan {
       String name,
       Timestamp startTimestamp,
       Timestamp endTimestamp,
-      Map<ActivityDirectiveId, ActivityDirective> activityDirectives,
+      Map<ActivityDirectiveId, ActivityDirective<?>> activityDirectives,
       Map<String, SerializedValue> simulationConfig
   ) {
     this(
@@ -65,7 +65,7 @@ public final class Plan {
       final MissionModelId missionModelId,
       final Timestamp startTimestamp,
       final Timestamp endTimestamp,
-      final Map<ActivityDirectiveId, ActivityDirective> activityDirectives,
+      final Map<ActivityDirectiveId, ActivityDirective<?>> activityDirectives,
       final Map<String, SerializedValue> configuration,
       final Timestamp simulationStartTimestamp,
       final Timestamp simulationEndTimestamp
@@ -116,7 +116,7 @@ public final class Plan {
   /**
    * Get the map of grounded activity directives in this plan.
    */
-  public Map<ActivityDirectiveId, ActivityDirective> activityDirectives() {return activityDirectives;}
+  public Map<ActivityDirectiveId, ActivityDirective<?>> activityDirectives() {return activityDirectives;}
 
   /**
    * Get the requested simulation configuration.

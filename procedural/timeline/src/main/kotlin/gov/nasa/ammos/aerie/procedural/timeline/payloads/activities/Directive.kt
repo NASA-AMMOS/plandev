@@ -9,6 +9,8 @@ data class Directive<A: Any>(
   /** The inner payload, typically either [AnyDirective] or a mission model activity type. */
   @JvmField val inner: A,
 
+  val serializer: () -> AnyDirective,
+
   /** The name of this specific directive. */
   @JvmField val name: String?,
 
@@ -30,16 +32,19 @@ data class Directive<A: Any>(
     get() = Interval.at(startTime)
 
   override fun withNewInterval(i: Interval): Directive<A> {
-    if (i.isPoint()) return Directive(inner, name, id, type, start.atNewTime(i.start))
+    if (i.isPoint()) return Directive(inner, serializer, name, id, type, start.atNewTime(i.start))
     else throw Exception("Cannot change directive time to a non-instantaneous interval.")
   }
 
-  /** Transform the inner payload with a function, returning a new directive object. */
-  fun <R: Any> mapInner(/***/ f: (A) -> R) = Directive(
-    f(inner),
-    name,
-    id,
-    type,
-    start
-  )
+  fun anyDirective() = serializer()
+
+//  /** Transform the inner payload with a function, returning a new directive object. */
+//  fun <R: Any> mapInner(/***/ f: (A) -> R) = Directive(
+//    f(inner),
+//      serializer,
+//    name,
+//    id,
+//    type,
+//    start
+//  )
 }

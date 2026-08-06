@@ -18,12 +18,12 @@ sealed interface Edit {
   fun inverse(): Edit
 
   /** Create a new activity from a given directive. */
-  data class Create(/***/ val directive: Directive<AnyDirective>): Edit {
+  data class Create(/***/ val directive: Directive<*>): Edit {
     override fun inverse() = Delete(directive)
   }
 
   /** Delete an activity, specified by directive id. */
-  data class Delete(/***/ val directive: Directive<AnyDirective>): Edit {
+  data class Delete(/***/ val directive: Directive<*>): Edit {
     override fun inverse() = Create(directive)
   }
 }

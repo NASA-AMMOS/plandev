@@ -5,10 +5,21 @@ import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId
 
+fun NewDirective(inner: AnyDirective, name: String?, type: String, start: DirectiveStart) =
+    NewDirective(
+        inner,
+        { inner },
+        name,
+        type,
+        start
+    )
+
 /** A new directive to be created, which doesn't have an id yet. */
-data class NewDirective(
+data class NewDirective<T: Any>(
     /** The activity's arguments. */
-    val inner: AnyDirective,
+    val inner: T,
+
+    val serializer: () -> AnyDirective,
 
     /** The name of the activity. */
     val name: String?,
@@ -28,8 +39,9 @@ data class NewDirective(
    * @param id The id for the new directive.
    * @param parent The activity this activity is anchored to, if applicable.
    */
-  fun resolve(id: ActivityDirectiveId, parent: Directive<*>?) = Directive(
+  fun resolve(id: ActivityDirectiveId, parent: Directive<*>?) = Directive<T>(
       inner,
+      serializer,
       name,
       id,
       type,

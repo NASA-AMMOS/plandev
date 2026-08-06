@@ -51,7 +51,7 @@ public record TypeUtilsPlanAdapter(Plan plan) implements gov.nasa.ammos.aerie.pr
       String type,
       @NotNull Function1<? super SerializedValue, ? extends A> deserializer)
   {
-    final Stream<Map.Entry<ActivityDirectiveId, ActivityDirective>> activities;
+    final Stream<Map.Entry<ActivityDirectiveId, ActivityDirective<?>>> activities;
     if (type == null) {
       activities = plan.activityDirectives().entrySet().stream();
     } else {
@@ -61,9 +61,10 @@ public record TypeUtilsPlanAdapter(Plan plan) implements gov.nasa.ammos.aerie.pr
 
     final List<Directive<A>> result = activities.map($ -> {
       final var id = $.getKey();
-      final var act = $.getValue();
+      final ActivityDirective<?> act = $.getValue();
       return new Directive<>(
           (A) deserializer.invoke(SerializedValue.of(act.serializedActivity().getArguments())),
+          null, // TODO
           act.name(),
           id,
           act.serializedActivity().getTypeName(),
@@ -95,5 +96,11 @@ public record TypeUtilsPlanAdapter(Plan plan) implements gov.nasa.ammos.aerie.pr
   @Override
   public ExternalEvents events(@NotNull final EventQuery query) {
     throw new NotImplementedException();
+  }
+
+  @Override
+  @NotNull
+  public Directives<?> rawDirectives() {
+    return new Directives<>(plan.activityDirectives().values().stream().map($ -> $).toList());
   }
 }

@@ -6,6 +6,7 @@ import gov.nasa.ammos.aerie.procedural.timeline.collections.ExternalEvents
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent
 import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart.Anchor.AnchorPoint.Companion.anchorToStart
@@ -14,7 +15,6 @@ import gov.nasa.ammos.aerie.procedural.timeline.util.duration.minus
 import gov.nasa.ammos.aerie.procedural.timeline.util.duration.plus
 import gov.nasa.jpl.aerie.constraints.model.DiscreteProfile
 import gov.nasa.jpl.aerie.constraints.model.LinearProfile
-import gov.nasa.jpl.aerie.constraints.time.Interval as ConstraintsInterval
 import gov.nasa.jpl.aerie.constraints.time.Segment as ConstraintsSegment
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
@@ -45,9 +45,10 @@ data class SchedulerToProcedurePlanAdapter(
 
     val result = ArrayList<Directive<A>>(schedulerActivities.size)
     for (activity in schedulerActivities) {
-      result.add(
+        result.add(
           Directive(
               deserializer(SerializedValue.of(activity.arguments)),
+              { AnyDirective(activity.arguments) },
               activity.name,
               activity.id,
               activity.type.name,
@@ -59,7 +60,11 @@ data class SchedulerToProcedurePlanAdapter(
     return Directives(result)
   }
 
-  override fun events(query: EventQuery): ExternalEvents {
+    override fun rawDirectives(): Directives<*> {
+        TODO("Not yet implemented")
+    }
+
+    override fun events(query: EventQuery): ExternalEvents {
     var result = if (query.derivationGroups != null) query.derivationGroups!!.flatMap {
       eventsByDerivationGroup[it]
         ?: throw Error("derivation group either doesn't exist or isn't associated with plan: $it")

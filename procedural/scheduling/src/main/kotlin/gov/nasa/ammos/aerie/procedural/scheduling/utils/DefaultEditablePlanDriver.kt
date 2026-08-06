@@ -70,7 +70,7 @@ class DefaultEditablePlanDriver(
      * - the implementor must return the new directive in future calls to [Plan.directives], unless it is later deleted.
      * - the implementor must include the directive in future input plans for simulation, unless it is later deleted.
      */
-    fun create(directive: Directive<AnyDirective>)
+    fun create(directive: Directive<*>)
 
     /**
      * Remove a directive from the plan, specified by ID.
@@ -107,7 +107,7 @@ class DefaultEditablePlanDriver(
      * add additional checks by overriding this method and calling `super.validate(directive)`. Implementor
      * should throw if the directive is invalid.
      */
-    fun validate(directive: Directive<AnyDirective>) {
+    fun validate(directive: Directive<*>) {
       if (directive.startTime > duration()) {
         throw Exception("New activity with id ${directive.id.id()} would start after the end of the plan")
       }
@@ -163,7 +163,7 @@ class DefaultEditablePlanDriver(
     return internalResults
   }
 
-  override fun create(directive: NewDirective): ActivityDirectiveId {
+  override fun create(directive: NewDirective<*>): ActivityDirectiveId {
     class ParentSearchException(id: ActivityDirectiveId, size: Int): Exception("Expected one parent activity with id $id, found $size")
     val id = adapter.generateDirectiveId()
     val parent = when (val s = directive.start) {

@@ -3,6 +3,7 @@ package gov.nasa.jpl.aerie.merlin.driver;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.types.ActivityDirective;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.jpl.aerie.types.SerializedActivity;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.ArrayList;
@@ -16,10 +17,10 @@ import java.util.concurrent.RecursiveTask;
 
 public class StartOffsetReducer extends RecursiveTask<HashMap<ActivityDirectiveId, List<Pair<ActivityDirectiveId, Duration>>>> {
   private final Duration planDuration;
-  private final Map<ActivityDirectiveId, ActivityDirective> completeMapOfDirectives;
-  private final Map<ActivityDirectiveId, ActivityDirective> activityDirectivesToProcess;
+  private final Map<ActivityDirectiveId, ActivityDirective<?>> completeMapOfDirectives;
+  private final Map<ActivityDirectiveId, ActivityDirective<?>> activityDirectivesToProcess;
 
-  public StartOffsetReducer(Duration planDuration, Map<ActivityDirectiveId, ActivityDirective> activityDirectives){
+  public StartOffsetReducer(Duration planDuration, Map<ActivityDirectiveId, ActivityDirective<?>> activityDirectives){
     this.planDuration = planDuration;
     if(activityDirectives == null) {
       this.completeMapOfDirectives = Map.of();
@@ -32,8 +33,8 @@ public class StartOffsetReducer extends RecursiveTask<HashMap<ActivityDirectiveI
 
   private StartOffsetReducer(
       Duration planDuration,
-      Map<ActivityDirectiveId, ActivityDirective> activityDirectives,
-      Map<ActivityDirectiveId, ActivityDirective> allActivityDirectives){
+      Map<ActivityDirectiveId, ActivityDirective<?>> activityDirectives,
+      Map<ActivityDirectiveId, ActivityDirective<?>> allActivityDirectives){
     this.planDuration = planDuration;
     this.activityDirectivesToProcess = activityDirectives;
     this.completeMapOfDirectives = allActivityDirectives;
@@ -56,8 +57,8 @@ public class StartOffsetReducer extends RecursiveTask<HashMap<ActivityDirectiveI
       return toReturn;
     }
     // else split the map in half and process each side in parallel
-    final var leftDirectivesToProcess = new HashMap<ActivityDirectiveId, ActivityDirective>(activityDirectivesToProcess.size()/2);
-    final var rightDirectivesToProcess = new HashMap<ActivityDirectiveId, ActivityDirective>(activityDirectivesToProcess.size()/2);
+    final var leftDirectivesToProcess = new HashMap<ActivityDirectiveId, ActivityDirective<?>>(activityDirectivesToProcess.size()/2);
+    final var rightDirectivesToProcess = new HashMap<ActivityDirectiveId, ActivityDirective<?>>(activityDirectivesToProcess.size()/2);
     int count=0;
     for(var entry : activityDirectivesToProcess.entrySet()) {
       (count<(activityDirectivesToProcess.size()/2) ? leftDirectivesToProcess : rightDirectivesToProcess).put(entry.getKey(), entry.getValue());

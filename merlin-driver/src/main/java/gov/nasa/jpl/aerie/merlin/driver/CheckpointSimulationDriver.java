@@ -42,7 +42,7 @@ public class CheckpointSimulationDriver {
    * @return the best cached engine as well as the map of corresponding activity ids for this engine
    */
   public static Optional<Pair<CachedSimulationEngine, Map<ActivityDirectiveId, ActivityDirectiveId>>> bestCachedEngine(
-      final Map<ActivityDirectiveId, ActivityDirective> schedule,
+      final Map<ActivityDirectiveId, ActivityDirective<?>> schedule,
       final List<CachedSimulationEngine> cachedEngines,
       final Duration planDuration
   ) {
@@ -70,7 +70,7 @@ public class CheckpointSimulationDriver {
           invalidationTime = min(invalidationTime, minimumStartTimes.get(activity.getKey()));
         }
       }
-      final var allActs = new HashMap<ActivityDirectiveId, ActivityDirective>();
+      final var allActs = new HashMap<ActivityDirectiveId, ActivityDirective<?>>();
       allActs.putAll(cachedEngine.activityDirectives());
       allActs.putAll(scheduledActivities);
       final var minimumStartTimeOfActsInCache = getMinimumStartTimes(allActs, planDuration);
@@ -110,7 +110,7 @@ public class CheckpointSimulationDriver {
   }
 
   private static Map<ActivityDirectiveId, Duration> getMinimumStartTimes(
-      final Map<ActivityDirectiveId, ActivityDirective> schedule,
+      final Map<ActivityDirectiveId, ActivityDirective<?>> schedule,
       final Duration planDuration)
   {
     //For an anchored activity, it's minimum invalidationTime would be the sum of all startOffsets in its anchor chain
@@ -140,7 +140,7 @@ public class CheckpointSimulationDriver {
       Duration currentTime,
       Duration nextTime,
       SimulationEngine simulationEngine,
-      Map<ActivityDirectiveId, ActivityDirective> schedule,
+      Map<ActivityDirectiveId, ActivityDirective<?>> schedule,
       Map<ActivityDirectiveId, SpanId> activityDirectiveIdSpanIdMap
   ) {}
 
@@ -164,7 +164,7 @@ public class CheckpointSimulationDriver {
    */
   public static <Model> SimulationResultsComputerInputs simulateWithCheckpoints(
       final MissionModel<Model> missionModel,
-      final Map<ActivityDirectiveId, ActivityDirective> schedule,
+      final Map<ActivityDirectiveId, ActivityDirective<?>> schedule,
       final Instant simulationStartTime,
       final Duration simulationDuration,
       final Instant planStartTime,
@@ -213,7 +213,7 @@ public class CheckpointSimulationDriver {
       // Schedule all activities.
       final var toSchedule = new LinkedHashSet<ActivityDirectiveId>();
       toSchedule.add(null);
-      final var activitiesToBeScheduledNow = new HashMap<ActivityDirectiveId, ActivityDirective>();
+      final var activitiesToBeScheduledNow = new HashMap<ActivityDirectiveId, ActivityDirective<?>>();
       if (resolved.get(null) != null) {
         for (final var r : resolved.get(null)) {
           activitiesToBeScheduledNow.put(r.getKey(), schedule.get(r.getKey()));
@@ -349,7 +349,7 @@ public class CheckpointSimulationDriver {
 
   private static <Model> Map<ActivityDirectiveId, SpanId> scheduleActivities(
       final Set<ActivityDirectiveId> toScheduleNow,
-      final Map<ActivityDirectiveId, ActivityDirective> completeSchedule,
+      final Map<ActivityDirectiveId, ActivityDirective<?>> completeSchedule,
       final HashMap<ActivityDirectiveId, List<Pair<ActivityDirectiveId, Duration>>> resolved,
       final MissionModel<Model> missionModel,
       final SimulationEngine engine,

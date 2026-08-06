@@ -27,7 +27,7 @@ import java.util.function.Supplier;
 public final class SimulationDriver {
   public static <Model> SimulationResults simulate(
       final MissionModel<Model> missionModel,
-      final Map<ActivityDirectiveId, ActivityDirective> schedule,
+      final Map<ActivityDirectiveId, ActivityDirective<?>> schedule,
       final Instant simulationStartTime,
       final Duration simulationDuration,
       final Instant planStartTime,
@@ -48,7 +48,7 @@ public final class SimulationDriver {
 
   public static <Model> SimulationResults simulate(
       final MissionModel<Model> missionModel,
-      final Map<ActivityDirectiveId, ActivityDirective> schedule,
+      final Map<ActivityDirectiveId, ActivityDirective<?>> schedule,
       final Instant simulationStartTime,
       final Duration simulationDuration,
       final Instant planStartTime,
@@ -160,7 +160,7 @@ public final class SimulationDriver {
   }
 
   private static <Model> void scheduleActivities(
-      final Map<ActivityDirectiveId, ActivityDirective> schedule,
+      final Map<ActivityDirectiveId, ActivityDirective<?>> schedule,
       final HashMap<ActivityDirectiveId, List<Pair<ActivityDirectiveId, Duration>>> resolved,
       final MissionModel<Model> missionModel,
       final SimulationEngine engine,
@@ -191,7 +191,7 @@ public final class SimulationDriver {
   private static <Model, Output> TaskFactory<Unit> makeTaskFactory(
       final ActivityDirectiveId directiveId,
       final TaskFactory<Output> taskFactory,
-      final Map<ActivityDirectiveId, ActivityDirective> schedule,
+      final Map<ActivityDirectiveId, ActivityDirective<?>> schedule,
       final HashMap<ActivityDirectiveId, List<Pair<ActivityDirectiveId, Duration>>> resolved,
       final MissionModel<Model> missionModel,
       final Topic<ActivityDirectiveId> activityTopic

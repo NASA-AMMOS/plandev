@@ -39,8 +39,8 @@ public class InMemoryCachedEngineStoreTest {
     return new CachedSimulationEngine(
         Duration.SECOND,
         Map.of(
-            new ActivityDirectiveId(1), new ActivityDirective(Duration.HOUR, "ActivityType1", Map.of(), null, true),
-            new ActivityDirectiveId(2), new ActivityDirective(Duration.HOUR, "ActivityType2", Map.of(), null, true)
+            new ActivityDirectiveId(1), new ActivityDirective<?>(Duration.HOUR, "ActivityType1", Map.of(), null, true),
+            new ActivityDirectiveId(2), new ActivityDirective<?>(Duration.HOUR, "ActivityType2", Map.of(), null, true)
         ),
         new SimulationEngine(SimulationUtility.getFooMissionModel().getInitialCells()),
         null,
@@ -53,8 +53,8 @@ public class InMemoryCachedEngineStoreTest {
     return new CachedSimulationEngine(
         Duration.SECOND,
         Map.of(
-            new ActivityDirectiveId(3), new ActivityDirective(Duration.HOUR, "ActivityType3", Map.of(), null, true),
-            new ActivityDirectiveId(4), new ActivityDirective(Duration.HOUR, "ActivityType4", Map.of(), null, true)
+            new ActivityDirectiveId(3), new ActivityDirective<?>(Duration.HOUR, "ActivityType3", Map.of(), null, true),
+            new ActivityDirectiveId(4), new ActivityDirective<?>(Duration.HOUR, "ActivityType4", Map.of(), null, true)
         ),
         new SimulationEngine(SimulationUtility.getFooMissionModel().getInitialCells()),
         null,
@@ -67,8 +67,8 @@ public class InMemoryCachedEngineStoreTest {
     return new CachedSimulationEngine(
         Duration.SECOND,
         Map.of(
-            new ActivityDirectiveId(5), new ActivityDirective(Duration.HOUR, "ActivityType5", Map.of(), null, true),
-            new ActivityDirectiveId(6), new ActivityDirective(Duration.HOUR, "ActivityType6", Map.of(), null, true)
+            new ActivityDirectiveId(5), new ActivityDirective<?>(Duration.HOUR, "ActivityType5", Map.of(), null, true),
+            new ActivityDirectiveId(6), new ActivityDirective<?>(Duration.HOUR, "ActivityType6", Map.of(), null, true)
         ),
         new SimulationEngine(SimulationUtility.getFooMissionModel().getInitialCells()),
         null,

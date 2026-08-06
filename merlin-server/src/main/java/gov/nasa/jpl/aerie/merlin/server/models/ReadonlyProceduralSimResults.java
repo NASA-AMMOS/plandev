@@ -220,4 +220,9 @@ public class ReadonlyProceduralSimResults implements SimulationResults {
   public Directives<AnyDirective> inputDirectives() {
     return plan.directives();
   }
+
+  @Override
+  public @NotNull Directives<?> rawDirectives() {
+    return plan.rawDirectives();
+  }
 }

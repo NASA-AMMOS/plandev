@@ -10,9 +10,9 @@ public record Plan(
     String startTime,
     String duration,
     int revision,
-    List<ActivityDirective> activityDirectives
+    List<ActivityDirective<?>> activityDirectives
 ) {
-  public record ActivityDirective(
+  public record ActivityDirective<?>(
       int id,
       int planId,
       String type,
@@ -23,7 +23,7 @@ public record Plan(
       boolean anchoredToStart
   ) {
     public static ActivityDirective fromJSON(JsonObject json){
-      return new ActivityDirective(
+      return new ActivityDirective<?>(
           json.getInt("id"),
           json.getInt("plan_id"),
           json.getString("type"),

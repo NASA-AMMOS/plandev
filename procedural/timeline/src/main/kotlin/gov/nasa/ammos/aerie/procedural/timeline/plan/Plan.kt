@@ -35,6 +35,8 @@ interface Plan {
   /** Queries all activity directives, deserializing them as [AnyDirective]. **/
   fun directives() = directives(null, AnyDirective.deserializer())
 
+  fun rawDirectives(): Directives<*>
+
   /**
    * Query a resource profile from the external datasets associated with this plan.
    *

@@ -48,7 +48,7 @@ class MockMerlinDatabaseService implements MerlinDatabaseService.OwnerRole {
 
   private Optional<MissionModelInfo> missionModelInfo = Optional.empty();
   private MerlinPlan initialPlan;
-  Collection<ActivityDirective> updatedPlan;
+  Collection<ActivityDirective<?>> updatedPlan;
   Plan plan;
 
   MockMerlinDatabaseService() {
@@ -58,7 +58,7 @@ class MockMerlinDatabaseService implements MerlinDatabaseService.OwnerRole {
         TimeUtility.fromDOY("2021-005T00:00:00")));
   }
 
-  void setInitialPlan(final Map<ActivityDirectiveId, ActivityDirective> initialActivities) {
+  void setInitialPlan(final Map<ActivityDirectiveId, ActivityDirective<?>> initialActivities) {
     final var newInitialPlan = new MerlinPlan();
     for (final var activity : initialActivities.entrySet()) {
       newInitialPlan.addActivity(activity.getKey(), activity.getValue());
@@ -217,8 +217,8 @@ class MockMerlinDatabaseService implements MerlinDatabaseService.OwnerRole {
   }
 
 
-  private static Collection<ActivityDirective> extractActivityDirectives(final Plan plan, final SchedulerModel schedulerModel) {
-    final var activityDirectives = new ArrayList<ActivityDirective>();
+  private static Collection<ActivityDirective<?>> extractActivityDirectives(final Plan plan, final SchedulerModel schedulerModel) {
+    final var activityDirectives = new ArrayList<ActivityDirective<?>>();
     for (final var activity : plan.getActivities()) {
       final var type = activity.getType();
       final var arguments = new HashMap<>(activity.arguments());
@@ -230,7 +230,7 @@ class MockMerlinDatabaseService implements MerlinDatabaseService.OwnerRole {
               schedulerModel.serializeDuration(activity.duration()));
         }
       }
-      activityDirectives.add(new ActivityDirective(
+      activityDirectives.add(new ActivityDirective<?>(
           activity.startOffset(),
           activity.getType().getName(),
           arguments,

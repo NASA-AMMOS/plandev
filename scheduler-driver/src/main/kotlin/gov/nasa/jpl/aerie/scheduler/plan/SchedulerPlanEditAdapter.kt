@@ -34,7 +34,7 @@ data class SchedulerPlanEditAdapter(
     return MerlinToProcedureSimulationResultsAdapter(merlinResults.driverResults, plan.copy(schedulerPlan = plan.duplicate()))
   }
 
-  override fun create(directive: Directive<AnyDirective>) {
+  override fun create(directive: Directive<*>) {
     plan.add(directive.toSchedulingActivity(lookupActivityType))
   }
 
@@ -46,13 +46,13 @@ data class SchedulerPlanEditAdapter(
     simulationFacade.simulateWithResults(plan, options.pause.resolve(this))
   }
 
-  override fun validate(directive: Directive<AnyDirective>) {
+  override fun validate(directive: Directive<*>) {
     super.validate(directive)
-    lookupActivityType(directive.type).specType.inputType.validateArguments(directive.inner.arguments)
+    lookupActivityType(directive.type).specType.inputType.validateArguments(directive.anyDirective().arguments)
   }
 
   companion object {
-    @JvmStatic fun Directive<AnyDirective>.toSchedulingActivity(lookupActivityType: (String) -> ActivityType) = SchedulingActivity(
+    @JvmStatic fun Directive<*>.toSchedulingActivity(lookupActivityType: (String) -> ActivityType) = SchedulingActivity(
         id,
         lookupActivityType(type),
         when (val s = start) {
@@ -61,17 +61,17 @@ data class SchedulerPlanEditAdapter(
         },
         when (val d = lookupActivityType(type).durationType) {
           is DurationType.Controllable -> {
-            inner.arguments[d.parameterName]?.asInt()?.let { Duration(it.get()) }
+            anyDirective().arguments[d.parameterName]?.asInt()?.let { Duration(it.get()) }
           }
           is DurationType.Parametric -> {
-            d.durationFunction.apply(inner.arguments)
+            d.durationFunction.apply(anyDirective().arguments)
           }
           is DurationType.Fixed -> {
             d.duration
           }
           else -> Duration.ZERO
         },
-        inner.arguments,
+        anyDirective().arguments,
         null,
         when (val s = start) {
           is DirectiveStart.Absolute -> null

@@ -65,4 +65,10 @@ public class StubPlan implements Plan {
   public ExternalEvents events(@NotNull final EventQuery query) {
     throw new NotImplementedError();
   }
+
+  @Override
+  @NotNull
+  public Directives<?> rawDirectives() {
+    throw new NotImplementedError();
+  }
 }

@@ -311,7 +311,7 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.ZERO,
                 "BiteBanana",
                 Map.of("biteSize", SerializedValue.of(1)),
@@ -356,7 +356,7 @@ public class SchedulingEdslIntegrationTests {
     final var growBananaDuration = Duration.of(1, Duration.HOUR);
     final var results = runScheduler(
         BANANANATION,
-        List.of(new ActivityDirective(
+        List.of(new ActivityDirective<?>(
             Duration.ZERO,
             "GrowBanana",
             Map.of(
@@ -403,14 +403,14 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.ZERO,
                 "BiteBanana",
                 Map.of("biteSize", SerializedValue.of(1)),
                 null,
                 true
             ),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.MINUTE.times(5),
                 "GrowBanana",
                 Map.of(
@@ -453,7 +453,7 @@ public class SchedulingEdslIntegrationTests {
     final var growBananaDuration = Duration.of(1, Duration.HOUR);
     final var results = runScheduler(
         BANANANATION,
-        List.of(new ActivityDirective(
+        List.of(new ActivityDirective<?>(
                     Duration.HOUR,
                     "GrowBanana",
                     Map.of(
@@ -461,7 +461,7 @@ public class SchedulingEdslIntegrationTests {
                         "growingDuration", SerializedValue.of(growBananaDuration.in(Duration.MICROSECONDS))),
                     null,
                     true),
-                new ActivityDirective(
+                new ActivityDirective<?>(
                     Duration.MINUTE.times(50),
                     "ChangeProducer",
                     Map.of(
@@ -496,14 +496,14 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.ZERO,
                 "BiteBanana",
                 Map.of("biteSize", SerializedValue.of(1)),
                 null,
                 true
             ),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.MINUTE.times(5),
                 "GrowBanana",
                 Map.of(
@@ -541,7 +541,7 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.ZERO,
                 "BiteBanana",
                 Map.of("biteSize", SerializedValue.of(1)),
@@ -582,7 +582,7 @@ public class SchedulingEdslIntegrationTests {
 
   @Test
   void testCoexistencePartialActWithParameter() {
-    final var expectedSatisfactionAct = new ActivityDirective(
+    final var expectedSatisfactionAct = new ActivityDirective<?>(
         Duration.MINUTE.times(5),
         "GrowBanana",
         Map.of(
@@ -595,14 +595,14 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.ZERO,
                 "BiteBanana",
                 Map.of("biteSize", SerializedValue.of(1)),
                 null,
                 true
             ),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.MINUTE.times(5),
                 "BiteBanana",
                 Map.of("biteSize", SerializedValue.of(1)),
@@ -610,7 +610,7 @@ public class SchedulingEdslIntegrationTests {
                 true
             ),
             expectedSatisfactionAct,
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.MINUTE.times(10),
                 "GrowBanana",
                 Map.of(
@@ -669,7 +669,7 @@ public class SchedulingEdslIntegrationTests {
 
   @Test
   void testRecurrenceWithActivityFinder() {
-    final var expectedMatch1 =  new ActivityDirective(
+    final var expectedMatch1 =  new ActivityDirective<?>(
         Duration.of(0, SECONDS),
         "GrowBanana",
         Map.of(
@@ -677,7 +677,7 @@ public class SchedulingEdslIntegrationTests {
             "growingDuration", SerializedValue.of(Duration.of(1, SECONDS).in(Duration.MICROSECONDS))),
         null,
         true);
-    final var expectedMatch2 = new ActivityDirective(
+    final var expectedMatch2 = new ActivityDirective<?>(
         Duration.of(1, Duration.HOUR.times(24)),
         "GrowBanana",
         Map.of(
@@ -691,7 +691,7 @@ public class SchedulingEdslIntegrationTests {
         List.of(
            expectedMatch1,
             expectedMatch2,
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(3, Duration.HOUR.times(24)),
                 "GrowBanana",
                 Map.of(
@@ -732,7 +732,7 @@ public class SchedulingEdslIntegrationTests {
   void testCardinalityGoalWithActivityFinder() {
     final var results = runScheduler(
         BANANANATION,
-        List.of(new ActivityDirective(
+        List.of(new ActivityDirective<?>(
             Duration.of(0, SECONDS),
             "GrowBanana",
             Map.of(
@@ -770,7 +770,7 @@ public class SchedulingEdslIntegrationTests {
     final var growBananaDuration = Duration.of(1, Duration.HOUR);
     final var results = runScheduler(
         BANANANATION,
-        List.of(new ActivityDirective(
+        List.of(new ActivityDirective<?>(
             Duration.ZERO,
             "GrowBanana",
             Map.of(
@@ -817,14 +817,14 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.ZERO,
                 "BiteBanana",
                 Map.of("biteSize", SerializedValue.of(1)),
                 null,
                 true
             ),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.MINUTE,
                 "GrowBanana",
                 Map.of(
@@ -876,7 +876,7 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.ZERO,
                 "GrowBanana",
                 Map.of(
@@ -925,7 +925,7 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(5, Duration.MINUTES),
                 "GrowBanana",
                 Map.of(
@@ -978,7 +978,7 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(5, Duration.MINUTES),
                 "GrowBanana",
                 Map.of(
@@ -1032,7 +1032,7 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(5, Duration.MINUTES),
                 "GrowBanana",
                 Map.of(
@@ -1089,7 +1089,7 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(5, Duration.MINUTES),
                 "GrowBanana",
                 Map.of(
@@ -1142,7 +1142,7 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(5, Duration.MINUTES),
                 "GrowBanana",
                 Map.of(
@@ -1193,7 +1193,7 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
             BANANANATION,
             List.of(
-                    new ActivityDirective(
+                    new ActivityDirective<?>(
                             Duration.of(5, Duration.MINUTES),
                             "GrowBanana",
                             Map.of(
@@ -1253,7 +1253,7 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(5, Duration.MINUTES),
                 "GrowBanana",
                 Map.of(
@@ -1308,7 +1308,7 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(5, Duration.MINUTES),
                 "GrowBanana",
                 Map.of(
@@ -1362,7 +1362,7 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(5, Duration.MINUTES),
                 "GrowBanana",
                 Map.of(
@@ -1416,7 +1416,7 @@ public class SchedulingEdslIntegrationTests {
     // Between the end of the GrowBanana, and the beginning of the PickBanana, the StateConstraint is satisfied
     final var growBananaDuration = Duration.of(1, Duration.HOUR);
     final var results = runScheduler(BANANANATION, List.of(
-        new ActivityDirective(
+        new ActivityDirective<?>(
             Duration.of(2, HOURS),
             "GrowBanana",
             Map.of(
@@ -1424,7 +1424,7 @@ public class SchedulingEdslIntegrationTests {
                 "growingDuration", SerializedValue.of(growBananaDuration.in(Duration.MICROSECONDS))),
             null,
             true),
-        new ActivityDirective(
+        new ActivityDirective<?>(
             Duration.of(4, HOURS),
             "PickBanana",
             Map.of("quantity", SerializedValue.of(100)),
@@ -1459,13 +1459,13 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(2, HOURS),
                 "PickBanana",
                 Map.of("quantity", SerializedValue.of(100)),
                 null,
                 true),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(4, HOURS),
                 "GrowBanana",
                 Map.of(
@@ -1500,13 +1500,13 @@ public class SchedulingEdslIntegrationTests {
     // BiteBanana takes away 1.0
     // The constraint should be satisfied between the two BiteBananaActivities
     final var results = runScheduler(BANANANATION, List.of(
-        new ActivityDirective(
+        new ActivityDirective<?>(
             Duration.of(2, HOURS),
             "BiteBanana",
             Map.of("biteSize", SerializedValue.of(1.0)),
             null,
             true),
-        new ActivityDirective(
+        new ActivityDirective<?>(
             Duration.of(4, HOURS),
             "BiteBanana",
             Map.of("biteSize", SerializedValue.of(1.0)),
@@ -1541,7 +1541,7 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(1, HOURS),
                 "GrowBanana",
                 Map.of("quantity", SerializedValue.of(3.0),
@@ -1581,13 +1581,13 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(2, HOURS),
                 "PickBanana",
                 Map.of("quantity", SerializedValue.of(100)),
                 null,
                 true),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(4, HOURS),
                 "GrowBanana",
                 Map.of(
@@ -1626,13 +1626,13 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(2, HOURS),
                 "PickBanana",
                 Map.of("quantity", SerializedValue.of(99)),
                 null,
                 true),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(4, HOURS),
                 "GrowBanana",
                 Map.of(
@@ -1659,10 +1659,10 @@ public class SchedulingEdslIntegrationTests {
     assertEquals(Duration.of(4, HOURS), growBanana.startOffset());
   }
 
-  private static List<ActivityDirective> onePickEveryTenMinutes(final Interval interval){
-    final var plan = new ArrayList<ActivityDirective>();
+  private static List<ActivityDirective<?>> onePickEveryTenMinutes(final Interval interval){
+    final var plan = new ArrayList<ActivityDirective<?>>();
     for(var cur = interval.start; cur.shorterThan(interval.end); cur = cur.plus(Duration.of(10, MINUTES))){
-      plan.add(new ActivityDirective(
+      plan.add(new ActivityDirective<?>(
           cur,
           "PickBanana",
           Map.of("quantity", SerializedValue.of(100)),
@@ -1701,13 +1701,13 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(2, HOURS),
                 "PickBanana",
                 Map.of("quantity", SerializedValue.of(100)),
                 null,
                 true),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(4, HOURS),
                 "GrowBanana",
                 Map.of(
@@ -1746,13 +1746,13 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(2, HOURS),
                 "PickBanana",
                 Map.of("quantity", SerializedValue.of(100)),
                 null,
                 true),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(4, HOURS),
                 "GrowBanana",
                 Map.of(
@@ -1794,13 +1794,13 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(2, HOURS),
                 "PickBanana",
                 Map.of("quantity", SerializedValue.of(100)),
                 null,
                 true),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(4, HOURS),
                 "GrowBanana",
                 Map.of(
@@ -1838,7 +1838,7 @@ public class SchedulingEdslIntegrationTests {
     // ChangeProducer sets producer to "Dole"
     // The PeelBanana should be placed at the same time as the ChangeProducer
     final var results = runScheduler(BANANANATION, List.of(
-        new ActivityDirective(
+        new ActivityDirective<?>(
             Duration.of(2, HOURS),
             "ChangeProducer",
             Map.of(),
@@ -1867,7 +1867,7 @@ public class SchedulingEdslIntegrationTests {
     // ChangeProducer sets producer to "Dole"
     // The PeelBanana should be placed at the same time as the ChangeProducer
     final var results = runScheduler(BANANANATION, List.of(
-        new ActivityDirective(
+        new ActivityDirective<?>(
             Duration.of(2, HOURS),
             "ChangeProducer",
             Map.of("producer", SerializedValue.of("Fyffes")),
@@ -1931,7 +1931,7 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(1, SECONDS),
                 "GrowBanana",
                 Map.of(
@@ -1939,7 +1939,7 @@ public class SchedulingEdslIntegrationTests {
                     "growingDuration", SerializedValue.of(growBananaDuration.in(Duration.MICROSECONDS))),
                 null,
                 true),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(2, SECONDS),
                 "GrowBanana",
                 Map.of(
@@ -1947,7 +1947,7 @@ public class SchedulingEdslIntegrationTests {
                     "growingDuration", SerializedValue.of(growBananaDuration.in(Duration.MICROSECONDS))),
                 null,
                 true),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(3, SECONDS),
                 "GrowBanana",
                 Map.of(
@@ -1955,7 +1955,7 @@ public class SchedulingEdslIntegrationTests {
                     "growingDuration", SerializedValue.of(growBananaDuration.in(Duration.MICROSECONDS))),
                 null,
                 true),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(48, HOURS),
                 "PickBanana",
                 Map.of(
@@ -2039,7 +2039,7 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(24, HOURS).minus(MICROSECONDS),
                 "BiteBanana",
                 Map.of("biteSize", SerializedValue.of(1)),
@@ -2064,9 +2064,9 @@ public class SchedulingEdslIntegrationTests {
     assertEquals(2, results.updatedPlan().size());
   }
 
-  private static Map<String, Collection<ActivityDirective>>
-  partitionByActivityType(final Iterable<ActivityDirective> activities) {
-    final var result = new HashMap<String, Collection<ActivityDirective>>();
+  private static Map<String, Collection<ActivityDirective<?>>>
+  partitionByActivityType(final Iterable<ActivityDirective<?>> activities) {
+    final var result = new HashMap<String, Collection<ActivityDirective<?>>>();
     for (final var activity : activities) {
       result
           .computeIfAbsent(activity.serializedActivity().getTypeName(), key -> new ArrayList<>())
@@ -2075,9 +2075,9 @@ public class SchedulingEdslIntegrationTests {
     return result;
   }
 
-  private static Map<Duration, Collection<ActivityDirective>>
-  partitionByStartTime(final Iterable<ActivityDirective> activities) {
-    final var result = new HashMap<Duration, Collection<ActivityDirective>>();
+  private static Map<Duration, Collection<ActivityDirective<?>>>
+  partitionByStartTime(final Iterable<ActivityDirective<?>> activities) {
+    final var result = new HashMap<Duration, Collection<ActivityDirective<?>>>();
     for (final var activity : activities) {
       result
           .computeIfAbsent(activity.startOffset(), key -> new ArrayList<>())
@@ -2122,7 +2122,7 @@ public class SchedulingEdslIntegrationTests {
 
   private SchedulingRunResults runScheduler(
       final MissionModelDescription desc,
-      final List<ActivityDirective> plannedActivities,
+      final List<ActivityDirective<?>> plannedActivities,
       final Iterable<EdslGoal> goals,
       final PlanningHorizon planningHorizon){
     return runScheduler(desc, plannedActivities, goals, planningHorizon, 30);
@@ -2130,13 +2130,13 @@ public class SchedulingEdslIntegrationTests {
 
   private SchedulingRunResults runScheduler(
       final MissionModelDescription desc,
-      final List<ActivityDirective> plannedActivities,
+      final List<ActivityDirective<?>> plannedActivities,
       final Iterable<EdslGoal> goals,
       final PlanningHorizon planningHorizon,
       final int cachedEngineStoreCapacity
   )
   {
-    final var activities = new HashMap<ActivityDirectiveId, ActivityDirective>();
+    final var activities = new HashMap<ActivityDirectiveId, ActivityDirective<?>>();
     long id = 1;
     for (final var activityDirective : plannedActivities) {
       activities.put(new ActivityDirectiveId(id++), activityDirective);
@@ -2146,7 +2146,7 @@ public class SchedulingEdslIntegrationTests {
 
   private SchedulingRunResults runScheduler(
       final MissionModelDescription desc,
-      final Map<ActivityDirectiveId, ActivityDirective> plannedActivities,
+      final Map<ActivityDirectiveId, ActivityDirective<?>> plannedActivities,
       final Iterable<EdslGoal> goals,
       final PlanningHorizon planningHorizon
   )
@@ -2156,7 +2156,7 @@ public class SchedulingEdslIntegrationTests {
 
   private SchedulingRunResults runScheduler(
       final MissionModelDescription desc,
-      final List<ActivityDirective> plannedActivities,
+      final List<ActivityDirective<?>> plannedActivities,
       final Iterable<EdslGoal> goals,
       final List<SchedulingConditionRecord> globalSchedulingConditions,
       final PlanningHorizon planningHorizon
@@ -2166,13 +2166,13 @@ public class SchedulingEdslIntegrationTests {
 
   private SchedulingRunResults runScheduler(
       final MissionModelDescription desc,
-      final List<ActivityDirective> plannedActivities,
+      final List<ActivityDirective<?>> plannedActivities,
       final Iterable<EdslGoal> goals,
       final List<SchedulingConditionRecord> globalSchedulingConditions,
       final PlanningHorizon planningHorizon,
       final Optional<ExternalProfiles> externalProfiles
   ){
-    final var activities = new HashMap<ActivityDirectiveId, ActivityDirective>();
+    final var activities = new HashMap<ActivityDirectiveId, ActivityDirective<?>>();
     long id = 1;
     for (final var activityDirective : plannedActivities) {
       activities.put(new ActivityDirectiveId(id++), activityDirective);
@@ -2182,7 +2182,7 @@ public class SchedulingEdslIntegrationTests {
 
   private SchedulingRunResults runScheduler(
       final MissionModelDescription desc,
-      final Map<ActivityDirectiveId, ActivityDirective> plannedActivities,
+      final Map<ActivityDirectiveId, ActivityDirective<?>> plannedActivities,
       final Iterable<EdslGoal> goals,
       final List<SchedulingConditionRecord> globalSchedulingConditions,
       final PlanningHorizon planningHorizon,
@@ -2236,9 +2236,9 @@ public class SchedulingEdslIntegrationTests {
 
   record SchedulingRunResults(
       ScheduleResults scheduleResults,
-      Collection<ActivityDirective> updatedPlan,
+      Collection<ActivityDirective<?>> updatedPlan,
       Plan plan,
-      Map<ActivityDirectiveId, ActivityDirective> idToAct) {}
+      Map<ActivityDirectiveId, ActivityDirective<?>> idToAct) {}
 
   static MerlinDatabaseService.MissionModelTypes loadMissionModelTypesFromJar(
       final String jarPath,
@@ -2287,13 +2287,13 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(1, Duration.MINUTES),
                 "PickBanana",
                 Map.of("quantity", SerializedValue.of(99)),
                 null,
                 true),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(15, Duration.MINUTES),
                 "GrowBanana",
                 Map.of(
@@ -2348,13 +2348,13 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(2, Duration.MINUTES),
                 "PickBanana",
                 Map.of("quantity", SerializedValue.of(99)),
                 null,
                 true),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(4, Duration.MINUTES),
                 "GrowBanana",
                 Map.of(
@@ -2400,13 +2400,13 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(2, HOURS),
                 "PickBanana",
                 Map.of("quantity", SerializedValue.of(99)),
                 null,
                 true),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(4, HOURS),
                 "GrowBanana",
                 Map.of(
@@ -2464,7 +2464,7 @@ public class SchedulingEdslIntegrationTests {
                                                     TimeUtility.fromDOY("2021-200T01:00:00"));
     final var results = runScheduler(BANANANATION,
                  List.of(
-                     new ActivityDirective(
+                     new ActivityDirective<?>(
                          Duration.of(1, HOURS),
                          "parent",
                          Map.of(),
@@ -2494,7 +2494,7 @@ public class SchedulingEdslIntegrationTests {
                                                     TimeUtility.fromDOY("2021-200T01:00:00"));
     final var results = runScheduler(BANANANATION,
                                      List.of(
-                                         new ActivityDirective(
+                                         new ActivityDirective<?>(
                                              Duration.of(1, HOURS),
                                              "parent",
                                              Map.of(),
@@ -2594,7 +2594,7 @@ public class SchedulingEdslIntegrationTests {
   void test_inf_loop(){
     final var results = runScheduler(
         BANANANATION,
-        List.of(new ActivityDirective(
+        List.of(new ActivityDirective<?>(
             Duration.of(23, HOURS),
             "BiteBanana",
             Map.of("biteSize", SerializedValue.of(10)),
@@ -2637,7 +2637,7 @@ public class SchedulingEdslIntegrationTests {
         BANANANATION,
         Map.of(
             new ActivityDirectiveId(1L),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.ZERO,
                 "DurationParameterActivity",
                 Map.of(
@@ -2645,7 +2645,7 @@ public class SchedulingEdslIntegrationTests {
                 null,
                 true),
             new ActivityDirectiveId(2L),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.ZERO,
                 "GrowBanana",
                 Map.of(
@@ -2654,7 +2654,7 @@ public class SchedulingEdslIntegrationTests {
                 new ActivityDirectiveId(1L),
                 false),
             new ActivityDirectiveId(3L),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(5, MINUTES),
                 "ControllableDurationActivity",
                 Map.of(
@@ -2721,7 +2721,7 @@ public class SchedulingEdslIntegrationTests {
         BANANANATION,
         Map.of(
             new ActivityDirectiveId(1L),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.ZERO,
                 "DurationParameterActivity",
                 Map.of(
@@ -2729,7 +2729,7 @@ public class SchedulingEdslIntegrationTests {
                 null,
                 true),
             new ActivityDirectiveId(2L),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.ZERO,
                 "GrowBanana",
                 Map.of(
@@ -2738,7 +2738,7 @@ public class SchedulingEdslIntegrationTests {
                 new ActivityDirectiveId(1L),
                 false),
             new ActivityDirectiveId(3L),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(5, MINUTES),
                 "ControllableDurationActivity",
                 Map.of(
@@ -2805,7 +2805,7 @@ public class SchedulingEdslIntegrationTests {
         BANANANATION,
         Map.of(
             new ActivityDirectiveId(1L),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 tenMinutes,
                 "DurationParameterActivity",
                 Map.of(
@@ -2813,7 +2813,7 @@ public class SchedulingEdslIntegrationTests {
                 null,
                 true),
             new ActivityDirectiveId(2L),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(-5, MINUTES),
                 "GrowBanana",
                 Map.of(
@@ -2880,7 +2880,7 @@ public class SchedulingEdslIntegrationTests {
         BANANANATION,
         Map.of(
             new ActivityDirectiveId(1L),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.ZERO,
                 "DurationParameterActivity",
                 Map.of(
@@ -2888,7 +2888,7 @@ public class SchedulingEdslIntegrationTests {
                 null,
                 true),
             new ActivityDirectiveId(2L),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 tenMinutes,
                 "PickBanana",
                 Map.of(
@@ -2958,7 +2958,7 @@ public class SchedulingEdslIntegrationTests {
         BANANANATION,
         Map.of(
             new ActivityDirectiveId(1L),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 tenMinutes,
                 "GrowBanana",
                 Map.of(
@@ -3028,7 +3028,7 @@ public class SchedulingEdslIntegrationTests {
         BANANANATION,
         Map.of(
             new ActivityDirectiveId(1L),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 tenMinutes,
                 "GrowBanana",
                 Map.of(
@@ -3091,7 +3091,7 @@ public class SchedulingEdslIntegrationTests {
         BANANANATION,
         Map.of(
             new ActivityDirectiveId(1L),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.ZERO,
                 "DurationParameterActivity",
                 Map.of(
@@ -3099,7 +3099,7 @@ public class SchedulingEdslIntegrationTests {
                 null,
                 true),
             new ActivityDirectiveId(2L),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 tenMinutes,
                 "GrowBanana",
                 Map.of(
@@ -3161,7 +3161,7 @@ public class SchedulingEdslIntegrationTests {
         Map.of(
             // Activity Before Plan Start
             new ActivityDirectiveId(1L),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(-10, MINUTES),
                 "GrowBanana",
                 Map.of(
@@ -3171,7 +3171,7 @@ public class SchedulingEdslIntegrationTests {
                 true),
             // Activity Anchored to run after Plan End
             new ActivityDirectiveId(2L),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(10, MINUTES),
                 "GrowBanana",
                 Map.of(
@@ -3237,7 +3237,7 @@ public class SchedulingEdslIntegrationTests {
           BANANANATION,
           Map.of(
               new ActivityDirectiveId(1L),
-              new ActivityDirective(
+              new ActivityDirective<?>(
                   Duration.ZERO,
                   "GrowBanana",
                   Map.of(
@@ -3297,7 +3297,7 @@ public class SchedulingEdslIntegrationTests {
     final var results = runScheduler(
         FOO,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(5, MINUTES),
                 "ZeroDurationUncontrollableActivity",
                 Map.of(),
@@ -3355,14 +3355,14 @@ public class SchedulingEdslIntegrationTests {
     runScheduler(
         BANANANATION,
         List.of(
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.ZERO,
                 "BananaNap",
                 Map.of(),
                 null,
                 true
             ),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.SECOND,
                 "DownloadBanana",
                 Map.of("connection", SerializedValue.of("DietaryFiberOptic")),
@@ -3384,7 +3384,7 @@ public class SchedulingEdslIntegrationTests {
         BANANANATION,
         Map.of(
             new ActivityDirectiveId(1L),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.ZERO,
                 "GrowBanana",
                 Map.of(
@@ -3393,7 +3393,7 @@ public class SchedulingEdslIntegrationTests {
                 null,
                 true),
             new ActivityDirectiveId(2L),
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 Duration.of(2, activityDuration),
                 "GrowBanana",
                 Map.of(

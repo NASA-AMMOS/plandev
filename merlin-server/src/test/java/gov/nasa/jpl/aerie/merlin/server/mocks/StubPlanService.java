@@ -41,7 +41,7 @@ public final class StubPlanService implements PlanService {
   public static final ActivityDirective EXISTENT_ACTIVITY;
 
   static {
-    EXISTENT_ACTIVITY = new ActivityDirective(
+    EXISTENT_ACTIVITY = new ActivityDirective<?>(
         Duration.ZERO,
         "existent activity",
         Map.of("abc", SerializedValue.of("test-param")),

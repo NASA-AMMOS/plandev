@@ -16,6 +16,7 @@ import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
 import gov.nasa.jpl.aerie.types.ActivityDirective;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.MissionModelId;
+import gov.nasa.jpl.aerie.types.SerializedActivity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +31,6 @@ import java.util.function.Supplier;
 
 import static gov.nasa.jpl.aerie.merlin.driver.CheckpointSimulationDriver.onceAllActivitiesAreFinished;
 import static gov.nasa.jpl.aerie.scheduler.simulation.SimulationFacadeUtils.scheduleFromPlan;
-import static gov.nasa.jpl.aerie.scheduler.simulation.SimulationFacadeUtils.schedulingActToActivityDir;
 import static gov.nasa.jpl.aerie.scheduler.simulation.SimulationFacadeUtils.updatePlanWithChildActivities;
 
 public class CheckpointSimulationFacade implements SimulationFacade {
@@ -121,9 +121,10 @@ public class CheckpointSimulationFacade implements SimulationFacade {
       //replace the anchor ids in the plan
       for (final var act : planSimCorrespondence.directiveIdActivityDirectiveMap().entrySet()) {
         if (act.getValue().anchorId() != null && act.getValue().anchorId().equals(replacements.getKey())) {
-          final var replacementActivity = new ActivityDirective(
+          final var replacementActivity = new ActivityDirective<>(
               act.getValue().startOffset(),
-              act.getValue().serializedActivity(),
+              act.getValue().thing(),
+              act.getValue().thunk(),
               replacements.getValue(),
               act.getValue().anchoredToStart(),
               act.getValue().name());

@@ -143,7 +143,7 @@ public record SchedulingActivity(
     );
   }
 
-  public static SchedulingActivity fromExistingActivityDirective(ActivityDirectiveId id, ActivityDirective activity, ActivityType type, Duration duration){
+  public static SchedulingActivity fromExistingActivityDirective(ActivityDirectiveId id, ActivityDirective<?> activity, ActivityType type, Duration duration){
     return new SchedulingActivity(
         id,
         type,

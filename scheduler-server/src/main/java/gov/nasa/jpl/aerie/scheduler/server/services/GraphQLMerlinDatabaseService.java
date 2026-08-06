@@ -330,7 +330,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           .getSpecType()
           .getInputType()
           .getEffectiveArguments(deserializedArguments);
-      final var merlinActivity = new ActivityDirective(
+      final var merlinActivity = new ActivityDirective<?>(
           durationFromPGInterval(start),
           type,
           effectiveArguments,
@@ -432,7 +432,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
       if (actFromInitialPlanOptional.isPresent()) {
         final var actFromInitialPlan = actFromInitialPlanOptional.get();
         //if act was present in initial plan
-        final var activityDirectiveFromSchedulingDirective = new ActivityDirective(
+        final var activityDirectiveFromSchedulingDirective = new ActivityDirective<?>(
             activity.startOffset(),
             activity.type().getName(),
             activity.arguments(),

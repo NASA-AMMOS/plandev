@@ -335,7 +335,8 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           type,
           effectiveArguments,
           (anchorId != null) ? new ActivityDirectiveId(anchorId) : null,
-          anchoredToStart);
+          anchoredToStart,
+          "TODO name");
       final var actPK = new ActivityDirectiveId(jsonActivity.getJsonNumber("id").longValue());
       merlinPlan.addActivity(actPK, merlinActivity);
     }
@@ -437,7 +438,8 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
             activity.type().getName(),
             activity.arguments(),
             activity.anchorId(),
-            activity.anchoredToStart()
+            activity.anchoredToStart(),
+            "TODO name"
         );
         if (!activityDirectiveFromSchedulingDirective.equals(actFromInitialPlan)) {
           final var ops = generateModification(actFromInitialPlan, activityDirectiveFromSchedulingDirective);

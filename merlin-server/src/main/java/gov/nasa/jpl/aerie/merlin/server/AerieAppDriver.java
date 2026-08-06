@@ -125,7 +125,6 @@ public final class AerieAppDriver {
     merlinServer.updateConfig(config -> {
       config.showJavalinBanner = false;
       if (configuration.enableJavalinDevLogging()) config.plugins.enableDevLogging();
-      config.plugins.enableCors(cors -> cors.add(CorsPluginConfig::anyHost));
       config.plugins.register(merlinBindings);
       config.jetty.server(() -> jettyServer);
     });

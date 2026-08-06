@@ -92,7 +92,6 @@ public final class SchedulerAppDriver {
     schedulerServer.updateConfig(config -> { // the consumer lambda overlays additional config on the input javalinConfig
       config.showJavalinBanner = false;
       if (appConfig.enableJavalinDevLogging()) config.plugins.enableDevLogging();
-      config.plugins.enableCors(cors -> cors.add(CorsPluginConfig::anyHost)); //TODO: probably don't want literally any cross-origin request...
       config.plugins.register(bindings);
       config.jetty.server(() -> jettyServer);
     });

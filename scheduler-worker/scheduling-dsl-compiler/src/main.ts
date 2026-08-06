@@ -1,7 +1,7 @@
 import './libs/constraints/polyfills.js'
 import fs from 'fs';
 import ts from 'typescript';
-import {UserCodeRunner} from '@nasa-jpl/aerie-ts-user-code-runner';
+import {UserCodeRunner} from '@nasa-jpl/plandev-ts-user-code-runner';
 import vm from "node:vm";
 import * as readline from 'readline';
 

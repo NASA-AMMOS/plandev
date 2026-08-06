@@ -1,5 +1,5 @@
 import { MessagePort } from "worker_threads";
-import { ActionMain, ActionParameterDefinitions, ActionSettingDefinitions } from "@nasa-jpl/aerie-actions";
+import { ActionMain, ActionParameterDefinitions, ActionSettingDefinitions } from "@nasa-jpl/plandev-actions";
 
 export type ActionRunRequest = {
   actionJS: string;
@@ -65,7 +65,7 @@ export type ActionRunCancellationRequestPayload = {
 };
 
 export interface ActionExports {
-  main: ActionMain,
+  main: ActionMain;
   parameterDefinitions: ActionParameterDefinitions;
   settingDefinitions: ActionSettingDefinitions;
 }

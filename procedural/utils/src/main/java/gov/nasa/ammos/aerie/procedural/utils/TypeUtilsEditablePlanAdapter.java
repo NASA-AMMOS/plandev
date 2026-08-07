@@ -126,7 +126,7 @@ public class TypeUtilsEditablePlanAdapter implements gov.nasa.ammos.aerie.proced
               case DirectiveStart.Absolute a -> a.getTime();
               default -> throw new Error("unreachable");
             },
-            activity,
+            activity.inner,
             () -> new SerializedActivity(activity.getType(), Map.copyOf(activity.getSerializer().invoke().arguments)),
             switch (activity.getStart()) {
               case DirectiveStart.Anchor a -> a.getParentId();

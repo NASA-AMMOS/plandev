@@ -105,7 +105,8 @@ public record TypeUtilsPlanAdapter(Plan plan) implements gov.nasa.ammos.aerie.pr
     return new Directives<>(plan.activityDirectives().entrySet().stream().map($ -> {
       ActivityDirective<?> act = $.getValue();
       return new Directive<>(
-          act, () -> new AnyDirective(act.serializedActivity().getArguments()), act.name(), $.getKey(), act.serializedActivity().getTypeName(), act.anchorId() == null
+          act.thing(),
+          () -> new AnyDirective(act.serializedActivity().getArguments()), act.name(), $.getKey(), act.serializedActivity().getTypeName(), act.anchorId() == null
           ? new DirectiveStart.Absolute(act.startOffset())
           : new DirectiveStart.Anchor(
           act.anchorId(),

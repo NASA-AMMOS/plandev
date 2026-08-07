@@ -30,15 +30,6 @@ type Mutation {
 }
 
 type Mutation {
-  addCommandExpansionTypeScript(
-    activityTypeName: String!
-    expansionLogic: String!
-    parcelId: Int
-    authoringMissionModelId: Int
-  ): AddCommandExpansionResponse
-}
-
-type Mutation {
   assignActivitiesByFilter(
     filterId: Int!,
     simulationDatasetId: Int!,
@@ -67,10 +58,6 @@ type Mutation {
     description: String,
     name: String
   ): ExpansionSetResponse
-}
-
-type Mutation {
-  expandAllActivities(expansionSetId: Int!, simulationDatasetId: Int!): ExpandAllActivitiesResponse
 }
 
 type Mutation {
@@ -288,11 +275,6 @@ type AddTemplateResponse {
 
 type AssignActivitiesByFilterResponse {
   success: Boolean!
-}
-
-type ExpandAllActivitiesResponse {
-  id: Int!
-  expandedActivityInstances: [ExpandedActivityInstance!]!
 }
 
 type ExpandAllSequencesResponse {

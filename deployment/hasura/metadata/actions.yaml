@@ -23,14 +23,6 @@ actions:
     permissions:
       - role: aerie_admin
       - role: user
-  - name: addCommandExpansionTypeScript
-    definition:
-      kind: synchronous
-      handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/put-expansion"
-      timeout: 300
-    permissions:
-      - role: aerie_admin
-      - role: user
   - name: assignActivitiesByFilter
     definition:
       kind: synchronous
@@ -43,22 +35,6 @@ actions:
     definition:
       kind: synchronous
       handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/put-template"
-      timeout: 300
-    permissions:
-      - role: aerie_admin
-      - role: user
-  - name: createExpansionSet
-    definition:
-      kind: synchronous
-      handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/put-expansion-set"
-      timeout: 300
-    permissions:
-      - role: aerie_admin
-      - role: user
-  - name: expandAllActivities
-    definition:
-      kind: synchronous
-      handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/expand-all-activity-instances"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -271,7 +247,6 @@ custom_types:
     - name: DslTypescriptResponse
     - name: DictionaryResponse
     - name: AddCommandExpansionResponse
-    - name: ExpandAllActivitiesResponse
     - name: ExpandedActivityInstance
     - name: UserCodeError
     - name: CodeLocation

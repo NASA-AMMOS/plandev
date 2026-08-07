@@ -29,6 +29,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -92,7 +93,7 @@ public class TypeUtilsEditablePlanAdapter implements gov.nasa.ammos.aerie.proced
   }
 
   @Override
-  public void create(@NotNull Directive<AnyDirective> directive) {
+  public void create(@NotNull Directive<?> directive) {
     changedSinceLastSim = true;
     plan.plan().activityDirectives().put(directive.id, toTypeUtilsActivity(directive));
   }
@@ -118,15 +119,15 @@ public class TypeUtilsEditablePlanAdapter implements gov.nasa.ammos.aerie.proced
     }
   }
 
-  private static ActivityDirective<?> toTypeUtilsActivity(Directive<AnyDirective> activity) {
+  private static ActivityDirective<?> toTypeUtilsActivity(Directive<?> activity) {
     return new ActivityDirective<>(
             switch (activity.getStart()) {
               case DirectiveStart.Anchor a -> a.getOffset();
               case DirectiveStart.Absolute a -> a.getTime();
               default -> throw new Error("unreachable");
             },
-            activity.getType(),
-            activity.inner.arguments,
+            activity,
+            () -> new SerializedActivity(activity.getType(), Map.copyOf(activity.getSerializer().invoke().arguments)),
             switch (activity.getStart()) {
               case DirectiveStart.Anchor a -> a.getParentId();
               case DirectiveStart.Absolute ignored -> null;

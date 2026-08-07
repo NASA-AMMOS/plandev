@@ -5,6 +5,7 @@ import gov.nasa.ammos.aerie.procedural.timeline.collections.Directives;
 import gov.nasa.ammos.aerie.procedural.timeline.collections.ExternalEvents;
 import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment;
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart;
 import gov.nasa.ammos.aerie.procedural.timeline.plan.EventQuery;
@@ -101,6 +102,18 @@ public record TypeUtilsPlanAdapter(Plan plan) implements gov.nasa.ammos.aerie.pr
   @Override
   @NotNull
   public Directives<?> rawDirectives() {
-    return new Directives<>(plan.activityDirectives().values().stream().map($ -> $).toList());
+    return new Directives<>(plan.activityDirectives().entrySet().stream().map($ -> {
+      ActivityDirective<?> act = $.getValue();
+      return new Directive<>(
+          act, () -> new AnyDirective(act.serializedActivity().getArguments()), act.name(), $.getKey(), act.serializedActivity().getTypeName(), act.anchorId() == null
+          ? new DirectiveStart.Absolute(act.startOffset())
+          : new DirectiveStart.Anchor(
+          act.anchorId(),
+          act.startOffset(),
+          act.anchoredToStart()
+              ? DirectiveStart.Anchor.AnchorPoint.Start
+              : DirectiveStart.Anchor.AnchorPoint.End
+      ));
+    }).toList());
   }
 }

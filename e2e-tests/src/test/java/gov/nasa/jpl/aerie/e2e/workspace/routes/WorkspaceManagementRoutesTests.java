@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -36,6 +37,7 @@ import static org.junit.jupiter.api.Named.named;
  *
  * Tests that have yet to be implemented are disabled
  */
+@Tag("workspace")
 public class WorkspaceManagementRoutesTests {
   // Requests
   private static Playwright playwright;

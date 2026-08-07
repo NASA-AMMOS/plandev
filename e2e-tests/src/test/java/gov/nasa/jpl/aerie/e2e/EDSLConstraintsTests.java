@@ -22,6 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("constraints")
+@Tag("edsl")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class EDSLConstraintsTests {
   // Requests

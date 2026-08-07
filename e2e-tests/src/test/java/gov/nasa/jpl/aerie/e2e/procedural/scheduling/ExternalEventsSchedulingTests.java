@@ -9,6 +9,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.json.Json;
@@ -19,6 +20,9 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+@Tag("procedural")
+@Tag("scheduling")
+@Tag("external_events")
 public class ExternalEventsSchedulingTests extends ProceduralTestingSetup {
   private GoalInvocationId procedureId;
 
@@ -186,7 +190,7 @@ public class ExternalEventsSchedulingTests extends ProceduralTestingSetup {
         Instant.parse(planStartTimestamp),
         Duration.fromString(activities.getFirst().startOffset())
     );
-    assertEquals(activityStartTime.toString(), "2023-01-02T01:00:00Z");
+    assertEquals("2023-01-02T01:00:00Z", activityStartTime.toString());
   }
 
   @Test

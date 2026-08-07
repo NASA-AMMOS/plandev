@@ -5,6 +5,7 @@ import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.opentest4j.AssertionFailedError;
 
@@ -18,6 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+@Tag("procedural")
+@Tag("scheduling")
 public class TemplateParametersTest extends ProceduralTestingSetup {
   private GoalInvocationId dumbRecurrenceWithTemplateDefaultsGoalId;
   private GoalInvocationId dumbRecurrenceGoalId;

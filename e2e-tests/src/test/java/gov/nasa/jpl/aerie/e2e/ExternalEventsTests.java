@@ -7,16 +7,15 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import javax.json.Json;
 import javax.json.JsonObject;
-import javax.json.JsonObjectBuilder;
 import java.io.IOException;
 import java.nio.file.Path;
 
-import static java.lang.System.exit;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -24,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * A set of tests focusing on testing gateway functionality for external sources.
  * These tests verify validation of External Source uploads.
  */
-
+@Tag("external_events")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class ExternalEventsTests {
   // Requests

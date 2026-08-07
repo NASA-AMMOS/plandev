@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -39,6 +40,7 @@ import static org.junit.jupiter.api.Named.named;
 /**
  * Tests for the /metadata/unset/{workspaceId}/<path> and /metadata/{workspaceId}/<path> routes.
  */
+@Tag("workspace")
 public class MetadataWorkspaceRoutesTests {
   // Requests
   private static Playwright playwright;

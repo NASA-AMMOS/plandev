@@ -2,6 +2,7 @@ package gov.nasa.jpl.aerie.e2e.workspace.routes;
 
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.Test;
  * Disabled because the suite is skeletoned but not implemented.
  */
 @Disabled
+@Tag("workspace")
 public class SingleItemWorkspaceRoutesTests {
   @Nested
   class Get {

@@ -8,6 +8,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.json.Json;
@@ -17,6 +18,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("constraints")
+@Tag("procedural")
 public class BasicConstraintTests extends ProceduralTestingSetup {
   private ConstraintInvocationId fruitThresholdConstraintId;
   private ConstraintInvocationId noMessageConstraintId;

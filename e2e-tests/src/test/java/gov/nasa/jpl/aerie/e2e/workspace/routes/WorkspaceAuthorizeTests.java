@@ -10,6 +10,7 @@ import gov.nasa.jpl.aerie.e2e.utils.WorkspaceRequests;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -34,6 +35,7 @@ import static org.junit.jupiter.api.Named.named;
  * Does not test the case where the Workspace Server doesn't have the HasuraAdminSecret provided,
  * as our test environment has that set.
  */
+@Tag("workspace")
 public class WorkspaceAuthorizeTests {
   // Requests
   private static Playwright playwright;

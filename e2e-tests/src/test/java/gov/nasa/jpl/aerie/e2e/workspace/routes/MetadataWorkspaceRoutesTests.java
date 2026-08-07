@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e.bindings.workspace;
+package gov.nasa.jpl.aerie.e2e.workspace.routes;
 
 import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.options.RequestOptions;
@@ -26,9 +26,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import static gov.nasa.jpl.aerie.e2e.types.User.nonOwner;
-import static gov.nasa.jpl.aerie.e2e.types.User.owner;
-import static gov.nasa.jpl.aerie.e2e.types.User.viewer;
+import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_nonOwner;
+import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_owner;
+import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_viewer;
 import static gov.nasa.jpl.aerie.e2e.utils.RequestBodyHelper.getBody;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -80,9 +80,9 @@ public class MetadataWorkspaceRoutesTests {
 
     // Get valid JWT tokens for the users
     try (final var gateway = new GatewayRequests(playwright)) {
-      ownerToken = gateway.login(owner);
-      nonOwnerToken = gateway.login(nonOwner);
-      viewerToken = gateway.login(viewer);
+      ownerToken = gateway.login(test_owner);
+      nonOwnerToken = gateway.login(test_nonOwner);
+      viewerToken = gateway.login(test_viewer);
     }
 
     // Set up parcel and dictionary to use across the tests
@@ -179,8 +179,8 @@ public class MetadataWorkspaceRoutesTests {
       final var metadataFile = getBody(resp); // Metadata files are specifically JSON
       assertEquals(5, metadataFile.size());
       assertEquals("1", metadataFile.getString("version"));
-      assertEquals(owner.name(), metadataFile.getString("createdBy"));
-      assertEquals(owner.name(), metadataFile.getString("lastEditedBy"));
+      assertEquals(test_owner.name(), metadataFile.getString("createdBy"));
+      assertEquals(test_owner.name(), metadataFile.getString("lastEditedBy"));
       assertDoesNotThrow(() -> Instant.parse(metadataFile.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(metadataFile.getString("lastEditedAt")));
     }
@@ -245,7 +245,8 @@ public class MetadataWorkspaceRoutesTests {
       final var body = getBody(resp);
       assertEquals("FORBIDDEN", body.getString("type"));
       assertEquals(("User '%s' with role 'user' cannot perform 'write_file_directory' "
-                    + "because they are not a 'OWNER_COLLABORATOR' for workspace with id '%d'").formatted(nonOwner.name(), workspaceId),
+                    + "because they are not a 'OWNER_COLLABORATOR' for workspace with id '%d'").formatted(
+                       test_nonOwner.name(), workspaceId),
                    body.getString("message"));
       assertEquals("aerie_permissions", body.getString("service"));
     }
@@ -293,8 +294,8 @@ public class MetadataWorkspaceRoutesTests {
       final var updatedMetadataFile = getBody(updatedMetadataFileResp);
       assertEquals(6, updatedMetadataFile.size());
       assertEquals("1", updatedMetadataFile.getString("version"));
-      assertEquals(owner.name(), updatedMetadataFile.getString("createdBy"));
-      assertEquals(owner.name(), updatedMetadataFile.getString("lastEditedBy"));
+      assertEquals(test_owner.name(), updatedMetadataFile.getString("createdBy"));
+      assertEquals(test_owner.name(), updatedMetadataFile.getString("lastEditedBy"));
       assertFalse(updatedMetadataFile.getBoolean("readOnly"));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("lastEditedAt")));
@@ -326,7 +327,7 @@ public class MetadataWorkspaceRoutesTests {
      */
     @Test
     void collaboratorCanUpdate() {
-      assertDoesNotThrow(() -> hasura.addWorkspaceCollaborator(nonOwner, workspaceId));
+      assertDoesNotThrow(() -> hasura.addWorkspaceCollaborator(test_nonOwner, workspaceId));
 
       final var initialGetResp = wsServer.getMetadata(nonOwnerToken, workspaceId, file);
       assertEquals(200, initialGetResp.status());
@@ -733,7 +734,8 @@ public class MetadataWorkspaceRoutesTests {
       final var body = getBody(resp);
       assertEquals("FORBIDDEN", body.getString("type"));
       assertEquals(("User '%s' with role 'user' cannot perform 'write_file_directory' "
-                    + "because they are not a 'OWNER_COLLABORATOR' for workspace with id '%d'").formatted(nonOwner.name(), workspaceId),
+                    + "because they are not a 'OWNER_COLLABORATOR' for workspace with id '%d'").formatted(
+                       test_nonOwner.name(), workspaceId),
                    body.getString("message"));
       assertEquals("aerie_permissions", body.getString("service"));
     }
@@ -781,8 +783,8 @@ public class MetadataWorkspaceRoutesTests {
       final var updatedMetadataFile = getBody(updatedMetadataFileResp);
       assertEquals(5, updatedMetadataFile.size());
       assertEquals("1", updatedMetadataFile.getString("version"));
-      assertEquals(owner.name(), updatedMetadataFile.getString("createdBy"));
-      assertEquals(owner.name(), updatedMetadataFile.getString("lastEditedBy"));
+      assertEquals(test_owner.name(), updatedMetadataFile.getString("createdBy"));
+      assertEquals(test_owner.name(), updatedMetadataFile.getString("lastEditedBy"));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("lastEditedAt")));
     }
@@ -813,7 +815,7 @@ public class MetadataWorkspaceRoutesTests {
      */
     @Test
     void collaboratorCanUpdate() {
-      assertDoesNotThrow(() -> hasura.addWorkspaceCollaborator(nonOwner, workspaceId));
+      assertDoesNotThrow(() -> hasura.addWorkspaceCollaborator(test_nonOwner, workspaceId));
 
       final var initialGetResp = wsServer.getMetadata(nonOwnerToken, workspaceId, file);
       assertEquals(200, initialGetResp.status());
@@ -1113,7 +1115,8 @@ public class MetadataWorkspaceRoutesTests {
       final var body = getBody(resp);
       assertEquals("FORBIDDEN", body.getString("type"));
       assertEquals(("User '%s' with role 'user' cannot perform 'delete_file_directory' "
-                    + "because they are not a 'OWNER_COLLABORATOR' for workspace with id '%d'").formatted(nonOwner.name(), workspaceId),
+                    + "because they are not a 'OWNER_COLLABORATOR' for workspace with id '%d'").formatted(
+                       test_nonOwner.name(), workspaceId),
                    body.getString("message"));
       assertEquals("aerie_permissions", body.getString("service"));
     }
@@ -1179,7 +1182,7 @@ public class MetadataWorkspaceRoutesTests {
     @Test
     void collaboratorCanDeleteFile() {
       // Setup Collaborator
-      assertDoesNotThrow(() -> hasura.addWorkspaceCollaborator(nonOwner, workspaceId));
+      assertDoesNotThrow(() -> hasura.addWorkspaceCollaborator(test_nonOwner, workspaceId));
 
       // Confirm that the metadata file exists
       final var getOldResp = wsServer.getMetadata(nonOwnerToken, workspaceId, file);
@@ -1206,14 +1209,14 @@ public class MetadataWorkspaceRoutesTests {
     @Test
     void reconstructMetadataAfterDeletionFileEdit() {
       // Setup Collaborator
-      assertDoesNotThrow(() -> hasura.addWorkspaceCollaborator(nonOwner, workspaceId));
+      assertDoesNotThrow(() -> hasura.addWorkspaceCollaborator(test_nonOwner, workspaceId));
 
       // Confirm that the metadata file exists
       final var originalMetadata = getBody(wsServer.getMetadata(ownerToken, workspaceId, file));
       assertEquals(5, originalMetadata.size());
       assertEquals("1", originalMetadata.getString("version"));
-      assertEquals(owner.name(), originalMetadata.getString("createdBy"));
-      assertEquals(owner.name(), originalMetadata.getString("lastEditedBy"));
+      assertEquals(test_owner.name(), originalMetadata.getString("createdBy"));
+      assertEquals(test_owner.name(), originalMetadata.getString("lastEditedBy"));
       assertDoesNotThrow(() -> Instant.parse(originalMetadata.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(originalMetadata.getString("lastEditedAt")));
 
@@ -1235,8 +1238,8 @@ public class MetadataWorkspaceRoutesTests {
       final var updatedMetadataFile = getBody(updatedMetadataFileResp);
       assertEquals(5, updatedMetadataFile.size());
       assertEquals("1", updatedMetadataFile.getString("version"));
-      assertEquals(nonOwner.name(), updatedMetadataFile.getString("createdBy"));
-      assertEquals(nonOwner.name(), updatedMetadataFile.getString("lastEditedBy"));
+      assertEquals(test_nonOwner.name(), updatedMetadataFile.getString("createdBy"));
+      assertEquals(test_nonOwner.name(), updatedMetadataFile.getString("lastEditedBy"));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("lastEditedAt")));
 
@@ -1257,14 +1260,14 @@ public class MetadataWorkspaceRoutesTests {
     @Test
     void reconstructMetadataAfterDeletionMetadataEdit() {
       // Setup Collaborator
-      assertDoesNotThrow(() -> hasura.addWorkspaceCollaborator(nonOwner, workspaceId));
+      assertDoesNotThrow(() -> hasura.addWorkspaceCollaborator(test_nonOwner, workspaceId));
 
       // Confirm that the metadata file exists
       final var originalMetadata = getBody(wsServer.getMetadata(ownerToken, workspaceId, file));
       assertEquals(5, originalMetadata.size());
       assertEquals("1", originalMetadata.getString("version"));
-      assertEquals(owner.name(), originalMetadata.getString("createdBy"));
-      assertEquals(owner.name(), originalMetadata.getString("lastEditedBy"));
+      assertEquals(test_owner.name(), originalMetadata.getString("createdBy"));
+      assertEquals(test_owner.name(), originalMetadata.getString("lastEditedBy"));
       assertDoesNotThrow(() -> Instant.parse(originalMetadata.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(originalMetadata.getString("lastEditedAt")));
 
@@ -1286,8 +1289,8 @@ public class MetadataWorkspaceRoutesTests {
       final var updatedMetadataFile = getBody(updatedMetadataFileResp);
       assertEquals(6, updatedMetadataFile.size());
       assertEquals("1", updatedMetadataFile.getString("version"));
-      assertEquals(nonOwner.name(), updatedMetadataFile.getString("createdBy"));
-      assertEquals(nonOwner.name(), updatedMetadataFile.getString("lastEditedBy"));
+      assertEquals(test_nonOwner.name(), updatedMetadataFile.getString("createdBy"));
+      assertEquals(test_nonOwner.name(), updatedMetadataFile.getString("lastEditedBy"));
       assertFalse(updatedMetadataFile.getBoolean("readOnly"));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("lastEditedAt")));

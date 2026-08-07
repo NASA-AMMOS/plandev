@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e.bindings;
+package gov.nasa.jpl.aerie.e2e.routes;
 
 import com.microsoft.playwright.APIRequest;
 import com.microsoft.playwright.APIRequestContext;
@@ -28,8 +28,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static gov.nasa.jpl.aerie.e2e.types.User.admin;
-import static gov.nasa.jpl.aerie.e2e.types.User.nonOwner;
+import static gov.nasa.jpl.aerie.e2e.routes.RoutesTestSuite.routes_admin;
+import static gov.nasa.jpl.aerie.e2e.routes.RoutesTestSuite.routes_nonOwner;
 import static gov.nasa.jpl.aerie.e2e.utils.RequestBodyHelper.getArrayBody;
 import static gov.nasa.jpl.aerie.e2e.utils.RequestBodyHelper.getBody;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,7 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Named.named;
 
 // "resourceTypes" and "getActivityEffectiveArguments" are not tested, as they are deprecated
-public class MerlinBindingsTests {
+public class MerlinRoutesTests {
   // Requests
   private static Playwright playwright;
   private static APIRequestContext request;
@@ -85,7 +85,7 @@ public class MerlinBindingsTests {
         "Test Plan - Merlin Bindings",
         "24:00:00",
         "2023-01-01T00:00:00+00:00",
-        admin.session());
+        routes_admin.session());
   }
 
   @AfterEach
@@ -105,7 +105,7 @@ public class MerlinBindingsTests {
                               .add("action", Json.createObjectBuilder().add("name", "simulate"))
                               .add("input", Json.createObjectBuilder().add("planId", -1))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/getSimulationResults", RequestOptions.create().setData(data));
@@ -120,13 +120,13 @@ public class MerlinBindingsTests {
                               .add("action", Json.createObjectBuilder().add("name", "simulate"))
                               .add("input", Json.createObjectBuilder().add("planId", planId))
                               .add("request_query", "")
-                              .add("session_variables", nonOwner.getSession())
+                              .add("session_variables", routes_nonOwner.getSession())
                               .build()
                               .toString();
       final var response = request.post("/getSimulationResults", RequestOptions.create().setData(data));
       assertEquals(403, response.status());
       assertEquals(
-          "User '" + nonOwner.name() + "' with role 'user' cannot perform 'simulate' because they are not "
+          "User '" + routes_nonOwner.name() + "' with role 'user' cannot perform 'simulate' because they are not "
           + "a 'PLAN_OWNER_COLLABORATOR' for plan with id '" + planId + "'",
           getBody(response).getString("message"));
     }
@@ -139,7 +139,7 @@ public class MerlinBindingsTests {
                               .add("action", Json.createObjectBuilder().add("name", "simulate"))
                               .add("input", Json.createObjectBuilder().add("planId", planId))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/getSimulationResults", RequestOptions.create().setData(data));
@@ -168,7 +168,7 @@ public class MerlinBindingsTests {
                                   "input",
                                   Json.createObjectBuilder().add("planId", planId).add("force", force))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/getSimulationResults", RequestOptions.create().setData(data));
@@ -188,7 +188,7 @@ public class MerlinBindingsTests {
                               .add("action", Json.createObjectBuilder().add("name", "resource_samples"))
                               .add("input", Json.createObjectBuilder().add("planId", -1))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/resourceSamples", RequestOptions.create().setData(data));
@@ -209,13 +209,13 @@ public class MerlinBindingsTests {
                               .add("action", Json.createObjectBuilder().add("name", "resource_samples"))
                               .add("input", Json.createObjectBuilder().add("planId", planId))
                               .add("request_query", "")
-                              .add("session_variables", nonOwner.getSession())
+                              .add("session_variables", routes_nonOwner.getSession())
                               .build()
                               .toString();
       final var response = request.post("/resourceSamples", RequestOptions.create().setData(data));
       assertEquals(403, response.status());
       assertEquals(
-          "User '" + nonOwner.name() + "' with role 'user' cannot perform 'resource_samples' because they "
+          "User '" + routes_nonOwner.name() + "' with role 'user' cannot perform 'resource_samples' because they "
           + "are not a 'PLAN_OWNER' for plan with id '" + planId + "'",
           getBody(response).getString("message"));
 
@@ -232,7 +232,7 @@ public class MerlinBindingsTests {
                               .add("action", Json.createObjectBuilder().add("name", "resource_samples"))
                               .add("input", Json.createObjectBuilder().add("planId", planId))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/resourceSamples", RequestOptions.create().setData(data));
@@ -253,7 +253,7 @@ public class MerlinBindingsTests {
                               .add("action", Json.createObjectBuilder().add("name", "check_constraints"))
                               .add("input", Json.createObjectBuilder().add("planId", -1))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
@@ -272,7 +272,7 @@ public class MerlinBindingsTests {
                                                .add("planId", planId)
                                                .add("simulationDatasetId", -1))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
@@ -310,7 +310,7 @@ public class MerlinBindingsTests {
                                                  .add("planId", planId)
                                                  .add("simulationDatasetId", simDatasetId))
                                 .add("request_query", "")
-                                .add("session_variables", admin.getSession())
+                                .add("session_variables", routes_admin.getSession())
                                 .build()
                                 .toString();
         final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
@@ -340,13 +340,13 @@ public class MerlinBindingsTests {
                               .add("action", Json.createObjectBuilder().add("name", "check_constraints"))
                               .add("input", Json.createObjectBuilder().add("planId", planId))
                               .add("request_query", "")
-                              .add("session_variables", nonOwner.getSession())
+                              .add("session_variables", routes_nonOwner.getSession())
                               .build()
                               .toString();
       final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
       assertEquals(403, response.status());
       assertEquals(
-          "User '" + nonOwner.name() + "' with role 'user' cannot perform 'check_constraints' because they"
+          "User '" + routes_nonOwner.name() + "' with role 'user' cannot perform 'check_constraints' because they"
           + " are not a 'PLAN_OWNER_COLLABORATOR' for plan with id '" + planId + "'",
           getBody(response).getString("message"));
     }
@@ -358,7 +358,7 @@ public class MerlinBindingsTests {
                               .add("action", Json.createObjectBuilder().add("name", "check_constraints"))
                               .add("input", Json.createObjectBuilder().add("planId", planId))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
@@ -389,7 +389,7 @@ public class MerlinBindingsTests {
                               .add("action", Json.createObjectBuilder().add("name", "check_constraints"))
                               .add("input", Json.createObjectBuilder().add("planId", planId))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
@@ -416,7 +416,7 @@ public class MerlinBindingsTests {
                                                .add("planId", planId)
                                                .add("simulationDatasetId", simDatasetId))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/constraintViolations", RequestOptions.create().setData(data));
@@ -561,7 +561,7 @@ public class MerlinBindingsTests {
                                                .add("activityTypeName", "BiteBanana")
                                                .add("activityArguments", JsonValue.EMPTY_JSON_OBJECT))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/validateActivityArguments", RequestOptions.create().setData(data));
@@ -584,7 +584,7 @@ public class MerlinBindingsTests {
                                                .add("activityTypeName", "BiteBanana")
                                                .add("activityArguments", JsonValue.EMPTY_JSON_OBJECT))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/validateActivityArguments", RequestOptions.create().setData(data));
@@ -605,7 +605,7 @@ public class MerlinBindingsTests {
                                                .add("missionModelId", -1)
                                                .add("modelArguments", JsonValue.EMPTY_JSON_OBJECT))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/validateModelArguments", RequestOptions.create().setData(data));
@@ -624,7 +624,7 @@ public class MerlinBindingsTests {
                                                .add("missionModelId", modelId)
                                                .add("modelArguments", JsonValue.EMPTY_JSON_OBJECT))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/validateModelArguments", RequestOptions.create().setData(data));
@@ -643,7 +643,7 @@ public class MerlinBindingsTests {
                               .add("action", Json.createObjectBuilder().add("name", "validatePlan"))
                               .add("input", Json.createObjectBuilder().add("planId", -1))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/validatePlan", RequestOptions.create().setData(data));
@@ -659,7 +659,7 @@ public class MerlinBindingsTests {
                               .add("action", Json.createObjectBuilder().add("name", "validatePlan"))
                               .add("input", Json.createObjectBuilder().add("planId", planId))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/validatePlan", RequestOptions.create().setData(data));
@@ -681,7 +681,7 @@ public class MerlinBindingsTests {
                                                .add("missionModelId", -1)
                                                .add("modelArguments", JsonValue.EMPTY_JSON_OBJECT))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/getModelEffectiveArguments", RequestOptions.create().setData(data));
@@ -700,7 +700,7 @@ public class MerlinBindingsTests {
                                                .add("missionModelId", modelId)
                                                .add("modelArguments", JsonValue.EMPTY_JSON_OBJECT))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/getModelEffectiveArguments", RequestOptions.create().setData(data));
@@ -740,7 +740,7 @@ public class MerlinBindingsTests {
                                                .add("missionModelId", -1)
                                                .add("activities", JsonValue.EMPTY_JSON_ARRAY))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/getActivityEffectiveArgumentsBulk", RequestOptions.create().setData(data));
@@ -771,7 +771,7 @@ public class MerlinBindingsTests {
                                                .add("missionModelId", modelId)
                                                .add("activities", activitiesBuilder))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/getActivityEffectiveArgumentsBulk", RequestOptions.create().setData(data));
@@ -825,7 +825,7 @@ public class MerlinBindingsTests {
                                                .add("profileSet", profileSetBuilder)
                                                .add("simulationDatasetId", JsonValue.NULL))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/addExternalDataset", RequestOptions.create().setData(data));
@@ -857,7 +857,7 @@ public class MerlinBindingsTests {
                                                .add("profileSet", profileSetBuilder)
                                                .add("simulationDatasetId", JsonValue.NULL))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/addExternalDataset", RequestOptions.create().setData(data));
@@ -892,7 +892,7 @@ public class MerlinBindingsTests {
                                                .add("datasetId", -1)
                                                .add("profileSet", profileSetBuilder))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/extendExternalDataset", RequestOptions.create().setData(data));
@@ -927,7 +927,7 @@ public class MerlinBindingsTests {
                                                          .createObjectBuilder()
                                                          .add(myBooleanProfile.name(), myBooleanProfile.toJSON())))
                                 .add("request_query", "")
-                                .add("session_variables", admin.getSession())
+                                .add("session_variables", routes_admin.getSession())
                                 .build()
                                 .toString();
         final var response = request.post("/extendExternalDataset", RequestOptions.create().setData(data));
@@ -953,7 +953,7 @@ public class MerlinBindingsTests {
                                                .add("missionModelId", -1)
                                                .add("planId", JsonValue.NULL))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/constraintsDslTypescript", RequestOptions.create().setData(data));
@@ -984,7 +984,7 @@ public class MerlinBindingsTests {
                                                .add("missionModelId", modelId)
                                                .add("planId", -1))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/constraintsDslTypescript", RequestOptions.create().setData(data));
@@ -1006,7 +1006,7 @@ public class MerlinBindingsTests {
                                                .add("missionModelId", modelId)
                                                .add("planId", JsonValue.NULL))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/constraintsDslTypescript", RequestOptions.create().setData(data));

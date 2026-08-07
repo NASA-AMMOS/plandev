@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e.bindings;
+package gov.nasa.jpl.aerie.e2e.routes;
 
 import com.microsoft.playwright.APIRequest;
 import com.microsoft.playwright.APIRequestContext;
@@ -17,14 +17,14 @@ import org.junit.jupiter.api.Test;
 import javax.json.Json;
 import java.io.IOException;
 
-import static gov.nasa.jpl.aerie.e2e.types.User.admin;
-import static gov.nasa.jpl.aerie.e2e.types.User.nonOwner;
+import static gov.nasa.jpl.aerie.e2e.routes.RoutesTestSuite.routes_admin;
+import static gov.nasa.jpl.aerie.e2e.routes.RoutesTestSuite.routes_nonOwner;
 import static gov.nasa.jpl.aerie.e2e.utils.RequestBodyHelper.getBody;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class SchedulerBindingsTests {
+public class SchedulerRoutesTests {
   // Requests
   private static Playwright playwright;
   private static APIRequestContext request;
@@ -73,7 +73,7 @@ public class SchedulerBindingsTests {
         "Test Plan - Scheduler Bindings",
         duration,
         plan_start_timestamp,
-        admin.session());
+        routes_admin.session());
     schedulingSpecId = hasura.getSchedulingSpecId(planId);
   }
 
@@ -93,7 +93,7 @@ public class SchedulerBindingsTests {
                               .add("action", Json.createObjectBuilder().add("name", "scheduler"))
                               .add("input", Json.createObjectBuilder().add("specificationId", -1))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/schedule", RequestOptions.create().setData(data));
@@ -119,13 +119,13 @@ public class SchedulerBindingsTests {
                               .add("action", Json.createObjectBuilder().add("name", "scheduler"))
                               .add("input", Json.createObjectBuilder().add("specificationId", schedulingSpecId))
                               .add("request_query", "")
-                              .add("session_variables", nonOwner.getSession())
+                              .add("session_variables", routes_nonOwner.getSession())
                               .build()
                               .toString();
       final var response = request.post("/schedule", RequestOptions.create().setData(data));
       assertEquals(403, response.status());
-      assertEquals("User '"+nonOwner.name()+"' with role 'user' cannot perform 'schedule' because they are not "
-                   + "a 'PLAN_OWNER_COLLABORATOR' for plan with id '"+planId+"'",
+      assertEquals("User '" + routes_nonOwner.name() + "' with role 'user' cannot perform 'schedule' because they are not "
+                   + "a 'PLAN_OWNER_COLLABORATOR' for plan with id '" + planId + "'",
                    getBody(response).getString("message"));
     }
     @Test
@@ -135,7 +135,7 @@ public class SchedulerBindingsTests {
                               .add("action", Json.createObjectBuilder().add("name", "scheduler"))
                               .add("input", Json.createObjectBuilder().add("specificationId", schedulingSpecId))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/schedule", RequestOptions.create().setData(data));
@@ -155,7 +155,7 @@ public class SchedulerBindingsTests {
                               .add("action", Json.createObjectBuilder().add("name", "schedulingDslTypescript"))
                               .add("input", Json.createObjectBuilder().add("missionModelId", -1))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/schedulingDslTypescript", RequestOptions.create().setData(data));
@@ -176,7 +176,7 @@ public class SchedulerBindingsTests {
                                                 .add("missionModelId", modelId)
                                                 .add("planId", -1))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/schedulingDslTypescript", RequestOptions.create().setData(data));
@@ -194,7 +194,7 @@ public class SchedulerBindingsTests {
                               .add("action", Json.createObjectBuilder().add("name", "schedulingDslTypescript"))
                               .add("input", Json.createObjectBuilder().add("missionModelId", modelId))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/schedulingDslTypescript", RequestOptions.create().setData(data));
@@ -221,7 +221,7 @@ public class SchedulerBindingsTests {
                                                 .add("missionModelId", modelId)
                                                 .add("planId", planId))
                               .add("request_query", "")
-                              .add("session_variables", admin.getSession())
+                              .add("session_variables", routes_admin.getSession())
                               .build()
                               .toString();
       final var response = request.post("/schedulingDslTypescript", RequestOptions.create().setData(data));

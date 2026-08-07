@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e.bindings.workspace;
+package gov.nasa.jpl.aerie.e2e.workspace.routes;
 
 import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.options.FilePayload;
@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import static gov.nasa.jpl.aerie.e2e.types.User.owner;
+import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_owner;
 import static gov.nasa.jpl.aerie.e2e.utils.RequestBodyHelper.getArrayBody;
 import static gov.nasa.jpl.aerie.e2e.utils.RequestBodyHelper.getBody;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -59,7 +59,7 @@ public class BulkWorkspaceRoutesTests {
 
     // Get valid JWT tokens for the users
     try (final var gateway = new GatewayRequests(playwright)) {
-      ownerToken = gateway.login(owner);
+      ownerToken = gateway.login(test_owner);
     }
 
     // Set up parcel and dictionary to use across the tests

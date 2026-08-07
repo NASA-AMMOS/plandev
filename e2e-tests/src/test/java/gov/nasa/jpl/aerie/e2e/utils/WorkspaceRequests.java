@@ -7,7 +7,6 @@ import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.options.FilePayload;
 import com.microsoft.playwright.options.FormData;
 import com.microsoft.playwright.options.RequestOptions;
-import gov.nasa.jpl.aerie.e2e.types.User;
 import gov.nasa.jpl.aerie.e2e.types.workspaces.BulkPutItem;
 
 import javax.json.Json;
@@ -20,10 +19,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_admin;
+
 public class WorkspaceRequests implements AutoCloseable {
   private final APIRequestContext request;
   private static final String hasuraAdminSecret = System.getenv("HASURA_GRAPHQL_ADMIN_SECRET");
-  private static final Map<String, String> defaultHeaders = User.admin.session();
+  private static final Map<String, String> defaultHeaders = test_admin.session();
   public enum RequestType {GET, PUT, POST, DELETE}
   public enum MetadataMergeBehavior {deep, deepMerge, shallow, shallowMerge, overwrite}
 

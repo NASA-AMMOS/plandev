@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e.bindings.workspace;
+package gov.nasa.jpl.aerie.e2e.workspace.routes;
 
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;

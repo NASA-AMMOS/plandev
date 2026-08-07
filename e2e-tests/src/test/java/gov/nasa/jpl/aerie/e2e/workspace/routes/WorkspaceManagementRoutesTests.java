@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e.bindings.workspace;
+package gov.nasa.jpl.aerie.e2e.workspace.routes;
 
 import com.microsoft.playwright.Playwright;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
@@ -25,8 +25,8 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import static gov.nasa.jpl.aerie.e2e.types.User.nonOwner;
-import static gov.nasa.jpl.aerie.e2e.types.User.viewer;
+import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_nonOwner;
+import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_viewer;
 import static gov.nasa.jpl.aerie.e2e.utils.RequestBodyHelper.getBody;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Named.named;
@@ -58,8 +58,8 @@ public class WorkspaceManagementRoutesTests {
 
     // Get valid JWT tokens for the users
     try (final var gateway = new GatewayRequests(playwright)) {
-      nonOwnerToken = gateway.login(nonOwner);
-      viewerToken = gateway.login(viewer);
+      nonOwnerToken = gateway.login(test_nonOwner);
+      viewerToken = gateway.login(test_viewer);
     }
 
     // Set up parcel and dictionary to use across the tests
@@ -199,7 +199,7 @@ public class WorkspaceManagementRoutesTests {
       assertEquals(403, response.status());
       final var body = getBody(response);
       assertEquals("FORBIDDEN", body.getString("type"));
-      assertEquals(("User 'bindings_not_owner' with role 'user' cannot perform 'delete_workspace' "
+      assertEquals(("User 'test_not_owner_user' with role 'user' cannot perform 'delete_workspace' "
                     + "because they are not a 'OWNER' for workspace with id '%d'").formatted(workspaceId),
                    body.getString("message"));
       assertEquals("aerie_permissions", body.getString("service"));
@@ -215,7 +215,7 @@ public class WorkspaceManagementRoutesTests {
       assertEquals(403, response.status());
       final var body = getBody(response);
       assertEquals("FORBIDDEN", body.getString("type"));
-      assertEquals(("User 'bindings_not_owner' with role 'user' cannot perform 'delete_workspace' "
+      assertEquals(("User 'test_not_owner_user' with role 'user' cannot perform 'delete_workspace' "
                     + "because they are not a 'OWNER' for workspace with id '%d'").formatted(workspaceId),
                    body.getString("message"));
       assertEquals("aerie_permissions", body.getString("service"));

@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e;
+package gov.nasa.jpl.aerie.e2e.workspace;
 
 import com.microsoft.playwright.Playwright;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
@@ -15,8 +15,8 @@ import javax.json.Json;
 import java.io.IOException;
 import java.nio.file.Path;
 
-import static gov.nasa.jpl.aerie.e2e.types.User.admin;
-import static gov.nasa.jpl.aerie.e2e.types.User.owner;
+import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_admin;
+import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_owner;
 import static gov.nasa.jpl.aerie.e2e.utils.RequestBodyHelper.getBody;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -51,8 +51,8 @@ public class WorkspaceReadOnlyTests {
 
     // Get valid JWT tokens for the users
     try (final var gateway = new GatewayRequests(playwright)) {
-      adminToken = gateway.login(admin);
-      ownerToken = gateway.login(owner);
+      adminToken = gateway.login(test_admin);
+      ownerToken = gateway.login(test_owner);
     }
 
     // Set up parcel and dictionary to use across the tests
@@ -75,7 +75,7 @@ public class WorkspaceReadOnlyTests {
   @BeforeEach
   void beforeEach() throws IOException {
     workspaceId = wsServer.createWorkspace("ReadOnlyWSTests", parcelId);
-    hasura.changeWorkspaceOwner(workspaceId, owner);
+    hasura.changeWorkspaceOwner(workspaceId, test_owner);
 
     // Add and set up ReadOnly file
     wsServer.putFile(ownerToken, workspaceId, file, fileContents);
@@ -122,8 +122,8 @@ public class WorkspaceReadOnlyTests {
 
     assertEquals(7, updatedMetadataFile.size());
     assertEquals("1", updatedMetadataFile.getString("version"));
-    assertEquals(owner.name(), updatedMetadataFile.getString("createdBy"));
-    assertEquals(owner.name(), updatedMetadataFile.getString("lastEditedBy"));
+    assertEquals(test_owner.name(), updatedMetadataFile.getString("createdBy"));
+    assertEquals(test_owner.name(), updatedMetadataFile.getString("lastEditedBy"));
     assertEquals(originalMetadataFile.getString("createdAt"), updatedMetadataFile.getString("createdAt"));
     assertEquals(originalMetadataFile.getString("lastEditedAt"), updatedMetadataFile.getString("lastEditedAt"));
     // This should still be set to "true"
@@ -308,7 +308,7 @@ public class WorkspaceReadOnlyTests {
     @BeforeEach
     void beforeEach() throws IOException {
       workspaceId = wsServer.createWorkspace("ReadOnlyFalseWSTests", parcelId);
-      hasura.changeWorkspaceOwner(workspaceId, owner);
+      hasura.changeWorkspaceOwner(workspaceId, test_owner);
 
       // Add and set up ReadOnly file
       wsServer.putFile(ownerToken, workspaceId, file, fileContents);
@@ -339,8 +339,8 @@ public class WorkspaceReadOnlyTests {
 
       assertEquals(6, initialMetadataFile.size());
       assertEquals("1", initialMetadataFile.getString("version"));
-      assertEquals(owner.name(), initialMetadataFile.getString("createdBy"));
-      assertEquals(owner.name(), initialMetadataFile.getString("lastEditedBy"));
+      assertEquals(test_owner.name(), initialMetadataFile.getString("createdBy"));
+      assertEquals(test_owner.name(), initialMetadataFile.getString("lastEditedBy"));
       // These fields should be set to some instant
       assertTrue(initialMetadataFile.containsKey("createdAt"));
       assertTrue(initialMetadataFile.containsKey("lastEditedAt"));
@@ -361,8 +361,8 @@ public class WorkspaceReadOnlyTests {
       // Compare the new file contents
       assertEquals(7, metadataFile.size());
       assertEquals("1", metadataFile.getString("version"));
-      assertEquals(owner.name(), metadataFile.getString("createdBy"));
-      assertEquals(owner.name(), metadataFile.getString("lastEditedBy"));
+      assertEquals(test_owner.name(), metadataFile.getString("createdBy"));
+      assertEquals(test_owner.name(), metadataFile.getString("lastEditedBy"));
       assertEquals(initialMetadataFile.getString("createdAt"), metadataFile.getString("createdAt"));
       assertEquals(initialMetadataFile.getString("lastEditedAt"), metadataFile.getString("lastEditedAt"));
       // This should still be set to "false"

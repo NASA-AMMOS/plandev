@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class ConstraintsTests {
+public class EDSLConstraintsTests {
   // Requests
   private Playwright playwright;
   private HasuraRequests hasura;

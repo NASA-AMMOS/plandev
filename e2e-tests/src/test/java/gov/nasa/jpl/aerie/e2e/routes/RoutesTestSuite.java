@@ -4,7 +4,7 @@ import com.microsoft.playwright.Playwright;
 import gov.nasa.jpl.aerie.e2e.HealthTests;
 import gov.nasa.jpl.aerie.e2e.types.User;
 import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
-import org.junit.platform.suite.api.AfterSuite;
+import gov.nasa.jpl.aerie.e2e.utils.UserSetupListener;
 import org.junit.platform.suite.api.BeforeSuite;
 import org.junit.platform.suite.api.SelectClasses;
 import org.junit.platform.suite.api.SelectPackages;
@@ -25,54 +25,33 @@ import java.io.IOException;
 @SelectClasses({HealthTests.class})
 public class RoutesTestSuite {
   // Users to be shared across the test suite
-  static final User routes_admin = new User(
+  public static final User routes_admin = new User(
       "routes_admin",
       "aerie_admin",
       new String[]{"aerie_admin", "viewer"});
-  static final User routes_owner = new User(
+  public static final User routes_owner = new User(
       "routes_owner_user",
       "user",
       new String[] {"user"});
-  static final User routes_nonOwner = new User(
+  public static final User routes_nonOwner = new User(
       "routes_not_owner_user",
       "user",
       new String[]{"user", "viewer"});
-  static final User routes_viewer = new User(
+  public static final User routes_viewer = new User(
       "routes_viewer",
       "viewer",
       new String[]{"viewer"});
 
   /**
-   * Login test Users prior to executing the suite
+   * Login needed test Users prior to executing the suite.
+   * UserSetupListener will handle cleanup after all tests are finished
    */
   @BeforeSuite
   static void loginUsers() {
     try (final var playwright = Playwright.create();
          final var hasura = new HasuraRequests(playwright)
     ) {
-      // Insert the Users
-      hasura.createUser(routes_admin);
-      hasura.createUser(routes_owner);
-      hasura.createUser(routes_nonOwner);
-      hasura.createUser(routes_viewer);
-    } catch (IOException ioe) {
-      throw new RuntimeException(ioe);
-    }
-  }
-
-  /**
-   * After the suite, remove the test users.
-   */
-  @AfterSuite
-  static void deleteUsers() {
-    try (final var playwright = Playwright.create();
-         final var hasura = new HasuraRequests(playwright)
-    ) {
-      // Insert the Users
-      hasura.deleteUser(routes_admin);
-      hasura.deleteUser(routes_owner);
-      hasura.deleteUser(routes_nonOwner);
-      hasura.deleteUser(routes_viewer);
+      UserSetupListener.userSetup.setupRoutesUsers(hasura);
     } catch (IOException ioe) {
       throw new RuntimeException(ioe);
     }

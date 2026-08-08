@@ -3,7 +3,7 @@ package gov.nasa.jpl.aerie.e2e;
 import com.microsoft.playwright.Playwright;
 import gov.nasa.jpl.aerie.e2e.types.User;
 import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
-import org.junit.platform.suite.api.AfterSuite;
+import gov.nasa.jpl.aerie.e2e.utils.UserSetupListener;
 import org.junit.platform.suite.api.BeforeSuite;
 import org.junit.platform.suite.api.ExcludePackages;
 import org.junit.platform.suite.api.SelectPackages;
@@ -40,36 +40,13 @@ public class E2ETestSuite {
       new String[]{"viewer"});
 
   /**
-   * Login test Users prior to executing the suite
+   * Login needed test Users prior to executing the suite
+   * UserSetupListener will handle cleanup after all tests are finished
    */
   @BeforeSuite
   static void loginUsers() {
-    try (final var playwright = Playwright.create();
-         final var hasura = new HasuraRequests(playwright)
-    ) {
-      // Insert the Users
-      hasura.createUser(test_admin);
-      hasura.createUser(test_owner);
-      hasura.createUser(test_nonOwner);
-      hasura.createUser(test_viewer);
-    } catch (IOException ioe) {
-      throw new RuntimeException(ioe);
-    }
-  }
-
-  /**
-   * After the suite, remove the test users.
-   */
-  @AfterSuite
-  static void deleteUsers() {
-    try (final var playwright = Playwright.create();
-         final var hasura = new HasuraRequests(playwright)
-    ) {
-      // Insert the Users
-      hasura.deleteUser(test_admin);
-      hasura.deleteUser(test_owner);
-      hasura.deleteUser(test_nonOwner);
-      hasura.deleteUser(test_viewer);
+    try (final var playwright = Playwright.create(); final var hasura = new HasuraRequests(playwright)) {
+      UserSetupListener.userSetup.setupStandardUsers(hasura);
     } catch (IOException ioe) {
       throw new RuntimeException(ioe);
     }

@@ -2,9 +2,12 @@ package gov.nasa.jpl.aerie.e2e.procedural.scheduling;
 
 import gov.nasa.jpl.aerie.e2e.types.GoalInvocationId;
 import gov.nasa.jpl.aerie.e2e.types.Plan;
+import gov.nasa.jpl.aerie.e2e.utils.ExternalEventUtils;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -13,19 +16,31 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 
-import static gov.nasa.jpl.aerie.e2e.utils.ExternalEventUtils.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ExternalEventsSchedulingTests extends ProceduralTestingSetup {
   private GoalInvocationId procedureId;
 
+  private ExternalEventUtils externalEventUtils;
+  private final String eventType = "schedulingEvent";
+  private final String sourceType = "schedulingSourceType";
+  private final String sourceKey = "schedulingSourceKey";
+  private final String derivationGroup = "schedulingDerivationGroup";
+
+  @BeforeAll
+  void localBeforeAll() throws IOException {
+    externalEventUtils = new ExternalEventUtils(playwright, hasura, sourceType, sourceKey, eventType, derivationGroup);
+  }
+
+  @AfterAll
+  void localAfterAll() throws IOException {
+    externalEventUtils.close();
+  }
+
   @BeforeEach
   void localBeforeEach() throws IOException {
-    // Upload some External Events
-    uploadExternalSourceEventTypes(playwright);
-    uploadExternalSources(playwright);
-    hasura.insertPlanDerivationGroupAssociation(planId, DERIVATION_GROUP);
-    hasura.insertPlanDerivationGroupAssociation(planId, ADDITIONAL_DERIVATION_GROUP);
+    hasura.insertPlanDerivationGroupAssociation(planId, derivationGroup);
+    hasura.insertPlanDerivationGroupAssociation(planId, externalEventUtils.alternateDerivationGroup());
   }
 
   @AfterEach
@@ -33,15 +48,8 @@ public class ExternalEventsSchedulingTests extends ProceduralTestingSetup {
     hasura.deleteSchedulingGoal(procedureId.goalId());
 
     // External Event Related
-    hasura.deletePlanDerivationGroupAssociation(planId, DERIVATION_GROUP);
-    hasura.deletePlanDerivationGroupAssociation(planId, ADDITIONAL_DERIVATION_GROUP);
-    hasura.deleteExternalSource(SOURCE_KEY, DERIVATION_GROUP);
-    hasura.deleteExternalSource(ADDITIONAL_SOURCE_KEY, ADDITIONAL_DERIVATION_GROUP);
-    hasura.deleteDerivationGroup(DERIVATION_GROUP);
-    hasura.deleteDerivationGroup(ADDITIONAL_DERIVATION_GROUP);
-    hasura.deleteExternalSourceType(SOURCE_TYPE);
-    hasura.deleteExternalEventType(EVENT_TYPE);
-    hasura.deleteExternalEventType(ADDITIONAL_EVENT_TYPE);
+    hasura.deletePlanDerivationGroupAssociation(planId, derivationGroup);
+    hasura.deletePlanDerivationGroupAssociation(planId, externalEventUtils.alternateDerivationGroup());
   }
 
   @Test

@@ -128,7 +128,7 @@ public class GatewayRequests implements AutoCloseable {
     return bodyJson.getInt("id");
   }
 
-  public void uploadExternalSourceEventTypes(JsonObject schema) throws RuntimeException {
+  public void uploadExternalSourceEventTypes(JsonObject schema) {
     final var response = request.post("/uploadExternalSourceEventTypes",
                                       RequestOptions.create()
                                                     .setHeader("Authorization", "Bearer " + token)
@@ -141,26 +141,42 @@ public class GatewayRequests implements AutoCloseable {
       throw new RuntimeException(bodyJson.toString());
     }
   }
-  public void uploadExternalSource(String externalSourcePath, String derivationGroupName) throws RuntimeException, IOException {
-    byte[] buffer = Files.readAllBytes(Path.of("src/test/resources/" + externalSourcePath));
-    FilePayload filePayload = new FilePayload(externalSourcePath, "application/json", buffer);
 
-    final var response = request.post("/uploadExternalSource", RequestOptions.create()
-                                                                             .setHeader(
-                                                                                 "Authorization",
-                                                                                 "Bearer " + token)
-                                                                             .setMultipart(FormData
-                                                                                               .create()
-                                                                                               .set(
-                                                                                                   "external_source_file",
-                                                                                                   filePayload
-                                                                                               )
-                                                                                               .set(
-                                                                                                   "derivation_group_name",
-                                                                                                   derivationGroupName
-                                                                                               )
-                                                                             )
-    );
+  /**
+   * Upload an external source file from the test resources
+   * @param externalSourcePath Path to the file to be uploaded, relative to the external_event_sources directory in the test resource folder
+   * @param derivationGroupName The derivation group to be associated with the external source
+   * @throws IOException If the file cannot be read
+   */
+  public void uploadExternalSource(Path externalSourcePath, String derivationGroupName) throws IOException {
+    uploadExternalSource(
+        externalSourcePath.getFileName().toString(),
+        Files.readAllBytes(Path.of("src", "test", "resources", "external_event_sources").resolve(externalSourcePath)),
+        derivationGroupName);
+  }
+
+  /**
+   * Upload a byte array containing an external source file to the Gateway
+   * @param externalSourceName The name of the external source
+   * @param externalSourceContents A byte array containing the contents of the external source file
+   * @param derivationGroupName The derivation group to be associated with the external source
+   */
+  public void uploadExternalSource(String externalSourceName, byte[] externalSourceContents, String derivationGroupName) {
+    FilePayload filePayload = new FilePayload(
+        externalSourceName,
+        "application/json",
+        externalSourceContents);
+
+    final var options = RequestOptions
+        .create()
+        .setHeader("Authorization", "Bearer " + token)
+        .setMultipart(FormData.create()
+                              .set("external_source_file", filePayload)
+                              .set("derivation_group_name", derivationGroupName));
+
+
+    final var response = request.post("/uploadExternalSource", options);
+
     try (final var reader = Json.createReader(new StringReader(response.text()))) {
       final JsonObject bodyJson = reader.readObject();
       if (!bodyJson.containsKey("createExternalSource")) {

@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import javax.json.Json;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.Comparator;
@@ -23,12 +24,12 @@ public class ExternalEventsSchedulingTests extends ProceduralTestingSetup {
 
   private ExternalEventUtils externalEventUtils;
   private final String eventType = "schedulingEvent";
-  private final String sourceType = "schedulingSourceType";
   private final String sourceKey = "schedulingSourceKey";
   private final String derivationGroup = "schedulingDerivationGroup";
 
   @BeforeAll
   void localBeforeAll() throws IOException {
+    final String sourceType = "schedulingSourceType";
     externalEventUtils = new ExternalEventUtils(playwright, hasura, sourceType, sourceKey, eventType, derivationGroup);
   }
 
@@ -70,6 +71,12 @@ public class ExternalEventsSchedulingTests extends ProceduralTestingSetup {
           0
       );
     }
+
+    // Update arguments
+    final var args = Json.createObjectBuilder().add("derivationGroup", derivationGroup).build();
+    hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
+
+    // Run scheduling
     hasura.awaitScheduling(specId);
     final var plan = hasura.getPlan(planId);
     final var activities = plan.activityDirectives();
@@ -108,6 +115,19 @@ public class ExternalEventsSchedulingTests extends ProceduralTestingSetup {
           0
       );
     }
+    // Update arguments
+    final var args = Json.createObjectBuilder()
+                         .add("derivationGroups", Json.createArrayBuilder()
+                                                      .add(derivationGroup)
+                                                      .add(externalEventUtils.alternateDerivationGroup()))
+                         .add("eventTypes", Json.createArrayBuilder()
+                                                .add(eventType))
+                         .build();
+    // {"derivationGroups":["A"]}
+    hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
+
+
+    // Run scheduling
     hasura.awaitScheduling(specId);
     final var plan = hasura.getPlan(planId);
     final var activities = plan.activityDirectives();
@@ -147,6 +167,15 @@ public class ExternalEventsSchedulingTests extends ProceduralTestingSetup {
           0
       );
     }
+
+    // Update arguments
+    final var args = Json.createObjectBuilder()
+                         .add("sourceKey", externalEventUtils.alternateSourceKey())
+                         .add("derivationGroup", externalEventUtils.alternateDerivationGroup())
+                         .build();
+    hasura.updateSchedulingSpecGoalArguments(procedureId.invocationId(), args);
+
+    // Run scheduling
     hasura.awaitScheduling(specId);
     final var plan = hasura.getPlan(planId);
     final var activities = plan.activityDirectives();

@@ -12,14 +12,14 @@ import java.util.List;
 import java.util.Map;
 
 @SchedulingProcedure
-public record ExternalEventsTypeQueryGoal() implements Goal {
+public record ExternalEventsTypeQueryGoal(List<String> derivationGroups, List<String> eventTypes) implements Goal {
   @Override
   public void run(@NotNull final EditablePlan plan) {
 
     // demonstrate more complicated query functionality
     EventQuery eventQuery = new EventQuery(
-        List.of("TestGroup", "TestGroup_2"),
-        List.of("TestType"),
+        derivationGroups,
+        eventTypes,
         null
     );
 

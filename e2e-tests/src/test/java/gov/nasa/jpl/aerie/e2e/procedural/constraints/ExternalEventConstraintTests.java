@@ -307,9 +307,9 @@ public class ExternalEventConstraintTests extends ProceduralTestingSetup {
 
     // update constraint arguments
     final var args = Json.createObjectBuilder()
-                         .add("eventType", "TestType_2")
-                         .add("derivationGroup", "TestGroup_2")
-                         .add("sourceKey", "NewTest.json")
+                         .add("eventType", externalEventUtils.alternateEventType())
+                         .add("derivationGroup", externalEventUtils.alternateDerivationGroup())
+                         .add("sourceKey", externalEventUtils.alternateSourceKey())
                          .build();
     hasura.updateConstraintArguments(procedureId.invocationId(), args);
 
@@ -348,7 +348,10 @@ public class ExternalEventConstraintTests extends ProceduralTestingSetup {
     uploadConstraint("ExternalEventAttributeConstraint");
 
     // update constraint arguments
-    final var args = Json.createObjectBuilder().add("codeValue", "B").build();
+    final var args = Json.createObjectBuilder()
+                         .add("eventType", eventType)
+                         .add("codeValue", "B")
+                         .build();
     hasura.updateConstraintArguments(procedureId.invocationId(), args);
 
     // run it
@@ -384,6 +387,11 @@ public class ExternalEventConstraintTests extends ProceduralTestingSetup {
   void testExternalEventActivityOverlap() throws IOException {
     // upload the constraint
     uploadConstraint("ExternalEventActivityOverlapConstraint");
+
+    // update constraint arguments
+    final var args = Json.createObjectBuilder().add("eventType", eventType).build();
+    hasura.updateConstraintArguments(procedureId.invocationId(), args);
+
 
     // add hour long activities
     hasura.insertActivityDirective(

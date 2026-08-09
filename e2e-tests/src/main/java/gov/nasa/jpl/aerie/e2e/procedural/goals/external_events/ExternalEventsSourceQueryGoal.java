@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 @SchedulingProcedure
-public record ExternalEventsSourceQueryGoal() implements Goal {
+public record ExternalEventsSourceQueryGoal(String sourceKey, String derivationGroup) implements Goal {
   @Override
   public void run(@NotNull final EditablePlan plan) {
 
@@ -20,7 +20,7 @@ public record ExternalEventsSourceQueryGoal() implements Goal {
     EventQuery eventQuery = new EventQuery(
         null,
         null,
-        List.of(new EventQuery.SourceQuery("NewTest.json", "TestGroup_2"))
+        List.of(new EventQuery.SourceQuery(sourceKey, derivationGroup))
     );
 
     for (final var e: plan.events(eventQuery)) {

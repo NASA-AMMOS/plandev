@@ -10,12 +10,12 @@ import gov.nasa.ammos.aerie.procedural.timeline.plan.SimulationResults;
 import org.jetbrains.annotations.NotNull;
 
 @ConstraintProcedure
-public record ExternalEventActivityOverlapConstraint() implements Constraint {
+public record ExternalEventActivityOverlapConstraint(String eventType) implements Constraint {
   @NotNull
   @Override
   public Violations run(@NotNull Plan plan, @NotNull SimulationResults simResults) {
     // create window of events
-    var events = new Windows(plan.events(new EventQuery(null, "TestType", null))
+    var events = new Windows(plan.events(new EventQuery(null, eventType, null))
         .filter(true, e -> {
           if (e.attributes.get("code").asString().isPresent()) {
             return e.attributes.get("code").asString().get().equals("B");

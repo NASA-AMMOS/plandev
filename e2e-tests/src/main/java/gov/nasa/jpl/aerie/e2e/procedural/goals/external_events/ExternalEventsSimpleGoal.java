@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e.procedural.scheduling.procedures;
+package gov.nasa.jpl.aerie.e2e.procedural.goals.external_events;
 
 import gov.nasa.ammos.aerie.procedural.scheduling.annotations.SchedulingProcedure;
 import gov.nasa.ammos.aerie.procedural.scheduling.Goal;

@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e.procedural.scheduling.procedures;
+package gov.nasa.jpl.aerie.e2e.procedural.constraints;
 
 import gov.nasa.ammos.aerie.procedural.constraints.Constraint;
 import gov.nasa.ammos.aerie.procedural.constraints.Violations;

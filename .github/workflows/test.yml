@@ -161,7 +161,44 @@ jobs:
       - name: Shutdown E2E Test Backend
         uses: ./.github/actions/shutdown-test-backend
 
-  java-e2e-test:
+  java-internal-e2e-test:
+    runs-on: ubuntu-latest
+    environment: e2e-test
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Setup Java
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: "temurin"
+          java-version: "21"
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
+        with:
+          # This action defaults to matching on "main" and "master" as the branches allowed to write to the cache
+          cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
+      - name: Start E2E Test Backend
+        uses: ./.github/actions/start-test-backend
+        with:
+          docker-file: ./e2e-tests/docker-compose-test.yml
+      - name: Build scheduling procedure jars for testing
+        run: ./gradlew e2e-tests:buildAllProcedureJars
+      - name: Run E2E Tests
+        run: ./gradlew e2e-tests:internalTest
+      - name: Upload E2E Test Results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: Internal E2E Test Results
+          path: |
+            **/e2e-tests/build/reports/tests/internalTest
+      - name: Shutdown Backend
+        if: always()
+        uses: ./.github/actions/shutdown-test-backend
+        with:
+          docker-file: ./e2e-tests/docker-compose-test.yml
+
+  java-system-e2e-test:
     runs-on: ubuntu-latest
     environment: e2e-test
     steps:
@@ -182,13 +219,14 @@ jobs:
       - name: Build scheduling procedure jars for testing
         run: ./gradlew e2e-tests:buildAllProcedureJars
       - name: Run E2E Tests
-        run: ./gradlew e2e-tests:e2eTest
+        run: ./gradlew e2e-tests:systemTest
       - name: Upload E2E Test Results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: E2E Test Results
+          name: System E2E Test Results
           path: |
-            **/e2e-tests/build/reports/tests/e2eTest
+            **/e2e-tests/build/reports/tests/systemTest
       - name: Shutdown Backend
+        if: always()
         uses: ./.github/actions/shutdown-test-backend

@@ -1,5 +1,10 @@
 name: Start Test Backend
 description: Compile and start up the backend for E2E Tests
+inputs:
+  docker-file:
+    description: The docker compose file to use
+    required: false
+    default: 'docker-compose.yml'
 runs:
   using: composite
   steps:
@@ -17,7 +22,9 @@ runs:
     - name: Start Hasura and Postgres
       shell: bash
       run: |
-        docker compose -f ./e2e-tests/docker-compose-test.yml up -d postgres hasura --quiet-pull
+        docker compose -f $INPUT_DOCKER_FILE up -d postgres hasura --quiet-pull
+      env:
+        INPUT_DOCKER_FILE: ${{ inputs.docker-file }}
     - name: Assemble
       # Don't generate docs for tests
       shell: bash
@@ -26,6 +33,8 @@ runs:
       shell: bash
       run: |
         echo "GATEWAY_IMAGE_TAG: $GATEWAY_IMAGE_TAG"
-        docker compose -f ./e2e-tests/docker-compose-test.yml up -d --build --quiet-pull
+        docker compose -f $INPUT_DOCKER_FILE up -d --build --quiet-pull
         docker images
         docker ps -a --no-trunc
+      env:
+        INPUT_DOCKER_FILE: ${{ inputs.docker-file }}

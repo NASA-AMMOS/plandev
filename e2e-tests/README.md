@@ -15,5 +15,5 @@ docker compose -f docker-compose-test.yml up --build
 After starting the development Docker compose stack the following commands can be issued to run these tests:
 
 ```sh
-./gradlew e2e-tests:e2eTest
+./gradlew e2e-tests:buildAllProcedureJars e2e-tests:e2eTest
 ```

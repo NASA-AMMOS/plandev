@@ -87,7 +87,7 @@ public class BulkWorkspaceRoutesTests {
 
     @BeforeEach
     void beforeEach() throws IOException {
-      workspaceId = wsServer.createWorkspace(ownerToken, "bulkPutWS", parcelId);
+      workspaceId = wsServer.createWorkspace(test_owner, "bulkPutWS", parcelId);
     }
 
     @AfterEach
@@ -665,8 +665,8 @@ public class BulkWorkspaceRoutesTests {
 
     @BeforeEach
     void beforeEach() throws IOException {
-      workspaceId = wsServer.createWorkspace(ownerToken, "bulkPostWS", parcelId);
-      otherWorkspaceId = wsServer.createWorkspace(ownerToken, "otherBulkPostWs", parcelId);
+      workspaceId = wsServer.createWorkspace(test_owner, "bulkPostWS", parcelId);
+      otherWorkspaceId = wsServer.createWorkspace(test_owner, "otherBulkPostWs", parcelId);
 
       // Prepopulate ws with contents
       final List<BulkPutItem> wsContents = List.of(
@@ -1566,7 +1566,7 @@ public class BulkWorkspaceRoutesTests {
 
     @BeforeEach
     void beforeEach() throws IOException {
-      workspaceId = wsServer.createWorkspace(ownerToken, "bulkDeleteWS", parcelId);
+      workspaceId = wsServer.createWorkspace(test_owner, "bulkDeleteWS", parcelId);
 
       // Prepopulate ws with contents
       final List<BulkPutItem> wsContents = List.of(

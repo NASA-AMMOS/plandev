@@ -238,7 +238,7 @@ public class WorkspaceManagementRoutesTests {
 
     @Test
     void ownerCanDelete() throws IOException {
-      final var wsId = wsServer.createWorkspace(nonOwnerToken, "OwnerCanDelete", parcelId);
+      final var wsId = wsServer.createWorkspace(test_nonOwner, "OwnerCanDelete", parcelId);
       final var deleteResp = wsServer.deleteWorkspace(nonOwnerToken, wsId);
       assertEquals(200, deleteResp.status());
       assertEquals("Workspace deleted.", deleteResp.text());

@@ -112,7 +112,7 @@ public class MetadataWorkspaceRoutesTests {
 
     @BeforeAll
     static void beforeAll() throws IOException {
-      workspaceId = wsServer.createWorkspace(ownerToken, "Metadata_GET_Tests", parcelId);
+      workspaceId = wsServer.createWorkspace(test_owner, "Metadata_GET_Tests", parcelId);
       wsServer.putFile(ownerToken, workspaceId, file, "Get File tests for Metadata endpoints");
 
       // Set up a file without metadata
@@ -208,7 +208,7 @@ public class MetadataWorkspaceRoutesTests {
 
     @BeforeEach
     void beforeEach() throws IOException {
-      workspaceId = wsServer.createWorkspace(ownerToken, "Metadata_SET_Tests", parcelId);
+      workspaceId = wsServer.createWorkspace(test_owner, "Metadata_SET_Tests", parcelId);
       wsServer.putFile(ownerToken, workspaceId, file, "Set File tests for Metadata endpoints");
 
       // Set up a file without metadata
@@ -696,7 +696,7 @@ public class MetadataWorkspaceRoutesTests {
 
     @BeforeEach
     void beforeEach() throws IOException {
-      workspaceId = wsServer.createWorkspace(ownerToken, "Metadata_SET_Tests", parcelId);
+      workspaceId = wsServer.createWorkspace(test_owner, "Metadata_SET_Tests", parcelId);
       wsServer.putFile(ownerToken, workspaceId, file, "Set File tests for Metadata endpoints");
       assertEquals(200, wsServer.setUserMetadata(ownerToken, workspaceId, file, initialUserObject).status());
 
@@ -1078,7 +1078,7 @@ public class MetadataWorkspaceRoutesTests {
 
     @BeforeEach
     void beforeEach() throws IOException {
-      workspaceId = wsServer.createWorkspace(ownerToken, "Metadata_DELETE_Tests", parcelId);
+      workspaceId = wsServer.createWorkspace(test_owner, "Metadata_DELETE_Tests", parcelId);
       wsServer.putFile(ownerToken, workspaceId, file, "Delete File tests for Metadata endpoints");
 
       // Set up a file without metadata

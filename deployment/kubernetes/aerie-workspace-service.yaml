@@ -1,13 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: aerie-dev
-  name: aerie-workspace
+  namespace: plandev-dev
+  name: plandev-workspace
 spec:
   selector:
-    app: aerie-workspace
+    app: plandev-workspace
   ports:
     - name: "28000"
       port: 28000
       targetPort: 28000
-

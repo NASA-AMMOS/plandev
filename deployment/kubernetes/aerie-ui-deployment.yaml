@@ -1,17 +1,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: aerie-dev
-  name: aerie-ui
+  namespace: plandev-dev
+  name: plandev-ui
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: aerie-ui
+      app: plandev-ui
   template:
     metadata:
       labels:
-        app: aerie-ui
+        app: plandev-ui
     spec:
       containers:
         - env:
@@ -28,7 +28,7 @@ spec:
             - name: PUBLIC_GATEWAY_CLIENT_URL
               value: http://localhost:9000
             - name: PUBLIC_GATEWAY_SERVER_URL
-              value: http://aerie-gateway:9000
+              value: http://plandev-gateway:9000
             - name: PUBLIC_HASURA_CLIENT_URL
               value: http://localhost:8080/v1/graphql
             - name: PUBLIC_HASURA_SERVER_URL
@@ -37,7 +37,7 @@ spec:
               value: ws://localhost:8080/v1/graphql
             - name: PUBLIC_WORKSPACE_CLIENT_URL
               value: http://localhost:28000
-          image: ghcr.io/nasa-ammos/aerie-ui:develop
-          name: aerie-ui
+          image: ghcr.io/nasa-ammos/plandev-ui:develop
+          name: plandev-ui
           ports:
             - containerPort: 80

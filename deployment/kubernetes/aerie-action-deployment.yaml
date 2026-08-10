@@ -1,27 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: aerie-dev
-  name: aerie-action
+  namespace: plandev-dev
+  name: plandev-action
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: aerie-action
+      app: plandev-action
   template:
     metadata:
       labels:
-        app: aerie-action
+        app: plandev-action
     spec:
       containers:
-        - name: aerie-action
-          image: ghcr.io/nasa-ammos/aerie-action:develop
+        - name: plandev-action
+          image: ghcr.io/nasa-ammos/plandev-action:develop
           ports:
             - containerPort: 27186
           resources: {}
           volumeMounts:
             - mountPath: /usr/src/app/action_file_store
-              name: aerie-file-store
+              name: plandev-file-store
           env:
             - name: HASURA_GRAPHQL_JWT_SECRET
               valueFrom:
@@ -64,6 +64,6 @@ spec:
                   key: SEQUENCING_PASSWORD
       restartPolicy: Always
       volumes:
-        - name: aerie-file-store
+        - name: plandev-file-store
           persistentVolumeClaim:
-            claimName: aerie-file-store
+            claimName: plandev-file-store

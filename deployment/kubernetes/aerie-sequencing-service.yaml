@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: aerie-dev
-  name: aerie-sequencing
+  namespace: plandev-dev
+  name: plandev-sequencing
 spec:
   ports:
     - name: "27184"
       port: 27184
       targetPort: 27184
   selector:
-    app: aerie-sequencing
+    app: plandev-sequencing

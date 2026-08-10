@@ -1,26 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: aerie-dev
-  name: aerie-merlin
+  namespace: plandev-dev
+  name: plandev-merlin
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: aerie-merlin
+      app: plandev-merlin
   template:
     metadata:
       labels:
-        app: aerie-merlin
+        app: plandev-merlin
     spec:
       containers:
-        - name: aerie-merlin
-          image: ghcr.io/nasa-ammos/aerie-merlin:develop
+        - name: plandev-merlin
+          image: ghcr.io/nasa-ammos/plandev-merlin:develop
           ports:
             - containerPort: 27183
           volumeMounts:
             - mountPath: /usr/src/app/merlin_file_store
-              name: aerie-file-store
+              name: plandev-file-store
           env:
             - name: JAVA_OPTS
               value: |
@@ -47,6 +47,6 @@ spec:
                   key: MERLIN_PASSWORD
       restartPolicy: Always
       volumes:
-        - name: aerie-file-store
+        - name: plandev-file-store
           persistentVolumeClaim:
-            claimName: aerie-file-store
+            claimName: plandev-file-store

@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: aerie-dev
+  namespace: plandev-dev
   name: hasura
 spec:
   replicas: 1
@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: hasura
-          image: ghcr.io/nasa-ammos/aerie-hasura
+          image: ghcr.io/nasa-ammos/plandev-hasura
           ports:
             - containerPort: 8080
           env:

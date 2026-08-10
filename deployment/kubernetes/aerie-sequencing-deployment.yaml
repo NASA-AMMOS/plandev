@@ -1,27 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: aerie-dev
-  name: aerie-sequencing
+  namespace: plandev-dev
+  name: plandev-sequencing
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: aerie-sequencing
+      app: plandev-sequencing
   template:
     metadata:
       labels:
-        app: aerie-sequencing
+        app: plandev-sequencing
     spec:
       containers:
-        - name: aerie-sequencing
-          image: ghcr.io/nasa-ammos/aerie-sequencing:develop
+        - name: plandev-sequencing
+          image: ghcr.io/nasa-ammos/plandev-sequencing:develop
           ports:
             - containerPort: 27184
           resources: {}
           volumeMounts:
             - mountPath: /usr/src/app/sequencing_file_store
-              name: aerie-file-store
+              name: plandev-file-store
           env:
             - name: HASURA_GRAPHQL_ADMIN_SECRET
               valueFrom:
@@ -54,6 +54,6 @@ spec:
                   key: SEQUENCING_PASSWORD
       restartPolicy: Always
       volumes:
-        - name: aerie-file-store
+        - name: plandev-file-store
           persistentVolumeClaim:
-            claimName: aerie-file-store
+            claimName: plandev-file-store

@@ -1,26 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: aerie-dev
-  name: aerie-gateway
+  namespace: plandev-dev
+  name: plandev-gateway
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: aerie-gateway
+      app: plandev-gateway
   template:
     metadata:
       labels:
-        app: aerie-gateway
+        app: plandev-gateway
     spec:
       containers:
-        - name: aerie-gateway
-          image: ghcr.io/nasa-ammos/aerie-gateway:develop
+        - name: plandev-gateway
+          image: ghcr.io/nasa-ammos/plandev-gateway:develop
           ports:
             - containerPort: 9000
           volumeMounts:
             - mountPath: /app/files
-              name: aerie-file-store
+              name: plandev-file-store
           env:
             - name: AUTH_TYPE
               value: none
@@ -52,6 +52,6 @@ spec:
                   name: dev-env
                   key: GATEWAY_PASSWORD
       volumes:
-        - name: aerie-file-store
+        - name: plandev-file-store
           persistentVolumeClaim:
-            claimName: aerie-file-store
+            claimName: plandev-file-store

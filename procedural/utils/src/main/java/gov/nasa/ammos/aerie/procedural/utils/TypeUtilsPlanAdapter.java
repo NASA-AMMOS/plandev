@@ -65,7 +65,7 @@ public record TypeUtilsPlanAdapter(Plan plan) implements gov.nasa.ammos.aerie.pr
       final ActivityDirective<?> act = $.getValue();
       return new Directive<>(
           (A) deserializer.invoke(SerializedValue.of(act.serializedActivity().getArguments())),
-          null, // TODO
+          () -> new AnyDirective(act.serializedActivity().getArguments()),
           act.name(),
           id,
           act.serializedActivity().getTypeName(),

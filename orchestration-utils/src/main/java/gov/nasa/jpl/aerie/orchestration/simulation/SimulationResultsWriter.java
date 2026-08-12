@@ -5,14 +5,11 @@ import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfile;
 
 import javax.json.Json;
-import javax.json.JsonReader;
 import javax.json.stream.JsonGenerator;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
-import java.io.StringReader;
 import java.io.Writer;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
@@ -176,31 +173,7 @@ public class SimulationResultsWriter {
                     .write("schema", valueSchemaP.unparse(profile.schema()))
                     .writeStartArray("segments");
 
-    if (resourceFileStreamer != null) {
-      // We expect RFS made a temp file where each line is a profile segment
-      var resourceTempFile = Path.of(resourceFileStreamer.getFileName(profileName));
-      try (final var stream = Files.lines(resourceTempFile)) {
-        stream.forEach(s -> {
-          if (!s.isBlank()) {
-            // s is a JSON object for a single segment, write it as a value to the results generator
-            // Sadly, this requires reading the object into a JsonValue, just to write it back out (!)
-            try (final JsonReader jr = Json.createReader(new StringReader(s))) {
-              resultsGenerator.write(jr.readValue());
-            }
-          }
-        });
-      } catch (IOException ex) {
-        throw new RuntimeException(ex);
-      }
-      resourceTempFile.toFile().delete();
-    } else {
-      for (var s : profile.segments()) {
-        resultsGenerator.writeStartObject()
-                        .write("extent", s.extent().toString())
-                        .write("dynamics", dynamicsParser.unparse(s.dynamics()))
-                        .writeEnd();
-      }
-    }
+    ResourceSegmentJsonWriter.writeSegments(resultsGenerator, profile, profileName, dynamicsParser, resourceFileStreamer);
 
     resultsGenerator.writeEnd().writeEnd();
   }

@@ -1,5 +1,6 @@
 package gov.nasa.jpl.aerie.stateless;
 
+import gov.nasa.jpl.aerie.orchestration.simulation.BundleWriter;
 import gov.nasa.jpl.aerie.orchestration.simulation.CanceledListener;
 import gov.nasa.jpl.aerie.orchestration.PlanJsonParser;
 import gov.nasa.jpl.aerie.orchestration.simulation.ResourceFileStreamer;
@@ -8,6 +9,7 @@ import gov.nasa.jpl.aerie.orchestration.simulation.SimulationResultsWriter;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
 import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
 import gov.nasa.jpl.aerie.merlin.driver.SimulationException;
+import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
 
 import java.nio.file.Path;
 import java.util.Map;
@@ -33,7 +35,8 @@ public class Main {
         Plan plan,
         boolean verbose,
         Optional<Path> outputFilePath,
-        long extentUpdatePeriod
+        long extentUpdatePeriod,
+        boolean bundle
     ) implements Arguments {}
   }
 
@@ -65,6 +68,7 @@ public class Main {
     final boolean verbose;
     final Optional<Path> outputFilePath;
     final long extentUpdatePeriod;
+    final boolean bundle;
 
     // Parse the command line arguments
     final Options simulationOptions = createSimulationOptions();
@@ -81,6 +85,7 @@ public class Main {
       configJsonPath = cmd.getParsedOptionValue('s', Optional.empty());
       outputFilePath = cmd.getParsedOptionValue('f', Optional.empty());
       extentUpdatePeriod = cmd.getParsedOptionValue('i', 500L);
+      bundle = cmd.hasOption("bundle");
     } catch (ParseException e) {
       simulationOptions.addOption(HELP_OPTION);
       new HelpFormatter().printHelp(
@@ -112,7 +117,7 @@ public class Main {
           plan.simulationConfiguration()
       );
 
-      return new Arguments.SimulationArguments<>(model, plan, verbose, outputFilePath, extentUpdatePeriod);
+      return new Arguments.SimulationArguments<>(model, plan, verbose, outputFilePath, extentUpdatePeriod, bundle);
     } catch (MissionModelLoader.MissionModelLoadException | MissionModelLoader.MissionModelInstantiationException e) {
       throw new RuntimeException("Error while loading mission model: "+modelJarPath, e);
     }
@@ -144,12 +149,7 @@ public class Main {
           final var results = resultsFuture.get();
 
           if (simArgs.verbose()) { System.out.println("Writing Results..."); }
-          final var resultsWriter = new SimulationResultsWriter(results, simArgs.plan, rfs);
-
-          simArgs.outputFilePath().ifPresentOrElse(
-              p -> resultsWriter.writeResults(canceledListener, p),
-              () -> resultsWriter.writeResults(canceledListener)
-          );
+          writeOutput(simArgs, results, rfs, canceledListener);
 
         } catch (InterruptedException | ExecutionException e) {
           throw new RuntimeException(e);
@@ -164,11 +164,7 @@ public class Main {
         Runtime.getRuntime().removeShutdownHook(shutdownHook);
 
         if (simArgs.verbose()) { System.out.println("Writing Results..."); }
-        final var resultsWriter = new SimulationResultsWriter(results, simArgs.plan, rfs);
-        simArgs.outputFilePath().ifPresentOrElse(
-            p -> resultsWriter.writeResults(canceledListener, p),
-            () -> resultsWriter.writeResults(canceledListener)
-        );
+        writeOutput(simArgs, results, rfs, canceledListener);
       }
     } catch (ExecutionException e) {
       if (e.getCause() instanceof SimulationException se) {
@@ -189,6 +185,32 @@ public class Main {
       // Try-catch wrapping in case this is executed while the shutdown hook is running.
       try { Runtime.getRuntime().removeShutdownHook(shutdownHook); }
       catch (IllegalStateException ise) {}
+    }
+  }
+
+  /**
+   * Write simulation output in whichever format was requested: the default results JSON,
+   * or (if {@code -b}/{@code --bundle} was passed) a single self-contained offline plan bundle
+   * combining the plan, its activity types' parameter schemas, and these simulation results.
+   */
+  private static void writeOutput(
+      Arguments.SimulationArguments<?> simArgs,
+      SimulationResults results,
+      ResourceFileStreamer rfs,
+      CanceledListener canceledListener
+  ) {
+    if (simArgs.bundle()) {
+      final var bundleWriter = new BundleWriter(results, simArgs.plan(), simArgs.missionModel(), rfs);
+      simArgs.outputFilePath().ifPresentOrElse(
+          p -> bundleWriter.writeBundle(canceledListener, p),
+          () -> bundleWriter.writeBundle(canceledListener)
+      );
+    } else {
+      final var resultsWriter = new SimulationResultsWriter(results, simArgs.plan(), rfs);
+      simArgs.outputFilePath().ifPresentOrElse(
+          p -> resultsWriter.writeResults(canceledListener, p),
+          () -> resultsWriter.writeResults(canceledListener)
+      );
     }
   }
 
@@ -235,6 +257,13 @@ public class Main {
     extentUpdateFrequency.setRequired(false);
     extentUpdateFrequency.setConverter(Long::parseLong);
 
+    final Option bundle = new Option(
+        "b",
+        "bundle",
+        false,
+        "output a single self-contained offline plan bundle (plan + activity types + simulation results, see offline-bundle-schema-v1.json) instead of the raw results JSON");
+    bundle.setRequired(false);
+
     final Options simulationOptions = new Options();
     simulationOptions.addOption(verbose);
     simulationOptions.addOption(modelPath);
@@ -242,6 +271,7 @@ public class Main {
     simulationOptions.addOption(simConfigPath);
     simulationOptions.addOption(outputFile);
     simulationOptions.addOption(extentUpdateFrequency);
+    simulationOptions.addOption(bundle);
     return simulationOptions;
   }
 

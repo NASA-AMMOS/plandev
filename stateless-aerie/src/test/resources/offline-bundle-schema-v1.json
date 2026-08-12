@@ -1,0 +1,148 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://nasa-ammos.github.io/aerie/offline-bundle-schema-v1.json",
+  "title": "Aerie Offline Plan Bundle",
+  "description": "A single self-contained file describing a plan, its activity directives, and one set of simulation results (spans + resource profiles). Produced by Aerie's stateless-aerie CLI or by any third-party simulation engine, and loaded read-only by the Aerie UI without a backend.",
+  "type": "object",
+  "required": ["bundleVersion", "plan", "activityDirectives", "simulation"],
+  "additionalProperties": false,
+  "properties": {
+    "bundleVersion": {
+      "description": "Semver of the bundle format. Loaders reject unknown major versions.",
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "plan": {
+      "type": "object",
+      "required": ["name", "startTime", "duration"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "integer" },
+        "modelId": { "type": "integer" },
+        "name": { "type": "string" },
+        "startTime": { "$ref": "#/definitions/timestamp" },
+        "duration": { "$ref": "#/definitions/duration" }
+      }
+    },
+    "activityTypes": {
+      "description": "Static per-type parameter schemas. Optional: when absent the UI renders activities without parameter metadata.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "additionalProperties": true,
+        "properties": {
+          "name": { "type": "string" },
+          "parameters": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "required": ["schema"],
+              "properties": {
+                "order": { "type": "integer" },
+                "schema": { "type": "object" },
+                "unit": { "type": "string" }
+              }
+            }
+          },
+          "requiredParameters": { "type": "array", "items": { "type": "string" } },
+          "computedAttributesValueSchema": { "type": "object" },
+          "description": { "type": "string" },
+          "subsystem": { "type": "string" }
+        }
+      }
+    },
+    "activityDirectives": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "startOffset"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "integer" },
+          "type": { "type": "string" },
+          "name": { "type": "string" },
+          "startOffset": { "$ref": "#/definitions/duration" },
+          "anchorId": { "type": ["integer", "null"] },
+          "anchoredToStart": { "type": "boolean" },
+          "arguments": { "type": "object" },
+          "metadata": { "type": "object" },
+          "tags": { "type": "array" }
+        }
+      }
+    },
+    "simulation": {
+      "type": "object",
+      "required": ["simulationStartTime", "simulationEndTime"],
+      "additionalProperties": false,
+      "properties": {
+        "simulationStartTime": { "$ref": "#/definitions/timestamp" },
+        "simulationEndTime": { "$ref": "#/definitions/timestamp" },
+        "canceled": { "type": "boolean" },
+        "spans": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "type", "startOffset"],
+            "additionalProperties": true,
+            "properties": {
+              "id": { "type": "integer" },
+              "type": { "type": "string" },
+              "parentId": { "type": ["integer", "null"] },
+              "directiveId": { "type": ["integer", "null"] },
+              "startOffset": { "$ref": "#/definitions/duration" },
+              "duration": { "$ref": "#/definitions/duration" },
+              "arguments": { "type": "object" },
+              "attributes": { "type": "object" }
+            }
+          }
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "type", "schema", "segments"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "type": { "enum": ["discrete", "real"] },
+              "schema": { "type": "object" },
+              "segments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["extent"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "extent": {
+                      "description": "This segment's OWN duration (a delta), not a cumulative offset.",
+                      "$ref": "#/definitions/duration"
+                    },
+                    "dynamics": {
+                      "description": "For discrete resources, the value itself. For real resources, {initial, rate} where rate is units per second. A null dynamics marks a gap."
+                    },
+                    "isGap": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "view": {
+      "description": "Optional embedded UI view definition. When absent the UI synthesizes a default view from the resources and activity types.",
+      "type": "object"
+    }
+  },
+  "definitions": {
+    "duration": {
+      "description": "A span of time. Accepts an Aerie signed duration ('+11:39:55.219000'), a Postgres interval ('02:27:15.059'), an ISO-8601 duration ('PT2H27M15.059S'), or an integer number of microseconds.",
+      "type": ["string", "number"]
+    },
+    "timestamp": {
+      "description": "An absolute instant. Accepts ISO-8601 ('2024-07-01T00:00:00Z') or Aerie day-of-year ('2024-183T00:00:00').",
+      "type": "string"
+    }
+  }
+}

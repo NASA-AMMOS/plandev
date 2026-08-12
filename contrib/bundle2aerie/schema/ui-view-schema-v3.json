@@ -1,0 +1,726 @@
+{
+  "$id": "https://github.com/NASA-AMMOS/plandev-ui/blob/develop/src/schemas/ui-view-schema-v1.json",
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "additionalProperties": false,
+  "definitions": {
+    "color": {
+      "description": "RGB color in hex format",
+      "pattern": "^#([a-fA-F0-9]{6}|[a-fA-F0-9]{3})$",
+      "type": "string"
+    },
+    "dynamicFilter": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "description": "Type of the filter (Type, Tag, etc)",
+          "type": "string"
+        },
+        "id": {
+          "$ref": "#/definitions/id"
+        },
+        "operator": {
+          "oneOf": [
+            {
+              "const": "equals"
+            },
+            {
+              "const": "does_not_equal"
+            },
+            {
+              "const": "includes"
+            },
+            {
+              "const": "does_not_include"
+            },
+            {
+              "const": "is_greater_than"
+            },
+            {
+              "const": "is_less_than"
+            },
+            {
+              "const": "is_within"
+            },
+            {
+              "const": "is_not_within"
+            }
+          ]
+        },
+        "subfield": {
+          "additionalProperties": false,
+          "description": "Array of activity or external event types to display in this layer",
+          "properties": {
+            "name": {
+              "description": "Subfield name",
+              "type": "string"
+            },
+            "type": {
+              "oneOf": [
+                {
+                  "const": "string"
+                },
+                {
+                  "const": "boolean"
+                },
+                {
+                  "const": "duration"
+                },
+                {
+                  "const": "int"
+                },
+                {
+                  "const": "path"
+                },
+                {
+                  "const": "real"
+                },
+                {
+                  "const": "series"
+                },
+                {
+                  "const": "struct"
+                },
+                {
+                  "const": "variant"
+                },
+                {
+                  "const": "tag"
+                }
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "value": {
+          "description": "Value of the filter",
+          "type": ["string", "integer", "array", "boolean"]
+        }
+      },
+      "required": ["field", "id", "operator", "value"]
+    },
+    "filterActivity": {
+      "additionalProperties": false,
+      "properties": {
+        "activity": {
+          "additionalProperties": false,
+          "properties": {
+            "static_types": {
+              "description": "Array of activity types to display in this layer",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "dynamic_type_filters": {
+              "description": "Array of filters with which to dynamically select activity types for display in this layer",
+              "items": {
+                "$ref": "#/definitions/dynamicFilter"
+              },
+              "type": "array"
+            },
+            "other_filters": {
+              "description": "Array of filters with which to globally filter activities for display in this layer",
+              "items": {
+                "$ref": "#/definitions/dynamicFilter"
+              },
+              "type": "array"
+            },
+            "type_subfilters": {
+              "description": "Map of types, each with an array of filters with which to subfilter activities of that type for display in this layer",
+              "additionalProperties": {
+                "$ref": "#/definitions/dynamicFilter"
+              },
+              "type": "object"
+            }
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "filterExternalEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "externalEvent": {
+          "additionalProperties": false,
+          "properties": {
+            "static_types": {
+              "description": "Array of external event types to display in this layer",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "dynamic_type_filters": {
+              "description": "Array of filters with which to dynamically select external event types for display in this layer",
+              "items": {
+                "$ref": "#/definitions/dynamicFilter"
+              },
+              "type": "array"
+            },
+            "other_filters": {
+              "description": "Array of filters with which to globally filter external events for display in this layer",
+              "items": {
+                "$ref": "#/definitions/dynamicFilter"
+              },
+              "type": "array"
+            }
+          }
+        }
+      },
+      "type": "object"
+    },
+    "filterResource": {
+      "additionalProperties": false,
+      "properties": {
+        "resource": {
+          "additionalProperties": false,
+          "description": "Resource to display in this layer",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "id": {
+      "description": "Numeric unique id >= 0",
+      "minimum": 0,
+      "type": "number"
+    },
+    "label": {
+      "additionalProperties": false,
+      "description": "Generic label object",
+      "properties": {
+        "color": {
+          "$ref": "#/definitions/color"
+        },
+        "text": {
+          "description": "Label text content",
+          "type": "string"
+        }
+      },
+      "required": ["text"],
+      "type": "object"
+    },
+    "table": {
+      "additionalProperties": false,
+      "description": "Table specification for visualizing tabular data via ag-grid",
+      "properties": {
+        "autoSizeColumns": {
+          "default": "fill",
+          "description": "The state of which the table should resize automatically",
+          "type": "string"
+        },
+        "columnDefs": {
+          "description": "Array of column definition objects that conform to the ag-grid ColumnDef type",
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "columnStates": {
+          "description": "Array of column state objects that conform to the ag-grid ColumnState type",
+          "items": {
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": ["columnDefs", "columnStates"],
+      "type": "object"
+    },
+    "viewGridComponent": {
+      "description": "Set of components available to view in a grid section",
+      "enum": [
+        "ActivityDirectivesTablePanel",
+        "ActivityFormPanel",
+        "ActivitySpansTablePanel",
+        "TimelineItemsPanel",
+        "ConstraintsPanel",
+        "ExpansionPanel",
+        "IFramePanel",
+        "PlanMetadataPanel",
+        "SchedulingConditionsPanel",
+        "SchedulingGoalsPanel",
+        "SimulationEventsPanel",
+        "SimulationPanel",
+        "TimelineEditorPanel",
+        "ExternalSourcesPanel"
+      ]
+    },
+    "yAxisId": {
+      "description": "Id of the associated y-axis. Can be null for no association.",
+      "type": ["number", "null"]
+    }
+  },
+  "description": "JSON schema definition used for configuring the Aerie UI",
+  "properties": {
+    "version": {
+      "type": "number"
+    },
+    "plan": {
+      "additionalProperties": false,
+      "description": "View configuration for a plan",
+      "properties": {
+        "activityDirectivesTable": {
+          "$ref": "#/definitions/table"
+        },
+        "activitySpansTable": {
+          "$ref": "#/definitions/table"
+        },
+        "simulationEventsTable": {
+          "$ref": "#/definitions/table"
+        },
+        "grid": {
+          "additionalProperties": false,
+          "description": "Defines the different visible sections for a plan",
+          "properties": {
+            "columnSizes": {
+              "description": "Size of each column and gutter using CSS grid notation",
+              "type": "string"
+            },
+            "leftComponentBottom": {
+              "$ref": "#/definitions/viewGridComponent"
+            },
+            "leftComponentTop": {
+              "$ref": "#/definitions/viewGridComponent"
+            },
+            "leftHidden": {
+              "description": "If true hide the left panel, if false show the left panel",
+              "type": "boolean"
+            },
+            "leftRowSizes": {
+              "description": "Size of each left row and gutter using CSS grid notation",
+              "type": "string"
+            },
+            "leftSplit": {
+              "description": "If true the left panel is split into two, if false show single left panel",
+              "type": "boolean"
+            },
+            "middleComponentBottom": {
+              "$ref": "#/definitions/viewGridComponent"
+            },
+            "middleRowSizes": {
+              "description": "Size of each middle row and gutter using CSS grid notation",
+              "type": "string"
+            },
+            "middleSplit": {
+              "description": "If true the middle panel is split into two, if false show single middle panel",
+              "type": "boolean"
+            },
+            "rightComponentBottom": {
+              "$ref": "#/definitions/viewGridComponent"
+            },
+            "rightComponentTop": {
+              "$ref": "#/definitions/viewGridComponent"
+            },
+            "rightHidden": {
+              "description": "If true hide the right panel, if false show the right panel",
+              "type": "boolean"
+            },
+            "rightRowSizes": {
+              "description": "Size of each right row and gutter using CSS grid notation",
+              "type": "string"
+            },
+            "rightSplit": {
+              "description": "If true the right panel is split into two, if false show single right panel",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "columnSizes",
+            "leftComponentBottom",
+            "leftComponentTop",
+            "leftHidden",
+            "leftRowSizes",
+            "leftSplit",
+            "middleComponentBottom",
+            "middleRowSizes",
+            "middleSplit",
+            "rightComponentBottom",
+            "rightComponentTop",
+            "rightHidden",
+            "rightRowSizes",
+            "rightSplit"
+          ],
+          "type": "object"
+        },
+        "iFrames": {
+          "description": "IFrame specifications for embedding other web pages",
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "$ref": "#/definitions/id"
+              },
+              "src": {
+                "description": "The URL of the page to embed",
+                "type": "string"
+              },
+              "title": {
+                "description": "The title attribute of the iframe",
+                "type": "string"
+              }
+            },
+            "required": ["id", "src", "title"],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "timelines": {
+          "description": "Timeline specifications for visualizing activities or resources in a timeline",
+          "items": {
+            "additionalProperties": false,
+            "description": "Displays a timeline in the section",
+            "properties": {
+              "id": {
+                "$ref": "#/definitions/id"
+              },
+              "marginLeft": {
+                "description": "Left margin of the timeline in pixels",
+                "minimum": 0,
+                "type": "number"
+              },
+              "marginRight": {
+                "description": "Right margin of the timeline in pixels",
+                "minimum": 0,
+                "type": "number"
+              },
+              "rows": {
+                "description": "Timeline row definitions",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "autoAdjustHeight": {
+                      "description": "If true the row height is set automatically to fit the row content",
+                      "type": "boolean"
+                    },
+                    "expanded": {
+                      "description": "Expanded state of the timeline row",
+                      "type": "boolean"
+                    },
+                    "discreteOptions": {
+                      "additionalProperties": false,
+                      "description": "Defines the options used for rendering external events on the timeline",
+                      "properties": {
+                        "activityOptions": {
+                          "description": "Options for activity layers in the row",
+                          "properties": {
+                            "composition": {
+                              "description": "Whether or not to display only directives, only spans, or both in the row",
+                              "enum": ["directives", "spans", "both"]
+                            },
+                            "hierarchyMode": {
+                              "description": "If 'directive' the activities are grouped starting with directive types, if 'flat' activities are grouped by type regardless of hierarchy",
+                              "enum": ["directive", "flat"]
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "displayMode": {
+                          "description": "Describes the display mode to use for rendering external events",
+                          "enum": ["compact", "grouped"]
+                        },
+                        "externalEventOptions": {
+                          "description": "Options for external event layers in the row",
+                          "properties": {
+                            "groupBy": {
+                              "description": "Determines whether to group the external events by their event type, or their external source",
+                              "enum": ["event_type_name", "source_key"]
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "height": {
+                          "description": "Height of timeline rows",
+                          "type": "number",
+                          "minimum": 16
+                        },
+                        "labelVisibility": {
+                          "description": "External event text label behavior",
+                          "enum": ["on", "off", "auto"]
+                        }
+                      },
+                      "type": "object"
+                    },
+                    "height": {
+                      "description": "Height of the row in pixels",
+                      "minimum": 0,
+                      "type": "number"
+                    },
+                    "horizontalGuides": {
+                      "description": "Row horizontal guide definitions",
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "id": {
+                            "$ref": "#/definitions/id"
+                          },
+                          "label": {
+                            "$ref": "#/definitions/label"
+                          },
+                          "y": {
+                            "description": "Y value the horizontal guide anchors to",
+                            "type": "number"
+                          },
+                          "yAxisId": {
+                            "$ref": "#/definitions/id"
+                          }
+                        },
+                        "required": ["id", "label", "y", "yAxisId"],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    },
+                    "id": {
+                      "$ref": "#/definitions/id"
+                    },
+                    "layers": {
+                      "description": "Row layer definitions",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "additionalProperties": false,
+                            "description": "Activity layer",
+                            "properties": {
+                              "activityColor": {
+                                "$ref": "#/definitions/color"
+                              },
+                              "chartType": {
+                                "const": "activity",
+                                "description": "Layer that visualizes activities"
+                              },
+                              "filter": {
+                                "$ref": "#/definitions/filterActivity"
+                              },
+                              "id": {
+                                "$ref": "#/definitions/id"
+                              },
+                              "name": {
+                                "description": "Name of the layer",
+                                "type": "string"
+                              },
+                              "yAxisId": {
+                                "$ref": "#/definitions/yAxisId"
+                              }
+                            },
+                            "required": ["activityColor", "chartType", "filter", "id", "yAxisId"],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "description": "Line layer",
+                            "properties": {
+                              "chartType": {
+                                "const": "line",
+                                "description": "Layer that visualizes points and a line"
+                              },
+                              "filter": {
+                                "$ref": "#/definitions/filterResource"
+                              },
+                              "id": {
+                                "$ref": "#/definitions/id"
+                              },
+                              "lineColor": {
+                                "$ref": "#/definitions/color"
+                              },
+                              "lineWidth": {
+                                "description": "Width of the line",
+                                "type": "number"
+                              },
+                              "name": {
+                                "description": "Name of the layer",
+                                "type": "string"
+                              },
+                              "pointRadius": {
+                                "description": "Radius of the points",
+                                "type": "number"
+                              },
+                              "yAxisId": {
+                                "$ref": "#/definitions/yAxisId"
+                              }
+                            },
+                            "required": [
+                              "chartType",
+                              "filter",
+                              "id",
+                              "lineColor",
+                              "lineWidth",
+                              "pointRadius",
+                              "yAxisId"
+                            ],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "description": "X-range layer",
+                            "properties": {
+                              "chartType": {
+                                "const": "x-range",
+                                "description": "Layer that visualizes range data as full-height colored rectangles"
+                              },
+                              "colorScheme": {
+                                "description": "https://github.com/d3/d3-scale-chromatic/blob/main/README.md#api-reference",
+                                "enum": [
+                                  "schemeAccent",
+                                  "schemeCategory10",
+                                  "schemeDark2",
+                                  "schemePaired",
+                                  "schemePastel1",
+                                  "schemePastel2",
+                                  "schemeSet1",
+                                  "schemeSet2",
+                                  "schemeSet3",
+                                  "schemeTableau10"
+                                ],
+                                "type": "string"
+                              },
+                              "filter": {
+                                "$ref": "#/definitions/filterResource"
+                              },
+                              "id": {
+                                "$ref": "#/definitions/id"
+                              },
+                              "name": {
+                                "description": "Name of the layer",
+                                "type": "string"
+                              },
+                              "opacity": {
+                                "type": "number"
+                              },
+                              "showAsLinePlot": {
+                                "type": "boolean"
+                              },
+                              "yAxisId": {
+                                "$ref": "#/definitions/yAxisId"
+                              }
+                            },
+                            "required": ["chartType", "colorScheme", "filter", "id", "opacity", "yAxisId"],
+                            "type": "object"
+                          },
+                          {
+                            "additionalProperties": false,
+                            "description": "External event layer",
+                            "properties": {
+                              "externalEventColor": {
+                                "$ref": "#/definitions/color"
+                              },
+                              "chartType": {
+                                "const": "externalEvent",
+                                "description": "Layer that visualizes external events"
+                              },
+                              "filter": {
+                                "$ref": "#/definitions/filterExternalEvent"
+                              },
+                              "id": {
+                                "$ref": "#/definitions/id"
+                              },
+                              "name": {
+                                "description": "Name of the layer",
+                                "type": "string"
+                              },
+                              "yAxisId": {
+                                "$ref": "#/definitions/yAxisId"
+                              }
+                            },
+                            "type": "object"
+                          }
+                        ]
+                      },
+                      "type": "array"
+                    },
+                    "name": {
+                      "description": "Name of the row",
+                      "type": "string"
+                    },
+                    "yAxes": {
+                      "description": "Row y-axes definitions",
+                      "items": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "color": {
+                            "$ref": "#/definitions/color"
+                          },
+                          "domainFitMode": {
+                            "description": "Describes the domain fitting behavior for the axis",
+                            "enum": ["fitPlan", "fitTimeWindow", "manual"],
+                            "type": "string"
+                          },
+                          "id": {
+                            "$ref": "#/definitions/id"
+                          },
+                          "label": {
+                            "$ref": "#/definitions/label"
+                          },
+                          "renderTickLines": {
+                            "description": "If true render horizontal lines for each y axis tick, if false do not render them",
+                            "type": "boolean"
+                          },
+                          "scaleDomain": {
+                            "description": "Min and max values of the axis domain: [min, max], only used if domainFitMode is set to manual",
+                            "items": {
+                              "type": "number"
+                            },
+                            "type": "array"
+                          },
+                          "tickCount": {
+                            "description": "Number of ticks on the axis",
+                            "minimum": 0,
+                            "type": "number"
+                          }
+                        },
+                        "required": ["color", "id", "label", "tickCount"],
+                        "type": "object"
+                      },
+                      "type": "array"
+                    }
+                  },
+                  "required": [
+                    "autoAdjustHeight",
+                    "expanded",
+                    "height",
+                    "horizontalGuides",
+                    "id",
+                    "layers",
+                    "name",
+                    "yAxes"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "verticalGuides": {
+                "description": "Timeline vertical guide definitions",
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "$ref": "#/definitions/id"
+                    },
+                    "label": {
+                      "$ref": "#/definitions/label"
+                    },
+                    "timestamp": {
+                      "description": "DOY timestamp (YYYY-DDDThh:mm:ss) of the vertical guide",
+                      "type": "string"
+                    }
+                  },
+                  "required": ["id", "label", "timestamp"],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": ["id", "marginLeft", "marginRight", "rows", "verticalGuides"],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": ["activityDirectivesTable", "activitySpansTable", "grid", "iFrames", "timelines"],
+      "type": "object"
+    }
+  },
+  "required": ["plan", "version"],
+  "title": "View",
+  "type": "object"
+}

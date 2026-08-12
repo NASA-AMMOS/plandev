@@ -101,9 +101,13 @@ public class CLIArgumentsTest {
     void simulationHelp() {
       final var helpString =
        """
-       usage: stateless-aerie simulate [-f <arg>] [-h] [-i <arg>] -m <arg> -p
-              <arg> [-s <arg>] [-v]
+       usage: stateless-aerie simulate [-b] [-f <arg>] [-h] [-i <arg>] -m <arg>
+              -p <arg> [-s <arg>] [-v]
        Simulate a plan using the specified model and configuration
+        -b,--bundle                  output a single self-contained offline plan
+                                     bundle (plan + activity types + simulation
+                                     results, see offline-bundle-schema-v1.json)
+                                     instead of the raw results JSON
         -f,--file <arg>              output file path
         -h,--help                    display this message and exit
         -i,--update_interval <arg>   minimum interval that simulation extent

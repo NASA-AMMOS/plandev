@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<XML_TOL>
+    <ResourceMetadata>
+        <ResourceSpec>
+            <Name>downlinkCompleted</Name>
+            <Index level="0">leftDBFAntennaPatternDM1_ch5</Index>
+            <DataType>boolean</DataType>
+            <Units></Units>
+            <Interpolation>constant</Interpolation>
+            <Maximum></Maximum>
+            <Minimum></Minimum>
+            <Subsystem>calibrations</Subsystem>
+        </ResourceSpec>
+        <ResourceSpec>
+            <Name>batterySoC</Name>
+            <DataType>float</DataType>
+            <Units>percent</Units>
+            <Interpolation>linear</Interpolation>
+            <Maximum></Maximum>
+            <Minimum></Minimum>
+            <Subsystem>power</Subsystem>
+        </ResourceSpec>
+        <ResourceSpec>
+            <Name>lsarInUse</Name>
+            <DataType>integer</DataType>
+            <Units></Units>
+            <Interpolation>constant</Interpolation>
+            <Maximum></Maximum>
+            <Minimum></Minimum>
+            <Subsystem>calibrations</Subsystem>
+        </ResourceSpec>
+    </ResourceMetadata>
+
+    <TOLrecord type="ACT_START">
+        <TimeStamp>2024-030T00:00:00.000000</TimeStamp>
+        <Instance>
+            <ID>11111111-1111-1111-1111-111111111111</ID>
+            <Name>ParentActivity</Name>
+            <Type>ParentType</Type>
+            <Parent />
+            <Visibility>visible</Visibility>
+            <Attributes>
+                <Attribute>
+                    <Name>start</Name>
+                    <TimeValue milliseconds="1706572800000">2024-030T00:00:00.000000</TimeValue>
+                </Attribute>
+                <Attribute>
+                    <Name>span</Name>
+                    <DurationValue milliseconds="3600000">01:00:00.000000</DurationValue>
+                </Attribute>
+                <Attribute>
+                    <Name>subsystem</Name>
+                    <StringValue>generic</StringValue>
+                </Attribute>
+                <Attribute>
+                    <Name>legend</Name>
+                    <StringValue>Parent legend</StringValue>
+                </Attribute>
+            </Attributes>
+            <Parameters>
+                <Parameter>
+                    <Name>label</Name>
+                    <StringValue>top level</StringValue>
+                </Parameter>
+            </Parameters>
+        </Instance>
+    </TOLrecord>
+
+    <TOLrecord type="ACT_START">
+        <TimeStamp>2024-030T00:10:00.000000</TimeStamp>
+        <Instance>
+            <ID>22222222-2222-2222-2222-222222222222</ID>
+            <Name>ChildActivity</Name>
+            <Type>ChildType</Type>
+            <Parent>11111111-1111-1111-1111-111111111111</Parent>
+            <Visibility>visible</Visibility>
+            <Attributes>
+                <Attribute>
+                    <Name>start</Name>
+                    <TimeValue milliseconds="1706573400000">2024-030T00:10:00.000000</TimeValue>
+                </Attribute>
+                <Attribute>
+                    <Name>span</Name>
+                    <DurationValue milliseconds="300000">00:05:00.000000</DurationValue>
+                </Attribute>
+                <Attribute>
+                    <Name>subsystem</Name>
+                    <StringValue>generic</StringValue>
+                </Attribute>
+            </Attributes>
+            <Parameters>
+                <Parameter>
+                    <Name>counter</Name>
+                    <IntegerValue>3</IntegerValue>
+                </Parameter>
+            </Parameters>
+        </Instance>
+    </TOLrecord>
+
+    <TOLrecord type="ACT_END">
+        <TimeStamp>2024-030T00:15:00.000000</TimeStamp>
+        <ActivityID>22222222-2222-2222-2222-222222222222</ActivityID>
+    </TOLrecord>
+
+    <TOLrecord type="ACT_START">
+        <TimeStamp>2024-030T00:20:00.000000</TimeStamp>
+        <Instance>
+            <ID>33333333-3333-3333-3333-333333333333</ID>
+            <Name>OrphanActivity</Name>
+            <Type>OrphanType</Type>
+            <Parent />
+            <Visibility>visible</Visibility>
+            <Attributes>
+                <Attribute>
+                    <Name>start</Name>
+                    <TimeValue milliseconds="1706574000000">2024-030T00:20:00.000000</TimeValue>
+                </Attribute>
+                <Attribute>
+                    <Name>span</Name>
+                    <DurationValue milliseconds="120000">00:02:00.000000</DurationValue>
+                </Attribute>
+            </Attributes>
+            <Parameters>
+            </Parameters>
+        </Instance>
+    </TOLrecord>
+
+    <TOLrecord type="ACT_END">
+        <TimeStamp>2024-030T01:00:00.000000</TimeStamp>
+        <ActivityID>11111111-1111-1111-1111-111111111111</ActivityID>
+    </TOLrecord>
+
+    <TOLrecord type="RES_VAL">
+        <TimeStamp>2024-030T00:00:00.000000</TimeStamp>
+        <Resource>
+            <Name>downlinkCompleted</Name>
+            <Index level="0">leftDBFAntennaPatternDM1_ch5</Index>
+            <BooleanValue>false</BooleanValue>
+        </Resource>
+    </TOLrecord>
+
+    <TOLrecord type="RES_VAL">
+        <TimeStamp>2024-030T00:30:00.000000</TimeStamp>
+        <Resource>
+            <Name>downlinkCompleted</Name>
+            <Index level="0">leftDBFAntennaPatternDM1_ch5</Index>
+            <BooleanValue>true</BooleanValue>
+        </Resource>
+    </TOLrecord>
+
+    <TOLrecord type="RES_FINAL_VAL">
+        <TimeStamp>2024-030T01:00:00.000000</TimeStamp>
+        <Resource>
+            <Name>downlinkCompleted</Name>
+            <Index level="0">leftDBFAntennaPatternDM1_ch5</Index>
+            <BooleanValue>false</BooleanValue>
+        </Resource>
+    </TOLrecord>
+
+    <TOLrecord type="RES_VAL">
+        <TimeStamp>2024-030T00:00:00.000000</TimeStamp>
+        <Resource>
+            <Name>batterySoC</Name>
+            <FloatValue>100.0</FloatValue>
+        </Resource>
+    </TOLrecord>
+
+    <TOLrecord type="RES_VAL">
+        <TimeStamp>2024-030T00:20:00.000000</TimeStamp>
+        <Resource>
+            <Name>batterySoC</Name>
+            <FloatValue>88.0</FloatValue>
+        </Resource>
+    </TOLrecord>
+
+    <TOLrecord type="RES_FINAL_VAL">
+        <TimeStamp>2024-030T01:00:00.000000</TimeStamp>
+        <Resource>
+            <Name>batterySoC</Name>
+            <FloatValue>40.0</FloatValue>
+        </Resource>
+    </TOLrecord>
+
+    <TOLrecord type="RES_VAL">
+        <TimeStamp>2024-030T00:00:00.000000</TimeStamp>
+        <Resource>
+            <Name>lsarInUse</Name>
+            <IntegerValue>0</IntegerValue>
+        </Resource>
+    </TOLrecord>
+
+    <TOLrecord type="RES_FINAL_VAL">
+        <TimeStamp>2024-030T01:00:00.000000</TimeStamp>
+        <Resource>
+            <Name>lsarInUse</Name>
+            <IntegerValue>1</IntegerValue>
+        </Resource>
+    </TOLrecord>
+
+    <TOLrecord type="ERROR">
+        <TimeStamp>2024-030T00:05:00.000000</TimeStamp>
+        <Rule>
+            <Name>someRule</Name>
+        </Rule>
+    </TOLrecord>
+
+    <TOLrecord type="RELEASE">
+        <TimeStamp>2024-030T00:06:00.000000</TimeStamp>
+        <Rule>
+            <Name>someRule</Name>
+        </Rule>
+    </TOLrecord>
+</XML_TOL>

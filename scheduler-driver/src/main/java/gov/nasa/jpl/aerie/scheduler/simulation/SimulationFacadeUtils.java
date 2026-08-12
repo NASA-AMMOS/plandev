@@ -30,7 +30,7 @@ public class SimulationFacadeUtils {
     if(activities.isEmpty()) return new SimulationFacade.PlanSimCorrespondence(Map.of());
     //filter out child activities
     final var activitiesWithoutParent = activities.stream().filter(a -> a.topParent() == null).toList();
-    final Map<ActivityDirectiveId, ActivityDirective> directivesToSimulate = new HashMap<>();
+    final Map<ActivityDirectiveId, ActivityDirective<?>> directivesToSimulate = new HashMap<>();
 
     for(final var activity : activitiesWithoutParent) {
       final var activityDirective = schedulingActToActivityDir(activity, schedulerModel);
@@ -154,9 +154,10 @@ public class SimulationFacadeUtils {
       }
     }
     final var serializedActivity = new SerializedActivity(activity.getType().getName(), arguments);
-    return new ActivityDirective(
+    return new ActivityDirective<SerializedActivity>(
         activity.startOffset(),
         serializedActivity,
+        () -> serializedActivity,
         activity.anchorId(),
         activity.anchoredToStart(),
         activity.name());

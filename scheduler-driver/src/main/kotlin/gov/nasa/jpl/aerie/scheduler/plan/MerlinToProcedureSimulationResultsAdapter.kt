@@ -2,6 +2,7 @@ package gov.nasa.jpl.aerie.scheduler.plan
 
 import gov.nasa.ammos.aerie.procedural.scheduling.utils.PerishableSimulationResults
 import gov.nasa.ammos.aerie.procedural.timeline.Interval
+import gov.nasa.ammos.aerie.procedural.timeline.collections.Directives
 import gov.nasa.ammos.aerie.procedural.timeline.collections.Instances
 import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment
@@ -153,4 +154,5 @@ open class MerlinToProcedureSimulationResultsAdapter(
   }
 
   override fun <A : Any> inputDirectives(deserializer: (SerializedValue) -> A) = plan.directives(null, deserializer)
+    override fun rawDirectives(): Directives<*> = plan.rawDirectives()
 }

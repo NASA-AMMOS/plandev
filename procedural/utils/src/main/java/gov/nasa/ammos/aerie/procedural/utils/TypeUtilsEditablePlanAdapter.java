@@ -22,12 +22,14 @@ import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveSta
 import gov.nasa.jpl.aerie.types.ActivityDirective;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.Plan;
+import gov.nasa.jpl.aerie.types.SerializedActivity;
 import kotlin.jvm.functions.Function1;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -91,7 +93,7 @@ public class TypeUtilsEditablePlanAdapter implements gov.nasa.ammos.aerie.proced
   }
 
   @Override
-  public void create(@NotNull Directive<AnyDirective> directive) {
+  public void create(@NotNull Directive<?> directive) {
     changedSinceLastSim = true;
     plan.plan().activityDirectives().put(directive.id, toTypeUtilsActivity(directive));
   }
@@ -117,15 +119,15 @@ public class TypeUtilsEditablePlanAdapter implements gov.nasa.ammos.aerie.proced
     }
   }
 
-  private static ActivityDirective toTypeUtilsActivity(Directive<AnyDirective> activity) {
-    return new ActivityDirective(
+  private static ActivityDirective<?> toTypeUtilsActivity(Directive<?> activity) {
+    return new ActivityDirective<>(
             switch (activity.getStart()) {
               case DirectiveStart.Anchor a -> a.getOffset();
               case DirectiveStart.Absolute a -> a.getTime();
               default -> throw new Error("unreachable");
             },
-            activity.getType(),
-            activity.inner.arguments,
+            activity.inner,
+            () -> new SerializedActivity(activity.getType(), Map.copyOf(activity.getSerializer().invoke().arguments)),
             switch (activity.getStart()) {
               case DirectiveStart.Anchor a -> a.getParentId();
               case DirectiveStart.Absolute ignored -> null;
@@ -182,5 +184,11 @@ public class TypeUtilsEditablePlanAdapter implements gov.nasa.ammos.aerie.proced
   @Override
   public ExternalEvents events(@NotNull EventQuery query) {
     return plan.events(query);
+  }
+
+  @Override
+  @NotNull
+  public Directives<?> rawDirectives() {
+    return plan.rawDirectives();
   }
 }

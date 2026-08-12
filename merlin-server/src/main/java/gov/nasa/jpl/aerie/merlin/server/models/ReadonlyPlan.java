@@ -92,8 +92,10 @@ public final class ReadonlyPlan implements Plan {
                                        new DirectiveStart.Absolute(dir.startOffset())
                                      : new DirectiveStart.Anchor(dir.anchorId(), dir.startOffset(), anchorPoint);
 
+                                 var arguments = dir.serializedActivity().getArguments();
                                  return new Directive<A>(
-                                     deserializer.invoke(SerializedValue.of(dir.serializedActivity().getArguments())),
+                                     deserializer.invoke(SerializedValue.of(arguments)),
+                                     () -> new AnyDirective(arguments),
                                      dir.name(),
                                      dirId,
                                      dir.serializedActivity().getTypeName(),
@@ -165,5 +167,10 @@ public final class ReadonlyPlan implements Plan {
   @Override
   public ExternalEvents events() {
     return events(new EventQuery());
+  }
+
+  @Override
+  public @NotNull Directives<?> rawDirectives() {
+    return null;
   }
 }

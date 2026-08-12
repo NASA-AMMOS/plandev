@@ -20,7 +20,7 @@ interface EditablePlan: Plan {
    * @param directive a directive without a directive id.
    * @return a long, the directive id this activity will have.
    */
-  fun create(directive: NewDirective): ActivityDirectiveId
+  fun create(directive: NewDirective<*>): ActivityDirectiveId
 
   /** A simplified version of [create] with minimal arguments. */
   fun create(
@@ -29,6 +29,7 @@ interface EditablePlan: Plan {
       arguments: Map<String, SerializedValue>
   ) = create(NewDirective(
       AnyDirective(arguments),
+      {AnyDirective(arguments)},
       "Unnamed Activity",
       type,
       start

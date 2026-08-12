@@ -110,7 +110,7 @@ public class FooSimulationDuplicationTest {
         new MissionModelBuilder(),
         Instant.EPOCH,
         new Configuration());
-    final Map<ActivityDirectiveId, ActivityDirective> schedule = Map.ofEntries(
+    final Map<ActivityDirectiveId, ActivityDirective<?>> schedule = Map.ofEntries(
         activityFrom(1, MINUTE, "foo", Map.of("z", SerializedValue.of(123))),
         activityFrom(7, MINUTES, "foo", Map.of("z", SerializedValue.of(999)))
     );
@@ -151,7 +151,7 @@ public class FooSimulationDuplicationTest {
         new MissionModelBuilder(),
         Instant.EPOCH,
         new Configuration());
-    final Map<ActivityDirectiveId, ActivityDirective> schedule = Map.ofEntries(
+    final Map<ActivityDirectiveId, ActivityDirective<?>> schedule = Map.ofEntries(
         activityFrom(1, MINUTE, "foo", Map.of("z", SerializedValue.of(123))),
         activityFrom(7, MINUTES, "foo", Map.of("z", SerializedValue.of(999)))
     );
@@ -203,7 +203,7 @@ public class FooSimulationDuplicationTest {
         new MissionModelBuilder(),
         Instant.EPOCH,
         new Configuration());
-    final Map<ActivityDirectiveId, ActivityDirective> schedule = Map.ofEntries(
+    final Map<ActivityDirectiveId, ActivityDirective<?>> schedule = Map.ofEntries(
         activityFrom(1, MINUTE, "foo", Map.of("z", SerializedValue.of(123))),
         activityFrom(7, MINUTES, "foo", Map.of("z", SerializedValue.of(999)))
     );
@@ -255,16 +255,16 @@ public class FooSimulationDuplicationTest {
         new MissionModelBuilder(),
         Instant.EPOCH,
         new Configuration());
-    final Pair<ActivityDirectiveId, ActivityDirective> activity1 = activityFrom(
+    final Pair<ActivityDirectiveId, ActivityDirective<?>> activity1 = activityFrom(
         1,
         MINUTE,
         "foo",
         Map.of("z", SerializedValue.of(123)));
-    final Map<ActivityDirectiveId, ActivityDirective> schedule1 = Map.ofEntries(
+    final Map<ActivityDirectiveId, ActivityDirective<?>> schedule1 = Map.ofEntries(
         activity1,
         activityFrom(7, MINUTES, "foo", Map.of("z", SerializedValue.of(999)))
     );
-    final Map<ActivityDirectiveId, ActivityDirective> schedule2 = Map.ofEntries(
+    final Map<ActivityDirectiveId, ActivityDirective<?>> schedule2 = Map.ofEntries(
         activity1,
         activityFrom(390, SECONDS, "foo", Map.of("z", SerializedValue.of(999)))
     );
@@ -321,12 +321,12 @@ public class FooSimulationDuplicationTest {
 
   private static long nextActivityDirectiveId = 0L;
 
-  private static Pair<ActivityDirectiveId, ActivityDirective> activityFrom(final long quantity, final Duration unit, final String type, final Map<String, SerializedValue> args) {
+  private static Pair<ActivityDirectiveId, ActivityDirective<?>> activityFrom(final long quantity, final Duration unit, final String type, final Map<String, SerializedValue> args) {
     return activityFrom(Duration.of(quantity, unit), type, args);
   }
 
-  private static Pair<ActivityDirectiveId, ActivityDirective> activityFrom(final Duration startOffset, final String type, final Map<String, SerializedValue> args) {
-    return Pair.of(new ActivityDirectiveId(nextActivityDirectiveId++), new ActivityDirective(startOffset, type, args, null, true));
+  private static Pair<ActivityDirectiveId, ActivityDirective<?>> activityFrom(final Duration startOffset, final String type, final Map<String, SerializedValue> args) {
+    return Pair.of(new ActivityDirectiveId(nextActivityDirectiveId++), new ActivityDirective<?>(startOffset, type, args, null, true));
   }
 
 
@@ -371,7 +371,7 @@ public class FooSimulationDuplicationTest {
       final MissionModel<?> missionModel,
       final CachedSimulationEngine cachedSimulationEngine,
       final List<Duration> desiredCheckpoints,
-      final Map<ActivityDirectiveId, ActivityDirective> schedule,
+      final Map<ActivityDirectiveId, ActivityDirective<?>> schedule,
       final CachedEngineStore cachedEngineStore,
       final SimulationEngineConfiguration simulationEngineConfiguration
   ) {
@@ -395,7 +395,7 @@ public class FooSimulationDuplicationTest {
   static SimulationResults simulateWithCheckpoints(
       final MissionModel<?> missionModel,
       final List<Duration> desiredCheckpoints,
-      final Map<ActivityDirectiveId, ActivityDirective> schedule,
+      final Map<ActivityDirectiveId, ActivityDirective<?>> schedule,
       final CachedEngineStore cachedEngineStore,
       final SimulationEngineConfiguration simulationEngineConfiguration
   ) {

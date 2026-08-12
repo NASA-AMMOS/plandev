@@ -23,4 +23,7 @@ open class StubSimulationResults: SimulationResults {
   ): TL = TODO()
   override fun <A : Any> instances(type: String?, deserializer: (SerializedValue) -> A): Instances<A> = TODO()
   override fun <A : Any> inputDirectives(deserializer: (SerializedValue) -> A): Directives<A> = TODO()
+    override fun rawDirectives(): Directives<*> {
+        TODO("Not yet implemented")
+    }
 }

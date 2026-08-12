@@ -6,10 +6,13 @@ import gov.nasa.jpl.aerie.merlin.driver.StartOffsetReducer;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.types.ActivityDirective;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.jpl.aerie.types.SerializedActivity;
 import org.apache.commons.lang3.tuple.Pair;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -31,11 +34,11 @@ public class SchedulePlanGrounder {
         .stream().map(ActivityDirectiveId::id)
         .max(Long::compare);
 
-    final var converted = schedulingActivityList
+    final Map<ActivityDirectiveId, ActivityDirective<?>> converted = schedulingActivityList
         .stream()
         .map(a -> Pair.of(
             a.id(),
-            new ActivityDirective(
+            new ActivityDirective<>(
                 a.startOffset(),
                 a.type().getName(),
                 a.arguments(),

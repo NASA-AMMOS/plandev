@@ -2,6 +2,7 @@ package gov.nasa.jpl.aerie.scheduler.server.models;
 
 import gov.nasa.jpl.aerie.types.ActivityDirective;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.jpl.aerie.types.SerializedActivity;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -10,7 +11,7 @@ import java.util.Optional;
 
 public class MerlinPlan {
 
-  private final Map<ActivityDirectiveId, ActivityDirective> activities;
+  private final Map<ActivityDirectiveId, ActivityDirective<?>> activities;
 
   public MerlinPlan(){
     activities = new HashMap<>();
@@ -23,11 +24,11 @@ public class MerlinPlan {
     activities.put(id, activity);
   }
 
-  public Map<ActivityDirectiveId, ActivityDirective> getActivitiesById(){
+  public Map<ActivityDirectiveId, ActivityDirective<?>> getActivitiesById(){
     return Collections.unmodifiableMap(activities);
   }
 
-  public Optional<ActivityDirective> getActivityById(final ActivityDirectiveId id){
+  public Optional<ActivityDirective<?>> getActivityById(final ActivityDirectiveId id){
     return Optional.ofNullable(activities.get(id));
   }
 

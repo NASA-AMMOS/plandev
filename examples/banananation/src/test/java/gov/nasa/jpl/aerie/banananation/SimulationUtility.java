@@ -20,7 +20,7 @@ import java.util.concurrent.ExecutionException;
 
 public final class SimulationUtility {
   public static SimulationResults
-  simulate(final Map<ActivityDirectiveId, ActivityDirective> schedule, final Duration simulationDuration) {
+  simulate(final Map<ActivityDirectiveId, ActivityDirective<?>> schedule, final Duration simulationDuration) {
     final var dataPath = Path.of(SimulationUtility.class.getResource("data/lorem_ipsum.txt").getPath());
     final var config = new Configuration(Configuration.DEFAULT_PLANT_COUNT, Configuration.DEFAULT_PRODUCER, dataPath, Configuration.DEFAULT_INITIAL_CONDITIONS);
     final var startTime = Instant.now();
@@ -44,14 +44,14 @@ public final class SimulationUtility {
   }
 
   @SafeVarargs
-  public static Map<ActivityDirectiveId, ActivityDirective> buildSchedule(final Pair<Duration, SerializedActivity>... activitySpecs) {
-    final var schedule = new HashMap<ActivityDirectiveId, ActivityDirective>();
+  public static Map<ActivityDirectiveId, ActivityDirective<?>> buildSchedule(final Pair<Duration, SerializedActivity>... activitySpecs) {
+    final var schedule = new HashMap<ActivityDirectiveId, ActivityDirective<?>>();
     long counter = 0;
 
     for (final var activitySpec : activitySpecs) {
       schedule.put(
           new ActivityDirectiveId(counter++),
-          new ActivityDirective(activitySpec.getLeft(), activitySpec.getRight(), null, true));
+          new ActivityDirective<?>(activitySpec.getLeft(), activitySpec.getRight(), null, true));
     }
 
     return schedule;

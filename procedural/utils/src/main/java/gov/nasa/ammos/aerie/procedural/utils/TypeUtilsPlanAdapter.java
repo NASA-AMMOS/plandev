@@ -5,6 +5,7 @@ import gov.nasa.ammos.aerie.procedural.timeline.collections.Directives;
 import gov.nasa.ammos.aerie.procedural.timeline.collections.ExternalEvents;
 import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment;
+import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart;
 import gov.nasa.ammos.aerie.procedural.timeline.plan.EventQuery;
@@ -51,7 +52,7 @@ public record TypeUtilsPlanAdapter(Plan plan) implements gov.nasa.ammos.aerie.pr
       String type,
       @NotNull Function1<? super SerializedValue, ? extends A> deserializer)
   {
-    final Stream<Map.Entry<ActivityDirectiveId, ActivityDirective>> activities;
+    final Stream<Map.Entry<ActivityDirectiveId, ActivityDirective<?>>> activities;
     if (type == null) {
       activities = plan.activityDirectives().entrySet().stream();
     } else {
@@ -61,9 +62,10 @@ public record TypeUtilsPlanAdapter(Plan plan) implements gov.nasa.ammos.aerie.pr
 
     final List<Directive<A>> result = activities.map($ -> {
       final var id = $.getKey();
-      final var act = $.getValue();
+      final ActivityDirective<?> act = $.getValue();
       return new Directive<>(
           (A) deserializer.invoke(SerializedValue.of(act.serializedActivity().getArguments())),
+          null, // TODO
           act.name(),
           id,
           act.serializedActivity().getTypeName(),
@@ -95,5 +97,24 @@ public record TypeUtilsPlanAdapter(Plan plan) implements gov.nasa.ammos.aerie.pr
   @Override
   public ExternalEvents events(@NotNull final EventQuery query) {
     throw new NotImplementedException();
+  }
+
+  @Override
+  @NotNull
+  public Directives<?> rawDirectives() {
+    return new Directives<>(plan.activityDirectives().entrySet().stream().map($ -> {
+      ActivityDirective<?> act = $.getValue();
+      return new Directive<>(
+          act.thing(),
+          () -> new AnyDirective(act.serializedActivity().getArguments()), act.name(), $.getKey(), act.serializedActivity().getTypeName(), act.anchorId() == null
+          ? new DirectiveStart.Absolute(act.startOffset())
+          : new DirectiveStart.Anchor(
+          act.anchorId(),
+          act.startOffset(),
+          act.anchoredToStart()
+              ? DirectiveStart.Anchor.AnchorPoint.Start
+              : DirectiveStart.Anchor.AnchorPoint.End
+      ));
+    }).toList());
   }
 }

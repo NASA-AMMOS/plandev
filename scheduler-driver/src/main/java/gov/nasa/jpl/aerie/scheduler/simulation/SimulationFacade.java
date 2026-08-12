@@ -8,6 +8,7 @@ import gov.nasa.jpl.aerie.scheduler.model.Plan;
 import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
 import gov.nasa.jpl.aerie.types.ActivityDirective;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.jpl.aerie.types.SerializedActivity;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -61,12 +62,12 @@ public interface SimulationFacade {
   ) {}
 
   record PlanSimCorrespondence(
-      Map<ActivityDirectiveId, ActivityDirective> directiveIdActivityDirectiveMap){
+      Map<ActivityDirectiveId, ActivityDirective<?>> directiveIdActivityDirectiveMap){
     @Override
     public boolean equals(Object other){
       if(other instanceof PlanSimCorrespondence planSimCorrespondenceAs){
         return directiveIdActivityDirectiveMap.size() == planSimCorrespondenceAs.directiveIdActivityDirectiveMap.size() &&
-               new HashSet<>(directiveIdActivityDirectiveMap.values()).containsAll(new HashSet<>(((PlanSimCorrespondence) other).directiveIdActivityDirectiveMap.values()));
+               new HashSet<>(directiveIdActivityDirectiveMap.values()).containsAll(new HashSet<>(planSimCorrespondenceAs.directiveIdActivityDirectiveMap.values()));
       }
       return false;
     }

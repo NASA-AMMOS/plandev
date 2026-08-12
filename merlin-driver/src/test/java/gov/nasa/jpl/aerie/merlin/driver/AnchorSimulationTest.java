@@ -43,19 +43,19 @@ public final class AnchorSimulationTest {
     @Test
     @DisplayName("Activities anchored to the plan depend on no activities")
     public void activitiesWithoutAnchor() {
-      final var activityDirectives = new HashMap<ActivityDirectiveId, ActivityDirective>(15);
+      final var activityDirectives = new HashMap<ActivityDirectiveId, ActivityDirective<?>>(15);
 
       // Anchored to Plan Start (only positive is allowed)
       for (long l = 0; l < 5; l++) {
         activityDirectives.put(
             new ActivityDirectiveId(l),
-            new ActivityDirective(Duration.of(l, Duration.SECONDS), serializedActivity, null, true));
+            new ActivityDirective<?>(Duration.of(l, Duration.SECONDS), serializedActivity, null, true));
       }
       // Anchored to Plan End, positive
       for (long l = 5; l < 10; l++) {
         activityDirectives.put(
             new ActivityDirectiveId(l),
-            new ActivityDirective(Duration.of(l, Duration.SECONDS),
+            new ActivityDirective<?>(Duration.of(l, Duration.SECONDS),
                                   serializedActivity,
                                   null,
                                   false));
@@ -64,7 +64,7 @@ public final class AnchorSimulationTest {
       for (long l = 10; l < 15; l++) {
         activityDirectives.put(
             new ActivityDirectiveId(l),
-            new ActivityDirective(Duration.of(-l, Duration.SECONDS),
+            new ActivityDirective<?>(Duration.of(-l, Duration.SECONDS),
                                   serializedActivity,
                                   null,
                                   false));
@@ -100,24 +100,24 @@ public final class AnchorSimulationTest {
     public void startTimeChains() {
       // Check chains and values
       final var minusOneMinute = Duration.of(-60, Duration.SECONDS);
-      final var activityDirectives = new HashMap<ActivityDirectiveId, ActivityDirective>(400);
+      final var activityDirectives = new HashMap<ActivityDirectiveId, ActivityDirective<?>>(400);
 
       activityDirectives.put(
           new ActivityDirectiveId(0),
-          new ActivityDirective(oneMinute, serializedActivity, null, true));
+          new ActivityDirective<?>(oneMinute, serializedActivity, null, true));
 
       for (long l = 1; l < 400; l++) {
         if ((l & 1) == 0) { // If even
           activityDirectives.put(
               new ActivityDirectiveId(l),
-              new ActivityDirective(oneMinute,
+              new ActivityDirective<?>(oneMinute,
                                     serializedActivity,
                                     new ActivityDirectiveId(l - 1),
                                     true));
         } else {
           activityDirectives.put(
               new ActivityDirectiveId(l),
-              new ActivityDirective(minusOneMinute,
+              new ActivityDirective<?>(minusOneMinute,
                                     serializedActivity,
                                     new ActivityDirectiveId(l - 1),
                                     true));
@@ -148,34 +148,34 @@ public final class AnchorSimulationTest {
     @DisplayName("Anchor chains following an anchor on an activity's end time depend on that activity")
     public void chainsWithEndTimeAnchors() {
       //check chains and values
-      final var allEndTimeAnchors = new HashMap<ActivityDirectiveId, ActivityDirective>(400);
-      final var endTimeAnchorEveryFifth = new HashMap<ActivityDirectiveId, ActivityDirective>(400);
+      final var allEndTimeAnchors = new HashMap<ActivityDirectiveId, ActivityDirective<?>>(400);
+      final var endTimeAnchorEveryFifth = new HashMap<ActivityDirectiveId, ActivityDirective<?>>(400);
 
       allEndTimeAnchors.put(
           new ActivityDirectiveId(0),
-          new ActivityDirective(oneMinute, serializedActivity, null, true));
+          new ActivityDirective<?>(oneMinute, serializedActivity, null, true));
       endTimeAnchorEveryFifth.put(
           new ActivityDirectiveId(0),
-          new ActivityDirective(oneMinute, serializedActivity, null, true));
+          new ActivityDirective<?>(oneMinute, serializedActivity, null, true));
 
       for (long l = 1; l < 400; l++) {
         allEndTimeAnchors.put(
             new ActivityDirectiveId(l),
-            new ActivityDirective(oneMinute,
+            new ActivityDirective<?>(oneMinute,
                                   serializedActivity,
                                   new ActivityDirectiveId(l - 1),
                                   false));
         if (l % 5 == 0) {
           endTimeAnchorEveryFifth.put(
               new ActivityDirectiveId(l),
-              new ActivityDirective(oneMinute,
+              new ActivityDirective<?>(oneMinute,
                                     serializedActivity,
                                     new ActivityDirectiveId(l - 1),
                                     false));
         } else {
           endTimeAnchorEveryFifth.put(
               new ActivityDirectiveId(l),
-              new ActivityDirective(oneMinute,
+              new ActivityDirective<?>(oneMinute,
                                     serializedActivity,
                                     new ActivityDirectiveId(l - 1),
                                     true));
@@ -233,32 +233,32 @@ public final class AnchorSimulationTest {
       // This is not a performance test.
       // This test proves why we can use list.addAll() during the join step instead of using a set to remove duplicates
       // Odd vs Even because the activities are divided in half when the Reducer splits
-      final var oddAmountActivities = new HashMap<ActivityDirectiveId, ActivityDirective>(12001);
-      final var evenAmountActivities = new HashMap<ActivityDirectiveId, ActivityDirective>(12000);
+      final var oddAmountActivities = new HashMap<ActivityDirectiveId, ActivityDirective<?>>(12001);
+      final var evenAmountActivities = new HashMap<ActivityDirectiveId, ActivityDirective<?>>(12000);
 
       oddAmountActivities.put(
           new ActivityDirectiveId(1),
-          new ActivityDirective(Duration.of(1, Duration.SECONDS), serializedActivity, null, true));
+          new ActivityDirective<?>(Duration.of(1, Duration.SECONDS), serializedActivity, null, true));
       evenAmountActivities.put(
           new ActivityDirectiveId(1),
-          new ActivityDirective(Duration.of(1, Duration.SECONDS), serializedActivity, null, true));
+          new ActivityDirective<?>(Duration.of(1, Duration.SECONDS), serializedActivity, null, true));
       for (long l = 2; l < 12001; l++) {
         oddAmountActivities.put(
             new ActivityDirectiveId(l),
-            new ActivityDirective(Duration.of(l, Duration.SECONDS),
+            new ActivityDirective<?>(Duration.of(l, Duration.SECONDS),
                                   serializedActivity,
                                   new ActivityDirectiveId(l - 1),
                                   true));
         evenAmountActivities.put(
             new ActivityDirectiveId(l),
-            new ActivityDirective(Duration.of(l, Duration.SECONDS),
+            new ActivityDirective<?>(Duration.of(l, Duration.SECONDS),
                                   serializedActivity,
                                   new ActivityDirectiveId(l - 1),
                                   true));
       }
       oddAmountActivities.put(
           new ActivityDirectiveId(12001),
-          new ActivityDirective(Duration.of(0, Duration.SECONDS), serializedActivity, null, true));
+          new ActivityDirective<?>(Duration.of(0, Duration.SECONDS), serializedActivity, null, true));
 
       final var oddReduced = new StartOffsetReducer(tenDays, oddAmountActivities).compute();
       final var evenReduced = new StartOffsetReducer(tenDays, evenAmountActivities).compute();
@@ -500,7 +500,7 @@ public final class AnchorSimulationTest {
         int maxLevel,
         int currentLevel,
         long parentNode,
-        Map<ActivityDirectiveId, ActivityDirective> activitiesToSimulate,
+        Map<ActivityDirectiveId, ActivityDirective<?>> activitiesToSimulate,
         Map<ActivityInstanceId, ActivityInstance> simulatedActivities)
     {
       if (currentLevel > maxLevel) return;
@@ -508,7 +508,7 @@ public final class AnchorSimulationTest {
         long curElement = parentNode * 5 + i;
         activitiesToSimulate.put(
             new ActivityDirectiveId(curElement),
-            new ActivityDirective(Duration.ZERO, serializedDelayDirective, new ActivityDirectiveId(parentNode), false));
+            new ActivityDirective<?>(Duration.ZERO, serializedDelayDirective, new ActivityDirectiveId(parentNode), false));
         simulatedActivities.put(
             new ActivityInstanceId(curElement),
             new ActivityInstance(
@@ -542,7 +542,7 @@ public final class AnchorSimulationTest {
     @DisplayName("Activities depending on no activities simulate at the correct time")
     public void activitiesAnchoredToPlan() {
       final var minusOneMinute = Duration.of(-60, Duration.SECONDS);
-      final var resolveToPlanStartAnchors = new HashMap<ActivityDirectiveId, ActivityDirective>(415);
+      final var resolveToPlanStartAnchors = new HashMap<ActivityDirectiveId, ActivityDirective<?>>(415);
       final Map<ActivityInstanceId, ActivityInstance> simulatedActivities = new HashMap<>(415);
 
       // Anchored to Plan Start (only positive is allowed)
@@ -550,7 +550,7 @@ public final class AnchorSimulationTest {
         final var activityDirectiveId = new ActivityDirectiveId(l);
         resolveToPlanStartAnchors.put(
             activityDirectiveId,
-            new ActivityDirective(Duration.of(l, Duration.SECONDS), serializedDelayDirective, null, true));
+            new ActivityDirective<?>(Duration.of(l, Duration.SECONDS), serializedDelayDirective, null, true));
         simulatedActivities.put(new ActivityInstanceId(l), new ActivityInstance(
             serializedDelayDirective.getTypeName(),
             Map.of(),
@@ -567,7 +567,7 @@ public final class AnchorSimulationTest {
         final var activityDirectiveId = new ActivityDirectiveId(l);
         resolveToPlanStartAnchors.put(
             activityDirectiveId,
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 // Minutes so they finish by simulation end
                 Duration.of(-l, Duration.MINUTES),
                 serializedDelayDirective,
@@ -588,7 +588,7 @@ public final class AnchorSimulationTest {
       // Chained to plan start
       resolveToPlanStartAnchors.put(
           new ActivityDirectiveId(15),
-          new ActivityDirective(Duration.ZERO, serializedDelayDirective, new ActivityDirectiveId(0), true));
+          new ActivityDirective<?>(Duration.ZERO, serializedDelayDirective, new ActivityDirectiveId(0), true));
       simulatedActivities.put(new ActivityInstanceId(15), new ActivityInstance(
           serializedDelayDirective.getTypeName(),
           Map.of(),
@@ -605,7 +605,7 @@ public final class AnchorSimulationTest {
         if ((l & 1) == 0) { // If even
           resolveToPlanStartAnchors.put(
               activityDirectiveId,
-              new ActivityDirective(oneMinute, serializedDelayDirective, new ActivityDirectiveId(l - 1), true));
+              new ActivityDirective<?>(oneMinute, serializedDelayDirective, new ActivityDirectiveId(l - 1), true));
           simulatedActivities.put(new ActivityInstanceId(l), new ActivityInstance(
               serializedDelayDirective.getTypeName(),
               Map.of(),
@@ -619,7 +619,7 @@ public final class AnchorSimulationTest {
         } else {
           resolveToPlanStartAnchors.put(
               activityDirectiveId,
-              new ActivityDirective(minusOneMinute, serializedDelayDirective, new ActivityDirectiveId(l - 1), true));
+              new ActivityDirective<?>(minusOneMinute, serializedDelayDirective, new ActivityDirectiveId(l - 1), true));
           simulatedActivities.put(new ActivityInstanceId(l), new ActivityInstance(
               serializedDelayDirective.getTypeName(),
               Map.of(),
@@ -659,17 +659,17 @@ public final class AnchorSimulationTest {
     @Test
     @DisplayName("Activities depending on another activities simulate at the correct time")
     public void activitiesAnchoredToOtherActivities() {
-      final var allEndTimeAnchors = new HashMap<ActivityDirectiveId, ActivityDirective>(400);
-      final var endTimeAnchorEveryFifth = new HashMap<ActivityDirectiveId, ActivityDirective>(400);
+      final var allEndTimeAnchors = new HashMap<ActivityDirectiveId, ActivityDirective<?>>(400);
+      final var endTimeAnchorEveryFifth = new HashMap<ActivityDirectiveId, ActivityDirective<?>>(400);
       final Map<ActivityInstanceId, ActivityInstance> simulatedActivities = new HashMap<>(800);
-      final var activitiesToSimulate = new HashMap<ActivityDirectiveId, ActivityDirective>(800);
+      final var activitiesToSimulate = new HashMap<ActivityDirectiveId, ActivityDirective<?>>(800);
 
       allEndTimeAnchors.put(
           new ActivityDirectiveId(0),
-          new ActivityDirective(oneMinute, serializedDelayDirective, null, true));
+          new ActivityDirective<?>(oneMinute, serializedDelayDirective, null, true));
       endTimeAnchorEveryFifth.put(
           new ActivityDirectiveId(400),
-          new ActivityDirective(oneMinute, serializedDelayDirective, null, true));
+          new ActivityDirective<?>(oneMinute, serializedDelayDirective, null, true));
       simulatedActivities.put(
           new ActivityInstanceId(0),
           new ActivityInstance(
@@ -699,7 +699,7 @@ public final class AnchorSimulationTest {
 
         allEndTimeAnchors.put(
             activityDirectiveIdAETA,
-            new ActivityDirective(
+            new ActivityDirective<?>(
                 oneMinute,
                 serializedDelayDirective,
                 new ActivityDirectiveId(l - 1),
@@ -719,7 +719,7 @@ public final class AnchorSimulationTest {
         if (k % 5 == 0) {
           endTimeAnchorEveryFifth.put(
               activityDirectiveIdEveryFifth,
-              new ActivityDirective(
+              new ActivityDirective<?>(
                   oneMinute,
                   serializedDelayDirective,
                   new ActivityDirectiveId(k - 1),
@@ -728,7 +728,7 @@ public final class AnchorSimulationTest {
         } else {
           endTimeAnchorEveryFifth.put(
               activityDirectiveIdEveryFifth,
-              new ActivityDirective(
+              new ActivityDirective<?>(
                   oneMinute,
                   serializedDelayDirective,
                   new ActivityDirectiveId(k - 1),
@@ -781,7 +781,7 @@ public final class AnchorSimulationTest {
       // and two NDs cannot be adjacent to each other, there are 20 permutations.
 
       // In order to have fewer activities and more complex subtrees, the first and second elements of a set of sequences will be reused when possible
-      final var activitiesToSimulate = new HashMap<ActivityDirectiveId, ActivityDirective>(23);
+      final var activitiesToSimulate = new HashMap<ActivityDirectiveId, ActivityDirective<?>>(23);
       // NOTE: This list is intentionally keyed on ActivityDirectiveId, not on SimulatedActivityId.
       // Additionally, because we do not know the order the child activities will generate in, DecompositionDirectives will have a List.of() rather than the correct value
       final var topLevelSimulatedActivities = new HashMap<ActivityDirectiveId, ActivityInstance>(23);
@@ -790,16 +790,16 @@ public final class AnchorSimulationTest {
       // ND <-s- D <-s- D
       activitiesToSimulate.put(
           new ActivityDirectiveId(1),
-          new ActivityDirective(Duration.ZERO, serializedDelayDirective, null, true));
+          new ActivityDirective<?>(Duration.ZERO, serializedDelayDirective, null, true));
       activitiesToSimulate.put(
           new ActivityDirectiveId(2),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDecompositionDirective,
                                 new ActivityDirectiveId(1),
                                 true));
       activitiesToSimulate.put(
           new ActivityDirectiveId(3),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDecompositionDirective,
                                 new ActivityDirectiveId(2),
                                 true));
@@ -840,7 +840,7 @@ public final class AnchorSimulationTest {
       // ND <-s- D <-e- D
       activitiesToSimulate.put(
           new ActivityDirectiveId(4),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDecompositionDirective,
                                 new ActivityDirectiveId(2),
                                 false));
@@ -859,7 +859,7 @@ public final class AnchorSimulationTest {
       // ND <-s- D <-s- ND
       activitiesToSimulate.put(
           new ActivityDirectiveId(5),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDelayDirective,
                                 new ActivityDirectiveId(2),
                                 true));
@@ -878,7 +878,7 @@ public final class AnchorSimulationTest {
       // ND <-s- D <-e- ND
       activitiesToSimulate.put(
           new ActivityDirectiveId(6),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDelayDirective,
                                 new ActivityDirectiveId(2),
                                 false));
@@ -897,13 +897,13 @@ public final class AnchorSimulationTest {
       // ND <-e- D <-s- D
       activitiesToSimulate.put(
           new ActivityDirectiveId(7),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDecompositionDirective,
                                 new ActivityDirectiveId(1),
                                 false));
       activitiesToSimulate.put(
           new ActivityDirectiveId(8),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDecompositionDirective,
                                 new ActivityDirectiveId(7),
                                 true));
@@ -933,7 +933,7 @@ public final class AnchorSimulationTest {
       // ND <-e- D <-e- D
       activitiesToSimulate.put(
           new ActivityDirectiveId(9),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDecompositionDirective,
                                 new ActivityDirectiveId(7),
                                 false));
@@ -952,7 +952,7 @@ public final class AnchorSimulationTest {
       // ND <-e- D <-s- ND
       activitiesToSimulate.put(
           new ActivityDirectiveId(10),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDelayDirective,
                                 new ActivityDirectiveId(7),
                                 true));
@@ -971,7 +971,7 @@ public final class AnchorSimulationTest {
       // ND <-e- D <-e- ND
       activitiesToSimulate.put(
           new ActivityDirectiveId(11),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDelayDirective,
                                 new ActivityDirectiveId(7),
                                 false));
@@ -990,7 +990,7 @@ public final class AnchorSimulationTest {
       // D <-s- D <-s- D
       activitiesToSimulate.put(
           new ActivityDirectiveId(12),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDecompositionDirective,
                                 new ActivityDirectiveId(3),
                                 true));
@@ -1009,7 +1009,7 @@ public final class AnchorSimulationTest {
       // D <-s- D <-e- D
       activitiesToSimulate.put(
           new ActivityDirectiveId(13),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDecompositionDirective,
                                 new ActivityDirectiveId(3),
                                 false));
@@ -1028,7 +1028,7 @@ public final class AnchorSimulationTest {
       // D <-s- D <-s- ND
       activitiesToSimulate.put(
           new ActivityDirectiveId(14),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDelayDirective,
                                 new ActivityDirectiveId(3),
                                 true));
@@ -1047,7 +1047,7 @@ public final class AnchorSimulationTest {
       // D <-s- D <-e- ND
       activitiesToSimulate.put(
           new ActivityDirectiveId(15),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDelayDirective,
                                 new ActivityDirectiveId(3),
                                 false));
@@ -1066,7 +1066,7 @@ public final class AnchorSimulationTest {
       // D <-e- D <-s- D
       activitiesToSimulate.put(
           new ActivityDirectiveId(16),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDecompositionDirective,
                                 new ActivityDirectiveId(4),
                                 true));
@@ -1085,7 +1085,7 @@ public final class AnchorSimulationTest {
       // D <-e- D <-e- D
       activitiesToSimulate.put(
           new ActivityDirectiveId(17),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDecompositionDirective,
                                 new ActivityDirectiveId(4),
                                 false));
@@ -1104,7 +1104,7 @@ public final class AnchorSimulationTest {
       // D <-e- D <-s- ND
       activitiesToSimulate.put(
           new ActivityDirectiveId(18),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDelayDirective,
                                 new ActivityDirectiveId(4),
                                 true));
@@ -1123,7 +1123,7 @@ public final class AnchorSimulationTest {
       // D <-e- D <-e- ND
       activitiesToSimulate.put(
           new ActivityDirectiveId(19),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDelayDirective,
                                 new ActivityDirectiveId(4),
                                 false));
@@ -1142,7 +1142,7 @@ public final class AnchorSimulationTest {
       // D <-s- ND <-s- D
       activitiesToSimulate.put(
           new ActivityDirectiveId(20),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDecompositionDirective,
                                 new ActivityDirectiveId(14),
                                 true));
@@ -1161,7 +1161,7 @@ public final class AnchorSimulationTest {
       // D <-s- ND <-e- D
       activitiesToSimulate.put(
           new ActivityDirectiveId(21),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDecompositionDirective,
                                 new ActivityDirectiveId(14),
                                 false));
@@ -1180,7 +1180,7 @@ public final class AnchorSimulationTest {
       // D <-e- ND <-s- D
       activitiesToSimulate.put(
           new ActivityDirectiveId(22),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDecompositionDirective,
                                 new ActivityDirectiveId(15),
                                 true));
@@ -1199,7 +1199,7 @@ public final class AnchorSimulationTest {
       // D <-e- ND <-e- D
       activitiesToSimulate.put(
           new ActivityDirectiveId(23),
-          new ActivityDirective(Duration.ZERO,
+          new ActivityDirective<?>(Duration.ZERO,
                                 serializedDecompositionDirective,
                                 new ActivityDirectiveId(15),
                                 false));
@@ -1323,12 +1323,12 @@ public final class AnchorSimulationTest {
       // Full and complete 5-ary tree,  6 levels deep
       // Number of activity directives = 5^0 + 5^1 + 5^2 + 5^3 + 5^4 + 5^5 = 3906
 
-      final var activitiesToSimulate = new HashMap<ActivityDirectiveId, ActivityDirective>(3906);
+      final var activitiesToSimulate = new HashMap<ActivityDirectiveId, ActivityDirective<?>>(3906);
       final var simulatedActivities = new HashMap<ActivityInstanceId, ActivityInstance>(3906);
 
       activitiesToSimulate.put(
           new ActivityDirectiveId(0),
-          new ActivityDirective(Duration.ZERO, serializedDelayDirective, null, true));
+          new ActivityDirective<?>(Duration.ZERO, serializedDelayDirective, null, true));
       simulatedActivities.put(
           new ActivityInstanceId(0),
           new ActivityInstance(

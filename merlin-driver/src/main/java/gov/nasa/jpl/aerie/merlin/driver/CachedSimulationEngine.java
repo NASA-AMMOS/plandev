@@ -7,13 +7,14 @@ import gov.nasa.jpl.aerie.merlin.protocol.driver.Topic;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.types.ActivityDirective;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.jpl.aerie.types.SerializedActivity;
 
 import java.time.Instant;
 import java.util.Map;
 
 public record CachedSimulationEngine(
       Duration endsAt,
-      Map<ActivityDirectiveId, ActivityDirective> activityDirectives,
+      Map<ActivityDirectiveId, ActivityDirective<?>> activityDirectives,
       SimulationEngine simulationEngine,
       Topic<ActivityDirectiveId> activityTopic,
       MissionModel<?> missionModel,

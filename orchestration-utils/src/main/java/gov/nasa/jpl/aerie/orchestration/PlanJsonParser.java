@@ -11,6 +11,7 @@ import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.types.ActivityDirective;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.Plan;
+import gov.nasa.jpl.aerie.types.SerializedActivity;
 import gov.nasa.jpl.aerie.types.Timestamp;
 
 import javax.json.Json;
@@ -60,8 +61,8 @@ public class PlanJsonParser {
    *
    * @param activities the json array directives to be parsed
    */
-  private static Map<ActivityDirectiveId, ActivityDirective> parseActivities(final JsonArray activities) {
-    final var activitiesMap = new HashMap<ActivityDirectiveId, ActivityDirective>(activities.size());
+  private static Map<ActivityDirectiveId, ActivityDirective<?>> parseActivities(final JsonArray activities) {
+    final var activitiesMap = new HashMap<ActivityDirectiveId, ActivityDirective<?>>(activities.size());
 
     activities.forEach(v -> {
       final var a = v.asJsonObject();
@@ -76,7 +77,7 @@ public class PlanJsonParser {
 
       activitiesMap.put(
           id,
-          new ActivityDirective(
+          new ActivityDirective<SerializedActivity>(
               startOffset,
               type,
               arguments,

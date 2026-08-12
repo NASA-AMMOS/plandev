@@ -15,6 +15,7 @@ import gov.nasa.jpl.aerie.types.ActivityDirective;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.MissionModelId;
 import gov.nasa.jpl.aerie.types.Plan;
+import gov.nasa.jpl.aerie.types.SerializedActivity;
 import gov.nasa.jpl.aerie.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -299,7 +300,7 @@ public final class PostgresPlanRepository implements PlanRepository {
     }
   }
 
-  private Map<ActivityDirectiveId, ActivityDirective> getPlanActivities(
+  private Map<ActivityDirectiveId, ActivityDirective<?>> getPlanActivities(
       final Connection connection,
       final PlanId planId
   ) throws SQLException, NoSuchPlanException {
@@ -311,7 +312,7 @@ public final class PostgresPlanRepository implements PlanRepository {
           .stream()
           .collect(Collectors.toMap(
               a -> new ActivityDirectiveId(a.id()),
-              a -> new ActivityDirective(
+              a -> new ActivityDirective<SerializedActivity>(
                   Duration.of(a.startOffsetInMicros(), Duration.MICROSECONDS),
                   a.type(),
                   a.arguments(),

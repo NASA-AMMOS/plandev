@@ -1,10 +1,12 @@
 package gov.nasa.jpl.aerie.contrib.serialization.mappers;
 
+import com.fasterxml.jackson.core.JsonGenerator;
 import gov.nasa.jpl.aerie.merlin.framework.Result;
 import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 
+import java.io.IOException;
 import java.util.function.Function;
 
 public final class IntegerValueMapper implements ValueMapper<Integer> {
@@ -35,5 +37,10 @@ public final class IntegerValueMapper implements ValueMapper<Integer> {
   @Override
   public SerializedValue serializeValue(final Integer value) {
     return SerializedValue.of(value);
+  }
+
+  @Override
+  public void writeJson(final Integer value, final JsonGenerator gen) throws IOException {
+    gen.writeNumber(value);
   }
 }

@@ -1,5 +1,9 @@
 package gov.nasa.jpl.aerie.merlin.protocol.types;
 
+import com.fasterxml.jackson.core.JsonGenerator;
+
+import java.io.IOException;
+import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,6 +61,7 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
   interface Visitor<T> {
     T onNull();
     T onNumeric(BigDecimal value);
+    T onDouble(double value);
     T onBoolean(boolean value);
     T onString(String value);
     T onMap(Map<String, SerializedValue> value);
@@ -108,6 +113,29 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
     @Override
     public int hashCode() {
       return this.value.stripTrailingZeros().hashCode();
+    }
+  }
+
+  record DoubleValue(double value) implements SerializedValue {
+    @Override
+    public <T> T match(final Visitor<T> visitor) {
+      return visitor.onDouble(value);
+    }
+
+    @Override
+    public Double getValue() {
+      return value;
+    }
+
+    @Override
+    public boolean equals(final Object obj) {
+      if (!(obj instanceof DoubleValue other)) return false;
+      return Double.compare(this.value, other.value) == 0;
+    }
+
+    @Override
+    public int hashCode() {
+      return Double.hashCode(value);
     }
   }
 
@@ -181,7 +209,7 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
    * @return A new {@link SerializedValue} containing a real number.
    */
   static SerializedValue of(final double value) {
-    return new NumericValue(BigDecimal.valueOf(value));
+    return new DoubleValue(value);
   }
 
   /**
@@ -262,6 +290,11 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
     }
 
     @Override
+    public T onDouble(final double value) {
+      return this.onDefault();
+    }
+
+    @Override
     public T onBoolean(final boolean value) {
       return this.onDefault();
     }
@@ -325,6 +358,11 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
       public Optional<BigDecimal> onNumeric(final BigDecimal value) {
         return Optional.of(value);
       }
+
+      @Override
+      public Optional<BigDecimal> onDouble(final double value) {
+        return Optional.of(BigDecimal.valueOf(value));
+      }
     });
   }
 
@@ -339,6 +377,11 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
       @Override
       public Optional<Double> onNumeric(final BigDecimal value) {
         return Optional.of(value.doubleValue());
+      }
+
+      @Override
+      public Optional<Double> onDouble(final double value) {
+        return Optional.of(value);
       }
     });
   }
@@ -358,6 +401,12 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
         } catch (final ArithmeticException ex) {
           return Optional.empty();
         }
+      }
+
+      @Override
+      public Optional<Long> onDouble(final double value) {
+        if (value % 1 == 0) return Optional.of((long) value);
+        return Optional.empty();
       }
     });
   }
@@ -420,5 +469,85 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
         return Optional.of(value);
       }
     });
+  }
+
+  /**
+   * Writes this value directly to a Jackson {@link JsonGenerator}, bypassing intermediate JsonNode allocations.
+   */
+  default void writeTo(final JsonGenerator gen) throws IOException {
+    try {
+      this.match(new Visitor<Void>() {
+        @Override
+        public Void onNull() {
+          try { gen.writeNull(); } catch (final IOException e) { throw new UncheckedIOException(e); }
+          return null;
+        }
+        @Override
+        public Void onNumeric(final BigDecimal value) {
+          try { gen.writeNumber(value); } catch (final IOException e) { throw new UncheckedIOException(e); }
+          return null;
+        }
+        @Override
+        public Void onDouble(final double value) {
+          try { gen.writeNumber(value); } catch (final IOException e) { throw new UncheckedIOException(e); }
+          return null;
+        }
+        @Override
+        public Void onBoolean(final boolean value) {
+          try { gen.writeBoolean(value); } catch (final IOException e) { throw new UncheckedIOException(e); }
+          return null;
+        }
+        @Override
+        public Void onString(final String value) {
+          try { gen.writeString(value); } catch (final IOException e) { throw new UncheckedIOException(e); }
+          return null;
+        }
+        @Override
+        public Void onMap(final Map<String, SerializedValue> value) {
+          try {
+            gen.writeStartObject();
+            for (final var entry : value.entrySet()) {
+              gen.writeFieldName(entry.getKey());
+              entry.getValue().writeTo(gen);
+            }
+            gen.writeEndObject();
+          } catch (final IOException e) { throw new UncheckedIOException(e); }
+          return null;
+        }
+        @Override
+        public Void onList(final List<SerializedValue> value) {
+          try {
+            gen.writeStartArray();
+            for (final var element : value) {
+              element.writeTo(gen);
+            }
+            gen.writeEndArray();
+          } catch (final IOException e) { throw new UncheckedIOException(e); }
+          return null;
+        }
+      });
+    } catch (final UncheckedIOException e) {
+      throw e.getCause();
+    }
+  }
+
+  final class UncheckedIOException extends RuntimeException {
+    UncheckedIOException(final IOException cause) { super(cause); }
+    @Override public IOException getCause() { return (IOException) super.getCause(); }
+  }
+
+  /**
+   * Serializes this value to a JSON string using Jackson streaming.
+   */
+  default String toJsonString() throws IOException {
+    try {
+      final var writer = new StringWriter();
+      try (final var gen = new com.fasterxml.jackson.core.JsonFactory().createGenerator(writer)) {
+        this.writeTo(gen);
+      }
+      return writer.toString();
+    } catch (final UncheckedIOException e) {
+      throw e.getCause();
+    }
   }
 }

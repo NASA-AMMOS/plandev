@@ -30,6 +30,8 @@ jacocoTestReport {
 javadoc.options.addStringOption('Xdoclint:none', '-quiet')
 
 dependencies {
+  api 'com.fasterxml.jackson.core:jackson-core:2.15.3'
+
   testImplementation 'org.junit.jupiter:junit-jupiter-engine:6.0.1'
 
   testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

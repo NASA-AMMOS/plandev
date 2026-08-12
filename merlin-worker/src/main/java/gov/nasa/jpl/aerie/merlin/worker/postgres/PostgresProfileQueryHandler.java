@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.merlin.worker.postgres;
 
-import gov.nasa.jpl.aerie.json.JsonParser;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
 import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfile;
 import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfiles;
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
@@ -13,14 +14,14 @@ import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PreparedStatements;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.sql.DataSource;
+import java.io.IOException;
+import java.io.StringWriter;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
 
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
-import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.realDynamicsP;
 import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.discreteProfileTypeP;
 import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.realProfileTypeP;
 
@@ -28,6 +29,8 @@ import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.
  * Utility class to handle upload of resource profiles to the database.
  * */
 public class PostgresProfileQueryHandler implements AutoCloseable {
+  private static final JsonFactory JSON_FACTORY = new JsonFactory();
+
   private final Connection connection;
   private final HashMap<String, Integer> profileIds;
   private final HashMap<String, Duration> profileDurations;
@@ -87,10 +90,10 @@ public class PostgresProfileQueryHandler implements AutoCloseable {
 
       // Post Segments
       for (final var realEntry : resourceProfiles.realProfiles().entrySet()) {
-        addProfileSegmentsToBatch(realEntry.getKey(), realEntry.getValue(), realDynamicsP);
+        addRealProfileSegmentsToBatch(realEntry.getKey(), realEntry.getValue());
       }
       for (final var discreteEntry : resourceProfiles.discreteProfiles().entrySet()) {
-        addProfileSegmentsToBatch(discreteEntry.getKey(), discreteEntry.getValue(), serializedValueP);
+        addDiscreteProfileSegmentsToBatch(discreteEntry.getKey(), discreteEntry.getValue());
       }
 
       postProfileSegments();
@@ -152,15 +155,18 @@ public class PostgresProfileQueryHandler implements AutoCloseable {
     }
   }
 
-  private <T> void addProfileSegmentsToBatch(final String name, ResourceProfile<T> profile, JsonParser<T> dynamicsP) throws SQLException {
+  private void addRealProfileSegmentsToBatch(final String name, ResourceProfile<RealDynamics> profile) throws SQLException {
     final var id = profileIds.get(name);
     this.postSegmentsStatement.setLong(1, id);
 
     var newDuration = profileDurations.get(name);
     for (final var segment : profile.segments()) {
       PreparedStatements.setDuration(this.postSegmentsStatement, 2, newDuration);
-      final var dynamics = dynamicsP.unparse(segment.dynamics()).toString();
-      this.postSegmentsStatement.setString(3, dynamics);
+      try {
+        this.postSegmentsStatement.setString(3, realDynamicsToJsonString(segment.dynamics()));
+      } catch (final IOException e) {
+        throw new SQLException("Failed to serialize real dynamics", e);
+      }
       this.postSegmentsStatement.addBatch();
 
       newDuration = newDuration.plus(segment.extent());
@@ -171,6 +177,41 @@ public class PostgresProfileQueryHandler implements AutoCloseable {
     this.updateDurationStatement.addBatch();
 
     profileDurations.put(name, newDuration);
+  }
+
+  private void addDiscreteProfileSegmentsToBatch(final String name, ResourceProfile<SerializedValue> profile) throws SQLException {
+    final var id = profileIds.get(name);
+    this.postSegmentsStatement.setLong(1, id);
+
+    var newDuration = profileDurations.get(name);
+    for (final var segment : profile.segments()) {
+      PreparedStatements.setDuration(this.postSegmentsStatement, 2, newDuration);
+      try {
+        this.postSegmentsStatement.setString(3, segment.dynamics().toJsonString());
+      } catch (final IOException e) {
+        throw new SQLException("Failed to serialize discrete dynamics", e);
+      }
+      this.postSegmentsStatement.addBatch();
+
+      newDuration = newDuration.plus(segment.extent());
+    }
+
+    this.updateDurationStatement.setLong(2, id);
+    PreparedStatements.setDuration(this.updateDurationStatement, 1, newDuration);
+    this.updateDurationStatement.addBatch();
+
+    profileDurations.put(name, newDuration);
+  }
+
+  private static String realDynamicsToJsonString(final RealDynamics dynamics) throws IOException {
+    final var sw = new StringWriter();
+    try (final var gen = JSON_FACTORY.createGenerator(sw)) {
+      gen.writeStartObject();
+      gen.writeNumberField("initial", dynamics.initial);
+      gen.writeNumberField("rate", dynamics.rate);
+      gen.writeEndObject();
+    }
+    return sw.toString();
   }
 
   @Override

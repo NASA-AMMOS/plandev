@@ -2,7 +2,6 @@ package gov.nasa.jpl.aerie.merlin.driver.resources;
 
 import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
 import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -30,11 +29,11 @@ public interface SimulationResourceManager {
    * Process resource updates for a given time.
    * @param elapsedTime the amount of time elapsed since the start of simulation. Must be monotonically increasing on subsequent calls.
    * @param realResourceUpdates the set of updates to real resources. Up to one update per resource is permitted.
-   * @param discreteResourceUpdates the set of updates to discrete resources. Up to one update per resource is permitted.
+   * @param discreteResourceUpdates the set of updates to discrete resources, with deferred serialization. Up to one update per resource is permitted.
    */
   void acceptUpdates(
       final Duration elapsedTime,
       final Map<String, Pair<ValueSchema, RealDynamics>> realResourceUpdates,
-      final Map<String, Pair<ValueSchema, SerializedValue>> discreteResourceUpdates
+      final Map<String, Pair<ValueSchema, DeferredSerializedValue>> discreteResourceUpdates
   );
 }

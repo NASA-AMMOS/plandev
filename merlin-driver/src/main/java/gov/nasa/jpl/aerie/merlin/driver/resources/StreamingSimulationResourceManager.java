@@ -18,7 +18,7 @@ import java.util.Set;
  */
 public class StreamingSimulationResourceManager implements SimulationResourceManager {
   private final HashMap<String, ResourceSegments<RealDynamics>> realResourceSegments;
-  private final HashMap<String, ResourceSegments<SerializedValue>> discreteResourceSegments;
+  private final HashMap<String, ResourceSegments<DeferredSerializedValue>> discreteResourceSegments;
 
   private final AsyncConsumer<ResourceProfiles> streamer;
 
@@ -74,7 +74,9 @@ public class StreamingSimulationResourceManager implements SimulationResourceMan
       profiles.discreteProfiles()
               .get(name)
               .segments()
-              .add(new ProfileSegment<>(elapsedDuration.minus(finalSegment.startOffset()), finalSegment.dynamics()));
+              .add(new ProfileSegment<>(
+                  elapsedDuration.minus(finalSegment.startOffset()),
+                  finalSegment.dynamics().toSerializedValue()));
 
       // Remove final segment
       segments.clear();
@@ -123,7 +125,7 @@ public class StreamingSimulationResourceManager implements SimulationResourceMan
       segments.add(finalSegment);
     }
 
-    // Compute Discrete Profiles
+    // Compute Discrete Profiles — materialize DeferredSerializedValue to SerializedValue
     for(final var resource : discreteResourceSegments.entrySet()) {
       final var name = resource.getKey();
       final var schema = resource.getValue().valueSchema();
@@ -135,7 +137,9 @@ public class StreamingSimulationResourceManager implements SimulationResourceMan
       for(int i = 0; i < segments.size()-1; i++) {
         final var segment = segments.get(i);
         final var nextSegment = segments.get(i+1);
-        profile.add(new ProfileSegment<>(nextSegment.startOffset().minus(segment.startOffset()), segment.dynamics()));
+        profile.add(new ProfileSegment<>(
+            nextSegment.startOffset().minus(segment.startOffset()),
+            segment.dynamics().toSerializedValue()));
       }
 
       // Remove the completed segments, leaving only the final (incomplete) segment in the current set
@@ -159,7 +163,7 @@ public class StreamingSimulationResourceManager implements SimulationResourceMan
   public void acceptUpdates(
       final Duration elapsedTime,
       final Map<String, Pair<ValueSchema, RealDynamics>> realResourceUpdates,
-      final Map<String, Pair<ValueSchema, SerializedValue>> discreteResourceUpdates
+      final Map<String, Pair<ValueSchema, DeferredSerializedValue>> discreteResourceUpdates
   ) {
     if(elapsedTime.shorterThan(lastReceivedTime)) {
       throw new IllegalArgumentException(("elapsedTime must be monotonically increasing between calls.\n"

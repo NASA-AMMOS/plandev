@@ -71,6 +71,11 @@ public final class SerializedValueJsonParser implements JsonParser<SerializedVal
       }
 
       @Override
+      public JsonValue onDouble(final double value) {
+        return Json.createValue(value);
+      }
+
+      @Override
       public JsonValue onString(final String value) {
         return Json.createValue(value);
       }

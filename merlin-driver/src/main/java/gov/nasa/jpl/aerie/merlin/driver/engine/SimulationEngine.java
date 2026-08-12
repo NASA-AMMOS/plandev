@@ -1,6 +1,7 @@
 package gov.nasa.jpl.aerie.merlin.driver.engine;
 
 import gov.nasa.jpl.aerie.merlin.driver.MissionModel.SerializableTopic;
+import gov.nasa.jpl.aerie.merlin.driver.resources.DeferredSerializedValue;
 import gov.nasa.jpl.aerie.types.ActivityInstance;
 import gov.nasa.jpl.aerie.types.ActivityInstanceId;
 import gov.nasa.jpl.aerie.merlin.driver.resources.SimulationResourceManager;
@@ -41,6 +42,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -181,7 +183,7 @@ public final class SimulationEngine implements AutoCloseable {
     record Nominal(
         Duration elapsedTime,
         Map<String, Pair<ValueSchema, RealDynamics>> realResourceUpdates,
-        Map<String, Pair<ValueSchema, SerializedValue>> dynamicResourceUpdates
+        Map<String, Pair<ValueSchema, DeferredSerializedValue>> dynamicResourceUpdates
     ) implements Status {}
   }
 
@@ -217,9 +219,9 @@ public final class SimulationEngine implements AutoCloseable {
       throw results.error.get();
     }
 
-    // Serialize the resources updated in this batch
+    // Collect the resources updated in this batch — discrete values are deferred (not serialized yet)
     final var realResourceUpdates = new HashMap<String, Pair<ValueSchema, RealDynamics>>();
-    final var dynamicResourceUpdates = new HashMap<String, Pair<ValueSchema, SerializedValue>>();
+    final var dynamicResourceUpdates = new HashMap<String, Pair<ValueSchema, DeferredSerializedValue>>();
 
     for (final var update : results.resourceUpdates.updates()) {
       final var name = update.resourceId().id();
@@ -231,7 +233,7 @@ public final class SimulationEngine implements AutoCloseable {
             name,
             Pair.of(
                 schema,
-                SimulationEngine.extractDiscreteDynamics(update)));
+                SimulationEngine.extractDeferredDiscreteDynamics(update)));
       }
     }
 
@@ -249,8 +251,8 @@ public final class SimulationEngine implements AutoCloseable {
     return RealDynamics.linear(initial, rate);
   }
 
-  private static <Dynamics> SerializedValue extractDiscreteDynamics(final ResourceUpdates.ResourceUpdate<Dynamics> update) {
-    return update.resource.getOutputType().serialize(update.update.dynamics());
+  private static <Dynamics> DeferredSerializedValue extractDeferredDiscreteDynamics(final ResourceUpdates.ResourceUpdate<Dynamics> update) {
+    return new DeferredSerializedValue(update.update.dynamics(), update.resource.getOutputType());
   }
 
   /** Schedule a new task to be performed at the given time. */
@@ -605,9 +607,23 @@ public final class SimulationEngine implements AutoCloseable {
       return this.spanToPlannedDirective.get(id);
     }
 
-    public record Trait(Iterable<SerializableTopic<?>> topics, Topic<ActivityDirectiveId> activityTopic)
-        implements EffectTrait<Consumer<SpanInfo>>
+    public record Trait(
+        Map<Topic<?>, SerializableTopic<?>> inputTopics,
+        Map<Topic<?>, SerializableTopic<?>> outputTopics,
+        Topic<ActivityDirectiveId> activityTopic
+    ) implements EffectTrait<Consumer<SpanInfo>>
     {
+      public Trait(final Iterable<SerializableTopic<?>> topics, final Topic<ActivityDirectiveId> activityTopic) {
+        this(new IdentityHashMap<>(), new IdentityHashMap<>(), activityTopic);
+        for (final var topic : topics) {
+          if (topic.name().startsWith("ActivityType.Input.")) {
+            this.inputTopics.put(topic.topic(), topic);
+          } else if (topic.name().startsWith("ActivityType.Output.")) {
+            this.outputTopics.put(topic.topic(), topic);
+          }
+        }
+      }
+
       @Override
       public Consumer<SpanInfo> empty() {
         return spanInfo -> {};
@@ -637,41 +653,41 @@ public final class SimulationEngine implements AutoCloseable {
 
       public Consumer<SpanInfo> atom(final Event ev) {
         return spanInfo -> {
+          final var topic = ev.topic();
+
           // Identify activities.
-          ev.extract(this.activityTopic)
-            .ifPresent(directiveId -> spanInfo.spanToPlannedDirective.put(ev.provenance(), directiveId));
+          if (topic == this.activityTopic) {
+            ev.extract(this.activityTopic)
+              .ifPresent(directiveId -> spanInfo.spanToPlannedDirective.put(ev.provenance(), directiveId));
+          }
 
-          for (final var topic : this.topics) {
-            // Identify activity inputs.
-            extractInput(topic, ev, spanInfo);
+          // Identify activity inputs and outputs.
+          final var inputTopic = this.inputTopics.get(topic);
+          if (inputTopic != null) {
+            extractHelper(inputTopic, ev, spanInfo);
+          }
 
-            // Identify activity outputs.
-            extractOutput(topic, ev, spanInfo);
+          final var outputTopic = this.outputTopics.get(topic);
+          if (outputTopic != null) {
+            extractOutputHelper(outputTopic, ev, spanInfo);
           }
         };
       }
 
-      private static <T>
-      void extractInput(final SerializableTopic<T> topic, final Event ev, final SpanInfo spanInfo) {
-        if (!topic.name().startsWith("ActivityType.Input.")) return;
-
-        ev.extract(topic.topic()).ifPresent(input -> {
-          final var activityType = topic.name().substring("ActivityType.Input.".length());
-
+      private static <T> void extractHelper(SerializableTopic<T> inputTopic, Event ev, SpanInfo spanInfo) {
+        ev.extract(inputTopic.topic()).ifPresent(input -> {
+          final var activityType = inputTopic.name().substring("ActivityType.Input.".length());
           spanInfo.input.put(
               ev.provenance(),
-              new SerializedActivity(activityType, topic.outputType().serialize(input).asMap().orElseThrow()));
+              new SerializedActivity(activityType, inputTopic.outputType().serialize(input).asMap().orElseThrow()));
         });
       }
 
-      private static <T>
-      void extractOutput(final SerializableTopic<T> topic, final Event ev, final SpanInfo spanInfo) {
-        if (!topic.name().startsWith("ActivityType.Output.")) return;
-
-        ev.extract(topic.topic()).ifPresent(output -> {
+      private static <T> void extractOutputHelper(SerializableTopic<T> outputTopic, Event ev, SpanInfo spanInfo) {
+        ev.extract(outputTopic.topic()).ifPresent(output -> {
           spanInfo.output.put(
               ev.provenance(),
-              topic.outputType().serialize(output));
+              outputTopic.outputType().serialize(output));
         });
       }
     }

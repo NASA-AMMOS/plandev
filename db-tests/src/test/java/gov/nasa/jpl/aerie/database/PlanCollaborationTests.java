@@ -52,7 +52,7 @@ public class PlanCollaborationTests {
 
   @BeforeAll
   void beforeAll() throws SQLException, IOException, InterruptedException {
-    helper = new DatabaseTestHelper("aerie_merlin_test", "Plan Collaboration Tests");
+    helper = new DatabaseTestHelper("plan_collaboration_tests", "Plan Collaboration Tests");
     connection = helper.connection();
     merlinHelper = new MerlinDatabaseTestHelper(connection);
     merlinHelper.insertUser("PlanCollaborationTests");
@@ -1157,7 +1157,7 @@ public class PlanCollaborationTests {
       try {
         lockPlan(planId);
         final var ex = assertThrows(SQLException.class, () -> beginMerge(mergeRequest));
-        assertTrue(ex.getMessage().contains("Cannot begin merge request. Plan to receive changes is locked."));;
+        assertTrue(ex.getMessage().contains("Cannot begin merge request. Plan to receive changes is locked."));
       } finally {
         unlockPlan(planId);
       }

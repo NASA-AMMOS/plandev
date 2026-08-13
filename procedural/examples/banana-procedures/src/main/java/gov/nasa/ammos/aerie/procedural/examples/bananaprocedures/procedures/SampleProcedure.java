@@ -21,8 +21,9 @@ public record SampleProcedure(int quantity) implements Goal {
     var currentTime = firstTime;
     for (var i = 0; i < quantity; i++) {
       plan.create(
-          new NewDirective(
+          new NewDirective<>(
               new AnyDirective(Map.of()),
+              () -> new AnyDirective(Map.of()),
               "It's a bite banana activity",
               "BiteBanana",
               new DirectiveStart.Absolute(currentTime)

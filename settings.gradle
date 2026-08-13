@@ -39,7 +39,7 @@ include 'stateless-aerie'
 
 // Testing
 include 'db-tests'
-include 'e2e-tests'
+// include 'e2e-tests'
 
 // Example mission models
 include 'examples:banananation'

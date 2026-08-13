@@ -47,6 +47,7 @@ import gov.nasa.jpl.aerie.scheduler.server.models.UnwrappedProfileSet;
 import gov.nasa.jpl.aerie.types.ActivityDirective;
 import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
 import gov.nasa.jpl.aerie.types.MissionModelId;
+import gov.nasa.jpl.aerie.types.SerializedActivity;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.lang3.tuple.Triple;
 
@@ -330,7 +331,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
           .getSpecType()
           .getInputType()
           .getEffectiveArguments(deserializedArguments);
-      final var merlinActivity = new ActivityDirective<?>(
+      final var merlinActivity = new ActivityDirective<SerializedActivity>(
           durationFromPGInterval(start),
           type,
           effectiveArguments,
@@ -433,7 +434,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
       if (actFromInitialPlanOptional.isPresent()) {
         final var actFromInitialPlan = actFromInitialPlanOptional.get();
         //if act was present in initial plan
-        final var activityDirectiveFromSchedulingDirective = new ActivityDirective<?>(
+        final var activityDirectiveFromSchedulingDirective = new ActivityDirective<SerializedActivity>(
             activity.startOffset(),
             activity.type().getName(),
             activity.arguments(),

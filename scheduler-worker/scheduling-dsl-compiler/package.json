@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@js-temporal/polyfill": "0.4.3",
-    "@nasa-jpl/aerie-ts-user-code-runner": "1.0.0-rc0",
+    "@nasa-jpl/plandev-ts-user-code-runner": "1.1.0",
     "esbuild": "0.28.1",
     "source-map": "^0.7.3",
     "typescript": "^4.5.5"

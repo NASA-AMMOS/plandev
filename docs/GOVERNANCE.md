@@ -68,8 +68,8 @@ However, the TSC also has responsibility over some projects, which are dependenc
 
 - https://github.com/NASA-AMMOS/plandev-docs
 - https://github.com/NASA-AMMOS/aerie-gateway
-- https://github.com/NASA-AMMOS/aerie-ts-user-code-runner
-- https://github.com/NASA-AMMOS/aerie-ampcs
+- https://github.com/NASA-AMMOS/plandev-ts-user-code-runner
+- https://github.com/NASA-AMMOS/plandev-ampcs
 
 Addtionally, the TSC has authority over a few other "PlanDev Extended Universe" projects:
 

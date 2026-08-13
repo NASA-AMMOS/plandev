@@ -1,6 +1,6 @@
 import fs from 'fs';
 import ts from 'typescript';
-import {UserCodeRunner} from '@nasa-jpl/aerie-ts-user-code-runner';
+import {UserCodeRunner} from '@nasa-jpl/plandev-ts-user-code-runner';
 import * as readline from 'readline';
 
 const codeRunner = new UserCodeRunner();

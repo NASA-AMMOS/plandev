@@ -3,7 +3,6 @@ package gov.nasa.jpl.aerie.e2e;
 import com.microsoft.playwright.Playwright;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,7 +13,6 @@ import javax.json.Json;
 import javax.json.JsonObject;
 import javax.json.JsonObjectBuilder;
 import java.io.IOException;
-import java.nio.file.Path;
 
 import static java.lang.System.exit;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -38,24 +36,9 @@ public class ExternalEventsTests {
     hasura = new HasuraRequests(playwright);
   }
 
-  @AfterAll
-  void afterAll() {
-    hasura.close();
-    playwright.close();
-  }
-
-  @BeforeEach
-  void beforeEach() throws IOException {
-    uploadExternalSourceEventTypes();
-  }
-
-  @AfterEach
-  void afterEach() throws IOException {
-    deleteExternalSourceEventTypes();
-  }
-
   // need a method to upload external event and source types
-  private void uploadExternalSourceEventTypes() throws IOException {
+  void uploadExternalSourceEventTypes() throws IOException {
+
     final String event_types = """
         {
           "TestEventType": {
@@ -106,7 +89,14 @@ public class ExternalEventsTests {
     }
   }
 
-  private void deleteExternalSourceEventTypes() throws IOException {
+  @BeforeEach
+  void beforeEach() throws IOException {
+    // upload types
+    uploadExternalSourceEventTypes();
+  }
+
+  @AfterEach
+  void afterEach() throws IOException {
     // delete events
     hasura.deleteEventsBySource("TestExternalSourceKey", "TestDerivationGroup");
 
@@ -121,21 +111,20 @@ public class ExternalEventsTests {
     hasura.deleteExternalEventType("TestEventType");
   }
 
-
   // test that a source goes in including all the attributes
   @Test
   void correctSourceAndEventAttributes() throws IOException {
     try (final var gateway = new GatewayRequests(playwright)) {
-      gateway.uploadExternalSource(Path.of("correct_source_and_event_attributes.json"), "TestDerivationGroup");
+      gateway.uploadExternalSource("correct_source_and_event_attributes.json", "TestDerivationGroup");
     }
   }
+
 
   // test that a source fails missing an attribute
   @Test
   void sourceMissingAttribute() throws IOException {
     final var gateway = new GatewayRequests(playwright);
-    final RuntimeException ex = assertThrows(RuntimeException.class, () -> gateway.uploadExternalSource(
-        Path.of("source_missing_attribute.json"), "TestDerivationGroup"));
+    final RuntimeException ex = assertThrows(RuntimeException.class, () -> gateway.uploadExternalSource("source_missing_attribute.json", "TestDerivationGroup"));
     assertTrue(ex.getMessage().contains("should have required property 'operator'"));
   }
 
@@ -143,8 +132,7 @@ public class ExternalEventsTests {
   @Test
   void sourceExtraAttribute() throws IOException {
     final var gateway = new GatewayRequests(playwright);
-    final RuntimeException ex = assertThrows(RuntimeException.class, () -> gateway.uploadExternalSource(
-        Path.of("source_extra_attribute.json"), "TestDerivationGroup"));
+    final RuntimeException ex = assertThrows(RuntimeException.class, () -> gateway.uploadExternalSource("source_extra_attribute.json", "TestDerivationGroup"));
     assertTrue(ex.getMessage().contains("should NOT have additional properties"));
   }
 
@@ -152,8 +140,7 @@ public class ExternalEventsTests {
   @Test
   void sourceWrongTypeAttribute() throws IOException {
     final var gateway = new GatewayRequests(playwright);
-    final RuntimeException ex = assertThrows(RuntimeException.class, () -> gateway.uploadExternalSource(
-        Path.of("source_wrong_type_attribute.json"), "TestDerivationGroup"));
+    final RuntimeException ex = assertThrows(RuntimeException.class, () -> gateway.uploadExternalSource("source_wrong_type_attribute.json", "TestDerivationGroup"));
     assertTrue(ex.getMessage().contains("should be number"));
   }
 
@@ -161,7 +148,7 @@ public class ExternalEventsTests {
   @Test
   void sourceOptionalAttribute() throws IOException {
     try (final var gateway = new GatewayRequests(playwright)) {
-      gateway.uploadExternalSource(Path.of("source_optional_attribute.json"), "TestDerivationGroup");
+      gateway.uploadExternalSource("source_optional_attribute.json", "TestDerivationGroup");
     }
   }
 
@@ -169,8 +156,7 @@ public class ExternalEventsTests {
   @Test
   void eventMissingAttribute() throws IOException {
     final var gateway = new GatewayRequests(playwright);
-    final RuntimeException ex = assertThrows(RuntimeException.class, () -> gateway.uploadExternalSource(
-        Path.of("event_missing_attribute.json"), "TestDerivationGroup"));
+    final RuntimeException ex = assertThrows(RuntimeException.class, () -> gateway.uploadExternalSource("event_missing_attribute.json", "TestDerivationGroup"));
     assertTrue(ex.getMessage().contains("should have required property 'code'"));
   }
 
@@ -178,8 +164,7 @@ public class ExternalEventsTests {
   @Test
   void eventExtraAttribute() throws IOException {
     final var gateway = new GatewayRequests(playwright);
-    final RuntimeException ex = assertThrows(RuntimeException.class, () -> gateway.uploadExternalSource(
-        Path.of("event_extra_attribute.json"), "TestDerivationGroup"));
+    final RuntimeException ex = assertThrows(RuntimeException.class, () -> gateway.uploadExternalSource("event_extra_attribute.json", "TestDerivationGroup"));
     assertTrue(ex.getMessage().contains("should NOT have additional properties"));
   }
 
@@ -187,8 +172,7 @@ public class ExternalEventsTests {
   @Test
   void eventWrongTypeAttribute() throws IOException {
     final var gateway = new GatewayRequests(playwright);
-    final RuntimeException ex = assertThrows(RuntimeException.class, () -> gateway.uploadExternalSource(
-        Path.of("event_wrong_type_attribute.json"), "TestDerivationGroup"));
+    final RuntimeException ex = assertThrows(RuntimeException.class, () -> gateway.uploadExternalSource("event_wrong_type_attribute.json", "TestDerivationGroup"));
     assertTrue(ex.getMessage().contains("should be string"));
   }
 
@@ -196,7 +180,7 @@ public class ExternalEventsTests {
   @Test
   void eventOptionalAttribute() throws IOException {
     try (final var gateway = new GatewayRequests(playwright)) {
-      gateway.uploadExternalSource(Path.of("event_optional_attribute.json"), "TestDerivationGroup");
+      gateway.uploadExternalSource("event_optional_attribute.json", "TestDerivationGroup");
     }
   }
 }

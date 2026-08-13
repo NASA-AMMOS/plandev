@@ -3,7 +3,6 @@ package gov.nasa.jpl.aerie.e2e.procedural.constraints;
 import gov.nasa.jpl.aerie.e2e.procedural.scheduling.ProceduralTestingSetup;
 import gov.nasa.jpl.aerie.e2e.types.ConstraintInvocationId;
 import gov.nasa.jpl.aerie.e2e.types.ConstraintResult;
-import gov.nasa.jpl.aerie.e2e.utils.ExternalEventUtils;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -20,6 +19,15 @@ import javax.json.JsonValue;
 import java.io.IOException;
 import java.util.stream.Stream;
 
+import static gov.nasa.jpl.aerie.e2e.utils.ExternalEventUtils.ADDITIONAL_DERIVATION_GROUP;
+import static gov.nasa.jpl.aerie.e2e.utils.ExternalEventUtils.ADDITIONAL_EVENT_TYPE;
+import static gov.nasa.jpl.aerie.e2e.utils.ExternalEventUtils.ADDITIONAL_SOURCE_KEY;
+import static gov.nasa.jpl.aerie.e2e.utils.ExternalEventUtils.DERIVATION_GROUP;
+import static gov.nasa.jpl.aerie.e2e.utils.ExternalEventUtils.EVENT_TYPE;
+import static gov.nasa.jpl.aerie.e2e.utils.ExternalEventUtils.SOURCE_KEY;
+import static gov.nasa.jpl.aerie.e2e.utils.ExternalEventUtils.SOURCE_TYPE;
+import static gov.nasa.jpl.aerie.e2e.utils.ExternalEventUtils.uploadExternalSourceEventTypes;
+import static gov.nasa.jpl.aerie.e2e.utils.ExternalEventUtils.uploadExternalSources;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Named.named;
 
@@ -27,35 +35,38 @@ public class ExternalEventConstraintTests extends ProceduralTestingSetup {
   private ConstraintInvocationId procedureId;
   private final static String NULL_VALUE = "NULL";
 
-  private ExternalEventUtils externalEventUtils;
-  private final String eventType = "constraintsEvent";
-  private final String sourceKey = "constraintsSourceKey";
-  private final String derivationGroup = "constraintsDerivationGroup";
-
   @BeforeAll
   void localBeforeAll() throws IOException {
-    final String sourceType = "constraintsSourceType";
-    externalEventUtils = new ExternalEventUtils(playwright, hasura, sourceType, sourceKey, eventType, derivationGroup);
-  }
-
-  @AfterAll
-  void localAfterAll() throws IOException {
-    externalEventUtils.close();
+    // Upload some External Events
+    uploadExternalSourceEventTypes(playwright);
+    uploadExternalSources(playwright);
   }
 
   @BeforeEach
   void localBeforeEach() throws IOException {
     // make associations between plans and derivation groups
-    hasura.insertPlanDerivationGroupAssociation(planId, derivationGroup);
-    hasura.insertPlanDerivationGroupAssociation(planId, externalEventUtils.alternateDerivationGroup());
+    hasura.insertPlanDerivationGroupAssociation(planId, DERIVATION_GROUP);
+    hasura.insertPlanDerivationGroupAssociation(planId, ADDITIONAL_DERIVATION_GROUP);
+  }
+
+  @AfterAll
+  void localAfterAll() throws IOException {
+    // External Event deletion
+    hasura.deleteExternalSource(SOURCE_KEY, DERIVATION_GROUP);
+    hasura.deleteExternalSource(ADDITIONAL_SOURCE_KEY, ADDITIONAL_DERIVATION_GROUP);
+    hasura.deleteDerivationGroup(DERIVATION_GROUP);
+    hasura.deleteDerivationGroup(ADDITIONAL_DERIVATION_GROUP);
+    hasura.deleteExternalSourceType(SOURCE_TYPE);
+    hasura.deleteExternalEventType(EVENT_TYPE);
+    hasura.deleteExternalEventType(ADDITIONAL_EVENT_TYPE);
   }
 
   @AfterEach
   void localAfterEach() throws IOException {
     hasura.deleteConstraint(procedureId.id());
 
-    hasura.deletePlanDerivationGroupAssociation(planId, derivationGroup);
-    hasura.deletePlanDerivationGroupAssociation(planId, externalEventUtils.alternateDerivationGroup());
+    hasura.deletePlanDerivationGroupAssociation(planId, DERIVATION_GROUP);
+    hasura.deletePlanDerivationGroupAssociation(planId, ADDITIONAL_DERIVATION_GROUP);
   }
 
   void uploadConstraint(String constraintName, int planId) throws IOException{
@@ -108,7 +119,7 @@ public class ExternalEventConstraintTests extends ProceduralTestingSetup {
 
     // update constraint arguments
     final var args = Json.createObjectBuilder()
-                         .add("eventType", eventType)
+                         .add("eventType", "TestType")
                          .add("derivationGroup", NULL_VALUE)
                          .add("sourceKey", NULL_VALUE)
                          .build();
@@ -164,7 +175,7 @@ public class ExternalEventConstraintTests extends ProceduralTestingSetup {
 
     // update constraint arguments
     final var args = Json.createObjectBuilder()
-                         .add("derivationGroup", derivationGroup)
+                         .add("derivationGroup", "TestGroup")
                          .add("eventType", NULL_VALUE)
                          .add("sourceKey", NULL_VALUE)
                          .build();
@@ -213,8 +224,8 @@ public class ExternalEventConstraintTests extends ProceduralTestingSetup {
 
     // update constraint arguments
     final var args = Json.createObjectBuilder()
-                         .add("sourceKey", sourceKey)
-                         .add("derivationGroup", derivationGroup)
+                         .add("sourceKey", "Test.json")
+                         .add("derivationGroup", "TestGroup")
                          .add("eventType", NULL_VALUE)
                          .build();
     hasura.updateConstraintArguments(procedureId.invocationId(), args);

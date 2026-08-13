@@ -93,21 +93,22 @@ tasks.register('buildAllProcedureJars') {
 tasks.create("generateProcedureJarTasks") {
   group = 'ProcedureJars'
 
-  final proceduresDir = findFirstMatchingBuildDir("generated/procedures")
+  // Create a file tree pointing at the folder all generated procedures have been placed inside
+  def generatedFileDir = layout.buildDirectory.dir('generated/sources/annotationProcessor')
+  ConfigurableFileTree tree = fileTree(dir: generatedFileDir)
 
-  if (proceduresDir == null) {
-    println "No procedures folder found"
+  // Include all java files EXCEPT for the ValueMappers
+  // Note: outside of a test context a more detailed path filter may need to be used
+  tree.include '**/*.java'
+  tree.exclude '**/*ValueMappers.java'
+
+  if(tree.isEmpty()) {
+    println "No generated procedures found inside ${generatedFileDir.get()}"
     return
   }
-  println "Generating jar tasks for the following procedures directory: ${proceduresDir}"
 
-  final files = file(proceduresDir).listFiles()
-  if (files.length == 0) {
-    println "No procedures available within folder ${proceduresDir}"
-    return
-  }
-
-  files.toList().each { file ->
+  // Go through each discovered procedure and generate it into a JAR
+  tree.each { File file ->
     final nameWithoutExtension = file.name.replace(".java", "")
     final taskName = "buildProcedureJar_${nameWithoutExtension}"
 
@@ -125,14 +126,6 @@ tasks.create("generateProcedureJarTasks") {
       minimize()
     }
   }
-}
-
-private String findFirstMatchingBuildDir(String pattern) {
-  String found = null
-  final generatedDir = file("build/generated/sources")
-  generatedDir.mkdirs()
-  generatedDir.eachDirRecurse { dir -> if (dir.path.contains(pattern)) found = dir.path }
-  return found
 }
 
 private static String getMainClassFromGeneratedFile(File file) {

@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e.procedural.scheduling.procedures;
+package gov.nasa.jpl.aerie.e2e.procedural.goals;
 
 import gov.nasa.ammos.aerie.procedural.scheduling.annotations.WithDefaults;
 import gov.nasa.ammos.aerie.procedural.scheduling.plan.EditablePlan;

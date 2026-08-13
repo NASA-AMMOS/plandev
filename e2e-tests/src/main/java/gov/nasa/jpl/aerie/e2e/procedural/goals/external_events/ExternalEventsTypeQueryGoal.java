@@ -1,9 +1,8 @@
-package gov.nasa.jpl.aerie.e2e.procedural.scheduling.procedures;
+package gov.nasa.jpl.aerie.e2e.procedural.goals.external_events;
 
 import gov.nasa.ammos.aerie.procedural.scheduling.Goal;
 import gov.nasa.ammos.aerie.procedural.scheduling.annotations.SchedulingProcedure;
 import gov.nasa.ammos.aerie.procedural.scheduling.plan.EditablePlan;
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalSource;
 import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart;
 import gov.nasa.ammos.aerie.procedural.timeline.plan.EventQuery;
 import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
@@ -13,26 +12,19 @@ import java.util.List;
 import java.util.Map;
 
 @SchedulingProcedure
-public record ExternalEventsSourceQueryGoal() implements Goal {
+public record ExternalEventsTypeQueryGoal(List<String> derivationGroups, List<String> eventTypes) implements Goal {
   @Override
   public void run(@NotNull final EditablePlan plan) {
 
-    // extract events belonging to the second source
+    // demonstrate more complicated query functionality
     EventQuery eventQuery = new EventQuery(
-        null,
-        null,
-        List.of(new EventQuery.SourceQuery("NewTest.json", "TestGroup_2"))
+        derivationGroups,
+        eventTypes,
+        null
     );
 
     for (final var e: plan.events(eventQuery)) {
-      // filter events that we schedule off of by key
-      if (e.key.contains("01")) {
-        plan.create(
-            "BiteBanana",
-            // place the directive such that it is coincident with the event's start
-            new DirectiveStart.Absolute(e.getInterval().start),
-            Map.of("biteSize", SerializedValue.of(1)));
-      }
+      plan.create("BiteBanana", new DirectiveStart.Absolute(e.getInterval().start), Map.of("biteSize", SerializedValue.of(1)));
     }
     plan.commit();
   }

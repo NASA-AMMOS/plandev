@@ -71,7 +71,7 @@ services:
       # every other PlanDev service. Run them from plandev-examples/external-model-backends, attached
       # to this compose network. Keep this list identical in merlin AND every worker below: merlin
       # introspects, the workers simulate, and drift means "registers fine, won't simulate".
-      EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://blackbird-adapter:5011"},{"name":"python-lab","url":"http://python-adapter:5002"},{"name":"basilisk-lab","url":"http://basilisk-adapter:5021"},{"name":"nexosim-lab","url":"http://nexosim-adapter:5031"}]'
+      EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://blackbird-adapter:5011"},{"name":"python-lab","url":"http://python-adapter:5002"},{"name":"basilisk-lab","url":"http://basilisk-adapter:5021"},{"name":"nexosim-lab","url":"http://nexosim-adapter:5031"},{"name":"parakeet-lab","url":"http://parakeet-adapter:5041"}]'
       # Closed-world checking of what an external backend returns (unknown resources, schema drift,
       # spans claiming directives we never sent). warn = log and continue, reject = fail the ingest,
       # off = skip. Now `reject`: warn-only did its job -- it surfaced three real adapter defects and
@@ -205,7 +205,7 @@ services:
       MERLIN_WORKER_LOCAL_STORE: /usr/src/app/merlin_file_store
       # Must match aerie_merlin: the worker resolves an external model's backend name -> URL from here
       # (backend refs are stored on the model row; the actual URL only ever comes from this trusted config).
-      EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://blackbird-adapter:5011"},{"name":"python-lab","url":"http://python-adapter:5002"},{"name":"basilisk-lab","url":"http://basilisk-adapter:5021"},{"name":"nexosim-lab","url":"http://nexosim-adapter:5031"}]'
+      EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://blackbird-adapter:5011"},{"name":"python-lab","url":"http://python-adapter:5002"},{"name":"basilisk-lab","url":"http://basilisk-adapter:5021"},{"name":"nexosim-lab","url":"http://nexosim-adapter:5031"},{"name":"parakeet-lab","url":"http://parakeet-adapter:5041"}]'
       # Closed-world checking of what an external backend returns (unknown resources, schema drift,
       # spans claiming directives we never sent). warn = log and continue, reject = fail the ingest,
       # off = skip. Now `reject`: warn-only did its job -- it surfaced three real adapter defects and
@@ -240,7 +240,7 @@ services:
       MERLIN_WORKER_LOCAL_STORE: /usr/src/app/merlin_file_store
       # Must match aerie_merlin: the worker resolves an external model's backend name -> URL from here
       # (backend refs are stored on the model row; the actual URL only ever comes from this trusted config).
-      EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://blackbird-adapter:5011"},{"name":"python-lab","url":"http://python-adapter:5002"},{"name":"basilisk-lab","url":"http://basilisk-adapter:5021"},{"name":"nexosim-lab","url":"http://nexosim-adapter:5031"}]'
+      EXTERNAL_MODEL_BACKENDS: '[{"name":"blackbird-lab","url":"http://blackbird-adapter:5011"},{"name":"python-lab","url":"http://python-adapter:5002"},{"name":"basilisk-lab","url":"http://basilisk-adapter:5021"},{"name":"nexosim-lab","url":"http://nexosim-adapter:5031"},{"name":"parakeet-lab","url":"http://parakeet-adapter:5041"}]'
       # Closed-world checking of what an external backend returns (unknown resources, schema drift,
       # spans claiming directives we never sent). warn = log and continue, reject = fail the ingest,
       # off = skip. Now `reject`: warn-only did its job -- it surfaced three real adapter defects and

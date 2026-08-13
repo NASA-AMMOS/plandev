@@ -86,8 +86,8 @@ public class MetadataWorkspaceRoutesTests {
     }
 
     // Set up parcel and dictionary to use across the tests
-    cdictId = hasura.createMockCommandDictionary("Bulk Workspace Routes Test", "Workspace E2E Test");
-    parcelId = hasura.createMockParcel("Bulk Workspace Routes Parcel", cdictId);
+    cdictId = hasura.createMockCommandDictionary("Metadata Workspace Routes Test", "Workspace E2E Test");
+    parcelId = hasura.createMockParcel("Metadata Workspace Routes Parcel", cdictId);
   }
 
   @AfterAll

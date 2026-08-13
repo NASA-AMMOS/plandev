@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e.procedural.scheduling.procedures;
+package gov.nasa.jpl.aerie.e2e.procedural.goals.external_events;
 
 import gov.nasa.ammos.aerie.procedural.scheduling.annotations.SchedulingProcedure;
 import gov.nasa.ammos.aerie.procedural.scheduling.Goal;
@@ -11,10 +11,10 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Map;
 
 @SchedulingProcedure
-public record ExternalEventsSimpleGoal() implements Goal {
+public record ExternalEventsSimpleGoal(String derivationGroup) implements Goal {
   @Override
   public void run(@NotNull final EditablePlan plan) {
-    EventQuery eventQuery = new EventQuery("TestGroup", null, null);
+    EventQuery eventQuery = new EventQuery(derivationGroup, null, null);
 
     for (final var e: plan.events(eventQuery)) {
       plan.create("BiteBanana", new DirectiveStart.Absolute(e.getInterval().start), Map.of("biteSize", SerializedValue.of(1)));

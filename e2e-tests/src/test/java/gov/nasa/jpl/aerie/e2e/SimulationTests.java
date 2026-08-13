@@ -308,7 +308,7 @@ public class SimulationTests {
             gateway.uploadFooJar(),
             "Foo (e2e tests)",
             "aerie_e2e_tests",
-            "Simulation Tests");
+            "Canceling Simulation Tests");
       }
       // Insert the Plan
       fooPlan = hasura.createPlan(
@@ -428,7 +428,7 @@ public class SimulationTests {
             gateway.uploadFooJar(),
             "Foo (e2e tests)",
             "aerie_e2e_tests",
-            "Simulation Tests");
+            "Simulation Exception Tests");
       }
       // Insert the Plan
       fooPlan = hasura.createPlan(

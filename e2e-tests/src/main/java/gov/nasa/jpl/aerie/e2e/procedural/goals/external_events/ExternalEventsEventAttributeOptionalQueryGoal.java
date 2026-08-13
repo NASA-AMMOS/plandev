@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e.procedural.scheduling.procedures;
+package gov.nasa.jpl.aerie.e2e.procedural.goals.external_events;
 
 import gov.nasa.ammos.aerie.procedural.scheduling.Goal;
 import gov.nasa.ammos.aerie.procedural.scheduling.annotations.SchedulingProcedure;
@@ -10,13 +10,13 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Map;
 
 @SchedulingProcedure
-public record ExternalEventsSourceAttributeOptionalQueryGoal() implements Goal {
+public record ExternalEventsEventAttributeOptionalQueryGoal() implements Goal {
   @Override
   public void run(@NotNull final EditablePlan plan) {
     // extract all events
     for (final var e: plan.events()) {
-      // filter events that we schedule off of by their source's attributes
-      var optionalValue = e.source.attributes.get("optional");
+      // filter events that we schedule off of by their attributes
+      var optionalValue = e.attributes.get("optional");
       if (optionalValue != null) {
         var optional = optionalValue.asString();
         if (optional.isPresent() && optional.get().equals("present")) {

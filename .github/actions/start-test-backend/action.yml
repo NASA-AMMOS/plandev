@@ -14,7 +14,7 @@ runs:
       if: ${{ contains(env.PR_BODY, '___REQUIRES_GATEWAY_PR___=') }}
       shell: bash
       run: |
-        echo "GATEWAY_IMAGE_TAG=pr-$(echo $PR_BODY | sed -n 's/.*___REQUIRES_GATEWAY_PR___=\"\([0-9]\+\)\".*/\1/p')" >> $GITHUB_ENV
+        echo "GATEWAY_IMAGE_TAG=pr-$(echo "$PR_BODY" | sed -n 's/.*___REQUIRES_GATEWAY_PR___=\"\([0-9]\+\)\".*/\1/p')" >> $GITHUB_ENV
     - name: Load NPM Cache
       uses: ./.github/actions/load-node-cache
     # Start Hasura and Postgres ahead of assembling the Java code, as the Java code takes a few minutes to compile.
@@ -22,7 +22,7 @@ runs:
     - name: Start Hasura and Postgres
       shell: bash
       run: |
-        docker compose -f $INPUT_DOCKER_FILE up -d postgres hasura --quiet-pull
+        docker compose -f "$INPUT_DOCKER_FILE" up -d postgres hasura --quiet-pull
       env:
         INPUT_DOCKER_FILE: ${{ inputs.docker-file }}
     - name: Assemble
@@ -33,7 +33,7 @@ runs:
       shell: bash
       run: |
         echo "GATEWAY_IMAGE_TAG: $GATEWAY_IMAGE_TAG"
-        docker compose -f $INPUT_DOCKER_FILE up -d --build --quiet-pull
+        docker compose -f "$INPUT_DOCKER_FILE" up -d --build --quiet-pull
         docker images
         docker ps -a --no-trunc
       env:

@@ -11,7 +11,7 @@ runs:
     - name: Print Logs for Services
       if: always()
       shell: bash
-      run: docker compose -f $INPUT_DOCKER_FILE logs -t
+      run: docker compose -f "$INPUT_DOCKER_FILE" logs -t
       env:
         INPUT_DOCKER_FILE: ${{ inputs.docker-file }}
     - name: Stop Services
@@ -19,7 +19,7 @@ runs:
       shell: bash
       run: |
         docker ps -a
-        docker compose -f $INPUT_DOCKER_FILE down
+        docker compose -f "$INPUT_DOCKER_FILE" down
         docker ps -a
       env:
         INPUT_DOCKER_FILE: ${{ inputs.docker-file }}

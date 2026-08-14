@@ -31,7 +31,7 @@ import { PromiseThrottler } from './utils/PromiseThrottler.js';
 import { backgroundTranspiler } from './backgroundTranspiler.js';
 import { PluginManager } from './utils/PluginManager.js';
 import { DictionaryType } from './types/types.js';
-import type { ChannelDictionary, CommandDictionary, ParameterDictionary } from '@nasa-jpl/aerie-ampcs';
+import type { ChannelDictionary, CommandDictionary, ParameterDictionary } from '@nasa-jpl/plandev-ampcs';
 import { sequenceTemplateBatchLoader } from './lib/batchLoaders/sequenceTemplateBatchLoader.js';
 import { sequenceFilterBatchLoader } from './lib/batchLoaders/sequenceFilterBatchLoader.js';
 import { writeFile } from './utils/file.js';

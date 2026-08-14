@@ -38,7 +38,7 @@ services:
       AERIE_DB_PORT: 5432
       GATEWAY_DB_USER: "${GATEWAY_USERNAME}"
       GATEWAY_DB_PASSWORD: "${GATEWAY_PASSWORD}"
-    image: "${REPOSITORY_DOCKER_URL}/aerie-gateway:${DOCKER_TAG}"
+    image: "${REPOSITORY_DOCKER_URL}/plandev-gateway:${DOCKER_TAG}"
     ports: ["9000:9000"]
     restart: always
     volumes:

@@ -388,3 +388,5 @@ app.listen(PORT, () => {
     }, 60 * 2 * 1000);
   }
 });
+
+app.once('close', () => healthCheckApp.close());

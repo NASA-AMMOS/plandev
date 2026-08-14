@@ -1,14 +1,14 @@
-package gov.nasa.jpl.aerie.scheduler.server.remotes;
+package gov.nasa.ammos.plandev.scheduler.server.remotes;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
-import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSchedulingGoalException;
-import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSpecificationException;
-import gov.nasa.jpl.aerie.scheduler.server.exceptions.SpecificationLoadException;
-import gov.nasa.jpl.aerie.scheduler.model.GoalId;
-import gov.nasa.jpl.aerie.scheduler.server.models.GoalType;
-import gov.nasa.jpl.aerie.scheduler.server.models.Specification;
-import gov.nasa.jpl.aerie.scheduler.server.models.SpecificationId;
-import gov.nasa.jpl.aerie.scheduler.server.remotes.postgres.SpecificationRevisionData;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.scheduler.server.exceptions.NoSuchSchedulingGoalException;
+import gov.nasa.ammos.plandev.scheduler.server.exceptions.NoSuchSpecificationException;
+import gov.nasa.ammos.plandev.scheduler.server.exceptions.SpecificationLoadException;
+import gov.nasa.ammos.plandev.scheduler.model.GoalId;
+import gov.nasa.ammos.plandev.scheduler.server.models.GoalType;
+import gov.nasa.ammos.plandev.scheduler.server.models.Specification;
+import gov.nasa.ammos.plandev.scheduler.server.models.SpecificationId;
+import gov.nasa.ammos.plandev.scheduler.server.remotes.postgres.SpecificationRevisionData;
 
 public interface SpecificationRepository {
   // Queries

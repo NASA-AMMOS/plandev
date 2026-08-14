@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
 import javax.json.Json;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.pgTimestampP;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.pgTimestampP;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import gov.nasa.jpl.aerie.types.Timestamp;
+import gov.nasa.ammos.plandev.types.Timestamp;
 import org.junit.jupiter.api.Test;
 
 public final class PostgresParsersTest {

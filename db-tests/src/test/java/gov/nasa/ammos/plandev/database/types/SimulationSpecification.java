@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.database.types;
+package gov.nasa.ammos.plandev.database.types;
 
-import gov.nasa.jpl.aerie.database.MerlinDatabaseTestHelper;
+import gov.nasa.ammos.plandev.database.MerlinDatabaseTestHelper;
 
 import java.sql.SQLException;
 import java.time.ZonedDateTime;

@@ -1,27 +1,26 @@
-package gov.nasa.jpl.aerie.scheduler.plan
+package gov.nasa.ammos.plandev.scheduler.plan
 
-import gov.nasa.ammos.aerie.procedural.timeline.Interval
-import gov.nasa.ammos.aerie.procedural.timeline.collections.Directives
-import gov.nasa.ammos.aerie.procedural.timeline.collections.ExternalEvents
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent
-import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart.Anchor.AnchorPoint.Companion.anchorToStart
-import gov.nasa.ammos.aerie.procedural.timeline.plan.EventQuery
-import gov.nasa.ammos.aerie.procedural.timeline.util.duration.minus
-import gov.nasa.ammos.aerie.procedural.timeline.util.duration.plus
-import gov.nasa.jpl.aerie.constraints.model.DiscreteProfile
-import gov.nasa.jpl.aerie.constraints.model.LinearProfile
-import gov.nasa.jpl.aerie.constraints.time.Interval as ConstraintsInterval
-import gov.nasa.jpl.aerie.constraints.time.Segment as ConstraintsSegment
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
-import gov.nasa.jpl.aerie.scheduler.model.PlanningHorizon
+import gov.nasa.ammos.plandev.procedural.timeline.Interval
+import gov.nasa.ammos.plandev.procedural.timeline.collections.Directives
+import gov.nasa.ammos.plandev.procedural.timeline.collections.ExternalEvents
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.ExternalEvent
+import gov.nasa.ammos.plandev.procedural.timeline.ops.SerialSegmentOps
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.Segment
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.activities.Directive
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.activities.DirectiveStart
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.activities.DirectiveStart.Anchor.AnchorPoint.Companion.anchorToStart
+import gov.nasa.ammos.plandev.procedural.timeline.plan.EventQuery
+import gov.nasa.ammos.plandev.procedural.timeline.util.duration.minus
+import gov.nasa.ammos.plandev.procedural.timeline.util.duration.plus
+import gov.nasa.ammos.plandev.constraints.model.DiscreteProfile
+import gov.nasa.ammos.plandev.constraints.model.LinearProfile
+import gov.nasa.ammos.plandev.constraints.time.Segment as ConstraintsSegment
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue
+import gov.nasa.ammos.plandev.scheduler.model.PlanningHorizon
 import java.time.Instant
-import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan as TimelinePlan
-import gov.nasa.jpl.aerie.scheduler.model.Plan as SchedulerPlan
+import gov.nasa.ammos.plandev.procedural.timeline.plan.Plan as TimelinePlan
+import gov.nasa.ammos.plandev.scheduler.model.Plan as SchedulerPlan
 
 data class SchedulerToProcedurePlanAdapter(
     private val schedulerPlan: SchedulerPlan,

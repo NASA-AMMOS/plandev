@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.scheduler.model;
+package gov.nasa.ammos.plandev.scheduler.model;
 
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.scheduler.NotNull;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.scheduler.NotNull;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;

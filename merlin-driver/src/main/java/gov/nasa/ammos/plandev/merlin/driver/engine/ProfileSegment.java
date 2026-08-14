@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.driver.engine;
+package gov.nasa.ammos.plandev.merlin.driver.engine;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 /**
  * A period of time over which a dynamics occurs.

@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.scheduler.server.services;
+package gov.nasa.ammos.plandev.scheduler.server.services;
 
 import java.util.Map;
 import java.util.stream.Collectors;
-import gov.nasa.jpl.aerie.constraints.TypescriptCodeGenerationService;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.constraints.TypescriptCodeGenerationService;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 
 public final class ConstraintsTypescriptCodeGenerationHelper
 {
@@ -15,12 +15,12 @@ public final class ConstraintsTypescriptCodeGenerationHelper
             .stream()
             .map(activityType -> Map.entry(
                 activityType.name(),
-                new gov.nasa.jpl.aerie.constraints.TypescriptCodeGenerationService.ActivityType(
+                new TypescriptCodeGenerationService.ActivityType(
                     activityType
                         .parameters()
                         .entrySet()
                         .stream()
-                        .map(entry -> new gov.nasa.jpl.aerie.constraints.TypescriptCodeGenerationService.Parameter(
+                        .map(entry -> new TypescriptCodeGenerationService.Parameter(
                             entry.getKey(),
                             entry.getValue()))
                         .toList())))

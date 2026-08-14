@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.streamline_demo;
+package gov.nasa.ammos.plandev.streamline_demo;
 
-import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.Export;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.ActivityType;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.Export;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.set;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource.set;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
 
 @ActivityType("ChangeApproximationInput")
 public class ChangeApproximationInput {

@@ -1,19 +1,19 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes;
+package gov.nasa.ammos.plandev.merlin.server.remotes;
 
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
-import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
-import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
-import gov.nasa.jpl.aerie.merlin.server.models.DatasetId;
-import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
-import gov.nasa.jpl.aerie.merlin.server.models.ProfileSet;
-import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
-import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
-import gov.nasa.jpl.aerie.merlin.server.services.RevisionData;
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
-import gov.nasa.jpl.aerie.types.Plan;
-import gov.nasa.jpl.aerie.types.Timestamp;
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.ExternalEvent;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.merlin.server.exceptions.NoSuchPlanDatasetException;
+import gov.nasa.ammos.plandev.merlin.server.exceptions.NoSuchPlanException;
+import gov.nasa.ammos.plandev.merlin.server.models.DatasetId;
+import gov.nasa.ammos.plandev.merlin.server.models.PlanId;
+import gov.nasa.ammos.plandev.merlin.server.models.ProfileSet;
+import gov.nasa.ammos.plandev.merlin.server.models.SimulationDatasetId;
+import gov.nasa.ammos.plandev.merlin.server.models.ConstraintRecord;
+import gov.nasa.ammos.plandev.merlin.server.services.RevisionData;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.types.Plan;
+import gov.nasa.ammos.plandev.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.time.Instant;

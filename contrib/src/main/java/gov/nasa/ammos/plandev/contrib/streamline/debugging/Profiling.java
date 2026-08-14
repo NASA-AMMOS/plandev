@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.contrib.streamline.debugging;
+package gov.nasa.ammos.plandev.contrib.streamline.debugging;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.*;
-import gov.nasa.jpl.aerie.merlin.framework.Condition;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
+import gov.nasa.ammos.plandev.contrib.streamline.core.*;
+import gov.nasa.ammos.plandev.merlin.framework.Condition;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Unit;
 
 import java.util.Comparator;
 import java.util.HashMap;
@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Naming.*;
 import static java.lang.Math.*;
 import static java.util.Comparator.comparingLong;
 

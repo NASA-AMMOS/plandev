@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.orchestration.simulation;
+package gov.nasa.ammos.plandev.orchestration.simulation;
 
-import gov.nasa.jpl.aerie.json.JsonParser;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
-import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfile;
+import gov.nasa.ammos.plandev.json.JsonParser;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationResults;
+import gov.nasa.ammos.plandev.merlin.driver.resources.ResourceProfile;
 
 import javax.json.Json;
 import javax.json.JsonReader;
@@ -17,16 +17,16 @@ import java.nio.file.Path;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.EventGraphFlattener;
-import gov.nasa.jpl.aerie.types.Plan;
-import gov.nasa.jpl.aerie.types.Timestamp;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.EventGraphFlattener;
+import gov.nasa.ammos.plandev.types.Plan;
+import gov.nasa.ammos.plandev.types.Timestamp;
 
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
-import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
-import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.realDynamicsP;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.activityArgumentsP;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.simulationArgumentsP;
+import static gov.nasa.ammos.plandev.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import static gov.nasa.ammos.plandev.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
+import static gov.nasa.ammos.plandev.merlin.server.http.ProfileParsers.realDynamicsP;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.activityArgumentsP;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.simulationArgumentsP;
 
 
 public class SimulationResultsWriter {

@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.merlin.driver.timeline;
+package gov.nasa.ammos.plandev.merlin.driver.timeline;
 
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Topic;
-import gov.nasa.jpl.aerie.merlin.protocol.model.CellType;
-import gov.nasa.jpl.aerie.merlin.protocol.model.EffectTrait;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Topic;
+import gov.nasa.ammos.plandev.merlin.protocol.model.CellType;
+import gov.nasa.ammos.plandev.merlin.protocol.model.EffectTrait;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 import java.util.Optional;
 import java.util.Set;

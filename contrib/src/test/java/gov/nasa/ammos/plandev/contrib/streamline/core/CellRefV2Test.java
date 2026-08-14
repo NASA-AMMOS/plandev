@@ -1,24 +1,23 @@
-package gov.nasa.jpl.aerie.contrib.streamline.core;
+package gov.nasa.ammos.plandev.contrib.streamline.core;
 
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
-import gov.nasa.jpl.aerie.merlin.framework.Registrar;
-import gov.nasa.jpl.aerie.merlin.framework.junit.MerlinExtension;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete;
+import gov.nasa.ammos.plandev.merlin.framework.Registrar;
+import gov.nasa.ammos.plandev.merlin.framework.junit.MerlinExtension;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.autoEffects;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.commutingEffects;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.noncommutingEffects;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.resource;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentValue;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete.discrete;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteDynamicsMonad.effect;
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.delay;
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.spawn;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.ZERO;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.CellRefV2.autoEffects;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.CellRefV2.commutingEffects;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.CellRefV2.noncommutingEffects;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Resources.currentValue;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete.discrete;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.monads.DiscreteDynamicsMonad.effect;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.delay;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.spawn;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.ZERO;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MutableResourceTest {

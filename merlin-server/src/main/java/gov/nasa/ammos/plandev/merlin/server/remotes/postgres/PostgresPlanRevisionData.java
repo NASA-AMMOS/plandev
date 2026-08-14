@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.merlin.server.services.RevisionData;
+import gov.nasa.ammos.plandev.merlin.server.services.RevisionData;
 
 import java.util.Optional;
 

@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
+package gov.nasa.ammos.plandev.scheduler.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.json.JsonParseResult;
-import gov.nasa.jpl.aerie.json.JsonParser;
-import gov.nasa.jpl.aerie.json.SchemaCache;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.scheduler.server.services.UnexpectedSubtypeError;
-import gov.nasa.jpl.aerie.types.Timestamp;
+import gov.nasa.ammos.plandev.json.JsonParseResult;
+import gov.nasa.ammos.plandev.json.JsonParser;
+import gov.nasa.ammos.plandev.json.SchemaCache;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.scheduler.server.services.UnexpectedSubtypeError;
+import gov.nasa.ammos.plandev.types.Timestamp;
 
 import javax.json.Json;
 import javax.json.JsonObject;
@@ -18,9 +18,9 @@ import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.util.Map;
 
-import static gov.nasa.jpl.aerie.json.BasicParsers.mapP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.stringP;
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.mapP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.stringP;
+import static gov.nasa.ammos.plandev.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
 
 public final class PostgresParsers {
 

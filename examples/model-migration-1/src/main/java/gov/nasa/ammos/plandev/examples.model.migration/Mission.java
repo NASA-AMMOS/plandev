@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.examples.model.migration;
+package gov.nasa.ammos.plandev.examples.model.migration;
 
-import gov.nasa.jpl.aerie.contrib.models.Register;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.EnumValueMapper;
-import gov.nasa.jpl.aerie.merlin.framework.Registrar;
+import gov.nasa.ammos.plandev.contrib.models.Register;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.EnumValueMapper;
+import gov.nasa.ammos.plandev.merlin.framework.Registrar;
 
 /** A contrived mission model that has only one discrete, non-numeric resource. */
 public final class Mission {

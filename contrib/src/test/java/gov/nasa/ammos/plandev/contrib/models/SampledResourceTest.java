@@ -1,13 +1,13 @@
-package gov.nasa.jpl.aerie.contrib.models;
+package gov.nasa.ammos.plandev.contrib.models;
 
-import gov.nasa.jpl.aerie.merlin.framework.junit.MerlinExtension;
+import gov.nasa.ammos.plandev.merlin.framework.junit.MerlinExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.delay;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECOND;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.delay;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECOND;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECONDS;
 import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(MerlinExtension.class)

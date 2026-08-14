@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.configwithdefaults;
+package gov.nasa.ammos.plandev.configwithdefaults;
 
-import gov.nasa.jpl.aerie.contrib.models.Register;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.DoubleValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.IntegerValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.StringValueMapper;
-import gov.nasa.jpl.aerie.merlin.framework.Registrar;
+import gov.nasa.ammos.plandev.contrib.models.Register;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.DoubleValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.IntegerValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.StringValueMapper;
+import gov.nasa.ammos.plandev.merlin.framework.Registrar;
 
 /** A contrived mission model that simply reports the configuration's values. */
 public final class Mission {

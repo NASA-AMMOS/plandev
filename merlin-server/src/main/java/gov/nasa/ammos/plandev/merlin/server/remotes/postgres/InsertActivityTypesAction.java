@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.merlin.server.models.ActivityType;
+import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
 import org.intellij.lang.annotations.Language;
 
 import java.sql.BatchUpdateException;
@@ -11,7 +11,7 @@ import java.sql.Statement;
 import java.util.Collection;
 import java.util.Map;
 
-import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
+import static gov.nasa.ammos.plandev.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
 
 /*package-local*/ final class InsertActivityTypesAction implements AutoCloseable {
   private static final @Language("SQL") String sql = """

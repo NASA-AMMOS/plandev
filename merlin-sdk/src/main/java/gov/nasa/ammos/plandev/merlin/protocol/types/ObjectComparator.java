@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.merlin.protocol.types;
+package gov.nasa.ammos.plandev.merlin.protocol.types;
 
 import java.util.Comparator;
 import java.util.Map;
@@ -10,11 +10,11 @@ import java.util.SortedSet;
  * There may be some others out there that could simplify or improve on this.
  */
 public class ObjectComparator implements Comparator<Object> {
-  private static gov.nasa.jpl.aerie.merlin.protocol.types.ObjectComparator INSTANCE = null;
+  private static gov.nasa.ammos.plandev.merlin.protocol.types.ObjectComparator INSTANCE = null;
 
-  public static gov.nasa.jpl.aerie.merlin.protocol.types.ObjectComparator getInstance() {
+  public static gov.nasa.ammos.plandev.merlin.protocol.types.ObjectComparator getInstance() {
     if (INSTANCE == null) {
-      INSTANCE = new gov.nasa.jpl.aerie.merlin.protocol.types.ObjectComparator();
+      INSTANCE = new gov.nasa.ammos.plandev.merlin.protocol.types.ObjectComparator();
     }
     return INSTANCE;
   }

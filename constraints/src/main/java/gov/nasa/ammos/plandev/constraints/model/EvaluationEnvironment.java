@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.constraints.model;
+package gov.nasa.ammos.plandev.constraints.model;
 
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.constraints.time.Spans;
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.ExternalEvent;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.constraints.time.Spans;
 
 import java.util.List;
 import java.util.Map;

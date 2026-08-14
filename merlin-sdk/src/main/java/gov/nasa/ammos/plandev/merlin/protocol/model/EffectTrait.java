@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.merlin.protocol.model;
+package gov.nasa.ammos.plandev.merlin.protocol.model;
 
 /**
  * A trait for performing effect-algebraic operations on a type.

@@ -1,29 +1,29 @@
-package gov.nasa.jpl.aerie.scheduler;
+package gov.nasa.ammos.plandev.scheduler;
 
 import com.google.common.testing.NullPointerTester;
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.constraints.time.Windows;
-import gov.nasa.jpl.aerie.constraints.tree.WindowsWrapperExpression;
-import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.scheduler.constraints.activities.ActivityExpression;
-import gov.nasa.jpl.aerie.scheduler.constraints.timeexpressions.TimeAnchor;
-import gov.nasa.jpl.aerie.scheduler.goals.CardinalityGoal;
-import gov.nasa.jpl.aerie.scheduler.goals.ChildCustody;
-import gov.nasa.jpl.aerie.scheduler.goals.CoexistenceGoal;
-import gov.nasa.jpl.aerie.scheduler.goals.ProceduralCreationGoal;
-import gov.nasa.jpl.aerie.scheduler.goals.RecurrenceGoal;
-import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
-import gov.nasa.jpl.aerie.scheduler.model.PlanInMemory;
-import gov.nasa.jpl.aerie.scheduler.model.PlanningHorizon;
-import gov.nasa.jpl.aerie.scheduler.model.Problem;
-import gov.nasa.jpl.aerie.scheduler.simulation.InMemoryCachedEngineStore;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationEngineConfiguration;
-import gov.nasa.jpl.aerie.scheduler.simulation.CheckpointSimulationFacade;
-import gov.nasa.jpl.aerie.scheduler.simulation.SimulationFacade;
-import gov.nasa.jpl.aerie.scheduler.solver.Evaluation;
-import gov.nasa.jpl.aerie.scheduler.solver.PrioritySolver;
-import gov.nasa.jpl.aerie.types.MissionModelId;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.constraints.time.Windows;
+import gov.nasa.ammos.plandev.constraints.tree.WindowsWrapperExpression;
+import gov.nasa.ammos.plandev.merlin.driver.MissionModel;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.scheduler.constraints.activities.ActivityExpression;
+import gov.nasa.ammos.plandev.scheduler.constraints.timeexpressions.TimeAnchor;
+import gov.nasa.ammos.plandev.scheduler.goals.CardinalityGoal;
+import gov.nasa.ammos.plandev.scheduler.goals.ChildCustody;
+import gov.nasa.ammos.plandev.scheduler.goals.CoexistenceGoal;
+import gov.nasa.ammos.plandev.scheduler.goals.ProceduralCreationGoal;
+import gov.nasa.ammos.plandev.scheduler.goals.RecurrenceGoal;
+import gov.nasa.ammos.plandev.scheduler.model.SchedulingActivity;
+import gov.nasa.ammos.plandev.scheduler.model.PlanInMemory;
+import gov.nasa.ammos.plandev.scheduler.model.PlanningHorizon;
+import gov.nasa.ammos.plandev.scheduler.model.Problem;
+import gov.nasa.ammos.plandev.scheduler.simulation.InMemoryCachedEngineStore;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationEngineConfiguration;
+import gov.nasa.ammos.plandev.scheduler.simulation.CheckpointSimulationFacade;
+import gov.nasa.ammos.plandev.scheduler.simulation.SimulationFacade;
+import gov.nasa.ammos.plandev.scheduler.solver.Evaluation;
+import gov.nasa.ammos.plandev.scheduler.solver.PrioritySolver;
+import gov.nasa.ammos.plandev.types.MissionModelId;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static gov.nasa.jpl.aerie.scheduler.TestUtility.assertSetEquality;
+import static gov.nasa.ammos.plandev.scheduler.TestUtility.assertSetEquality;
 import static org.junit.jupiter.api.Assertions.*;
 
 public class PrioritySolverTest {

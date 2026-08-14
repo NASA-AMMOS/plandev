@@ -1,23 +1,23 @@
-package gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial;
+package gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.*;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.LinearBoundaryConsistencySolver.Domain;
-import gov.nasa.jpl.aerie.merlin.framework.junit.MerlinExtension;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.core.*;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.LinearBoundaryConsistencySolver.Domain;
+import gov.nasa.ammos.plandev.merlin.framework.junit.MerlinExtension;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentData;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.LinearBoundaryConsistencySolver.Comparison.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.LinearBoundaryConsistencySolver.LinearExpression.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.*;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.ZERO;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Resources.currentData;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.LinearBoundaryConsistencySolver.Comparison.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.LinearBoundaryConsistencySolver.LinearExpression.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.*;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECONDS;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.ZERO;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LinearBoundaryConsistencySolverTest {

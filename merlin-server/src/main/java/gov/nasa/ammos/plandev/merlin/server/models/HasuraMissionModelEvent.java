@@ -1,5 +1,5 @@
-package gov.nasa.jpl.aerie.merlin.server.models;
+package gov.nasa.ammos.plandev.merlin.server.models;
 
-import gov.nasa.jpl.aerie.types.MissionModelId;
+import gov.nasa.ammos.plandev.types.MissionModelId;
 
 public record HasuraMissionModelEvent(MissionModelId missionModelId) { }

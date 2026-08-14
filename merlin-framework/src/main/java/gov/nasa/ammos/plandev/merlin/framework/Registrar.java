@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.merlin.framework;
+package gov.nasa.ammos.plandev.merlin.framework;
 
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Initializer;
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Querier;
-import gov.nasa.jpl.aerie.merlin.protocol.model.OutputType;
-import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Initializer;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Querier;
+import gov.nasa.ammos.plandev.merlin.protocol.model.OutputType;
+import gov.nasa.ammos.plandev.merlin.protocol.types.RealDynamics;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 
 import java.util.Map;
 import java.util.Objects;
@@ -79,14 +79,14 @@ public final class Registrar {
             ));
   }
 
-  private static <Value> gov.nasa.jpl.aerie.merlin.protocol.model.Resource<Value> makeResource(
+  private static <Value> gov.nasa.ammos.plandev.merlin.protocol.model.Resource<Value> makeResource(
       final String type,
       final Resource<Value> resource,
       final ValueSchema valueSchema,
       final Function<Value, SerializedValue> serializer,
       final String description
   ) {
-    return new gov.nasa.jpl.aerie.merlin.protocol.model.Resource<>() {
+    return new gov.nasa.ammos.plandev.merlin.protocol.model.Resource<>() {
       @Override
       public String getType() {
         return type;

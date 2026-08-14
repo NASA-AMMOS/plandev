@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.merlin.protocol.model;
+package gov.nasa.ammos.plandev.merlin.protocol.model;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 
 /**
  * A type of data produced as output by a Merlin model.

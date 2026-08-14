@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.scheduler.server.services;
+package gov.nasa.ammos.plandev.scheduler.server.services;
 
-import gov.nasa.jpl.aerie.scheduler.server.ResultsProtocol;
-import gov.nasa.jpl.aerie.scheduler.server.remotes.ResultsCellRepository;
+import gov.nasa.ammos.plandev.scheduler.server.ResultsProtocol;
+import gov.nasa.ammos.plandev.scheduler.server.remotes.ResultsCellRepository;
 
 /**
  * services operations at the intersection of plans and scheduling goals; eg scheduling instances to satisfy goals

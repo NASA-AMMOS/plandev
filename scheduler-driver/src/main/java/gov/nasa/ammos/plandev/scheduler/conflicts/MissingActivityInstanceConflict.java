@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.scheduler.conflicts;
+package gov.nasa.ammos.plandev.scheduler.conflicts;
 
-import gov.nasa.jpl.aerie.constraints.model.EvaluationEnvironment;
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.constraints.time.Windows;
-import gov.nasa.jpl.aerie.scheduler.goals.ActivityExistentialGoal;
-import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
-import gov.nasa.jpl.aerie.scheduler.solver.ScheduleAt;
+import gov.nasa.ammos.plandev.constraints.model.EvaluationEnvironment;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.constraints.time.Windows;
+import gov.nasa.ammos.plandev.scheduler.goals.ActivityExistentialGoal;
+import gov.nasa.ammos.plandev.scheduler.model.SchedulingActivity;
+import gov.nasa.ammos.plandev.scheduler.solver.ScheduleAt;
 
 /**
  * describes an issue in a plan caused by a specific activity instance missing

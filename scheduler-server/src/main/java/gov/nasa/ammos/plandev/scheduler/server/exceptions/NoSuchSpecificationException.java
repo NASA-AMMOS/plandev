@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.scheduler.server.exceptions;
+package gov.nasa.ammos.plandev.scheduler.server.exceptions;
 
-import gov.nasa.jpl.aerie.scheduler.server.models.SpecificationId;
+import gov.nasa.ammos.plandev.scheduler.server.models.SpecificationId;
 
 public final class NoSuchSpecificationException extends Exception {
   public final SpecificationId specificationId;

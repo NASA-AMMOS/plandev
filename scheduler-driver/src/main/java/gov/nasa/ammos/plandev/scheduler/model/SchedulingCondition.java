@@ -1,13 +1,13 @@
-package gov.nasa.jpl.aerie.scheduler.model;
+package gov.nasa.ammos.plandev.scheduler.model;
 
-import gov.nasa.jpl.aerie.constraints.model.EvaluationEnvironment;
-import gov.nasa.jpl.aerie.constraints.model.SimulationResults;
-import gov.nasa.jpl.aerie.constraints.time.Windows;
-import gov.nasa.jpl.aerie.constraints.tree.Expression;
-import gov.nasa.jpl.aerie.scheduler.conflicts.Conflict;
-import gov.nasa.jpl.aerie.scheduler.conflicts.MissingActivityInstanceConflict;
-import gov.nasa.jpl.aerie.scheduler.conflicts.MissingActivityTemplateConflict;
-import gov.nasa.jpl.aerie.scheduler.constraints.scheduling.GlobalConstraintWithIntrospection;
+import gov.nasa.ammos.plandev.constraints.model.EvaluationEnvironment;
+import gov.nasa.ammos.plandev.constraints.model.SimulationResults;
+import gov.nasa.ammos.plandev.constraints.time.Windows;
+import gov.nasa.ammos.plandev.constraints.tree.Expression;
+import gov.nasa.ammos.plandev.scheduler.conflicts.Conflict;
+import gov.nasa.ammos.plandev.scheduler.conflicts.MissingActivityInstanceConflict;
+import gov.nasa.ammos.plandev.scheduler.conflicts.MissingActivityTemplateConflict;
+import gov.nasa.ammos.plandev.scheduler.constraints.scheduling.GlobalConstraintWithIntrospection;
 
 import java.util.List;
 import java.util.Set;

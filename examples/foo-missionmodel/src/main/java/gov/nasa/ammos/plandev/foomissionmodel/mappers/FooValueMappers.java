@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.foomissionmodel.mappers;
+package gov.nasa.ammos.plandev.foomissionmodel.mappers;
 
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.Vector3DValueMapper;
-import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.Vector3DValueMapper;
+import gov.nasa.ammos.plandev.merlin.framework.ValueMapper;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D;
 
 public class FooValueMappers {

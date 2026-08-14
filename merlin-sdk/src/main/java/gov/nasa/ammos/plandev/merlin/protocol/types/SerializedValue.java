@@ -1,7 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.protocol.types;
+package gov.nasa.ammos.plandev.merlin.protocol.types;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -65,7 +64,7 @@ public sealed interface SerializedValue extends Comparable<SerializedValue> {
 
   @Override
   default int compareTo(final SerializedValue o) {
-    return gov.nasa.jpl.aerie.merlin.protocol.types.ObjectComparator.getInstance().compare(this.getValue(), o.getValue());
+    return gov.nasa.ammos.plandev.merlin.protocol.types.ObjectComparator.getInstance().compare(this.getValue(), o.getValue());
   }
 
 

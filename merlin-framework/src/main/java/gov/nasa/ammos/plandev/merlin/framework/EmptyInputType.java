@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.merlin.framework;
+package gov.nasa.ammos.plandev.merlin.framework;
 
-import gov.nasa.jpl.aerie.merlin.protocol.model.InputType;
-import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
+import gov.nasa.ammos.plandev.merlin.protocol.model.InputType;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Unit;
 
 import java.util.List;
 import java.util.Map;

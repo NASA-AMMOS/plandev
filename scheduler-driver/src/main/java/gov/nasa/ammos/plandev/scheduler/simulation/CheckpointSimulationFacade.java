@@ -1,21 +1,22 @@
-package gov.nasa.jpl.aerie.scheduler.simulation;
+package gov.nasa.ammos.plandev.scheduler.simulation;
 
-import gov.nasa.jpl.aerie.merlin.driver.CachedSimulationEngine;
-import gov.nasa.jpl.aerie.merlin.driver.CheckpointSimulationDriver;
-import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationEngineConfiguration;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsComputerInputs;
-import gov.nasa.jpl.aerie.merlin.framework.ThreadedTask;
-import gov.nasa.jpl.aerie.merlin.protocol.model.SchedulerModel;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.scheduler.SchedulingInterruptedException;
-import gov.nasa.jpl.aerie.scheduler.model.ActivityType;
-import gov.nasa.jpl.aerie.scheduler.model.Plan;
-import gov.nasa.jpl.aerie.scheduler.model.PlanningHorizon;
-import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
-import gov.nasa.jpl.aerie.types.ActivityDirective;
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
-import gov.nasa.jpl.aerie.types.MissionModelId;
+import gov.nasa.ammos.plandev.constraints.model.SimulationResults;
+import gov.nasa.ammos.plandev.merlin.driver.CachedSimulationEngine;
+import gov.nasa.ammos.plandev.merlin.driver.CheckpointSimulationDriver;
+import gov.nasa.ammos.plandev.merlin.driver.MissionModel;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationEngineConfiguration;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationResultsComputerInputs;
+import gov.nasa.ammos.plandev.merlin.framework.ThreadedTask;
+import gov.nasa.ammos.plandev.merlin.protocol.model.SchedulerModel;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.scheduler.SchedulingInterruptedException;
+import gov.nasa.ammos.plandev.scheduler.model.ActivityType;
+import gov.nasa.ammos.plandev.scheduler.model.Plan;
+import gov.nasa.ammos.plandev.scheduler.model.PlanningHorizon;
+import gov.nasa.ammos.plandev.scheduler.model.SchedulingActivity;
+import gov.nasa.ammos.plandev.types.ActivityDirective;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.types.MissionModelId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,10 +29,9 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static gov.nasa.jpl.aerie.merlin.driver.CheckpointSimulationDriver.onceAllActivitiesAreFinished;
-import static gov.nasa.jpl.aerie.scheduler.simulation.SimulationFacadeUtils.scheduleFromPlan;
-import static gov.nasa.jpl.aerie.scheduler.simulation.SimulationFacadeUtils.schedulingActToActivityDir;
-import static gov.nasa.jpl.aerie.scheduler.simulation.SimulationFacadeUtils.updatePlanWithChildActivities;
+import static gov.nasa.ammos.plandev.merlin.driver.CheckpointSimulationDriver.onceAllActivitiesAreFinished;
+import static gov.nasa.ammos.plandev.scheduler.simulation.SimulationFacadeUtils.scheduleFromPlan;
+import static gov.nasa.ammos.plandev.scheduler.simulation.SimulationFacadeUtils.updatePlanWithChildActivities;
 
 public class CheckpointSimulationFacade implements SimulationFacade {
   private static final Logger LOGGER = LoggerFactory.getLogger(CheckpointSimulationFacade.class);
@@ -319,7 +319,7 @@ public class CheckpointSimulationFacade implements SimulationFacade {
     this.latestSimulationData = new SimulationData(
         plan,
         driverResults,
-        new gov.nasa.jpl.aerie.constraints.model.SimulationResults(driverResults)
+        new SimulationResults(driverResults)
     );
     return this.latestSimulationData;
   }

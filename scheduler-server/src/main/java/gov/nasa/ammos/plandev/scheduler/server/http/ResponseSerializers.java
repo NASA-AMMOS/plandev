@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler.server.http;
+package gov.nasa.ammos.plandev.scheduler.server.http;
 
 import javax.json.Json;
 import javax.json.JsonValue;
@@ -7,15 +7,15 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.scheduler.model.GoalId;
-import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingCompilationError;
-import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleAction;
-import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleResults;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.scheduler.model.GoalId;
+import gov.nasa.ammos.plandev.scheduler.server.models.SchedulingCompilationError;
+import gov.nasa.ammos.plandev.scheduler.server.services.ScheduleAction;
+import gov.nasa.ammos.plandev.scheduler.server.services.ScheduleResults;
 import org.apache.commons.lang3.tuple.Pair;
 
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import static gov.nasa.ammos.plandev.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
 
 /**
  * json serialization methods for data entities used in the scheduler response bodies
@@ -127,7 +127,7 @@ public class ResponseSerializers {
     };
   }
 
-  public static JsonValue serializeInstantiationException(final gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException ex) {
+  public static JsonValue serializeInstantiationException(final gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException ex) {
     return Json.createObjectBuilder()
                .add("success", JsonValue.FALSE)
                .add("errors", Json.createObjectBuilder()
@@ -136,7 +136,7 @@ public class ResponseSerializers {
                                   .add("missingArguments", serializeStringList(ex.missingArguments.stream().map(a -> a.parameterName()).toList()))
                                   .build())
                .add("arguments", serializeMap(ResponseSerializers::serializeArgument, ex.validArguments.stream().collect(Collectors.toMap(
-                   gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException.ValidArgument::parameterName,
+                   gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException.ValidArgument::parameterName,
                    InstantiationException.ValidArgument::serializedValue))))
                .build();
   }

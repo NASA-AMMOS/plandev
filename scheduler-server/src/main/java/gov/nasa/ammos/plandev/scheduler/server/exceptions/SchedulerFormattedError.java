@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.scheduler.server.exceptions;
+package gov.nasa.ammos.plandev.scheduler.server.exceptions;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import gov.nasa.jpl.aerie.json.FormattedError;
-import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonEntityException;
-import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingCompilationError;
-import gov.nasa.jpl.aerie.scheduler.server.remotes.postgres.DatabaseException;
-import gov.nasa.jpl.aerie.scheduler.server.services.MerlinServiceException;
+import gov.nasa.ammos.plandev.json.FormattedError;
+import gov.nasa.ammos.plandev.scheduler.server.http.InvalidJsonEntityException;
+import gov.nasa.ammos.plandev.scheduler.server.models.SchedulingCompilationError;
+import gov.nasa.ammos.plandev.scheduler.server.remotes.postgres.DatabaseException;
+import gov.nasa.ammos.plandev.scheduler.server.services.MerlinServiceException;
 
 import javax.json.Json;
 

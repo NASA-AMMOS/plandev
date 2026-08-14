@@ -1,25 +1,25 @@
-package gov.nasa.jpl.aerie.scheduler.server.graphql;
+package gov.nasa.ammos.plandev.scheduler.server.graphql;
 
-import gov.nasa.jpl.aerie.json.JsonParser;
-import gov.nasa.jpl.aerie.json.Unit;
-import gov.nasa.jpl.aerie.merlin.driver.engine.ProfileSegment;
-import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.json.JsonParser;
+import gov.nasa.ammos.plandev.json.Unit;
+import gov.nasa.ammos.plandev.merlin.driver.engine.ProfileSegment;
+import gov.nasa.ammos.plandev.merlin.protocol.types.RealDynamics;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.List;
 
-import static gov.nasa.jpl.aerie.json.BasicParsers.doubleP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.listP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.literalP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.productP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.stringP;
-import static gov.nasa.jpl.aerie.json.Uncurry.tuple;
-import static gov.nasa.jpl.aerie.json.Uncurry.untuple;
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
-import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
-import static gov.nasa.jpl.aerie.scheduler.server.graphql.GraphQLParsers.durationP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.doubleP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.listP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.literalP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.productP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.stringP;
+import static gov.nasa.ammos.plandev.json.Uncurry.tuple;
+import static gov.nasa.ammos.plandev.json.Uncurry.untuple;
+import static gov.nasa.ammos.plandev.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import static gov.nasa.ammos.plandev.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
+import static gov.nasa.ammos.plandev.scheduler.server.graphql.GraphQLParsers.durationP;
 
 public final class ProfileParsers {
   public static final JsonParser<RealDynamics> realDynamicsP

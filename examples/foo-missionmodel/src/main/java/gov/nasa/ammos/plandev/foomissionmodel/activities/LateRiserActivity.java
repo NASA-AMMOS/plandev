@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.foomissionmodel.activities;
+package gov.nasa.ammos.plandev.foomissionmodel.activities;
 
-import gov.nasa.jpl.aerie.foomissionmodel.Mission;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType.EffectModel;
+import gov.nasa.ammos.plandev.foomissionmodel.Mission;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.ActivityType;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.ActivityType.EffectModel;
 
 /**
  * An activity that can't be scheduled in the first 60 seconds of the horizon

@@ -1,17 +1,17 @@
-package gov.nasa.jpl.aerie.scheduler;
+package gov.nasa.ammos.plandev.scheduler;
 
-import gov.nasa.jpl.aerie.banananation.Configuration;
-import gov.nasa.jpl.aerie.foomissionmodel.Mission;
-import gov.nasa.jpl.aerie.merlin.driver.DirectiveTypeRegistry;
-import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
-import gov.nasa.jpl.aerie.merlin.driver.MissionModelBuilder;
-import gov.nasa.jpl.aerie.merlin.protocol.model.SchedulerModel;
-import gov.nasa.jpl.aerie.scheduler.model.PlanningHorizon;
-import gov.nasa.jpl.aerie.scheduler.model.Problem;
-import gov.nasa.jpl.aerie.scheduler.simulation.InMemoryCachedEngineStore;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationEngineConfiguration;
-import gov.nasa.jpl.aerie.scheduler.simulation.CheckpointSimulationFacade;
-import gov.nasa.jpl.aerie.types.MissionModelId;
+import gov.nasa.ammos.plandev.banananation.Configuration;
+import gov.nasa.ammos.plandev.foomissionmodel.Mission;
+import gov.nasa.ammos.plandev.merlin.driver.DirectiveTypeRegistry;
+import gov.nasa.ammos.plandev.merlin.driver.MissionModel;
+import gov.nasa.ammos.plandev.merlin.driver.MissionModelBuilder;
+import gov.nasa.ammos.plandev.merlin.protocol.model.SchedulerModel;
+import gov.nasa.ammos.plandev.scheduler.model.PlanningHorizon;
+import gov.nasa.ammos.plandev.scheduler.model.Problem;
+import gov.nasa.ammos.plandev.scheduler.simulation.InMemoryCachedEngineStore;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationEngineConfiguration;
+import gov.nasa.ammos.plandev.scheduler.simulation.CheckpointSimulationFacade;
+import gov.nasa.ammos.plandev.types.MissionModelId;
 
 import java.nio.file.Path;
 import java.time.Instant;
@@ -20,7 +20,7 @@ import java.util.Map;
 public final class SimulationUtility {
 
   private static MissionModel<?> makeMissionModel(final MissionModelBuilder builder, final Configuration config) {
-    final var factory = new gov.nasa.jpl.aerie.banananation.generated.GeneratedModelType();
+    final var factory = new gov.nasa.ammos.plandev.banananation.generated.GeneratedModelType();
     final var registry = DirectiveTypeRegistry.extract(factory);
     final var model = factory.instantiate(Instant.EPOCH, config, builder);
     return builder.build(model, registry);
@@ -28,8 +28,8 @@ public final class SimulationUtility {
 
   public static MissionModel<Mission>
   getFooMissionModel() {
-    final var config = new gov.nasa.jpl.aerie.foomissionmodel.Configuration();
-    final var factory = new gov.nasa.jpl.aerie.foomissionmodel.generated.GeneratedModelType();
+    final var config = new gov.nasa.ammos.plandev.foomissionmodel.Configuration();
+    final var factory = new gov.nasa.ammos.plandev.foomissionmodel.generated.GeneratedModelType();
     final var registry = DirectiveTypeRegistry.extract(factory);
     final var builder = new MissionModelBuilder();
     final var model = factory.instantiate(Instant.EPOCH, config, builder);
@@ -79,7 +79,7 @@ public final class SimulationUtility {
   }
 
   public static SchedulerModel getFooSchedulerModel(){
-    return new gov.nasa.jpl.aerie.foomissionmodel.generated.GeneratedSchedulerModel();
+    return new gov.nasa.ammos.plandev.foomissionmodel.generated.GeneratedSchedulerModel();
   }
 
   public static MissionModel<?> getBananaMissionModel(){
@@ -88,6 +88,6 @@ public final class SimulationUtility {
   }
 
   public static SchedulerModel getBananaSchedulerModel(){
-    return new gov.nasa.jpl.aerie.banananation.generated.GeneratedSchedulerModel();
+    return new gov.nasa.ammos.plandev.banananation.generated.GeneratedSchedulerModel();
   }
 }

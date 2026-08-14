@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.banananation;
+package gov.nasa.ammos.plandev.banananation;
 
-import gov.nasa.jpl.aerie.contrib.models.counters.Counter;
-import gov.nasa.jpl.aerie.merlin.framework.resources.discrete.DiscreteResource;
+import gov.nasa.ammos.plandev.contrib.models.counters.Counter;
+import gov.nasa.ammos.plandev.merlin.framework.resources.discrete.DiscreteResource;
 
 public final class AdditiveRegister implements DiscreteResource<Double> {
   public final Counter<Double> value;

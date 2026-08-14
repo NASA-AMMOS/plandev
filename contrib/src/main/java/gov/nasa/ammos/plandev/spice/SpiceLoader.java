@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.spice;
+package gov.nasa.ammos.plandev.spice;
 
 import java.io.IOException;
 import java.io.InputStream;

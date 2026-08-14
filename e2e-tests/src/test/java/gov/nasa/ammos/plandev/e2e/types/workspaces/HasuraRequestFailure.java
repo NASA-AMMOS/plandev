@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e.types.workspaces;
+package gov.nasa.ammos.plandev.e2e.types.workspaces;
 
 import javax.json.JsonArray;
 import javax.json.JsonObject;

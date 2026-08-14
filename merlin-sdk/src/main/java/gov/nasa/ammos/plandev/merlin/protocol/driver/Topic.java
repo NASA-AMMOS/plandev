@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.protocol.driver;
+package gov.nasa.ammos.plandev.merlin.protocol.driver;
 
-import gov.nasa.jpl.aerie.merlin.protocol.Capability;
+import gov.nasa.ammos.plandev.merlin.protocol.Capability;
 
 /**
  * An unforgeable token identifying a particular stream of events.

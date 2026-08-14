@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.permissions.exceptions;
+package gov.nasa.ammos.plandev.permissions.exceptions;
 
 
-import gov.nasa.jpl.aerie.permissions.gql.SchedulingSpecificationId;
+import gov.nasa.ammos.plandev.permissions.gql.SchedulingSpecificationId;
 
 public final class NoSuchSchedulingSpecificationException extends Exception {
   public final SchedulingSpecificationId id;

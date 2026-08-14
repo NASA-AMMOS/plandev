@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler;
+package gov.nasa.ammos.plandev.scheduler;
 
 public class SchedulingInterruptedException extends InterruptedException {
   public final String location;

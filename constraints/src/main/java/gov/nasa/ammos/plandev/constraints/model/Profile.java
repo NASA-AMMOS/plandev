@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.constraints.model;
+package gov.nasa.ammos.plandev.constraints.model;
 
-import gov.nasa.jpl.aerie.constraints.time.Windows;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.constraints.time.Windows;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 
 import java.util.Optional;
 

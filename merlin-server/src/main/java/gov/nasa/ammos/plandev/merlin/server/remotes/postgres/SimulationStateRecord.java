@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
 import java.util.Optional;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationFailure;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationFailure;
 
 public record SimulationStateRecord(Status status, Optional<SimulationFailure> reason) {
   public static SimulationStateRecord pending() {

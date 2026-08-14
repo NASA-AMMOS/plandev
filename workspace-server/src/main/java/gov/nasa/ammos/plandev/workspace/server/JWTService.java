@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.workspace.server;
+package gov.nasa.ammos.plandev.workspace.server;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;

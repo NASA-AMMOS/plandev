@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial;
+package gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.Dynamics;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Expiring;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Expiry;
-import gov.nasa.jpl.aerie.contrib.streamline.core.monads.ExpiringMonad;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Dynamics;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Expiring;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Expiry;
+import gov.nasa.ammos.plandev.contrib.streamline.core.monads.ExpiringMonad;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete;
 import org.apache.commons.math3.analysis.solvers.LaguerreSolver;
 import org.apache.commons.math3.complex.Complex;
 
@@ -14,12 +14,12 @@ import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiring.expiring;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiry.NEVER;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.EPSILON;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECOND;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete.discrete;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.ZERO;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Expiring.expiring;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Expiry.NEVER;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.EPSILON;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECOND;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete.discrete;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.ZERO;
 import static org.apache.commons.math3.analysis.polynomials.PolynomialsUtils.shift;
 
 /**

@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler.constraints.timeexpressions;
+package gov.nasa.ammos.plandev.scheduler.constraints.timeexpressions;
 
 public enum IntervalRelation {
   Precedes,

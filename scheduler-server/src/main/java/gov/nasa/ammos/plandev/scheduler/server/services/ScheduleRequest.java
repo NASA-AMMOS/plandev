@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.scheduler.server.services;
+package gov.nasa.ammos.plandev.scheduler.server.services;
 
 import java.util.Objects;
-import gov.nasa.jpl.aerie.scheduler.server.models.SpecificationId;
-import gov.nasa.jpl.aerie.scheduler.server.remotes.postgres.SpecificationRevisionData;
+import gov.nasa.ammos.plandev.scheduler.server.models.SpecificationId;
+import gov.nasa.ammos.plandev.scheduler.server.remotes.postgres.SpecificationRevisionData;
 
 /**
  * details of a scheduling request, including the target schedule specification version and goals to operate on

@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.types.Timestamp;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.types.Timestamp;
 import org.intellij.lang.annotations.Language;
 
 import java.sql.Connection;
@@ -13,10 +13,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MICROSECONDS;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.activityAttributesP;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.getJsonColumn;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.parseOffset;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MICROSECONDS;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.activityAttributesP;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.getJsonColumn;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.parseOffset;
 
 /*package-local*/ final class GetSpanRecords implements AutoCloseable {
   private final @Language("SQL") String sql = """

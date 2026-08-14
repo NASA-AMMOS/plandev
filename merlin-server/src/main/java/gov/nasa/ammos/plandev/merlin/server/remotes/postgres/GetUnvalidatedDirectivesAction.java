@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
-import gov.nasa.jpl.aerie.types.MissionModelId;
-import gov.nasa.jpl.aerie.types.SerializedActivity;
-import gov.nasa.jpl.aerie.merlin.server.models.ActivityDirectiveForValidation;
-import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.types.MissionModelId;
+import gov.nasa.ammos.plandev.types.SerializedActivity;
+import gov.nasa.ammos.plandev.merlin.server.models.ActivityDirectiveForValidation;
+import gov.nasa.ammos.plandev.merlin.server.models.PlanId;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -14,8 +14,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.activityArgumentsP;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.getJsonColumn;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.activityArgumentsP;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.getJsonColumn;
 
 public class GetUnvalidatedDirectivesAction implements AutoCloseable {
   private static final String sql = """

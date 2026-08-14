@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.merlin.driver.engine.ProfileSegment;
-import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfile;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.merlin.driver.engine.ProfileSegment;
+import gov.nasa.ammos.plandev.merlin.driver.resources.ResourceProfile;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.RealDynamics;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 import org.apache.commons.lang3.tuple.Pair;
 import org.intellij.lang.annotations.Language;
 
@@ -19,8 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.discreteProfileTypeP;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.realProfileTypeP;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.discreteProfileTypeP;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.realProfileTypeP;
 
 /*package-local*/ final class PostProfilesAction implements AutoCloseable {
   private final @Language("SQL") String sql = """

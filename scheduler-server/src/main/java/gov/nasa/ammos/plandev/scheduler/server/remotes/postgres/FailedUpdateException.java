@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
+package gov.nasa.ammos.plandev.scheduler.server.remotes.postgres;
 
 import org.intellij.lang.annotations.Language;
 

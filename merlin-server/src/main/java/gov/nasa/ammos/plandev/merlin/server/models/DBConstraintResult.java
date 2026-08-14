@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.server.models;
+package gov.nasa.ammos.plandev.merlin.server.models;
 
-import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
+import gov.nasa.ammos.plandev.constraints.model.ConstraintResult;
 import javax.json.JsonObject;
 
 /**

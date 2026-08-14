@@ -1,13 +1,13 @@
-package gov.nasa.jpl.aerie.scheduler.simulation;
+package gov.nasa.ammos.plandev.scheduler.simulation;
 
-import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsComputerInputs;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.scheduler.SchedulingInterruptedException;
-import gov.nasa.jpl.aerie.scheduler.model.ActivityType;
-import gov.nasa.jpl.aerie.scheduler.model.Plan;
-import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
-import gov.nasa.jpl.aerie.types.ActivityDirective;
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationResultsComputerInputs;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.scheduler.SchedulingInterruptedException;
+import gov.nasa.ammos.plandev.scheduler.model.ActivityType;
+import gov.nasa.ammos.plandev.scheduler.model.Plan;
+import gov.nasa.ammos.plandev.scheduler.model.SchedulingActivity;
+import gov.nasa.ammos.plandev.types.ActivityDirective;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
 
 import java.util.ArrayList;
 import java.util.Collection;

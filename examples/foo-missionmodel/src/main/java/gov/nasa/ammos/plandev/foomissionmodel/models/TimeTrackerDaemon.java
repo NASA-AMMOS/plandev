@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.foomissionmodel.models;
+package gov.nasa.ammos.plandev.foomissionmodel.models;
 
-import gov.nasa.jpl.aerie.contrib.models.counters.Counter;
-import gov.nasa.jpl.aerie.merlin.framework.ModelActions;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.models.counters.Counter;
+import gov.nasa.ammos.plandev.merlin.framework.ModelActions;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 /**
  * A daemon task that tracks the number of minutes since plan start

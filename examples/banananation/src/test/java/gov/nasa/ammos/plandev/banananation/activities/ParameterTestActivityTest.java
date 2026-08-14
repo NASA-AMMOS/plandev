@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.banananation.activities;
+package gov.nasa.ammos.plandev.banananation.activities;
 
-import gov.nasa.jpl.aerie.banananation.generated.activities.ParameterTestActivityMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.DurationValueMapper;
-import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.banananation.generated.activities.ParameterTestActivityMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.DurationValueMapper;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;

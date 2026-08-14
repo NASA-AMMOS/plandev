@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.scheduler.server.models;
+package gov.nasa.ammos.plandev.scheduler.server.models;
 
-import gov.nasa.jpl.aerie.constraints.model.DiscreteProfile;
-import gov.nasa.jpl.aerie.constraints.model.LinearProfile;
+import gov.nasa.ammos.plandev.constraints.model.DiscreteProfile;
+import gov.nasa.ammos.plandev.constraints.model.LinearProfile;
 
 import java.util.Collection;
 import java.util.Map;

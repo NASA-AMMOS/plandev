@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.contrib.cells.durative;
+package gov.nasa.ammos.plandev.contrib.cells.durative;
 
-import gov.nasa.jpl.aerie.contrib.traits.CommutativeMonoid;
-import gov.nasa.jpl.aerie.merlin.framework.CellRef;
-import gov.nasa.jpl.aerie.merlin.protocol.model.CellType;
-import gov.nasa.jpl.aerie.merlin.protocol.model.EffectTrait;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
+import gov.nasa.ammos.plandev.contrib.traits.CommutativeMonoid;
+import gov.nasa.ammos.plandev.merlin.framework.CellRef;
+import gov.nasa.ammos.plandev.merlin.protocol.model.CellType;
+import gov.nasa.ammos.plandev.merlin.protocol.model.EffectTrait;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.RealDynamics;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.ArrayList;

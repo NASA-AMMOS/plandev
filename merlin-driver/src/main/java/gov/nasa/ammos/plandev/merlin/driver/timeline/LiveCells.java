@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.driver.timeline;
+package gov.nasa.ammos.plandev.merlin.driver.timeline;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 import java.util.HashMap;
 import java.util.Map;

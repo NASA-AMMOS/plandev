@@ -1,24 +1,24 @@
-package gov.nasa.jpl.aerie.foomissionmodel;
+package gov.nasa.ammos.plandev.foomissionmodel;
 
-import gov.nasa.jpl.aerie.contrib.models.Accumulator;
-import gov.nasa.jpl.aerie.contrib.models.Clock;
-import gov.nasa.jpl.aerie.contrib.models.Register;
-import gov.nasa.jpl.aerie.contrib.models.counters.Counter;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.BooleanValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.DoubleValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.IntegerValueMapper;
-import gov.nasa.jpl.aerie.foomissionmodel.models.Imager;
-import gov.nasa.jpl.aerie.foomissionmodel.models.ImagerMode;
-import gov.nasa.jpl.aerie.foomissionmodel.models.SimpleData;
-import gov.nasa.jpl.aerie.foomissionmodel.models.TimeTrackerDaemon;
-import gov.nasa.jpl.aerie.merlin.framework.ModelActions;
-import gov.nasa.jpl.aerie.merlin.framework.Registrar;
-import gov.nasa.jpl.aerie.merlin.framework.resources.real.RealResource;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.models.Accumulator;
+import gov.nasa.ammos.plandev.contrib.models.Clock;
+import gov.nasa.ammos.plandev.contrib.models.Register;
+import gov.nasa.ammos.plandev.contrib.models.counters.Counter;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.BooleanValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.DoubleValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.IntegerValueMapper;
+import gov.nasa.ammos.plandev.foomissionmodel.models.Imager;
+import gov.nasa.ammos.plandev.foomissionmodel.models.ImagerMode;
+import gov.nasa.ammos.plandev.foomissionmodel.models.SimpleData;
+import gov.nasa.ammos.plandev.foomissionmodel.models.TimeTrackerDaemon;
+import gov.nasa.ammos.plandev.merlin.framework.ModelActions;
+import gov.nasa.ammos.plandev.merlin.framework.Registrar;
+import gov.nasa.ammos.plandev.merlin.framework.resources.real.RealResource;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 import java.time.Instant;
 
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.*;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.*;
 
 public final class Mission {
   // Need a way to pose constraints against activities, and generally modeling activity behavior with resources.

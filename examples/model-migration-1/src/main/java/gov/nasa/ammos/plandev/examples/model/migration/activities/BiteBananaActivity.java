@@ -1,14 +1,14 @@
-package gov.nasa.jpl.aerie.examples.model.migration.activities;
+package gov.nasa.ammos.plandev.examples.model.migration.activities;
 
-import gov.nasa.jpl.aerie.examples.model.migration.Flag;
-import gov.nasa.jpl.aerie.examples.model.migration.Mission;
-import gov.nasa.jpl.aerie.contrib.metadata.Unit;
-import gov.nasa.jpl.aerie.contrib.models.ValidationResult;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType.EffectModel;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.AutoValueMapper;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Parameter;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Validation;
+import gov.nasa.ammos.plandev.examples.model.migration.Flag;
+import gov.nasa.ammos.plandev.examples.model.migration.Mission;
+import gov.nasa.ammos.plandev.contrib.metadata.Unit;
+import gov.nasa.ammos.plandev.contrib.models.ValidationResult;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.ActivityType;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.ActivityType.EffectModel;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.AutoValueMapper;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.Export.Parameter;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.Export.Validation;
 
 /**
  * Bite a banana.

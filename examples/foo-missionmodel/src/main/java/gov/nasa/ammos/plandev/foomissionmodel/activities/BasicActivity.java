@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.foomissionmodel.activities;
+package gov.nasa.ammos.plandev.foomissionmodel.activities;
 
-import gov.nasa.jpl.aerie.foomissionmodel.Mission;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType.EffectModel;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.foomissionmodel.Mission;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.ActivityType;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.ActivityType.EffectModel;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.*;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.*;
 
 @ActivityType("BasicActivity")
 public final class BasicActivity {

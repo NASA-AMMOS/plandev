@@ -1,15 +1,15 @@
-package gov.nasa.jpl.aerie.merlin.worker.postgres;
+package gov.nasa.ammos.plandev.merlin.worker.postgres;
 
-import gov.nasa.jpl.aerie.json.JsonParser;
-import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfile;
-import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfiles;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.DatabaseException;
-import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.FailedInsertException;
-import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.FailedUpdateException;
-import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PreparedStatements;
+import gov.nasa.ammos.plandev.json.JsonParser;
+import gov.nasa.ammos.plandev.merlin.driver.resources.ResourceProfile;
+import gov.nasa.ammos.plandev.merlin.driver.resources.ResourceProfiles;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.RealDynamics;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.DatabaseException;
+import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.FailedInsertException;
+import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.FailedUpdateException;
+import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PreparedStatements;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.sql.DataSource;
@@ -19,10 +19,10 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
 
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
-import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.realDynamicsP;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.discreteProfileTypeP;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.realProfileTypeP;
+import static gov.nasa.ammos.plandev.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import static gov.nasa.ammos.plandev.merlin.server.http.ProfileParsers.realDynamicsP;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.discreteProfileTypeP;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.realProfileTypeP;
 
 /**
  * Utility class to handle upload of resource profiles to the database.

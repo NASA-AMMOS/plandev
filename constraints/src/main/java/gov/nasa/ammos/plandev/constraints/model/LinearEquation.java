@@ -1,16 +1,16 @@
-package gov.nasa.jpl.aerie.constraints.model;
+package gov.nasa.ammos.plandev.constraints.model;
 
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.constraints.time.Segment;
-import gov.nasa.jpl.aerie.constraints.time.Windows;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.constraints.time.Segment;
+import gov.nasa.ammos.plandev.constraints.time.Windows;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
-import static gov.nasa.jpl.aerie.constraints.time.Interval.Inclusivity.Exclusive;
-import static gov.nasa.jpl.aerie.constraints.time.Interval.Inclusivity.Inclusive;
+import static gov.nasa.ammos.plandev.constraints.time.Interval.Inclusivity.Exclusive;
+import static gov.nasa.ammos.plandev.constraints.time.Interval.Inclusivity.Inclusive;
 
 /**
  * A linear equation in point-slope form.

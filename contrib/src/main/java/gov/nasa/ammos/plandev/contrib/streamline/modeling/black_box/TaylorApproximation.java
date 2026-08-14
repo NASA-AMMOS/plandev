@@ -1,15 +1,14 @@
-package gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box;
+package gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.Expiring;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Expiring;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.Approximation.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.Approximation.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
 
 public final class TaylorApproximation {
   private TaylorApproximation() {}

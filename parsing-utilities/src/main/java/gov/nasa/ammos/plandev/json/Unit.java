@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.json;
+package gov.nasa.ammos.plandev.json;
 
 /**
  * A type with only one non-null value. This is a convenient alternative to using a null {@code Object} in situations

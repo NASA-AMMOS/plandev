@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.merlin.server.http;
+package gov.nasa.ammos.plandev.merlin.server.http;
 
 import java.util.List;
-import static gov.nasa.jpl.aerie.json.JsonParseResult.FailureReason;
+import static gov.nasa.ammos.plandev.json.JsonParseResult.FailureReason;
 
 public class InvalidJsonEntityException extends Exception {
 

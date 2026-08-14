@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.scheduler.worker;
+package gov.nasa.ammos.plandev.scheduler.worker;
 
-import gov.nasa.jpl.aerie.scheduler.server.models.SpecificationId;
-import gov.nasa.jpl.aerie.scheduler.server.remotes.postgres.DatabaseException;
-import gov.nasa.jpl.aerie.scheduler.worker.postgres.ListenSchedulingRequestStatusAction;
-import gov.nasa.jpl.aerie.scheduler.worker.postgres.PostgresSchedulingRequestNotificationPayload;
+import gov.nasa.ammos.plandev.scheduler.server.models.SpecificationId;
+import gov.nasa.ammos.plandev.scheduler.server.remotes.postgres.DatabaseException;
+import gov.nasa.ammos.plandev.scheduler.worker.postgres.ListenSchedulingRequestStatusAction;
+import gov.nasa.ammos.plandev.scheduler.worker.postgres.PostgresSchedulingRequestNotificationPayload;
 import org.postgresql.PGConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,7 +14,7 @@ import java.io.StringReader;
 import java.sql.SQLException;
 import java.util.concurrent.BlockingQueue;
 
-import static gov.nasa.jpl.aerie.scheduler.worker.postgres.PostgresNotificationJsonParsers.postgresSchedulingRequestNotificationP;
+import static gov.nasa.ammos.plandev.scheduler.worker.postgres.PostgresNotificationJsonParsers.postgresSchedulingRequestNotificationP;
 
 public class ListenSchedulerCapability {
   private static final Logger logger = LoggerFactory.getLogger(ListenSchedulerCapability.class);

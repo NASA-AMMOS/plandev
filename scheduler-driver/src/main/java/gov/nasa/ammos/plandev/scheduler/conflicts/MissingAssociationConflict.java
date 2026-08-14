@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.scheduler.conflicts;
+package gov.nasa.ammos.plandev.scheduler.conflicts;
 
-import gov.nasa.jpl.aerie.constraints.model.EvaluationEnvironment;
-import gov.nasa.jpl.aerie.constraints.time.Windows;
-import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
-import gov.nasa.jpl.aerie.scheduler.goals.Goal;
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.constraints.model.EvaluationEnvironment;
+import gov.nasa.ammos.plandev.constraints.time.Windows;
+import gov.nasa.ammos.plandev.scheduler.model.SchedulingActivity;
+import gov.nasa.ammos.plandev.scheduler.goals.Goal;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
 
 import java.util.Collection;
 import java.util.Optional;

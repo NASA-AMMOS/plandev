@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.merlin.framework.annotations;
+package gov.nasa.ammos.plandev.merlin.framework.annotations;
 
-import gov.nasa.jpl.aerie.merlin.framework.ActivityMapper;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.framework.ActivityMapper;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

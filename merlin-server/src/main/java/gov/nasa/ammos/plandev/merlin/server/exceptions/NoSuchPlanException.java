@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.server.exceptions;
+package gov.nasa.ammos.plandev.merlin.server.exceptions;
 
-import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
+import gov.nasa.ammos.plandev.merlin.server.models.PlanId;
 
 public final class NoSuchPlanException extends Exception {
   public final PlanId id;

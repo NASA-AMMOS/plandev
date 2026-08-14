@@ -1,14 +1,14 @@
-package gov.nasa.jpl.aerie.banananation;
+package gov.nasa.ammos.plandev.banananation;
 
-import gov.nasa.jpl.aerie.banananation.generated.GeneratedModelType;
-import gov.nasa.jpl.aerie.merlin.driver.*;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.types.ActivityDirective;
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
-import gov.nasa.jpl.aerie.types.Plan;
-import gov.nasa.jpl.aerie.types.SerializedActivity;
-import gov.nasa.jpl.aerie.types.Timestamp;
+import gov.nasa.ammos.plandev.banananation.generated.GeneratedModelType;
+import gov.nasa.ammos.plandev.merlin.driver.*;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.types.ActivityDirective;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.types.Plan;
+import gov.nasa.ammos.plandev.types.SerializedActivity;
+import gov.nasa.ammos.plandev.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.nio.file.Path;
@@ -24,7 +24,7 @@ public final class SimulationUtility {
     final var dataPath = Path.of(SimulationUtility.class.getResource("data/lorem_ipsum.txt").getPath());
     final var config = new Configuration(Configuration.DEFAULT_PLANT_COUNT, Configuration.DEFAULT_PRODUCER, dataPath, Configuration.DEFAULT_INITIAL_CONDITIONS);
     final var startTime = Instant.now();
-    final var missionModel = gov.nasa.jpl.aerie.orchestration.simulation.SimulationUtility.instantiateMissionModel(
+    final var missionModel = gov.nasa.ammos.plandev.orchestration.simulation.SimulationUtility.instantiateMissionModel(
         new GeneratedModelType(),
         Instant.EPOCH,
         config);
@@ -36,7 +36,7 @@ public final class SimulationUtility {
         schedule,
         Map.of("initialDataPath", SerializedValue.of(dataPath.toString())));
 
-    try(final var simUtil = new gov.nasa.jpl.aerie.orchestration.simulation.SimulationUtility()) {
+    try(final var simUtil = new gov.nasa.ammos.plandev.orchestration.simulation.SimulationUtility()) {
       return simUtil.simulate(missionModel, plan).get();
     } catch (ExecutionException | InterruptedException e) {
       throw new RuntimeException(e);

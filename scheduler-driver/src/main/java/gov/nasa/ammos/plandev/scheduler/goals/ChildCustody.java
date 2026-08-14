@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler.goals;
+package gov.nasa.ammos.plandev.scheduler.goals;
 
 /**
  * describes how a goal is satisfied by shared activity instances

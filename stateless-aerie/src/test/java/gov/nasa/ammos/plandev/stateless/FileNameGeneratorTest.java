@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.stateless;
+package gov.nasa.ammos.plandev.stateless;
 
-import gov.nasa.jpl.aerie.orchestration.simulation.ResourceFileStreamer;
+import gov.nasa.ammos.plandev.orchestration.simulation.ResourceFileStreamer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;

@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.driver.engine;
+package gov.nasa.ammos.plandev.merlin.driver.engine;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 public record SchedulingInstant(Duration offsetFromStart, SubInstant priority)
     implements Comparable<SchedulingInstant>

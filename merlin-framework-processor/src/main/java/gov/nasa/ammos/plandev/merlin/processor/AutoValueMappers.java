@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.merlin.processor;
+package gov.nasa.ammos.plandev.merlin.processor;
 
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
@@ -10,14 +10,14 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.RecordValueMapper;
-import gov.nasa.jpl.aerie.merlin.framework.Result;
-import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.AutoValueMapper;
-import gov.nasa.jpl.aerie.merlin.processor.metamodel.MissionModelRecord;
-import gov.nasa.jpl.aerie.merlin.processor.metamodel.TypeRule;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.RecordValueMapper;
+import gov.nasa.ammos.plandev.merlin.framework.Result;
+import gov.nasa.ammos.plandev.merlin.framework.ValueMapper;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.AutoValueMapper;
+import gov.nasa.ammos.plandev.merlin.processor.metamodel.MissionModelRecord;
+import gov.nasa.ammos.plandev.merlin.processor.metamodel.TypeRule;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -27,7 +27,6 @@ import javax.lang.model.element.Parameterizable;
 import javax.lang.model.element.RecordComponentElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;

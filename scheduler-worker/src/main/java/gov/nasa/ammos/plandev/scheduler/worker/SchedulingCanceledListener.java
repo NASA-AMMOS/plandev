@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.scheduler.worker;
+package gov.nasa.ammos.plandev.scheduler.worker;
 
-import gov.nasa.jpl.aerie.scheduler.server.models.SpecificationId;
+import gov.nasa.ammos.plandev.scheduler.server.models.SpecificationId;
 
 import java.util.Optional;
 import java.util.function.Supplier;

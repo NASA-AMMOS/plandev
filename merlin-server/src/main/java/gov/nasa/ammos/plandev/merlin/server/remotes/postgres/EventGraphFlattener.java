@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.merlin.driver.timeline.EventGraph;
-import gov.nasa.jpl.aerie.merlin.protocol.model.EffectTrait;
+import gov.nasa.ammos.plandev.merlin.driver.timeline.EventGraph;
+import gov.nasa.ammos.plandev.merlin.protocol.model.EffectTrait;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.ArrayList;

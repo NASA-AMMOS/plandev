@@ -1,18 +1,18 @@
-package gov.nasa.jpl.aerie.foomissionmodel.activities;
+package gov.nasa.ammos.plandev.foomissionmodel.activities;
 
-import gov.nasa.jpl.aerie.foomissionmodel.Mission;
-import gov.nasa.jpl.aerie.foomissionmodel.models.ImagerMode;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
+import gov.nasa.ammos.plandev.foomissionmodel.Mission;
+import gov.nasa.ammos.plandev.foomissionmodel.models.ImagerMode;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.ActivityType;
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D;
 
 import java.util.List;
 
-import static gov.nasa.jpl.aerie.foomissionmodel.generated.ActivityActions.call;
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.*;
-import static gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType.EffectModel;
-import static gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Parameter;
-import static gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Validation;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECOND;
+import static gov.nasa.ammos.plandev.foomissionmodel.generated.ActivityActions.call;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.*;
+import static gov.nasa.ammos.plandev.merlin.framework.annotations.ActivityType.EffectModel;
+import static gov.nasa.ammos.plandev.merlin.framework.annotations.Export.Parameter;
+import static gov.nasa.ammos.plandev.merlin.framework.annotations.Export.Validation;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECOND;
 
 @ActivityType("foo")
 public final class FooActivity {

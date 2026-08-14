@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler;
+package gov.nasa.ammos.plandev.scheduler;
 
 import java.util.ArrayList;
 import java.util.Arrays;

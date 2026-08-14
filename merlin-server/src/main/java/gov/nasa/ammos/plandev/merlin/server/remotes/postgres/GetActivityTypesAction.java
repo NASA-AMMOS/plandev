@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.Parameter;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
-import gov.nasa.jpl.aerie.merlin.server.models.ActivityType;
+import gov.nasa.ammos.plandev.merlin.protocol.model.InputType.Parameter;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
 import org.intellij.lang.annotations.Language;
 
 import java.sql.Connection;
@@ -13,11 +13,11 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
-import static gov.nasa.jpl.aerie.json.BasicParsers.listP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.stringP;
-import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.getJsonColumn;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.parameterRecordP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.listP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.stringP;
+import static gov.nasa.ammos.plandev.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.getJsonColumn;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.parameterRecordP;
 
 /*package-local*/ final class GetActivityTypesAction implements AutoCloseable {
   private static final @Language("SQL") String sql = """

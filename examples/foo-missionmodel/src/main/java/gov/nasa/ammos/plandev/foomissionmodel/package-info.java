@@ -22,25 +22,25 @@
 @WithActivityType(DecompositionTestActivities.ChildActivity.class)
 @WithActivityType(LateRiserActivity.class)
 
-package gov.nasa.jpl.aerie.foomissionmodel;
+package gov.nasa.ammos.plandev.foomissionmodel;
 
-import gov.nasa.jpl.aerie.contrib.serialization.rulesets.BasicValueMappers;
-import gov.nasa.jpl.aerie.foomissionmodel.activities.BarActivity;
-import gov.nasa.jpl.aerie.foomissionmodel.activities.BasicActivity;
-import gov.nasa.jpl.aerie.foomissionmodel.activities.BasicFooActivity;
-import gov.nasa.jpl.aerie.foomissionmodel.activities.ControllableDurationActivity;
-import gov.nasa.jpl.aerie.foomissionmodel.activities.DaemonCheckerActivity;
-import gov.nasa.jpl.aerie.foomissionmodel.activities.DaemonCheckerSpawner;
-import gov.nasa.jpl.aerie.foomissionmodel.activities.DaemonTaskActivity;
-import gov.nasa.jpl.aerie.foomissionmodel.activities.DecompositionTestActivities;
-import gov.nasa.jpl.aerie.foomissionmodel.activities.FooActivity;
-import gov.nasa.jpl.aerie.foomissionmodel.activities.LateRiserActivity;
-import gov.nasa.jpl.aerie.foomissionmodel.activities.OtherControllableDurationActivity;
-import gov.nasa.jpl.aerie.foomissionmodel.activities.SolarPanelNonLinear;
-import gov.nasa.jpl.aerie.foomissionmodel.activities.SolarPanelNonLinearTimeDependent;
-import gov.nasa.jpl.aerie.foomissionmodel.activities.ZeroDurationUncontrollableActivity;
-import gov.nasa.jpl.aerie.foomissionmodel.mappers.FooValueMappers;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.MissionModel;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.MissionModel.WithActivityType;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.MissionModel.WithConfiguration;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.MissionModel.WithMappers;
+import gov.nasa.ammos.plandev.contrib.serialization.rulesets.BasicValueMappers;
+import gov.nasa.ammos.plandev.foomissionmodel.activities.BarActivity;
+import gov.nasa.ammos.plandev.foomissionmodel.activities.BasicActivity;
+import gov.nasa.ammos.plandev.foomissionmodel.activities.BasicFooActivity;
+import gov.nasa.ammos.plandev.foomissionmodel.activities.ControllableDurationActivity;
+import gov.nasa.ammos.plandev.foomissionmodel.activities.DaemonCheckerActivity;
+import gov.nasa.ammos.plandev.foomissionmodel.activities.DaemonCheckerSpawner;
+import gov.nasa.ammos.plandev.foomissionmodel.activities.DaemonTaskActivity;
+import gov.nasa.ammos.plandev.foomissionmodel.activities.DecompositionTestActivities;
+import gov.nasa.ammos.plandev.foomissionmodel.activities.FooActivity;
+import gov.nasa.ammos.plandev.foomissionmodel.activities.LateRiserActivity;
+import gov.nasa.ammos.plandev.foomissionmodel.activities.OtherControllableDurationActivity;
+import gov.nasa.ammos.plandev.foomissionmodel.activities.SolarPanelNonLinear;
+import gov.nasa.ammos.plandev.foomissionmodel.activities.SolarPanelNonLinearTimeDependent;
+import gov.nasa.ammos.plandev.foomissionmodel.activities.ZeroDurationUncontrollableActivity;
+import gov.nasa.ammos.plandev.foomissionmodel.mappers.FooValueMappers;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.MissionModel;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.MissionModel.WithActivityType;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.MissionModel.WithConfiguration;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.MissionModel.WithMappers;

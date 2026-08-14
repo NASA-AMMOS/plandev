@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.processor.metamodel;
+package gov.nasa.ammos.plandev.merlin.processor.metamodel;
 
-import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.ActivityType;
 
 import javax.lang.model.type.TypeMirror;
 import java.util.Optional;

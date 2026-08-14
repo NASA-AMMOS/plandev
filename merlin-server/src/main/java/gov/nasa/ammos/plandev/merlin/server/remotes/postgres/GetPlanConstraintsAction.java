@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser;
-import gov.nasa.jpl.aerie.merlin.server.http.InvalidJsonEntityException;
-import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
-import gov.nasa.jpl.aerie.merlin.server.models.ConstraintType;
+import gov.nasa.ammos.plandev.merlin.driver.json.SerializedValueJsonParser;
+import gov.nasa.ammos.plandev.merlin.server.http.InvalidJsonEntityException;
+import gov.nasa.ammos.plandev.merlin.server.models.ConstraintRecord;
+import gov.nasa.ammos.plandev.merlin.server.models.ConstraintType;
 import org.intellij.lang.annotations.Language;
 
 import javax.json.stream.JsonParsingException;
@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.parseJson;
+import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.parseJson;
 
 /*package local*/ final class GetPlanConstraintsAction implements AutoCloseable {
   // We left join through the plan table in order to distinguish

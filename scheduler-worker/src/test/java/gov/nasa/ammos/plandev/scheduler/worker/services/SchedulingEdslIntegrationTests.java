@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler.worker.services;
+package gov.nasa.ammos.plandev.scheduler.worker.services;
 
 import java.io.File;
 import java.io.IOException;
@@ -17,48 +17,49 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.HOURS;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MICROSECONDS;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MILLISECONDS;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MINUTES;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.HOURS;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MICROSECONDS;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MILLISECONDS;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MINUTES;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECONDS;
 import static org.junit.jupiter.api.Assertions.*;
 
-import gov.nasa.jpl.aerie.constraints.model.DiscreteProfile;
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.constraints.time.Segment;
-import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
-import gov.nasa.jpl.aerie.merlin.protocol.model.DirectiveType;
-import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.Parameter;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
-import gov.nasa.jpl.aerie.scheduler.TimeUtility;
-import gov.nasa.jpl.aerie.scheduler.model.PlanningHorizon;
-import gov.nasa.jpl.aerie.scheduler.server.config.PlanOutputMode;
-import gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers;
-import gov.nasa.jpl.aerie.scheduler.server.models.ExternalProfiles;
-import gov.nasa.jpl.aerie.scheduler.server.models.GoalType;
-import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingConditionId;
-import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingConditionRecord;
-import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingConditionSource;
-import gov.nasa.jpl.aerie.scheduler.model.GoalId;
-import gov.nasa.jpl.aerie.scheduler.server.models.GoalInvocationRecord;
-import gov.nasa.jpl.aerie.scheduler.server.models.GoalSource;
-import gov.nasa.jpl.aerie.scheduler.server.models.PlanId;
-import gov.nasa.jpl.aerie.scheduler.server.models.ResourceType;
-import gov.nasa.jpl.aerie.scheduler.server.models.Specification;
-import gov.nasa.jpl.aerie.scheduler.server.models.SpecificationId;
-import gov.nasa.jpl.aerie.scheduler.server.remotes.postgres.SpecificationRevisionData;
-import gov.nasa.jpl.aerie.scheduler.server.services.MerlinDatabaseService;
-import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleRequest;
-import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleResults;
-import gov.nasa.jpl.aerie.scheduler.model.Plan;
-import gov.nasa.jpl.aerie.scheduler.server.services.SpecificationService;
-import gov.nasa.jpl.aerie.types.ActivityDirective;
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
-import gov.nasa.jpl.aerie.types.SerializedActivity;
-import gov.nasa.jpl.aerie.types.Timestamp;
+import gov.nasa.ammos.plandev.constraints.model.DiscreteProfile;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.constraints.time.Segment;
+import gov.nasa.ammos.plandev.scheduler.server.models.ActivityType;
+import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader;
+import gov.nasa.ammos.plandev.merlin.protocol.model.DirectiveType;
+import gov.nasa.ammos.plandev.merlin.protocol.model.InputType.Parameter;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.scheduler.TimeUtility;
+import gov.nasa.ammos.plandev.scheduler.model.PlanningHorizon;
+import gov.nasa.ammos.plandev.scheduler.server.config.PlanOutputMode;
+import gov.nasa.ammos.plandev.scheduler.server.http.SchedulerParsers;
+import gov.nasa.ammos.plandev.scheduler.server.models.ExternalProfiles;
+import gov.nasa.ammos.plandev.scheduler.server.models.GoalType;
+import gov.nasa.ammos.plandev.scheduler.server.models.SchedulingConditionId;
+import gov.nasa.ammos.plandev.scheduler.server.models.SchedulingConditionRecord;
+import gov.nasa.ammos.plandev.scheduler.server.models.SchedulingConditionSource;
+import gov.nasa.ammos.plandev.scheduler.model.GoalId;
+import gov.nasa.ammos.plandev.scheduler.server.models.GoalInvocationRecord;
+import gov.nasa.ammos.plandev.scheduler.server.models.GoalSource;
+import gov.nasa.ammos.plandev.scheduler.server.models.PlanId;
+import gov.nasa.ammos.plandev.scheduler.server.models.ResourceType;
+import gov.nasa.ammos.plandev.scheduler.server.models.Specification;
+import gov.nasa.ammos.plandev.scheduler.server.models.SpecificationId;
+import gov.nasa.ammos.plandev.scheduler.server.remotes.postgres.SpecificationRevisionData;
+import gov.nasa.ammos.plandev.scheduler.server.services.MerlinDatabaseService;
+import gov.nasa.ammos.plandev.scheduler.server.services.ScheduleRequest;
+import gov.nasa.ammos.plandev.scheduler.server.services.ScheduleResults;
+import gov.nasa.ammos.plandev.scheduler.model.Plan;
+import gov.nasa.ammos.plandev.scheduler.server.services.SpecificationService;
+import gov.nasa.ammos.plandev.types.ActivityDirective;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.types.SerializedActivity;
+import gov.nasa.ammos.plandev.types.Timestamp;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -2252,11 +2253,11 @@ public class SchedulingEdslIntegrationTests {
         "",
         "");
     final Map<String, ? extends DirectiveType<?, ?, ?>> taskSpecTypes = missionModel.getDirectiveTypes().directiveTypes();
-    final var activityTypes = new ArrayList<gov.nasa.jpl.aerie.scheduler.server.models.ActivityType>();
+    final var activityTypes = new ArrayList<ActivityType>();
     for (final var entry : taskSpecTypes.entrySet()) {
       final var activityTypeName = entry.getKey();
       final var taskSpecType = entry.getValue();
-      activityTypes.add(new gov.nasa.jpl.aerie.scheduler.server.models.ActivityType(
+      activityTypes.add(new ActivityType(
           activityTypeName,
           taskSpecType
               .getInputType()

@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e.utils;
+package gov.nasa.ammos.plandev.e2e.utils;
 
 import com.microsoft.playwright.APIResponse;
 

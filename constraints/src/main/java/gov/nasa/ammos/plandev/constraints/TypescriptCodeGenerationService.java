@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.constraints;
+package gov.nasa.ammos.plandev.constraints;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 
 import java.util.ArrayList;
 import java.util.HashMap;

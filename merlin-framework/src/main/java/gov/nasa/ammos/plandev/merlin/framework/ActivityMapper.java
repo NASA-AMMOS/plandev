@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.merlin.framework;
+package gov.nasa.ammos.plandev.merlin.framework;
 
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Topic;
-import gov.nasa.jpl.aerie.merlin.protocol.model.DirectiveType;
-import gov.nasa.jpl.aerie.merlin.protocol.model.OutputType;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Topic;
+import gov.nasa.ammos.plandev.merlin.protocol.model.DirectiveType;
+import gov.nasa.ammos.plandev.merlin.protocol.model.OutputType;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 
 import java.util.stream.Collectors;
 

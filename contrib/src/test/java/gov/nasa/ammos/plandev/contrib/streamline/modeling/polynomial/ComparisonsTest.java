@@ -1,28 +1,28 @@
-package gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial;
+package gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Expiry;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resources;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
-import gov.nasa.jpl.aerie.merlin.framework.Registrar;
-import gov.nasa.jpl.aerie.merlin.framework.junit.MerlinExtension;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Expiry;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resources;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete;
+import gov.nasa.ammos.plandev.merlin.framework.Registrar;
+import gov.nasa.ammos.plandev.merlin.framework.junit.MerlinExtension;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.resource;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.set;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentData;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentValue;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialResources.*;
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.delay;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.EPSILON;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECOND;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.ZERO;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource.resource;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource.set;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Resources.currentData;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Resources.currentValue;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.PolynomialResources.*;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.delay;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.EPSILON;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECOND;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.ZERO;
 import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(MerlinExtension.class)

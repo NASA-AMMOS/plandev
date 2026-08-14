@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.json;
+package gov.nasa.ammos.plandev.json;
 
 import org.junit.jupiter.api.Test;
 
 import javax.json.Json;
 
-import static gov.nasa.jpl.aerie.json.BasicParsers.stringP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.stringP;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public final class ProductParsersTest {

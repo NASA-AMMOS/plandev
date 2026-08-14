@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.workspace.server;
+package gov.nasa.ammos.plandev.workspace.server;
 
-import gov.nasa.jpl.aerie.workspace.server.exceptions.NoSuchFileException;
-import gov.nasa.jpl.aerie.workspace.server.exceptions.WorkspaceFileOpException;
-import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
-import gov.nasa.jpl.aerie.workspace.server.postgres.RenderType;
-import gov.nasa.jpl.aerie.workspace.server.types.MetadataMergeBehavior;
+import gov.nasa.ammos.plandev.workspace.server.exceptions.NoSuchFileException;
+import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
+import gov.nasa.ammos.plandev.workspace.server.postgres.NoSuchWorkspaceException;
+import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
+import gov.nasa.ammos.plandev.workspace.server.types.MetadataMergeBehavior;
 import io.javalin.http.UploadedFile;
 
 import javax.json.JsonException;

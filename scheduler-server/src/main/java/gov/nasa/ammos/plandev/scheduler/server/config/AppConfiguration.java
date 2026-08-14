@@ -1,7 +1,6 @@
-package gov.nasa.jpl.aerie.scheduler.server.config;
+package gov.nasa.ammos.plandev.scheduler.server.config;
 
 import java.net.URI;
-import java.nio.file.Path;
 import java.util.Objects;
 
 /**

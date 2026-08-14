@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
+package gov.nasa.ammos.plandev.scheduler.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.scheduler.server.services.RevisionData;
+import gov.nasa.ammos.plandev.scheduler.server.services.RevisionData;
 
 public record SpecificationRevisionData(long specificationRevision, long planRevision) implements RevisionData {
   @Override

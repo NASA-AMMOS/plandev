@@ -1,19 +1,19 @@
-package gov.nasa.jpl.aerie.merlin.server.mocks;
+package gov.nasa.ammos.plandev.merlin.server.mocks;
 
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
-import gov.nasa.jpl.aerie.types.MissionModelId;
-import gov.nasa.jpl.aerie.types.Plan;
-import gov.nasa.jpl.aerie.types.SerializedActivity;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
-import gov.nasa.jpl.aerie.merlin.driver.resources.SimulationResourceManager;
-import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.Parameter;
-import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.ValidationNotice;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
-import gov.nasa.jpl.aerie.merlin.server.models.ActivityType;
-import gov.nasa.jpl.aerie.merlin.server.models.MissionModelJar;
-import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.types.MissionModelId;
+import gov.nasa.ammos.plandev.types.Plan;
+import gov.nasa.ammos.plandev.types.SerializedActivity;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationResults;
+import gov.nasa.ammos.plandev.merlin.driver.resources.SimulationResourceManager;
+import gov.nasa.ammos.plandev.merlin.protocol.model.InputType.Parameter;
+import gov.nasa.ammos.plandev.merlin.protocol.model.InputType.ValidationNotice;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
+import gov.nasa.ammos.plandev.merlin.server.models.MissionModelJar;
+import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService;
 
 import java.nio.file.Path;
 import java.time.Instant;

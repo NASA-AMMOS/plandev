@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.json;
+package gov.nasa.ammos.plandev.json;
 
 import javax.json.JsonObject;
 import javax.json.JsonValue;

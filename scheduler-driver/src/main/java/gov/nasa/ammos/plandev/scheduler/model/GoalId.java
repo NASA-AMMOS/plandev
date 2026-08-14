@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler.model;
+package gov.nasa.ammos.plandev.scheduler.model;
 
 import java.util.Optional;
 

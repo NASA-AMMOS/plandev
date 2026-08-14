@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.scheduler.server.models;
+package gov.nasa.ammos.plandev.scheduler.server.models;
 
-import gov.nasa.jpl.aerie.scheduler.server.http.ProcedureArguments;
-import gov.nasa.jpl.aerie.types.MissionModelId;
+import gov.nasa.ammos.plandev.scheduler.server.http.ProcedureArguments;
+import gov.nasa.ammos.plandev.types.MissionModelId;
 
 import java.util.List;
 import java.util.Optional;

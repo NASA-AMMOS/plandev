@@ -1,19 +1,19 @@
-package gov.nasa.jpl.aerie.scheduler.simulation;
+package gov.nasa.ammos.plandev.scheduler.simulation;
 
-import gov.nasa.jpl.aerie.types.ActivityInstance;
-import gov.nasa.jpl.aerie.types.ActivityInstanceId;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationResultsComputerInputs;
-import gov.nasa.jpl.aerie.merlin.driver.engine.SimulationEngine;
-import gov.nasa.jpl.aerie.merlin.protocol.model.SchedulerModel;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.DurationType;
-import gov.nasa.jpl.aerie.scheduler.model.ActivityType;
-import gov.nasa.jpl.aerie.scheduler.model.Plan;
-import gov.nasa.jpl.aerie.scheduler.model.PlanningHorizon;
-import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
-import gov.nasa.jpl.aerie.types.ActivityDirective;
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
-import gov.nasa.jpl.aerie.types.SerializedActivity;
+import gov.nasa.ammos.plandev.types.ActivityInstance;
+import gov.nasa.ammos.plandev.types.ActivityInstanceId;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationResultsComputerInputs;
+import gov.nasa.ammos.plandev.merlin.driver.engine.SimulationEngine;
+import gov.nasa.ammos.plandev.merlin.protocol.model.SchedulerModel;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.DurationType;
+import gov.nasa.ammos.plandev.scheduler.model.ActivityType;
+import gov.nasa.ammos.plandev.scheduler.model.Plan;
+import gov.nasa.ammos.plandev.scheduler.model.PlanningHorizon;
+import gov.nasa.ammos.plandev.scheduler.model.SchedulingActivity;
+import gov.nasa.ammos.plandev.types.ActivityDirective;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.types.SerializedActivity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

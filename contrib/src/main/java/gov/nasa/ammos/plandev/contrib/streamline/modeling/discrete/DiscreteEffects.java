@@ -1,15 +1,15 @@
-package gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete;
+package gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.unit_aware.UnitAware;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.unit_aware.UnitAware;
 
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentValue;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.name;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteDynamicsMonad.effect;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Resources.currentValue;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Naming.name;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.monads.DiscreteDynamicsMonad.effect;
 
 public final class DiscreteEffects {
   private DiscreteEffects() {}

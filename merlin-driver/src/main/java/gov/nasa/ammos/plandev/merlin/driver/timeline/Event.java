@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.merlin.driver.timeline;
+package gov.nasa.ammos.plandev.merlin.driver.timeline;
 
-import gov.nasa.jpl.aerie.merlin.driver.engine.SpanId;
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Topic;
+import gov.nasa.ammos.plandev.merlin.driver.engine.SpanId;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Topic;
 
 import java.util.Objects;
 import java.util.Optional;

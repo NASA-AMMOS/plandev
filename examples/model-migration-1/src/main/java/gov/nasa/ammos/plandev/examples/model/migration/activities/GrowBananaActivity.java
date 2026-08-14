@@ -1,12 +1,12 @@
-package gov.nasa.jpl.aerie.examples.model.migration.activities;
+package gov.nasa.ammos.plandev.examples.model.migration.activities;
 
-import gov.nasa.jpl.aerie.examples.model.migration.Mission;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType.ControllableDuration;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType.EffectModel;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Template;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Validation;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.examples.model.migration.Mission;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.ActivityType;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.ActivityType.ControllableDuration;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.ActivityType.EffectModel;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.Export.Template;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.Export.Validation;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 /**
  * Monke has evolve. Monke now make banana. Monke is farmer.

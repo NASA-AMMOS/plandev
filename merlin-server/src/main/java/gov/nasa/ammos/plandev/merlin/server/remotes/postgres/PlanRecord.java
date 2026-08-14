@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.types.Timestamp;
+import gov.nasa.ammos.plandev.types.Timestamp;
 
 public record PlanRecord(
     long id,

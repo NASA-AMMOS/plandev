@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.permissions.exceptions;
+package gov.nasa.ammos.plandev.permissions.exceptions;
 
 import javax.json.JsonValue;
 

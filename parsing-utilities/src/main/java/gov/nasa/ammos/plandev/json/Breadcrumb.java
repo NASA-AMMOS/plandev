@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.json;
+package gov.nasa.ammos.plandev.json;
 
 public abstract class Breadcrumb {
   private Breadcrumb() {}

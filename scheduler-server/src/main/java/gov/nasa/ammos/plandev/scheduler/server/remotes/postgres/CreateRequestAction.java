@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
+package gov.nasa.ammos.plandev.scheduler.server.remotes.postgres;
 
 import org.intellij.lang.annotations.Language;
 
@@ -9,8 +9,8 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 
-import static gov.nasa.jpl.aerie.scheduler.server.remotes.postgres.PostgresParsers.simulationArgumentsP;
-import static gov.nasa.jpl.aerie.scheduler.server.remotes.postgres.PreparedStatements.getDatasetId;
+import static gov.nasa.ammos.plandev.scheduler.server.remotes.postgres.PostgresParsers.simulationArgumentsP;
+import static gov.nasa.ammos.plandev.scheduler.server.remotes.postgres.PreparedStatements.getDatasetId;
 
 /*package-local*/ final class CreateRequestAction implements AutoCloseable {
   private static final DateTimeFormatter TIMESTAMP_FORMAT =

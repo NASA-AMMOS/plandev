@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks;
+package gov.nasa.ammos.plandev.contrib.streamline.modeling.clocks;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.DynamicsMonad.effect;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.VariableClock.*;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.ZERO;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.monads.DynamicsMonad.effect;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.clocks.VariableClock.*;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.ZERO;
 
 public final class VariableClockEffects {
   private VariableClockEffects() {}

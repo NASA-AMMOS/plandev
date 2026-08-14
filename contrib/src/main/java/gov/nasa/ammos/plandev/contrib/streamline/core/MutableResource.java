@@ -1,19 +1,19 @@
-package gov.nasa.jpl.aerie.contrib.streamline.core;
+package gov.nasa.ammos.plandev.contrib.streamline.core;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.monads.DynamicsMonad;
-import gov.nasa.jpl.aerie.contrib.streamline.core.monads.ErrorCatchingMonad;
-import gov.nasa.jpl.aerie.contrib.streamline.debugging.Context;
-import gov.nasa.jpl.aerie.contrib.streamline.debugging.Profiling;
-import gov.nasa.jpl.aerie.merlin.framework.CellRef;
-import gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.Cell;
-import gov.nasa.jpl.aerie.merlin.protocol.model.EffectTrait;
+import gov.nasa.ammos.plandev.contrib.streamline.core.monads.DynamicsMonad;
+import gov.nasa.ammos.plandev.contrib.streamline.core.monads.ErrorCatchingMonad;
+import gov.nasa.ammos.plandev.contrib.streamline.debugging.Context;
+import gov.nasa.ammos.plandev.contrib.streamline.debugging.Profiling;
+import gov.nasa.ammos.plandev.merlin.framework.CellRef;
+import gov.nasa.ammos.plandev.contrib.streamline.core.CellRefV2.Cell;
+import gov.nasa.ammos.plandev.merlin.protocol.model.EffectTrait;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.allocate;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.autoEffects;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.DynamicsMonad.pure;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Profiling.profile;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Profiling.profileEffects;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.CellRefV2.allocate;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.CellRefV2.autoEffects;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.monads.DynamicsMonad.pure;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Naming.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Profiling.profile;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Profiling.profileEffects;
 import static java.util.stream.Collectors.joining;
 
 /**

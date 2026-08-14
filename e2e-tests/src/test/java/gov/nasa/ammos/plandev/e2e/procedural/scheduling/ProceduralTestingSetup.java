@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.e2e.procedural.scheduling;
+package gov.nasa.ammos.plandev.e2e.procedural.scheduling;
 
 import com.microsoft.playwright.Playwright;
-import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
-import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
+import gov.nasa.ammos.plandev.e2e.utils.GatewayRequests;
+import gov.nasa.ammos.plandev.e2e.utils.HasuraRequests;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;

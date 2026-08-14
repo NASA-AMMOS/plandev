@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler.server.services;
+package gov.nasa.ammos.plandev.scheduler.server.services;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -8,10 +8,10 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchMissionModelException;
-import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchPlanException;
-import gov.nasa.jpl.aerie.scheduler.server.models.PlanId;
-import gov.nasa.jpl.aerie.types.MissionModelId;
+import gov.nasa.ammos.plandev.scheduler.server.exceptions.NoSuchMissionModelException;
+import gov.nasa.ammos.plandev.scheduler.server.exceptions.NoSuchPlanException;
+import gov.nasa.ammos.plandev.scheduler.server.models.PlanId;
+import gov.nasa.ammos.plandev.types.MissionModelId;
 
 public record GenerateSchedulingLibAction(
     MerlinDatabaseService.ReaderRole merlinDatabaseService
@@ -52,7 +52,7 @@ public record GenerateSchedulingLibAction(
       }
 
       final var generatedSchedulerCode = TypescriptCodeGenerationService.generateTypescriptTypesFromMissionModel(missionModelTypes);
-      final var generatedConstraintsCode = gov.nasa.jpl.aerie.constraints.TypescriptCodeGenerationService
+      final var generatedConstraintsCode = gov.nasa.ammos.plandev.constraints.TypescriptCodeGenerationService
           .generateTypescriptTypes(
               ConstraintsTypescriptCodeGenerationHelper.activityTypes(missionModelTypes),
               ConstraintsTypescriptCodeGenerationHelper.resources(missionModelTypes));

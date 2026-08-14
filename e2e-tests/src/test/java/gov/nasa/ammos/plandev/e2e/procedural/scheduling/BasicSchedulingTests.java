@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.e2e.procedural.scheduling;
+package gov.nasa.ammos.plandev.e2e.procedural.scheduling;
 
-import gov.nasa.jpl.aerie.e2e.types.GoalInvocationId;
-import gov.nasa.jpl.aerie.e2e.types.Plan;
-import gov.nasa.jpl.aerie.e2e.types.SimulationDataset;
-import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
+import gov.nasa.ammos.plandev.e2e.types.GoalInvocationId;
+import gov.nasa.ammos.plandev.e2e.types.Plan;
+import gov.nasa.ammos.plandev.e2e.types.SimulationDataset;
+import gov.nasa.ammos.plandev.e2e.utils.GatewayRequests;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -67,7 +67,7 @@ public class BasicSchedulingTests extends ProceduralTestingSetup {
   void executeSchedulingRunWithoutArguments() throws IOException {
     final var resp = hasura.awaitFailingScheduling(specId);
     final var message = resp.reason().getString("message");
-    assertTrue(message.contains("gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException: Invalid arguments for input type \"DumbRecurrenceGoal\": extraneous arguments: [], unconstructable arguments: [], missing arguments: [MissingArgument[parameterName=biteSize, schema=IntSchema[]]], valid arguments: [ValidArgument[parameterName=quantity, serializedValue=NumericValue[value=360]]]"));
+    assertTrue(message.contains("gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException: Invalid arguments for input type \"DumbRecurrenceGoal\": extraneous arguments: [], unconstructable arguments: [], missing arguments: [MissingArgument[parameterName=biteSize, schema=IntSchema[]]], valid arguments: [ValidArgument[parameterName=quantity, serializedValue=NumericValue[value=360]]]"));
   }
 
   /**

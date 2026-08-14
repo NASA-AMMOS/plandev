@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.merlin.server.models;
+package gov.nasa.ammos.plandev.merlin.server.models;
 
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
-import gov.nasa.jpl.aerie.types.SerializedActivity;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.types.SerializedActivity;
 
 import java.sql.Timestamp;
 

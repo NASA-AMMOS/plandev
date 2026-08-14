@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.types;
+package gov.nasa.ammos.plandev.types;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 
 import java.util.Map;
 import java.util.Objects;

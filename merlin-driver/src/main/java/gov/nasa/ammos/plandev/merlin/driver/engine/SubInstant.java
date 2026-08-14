@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.driver.engine;
+package gov.nasa.ammos.plandev.merlin.driver.engine;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 /*package-local*/ enum SubInstant implements Comparable<SubInstant> {
   /** Conditions must be checked first, as they may cause tasks to be scheduled. */

@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.contrib.streamline.debugging;
+package gov.nasa.ammos.plandev.contrib.streamline.debugging;
 
-import gov.nasa.jpl.aerie.merlin.framework.Registrar;
+import gov.nasa.ammos.plandev.merlin.framework.Registrar;
 
 public final class Logging {
     private Logging() {}
@@ -14,7 +14,7 @@ public final class Logging {
 
     /**
      * Initialize the primary logger.
-     * This is called when constructing a {@link gov.nasa.jpl.aerie.contrib.streamline.modeling.Registrar},
+     * This is called when constructing a {@link gov.nasa.ammos.plandev.contrib.streamline.modeling.Registrar},
      * and does not need to be called directly by the model.
      */
     public static void init(final Registrar registrar) {

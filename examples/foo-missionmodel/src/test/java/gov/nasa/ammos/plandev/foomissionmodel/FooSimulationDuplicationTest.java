@@ -1,21 +1,21 @@
-package gov.nasa.jpl.aerie.foomissionmodel;
+package gov.nasa.ammos.plandev.foomissionmodel;
 
-import gov.nasa.jpl.aerie.foomissionmodel.generated.GeneratedModelType;
-import gov.nasa.jpl.aerie.merlin.driver.CachedEngineStore;
-import gov.nasa.jpl.aerie.merlin.driver.CachedSimulationEngine;
-import gov.nasa.jpl.aerie.merlin.driver.CheckpointSimulationDriver;
-import gov.nasa.jpl.aerie.merlin.driver.DirectiveTypeRegistry;
-import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
-import gov.nasa.jpl.aerie.merlin.driver.MissionModelBuilder;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationDriver;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationEngineConfiguration;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
-import gov.nasa.jpl.aerie.merlin.framework.ThreadedTask;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.types.ActivityDirective;
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
-import gov.nasa.jpl.aerie.types.MissionModelId;
+import gov.nasa.ammos.plandev.foomissionmodel.generated.GeneratedModelType;
+import gov.nasa.ammos.plandev.merlin.driver.CachedEngineStore;
+import gov.nasa.ammos.plandev.merlin.driver.CachedSimulationEngine;
+import gov.nasa.ammos.plandev.merlin.driver.CheckpointSimulationDriver;
+import gov.nasa.ammos.plandev.merlin.driver.DirectiveTypeRegistry;
+import gov.nasa.ammos.plandev.merlin.driver.MissionModel;
+import gov.nasa.ammos.plandev.merlin.driver.MissionModelBuilder;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationDriver;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationEngineConfiguration;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationResults;
+import gov.nasa.ammos.plandev.merlin.framework.ThreadedTask;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.types.ActivityDirective;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.types.MissionModelId;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,9 +27,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MINUTE;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MINUTES;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MINUTE;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MINUTES;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class FooSimulationDuplicationTest {

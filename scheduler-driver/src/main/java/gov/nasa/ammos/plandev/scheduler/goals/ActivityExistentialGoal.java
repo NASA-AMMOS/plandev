@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler.goals;
+package gov.nasa.ammos.plandev.scheduler.goals;
 
 /**
  * describes the desired existence of an activity within the solution plan

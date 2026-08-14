@@ -1,15 +1,15 @@
-package gov.nasa.jpl.aerie.scheduler.worker.services;
+package gov.nasa.ammos.plandev.scheduler.worker.services;
 
-import gov.nasa.jpl.aerie.json.JsonParser;
-import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonEntityException;
-import gov.nasa.jpl.aerie.scheduler.server.models.PlanId;
-import gov.nasa.jpl.aerie.scheduler.server.models.ResourceType;
-import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingCompilationError;
-import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingDSL;
-import gov.nasa.jpl.aerie.scheduler.server.services.ConstraintsTypescriptCodeGenerationHelper;
-import gov.nasa.jpl.aerie.scheduler.server.services.MerlinDatabaseService;
-import gov.nasa.jpl.aerie.scheduler.server.services.MerlinServiceException;
-import gov.nasa.jpl.aerie.scheduler.server.services.TypescriptCodeGenerationService;
+import gov.nasa.ammos.plandev.json.JsonParser;
+import gov.nasa.ammos.plandev.scheduler.server.http.InvalidJsonEntityException;
+import gov.nasa.ammos.plandev.scheduler.server.models.PlanId;
+import gov.nasa.ammos.plandev.scheduler.server.models.ResourceType;
+import gov.nasa.ammos.plandev.scheduler.server.models.SchedulingCompilationError;
+import gov.nasa.ammos.plandev.scheduler.server.models.SchedulingDSL;
+import gov.nasa.ammos.plandev.scheduler.server.services.ConstraintsTypescriptCodeGenerationHelper;
+import gov.nasa.ammos.plandev.scheduler.server.services.MerlinDatabaseService;
+import gov.nasa.ammos.plandev.scheduler.server.services.MerlinServiceException;
+import gov.nasa.ammos.plandev.scheduler.server.services.TypescriptCodeGenerationService;
 
 import javax.json.Json;
 import javax.json.JsonObject;
@@ -97,7 +97,7 @@ public class SchedulingDSLCompilationService {
       final String expectedReturnType)
   {
     final var schedulerGeneratedCode = TypescriptCodeGenerationService.generateTypescriptTypesFromMissionModel(missionModelTypes);
-    final var constraintsGeneratedCode = gov.nasa.jpl.aerie.constraints.TypescriptCodeGenerationService.generateTypescriptTypes(
+    final var constraintsGeneratedCode = gov.nasa.ammos.plandev.constraints.TypescriptCodeGenerationService.generateTypescriptTypes(
         ConstraintsTypescriptCodeGenerationHelper.activityTypes(missionModelTypes),
         ConstraintsTypescriptCodeGenerationHelper.resources(missionModelTypes));
     final JsonObject messageJson = Json.createObjectBuilder()

@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.merlin.driver.json;
+package gov.nasa.ammos.plandev.merlin.driver.json;
 
-import gov.nasa.jpl.aerie.json.JsonParseResult;
-import gov.nasa.jpl.aerie.json.JsonParser;
-import gov.nasa.jpl.aerie.json.SchemaCache;
-import gov.nasa.jpl.aerie.json.Unit;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.json.JsonParseResult;
+import gov.nasa.ammos.plandev.json.JsonParser;
+import gov.nasa.ammos.plandev.json.SchemaCache;
+import gov.nasa.ammos.plandev.json.Unit;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 
 import javax.json.Json;
 import javax.json.JsonObject;
@@ -15,14 +15,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-import static gov.nasa.jpl.aerie.json.BasicParsers.listP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.literalP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.mapP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.stringP;
-import static gov.nasa.jpl.aerie.json.ProductParsers.productP;
-import static gov.nasa.jpl.aerie.json.Uncurry.tuple;
-import static gov.nasa.jpl.aerie.json.Uncurry.untuple;
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.listP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.literalP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.mapP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.stringP;
+import static gov.nasa.ammos.plandev.json.ProductParsers.productP;
+import static gov.nasa.ammos.plandev.json.Uncurry.tuple;
+import static gov.nasa.ammos.plandev.json.Uncurry.untuple;
+import static gov.nasa.ammos.plandev.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
 
 public final class ValueSchemaJsonParser implements JsonParser<ValueSchema> {
   public static final JsonParser<ValueSchema> valueSchemaP = new ValueSchemaJsonParser();

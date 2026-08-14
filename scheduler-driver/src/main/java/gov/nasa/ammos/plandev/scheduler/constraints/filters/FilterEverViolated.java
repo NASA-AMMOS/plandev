@@ -1,13 +1,11 @@
-package gov.nasa.jpl.aerie.scheduler.constraints.filters;
+package gov.nasa.ammos.plandev.scheduler.constraints.filters;
 
-import gov.nasa.jpl.aerie.constraints.model.EvaluationEnvironment;
-import gov.nasa.jpl.aerie.constraints.model.SimulationResults;
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.constraints.time.Windows;
-import gov.nasa.jpl.aerie.constraints.tree.Expression;
-import gov.nasa.jpl.aerie.scheduler.model.Plan;
-
-import java.util.Map;
+import gov.nasa.ammos.plandev.constraints.model.EvaluationEnvironment;
+import gov.nasa.ammos.plandev.constraints.model.SimulationResults;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.constraints.time.Windows;
+import gov.nasa.ammos.plandev.constraints.tree.Expression;
+import gov.nasa.ammos.plandev.scheduler.model.Plan;
 
 /**
  * filter in intervals if constraint expression @expr is ever violated during it

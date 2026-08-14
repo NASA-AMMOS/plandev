@@ -1,28 +1,27 @@
-package gov.nasa.jpl.aerie.streamline_demo;
+package gov.nasa.ammos.plandev.streamline_demo;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.Registrar;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.*;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.linear.Linear;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resource;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.Registrar;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.*;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.linear.Linear;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.Approximation.approximate;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.Approximation.relative;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.DifferentiableResources.asDifferentiable;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.IntervalFunctions.byBoundingError;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.IntervalFunctions.byUniformSampling;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.SecantApproximation.ErrorEstimates.errorByOptimization;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.SecantApproximation.ErrorEstimates.errorByQuadraticApproximation;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.SecantApproximation.secantApproximation;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.UnstructuredResources.approximateAsLinear;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.UnstructuredResources.approximateAsLinear;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.UnstructuredResources.asUnstructured;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.monads.UnstructuredResourceApplicative.map;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialResources.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialResources.approximateAsLinear;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.*;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MINUTE;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.Approximation.approximate;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.Approximation.relative;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.DifferentiableResources.asDifferentiable;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.IntervalFunctions.byBoundingError;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.IntervalFunctions.byUniformSampling;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.SecantApproximation.ErrorEstimates.errorByOptimization;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.SecantApproximation.ErrorEstimates.errorByQuadraticApproximation;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.SecantApproximation.secantApproximation;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.UnstructuredResources.approximateAsLinear;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.UnstructuredResources.asUnstructured;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.monads.UnstructuredResourceApplicative.map;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.PolynomialResources.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.PolynomialResources.approximateAsLinear;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.*;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MINUTE;
 
 public class ApproximationModel {
   private static final double EPSILON = 1e-10;

@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.permissions;
+package gov.nasa.ammos.plandev.permissions;
 
 public enum PlanPermissionType implements PermissionType {
   /**

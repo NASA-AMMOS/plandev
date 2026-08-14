@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.contrib.streamline.unit_aware;
+package gov.nasa.ammos.plandev.contrib.streamline.unit_aware;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.unit_aware.Dimension.SCALAR;
-import static gov.nasa.jpl.aerie.contrib.streamline.unit_aware.Rational.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.unit_aware.StandardDimensions.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.unit_aware.Dimension.SCALAR;
+import static gov.nasa.ammos.plandev.contrib.streamline.unit_aware.Rational.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.unit_aware.StandardDimensions.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DimensionTest {

@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.workspace.server.config;
+package gov.nasa.ammos.plandev.workspace.server.config;
 
 import java.util.Objects;
 

@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.scheduler.server.services;
+package gov.nasa.ammos.plandev.scheduler.server.services;
 
 import org.junit.jupiter.api.Test;
 
-import static gov.nasa.jpl.aerie.scheduler.server.services.TypescriptCodeGenerationServiceTestFixtures.MISSION_MODEL_TYPES;
+import static gov.nasa.ammos.plandev.scheduler.server.services.TypescriptCodeGenerationServiceTestFixtures.MISSION_MODEL_TYPES;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public final class TypescriptCodeGenerationServiceTest {

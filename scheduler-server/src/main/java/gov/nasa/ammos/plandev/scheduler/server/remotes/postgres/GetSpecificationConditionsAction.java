@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
+package gov.nasa.ammos.plandev.scheduler.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingConditionId;
-import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingConditionRecord;
-import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingConditionSource;
+import gov.nasa.ammos.plandev.scheduler.server.models.SchedulingConditionId;
+import gov.nasa.ammos.plandev.scheduler.server.models.SchedulingConditionRecord;
+import gov.nasa.ammos.plandev.scheduler.server.models.SchedulingConditionSource;
 import org.intellij.lang.annotations.Language;
 
 import java.sql.Connection;

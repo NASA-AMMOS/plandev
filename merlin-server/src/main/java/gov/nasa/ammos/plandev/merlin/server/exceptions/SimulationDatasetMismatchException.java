@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.merlin.server.exceptions;
+package gov.nasa.ammos.plandev.merlin.server.exceptions;
 
-import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
-import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
+import gov.nasa.ammos.plandev.merlin.server.models.PlanId;
+import gov.nasa.ammos.plandev.merlin.server.models.SimulationDatasetId;
 
 public class SimulationDatasetMismatchException extends Exception {
   public final SimulationDatasetId simDatasetId;

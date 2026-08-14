@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 import org.intellij.lang.annotations.Language;
 
 import java.sql.BatchUpdateException;
@@ -10,7 +10,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Map;
 
-import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
+import static gov.nasa.ammos.plandev.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
 
 /*package-private*/ final class InsertResourceTypesAction implements AutoCloseable{
     private static final @Language("SQL") String sql = """

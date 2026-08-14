@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box;
+package gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.Dynamics;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Expiring;
-import gov.nasa.jpl.aerie.contrib.streamline.core.monads.ExpiringMonad;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.IntervalFunctions.ErrorEstimateInput;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.linear.Linear;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Dynamics;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Expiring;
+import gov.nasa.ammos.plandev.contrib.streamline.core.monads.ExpiringMonad;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.IntervalFunctions.ErrorEstimateInput;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.linear.Linear;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import org.apache.commons.math3.exception.TooManyEvaluationsException;
 import org.apache.commons.math3.optim.MaxEval;
 import org.apache.commons.math3.optim.nonlinear.scalar.GoalType;
@@ -15,10 +15,10 @@ import org.apache.commons.math3.optim.univariate.UnivariateObjectiveFunction;
 
 import java.util.function.Function;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiring.expiring;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.Approximation.intervalApproximation;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.linear.Linear.linear;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECOND;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Expiring.expiring;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.Approximation.intervalApproximation;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.linear.Linear.linear;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECOND;
 
 /**
  * Utilities to build a secant approximation of {@link Unstructured} or {@link Differentiable} resources.

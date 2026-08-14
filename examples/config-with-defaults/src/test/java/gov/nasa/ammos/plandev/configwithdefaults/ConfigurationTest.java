@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.configwithdefaults;
+package gov.nasa.ammos.plandev.configwithdefaults;
 
-import gov.nasa.jpl.aerie.configwithdefaults.generated.ConfigurationMapper;
-import gov.nasa.jpl.aerie.merlin.framework.Registrar;
-import gov.nasa.jpl.aerie.merlin.framework.junit.MerlinExtension;
-import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
+import gov.nasa.ammos.plandev.configwithdefaults.generated.ConfigurationMapper;
+import gov.nasa.ammos.plandev.merlin.framework.Registrar;
+import gov.nasa.ammos.plandev.merlin.framework.junit.MerlinExtension;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;

@@ -1,40 +1,40 @@
-package gov.nasa.jpl.aerie.constraints.json;
+package gov.nasa.ammos.plandev.constraints.json;
 
-import gov.nasa.jpl.aerie.constraints.model.DiscreteProfile;
-import gov.nasa.jpl.aerie.constraints.model.EDSLConstraintResult;
-import gov.nasa.jpl.aerie.constraints.model.LinearProfile;
-import gov.nasa.jpl.aerie.constraints.model.Profile;
-import gov.nasa.jpl.aerie.constraints.model.Violation;
-import gov.nasa.jpl.aerie.constraints.tree.AbsoluteInterval;
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.constraints.time.IntervalContainer;
-import gov.nasa.jpl.aerie.constraints.time.Spans;
-import gov.nasa.jpl.aerie.constraints.time.Windows;
-import gov.nasa.jpl.aerie.constraints.tree.*;
-import gov.nasa.jpl.aerie.json.JsonObjectParser;
-import gov.nasa.jpl.aerie.json.JsonParser;
-import gov.nasa.jpl.aerie.json.Unit;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.constraints.model.DiscreteProfile;
+import gov.nasa.ammos.plandev.constraints.model.EDSLConstraintResult;
+import gov.nasa.ammos.plandev.constraints.model.LinearProfile;
+import gov.nasa.ammos.plandev.constraints.model.Profile;
+import gov.nasa.ammos.plandev.constraints.model.Violation;
+import gov.nasa.ammos.plandev.constraints.tree.AbsoluteInterval;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.constraints.time.IntervalContainer;
+import gov.nasa.ammos.plandev.constraints.time.Spans;
+import gov.nasa.ammos.plandev.constraints.time.Windows;
+import gov.nasa.ammos.plandev.constraints.tree.*;
+import gov.nasa.ammos.plandev.json.JsonObjectParser;
+import gov.nasa.ammos.plandev.json.JsonParser;
+import gov.nasa.ammos.plandev.json.Unit;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.Optional;
 
-import static gov.nasa.jpl.aerie.json.BasicParsers.boolP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.chooseP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.doubleP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.enumP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.instantP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.intP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.listP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.literalP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.longP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.mapP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.productP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.recursiveP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.stringP;
-import static gov.nasa.jpl.aerie.json.Uncurry.tuple;
-import static gov.nasa.jpl.aerie.json.Uncurry.untuple;
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.boolP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.chooseP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.doubleP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.enumP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.instantP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.intP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.listP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.literalP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.longP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.mapP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.productP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.recursiveP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.stringP;
+import static gov.nasa.ammos.plandev.json.Uncurry.tuple;
+import static gov.nasa.ammos.plandev.json.Uncurry.untuple;
+import static gov.nasa.ammos.plandev.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
 
 public final class ConstraintParsers {
   private ConstraintParsers() {}

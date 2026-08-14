@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
+package gov.nasa.ammos.plandev.scheduler.server.remotes.postgres;
 
 public final class UnclaimableRequestException extends Exception {
   public final long specificationId;

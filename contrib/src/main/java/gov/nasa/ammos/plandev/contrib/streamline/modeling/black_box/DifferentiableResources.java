@@ -1,16 +1,16 @@
-package gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box;
+package gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.monads.ResourceMonad;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.monads.ResourceMonad;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 import java.util.Collection;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.ResourceMonad.map;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.ResourceMonad.reduce;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.name;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.Differentiable.differentiable;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.monads.ResourceMonad.map;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.monads.ResourceMonad.reduce;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Naming.name;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.Differentiable.differentiable;
 import static java.util.Arrays.stream;
 
 public final class DifferentiableResources {

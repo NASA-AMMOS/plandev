@@ -1,20 +1,20 @@
-package gov.nasa.jpl.aerie.merlin.server.models;
+package gov.nasa.ammos.plandev.merlin.server.models;
 
-import gov.nasa.ammos.aerie.procedural.timeline.Interval;
-import gov.nasa.ammos.aerie.procedural.timeline.collections.Directives;
-import gov.nasa.ammos.aerie.procedural.timeline.collections.ExternalEvents;
-import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps;
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment;
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective;
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive;
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart;
-import gov.nasa.ammos.aerie.procedural.timeline.plan.EventQuery;
-import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan;
-import gov.nasa.jpl.aerie.constraints.model.EvaluationEnvironment;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.types.Timestamp;
+import gov.nasa.ammos.plandev.procedural.timeline.Interval;
+import gov.nasa.ammos.plandev.procedural.timeline.collections.Directives;
+import gov.nasa.ammos.plandev.procedural.timeline.collections.ExternalEvents;
+import gov.nasa.ammos.plandev.procedural.timeline.ops.SerialSegmentOps;
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.ExternalEvent;
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.Segment;
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.activities.AnyDirective;
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.activities.Directive;
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.activities.DirectiveStart;
+import gov.nasa.ammos.plandev.procedural.timeline.plan.EventQuery;
+import gov.nasa.ammos.plandev.procedural.timeline.plan.Plan;
+import gov.nasa.ammos.plandev.constraints.model.EvaluationEnvironment;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.types.Timestamp;
 import kotlin.jvm.functions.Function1;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -29,11 +29,11 @@ import java.util.Map;
  * TODO: Test if this needs to be sim-related and not plan-related
  */
 public final class ReadonlyPlan implements Plan {
-  private final gov.nasa.jpl.aerie.types.Plan plan;
+  private final gov.nasa.ammos.plandev.types.Plan plan;
   private final Interval bounds;
   private final EvaluationEnvironment environment;
 
-  public ReadonlyPlan(gov.nasa.jpl.aerie.types.Plan plan, final EvaluationEnvironment environment){
+  public ReadonlyPlan(gov.nasa.ammos.plandev.types.Plan plan, final EvaluationEnvironment environment){
     this.plan = plan;
     this.bounds = Interval.between(Duration.ZERO, plan.duration());
     this.environment = environment;

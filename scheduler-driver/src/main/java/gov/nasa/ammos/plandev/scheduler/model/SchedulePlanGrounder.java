@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.scheduler.model;
+package gov.nasa.ammos.plandev.scheduler.model;
 
-import gov.nasa.jpl.aerie.constraints.model.ActivityInstance;
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.merlin.driver.StartOffsetReducer;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.types.ActivityDirective;
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.constraints.model.ActivityInstance;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.merlin.driver.StartOffsetReducer;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.types.ActivityDirective;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.HashMap;

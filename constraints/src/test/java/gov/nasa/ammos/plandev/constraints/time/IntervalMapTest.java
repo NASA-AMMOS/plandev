@@ -1,12 +1,12 @@
-package gov.nasa.jpl.aerie.constraints.time;
+package gov.nasa.ammos.plandev.constraints.time;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import org.junit.jupiter.api.Test;
 
-import static gov.nasa.jpl.aerie.constraints.time.Interval.Inclusivity.Exclusive;
-import static gov.nasa.jpl.aerie.constraints.time.Interval.Inclusivity.Inclusive;
-import static gov.nasa.jpl.aerie.constraints.time.Interval.interval;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
+import static gov.nasa.ammos.plandev.constraints.time.Interval.Inclusivity.Exclusive;
+import static gov.nasa.ammos.plandev.constraints.time.Interval.Inclusivity.Inclusive;
+import static gov.nasa.ammos.plandev.constraints.time.Interval.interval;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 

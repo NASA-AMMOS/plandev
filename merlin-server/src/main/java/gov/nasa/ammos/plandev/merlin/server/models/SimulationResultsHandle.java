@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.merlin.server.models;
+package gov.nasa.ammos.plandev.merlin.server.models;
 
-import gov.nasa.jpl.aerie.types.ActivityInstance;
-import gov.nasa.jpl.aerie.types.ActivityInstanceId;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.types.ActivityInstance;
+import gov.nasa.ammos.plandev.types.ActivityInstanceId;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationResults;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 import java.time.Instant;
 import java.util.List;

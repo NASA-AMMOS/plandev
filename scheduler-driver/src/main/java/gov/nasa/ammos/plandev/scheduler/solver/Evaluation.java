@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.scheduler.solver;
+package gov.nasa.ammos.plandev.scheduler.solver;
 
-import gov.nasa.jpl.aerie.scheduler.conflicts.Conflict;
-import gov.nasa.jpl.aerie.scheduler.goals.ActivityExistentialGoal;
-import gov.nasa.jpl.aerie.scheduler.goals.ChildCustody;
-import gov.nasa.jpl.aerie.scheduler.goals.Goal;
-import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
+import gov.nasa.ammos.plandev.scheduler.conflicts.Conflict;
+import gov.nasa.ammos.plandev.scheduler.goals.ActivityExistentialGoal;
+import gov.nasa.ammos.plandev.scheduler.goals.ChildCustody;
+import gov.nasa.ammos.plandev.scheduler.goals.Goal;
+import gov.nasa.ammos.plandev.scheduler.model.SchedulingActivity;
 
 import java.util.Collection;
 import java.util.Collections;

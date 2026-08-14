@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.foomissionmodel.models;
+package gov.nasa.ammos.plandev.foomissionmodel.models;
 
-import gov.nasa.jpl.aerie.contrib.models.Accumulator;
-import gov.nasa.jpl.aerie.contrib.models.Register;
-import gov.nasa.jpl.aerie.merlin.framework.resources.real.RealResource;
+import gov.nasa.ammos.plandev.contrib.models.Accumulator;
+import gov.nasa.ammos.plandev.contrib.models.Register;
+import gov.nasa.ammos.plandev.merlin.framework.resources.real.RealResource;
 import org.apache.commons.lang3.tuple.Pair;
 
 public final class Imager {

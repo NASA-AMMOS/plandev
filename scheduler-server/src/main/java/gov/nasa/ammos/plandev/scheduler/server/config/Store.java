@@ -1,3 +1,3 @@
-package gov.nasa.jpl.aerie.scheduler.server.config;
+package gov.nasa.ammos.plandev.scheduler.server.config;
 
 public sealed interface Store permits PostgresStore { }

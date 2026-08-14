@@ -1,15 +1,15 @@
-package gov.nasa.jpl.aerie.permissions.gql;
+package gov.nasa.ammos.plandev.permissions.gql;
 
-import gov.nasa.jpl.aerie.permissions.HasuraAction;
-import gov.nasa.jpl.aerie.permissions.PlanPermissionType;
-import gov.nasa.jpl.aerie.permissions.OwnerOrCollaborator;
-import gov.nasa.jpl.aerie.permissions.WorkspaceAction;
-import gov.nasa.jpl.aerie.permissions.WorkspacePermissionType;
-import gov.nasa.jpl.aerie.permissions.exceptions.Forbidden;
-import gov.nasa.jpl.aerie.permissions.exceptions.GraphQLServiceException;
-import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchPlanException;
-import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchSchedulingSpecificationException;
-import gov.nasa.jpl.aerie.permissions.exceptions.NoSuchWorkspaceException;
+import gov.nasa.ammos.plandev.permissions.HasuraAction;
+import gov.nasa.ammos.plandev.permissions.PlanPermissionType;
+import gov.nasa.ammos.plandev.permissions.OwnerOrCollaborator;
+import gov.nasa.ammos.plandev.permissions.WorkspaceAction;
+import gov.nasa.ammos.plandev.permissions.WorkspacePermissionType;
+import gov.nasa.ammos.plandev.permissions.exceptions.Forbidden;
+import gov.nasa.ammos.plandev.permissions.exceptions.GraphQLServiceException;
+import gov.nasa.ammos.plandev.permissions.exceptions.NoSuchPlanException;
+import gov.nasa.ammos.plandev.permissions.exceptions.NoSuchSchedulingSpecificationException;
+import gov.nasa.ammos.plandev.permissions.exceptions.NoSuchWorkspaceException;
 
 import javax.json.Json;
 import javax.json.JsonException;

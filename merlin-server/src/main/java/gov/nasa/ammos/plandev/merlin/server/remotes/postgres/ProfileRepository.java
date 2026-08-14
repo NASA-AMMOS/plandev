@@ -1,14 +1,14 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.merlin.driver.engine.ProfileSegment;
-import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfile;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
-import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
-import gov.nasa.jpl.aerie.merlin.server.models.ProfileSet;
-import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
+import gov.nasa.ammos.plandev.merlin.driver.engine.ProfileSegment;
+import gov.nasa.ammos.plandev.merlin.driver.resources.ResourceProfile;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.RealDynamics;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.merlin.server.models.PlanId;
+import gov.nasa.ammos.plandev.merlin.server.models.ProfileSet;
+import gov.nasa.ammos.plandev.merlin.server.models.SimulationDatasetId;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -18,8 +18,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
-import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.realDynamicsP;
+import static gov.nasa.ammos.plandev.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import static gov.nasa.ammos.plandev.merlin.server.http.ProfileParsers.realDynamicsP;
 
 /*package-local*/ final class ProfileRepository {
   static ProfileSet getProfiles(

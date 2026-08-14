@@ -1,22 +1,22 @@
-package gov.nasa.jpl.aerie.merlin.server.http;
+package gov.nasa.ammos.plandev.merlin.server.http;
 
-import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
-import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
-import gov.nasa.jpl.aerie.merlin.server.exceptions.MerlinFormattedError;
-import gov.nasa.jpl.aerie.merlin.server.models.ConstraintRecord;
-import gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser;
-import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.Parameter;
-import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.ValidationNotice;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
-import gov.nasa.jpl.aerie.merlin.server.models.ConstraintsCompilationError;
-import gov.nasa.jpl.aerie.merlin.server.services.BulkConstraintEffectiveArgumentResponse;
-import gov.nasa.jpl.aerie.merlin.server.services.GetSimulationResultsAction;
-import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService;
-import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService.BulkEffectiveArgumentResponse;
-import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService.BulkArgumentValidationResponse;
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.constraints.model.ConstraintResult;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException;
+import gov.nasa.ammos.plandev.merlin.server.exceptions.MerlinFormattedError;
+import gov.nasa.ammos.plandev.merlin.server.models.ConstraintRecord;
+import gov.nasa.ammos.plandev.merlin.driver.json.ValueSchemaJsonParser;
+import gov.nasa.ammos.plandev.merlin.protocol.model.InputType.Parameter;
+import gov.nasa.ammos.plandev.merlin.protocol.model.InputType.ValidationNotice;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.merlin.server.models.ConstraintsCompilationError;
+import gov.nasa.ammos.plandev.merlin.server.services.BulkConstraintEffectiveArgumentResponse;
+import gov.nasa.ammos.plandev.merlin.server.services.GetSimulationResultsAction;
+import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService;
+import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService.BulkEffectiveArgumentResponse;
+import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService.BulkArgumentValidationResponse;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.json.Json;
@@ -30,7 +30,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import static gov.nasa.ammos.plandev.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
 
 public final class ResponseSerializers {
   public static <T> JsonValue

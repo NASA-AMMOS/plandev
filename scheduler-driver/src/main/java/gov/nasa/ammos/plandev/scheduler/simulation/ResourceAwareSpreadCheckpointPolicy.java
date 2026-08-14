@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.scheduler.simulation;
+package gov.nasa.ammos.plandev.scheduler.simulation;
 
-import gov.nasa.jpl.aerie.merlin.driver.CheckpointSimulationDriver;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.driver.CheckpointSimulationDriver;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 import java.util.ArrayList;
 import java.util.List;

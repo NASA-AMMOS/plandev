@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.merlin.protocol.types;
+package gov.nasa.ammos.plandev.merlin.protocol.types;
 
 import java.util.Map;
 

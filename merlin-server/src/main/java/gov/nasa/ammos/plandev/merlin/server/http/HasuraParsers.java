@@ -1,28 +1,28 @@
-package gov.nasa.jpl.aerie.merlin.server.http;
+package gov.nasa.ammos.plandev.merlin.server.http;
 
-import gov.nasa.jpl.aerie.json.JsonParser;
-import gov.nasa.jpl.aerie.types.SerializedActivity;
-import gov.nasa.jpl.aerie.merlin.server.models.HasuraAction;
-import gov.nasa.jpl.aerie.merlin.server.models.HasuraMissionModelEvent;
+import gov.nasa.ammos.plandev.json.JsonParser;
+import gov.nasa.ammos.plandev.types.SerializedActivity;
+import gov.nasa.ammos.plandev.merlin.server.models.HasuraAction;
+import gov.nasa.ammos.plandev.merlin.server.models.HasuraMissionModelEvent;
 
 import java.util.Optional;
 
-import static gov.nasa.jpl.aerie.json.BasicParsers.boolP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.listP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.longP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.mapP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.nullableP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.productP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.stringP;
-import static gov.nasa.jpl.aerie.json.Uncurry.tuple;
-import static gov.nasa.jpl.aerie.json.Uncurry.untuple;
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
-import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.datasetIdP;
-import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.missionModelIdP;
-import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.planIdP;
-import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.simulationDatasetIdP;
-import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.timestampP;
-import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.profileSetP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.boolP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.listP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.longP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.mapP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.nullableP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.productP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.stringP;
+import static gov.nasa.ammos.plandev.json.Uncurry.tuple;
+import static gov.nasa.ammos.plandev.json.Uncurry.untuple;
+import static gov.nasa.ammos.plandev.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.datasetIdP;
+import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.missionModelIdP;
+import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.planIdP;
+import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.simulationDatasetIdP;
+import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.timestampP;
+import static gov.nasa.ammos.plandev.merlin.server.http.ProfileParsers.profileSetP;
 
 public abstract class HasuraParsers {
   private HasuraParsers() {}

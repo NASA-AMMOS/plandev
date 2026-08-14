@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.merlin.processor;
+package gov.nasa.ammos.plandev.merlin.processor;
 
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;

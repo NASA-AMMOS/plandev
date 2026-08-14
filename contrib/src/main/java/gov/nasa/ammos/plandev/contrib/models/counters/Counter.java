@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.contrib.models.counters;
+package gov.nasa.ammos.plandev.contrib.models.counters;
 
-import gov.nasa.jpl.aerie.contrib.cells.counters.CounterCell;
-import gov.nasa.jpl.aerie.merlin.framework.CellRef;
-import gov.nasa.jpl.aerie.merlin.framework.resources.discrete.DiscreteResource;
+import gov.nasa.ammos.plandev.contrib.cells.counters.CounterCell;
+import gov.nasa.ammos.plandev.merlin.framework.CellRef;
+import gov.nasa.ammos.plandev.merlin.framework.resources.discrete.DiscreteResource;
 
 import java.util.function.BinaryOperator;
 import java.util.function.Function;

@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.protocol.model;
+package gov.nasa.ammos.plandev.merlin.protocol.model;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 import java.util.Optional;
 

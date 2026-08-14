@@ -1,20 +1,20 @@
-package gov.nasa.jpl.aerie.scheduler;
+package gov.nasa.ammos.plandev.scheduler;
 
-import gov.nasa.jpl.aerie.constraints.model.DiscreteProfile;
-import gov.nasa.jpl.aerie.constraints.model.SimulationResults;
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.constraints.time.Segment;
-import gov.nasa.jpl.aerie.constraints.time.Windows;
-import gov.nasa.jpl.aerie.constraints.tree.And;
-import gov.nasa.jpl.aerie.constraints.tree.DiscreteResource;
-import gov.nasa.jpl.aerie.constraints.tree.DiscreteValue;
-import gov.nasa.jpl.aerie.constraints.tree.Equal;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.scheduler.constraints.TimeRangeExpression;
-import gov.nasa.jpl.aerie.scheduler.constraints.filters.FilterSequenceMaxGapAfter;
-import gov.nasa.jpl.aerie.scheduler.constraints.filters.FilterSequenceMinGapAfter;
-import gov.nasa.jpl.aerie.scheduler.constraints.filters.Filters;
+import gov.nasa.ammos.plandev.constraints.model.DiscreteProfile;
+import gov.nasa.ammos.plandev.constraints.model.SimulationResults;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.constraints.time.Segment;
+import gov.nasa.ammos.plandev.constraints.time.Windows;
+import gov.nasa.ammos.plandev.constraints.tree.And;
+import gov.nasa.ammos.plandev.constraints.tree.DiscreteResource;
+import gov.nasa.ammos.plandev.constraints.tree.DiscreteValue;
+import gov.nasa.ammos.plandev.constraints.tree.Equal;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.scheduler.constraints.TimeRangeExpression;
+import gov.nasa.ammos.plandev.scheduler.constraints.filters.FilterSequenceMaxGapAfter;
+import gov.nasa.ammos.plandev.scheduler.constraints.filters.FilterSequenceMinGapAfter;
+import gov.nasa.ammos.plandev.scheduler.constraints.filters.Filters;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -22,10 +22,10 @@ import java.util.List;
 import java.util.Map;
 import java.time.Instant;
 
-import static gov.nasa.jpl.aerie.constraints.time.Interval.Inclusivity.Exclusive;
-import static gov.nasa.jpl.aerie.constraints.time.Interval.Inclusivity.Inclusive;
-import static gov.nasa.jpl.aerie.constraints.time.Interval.interval;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
+import static gov.nasa.ammos.plandev.constraints.time.Interval.Inclusivity.Exclusive;
+import static gov.nasa.ammos.plandev.constraints.time.Interval.Inclusivity.Inclusive;
+import static gov.nasa.ammos.plandev.constraints.time.Interval.interval;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestFilters {

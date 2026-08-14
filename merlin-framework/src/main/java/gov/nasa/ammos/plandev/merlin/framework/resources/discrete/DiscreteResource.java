@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.merlin.framework.resources.discrete;
+package gov.nasa.ammos.plandev.merlin.framework.resources.discrete;
 
-import gov.nasa.jpl.aerie.merlin.framework.Condition;
-import gov.nasa.jpl.aerie.merlin.framework.Resource;
+import gov.nasa.ammos.plandev.merlin.framework.Condition;
+import gov.nasa.ammos.plandev.merlin.framework.Resource;
 
 import java.util.Objects;
 import java.util.Optional;

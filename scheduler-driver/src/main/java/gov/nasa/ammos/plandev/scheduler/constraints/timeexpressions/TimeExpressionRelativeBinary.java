@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.scheduler.constraints.timeexpressions;
+package gov.nasa.ammos.plandev.scheduler.constraints.timeexpressions;
 
-import gov.nasa.jpl.aerie.constraints.model.SimulationResults;
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.scheduler.model.Plan;
+import gov.nasa.ammos.plandev.constraints.model.SimulationResults;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.scheduler.model.Plan;
 
 import java.util.Set;
 import java.util.Optional;

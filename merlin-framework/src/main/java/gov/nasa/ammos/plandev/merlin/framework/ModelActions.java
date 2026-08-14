@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.merlin.framework;
+package gov.nasa.ammos.plandev.merlin.framework;
 
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Topic;
-import gov.nasa.jpl.aerie.merlin.protocol.model.TaskFactory;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.InSpan;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Topic;
+import gov.nasa.ammos.plandev.merlin.protocol.model.TaskFactory;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InSpan;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Unit;
 
 import java.util.function.Supplier;
 

@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.database;
+package gov.nasa.ammos.plandev.database;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -15,9 +15,9 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import gov.nasa.jpl.aerie.database.types.Activity;
+import gov.nasa.ammos.plandev.database.types.Activity;
 
-import static gov.nasa.jpl.aerie.database.types.Activity.assertActivityEquals;
+import static gov.nasa.ammos.plandev.database.types.Activity.assertActivityEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import gov.nasa.jpl.aerie.database.TagsTests.Tag;
+import gov.nasa.ammos.plandev.database.TagsTests.Tag;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -2891,7 +2891,7 @@ public class PlanCollaborationTests {
 
   @Nested
   class PresetTests{
-    private final gov.nasa.jpl.aerie.database.PresetTests presetTests = new gov.nasa.jpl.aerie.database.PresetTests();
+    private final gov.nasa.ammos.plandev.database.PresetTests presetTests = new gov.nasa.ammos.plandev.database.PresetTests();
     { presetTests.setConnection(helper);}
 
     // Activities added in branches keep their preset information when merged
@@ -3019,7 +3019,7 @@ public class PlanCollaborationTests {
 
   @Nested
   class TagsTests {
-    private final gov.nasa.jpl.aerie.database.TagsTests tagsHelper = new gov.nasa.jpl.aerie.database.TagsTests();
+    private final gov.nasa.ammos.plandev.database.TagsTests tagsHelper = new gov.nasa.ammos.plandev.database.TagsTests();
     { tagsHelper.setConnection(helper);}
 
     @AfterEach

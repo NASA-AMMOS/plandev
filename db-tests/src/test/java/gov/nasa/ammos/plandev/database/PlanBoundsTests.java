@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.database;
+package gov.nasa.ammos.plandev.database;
 
-import gov.nasa.jpl.aerie.database.types.Activity;
-import gov.nasa.jpl.aerie.database.types.PlanDatasetRecord;
-import gov.nasa.jpl.aerie.database.types.SimulationDatasetRecord;
-import gov.nasa.jpl.aerie.database.types.SimulationSpecification;
+import gov.nasa.ammos.plandev.database.types.Activity;
+import gov.nasa.ammos.plandev.database.types.PlanDatasetRecord;
+import gov.nasa.ammos.plandev.database.types.SimulationDatasetRecord;
+import gov.nasa.ammos.plandev.database.types.SimulationSpecification;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -198,7 +198,7 @@ public class PlanBoundsTests {
       }
 
       @ParameterizedTest
-      @MethodSource("gov.nasa.jpl.aerie.database.PlanBoundsTests#startDurationAdjustments")
+      @MethodSource("gov.nasa.ammos.plandev.database.PlanBoundsTests#startDurationAdjustments")
       void bothPlanStartAndDurationAdjusted(int startTimeAdjustment, int durationAdjustment) throws SQLException {
         final var newPlanStartTime = planStartTime.plusSeconds(startTimeAdjustment);
         final var newPlanDuration = planDuration.plusSeconds(durationAdjustment);
@@ -254,7 +254,7 @@ public class PlanBoundsTests {
        * then the simulation specification's boundaries are unaffected.
        */
       @ParameterizedTest
-      @MethodSource("gov.nasa.jpl.aerie.database.PlanBoundsTests#startDurationAdjustments")
+      @MethodSource("gov.nasa.ammos.plandev.database.PlanBoundsTests#startDurationAdjustments")
       @MethodSource("additionalStartDurationAdjustments")
       void trueTemporalSubset(int startTimeAdjustment, int durationAdjustment) throws SQLException {
         // Set sim spec bounds to a true temporal subset (2 hours in the middle of the plan)
@@ -279,7 +279,7 @@ public class PlanBoundsTests {
        * then the specification start time is cropped to the new plan start time.
        */
       @ParameterizedTest
-      @MethodSource("gov.nasa.jpl.aerie.database.PlanBoundsTests#startDurationAdjustments")
+      @MethodSource("gov.nasa.ammos.plandev.database.PlanBoundsTests#startDurationAdjustments")
       @MethodSource("additionalStartDurationAdjustments")
       void startTimeCropped(int startTimeAdjustment, int durationAdjustment) throws SQLException {
         // Set sim spec bounds to start four hours before the plan does and end in the middle of the new bounds
@@ -307,7 +307,7 @@ public class PlanBoundsTests {
        * then the specification end time is cropped to the new plan end time.
        */
       @ParameterizedTest
-      @MethodSource("gov.nasa.jpl.aerie.database.PlanBoundsTests#startDurationAdjustments")
+      @MethodSource("gov.nasa.ammos.plandev.database.PlanBoundsTests#startDurationAdjustments")
       @MethodSource("additionalStartDurationAdjustments")
       void endTimeCropped(int startTimeAdjustment, int durationAdjustment) throws SQLException {
         // Set sim spec bounds to in the middle of the plan does and end after plan end
@@ -336,7 +336,7 @@ public class PlanBoundsTests {
        * then the specification bounds are reset to the plan bounds
        */
       @ParameterizedTest
-      @MethodSource("gov.nasa.jpl.aerie.database.PlanBoundsTests#startDurationAdjustments")
+      @MethodSource("gov.nasa.ammos.plandev.database.PlanBoundsTests#startDurationAdjustments")
       @MethodSource("additionalStartDurationAdjustments")
       void entirelyBefore(int startTimeAdjustment, int durationAdjustment) throws SQLException  {
         // Set sim spec bounds to be entirely before the plan
@@ -366,7 +366,7 @@ public class PlanBoundsTests {
        * then the specification bounds are reset to the plan bounds
        */
       @ParameterizedTest
-      @MethodSource("gov.nasa.jpl.aerie.database.PlanBoundsTests#startDurationAdjustments")
+      @MethodSource("gov.nasa.ammos.plandev.database.PlanBoundsTests#startDurationAdjustments")
       @MethodSource("additionalStartDurationAdjustments")
       void entirelyAfter(int startTimeAdjustment, int durationAdjustment) throws SQLException  {
         // Set sim spec bounds to be entirely after the plan
@@ -396,7 +396,7 @@ public class PlanBoundsTests {
        * then the specification bounds are reset to the plan bounds
        */
       @ParameterizedTest
-      @MethodSource("gov.nasa.jpl.aerie.database.PlanBoundsTests#startDurationAdjustments")
+      @MethodSource("gov.nasa.ammos.plandev.database.PlanBoundsTests#startDurationAdjustments")
       @MethodSource("additionalStartDurationAdjustments")
       void endsAtNewStart(int startTimeAdjustment, int durationAdjustment) throws SQLException  {
         final var newPlanStartTime = planStartTime.plusSeconds(startTimeAdjustment);
@@ -427,7 +427,7 @@ public class PlanBoundsTests {
        * then the specification bounds are reset to the plan bounds
        */
       @ParameterizedTest
-      @MethodSource("gov.nasa.jpl.aerie.database.PlanBoundsTests#startDurationAdjustments")
+      @MethodSource("gov.nasa.ammos.plandev.database.PlanBoundsTests#startDurationAdjustments")
       @MethodSource("additionalStartDurationAdjustments")
       void beginsAtNewEnd(int startTimeAdjustment, int durationAdjustment) throws SQLException  {
         final var newPlanStartTime = planStartTime.plusSeconds(startTimeAdjustment);
@@ -611,7 +611,7 @@ public class PlanBoundsTests {
      * @param durationAdjustment how much to adjust the plan's duration, in seconds
      */
     @ParameterizedTest
-    @MethodSource("gov.nasa.jpl.aerie.database.PlanBoundsTests#startDurationAdjustments")
+    @MethodSource("gov.nasa.ammos.plandev.database.PlanBoundsTests#startDurationAdjustments")
     void bothPlanStartAndDurationAdjusted(int startTimeAdjustment, int durationAdjustment) throws SQLException {
       // Adjust plan bounds as specified
       merlinHelper.updatePlanBounds(

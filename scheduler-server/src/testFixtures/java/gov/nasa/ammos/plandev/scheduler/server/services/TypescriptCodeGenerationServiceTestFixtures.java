@@ -1,12 +1,12 @@
-package gov.nasa.jpl.aerie.scheduler.server.services;
+package gov.nasa.ammos.plandev.scheduler.server.services;
 
 import java.util.List;
 import java.util.Map;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
-import gov.nasa.jpl.aerie.scheduler.server.models.ActivityType;
-import gov.nasa.jpl.aerie.scheduler.server.models.ResourceType;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.scheduler.server.models.ActivityType;
+import gov.nasa.ammos.plandev.scheduler.server.models.ResourceType;
 
 public final class TypescriptCodeGenerationServiceTestFixtures {
 

@@ -1,18 +1,18 @@
-package gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial;
+package gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resources;
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.unit_aware.StandardUnits;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.contrib.streamline.unit_aware.UnitAware;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resources;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.unit_aware.StandardUnits;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.unit_aware.UnitAware;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.name;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.delay;
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.replaying;
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.spawn;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.DynamicsMonad.effect;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECOND;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Naming.name;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.delay;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.replaying;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.spawn;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.monads.DynamicsMonad.effect;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECOND;
 
 public final class PolynomialEffects {
   private PolynomialEffects() {}

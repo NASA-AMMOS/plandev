@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.database;
+package gov.nasa.ammos.plandev.database;
 
-import gov.nasa.jpl.aerie.database.types.Activity;
-import gov.nasa.jpl.aerie.database.types.PlanDatasetRecord;
-import gov.nasa.jpl.aerie.database.types.SimulationDatasetRecord;
-import gov.nasa.jpl.aerie.database.types.SimulationSpecification;
+import gov.nasa.ammos.plandev.database.types.Activity;
+import gov.nasa.ammos.plandev.database.types.PlanDatasetRecord;
+import gov.nasa.ammos.plandev.database.types.SimulationDatasetRecord;
+import gov.nasa.ammos.plandev.database.types.SimulationSpecification;
 import org.postgresql.util.PGInterval;
 
 import java.sql.Connection;

@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.permissions.exceptions;
+package gov.nasa.ammos.plandev.permissions.exceptions;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import gov.nasa.jpl.aerie.json.FormattedError;
+import gov.nasa.ammos.plandev.json.FormattedError;
 
 import javax.json.Json;
 import java.io.IOException;

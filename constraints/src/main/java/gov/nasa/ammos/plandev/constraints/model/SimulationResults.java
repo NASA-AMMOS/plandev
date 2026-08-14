@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.constraints.model;
+package gov.nasa.ammos.plandev.constraints.model;
 
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -34,7 +34,7 @@ public final class SimulationResults {
   }
 
   public SimulationResults(
-      gov.nasa.jpl.aerie.merlin.driver.SimulationResults merlinResults
+      gov.nasa.ammos.plandev.merlin.driver.SimulationResults merlinResults
   ) {
     this.planStart = merlinResults.startTime;
     this.bounds = Interval.between(Duration.ZERO, merlinResults.duration);

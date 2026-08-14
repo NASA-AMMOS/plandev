@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.contrib.models;
+package gov.nasa.ammos.plandev.contrib.models;
 
-import gov.nasa.jpl.aerie.merlin.framework.resources.real.RealResource;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
+import gov.nasa.ammos.plandev.merlin.framework.resources.real.RealResource;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.RealDynamics;
 import org.apache.commons.math3.geometry.euclidean.threed.Vector3D;
 
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.*;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.*;
 
 /**
  * Model for a three-dimensional vector.

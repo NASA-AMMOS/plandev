@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler.server.config;
+package gov.nasa.ammos.plandev.scheduler.server.config;
 
 /**
  * controls how the scheduling service outputs its scheduled activities

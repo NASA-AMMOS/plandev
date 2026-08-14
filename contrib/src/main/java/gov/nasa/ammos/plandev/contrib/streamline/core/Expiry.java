@@ -1,9 +1,8 @@
-package gov.nasa.jpl.aerie.contrib.streamline.core;
+package gov.nasa.ammos.plandev.contrib.streamline.core;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 import java.util.Optional;
-import java.util.stream.Stream;
 
 /**
  * The time at which a value expires.

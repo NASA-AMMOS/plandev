@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
-import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
+import gov.nasa.ammos.plandev.merlin.server.models.PlanId;
+import gov.nasa.ammos.plandev.merlin.server.models.SimulationDatasetId;
 import org.intellij.lang.annotations.Language;
 
 import java.sql.Connection;
@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.parseOffset;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.parseOffset;
 
 /*package-local*/ final class GetPlanDatasetsAction implements AutoCloseable {
   private final @Language("SQL") String sql = """

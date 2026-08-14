@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.contrib.streamline.core;
+package gov.nasa.ammos.plandev.contrib.streamline.core;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.monads.ResourceMonad;
-import gov.nasa.jpl.aerie.contrib.streamline.debugging.Profiling;
+import gov.nasa.ammos.plandev.contrib.streamline.core.monads.ResourceMonad;
+import gov.nasa.ammos.plandev.contrib.streamline.debugging.Profiling;
 
 /**
  * A function returning a fully-wrapped dynamics,

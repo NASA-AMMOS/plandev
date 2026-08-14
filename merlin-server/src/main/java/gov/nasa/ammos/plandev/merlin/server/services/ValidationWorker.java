@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.merlin.server.services;
+package gov.nasa.ammos.plandev.merlin.server.services;
 
-import gov.nasa.jpl.aerie.merlin.server.models.ActivityDirectiveForValidation;
-import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService.BulkArgumentValidationResponse;
+import gov.nasa.ammos.plandev.merlin.server.models.ActivityDirectiveForValidation;
+import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService.BulkArgumentValidationResponse;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,16 +1,16 @@
-package gov.nasa.jpl.aerie.scheduler.model;
+package gov.nasa.ammos.plandev.scheduler.model;
 
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
-import gov.nasa.jpl.aerie.constraints.model.DiscreteProfile;
-import gov.nasa.jpl.aerie.constraints.model.LinearProfile;
-import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
-import gov.nasa.jpl.aerie.merlin.protocol.model.SchedulerModel;
-import gov.nasa.jpl.aerie.scheduler.constraints.scheduling.GlobalConstraintWithIntrospection;
-import gov.nasa.jpl.aerie.scheduler.goals.Goal;
-import gov.nasa.jpl.aerie.scheduler.simulation.SimulationFacade;
-import gov.nasa.jpl.aerie.scheduler.simulation.SimulationData;
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.ExternalEvent;
+import gov.nasa.ammos.plandev.constraints.model.DiscreteProfile;
+import gov.nasa.ammos.plandev.constraints.model.LinearProfile;
+import gov.nasa.ammos.plandev.merlin.driver.MissionModel;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationResults;
+import gov.nasa.ammos.plandev.merlin.protocol.model.SchedulerModel;
+import gov.nasa.ammos.plandev.scheduler.constraints.scheduling.GlobalConstraintWithIntrospection;
+import gov.nasa.ammos.plandev.scheduler.goals.Goal;
+import gov.nasa.ammos.plandev.scheduler.simulation.SimulationFacade;
+import gov.nasa.ammos.plandev.scheduler.simulation.SimulationData;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -166,7 +166,7 @@ public class Problem {
     this.initialSimulationResults = initialSimulationResults.map(simulationResults -> new SimulationData(
         getInitialPlan(),
         simulationResults,
-        new gov.nasa.jpl.aerie.constraints.model.SimulationResults(simulationResults)
+        new gov.nasa.ammos.plandev.constraints.model.SimulationResults(simulationResults)
     ));
   }
 

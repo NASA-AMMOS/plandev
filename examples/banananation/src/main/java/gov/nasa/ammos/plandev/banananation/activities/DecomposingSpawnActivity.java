@@ -1,14 +1,13 @@
-package gov.nasa.jpl.aerie.banananation.activities;
+package gov.nasa.ammos.plandev.banananation.activities;
 
-import gov.nasa.jpl.aerie.banananation.Mission;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType.EffectModel;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Parameter;
+import gov.nasa.ammos.plandev.banananation.Mission;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.ActivityType;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.ActivityType.EffectModel;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.Export.Parameter;
 
-import static gov.nasa.jpl.aerie.banananation.generated.ActivityActions.spawn;
-import static gov.nasa.jpl.aerie.banananation.generated.ActivityActions.call;
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.*;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECOND;
+import static gov.nasa.ammos.plandev.banananation.generated.ActivityActions.spawn;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.*;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECOND;
 
 public final class DecomposingSpawnActivity {
   @ActivityType("DecomposingSpawnParent")

@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e.utils;
+package gov.nasa.ammos.plandev.e2e.utils;
 
 import com.microsoft.playwright.APIRequest;
 import com.microsoft.playwright.APIRequestContext;
@@ -7,8 +7,8 @@ import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.options.FilePayload;
 import com.microsoft.playwright.options.FormData;
 import com.microsoft.playwright.options.RequestOptions;
-import gov.nasa.jpl.aerie.e2e.types.User;
-import gov.nasa.jpl.aerie.e2e.types.workspaces.BulkPutItem;
+import gov.nasa.ammos.plandev.e2e.types.User;
+import gov.nasa.ammos.plandev.e2e.types.workspaces.BulkPutItem;
 
 import javax.json.Json;
 import javax.json.JsonObject;

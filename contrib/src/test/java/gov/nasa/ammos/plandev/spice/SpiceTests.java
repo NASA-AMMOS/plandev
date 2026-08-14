@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.spice;
+package gov.nasa.ammos.plandev.spice;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;

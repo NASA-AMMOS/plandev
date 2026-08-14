@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.permissions.exceptions;
+package gov.nasa.ammos.plandev.permissions.exceptions;
 
-import gov.nasa.jpl.aerie.json.FormattedError;
+import gov.nasa.ammos.plandev.json.FormattedError;
 
 /**
  * Wrapper Exception for all thrown exceptions in the Permissions Service.

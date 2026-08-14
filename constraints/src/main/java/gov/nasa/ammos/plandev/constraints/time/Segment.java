@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.constraints.time;
+package gov.nasa.ammos.plandev.constraints.time;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.ObjectComparator;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ObjectComparator;
 
 import java.util.Comparator;
 

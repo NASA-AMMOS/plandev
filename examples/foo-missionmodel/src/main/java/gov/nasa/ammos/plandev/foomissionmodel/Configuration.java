@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.foomissionmodel;
+package gov.nasa.ammos.plandev.foomissionmodel;
 
-import gov.nasa.jpl.aerie.merlin.framework.annotations.Export;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.Export;
 
 public final class Configuration {
 

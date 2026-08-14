@@ -1,14 +1,12 @@
-package gov.nasa.jpl.aerie.scheduler.constraints.resources;
+package gov.nasa.ammos.plandev.scheduler.constraints.resources;
 
-import com.google.common.collect.Lists;
-import gov.nasa.jpl.aerie.constraints.model.LinearEquation;
-import gov.nasa.jpl.aerie.constraints.model.SimulationResults;
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.constraints.time.Segment;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.scheduler.constraints.timeexpressions.TimeExpressionRelative;
-import gov.nasa.jpl.aerie.scheduler.model.Plan;
-import gov.nasa.jpl.aerie.scheduler.constraints.activities.VariableArgumentComputer;
+import gov.nasa.ammos.plandev.constraints.model.SimulationResults;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.constraints.time.Segment;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.scheduler.constraints.timeexpressions.TimeExpressionRelative;
+import gov.nasa.ammos.plandev.scheduler.model.Plan;
+import gov.nasa.ammos.plandev.scheduler.constraints.activities.VariableArgumentComputer;
 
 /**
  * Class allowing to define state query expression for instantiation of parameters

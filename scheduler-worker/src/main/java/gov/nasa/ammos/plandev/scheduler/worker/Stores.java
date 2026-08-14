@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.scheduler.worker;
+package gov.nasa.ammos.plandev.scheduler.worker;
 
-import gov.nasa.jpl.aerie.scheduler.server.remotes.ResultsCellRepository;
-import gov.nasa.jpl.aerie.scheduler.server.remotes.SpecificationRepository;
+import gov.nasa.ammos.plandev.scheduler.server.remotes.ResultsCellRepository;
+import gov.nasa.ammos.plandev.scheduler.server.remotes.SpecificationRepository;
 
 public record Stores(SpecificationRepository specifications, ResultsCellRepository results) { }

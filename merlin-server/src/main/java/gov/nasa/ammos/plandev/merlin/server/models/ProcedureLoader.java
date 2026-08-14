@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.server.models;
+package gov.nasa.ammos.plandev.merlin.server.models;
 
-import gov.nasa.ammos.aerie.procedural.constraints.ProcedureMapper;
+import gov.nasa.ammos.plandev.procedural.constraints.ProcedureMapper;
 
 import java.io.IOException;
 import java.net.MalformedURLException;

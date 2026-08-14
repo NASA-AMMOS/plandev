@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.scheduler.simulation;
+package gov.nasa.ammos.plandev.scheduler.simulation;
 
-import gov.nasa.jpl.aerie.merlin.driver.*;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.driver.*;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 import org.apache.commons.collections4.map.ListOrderedMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

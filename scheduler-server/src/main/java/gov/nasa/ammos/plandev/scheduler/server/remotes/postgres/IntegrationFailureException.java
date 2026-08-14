@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
+package gov.nasa.ammos.plandev.scheduler.server.remotes.postgres;
 
 public abstract sealed class IntegrationFailureException
     extends RuntimeException

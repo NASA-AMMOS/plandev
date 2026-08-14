@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.merlin.protocol.types;
+package gov.nasa.ammos.plandev.merlin.protocol.types;
 
 public final class UnconstructableArgumentException extends Exception {
   public final String parameterName, failure;

@@ -1,14 +1,14 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes;
+package gov.nasa.ammos.plandev.merlin.server.remotes;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
-import gov.nasa.jpl.aerie.merlin.server.mocks.InMemoryPlanRepository;
-import gov.nasa.jpl.aerie.merlin.server.remotes.PlanRepository.CreatedPlan;
-import gov.nasa.jpl.aerie.types.ActivityDirective;
-import gov.nasa.jpl.aerie.types.MissionModelId;
-import gov.nasa.jpl.aerie.types.Plan;
-import gov.nasa.jpl.aerie.types.Timestamp;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.server.exceptions.NoSuchPlanException;
+import gov.nasa.ammos.plandev.merlin.server.mocks.InMemoryPlanRepository;
+import gov.nasa.ammos.plandev.merlin.server.remotes.PlanRepository.CreatedPlan;
+import gov.nasa.ammos.plandev.types.ActivityDirective;
+import gov.nasa.ammos.plandev.types.MissionModelId;
+import gov.nasa.ammos.plandev.types.Plan;
+import gov.nasa.ammos.plandev.types.Timestamp;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

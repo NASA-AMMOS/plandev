@@ -1,3 +1,3 @@
-package gov.nasa.jpl.aerie.merlin.processor.metamodel;
+package gov.nasa.ammos.plandev.merlin.processor.metamodel;
 
 public record ParameterValidationRecord(String methodName, String[] subjects, String failureMessage, boolean isSimpleValidation) { }

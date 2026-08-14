@@ -1,15 +1,15 @@
-package gov.nasa.jpl.aerie.contrib.streamline.core;
+package gov.nasa.ammos.plandev.contrib.streamline.core;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiry.NEVER;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiry.at;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiry.expiry;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.HOUR;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MINUTE;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Expiry.NEVER;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Expiry.at;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Expiry.expiry;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.HOUR;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MINUTE;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ExpiryTest {

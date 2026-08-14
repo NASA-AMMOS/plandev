@@ -1,20 +1,21 @@
-package gov.nasa.jpl.aerie.scheduler.plan
+package gov.nasa.ammos.plandev.scheduler.plan
 
-import gov.nasa.jpl.aerie.merlin.driver.MissionModel
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
-import gov.nasa.ammos.aerie.procedural.scheduling.simulation.SimulateOptions
-import gov.nasa.ammos.aerie.procedural.scheduling.utils.DefaultEditablePlanDriver
-import gov.nasa.ammos.aerie.procedural.scheduling.utils.PerishableSimulationResults
-import gov.nasa.jpl.aerie.scheduler.simulation.SimulationFacade
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.AnyDirective
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Directive
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.DirectiveStart
-import gov.nasa.jpl.aerie.merlin.protocol.types.DurationType
-import gov.nasa.jpl.aerie.scheduler.DirectiveIdGenerator
-import gov.nasa.jpl.aerie.scheduler.model.*
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId
+import gov.nasa.ammos.plandev.merlin.driver.MissionModel
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration
+import gov.nasa.ammos.plandev.procedural.scheduling.simulation.SimulateOptions
+import gov.nasa.ammos.plandev.procedural.scheduling.utils.DefaultEditablePlanDriver
+import gov.nasa.ammos.plandev.procedural.scheduling.utils.PerishableSimulationResults
+import gov.nasa.ammos.plandev.scheduler.simulation.SimulationFacade
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.activities.AnyDirective
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.activities.Directive
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.activities.DirectiveStart
+import gov.nasa.ammos.plandev.merlin.protocol.types.DurationType
+import gov.nasa.ammos.plandev.scheduler.DirectiveIdGenerator
+import gov.nasa.ammos.plandev.scheduler.model.*
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId
 import kotlin.jvm.optionals.getOrNull
-import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan;
+import gov.nasa.ammos.plandev.procedural.timeline.plan.Plan
+import gov.nasa.ammos.plandev.scheduler.model.SchedulingActivity
 
 /*
  * An implementation of [EditablePlan] that stores the plan in memory for use in the internal scheduler.
@@ -52,36 +53,40 @@ data class SchedulerPlanEditAdapter(
   }
 
   companion object {
-    @JvmStatic fun Directive<AnyDirective>.toSchedulingActivity(lookupActivityType: (String) -> ActivityType) = SchedulingActivity(
-        id,
-        lookupActivityType(type),
-        when (val s = start) {
-          is DirectiveStart.Absolute -> s.time
-          is DirectiveStart.Anchor -> s.offset
-        },
-        when (val d = lookupActivityType(type).durationType) {
-          is DurationType.Controllable -> {
-            inner.arguments[d.parameterName]?.asInt()?.let { Duration(it.get()) }
-          }
-          is DurationType.Parametric -> {
-            d.durationFunction.apply(inner.arguments)
-          }
-          is DurationType.Fixed -> {
-            d.duration
-          }
-          else -> Duration.ZERO
-        },
-        inner.arguments,
-        null,
-        when (val s = start) {
-          is DirectiveStart.Absolute -> null
-          is DirectiveStart.Anchor -> s.parentId
-        },
-      when (val s = start) {
-        is DirectiveStart.Absolute -> true
-        is DirectiveStart.Anchor -> s.anchorPoint == DirectiveStart.Anchor.AnchorPoint.Start
-      },
-      name
-    )
+    @JvmStatic fun Directive<AnyDirective>.toSchedulingActivity(lookupActivityType: (String) -> ActivityType) =
+        SchedulingActivity(
+            id,
+            lookupActivityType(type),
+            when (val s = start) {
+                is DirectiveStart.Absolute -> s.time
+                is DirectiveStart.Anchor -> s.offset
+            },
+            when (val d = lookupActivityType(type).durationType) {
+                is DurationType.Controllable -> {
+                    inner.arguments[d.parameterName]?.asInt()?.let { Duration(it.get()) }
+                }
+
+                is DurationType.Parametric -> {
+                    d.durationFunction.apply(inner.arguments)
+                }
+
+                is DurationType.Fixed -> {
+                    d.duration
+                }
+
+                else -> Duration.ZERO
+            },
+            inner.arguments,
+            null,
+            when (val s = start) {
+                is DirectiveStart.Absolute -> null
+                is DirectiveStart.Anchor -> s.parentId
+            },
+            when (val s = start) {
+                is DirectiveStart.Absolute -> true
+                is DirectiveStart.Anchor -> s.anchorPoint == DirectiveStart.Anchor.AnchorPoint.Start
+            },
+            name
+        )
   }
 }

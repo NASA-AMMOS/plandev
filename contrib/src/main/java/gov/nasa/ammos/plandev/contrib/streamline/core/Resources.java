@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.contrib.streamline.core;
+package gov.nasa.ammos.plandev.contrib.streamline.core;
 
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.Clock;
-import gov.nasa.jpl.aerie.merlin.framework.Condition;
-import gov.nasa.jpl.aerie.merlin.framework.Scoped;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.clocks.Clock;
+import gov.nasa.ammos.plandev.merlin.framework.Condition;
+import gov.nasa.ammos.plandev.merlin.framework.Scoped;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Unit;
 
 import java.util.Collection;
 import java.util.Objects;
@@ -13,16 +13,16 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.resource;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiring.neverExpiring;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiry.NEVER;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Reactions.wheneverDynamicsChange;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Dependencies.addDependency;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.Clock.clock;
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.*;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.ZERO;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete.discrete;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource.resource;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Expiring.neverExpiring;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Expiry.NEVER;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Reactions.wheneverDynamicsChange;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Dependencies.addDependency;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Naming.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.clocks.Clock.clock;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.*;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.ZERO;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete.discrete;
 
 /**
  * Utility methods for {@link Resource}s.
@@ -312,11 +312,11 @@ public final class Resources {
    *     This overhead is often unnecessary. Consider using the methods linked below
    *     for alternative implementations of reduce that may be more efficient.
    *     There may also be efficient implementations of reduce on the relevant resource monad, like
-   *     {@link gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad#reduce}.
+   *     {@link gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad#reduce}.
    * </p>
    *
-   * @see gov.nasa.jpl.aerie.contrib.streamline.core.monads.ResourceMonad#reduce(Collection, Object, BiFunction)
-   * @see gov.nasa.jpl.aerie.contrib.streamline.core.monads.ResourceMonad#reduce(Collection, Object, BiFunction, String)
+   * @see gov.nasa.ammos.plandev.contrib.streamline.core.monads.ResourceMonad#reduce(Collection, Object, BiFunction)
+   * @see gov.nasa.ammos.plandev.contrib.streamline.core.monads.ResourceMonad#reduce(Collection, Object, BiFunction, String)
    */
   public static <D> Resource<D> reduce(Stream<? extends Resource<D>> operands, Resource<D> identity, BiFunction<Resource<D>, Resource<D>, Resource<D>> operation, String operationName) {
     return reduce(operands.toList(), identity, operation, operationName);
@@ -329,11 +329,11 @@ public final class Resources {
    *     This overhead is often unnecessary. Consider using the methods linked below
    *     for alternative implementations of reduce that may be more efficient.
    *     There may also be efficient implementations of reduce on the relevant resource monad, like
-   *     {@link gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad#reduce}.
+   *     {@link gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad#reduce}.
    * </p>
    *
-   * @see gov.nasa.jpl.aerie.contrib.streamline.core.monads.ResourceMonad#reduce(Collection, Object, BiFunction)
-   * @see gov.nasa.jpl.aerie.contrib.streamline.core.monads.ResourceMonad#reduce(Collection, Object, BiFunction, String)
+   * @see gov.nasa.ammos.plandev.contrib.streamline.core.monads.ResourceMonad#reduce(Collection, Object, BiFunction)
+   * @see gov.nasa.ammos.plandev.contrib.streamline.core.monads.ResourceMonad#reduce(Collection, Object, BiFunction, String)
    */
   public static <D> Resource<D> reduce(Collection<? extends Resource<D>> operands, Resource<D> identity, BiFunction<Resource<D>, Resource<D>, Resource<D>> operation, String operationName) {
     var result = operands.stream().reduce(identity, operation, operation::apply);

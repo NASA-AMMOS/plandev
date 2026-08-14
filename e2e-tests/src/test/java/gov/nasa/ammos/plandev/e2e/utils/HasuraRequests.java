@@ -1,12 +1,12 @@
-package gov.nasa.jpl.aerie.e2e.utils;
+package gov.nasa.ammos.plandev.e2e.utils;
 
 import com.microsoft.playwright.APIRequest;
 import com.microsoft.playwright.APIRequestContext;
 import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.TimeoutError;
 import com.microsoft.playwright.options.RequestOptions;
-import gov.nasa.jpl.aerie.e2e.types.*;
-import gov.nasa.jpl.aerie.e2e.types.workspaces.HasuraRequestFailure;
+import gov.nasa.ammos.plandev.e2e.types.*;
+import gov.nasa.ammos.plandev.e2e.types.workspaces.HasuraRequestFailure;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.json.Json;

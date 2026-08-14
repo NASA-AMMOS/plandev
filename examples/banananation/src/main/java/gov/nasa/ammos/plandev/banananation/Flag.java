@@ -1,3 +1,3 @@
-package gov.nasa.jpl.aerie.banananation;
+package gov.nasa.ammos.plandev.banananation;
 
 public enum Flag { A, B }

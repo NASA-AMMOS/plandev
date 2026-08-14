@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.foomissionmodel.models;
+package gov.nasa.ammos.plandev.foomissionmodel.models;
 
-import gov.nasa.jpl.aerie.contrib.cells.linear.LinearAccumulationEffect;
-import gov.nasa.jpl.aerie.contrib.cells.linear.LinearIntegrationCell;
-import gov.nasa.jpl.aerie.merlin.framework.CellRef;
-import gov.nasa.jpl.aerie.merlin.framework.resources.real.RealResource;
+import gov.nasa.ammos.plandev.contrib.cells.linear.LinearAccumulationEffect;
+import gov.nasa.ammos.plandev.contrib.cells.linear.LinearIntegrationCell;
+import gov.nasa.ammos.plandev.merlin.framework.CellRef;
+import gov.nasa.ammos.plandev.merlin.framework.resources.real.RealResource;
 
 import java.util.List;
 import java.util.function.Function;

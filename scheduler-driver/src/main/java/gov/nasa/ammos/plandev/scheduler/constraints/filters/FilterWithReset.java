@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.scheduler.constraints.filters;
+package gov.nasa.ammos.plandev.scheduler.constraints.filters;
 
-import gov.nasa.jpl.aerie.constraints.model.SimulationResults;
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.constraints.time.Segment;
-import gov.nasa.jpl.aerie.constraints.time.Windows;
-import gov.nasa.jpl.aerie.scheduler.constraints.TimeRangeExpression;
-import gov.nasa.jpl.aerie.scheduler.model.Plan;
+import gov.nasa.ammos.plandev.constraints.model.SimulationResults;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.constraints.time.Segment;
+import gov.nasa.ammos.plandev.constraints.time.Windows;
+import gov.nasa.ammos.plandev.scheduler.constraints.TimeRangeExpression;
+import gov.nasa.ammos.plandev.scheduler.model.Plan;
 
 
 /**

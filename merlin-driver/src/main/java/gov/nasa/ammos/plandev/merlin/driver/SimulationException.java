@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.merlin.driver;
+package gov.nasa.ammos.plandev.merlin.driver;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
-import gov.nasa.jpl.aerie.types.SerializedActivity;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.types.SerializedActivity;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -13,11 +13,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.HOUR;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MICROSECOND;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MINUTE;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECOND;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.negate;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.HOUR;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MICROSECOND;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MINUTE;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECOND;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.negate;
 
 public class SimulationException extends RuntimeException {
   // This builder must be used to get optional subsecond values

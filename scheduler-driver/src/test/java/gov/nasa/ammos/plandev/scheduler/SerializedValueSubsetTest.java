@@ -1,14 +1,13 @@
-package gov.nasa.jpl.aerie.scheduler;
+package gov.nasa.ammos.plandev.scheduler;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static gov.nasa.jpl.aerie.scheduler.constraints.activities.ActivityExpression.subsetOrEqual;
+import static gov.nasa.ammos.plandev.scheduler.constraints.activities.ActivityExpression.subsetOrEqual;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 

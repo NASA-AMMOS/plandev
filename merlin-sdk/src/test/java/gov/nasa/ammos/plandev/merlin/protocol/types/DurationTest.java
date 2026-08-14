@@ -1,14 +1,14 @@
-package gov.nasa.jpl.aerie.merlin.protocol.types;
+package gov.nasa.ammos.plandev.merlin.protocol.types;
 
 import org.junit.jupiter.api.Test;
 
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.EPSILON;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MILLISECONDS;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.duration;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.roundDownward;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.roundNearest;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.roundUpward;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.EPSILON;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MILLISECONDS;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECONDS;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.duration;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.roundDownward;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.roundNearest;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.roundUpward;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 

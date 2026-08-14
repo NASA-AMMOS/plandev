@@ -1,12 +1,12 @@
-package gov.nasa.jpl.aerie.workspace.server;
+package gov.nasa.ammos.plandev.workspace.server;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import gov.nasa.jpl.aerie.json.FormattedError;
-import gov.nasa.jpl.aerie.workspace.server.exceptions.FileLockedException;
-import gov.nasa.jpl.aerie.workspace.server.exceptions.MalformedRequest;
-import gov.nasa.jpl.aerie.workspace.server.exceptions.NoSuchFileException;
-import gov.nasa.jpl.aerie.workspace.server.exceptions.WorkspaceFileOpException;
-import gov.nasa.jpl.aerie.workspace.server.postgres.NoSuchWorkspaceException;
+import gov.nasa.ammos.plandev.json.FormattedError;
+import gov.nasa.ammos.plandev.workspace.server.exceptions.FileLockedException;
+import gov.nasa.ammos.plandev.workspace.server.exceptions.MalformedRequest;
+import gov.nasa.ammos.plandev.workspace.server.exceptions.NoSuchFileException;
+import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
+import gov.nasa.ammos.plandev.workspace.server.postgres.NoSuchWorkspaceException;
 
 import javax.json.Json;
 import java.util.Optional;

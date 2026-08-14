@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.merlin.driver.json;
+package gov.nasa.ammos.plandev.merlin.driver.json;
 
-import gov.nasa.jpl.aerie.json.JsonParseResult;
-import gov.nasa.jpl.aerie.json.JsonParser;
-import gov.nasa.jpl.aerie.json.SchemaCache;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.json.JsonParseResult;
+import gov.nasa.ammos.plandev.json.JsonParser;
+import gov.nasa.ammos.plandev.json.SchemaCache;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 
 import javax.json.Json;
 import javax.json.JsonArray;

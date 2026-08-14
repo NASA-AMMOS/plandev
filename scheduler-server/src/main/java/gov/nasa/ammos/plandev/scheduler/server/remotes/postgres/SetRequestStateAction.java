@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
+package gov.nasa.ammos.plandev.scheduler.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.scheduler.server.models.DatasetId;
-import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleFailure;
+import gov.nasa.ammos.plandev.scheduler.server.models.DatasetId;
+import gov.nasa.ammos.plandev.scheduler.server.services.ScheduleFailure;
 import org.intellij.lang.annotations.Language;
 
 import java.sql.Connection;

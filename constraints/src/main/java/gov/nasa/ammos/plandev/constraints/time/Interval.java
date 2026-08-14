@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.constraints.time;
+package gov.nasa.ammos.plandev.constraints.time;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 import java.util.Objects;
 
-import static gov.nasa.jpl.aerie.constraints.time.Interval.Inclusivity.Exclusive;
-import static gov.nasa.jpl.aerie.constraints.time.Interval.Inclusivity.Inclusive;
+import static gov.nasa.ammos.plandev.constraints.time.Interval.Inclusivity.Exclusive;
+import static gov.nasa.ammos.plandev.constraints.time.Interval.Inclusivity.Inclusive;
 
 /**
  * An Interval on the timeline, represented by start and end points
@@ -129,17 +129,17 @@ public final class Interval implements Comparable<Interval>{
     return at(Duration.of(quantity, unit));
   }
 
-  public gov.nasa.ammos.aerie.procedural.timeline.Interval toProceduralInterval() {
-    return new gov.nasa.ammos.aerie.procedural.timeline.Interval(
+  public gov.nasa.ammos.plandev.procedural.timeline.Interval toProceduralInterval() {
+    return new gov.nasa.ammos.plandev.procedural.timeline.Interval(
         start,
         end,
-        this.includesStart() ? gov.nasa.ammos.aerie.procedural.timeline.Interval.Inclusivity.Inclusive
-                             : gov.nasa.ammos.aerie.procedural.timeline.Interval.Inclusivity.Exclusive,
-        this.includesEnd()   ? gov.nasa.ammos.aerie.procedural.timeline.Interval.Inclusivity.Inclusive
-                             : gov.nasa.ammos.aerie.procedural.timeline.Interval.Inclusivity.Exclusive);
+        this.includesStart() ? gov.nasa.ammos.plandev.procedural.timeline.Interval.Inclusivity.Inclusive
+                             : gov.nasa.ammos.plandev.procedural.timeline.Interval.Inclusivity.Exclusive,
+        this.includesEnd()   ? gov.nasa.ammos.plandev.procedural.timeline.Interval.Inclusivity.Inclusive
+                             : gov.nasa.ammos.plandev.procedural.timeline.Interval.Inclusivity.Exclusive);
   }
 
-  public static Interval fromProceduralInterval(gov.nasa.ammos.aerie.procedural.timeline.Interval interval) {
+  public static Interval fromProceduralInterval(gov.nasa.ammos.plandev.procedural.timeline.Interval interval) {
     return new Interval(
         interval.start,
         interval.includesStart() ? Inclusive : Exclusive,

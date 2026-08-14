@@ -1,13 +1,11 @@
-package gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box;
+package gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.Dynamics;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import org.apache.commons.lang3.function.TriFunction;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Dynamics;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
-import java.util.function.BiFunction;
 import java.util.function.Function;
 
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.ZERO;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.ZERO;
 
 /**
  * Dynamics with no observable structure.

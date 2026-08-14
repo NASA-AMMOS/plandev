@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.e2e.procedural.constraints;
+package gov.nasa.ammos.plandev.e2e.procedural.constraints;
 
-import gov.nasa.jpl.aerie.e2e.procedural.scheduling.ProceduralTestingSetup;
-import gov.nasa.jpl.aerie.e2e.types.ConstraintInvocationId;
-import gov.nasa.jpl.aerie.e2e.types.ConstraintResult;
-import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.e2e.procedural.scheduling.ProceduralTestingSetup;
+import gov.nasa.ammos.plandev.e2e.types.ConstraintInvocationId;
+import gov.nasa.ammos.plandev.e2e.types.ConstraintResult;
+import gov.nasa.ammos.plandev.e2e.utils.GatewayRequests;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -64,7 +64,7 @@ public class BasicConstraintTests extends ProceduralTestingSetup {
     final var constraint =  resp.constraintsRun().getFirst();
     assertEquals(1, constraint.errors().size());
     assertTrue(constraint.errors().getFirst().message().contains(
-        "gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException: Invalid arguments for input type "
+        "gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException: Invalid arguments for input type "
         + "\"FruitThresholdConstraint\": "
         + "extraneous arguments: [], "
         + "unconstructable arguments: [], "

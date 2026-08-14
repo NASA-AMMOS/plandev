@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.workspace.server.exceptions;
+package gov.nasa.ammos.plandev.workspace.server.exceptions;
 
 public class WorkspaceFileOpException extends Exception {
   public WorkspaceFileOpException(String msg) {

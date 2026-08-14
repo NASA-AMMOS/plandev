@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.contrib.streamline.core;
+package gov.nasa.ammos.plandev.contrib.streamline.core;
 
 /**
  * General interface for an effect applied to a {@link MutableResource}

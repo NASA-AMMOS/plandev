@@ -1,14 +1,14 @@
-package gov.nasa.jpl.aerie.foomissionmodel;
+package gov.nasa.ammos.plandev.foomissionmodel;
 
-import gov.nasa.jpl.aerie.foomissionmodel.models.SimpleData;
-import gov.nasa.jpl.aerie.merlin.framework.junit.MerlinExtension;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.foomissionmodel.models.SimpleData;
+import gov.nasa.ammos.plandev.merlin.framework.junit.MerlinExtension;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.*;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 

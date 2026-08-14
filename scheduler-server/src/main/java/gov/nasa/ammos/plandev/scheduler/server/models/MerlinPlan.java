@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.scheduler.server.models;
+package gov.nasa.ammos.plandev.scheduler.server.models;
 
-import gov.nasa.jpl.aerie.types.ActivityDirective;
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.types.ActivityDirective;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
 
 import java.util.Collections;
 import java.util.HashMap;

@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.constraints.time;
+package gov.nasa.ammos.plandev.constraints.time;
 
-import gov.nasa.jpl.aerie.constraints.model.ActivityInstance;
-import gov.nasa.jpl.aerie.constraints.model.LinearEquation;
-import gov.nasa.jpl.aerie.constraints.model.LinearProfile;
-import gov.nasa.jpl.aerie.constraints.time.Interval.Inclusivity;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.constraints.model.ActivityInstance;
+import gov.nasa.ammos.plandev.constraints.model.LinearEquation;
+import gov.nasa.ammos.plandev.constraints.model.LinearProfile;
+import gov.nasa.ammos.plandev.constraints.time.Interval.Inclusivity;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 import java.util.ArrayList;
 import java.util.Arrays;

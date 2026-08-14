@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.merlin.protocol.model;
+package gov.nasa.ammos.plandev.merlin.protocol.model;
 
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Scheduler;
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Topic;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.InSpan;
-import gov.nasa.jpl.aerie.merlin.protocol.types.TaskStatus;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Scheduler;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Topic;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InSpan;
+import gov.nasa.ammos.plandev.merlin.protocol.types.TaskStatus;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Unit;
 
 import java.util.List;
 import java.util.concurrent.Executor;

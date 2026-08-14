@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.merlin.protocol.driver;
+package gov.nasa.ammos.plandev.merlin.protocol.driver;
 
-import gov.nasa.jpl.aerie.merlin.protocol.model.CellType;
-import gov.nasa.jpl.aerie.merlin.protocol.model.OutputType;
-import gov.nasa.jpl.aerie.merlin.protocol.model.Resource;
-import gov.nasa.jpl.aerie.merlin.protocol.model.Task;
-import gov.nasa.jpl.aerie.merlin.protocol.model.TaskFactory;
+import gov.nasa.ammos.plandev.merlin.protocol.model.CellType;
+import gov.nasa.ammos.plandev.merlin.protocol.model.OutputType;
+import gov.nasa.ammos.plandev.merlin.protocol.model.Resource;
+import gov.nasa.ammos.plandev.merlin.protocol.model.Task;
+import gov.nasa.ammos.plandev.merlin.protocol.model.TaskFactory;
 
 import java.util.function.Function;
 
@@ -21,7 +21,7 @@ import java.util.function.Function;
  * directives and configuration. Observing the behavior of resources and topics is very nearly the whole point of
  * simulating a model, so it is essential to register these outputs for clients to make use of. </p>
  *
- * <p> In a future revision of this API, exportation of resources and topics may be moved to the {@link gov.nasa.jpl.aerie.merlin.protocol.model.ModelType}
+ * <p> In a future revision of this API, exportation of resources and topics may be moved to the {@link gov.nasa.ammos.plandev.merlin.protocol.model.ModelType}
  * interface, so that the existence and shape of these outputs cannot vary with model configuration. </p>
  */
 public interface Initializer {
@@ -46,7 +46,7 @@ public interface Initializer {
    * automatically subscribed to the provided topic, whose events are interpreted as effects by the given function.
    *
    * <p> All mutable state referenced by a model must be allocated via this method. In turn, this method returns
-   * {@link gov.nasa.jpl.aerie.merlin.protocol.driver.CellId}s, which identify the cell to the driver in future
+   * {@link gov.nasa.ammos.plandev.merlin.protocol.driver.CellId}s, which identify the cell to the driver in future
    * read/write interactions. This makes it possible to give each concurrent task a transactional view of the model
    * state, to resolve any concurrent effects on state in a coherent way, and to identify which resources need to be
    * recomputed based on when the cells they are computed from are updated. </p>

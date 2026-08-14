@@ -1,18 +1,18 @@
-package gov.nasa.jpl.aerie.contrib.streamline.core;
+package gov.nasa.ammos.plandev.contrib.streamline.core;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.monads.ErrorCatchingMonad;
-import gov.nasa.jpl.aerie.merlin.framework.CellRef;
-import gov.nasa.jpl.aerie.merlin.protocol.model.CellType;
-import gov.nasa.jpl.aerie.merlin.protocol.model.EffectTrait;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.core.monads.ErrorCatchingMonad;
+import gov.nasa.ammos.plandev.merlin.framework.CellRef;
+import gov.nasa.ammos.plandev.merlin.protocol.model.CellType;
+import gov.nasa.ammos.plandev.merlin.protocol.model.EffectTrait;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 import java.util.function.BinaryOperator;
 import java.util.function.Predicate;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.ErrorCatching.failure;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiring.expiring;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.*;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.ZERO;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.ErrorCatching.failure;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Expiring.expiring;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Naming.*;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.ZERO;
 
 /**
  * Utility class for a simplified allocate method.

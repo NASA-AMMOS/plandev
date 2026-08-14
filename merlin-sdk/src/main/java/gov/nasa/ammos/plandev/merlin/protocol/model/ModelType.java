@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.protocol.model;
+package gov.nasa.ammos.plandev.merlin.protocol.model;
 
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Initializer;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Initializer;
 
 import java.time.Instant;
 import java.util.Collections;
@@ -18,7 +18,7 @@ import java.util.Map;
  * by a model; and cells can be managed and advanced through time using the exposed {@link CellType}s. </p>
  *
  * <p> In Java, each of these interfaces, as well as {@code ModelType} itself, provides reflective, at-a-distance access
- * to an abstract domain type relevant to the model. See {@linkplain gov.nasa.jpl.aerie.merlin.protocol the package
+ * to an abstract domain type relevant to the model. See {@linkplain gov.nasa.ammos.plandev.merlin.protocol the package
  * documentation} for an overview. </p>
  *
  * <p> A {@code ModelType} actually defines a family of related models, in that different models can be
@@ -63,7 +63,7 @@ public interface ModelType<Config, Model> {
    * Constructs a model instance with the given configuration, allocating cells from the given initializer.
    *
    * <p> <b>The returned model instance must be immutable.</b> All mutable state must be allocated via the provided
-   * initializer. In turn, the initializer returns {@link gov.nasa.jpl.aerie.merlin.protocol.driver.CellId}s, which do
+   * initializer. In turn, the initializer returns {@link gov.nasa.ammos.plandev.merlin.protocol.driver.CellId}s, which do
    * not contain the cell state, but rather identify the cell to the driver in future read/write interactions. This
    * makes it possible to give each concurrent task a transactional view of the model state, to resolve any concurrent
    * effects on state in a coherent way, and to identify which resources need to be recomputed based on when the cells

@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.scheduler.goals;
+package gov.nasa.ammos.plandev.scheduler.goals;
 
-import gov.nasa.jpl.aerie.constraints.model.EvaluationEnvironment;
-import gov.nasa.jpl.aerie.constraints.model.SimulationResults;
-import gov.nasa.jpl.aerie.merlin.protocol.model.SchedulerModel;
-import gov.nasa.jpl.aerie.scheduler.conflicts.Conflict;
-import gov.nasa.jpl.aerie.scheduler.model.Plan;
-import gov.nasa.jpl.aerie.scheduler.solver.optimizers.Optimizer;
+import gov.nasa.ammos.plandev.constraints.model.EvaluationEnvironment;
+import gov.nasa.ammos.plandev.constraints.model.SimulationResults;
+import gov.nasa.ammos.plandev.merlin.protocol.model.SchedulerModel;
+import gov.nasa.ammos.plandev.scheduler.conflicts.Conflict;
+import gov.nasa.ammos.plandev.scheduler.model.Plan;
+import gov.nasa.ammos.plandev.scheduler.solver.optimizers.Optimizer;
 import org.apache.commons.lang3.NotImplementedException;
 
 import java.util.ArrayList;

@@ -1,19 +1,19 @@
-package gov.nasa.jpl.aerie.orchestration.simulation;
+package gov.nasa.ammos.plandev.orchestration.simulation;
 
-import gov.nasa.jpl.aerie.merlin.driver.DirectiveTypeRegistry;
-import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
-import gov.nasa.jpl.aerie.merlin.driver.MissionModelBuilder;
-import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationDriver;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationException;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
-import gov.nasa.jpl.aerie.merlin.driver.resources.InMemorySimulationResourceManager;
-import gov.nasa.jpl.aerie.merlin.driver.resources.SimulationResourceManager;
-import gov.nasa.jpl.aerie.merlin.driver.resources.StreamingSimulationResourceManager;
-import gov.nasa.jpl.aerie.merlin.protocol.model.ModelType;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.types.Plan;
+import gov.nasa.ammos.plandev.merlin.driver.DirectiveTypeRegistry;
+import gov.nasa.ammos.plandev.merlin.driver.MissionModel;
+import gov.nasa.ammos.plandev.merlin.driver.MissionModelBuilder;
+import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationDriver;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationException;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationResults;
+import gov.nasa.ammos.plandev.merlin.driver.resources.InMemorySimulationResourceManager;
+import gov.nasa.ammos.plandev.merlin.driver.resources.SimulationResourceManager;
+import gov.nasa.ammos.plandev.merlin.driver.resources.StreamingSimulationResourceManager;
+import gov.nasa.ammos.plandev.merlin.protocol.model.ModelType;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.types.Plan;
 
 import javax.json.Json;
 import javax.json.JsonObject;

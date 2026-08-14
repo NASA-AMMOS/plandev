@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.merlin.driver;
+package gov.nasa.ammos.plandev.merlin.driver;
 
-import gov.nasa.jpl.aerie.merlin.driver.resources.InMemorySimulationResourceManager;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.types.MissionModelId;
+import gov.nasa.ammos.plandev.merlin.driver.resources.InMemorySimulationResourceManager;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.types.MissionModelId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -12,7 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MINUTES;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MINUTES;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class SimulationDuplicationTest {

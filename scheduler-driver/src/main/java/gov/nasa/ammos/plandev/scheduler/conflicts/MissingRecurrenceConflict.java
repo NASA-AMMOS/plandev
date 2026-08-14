@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.scheduler.conflicts;
+package gov.nasa.ammos.plandev.scheduler.conflicts;
 
-import gov.nasa.jpl.aerie.constraints.model.EvaluationEnvironment;
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.constraints.time.Windows;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.scheduler.constraints.activities.ActivityExpression;
-import gov.nasa.jpl.aerie.scheduler.goals.Goal;
+import gov.nasa.ammos.plandev.constraints.model.EvaluationEnvironment;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.constraints.time.Windows;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.scheduler.constraints.activities.ActivityExpression;
+import gov.nasa.ammos.plandev.scheduler.goals.Goal;
 
 public class MissingRecurrenceConflict extends Conflict {
 

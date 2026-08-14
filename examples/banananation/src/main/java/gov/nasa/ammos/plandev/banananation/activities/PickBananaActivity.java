@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.banananation.activities;
+package gov.nasa.ammos.plandev.banananation.activities;
 
-import gov.nasa.jpl.aerie.banananation.Mission;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType.EffectModel;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Parameter;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Validation;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.Subsystem;
+import gov.nasa.ammos.plandev.banananation.Mission;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.ActivityType;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.ActivityType.EffectModel;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.Export.Parameter;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.Export.Validation;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.Subsystem;
 
 /**
  * Pick a banana from the plant.

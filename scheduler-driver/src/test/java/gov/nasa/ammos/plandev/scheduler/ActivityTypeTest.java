@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.scheduler;
+package gov.nasa.ammos.plandev.scheduler;
 
-import gov.nasa.jpl.aerie.scheduler.model.ActivityType;
+import gov.nasa.ammos.plandev.scheduler.model.ActivityType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

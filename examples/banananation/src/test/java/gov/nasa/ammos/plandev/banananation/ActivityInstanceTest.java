@@ -1,12 +1,12 @@
-package gov.nasa.jpl.aerie.banananation;
+package gov.nasa.ammos.plandev.banananation;
 
-import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
-import gov.nasa.jpl.aerie.merlin.driver.engine.SimulationEngine;
-import gov.nasa.jpl.aerie.merlin.driver.timeline.TemporalEventSource;
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Topic;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.types.SerializedActivity;
+import gov.nasa.ammos.plandev.merlin.driver.MissionModel;
+import gov.nasa.ammos.plandev.merlin.driver.engine.SimulationEngine;
+import gov.nasa.ammos.plandev.merlin.driver.timeline.TemporalEventSource;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Topic;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.types.SerializedActivity;
 import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Test;
 
@@ -16,9 +16,9 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECOND;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.duration;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECOND;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECONDS;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.duration;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -56,13 +56,13 @@ public final class ActivityInstanceTest {
 
   /** This test is a response to not accounting for all Task ExecutionStates
    * when collecting activities into the results object. This indirectly tests that portion
-   * of {@link gov.nasa.jpl.aerie.merlin.driver.engine.SimulationEngine#computeResults(
+   * of {@link gov.nasa.ammos.plandev.merlin.driver.engine.SimulationEngine#computeResults(
    * SimulationEngine, Instant, Duration, Topic, TemporalEventSource, MissionModel) computeResults()}
    *
    * The schedule in this test, results produces Tasks in all three of the states,
-   * {@link gov.nasa.jpl.aerie.merlin.driver.engine.SimulationEngine.ExecutionState.AwaitingChildren AwaitingChildren},
-   * {@link gov.nasa.jpl.aerie.merlin.driver.engine.SimulationEngine.ExecutionState.InProgress InProgress}, and
-   * {@link gov.nasa.jpl.aerie.merlin.driver.engine.SimulationEngine.ExecutionState.Terminated Terminated}.
+   * {@link gov.nasa.ammos.plandev.merlin.driver.engine.SimulationEngine.ExecutionState.AwaitingChildren AwaitingChildren},
+   * {@link gov.nasa.ammos.plandev.merlin.driver.engine.SimulationEngine.ExecutionState.InProgress InProgress}, and
+   * {@link gov.nasa.ammos.plandev.merlin.driver.engine.SimulationEngine.ExecutionState.Terminated Terminated}.
    */
   @Test
   public void testCollectAllActivitiesInResults() {

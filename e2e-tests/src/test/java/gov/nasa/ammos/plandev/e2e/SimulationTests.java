@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.e2e;
+package gov.nasa.ammos.plandev.e2e;
 
 import com.microsoft.playwright.Playwright;
-import gov.nasa.jpl.aerie.e2e.types.SimulationDataset;
-import gov.nasa.jpl.aerie.e2e.types.SimulationDataset.SimulatedActivity;
-import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
-import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
+import gov.nasa.ammos.plandev.e2e.types.SimulationDataset;
+import gov.nasa.ammos.plandev.e2e.types.SimulationDataset.SimulatedActivity;
+import gov.nasa.ammos.plandev.e2e.utils.GatewayRequests;
+import gov.nasa.ammos.plandev.e2e.utils.HasuraRequests;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -492,7 +492,7 @@ public class SimulationTests {
       final var expectedStart = """
           java.lang.RuntimeException: Minutes elapsed is incorrect. TimeTrackerDaemon may have stopped.
           \tExpected: 1 Actual: 59
-          \tat gov.nasa.jpl.aerie.foomissionmodel.activities.DaemonCheckerActivity.run(DaemonCheckerActivity.java""";
+          \tat gov.nasa.ammos.plandev.foomissionmodel.activities.DaemonCheckerActivity.run(DaemonCheckerActivity.java""";
       assertTrue(reason.trace().startsWith(expectedStart));
     }
 
@@ -543,7 +543,7 @@ public class SimulationTests {
       final var expectedStart = """
           java.lang.RuntimeException: Minutes elapsed is incorrect. TimeTrackerDaemon may have stopped.
           \tExpected: 1 Actual: 61
-          \tat gov.nasa.jpl.aerie.foomissionmodel.activities.DaemonCheckerActivity.run(DaemonCheckerActivity.java""";
+          \tat gov.nasa.ammos.plandev.foomissionmodel.activities.DaemonCheckerActivity.run(DaemonCheckerActivity.java""";
       assertTrue(reason.trace().startsWith(expectedStart));
     }
 
@@ -583,7 +583,7 @@ public class SimulationTests {
       // The trace starts at the original exception and doesn't include the intermediary SimulationException
       final var expectedStart = """
           java.lang.RuntimeException: Daemon task exception raised.
-          \tat gov.nasa.jpl.aerie.foomissionmodel.Mission.lambda$new$0(Mission.java""";
+          \tat gov.nasa.ammos.plandev.foomissionmodel.Mission.lambda$new$0(Mission.java""";
       assertTrue(reason.trace().startsWith(expectedStart));
     }
 

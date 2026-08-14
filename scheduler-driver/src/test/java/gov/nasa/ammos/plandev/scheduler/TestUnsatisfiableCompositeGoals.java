@@ -1,23 +1,23 @@
-package gov.nasa.jpl.aerie.scheduler;
+package gov.nasa.ammos.plandev.scheduler;
 
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.constraints.time.Segment;
-import gov.nasa.jpl.aerie.constraints.time.Windows;
-import gov.nasa.jpl.aerie.constraints.tree.WindowsWrapperExpression;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.scheduler.constraints.activities.ActivityExpression;
-import gov.nasa.jpl.aerie.scheduler.constraints.timeexpressions.TimeAnchor;
-import gov.nasa.jpl.aerie.scheduler.goals.CardinalityGoal;
-import gov.nasa.jpl.aerie.scheduler.goals.ChildCustody;
-import gov.nasa.jpl.aerie.scheduler.goals.CoexistenceGoal;
-import gov.nasa.jpl.aerie.scheduler.goals.CompositeAndGoal;
-import gov.nasa.jpl.aerie.scheduler.goals.OptionGoal;
-import gov.nasa.jpl.aerie.scheduler.model.ActivityType;
-import gov.nasa.jpl.aerie.scheduler.model.PlanInMemory;
-import gov.nasa.jpl.aerie.scheduler.model.PlanningHorizon;
-import gov.nasa.jpl.aerie.scheduler.model.Problem;
-import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
-import gov.nasa.jpl.aerie.scheduler.solver.PrioritySolver;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.constraints.time.Segment;
+import gov.nasa.ammos.plandev.constraints.time.Windows;
+import gov.nasa.ammos.plandev.constraints.tree.WindowsWrapperExpression;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.scheduler.constraints.activities.ActivityExpression;
+import gov.nasa.ammos.plandev.scheduler.constraints.timeexpressions.TimeAnchor;
+import gov.nasa.ammos.plandev.scheduler.goals.CardinalityGoal;
+import gov.nasa.ammos.plandev.scheduler.goals.ChildCustody;
+import gov.nasa.ammos.plandev.scheduler.goals.CoexistenceGoal;
+import gov.nasa.ammos.plandev.scheduler.goals.CompositeAndGoal;
+import gov.nasa.ammos.plandev.scheduler.goals.OptionGoal;
+import gov.nasa.ammos.plandev.scheduler.model.ActivityType;
+import gov.nasa.ammos.plandev.scheduler.model.PlanInMemory;
+import gov.nasa.ammos.plandev.scheduler.model.PlanningHorizon;
+import gov.nasa.ammos.plandev.scheduler.model.Problem;
+import gov.nasa.ammos.plandev.scheduler.model.SchedulingActivity;
+import gov.nasa.ammos.plandev.scheduler.solver.PrioritySolver;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -27,7 +27,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static gov.nasa.jpl.aerie.scheduler.SimulationUtility.buildProblemFromFoo;
+import static gov.nasa.ammos.plandev.scheduler.SimulationUtility.buildProblemFromFoo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class TestUnsatisfiableCompositeGoals {

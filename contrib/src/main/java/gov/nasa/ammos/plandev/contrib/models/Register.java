@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.contrib.models;
+package gov.nasa.ammos.plandev.contrib.models;
 
-import gov.nasa.jpl.aerie.contrib.cells.register.RegisterCell;
-import gov.nasa.jpl.aerie.contrib.cells.register.RegisterEffect;
-import gov.nasa.jpl.aerie.merlin.framework.CellRef;
-import gov.nasa.jpl.aerie.merlin.framework.resources.discrete.DiscreteResource;
+import gov.nasa.ammos.plandev.contrib.cells.register.RegisterCell;
+import gov.nasa.ammos.plandev.contrib.cells.register.RegisterEffect;
+import gov.nasa.ammos.plandev.merlin.framework.CellRef;
+import gov.nasa.ammos.plandev.merlin.framework.resources.discrete.DiscreteResource;
 
 import java.util.function.UnaryOperator;
 

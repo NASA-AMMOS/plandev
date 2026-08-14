@@ -1,8 +1,7 @@
-package gov.nasa.jpl.aerie.e2e.types;
+package gov.nasa.ammos.plandev.e2e.types;
 
 import javax.json.Json;
 import javax.json.JsonObject;
-import javax.json.JsonObjectBuilder;
 import javax.json.JsonValue;
 import java.util.HashMap;
 import java.util.List;

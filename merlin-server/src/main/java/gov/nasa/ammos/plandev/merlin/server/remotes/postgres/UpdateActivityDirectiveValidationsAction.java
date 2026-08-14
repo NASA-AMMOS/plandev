@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.merlin.server.models.ActivityDirectiveForValidation;
+import gov.nasa.ammos.plandev.merlin.server.models.ActivityDirectiveForValidation;
 import org.apache.commons.lang3.tuple.Pair;
 import org.intellij.lang.annotations.Language;
-import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService.BulkArgumentValidationResponse;
+import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService.BulkArgumentValidationResponse;
 
 import java.sql.BatchUpdateException;
 import java.sql.Connection;

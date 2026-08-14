@@ -1,17 +1,17 @@
-package gov.nasa.jpl.aerie.scheduler.simulation;
+package gov.nasa.ammos.plandev.scheduler.simulation;
 
-import gov.nasa.jpl.aerie.merlin.driver.SimulationEngineConfiguration;
-import gov.nasa.jpl.aerie.merlin.framework.ThreadedTask;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.scheduler.DirectiveIdGenerator;
-import gov.nasa.jpl.aerie.scheduler.SchedulingInterruptedException;
-import gov.nasa.jpl.aerie.scheduler.SimulationUtility;
-import gov.nasa.jpl.aerie.scheduler.TimeUtility;
-import gov.nasa.jpl.aerie.scheduler.model.ActivityType;
-import gov.nasa.jpl.aerie.scheduler.model.PlanInMemory;
-import gov.nasa.jpl.aerie.scheduler.model.PlanningHorizon;
-import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
-import gov.nasa.jpl.aerie.types.MissionModelId;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationEngineConfiguration;
+import gov.nasa.ammos.plandev.merlin.framework.ThreadedTask;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.scheduler.DirectiveIdGenerator;
+import gov.nasa.ammos.plandev.scheduler.SchedulingInterruptedException;
+import gov.nasa.ammos.plandev.scheduler.SimulationUtility;
+import gov.nasa.ammos.plandev.scheduler.TimeUtility;
+import gov.nasa.ammos.plandev.scheduler.model.ActivityType;
+import gov.nasa.ammos.plandev.scheduler.model.PlanInMemory;
+import gov.nasa.ammos.plandev.scheduler.model.PlanningHorizon;
+import gov.nasa.ammos.plandev.scheduler.model.SchedulingActivity;
+import gov.nasa.ammos.plandev.types.MissionModelId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -19,7 +19,7 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.HOUR;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.HOUR;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 

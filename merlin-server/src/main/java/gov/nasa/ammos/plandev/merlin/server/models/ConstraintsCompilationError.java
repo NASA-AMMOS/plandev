@@ -1,12 +1,12 @@
-package gov.nasa.jpl.aerie.merlin.server.models;
+package gov.nasa.ammos.plandev.merlin.server.models;
 
-import gov.nasa.jpl.aerie.json.JsonParser;
+import gov.nasa.ammos.plandev.json.JsonParser;
 
 import java.util.List;
 
-import static gov.nasa.jpl.aerie.json.BasicParsers.*;
-import static gov.nasa.jpl.aerie.json.Uncurry.tuple;
-import static gov.nasa.jpl.aerie.json.Uncurry.untuple;
+import static gov.nasa.ammos.plandev.json.BasicParsers.*;
+import static gov.nasa.ammos.plandev.json.Uncurry.tuple;
+import static gov.nasa.ammos.plandev.json.Uncurry.untuple;
 
 public class ConstraintsCompilationError extends Exception {
   private static final JsonParser<CodeLocation> codeLocationP =

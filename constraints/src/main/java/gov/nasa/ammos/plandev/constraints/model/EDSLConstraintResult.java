@@ -1,13 +1,13 @@
-package gov.nasa.jpl.aerie.constraints.model;
+package gov.nasa.ammos.plandev.constraints.model;
 
-import gov.nasa.jpl.aerie.constraints.time.Interval;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
 
 import javax.json.JsonObject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import static gov.nasa.jpl.aerie.constraints.json.ConstraintParsers.edslConstraintResultP;
+import static gov.nasa.ammos.plandev.constraints.json.ConstraintParsers.edslConstraintResultP;
 
 /**
  * A ConstraintResult that is created from evaluating an EDSL Constraint.

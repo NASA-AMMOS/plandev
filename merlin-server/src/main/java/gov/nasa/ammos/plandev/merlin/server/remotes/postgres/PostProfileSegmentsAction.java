@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.json.JsonParser;
-import gov.nasa.jpl.aerie.merlin.driver.engine.ProfileSegment;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.json.JsonParser;
+import gov.nasa.ammos.plandev.merlin.driver.engine.ProfileSegment;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import org.intellij.lang.annotations.Language;
 
 import java.sql.Connection;

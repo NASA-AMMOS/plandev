@@ -1,20 +1,20 @@
-package gov.nasa.jpl.aerie.scheduler.server.http;
+package gov.nasa.ammos.plandev.scheduler.server.http;
 
 import javax.json.Json;
 import javax.json.JsonObject;
 import javax.json.JsonValue;
 import java.util.HashMap;
 import java.util.Map;
-import gov.nasa.jpl.aerie.constraints.tree.StructExpressionAt;
-import gov.nasa.jpl.aerie.json.JsonParseResult;
-import gov.nasa.jpl.aerie.json.JsonParser;
-import gov.nasa.jpl.aerie.json.SchemaCache;
-import gov.nasa.jpl.aerie.scheduler.server.models.ActivityType;
-import gov.nasa.jpl.aerie.scheduler.server.models.SchedulingDSL;
-import gov.nasa.jpl.aerie.scheduler.server.services.MerlinDatabaseService;
+import gov.nasa.ammos.plandev.constraints.tree.StructExpressionAt;
+import gov.nasa.ammos.plandev.json.JsonParseResult;
+import gov.nasa.ammos.plandev.json.JsonParser;
+import gov.nasa.ammos.plandev.json.SchemaCache;
+import gov.nasa.ammos.plandev.scheduler.server.models.ActivityType;
+import gov.nasa.ammos.plandev.scheduler.server.models.SchedulingDSL;
+import gov.nasa.ammos.plandev.scheduler.server.services.MerlinDatabaseService;
 
-import static gov.nasa.jpl.aerie.constraints.json.ConstraintParsers.profileExpressionP;
-import static gov.nasa.jpl.aerie.constraints.json.ConstraintParsers.structExpressionF;
+import static gov.nasa.ammos.plandev.constraints.json.ConstraintParsers.profileExpressionP;
+import static gov.nasa.ammos.plandev.constraints.json.ConstraintParsers.structExpressionF;
 
 public class ActivityTemplateJsonParser implements JsonParser<SchedulingDSL.ActivityTemplate> {
 

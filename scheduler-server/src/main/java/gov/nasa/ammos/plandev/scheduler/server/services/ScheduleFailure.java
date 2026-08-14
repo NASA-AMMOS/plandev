@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler.server.services;
+package gov.nasa.ammos.plandev.scheduler.server.services;
 
 import javax.json.JsonValue;
 import java.io.PrintWriter;

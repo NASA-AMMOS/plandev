@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.scheduler.worker.postgres;
+package gov.nasa.ammos.plandev.scheduler.worker.postgres;
 
-import static gov.nasa.jpl.aerie.json.BasicParsers.longP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.productP;
-import static gov.nasa.jpl.aerie.json.Uncurry.tuple;
-import static gov.nasa.jpl.aerie.json.Uncurry.untuple;
-import gov.nasa.jpl.aerie.json.JsonParser;
+import static gov.nasa.ammos.plandev.json.BasicParsers.longP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.productP;
+import static gov.nasa.ammos.plandev.json.Uncurry.tuple;
+import static gov.nasa.ammos.plandev.json.Uncurry.untuple;
+import gov.nasa.ammos.plandev.json.JsonParser;
 
 public final class PostgresNotificationJsonParsers {
 

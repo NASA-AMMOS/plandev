@@ -1,13 +1,13 @@
-package gov.nasa.jpl.aerie.scheduler.server.http;
+package gov.nasa.ammos.plandev.scheduler.server.http;
 
-import gov.nasa.jpl.aerie.json.JsonParser;
-import gov.nasa.jpl.aerie.scheduler.model.GoalId;
-import gov.nasa.jpl.aerie.scheduler.server.models.HasuraAction;
-import gov.nasa.jpl.aerie.scheduler.server.models.PlanId;
-import gov.nasa.jpl.aerie.scheduler.server.models.SpecificationId;
-import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleFailure;
-import gov.nasa.jpl.aerie.types.MissionModelId;
-import gov.nasa.jpl.aerie.types.Timestamp;
+import gov.nasa.ammos.plandev.json.JsonParser;
+import gov.nasa.ammos.plandev.scheduler.model.GoalId;
+import gov.nasa.ammos.plandev.scheduler.server.models.HasuraAction;
+import gov.nasa.ammos.plandev.scheduler.server.models.PlanId;
+import gov.nasa.ammos.plandev.scheduler.server.models.SpecificationId;
+import gov.nasa.ammos.plandev.scheduler.server.services.ScheduleFailure;
+import gov.nasa.ammos.plandev.types.MissionModelId;
+import gov.nasa.ammos.plandev.types.Timestamp;
 
 import javax.json.Json;
 import javax.json.stream.JsonParsingException;
@@ -15,17 +15,17 @@ import java.io.StringReader;
 import java.util.List;
 import java.util.Optional;
 
-import static gov.nasa.jpl.aerie.json.BasicParsers.anyP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.listP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.longP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.mapP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.nullableP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.productP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.stringP;
-import static gov.nasa.jpl.aerie.json.Uncurry.tuple;
-import static gov.nasa.jpl.aerie.json.Uncurry.untuple;
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
-import static gov.nasa.jpl.aerie.scheduler.server.remotes.postgres.PostgresParsers.pgTimestampP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.anyP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.listP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.longP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.mapP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.nullableP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.productP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.stringP;
+import static gov.nasa.ammos.plandev.json.Uncurry.tuple;
+import static gov.nasa.ammos.plandev.json.Uncurry.untuple;
+import static gov.nasa.ammos.plandev.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import static gov.nasa.ammos.plandev.scheduler.server.remotes.postgres.PostgresParsers.pgTimestampP;
 
 /**
  * json parsers for data objects used in the scheduler service endpoints

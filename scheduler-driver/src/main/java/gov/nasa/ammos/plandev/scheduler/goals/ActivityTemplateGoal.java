@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.scheduler.goals;
+package gov.nasa.ammos.plandev.scheduler.goals;
 
-import gov.nasa.jpl.aerie.constraints.time.Windows;
-import gov.nasa.jpl.aerie.constraints.tree.Expression;
-import gov.nasa.jpl.aerie.scheduler.constraints.activities.ActivityExpression;
+import gov.nasa.ammos.plandev.constraints.time.Windows;
+import gov.nasa.ammos.plandev.constraints.tree.Expression;
+import gov.nasa.ammos.plandev.scheduler.constraints.activities.ActivityExpression;
 
 import java.util.Set;
 

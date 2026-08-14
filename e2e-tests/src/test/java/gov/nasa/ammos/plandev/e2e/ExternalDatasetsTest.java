@@ -1,12 +1,12 @@
-package gov.nasa.jpl.aerie.e2e;
+package gov.nasa.ammos.plandev.e2e;
 
 import com.microsoft.playwright.Playwright;
-import gov.nasa.jpl.aerie.e2e.types.ExternalDataset.ProfileInput;
-import gov.nasa.jpl.aerie.e2e.types.ExternalDataset.ProfileInput.ProfileSegmentInput;
-import gov.nasa.jpl.aerie.e2e.types.ProfileSegment;
-import gov.nasa.jpl.aerie.e2e.types.ValueSchema;
-import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
-import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
+import gov.nasa.ammos.plandev.e2e.types.ExternalDataset.ProfileInput;
+import gov.nasa.ammos.plandev.e2e.types.ExternalDataset.ProfileInput.ProfileSegmentInput;
+import gov.nasa.ammos.plandev.e2e.types.ProfileSegment;
+import gov.nasa.ammos.plandev.e2e.types.ValueSchema;
+import gov.nasa.ammos.plandev.e2e.utils.GatewayRequests;
+import gov.nasa.ammos.plandev.e2e.utils.HasuraRequests;
 import org.junit.jupiter.api.*;
 
 import javax.json.JsonValue;

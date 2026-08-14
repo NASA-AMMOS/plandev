@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.constraints.model;
+package gov.nasa.ammos.plandev.constraints.model;
 
 import javax.json.JsonObject;
 

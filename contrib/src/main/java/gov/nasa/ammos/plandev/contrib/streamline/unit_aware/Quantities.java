@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.contrib.streamline.unit_aware;
+package gov.nasa.ammos.plandev.contrib.streamline.unit_aware;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.unit_aware.UnitAware.unitAware;
+import static gov.nasa.ammos.plandev.contrib.streamline.unit_aware.UnitAware.unitAware;
 
 /**
  * Utilities for <code>UnitAware&lt;Double&gt;</code>, aka a "Quantity"

@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.scheduler.server.models;
+package gov.nasa.ammos.plandev.scheduler.server.models;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 
 import java.util.Map;
 import java.util.Optional;

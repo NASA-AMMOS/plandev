@@ -1,21 +1,21 @@
-package gov.nasa.jpl.aerie.foomissionmodel;
+package gov.nasa.ammos.plandev.foomissionmodel;
 
-import gov.nasa.jpl.aerie.foomissionmodel.generated.GeneratedModelType;
-import gov.nasa.jpl.aerie.merlin.driver.*;
-import gov.nasa.jpl.aerie.merlin.driver.json.JsonEncoding;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.types.ActivityDirective;
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
-import gov.nasa.jpl.aerie.types.SerializedActivity;
+import gov.nasa.ammos.plandev.foomissionmodel.generated.GeneratedModelType;
+import gov.nasa.ammos.plandev.merlin.driver.*;
+import gov.nasa.ammos.plandev.merlin.driver.json.JsonEncoding;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.types.ActivityDirective;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.types.SerializedActivity;
 
 import javax.json.Json;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MICROSECONDS;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.duration;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MICROSECONDS;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECONDS;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.duration;
 
 public class SimulateMapSchedule {
   public static void main(final String[] args) {

@@ -1,20 +1,20 @@
-package gov.nasa.jpl.aerie.contrib.streamline.unit_aware;
+package gov.nasa.ammos.plandev.contrib.streamline.unit_aware;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.ErrorCatching;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Dynamics;
-import gov.nasa.jpl.aerie.contrib.streamline.core.DynamicsEffect;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Expiring;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resources;
-import gov.nasa.jpl.aerie.contrib.streamline.core.monads.DynamicsMonad;
-import gov.nasa.jpl.aerie.contrib.streamline.core.monads.ResourceMonad;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.ErrorCatching;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Dynamics;
+import gov.nasa.ammos.plandev.contrib.streamline.core.DynamicsEffect;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Expiring;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resources;
+import gov.nasa.ammos.plandev.contrib.streamline.core.monads.DynamicsMonad;
+import gov.nasa.ammos.plandev.contrib.streamline.core.monads.ResourceMonad;
 
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.unit_aware.Quantities.quantity;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Naming.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.unit_aware.Quantities.quantity;
 
 public final class UnitAwareResources {
   private UnitAwareResources() {}

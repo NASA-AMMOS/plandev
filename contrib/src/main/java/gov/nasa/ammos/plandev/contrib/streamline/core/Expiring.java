@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.contrib.streamline.core;
+package gov.nasa.ammos.plandev.contrib.streamline.core;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiry.NEVER;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Expiry.NEVER;
 
 /**
  * A value which may be valid for a limited time.

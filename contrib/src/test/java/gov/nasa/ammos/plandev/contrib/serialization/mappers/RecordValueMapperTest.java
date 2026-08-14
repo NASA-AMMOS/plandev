@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.contrib.serialization.mappers;
+package gov.nasa.ammos.plandev.contrib.serialization.mappers;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

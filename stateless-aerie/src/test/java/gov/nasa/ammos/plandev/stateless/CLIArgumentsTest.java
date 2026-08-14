@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.stateless;
+package gov.nasa.ammos.plandev.stateless;
 
-import gov.nasa.jpl.aerie.stateless.utils.BlockExitSecurityManager;
-import gov.nasa.jpl.aerie.stateless.utils.SystemExit;
+import gov.nasa.ammos.plandev.stateless.utils.BlockExitSecurityManager;
+import gov.nasa.ammos.plandev.stateless.utils.SystemExit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;

@@ -22,7 +22,7 @@
  * to author a much more complex format. </p>
  *
  * <p> At the same time, we provide a flexible foundation for building custom parsing logic. It is entirely possible
- * to define a reflection-based parser as a custom implementation of {@link gov.nasa.jpl.aerie.json.JsonParser}, then
+ * to define a reflection-based parser as a custom implementation of {@link gov.nasa.ammos.plandev.json.JsonParser}, then
  * use it as a building block just like any of the provided parsers. Custom needs of any kind need only implement
  * that interface. </p>
  *
@@ -71,10 +71,10 @@
  *     = stringP
  *     . map(Expr.Str::new, Expr.Str::value));}
  *
- * <p> The {@link gov.nasa.jpl.aerie.json.BasicParsers#intP} and {@link gov.nasa.jpl.aerie.json.BasicParsers#stringP}
- * parsers are provided by {@link gov.nasa.jpl.aerie.json.BasicParsers}, and can be statically imported for brevity.
+ * <p> The {@link gov.nasa.ammos.plandev.json.BasicParsers#intP} and {@link gov.nasa.ammos.plandev.json.BasicParsers#stringP}
+ * parsers are provided by {@link gov.nasa.ammos.plandev.json.BasicParsers}, and can be statically imported for brevity.
  * They work with the {@code Integer} and {@code String} type, respectively. In order to adapt these to our custom
- * {@code Expr} subclasses, we use the {@link gov.nasa.jpl.aerie.json.JsonParser#map} helper method, which takes two
+ * {@code Expr} subclasses, we use the {@link gov.nasa.ammos.plandev.json.JsonParser#map} helper method, which takes two
  * functions: a conversion to the new type from the current type, and a conversion from the new type back to the current
  * type. Here, we are only constructing and deconstructing a wrapper around a single value.  </p>
  *
@@ -97,7 +97,7 @@
  * their construction until later, passing it the top-level parser as an argument once we have it. (We'll see how to close
  * the cycle momentarily.) </p>
  *
- * <p> In addition, notice that we are using the {@link gov.nasa.jpl.aerie.json.BasicParsers#productP} combiner here --
+ * <p> In addition, notice that we are using the {@link gov.nasa.ammos.plandev.json.BasicParsers#productP} combiner here --
  * which specifies a JSON object whose fields are described by other parsers -- rather than using {@code integerExprP}
  * directly. There are two reasons for this! First, we want parsers to be "productive", which means that they should
  * consume some part of the input before descending into a subparser. This is not always a hard-and-fast rule, but since
@@ -107,8 +107,8 @@
  * <p> The other reason not to use `integerExprP` directly is because the operators described by these parsers are
  * simply two of many, and we need a way to distinguish these options from the others. When we collect these parsers
  * together into one parser of alternatives, we will extend them with an additional "op" field taking on a unique value.
- * Notice that these methods return a {@link gov.nasa.jpl.aerie.json.JsonObjectParser} rather than the more generic
- * {@link gov.nasa.jpl.aerie.json.JsonParser}: the former allows the format to be extended with additional fields. </p>
+ * Notice that these methods return a {@link gov.nasa.ammos.plandev.json.JsonObjectParser} rather than the more generic
+ * {@link gov.nasa.ammos.plandev.json.JsonParser}: the former allows the format to be extended with additional fields. </p>
  *
  * {@snippet :
  *   static JsonParser<Expr<Integer>> integerExprP(final JsonParser<Expr<Integer>> integerExprP) {
@@ -128,19 +128,19 @@
  *
  * <p> Here, {@code integerExprP} is defined as a method. Just like the previous parsers, its construction depends on
  * a parser that doesn't exist yet -- only, in this case, it depends on itself.
- * The {@link gov.nasa.jpl.aerie.json.BasicParsers#recursiveP(java.util.function.Function)} combiner ties the knot on
+ * The {@link gov.nasa.ammos.plandev.json.BasicParsers#recursiveP(java.util.function.Function)} combiner ties the knot on
  * such a dependency cycle, feeding the given factory function a handle to a mutable location that <i>will</i>,
  * eventually, contain a valid parser -- but only once the factory returns one. For this reason, it is important that
  * the factory not <i>invoke</i> the provided parser, only use it to construct a bigger (productive!) parser. </p>
  *
  * <p> The {@code integerExprP} parser itself is built using two different combiners for handling alternatives.
- * The first, {@link gov.nasa.jpl.aerie.json.BasicParsers#chooseP(gov.nasa.jpl.aerie.json.JsonParser[])}, models
+ * The first, {@link gov.nasa.ammos.plandev.json.BasicParsers#chooseP(gov.nasa.ammos.plandev.json.JsonParser[])}, models
  * an untagged sum: it can't tell immediately which alternative a particular JSON document is a representation of,
  * so it attempts each subparser in turn until it finds one that works. It is very easy to accidentally define
  * overlapping alternatives; be careful to ensure that values covered by one alternative are not covered
  * by another! </p>
  *
- * <p> The {@link gov.nasa.jpl.aerie.json.SumParsers#sumP(java.lang.String, java.lang.Class, java.util.List)} combiner,
+ * <p> The {@link gov.nasa.ammos.plandev.json.SumParsers#sumP(java.lang.String, java.lang.Class, java.util.List)} combiner,
  * on the other hand, is a tagged sum: it associates to every alternative an extra field, whose fixed value is distinct
  * for each alternative. This makes it fast and reliable to determine which subparser reigns for a particular document,
  * but makes it less general than {@code chooseP}. The {@code sumP} combiner is also specialized to situations where
@@ -171,10 +171,10 @@
  *       = recursiveP(selfP -> stringExprP(selfP)); }
  *
  * <p> Now, if {@code stringExprP} models the root of our expression grammar, we can invoke
- * {@link gov.nasa.jpl.aerie.json.JsonParser#parse(javax.json.JsonValue)} on it to convert a JSON document into an
- * {@code Expr<String>}, or invoke {@link gov.nasa.jpl.aerie.json.JsonParser#unparse(java.lang.Object)} to convert
- * an {@code Expr<String>} into a JSON document. As a bonus, the {@link gov.nasa.jpl.aerie.json.JsonParser#getSchema()}
+ * {@link gov.nasa.ammos.plandev.json.JsonParser#parse(javax.json.JsonValue)} on it to convert a JSON document into an
+ * {@code Expr<String>}, or invoke {@link gov.nasa.ammos.plandev.json.JsonParser#unparse(java.lang.Object)} to convert
+ * an {@code Expr<String>} into a JSON document. As a bonus, the {@link gov.nasa.ammos.plandev.json.JsonParser#getSchema()}
  * method will produce a JSON Schema-compliant document describing the class of JSON documents modeled by
  * this parser! </p>
  */
-package gov.nasa.jpl.aerie.json;
+package gov.nasa.ammos.plandev.json;

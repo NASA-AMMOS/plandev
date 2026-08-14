@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.json;
+package gov.nasa.ammos.plandev.json;
 
-import gov.nasa.jpl.aerie.json.ProductParsers.EmptyProductParser;
+import gov.nasa.ammos.plandev.json.ProductParsers.EmptyProductParser;
 
 import javax.json.Json;
 import javax.json.JsonArray;
@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.function.Function;
 
 /**

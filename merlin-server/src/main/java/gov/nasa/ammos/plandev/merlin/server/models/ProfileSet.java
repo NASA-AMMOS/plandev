@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.merlin.server.models;
+package gov.nasa.ammos.plandev.merlin.server.models;
 
-import gov.nasa.jpl.aerie.merlin.driver.engine.ProfileSegment;
-import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfile;
-import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.driver.engine.ProfileSegment;
+import gov.nasa.ammos.plandev.merlin.driver.resources.ResourceProfile;
+import gov.nasa.ammos.plandev.merlin.protocol.types.RealDynamics;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.Map;

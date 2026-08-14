@@ -1,30 +1,30 @@
-package gov.nasa.jpl.aerie.merlin.server.http;
+package gov.nasa.ammos.plandev.merlin.server.http;
 
-import gov.nasa.jpl.aerie.json.JsonParser;
-import gov.nasa.jpl.aerie.merlin.driver.engine.ProfileSegment;
-import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfile;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.server.models.DiscreteProfile;
-import gov.nasa.jpl.aerie.merlin.server.models.ProfileSet;
-import gov.nasa.jpl.aerie.merlin.server.models.RealProfile;
+import gov.nasa.ammos.plandev.json.JsonParser;
+import gov.nasa.ammos.plandev.merlin.driver.engine.ProfileSegment;
+import gov.nasa.ammos.plandev.merlin.driver.resources.ResourceProfile;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.RealDynamics;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.server.models.DiscreteProfile;
+import gov.nasa.ammos.plandev.merlin.server.models.ProfileSet;
+import gov.nasa.ammos.plandev.merlin.server.models.RealProfile;
 
 import java.util.HashMap;
 import java.util.Optional;
 import java.util.function.BiFunction;
 
-import static gov.nasa.jpl.aerie.json.BasicParsers.chooseP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.doubleP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.listP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.literalP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.mapP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.productP;
-import static gov.nasa.jpl.aerie.json.Uncurry.tuple;
-import static gov.nasa.jpl.aerie.json.Uncurry.untuple;
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
-import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
-import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.durationP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.chooseP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.doubleP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.listP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.literalP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.mapP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.productP;
+import static gov.nasa.ammos.plandev.json.Uncurry.tuple;
+import static gov.nasa.ammos.plandev.json.Uncurry.untuple;
+import static gov.nasa.ammos.plandev.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import static gov.nasa.ammos.plandev.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
+import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.durationP;
 
 public final class ProfileParsers {
   public static final JsonParser<RealDynamics> realDynamicsP

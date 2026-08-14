@@ -1,23 +1,23 @@
-package gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial;
+package gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.*;
-import gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.CommutativityTestInput;
-import gov.nasa.jpl.aerie.contrib.streamline.core.monads.DynamicsMonad;
-import gov.nasa.jpl.aerie.contrib.streamline.core.monads.ErrorCatchingMonad;
-import gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.*;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.Clock;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.linear.Linear;
-import gov.nasa.jpl.aerie.contrib.streamline.unit_aware.StandardUnits;
-import gov.nasa.jpl.aerie.contrib.streamline.unit_aware.Unit;
-import gov.nasa.jpl.aerie.contrib.streamline.unit_aware.UnitAware;
-import gov.nasa.jpl.aerie.contrib.streamline.unit_aware.UnitAwareOperations;
-import gov.nasa.jpl.aerie.contrib.streamline.unit_aware.UnitAwareResources;
-import gov.nasa.jpl.aerie.contrib.streamline.utils.DoubleUtils;
-import gov.nasa.jpl.aerie.merlin.framework.Condition;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.core.*;
+import gov.nasa.ammos.plandev.contrib.streamline.core.CellRefV2.CommutativityTestInput;
+import gov.nasa.ammos.plandev.contrib.streamline.core.monads.DynamicsMonad;
+import gov.nasa.ammos.plandev.contrib.streamline.core.monads.ErrorCatchingMonad;
+import gov.nasa.ammos.plandev.contrib.streamline.debugging.Naming;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.*;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.clocks.Clock;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.linear.Linear;
+import gov.nasa.ammos.plandev.contrib.streamline.unit_aware.StandardUnits;
+import gov.nasa.ammos.plandev.contrib.streamline.unit_aware.Unit;
+import gov.nasa.ammos.plandev.contrib.streamline.unit_aware.UnitAware;
+import gov.nasa.ammos.plandev.contrib.streamline.unit_aware.UnitAwareOperations;
+import gov.nasa.ammos.plandev.contrib.streamline.unit_aware.UnitAwareResources;
+import gov.nasa.ammos.plandev.contrib.streamline.utils.DoubleUtils;
+import gov.nasa.ammos.plandev.merlin.framework.Condition;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import org.apache.commons.lang3.mutable.MutableObject;
 
 import java.time.Instant;
@@ -28,31 +28,31 @@ import java.util.TreeMap;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.autoEffects;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.CellRefV2.testing;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.resource;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiring.expiring;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiring.neverExpiring;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiry.NEVER;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Reactions.wheneverDynamicsChange;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.DynamicsMonad.bindEffect;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.ResourceMonad.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.ResourceMonad.reduce;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Dependencies.addDependency;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.Approximation.approximate;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.Approximation.relative;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.DifferentiableResources.asDifferentiable;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.IntervalFunctions.byBoundingError;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.SecantApproximation.ErrorEstimates.errorByQuadraticApproximation;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.SecantApproximation.secantApproximation;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks.ClockResources.clock;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete.discrete;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.assertThat;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
-import static gov.nasa.jpl.aerie.contrib.streamline.unit_aware.UnitAwareResources.extend;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.CellRefV2.autoEffects;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.CellRefV2.testing;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource.resource;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Expiring.expiring;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Expiring.neverExpiring;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Expiry.NEVER;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Reactions.wheneverDynamicsChange;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Resources.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.monads.DynamicsMonad.bindEffect;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.monads.ResourceMonad.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.monads.ResourceMonad.reduce;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Dependencies.addDependency;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Naming.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.Approximation.approximate;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.Approximation.relative;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.DifferentiableResources.asDifferentiable;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.IntervalFunctions.byBoundingError;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.SecantApproximation.ErrorEstimates.errorByQuadraticApproximation;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.SecantApproximation.secantApproximation;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.clocks.ClockResources.clock;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete.discrete;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteResources.assertThat;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
+import static gov.nasa.ammos.plandev.contrib.streamline.unit_aware.UnitAwareResources.extend;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.*;
 import static java.util.Arrays.stream;
 
 public final class PolynomialResources {
@@ -363,7 +363,7 @@ public final class PolynomialResources {
    *     Failure to meet this precondition may lead to incorrect outputs, crashing the simulation, stalling in an infinite loop,
    *     or other misbehavior.
    *     If this condition cannot be guaranteed a priori, consider using
-   *     {@link gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources#assertThat(String, Resource)}
+   *     {@link gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteResources#assertThat(String, Resource)}
    *     to guarantee this condition at runtime.
    * </p>
    */

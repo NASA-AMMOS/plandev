@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.contrib.models;
+package gov.nasa.ammos.plandev.contrib.models;
 
-import gov.nasa.jpl.aerie.merlin.framework.resources.real.RealResource;
+import gov.nasa.ammos.plandev.merlin.framework.resources.real.RealResource;
 
 import java.time.Instant;
 

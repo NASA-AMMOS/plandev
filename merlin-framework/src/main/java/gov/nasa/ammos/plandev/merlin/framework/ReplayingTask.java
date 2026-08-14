@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.merlin.framework;
+package gov.nasa.ammos.plandev.merlin.framework;
 
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Scheduler;
-import gov.nasa.jpl.aerie.merlin.protocol.model.Task;
-import gov.nasa.jpl.aerie.merlin.protocol.model.TaskFactory;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.InSpan;
-import gov.nasa.jpl.aerie.merlin.protocol.types.TaskStatus;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Scheduler;
+import gov.nasa.ammos.plandev.merlin.protocol.model.Task;
+import gov.nasa.ammos.plandev.merlin.protocol.model.TaskFactory;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InSpan;
+import gov.nasa.ammos.plandev.merlin.protocol.types.TaskStatus;
 import org.apache.commons.lang3.mutable.MutableInt;
 
 import java.util.ArrayList;
@@ -59,7 +59,7 @@ public final class ReplayingTask<Return> implements Task<Return> {
     }
 
     @Override
-    public Scheduler await(final gov.nasa.jpl.aerie.merlin.protocol.model.Condition condition) {
+    public Scheduler await(final gov.nasa.ammos.plandev.merlin.protocol.model.Condition condition) {
       return this.yield(TaskStatus.awaiting(condition, ReplayingTask.this));
     }
   }

@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e.types;
+package gov.nasa.ammos.plandev.e2e.types;
 
 import javax.json.JsonObject;
 import java.util.Optional;

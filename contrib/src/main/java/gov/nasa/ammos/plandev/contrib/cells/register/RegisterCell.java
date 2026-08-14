@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.contrib.cells.register;
+package gov.nasa.ammos.plandev.contrib.cells.register;
 
-import gov.nasa.jpl.aerie.merlin.framework.CellRef;
-import gov.nasa.jpl.aerie.merlin.protocol.model.CellType;
-import gov.nasa.jpl.aerie.merlin.protocol.model.EffectTrait;
+import gov.nasa.ammos.plandev.merlin.framework.CellRef;
+import gov.nasa.ammos.plandev.merlin.protocol.model.CellType;
+import gov.nasa.ammos.plandev.merlin.protocol.model.EffectTrait;
 
 import java.util.Objects;
 import java.util.function.Function;

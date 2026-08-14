@@ -1,15 +1,15 @@
-package gov.nasa.jpl.aerie.merlin.driver;
+package gov.nasa.ammos.plandev.merlin.driver;
 
-import gov.nasa.jpl.aerie.merlin.driver.engine.ProfileSegment;
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Querier;
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Topic;
-import gov.nasa.jpl.aerie.merlin.protocol.model.CellType;
-import gov.nasa.jpl.aerie.merlin.protocol.model.EffectTrait;
-import gov.nasa.jpl.aerie.merlin.protocol.model.OutputType;
-import gov.nasa.jpl.aerie.merlin.protocol.model.Resource;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.merlin.driver.engine.ProfileSegment;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Querier;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Topic;
+import gov.nasa.ammos.plandev.merlin.protocol.model.CellType;
+import gov.nasa.ammos.plandev.merlin.protocol.model.EffectTrait;
+import gov.nasa.ammos.plandev.merlin.protocol.model.OutputType;
+import gov.nasa.ammos.plandev.merlin.protocol.model.Resource;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -18,8 +18,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MILLISECONDS;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.duration;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MILLISECONDS;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.duration;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public final class CellExpiryTest {

@@ -1,35 +1,35 @@
-package gov.nasa.jpl.aerie.contrib.serialization.rulesets;
+package gov.nasa.ammos.plandev.contrib.serialization.rulesets;
 
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.ArrayValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.BooleanValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.ByteValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.CharacterValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.DoubleValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.DurationValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.EnumValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.FloatValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.IntegerValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.ListValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.LongValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.MapValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.PathValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.PrimitiveBooleanArrayValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.PrimitiveByteArrayValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.PrimitiveCharArrayValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.PrimitiveDoubleArrayValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.PrimitiveFloatArrayValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.PrimitiveIntArrayValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.PrimitiveLongArrayValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.PrimitiveShortArrayValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.ShortValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.StringValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.UnitValueMapper;
-import gov.nasa.jpl.aerie.merlin.framework.Result;
-import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.ArrayValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.BooleanValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.ByteValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.CharacterValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.DoubleValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.DurationValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.EnumValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.FloatValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.IntegerValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.ListValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.LongValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.MapValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.PathValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.PrimitiveBooleanArrayValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.PrimitiveByteArrayValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.PrimitiveCharArrayValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.PrimitiveDoubleArrayValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.PrimitiveFloatArrayValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.PrimitiveIntArrayValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.PrimitiveLongArrayValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.PrimitiveShortArrayValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.ShortValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.StringValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.UnitValueMapper;
+import gov.nasa.ammos.plandev.merlin.framework.Result;
+import gov.nasa.ammos.plandev.merlin.framework.ValueMapper;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Unit;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 
 import java.lang.annotation.Annotation;
 import java.nio.file.Path;
@@ -137,7 +137,7 @@ public final class BasicValueMappers {
     return new PathValueMapper();
   }
 
-  public static ValueMapper<gov.nasa.jpl.aerie.contrib.metadata.Unit> gov_nasa_jpl_aerie_contrib_metadata_Unit() {
+  public static ValueMapper<gov.nasa.ammos.plandev.contrib.metadata.Unit> gov_nasa_ammos_plandev_contrib_metadata_Unit() {
     return new ValueMapper<>() {
       @Override
       public ValueSchema getValueSchema() {
@@ -145,11 +145,11 @@ public final class BasicValueMappers {
       }
 
       @Override
-      public Result<gov.nasa.jpl.aerie.contrib.metadata.Unit, String> deserializeValue(final SerializedValue serializedValue) {
-        return serializedValue.asMap().flatMap($ -> $.get("value").asString()).map($ -> Result.<gov.nasa.jpl.aerie.contrib.metadata.Unit, String>success(new gov.nasa.jpl.aerie.contrib.metadata.Unit() {
+      public Result<gov.nasa.ammos.plandev.contrib.metadata.Unit, String> deserializeValue(final SerializedValue serializedValue) {
+        return serializedValue.asMap().flatMap($ -> $.get("value").asString()).map($ -> Result.<gov.nasa.ammos.plandev.contrib.metadata.Unit, String>success(new gov.nasa.ammos.plandev.contrib.metadata.Unit() {
           @Override
           public Class<? extends Annotation> annotationType() {
-            return gov.nasa.jpl.aerie.contrib.metadata.Unit.class;
+            return gov.nasa.ammos.plandev.contrib.metadata.Unit.class;
           }
 
           @Override
@@ -160,13 +160,13 @@ public final class BasicValueMappers {
       }
 
       @Override
-      public SerializedValue serializeValue(final gov.nasa.jpl.aerie.contrib.metadata.Unit value) {
+      public SerializedValue serializeValue(final gov.nasa.ammos.plandev.contrib.metadata.Unit value) {
         return SerializedValue.of(Map.of("value", SerializedValue.of(value.value())));
       }
     };
   }
 
-  public static ValueMapper<gov.nasa.jpl.aerie.merlin.framework.annotations.Description> gov_nasa_jpl_aerie_merlin_framework_annotations_Description() {
+  public static ValueMapper<gov.nasa.ammos.plandev.merlin.framework.annotations.Description> gov_nasa_ammos_plandev_merlin_framework_annotations_Description() {
     return new ValueMapper<>() {
       @Override
       public ValueSchema getValueSchema() {
@@ -174,11 +174,11 @@ public final class BasicValueMappers {
       }
 
       @Override
-      public Result<gov.nasa.jpl.aerie.merlin.framework.annotations.Description, String> deserializeValue(final SerializedValue serializedValue) {
-        return serializedValue.asMap().flatMap($ -> $.get("value").asString()).map($ -> Result.<gov.nasa.jpl.aerie.merlin.framework.annotations.Description, String>success(new gov.nasa.jpl.aerie.merlin.framework.annotations.Description() {
+      public Result<gov.nasa.ammos.plandev.merlin.framework.annotations.Description, String> deserializeValue(final SerializedValue serializedValue) {
+        return serializedValue.asMap().flatMap($ -> $.get("value").asString()).map($ -> Result.<gov.nasa.ammos.plandev.merlin.framework.annotations.Description, String>success(new gov.nasa.ammos.plandev.merlin.framework.annotations.Description() {
           @Override
           public Class<? extends Annotation> annotationType() {
-            return gov.nasa.jpl.aerie.merlin.framework.annotations.Description.class;
+            return gov.nasa.ammos.plandev.merlin.framework.annotations.Description.class;
           }
 
           @Override
@@ -189,7 +189,7 @@ public final class BasicValueMappers {
       }
 
       @Override
-      public SerializedValue serializeValue(final gov.nasa.jpl.aerie.merlin.framework.annotations.Description value) {
+      public SerializedValue serializeValue(final gov.nasa.ammos.plandev.merlin.framework.annotations.Description value) {
         return SerializedValue.of(Map.of("value", SerializedValue.of(value.value())));
       }
     };

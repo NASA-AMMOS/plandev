@@ -1,13 +1,13 @@
-package gov.nasa.jpl.aerie.merlin.framework.junit;
+package gov.nasa.ammos.plandev.merlin.framework.junit;
 
-import gov.nasa.jpl.aerie.merlin.driver.DirectiveTypeRegistry;
-import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
-import gov.nasa.jpl.aerie.merlin.driver.MissionModelBuilder;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationDriver;
-import gov.nasa.jpl.aerie.merlin.framework.InitializationContext;
-import gov.nasa.jpl.aerie.merlin.framework.ModelActions;
-import gov.nasa.jpl.aerie.merlin.framework.Registrar;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
+import gov.nasa.ammos.plandev.merlin.driver.DirectiveTypeRegistry;
+import gov.nasa.ammos.plandev.merlin.driver.MissionModel;
+import gov.nasa.ammos.plandev.merlin.driver.MissionModelBuilder;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationDriver;
+import gov.nasa.ammos.plandev.merlin.framework.InitializationContext;
+import gov.nasa.ammos.plandev.merlin.framework.ModelActions;
+import gov.nasa.ammos.plandev.merlin.framework.Registrar;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Unit;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.DynamicTestInvocationContext;

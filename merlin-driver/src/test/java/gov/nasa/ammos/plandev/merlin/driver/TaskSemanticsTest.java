@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.merlin.driver;
+package gov.nasa.ammos.plandev.merlin.driver;
 
-import gov.nasa.jpl.aerie.contrib.models.Register;
-import gov.nasa.jpl.aerie.merlin.framework.junit.MerlinExtension;
+import gov.nasa.ammos.plandev.contrib.models.Register;
+import gov.nasa.ammos.plandev.merlin.framework.junit.MerlinExtension;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -9,7 +9,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.util.List;
 
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.*;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.*;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;

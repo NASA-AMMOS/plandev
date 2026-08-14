@@ -1,3 +1,3 @@
-package gov.nasa.jpl.aerie.configwithoutdefaults;
+package gov.nasa.ammos.plandev.configwithoutdefaults;
 
 public record Configuration(Integer a, Double b, String c) { }

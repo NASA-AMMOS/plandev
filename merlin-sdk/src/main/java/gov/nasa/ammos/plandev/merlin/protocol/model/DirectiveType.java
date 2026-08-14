@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.merlin.protocol.model;
+package gov.nasa.ammos.plandev.merlin.protocol.model;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 
 import java.util.Map;
 import java.util.Optional;
@@ -54,7 +54,7 @@ public interface DirectiveType<Model, Arguments, Result> {
    * Initializes a {@link Task} operating on the given model given a directive instance.
    *
    * <p> This method and the {@code Task} returned from the {@code TaskFactory} must never cause the given {@code Model} or {@code Arguments} to be
-   * mutated. It may only read/write cells allocated to the model via any {@link gov.nasa.jpl.aerie.merlin.protocol.driver.CellId}
+   * mutated. It may only read/write cells allocated to the model via any {@link gov.nasa.ammos.plandev.merlin.protocol.driver.CellId}
    * references the model holds, or update the private state of the {@code Task} itself. This is because multiple {@code Task}s
    * may reference the {@code Model} or {@code Arguments} concurrently, and updates by one {@code Task} may interfere
    * with the transactional isolation afforded to others. </p>

@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.scheduler.solver;
+package gov.nasa.ammos.plandev.scheduler.solver;
 
-import gov.nasa.jpl.aerie.scheduler.SchedulingInterruptedException;
-import gov.nasa.jpl.aerie.scheduler.model.Plan;
+import gov.nasa.ammos.plandev.scheduler.SchedulingInterruptedException;
+import gov.nasa.ammos.plandev.scheduler.model.Plan;
 
 import java.util.Optional;
 

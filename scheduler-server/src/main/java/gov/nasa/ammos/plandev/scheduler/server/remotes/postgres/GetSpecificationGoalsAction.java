@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
+package gov.nasa.ammos.plandev.scheduler.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser;
-import gov.nasa.jpl.aerie.scheduler.server.http.InvalidJsonEntityException;
-import gov.nasa.jpl.aerie.scheduler.model.GoalId;
-import gov.nasa.jpl.aerie.scheduler.server.models.GoalInvocationRecord;
-import gov.nasa.jpl.aerie.scheduler.server.models.GoalSource;
-import gov.nasa.jpl.aerie.scheduler.server.models.GoalType;
+import gov.nasa.ammos.plandev.merlin.driver.json.SerializedValueJsonParser;
+import gov.nasa.ammos.plandev.scheduler.server.http.InvalidJsonEntityException;
+import gov.nasa.ammos.plandev.scheduler.model.GoalId;
+import gov.nasa.ammos.plandev.scheduler.server.models.GoalInvocationRecord;
+import gov.nasa.ammos.plandev.scheduler.server.models.GoalSource;
+import gov.nasa.ammos.plandev.scheduler.server.models.GoalType;
 import org.intellij.lang.annotations.Language;
 
 import java.nio.file.Path;
@@ -15,7 +15,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers.parseJson;
+import static gov.nasa.ammos.plandev.scheduler.server.http.SchedulerParsers.parseJson;
 
 /*package-local*/ final class GetSpecificationGoalsAction implements AutoCloseable {
   private final @Language("SQL") String sql = """

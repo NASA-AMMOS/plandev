@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 import org.apache.commons.lang3.tuple.Triple;
 import org.intellij.lang.annotations.Language;
 
@@ -9,7 +9,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.List;
 
-import static gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
+import static gov.nasa.ammos.plandev.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
 
 /*package-local*/ final class InsertSimulationTopicsAction implements AutoCloseable {
   @Language("SQL") private static final String sql = """

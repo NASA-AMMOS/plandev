@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.contrib.cells.linear;
+package gov.nasa.ammos.plandev.contrib.cells.linear;
 
 public sealed interface LinearAccumulationEvent {
   record AddVolume(double deltaVolume) implements LinearAccumulationEvent {}

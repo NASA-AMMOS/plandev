@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.scheduler.constraints.activities;
+package gov.nasa.ammos.plandev.scheduler.constraints.activities;
 
-import gov.nasa.jpl.aerie.constraints.model.DiscreteProfile;
-import gov.nasa.jpl.aerie.constraints.time.Spans;
-import gov.nasa.jpl.aerie.constraints.tree.Expression;
-import gov.nasa.jpl.aerie.scheduler.constraints.timeexpressions.IntervalRelation;
-import gov.nasa.jpl.aerie.scheduler.model.ActivityType;
+import gov.nasa.ammos.plandev.constraints.model.DiscreteProfile;
+import gov.nasa.ammos.plandev.constraints.time.Spans;
+import gov.nasa.ammos.plandev.constraints.tree.Expression;
+import gov.nasa.ammos.plandev.scheduler.constraints.timeexpressions.IntervalRelation;
+import gov.nasa.ammos.plandev.scheduler.model.ActivityType;
 
 import java.util.Map;
 

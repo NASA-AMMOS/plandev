@@ -1,20 +1,20 @@
-package gov.nasa.jpl.aerie.scheduler.server.models;
+package gov.nasa.ammos.plandev.scheduler.server.models;
 
-import gov.nasa.jpl.aerie.constraints.time.Windows;
-import gov.nasa.jpl.aerie.constraints.tree.Expression;
-import gov.nasa.jpl.aerie.constraints.tree.StructExpressionAt;
-import gov.nasa.jpl.aerie.json.Convert;
-import gov.nasa.jpl.aerie.json.JsonObjectParser;
-import gov.nasa.jpl.aerie.json.JsonParser;
-import gov.nasa.jpl.aerie.json.SumParsers;
-import gov.nasa.jpl.aerie.json.Unit;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.scheduler.TimeUtility;
-import gov.nasa.jpl.aerie.scheduler.constraints.timeexpressions.TimeAnchor;
-import gov.nasa.jpl.aerie.scheduler.model.PersistentTimeAnchor;
-import gov.nasa.jpl.aerie.scheduler.server.http.ActivityTemplateJsonParser;
-import gov.nasa.jpl.aerie.scheduler.server.services.MerlinDatabaseService;
+import gov.nasa.ammos.plandev.constraints.time.Windows;
+import gov.nasa.ammos.plandev.constraints.tree.Expression;
+import gov.nasa.ammos.plandev.constraints.tree.StructExpressionAt;
+import gov.nasa.ammos.plandev.json.Convert;
+import gov.nasa.ammos.plandev.json.JsonObjectParser;
+import gov.nasa.ammos.plandev.json.JsonParser;
+import gov.nasa.ammos.plandev.json.SumParsers;
+import gov.nasa.ammos.plandev.json.Unit;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.scheduler.TimeUtility;
+import gov.nasa.ammos.plandev.scheduler.constraints.timeexpressions.TimeAnchor;
+import gov.nasa.ammos.plandev.scheduler.model.PersistentTimeAnchor;
+import gov.nasa.ammos.plandev.scheduler.server.http.ActivityTemplateJsonParser;
+import gov.nasa.ammos.plandev.scheduler.server.services.MerlinDatabaseService;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.nio.file.Path;
@@ -22,21 +22,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static gov.nasa.jpl.aerie.constraints.json.ConstraintParsers.profileExpressionP;
-import static gov.nasa.jpl.aerie.constraints.json.ConstraintParsers.structExpressionF;
-import static gov.nasa.jpl.aerie.constraints.json.ConstraintParsers.windowsExpressionP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.boolP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.chooseP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.enumP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.intP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.listP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.literalP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.longP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.productP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.recursiveP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.stringP;
-import static gov.nasa.jpl.aerie.json.Uncurry.tuple;
-import static gov.nasa.jpl.aerie.json.Uncurry.untuple;
+import static gov.nasa.ammos.plandev.constraints.json.ConstraintParsers.profileExpressionP;
+import static gov.nasa.ammos.plandev.constraints.json.ConstraintParsers.structExpressionF;
+import static gov.nasa.ammos.plandev.constraints.json.ConstraintParsers.windowsExpressionP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.boolP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.chooseP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.enumP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.intP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.listP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.literalP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.longP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.productP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.recursiveP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.stringP;
+import static gov.nasa.ammos.plandev.json.Uncurry.tuple;
+import static gov.nasa.ammos.plandev.json.Uncurry.untuple;
 public class SchedulingDSL {
 
   public static final JsonParser<Duration> durationP =

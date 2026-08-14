@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.server.mocks;
+package gov.nasa.ammos.plandev.merlin.server.mocks;
 
-import gov.nasa.jpl.aerie.merlin.server.remotes.PlanRepositoryContractTest;
+import gov.nasa.ammos.plandev.merlin.server.remotes.PlanRepositoryContractTest;
 
 public final class InMemoryPlanRepositoryTest extends PlanRepositoryContractTest {
   @Override

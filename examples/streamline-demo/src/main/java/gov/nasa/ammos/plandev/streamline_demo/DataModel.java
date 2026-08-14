@@ -1,20 +1,20 @@
-package gov.nasa.jpl.aerie.streamline_demo;
+package gov.nasa.ammos.plandev.streamline_demo;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.Registrar;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.LinearBoundaryConsistencySolver;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.LinearBoundaryConsistencySolver.Domain;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialResources;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resource;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.Registrar;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.LinearBoundaryConsistencySolver;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.LinearBoundaryConsistencySolver.Domain;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.PolynomialResources;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.eraseExpiry;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.forward;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.ResourceMonad.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.choose;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.LinearBoundaryConsistencySolver.Comparison.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.LinearBoundaryConsistencySolver.LinearExpression.lx;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.PolynomialResources.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Resources.eraseExpiry;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Resources.forward;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.monads.ResourceMonad.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteResources.choose;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.LinearBoundaryConsistencySolver.Comparison.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.LinearBoundaryConsistencySolver.LinearExpression.lx;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.PolynomialResources.*;
 
 public class DataModel {
   public MutableResource<Polynomial> desiredRateA = PolynomialResources.polynomialResource(0);

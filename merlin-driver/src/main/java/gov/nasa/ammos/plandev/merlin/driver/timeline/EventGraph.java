@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.driver.timeline;
+package gov.nasa.ammos.plandev.merlin.driver.timeline;
 
-import gov.nasa.jpl.aerie.merlin.protocol.model.EffectTrait;
+import gov.nasa.ammos.plandev.merlin.protocol.model.EffectTrait;
 
 import java.util.Arrays;
 import java.util.Collection;

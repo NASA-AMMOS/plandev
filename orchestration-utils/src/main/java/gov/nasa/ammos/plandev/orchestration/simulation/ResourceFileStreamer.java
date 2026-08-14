@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.orchestration.simulation;
+package gov.nasa.ammos.plandev.orchestration.simulation;
 
-import gov.nasa.jpl.aerie.merlin.driver.resources.AsyncConsumer;
-import gov.nasa.jpl.aerie.merlin.driver.resources.ResourceProfiles;
+import gov.nasa.ammos.plandev.merlin.driver.resources.AsyncConsumer;
+import gov.nasa.ammos.plandev.merlin.driver.resources.ResourceProfiles;
 
 import javax.json.Json;
 import java.io.FileWriter;
@@ -10,8 +10,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.UUID;
 
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
-import static gov.nasa.jpl.aerie.merlin.server.http.ProfileParsers.realDynamicsP;
+import static gov.nasa.ammos.plandev.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import static gov.nasa.ammos.plandev.merlin.server.http.ProfileParsers.realDynamicsP;
 
 /**
  * A consumer that writes resource segments to the file system.

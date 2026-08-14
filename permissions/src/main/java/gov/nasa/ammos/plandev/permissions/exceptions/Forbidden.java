@@ -1,12 +1,12 @@
-package gov.nasa.jpl.aerie.permissions.exceptions;
+package gov.nasa.ammos.plandev.permissions.exceptions;
 
-import gov.nasa.jpl.aerie.permissions.Action;
-import gov.nasa.jpl.aerie.permissions.HasuraAction;
-import gov.nasa.jpl.aerie.permissions.PlanPermissionType;
-import gov.nasa.jpl.aerie.permissions.WorkspaceAction;
-import gov.nasa.jpl.aerie.permissions.WorkspacePermissionType;
-import gov.nasa.jpl.aerie.permissions.gql.PlanId;
-import gov.nasa.jpl.aerie.permissions.gql.WorkspaceId;
+import gov.nasa.ammos.plandev.permissions.Action;
+import gov.nasa.ammos.plandev.permissions.HasuraAction;
+import gov.nasa.ammos.plandev.permissions.PlanPermissionType;
+import gov.nasa.ammos.plandev.permissions.WorkspaceAction;
+import gov.nasa.ammos.plandev.permissions.WorkspacePermissionType;
+import gov.nasa.ammos.plandev.permissions.gql.PlanId;
+import gov.nasa.ammos.plandev.permissions.gql.WorkspaceId;
 
 public class Forbidden extends Exception {
   public Forbidden(final String role, final Action action) {

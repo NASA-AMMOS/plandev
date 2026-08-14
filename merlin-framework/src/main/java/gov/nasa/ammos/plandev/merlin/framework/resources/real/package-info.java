@@ -21,4 +21,4 @@
  *     we select a few useful classes of dynamics for our use.
  * </p>
  */
-package gov.nasa.jpl.aerie.merlin.framework.resources.real;
+package gov.nasa.ammos.plandev.merlin.framework.resources.real;

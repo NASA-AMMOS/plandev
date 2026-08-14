@@ -1,42 +1,42 @@
-package gov.nasa.jpl.aerie.contrib.streamline.modeling;
+package gov.nasa.ammos.plandev.contrib.streamline.modeling;
 
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.IntegerValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.NullableValueMapper;
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Dynamics;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resources;
-import gov.nasa.jpl.aerie.contrib.streamline.core.monads.ThinResourceMonad;
-import gov.nasa.jpl.aerie.contrib.streamline.debugging.Logging;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.linear.Linear;
-import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
-import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.IntegerValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.NullableValueMapper;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Dynamics;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resources;
+import gov.nasa.ammos.plandev.contrib.streamline.core.monads.ThinResourceMonad;
+import gov.nasa.ammos.plandev.contrib.streamline.debugging.Logging;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.linear.Linear;
+import gov.nasa.ammos.plandev.merlin.framework.ValueMapper;
+import gov.nasa.ammos.plandev.merlin.protocol.types.RealDynamics;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Unit;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Reactions.whenever;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentData;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.currentValue;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Logging.LOGGER;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Profiling.profile;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Tracing.trace;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.Registrar.ErrorBehavior.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteEffects.increment;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.linear.Linear.linear;
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.waitUntil;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Reactions.whenever;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Resources.currentData;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Resources.currentValue;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Logging.LOGGER;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Naming.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Profiling.profile;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Tracing.trace;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.Registrar.ErrorBehavior.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteEffects.increment;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteResources.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.linear.Linear.linear;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.waitUntil;
 
 /**
- * Wrapper for {@link gov.nasa.jpl.aerie.merlin.framework.Registrar} specialized for {@link Resource}.
+ * Wrapper for {@link gov.nasa.ammos.plandev.merlin.framework.Registrar} specialized for {@link Resource}.
  *
  * <p>
  *     Automatically creates and populates "errors" and "numberOfErrors" resources, if {@link ErrorBehavior#Log} is used.
  * </p>
  */
 public class Registrar {
-  private final gov.nasa.jpl.aerie.merlin.framework.Registrar baseRegistrar;
+  private final gov.nasa.ammos.plandev.merlin.framework.Registrar baseRegistrar;
   private boolean trace = false;
   private boolean profile = false;
   private final ErrorBehavior errorBehavior;
@@ -54,7 +54,7 @@ public class Registrar {
     Throw
   }
 
-  public Registrar(final gov.nasa.jpl.aerie.merlin.framework.Registrar baseRegistrar, final ErrorBehavior errorBehavior) {
+  public Registrar(final gov.nasa.ammos.plandev.merlin.framework.Registrar baseRegistrar, final ErrorBehavior errorBehavior) {
     Resources.init();
     Logging.init(baseRegistrar);
     this.baseRegistrar = baseRegistrar;
@@ -82,7 +82,7 @@ public class Registrar {
   public <Value> void discrete(final String name, final Resource<Discrete<Value>> resource, final ValueMapper<Value> mapper, final String description) {
     name(resource, name);
     var debugResource = debug(name, resource);
-    gov.nasa.jpl.aerie.merlin.framework.Resource<Value> registeredResource = switch (errorBehavior) {
+    gov.nasa.ammos.plandev.merlin.framework.Resource<Value> registeredResource = switch (errorBehavior) {
       case Log -> () -> currentValue(debugResource, null);
       case Throw -> wrapErrors(name, () -> currentValue(debugResource));
     };
@@ -97,7 +97,7 @@ public class Registrar {
     public void real(final String name, final Resource<Linear> resource, final String description) {
     name(resource, name);
     var debugResource = debug(name, resource);
-    gov.nasa.jpl.aerie.merlin.framework.Resource<RealDynamics> registeredResource = switch (errorBehavior) {
+    gov.nasa.ammos.plandev.merlin.framework.Resource<RealDynamics> registeredResource = switch (errorBehavior) {
       case Log -> () -> realDynamics(currentData(debugResource, linear(0, 0)));
       case Throw -> wrapErrors(name, () -> realDynamics(currentData(debugResource)));
     };
@@ -139,7 +139,7 @@ public class Registrar {
   /**
    * Include the resource name in the error to give context
    */
-  private static <D> gov.nasa.jpl.aerie.merlin.framework.Resource<D> wrapErrors(String resourceName, gov.nasa.jpl.aerie.merlin.framework.Resource<D> resource) {
+  private static <D> gov.nasa.ammos.plandev.merlin.framework.Resource<D> wrapErrors(String resourceName, gov.nasa.ammos.plandev.merlin.framework.Resource<D> resource) {
     return () -> {
       try {
         return resource.getDynamics();

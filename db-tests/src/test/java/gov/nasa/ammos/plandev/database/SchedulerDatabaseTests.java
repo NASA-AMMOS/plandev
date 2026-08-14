@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.database;
+package gov.nasa.ammos.plandev.database;
 
 import org.junit.jupiter.api.*;
 import org.postgresql.util.PSQLException;

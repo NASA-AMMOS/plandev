@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.merlin.server.config;
+package gov.nasa.ammos.plandev.merlin.server.config;
 
 import java.net.URI;
 import java.nio.file.Path;

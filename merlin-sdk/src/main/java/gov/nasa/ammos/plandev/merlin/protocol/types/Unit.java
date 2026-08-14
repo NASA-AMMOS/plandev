@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.merlin.protocol.types;
+package gov.nasa.ammos.plandev.merlin.protocol.types;
 
 /**
  * A <a href="https://en.wikipedia.org/wiki/Unit_type">unit type</a> with only one value (which can thus hold

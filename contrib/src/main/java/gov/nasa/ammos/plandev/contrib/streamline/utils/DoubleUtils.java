@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.contrib.streamline.utils;
+package gov.nasa.ammos.plandev.contrib.streamline.utils;
 
 public final class DoubleUtils {
   private DoubleUtils() {}

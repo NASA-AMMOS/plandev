@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler;
+package gov.nasa.ammos.plandev.scheduler;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

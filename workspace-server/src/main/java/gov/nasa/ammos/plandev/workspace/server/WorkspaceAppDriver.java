@@ -1,14 +1,14 @@
-package gov.nasa.jpl.aerie.workspace.server;
+package gov.nasa.ammos.plandev.workspace.server;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import gov.nasa.jpl.aerie.permissions.PermissionsService;
-import gov.nasa.jpl.aerie.permissions.gql.GraphQLPermissionsService;
-import gov.nasa.jpl.aerie.workspace.server.config.AppConfiguration;
-import gov.nasa.jpl.aerie.workspace.server.config.PostgresStore;
-import gov.nasa.jpl.aerie.workspace.server.config.Store;
-import gov.nasa.jpl.aerie.workspace.server.config.UnexpectedSubtypeError;
-import gov.nasa.jpl.aerie.workspace.server.postgres.WorkspacePostgresRepository;
+import gov.nasa.ammos.plandev.permissions.PermissionsService;
+import gov.nasa.ammos.plandev.permissions.gql.GraphQLPermissionsService;
+import gov.nasa.ammos.plandev.workspace.server.config.AppConfiguration;
+import gov.nasa.ammos.plandev.workspace.server.config.PostgresStore;
+import gov.nasa.ammos.plandev.workspace.server.config.Store;
+import gov.nasa.ammos.plandev.workspace.server.config.UnexpectedSubtypeError;
+import gov.nasa.ammos.plandev.workspace.server.postgres.WorkspacePostgresRepository;
 import io.javalin.Javalin;
 import io.javalin.config.SizeUnit;
 import org.eclipse.jetty.server.LowResourceMonitor;

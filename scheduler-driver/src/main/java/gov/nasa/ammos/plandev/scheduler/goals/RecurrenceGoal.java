@@ -1,18 +1,18 @@
-package gov.nasa.jpl.aerie.scheduler.goals;
+package gov.nasa.ammos.plandev.scheduler.goals;
 
-import gov.nasa.jpl.aerie.constraints.model.EvaluationEnvironment;
-import gov.nasa.jpl.aerie.constraints.model.SimulationResults;
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.constraints.time.Windows;
-import gov.nasa.jpl.aerie.merlin.protocol.model.SchedulerModel;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.DurationType;
-import gov.nasa.jpl.aerie.scheduler.conflicts.MissingRecurrenceConflict;
-import gov.nasa.jpl.aerie.scheduler.constraints.activities.ActivityExpression;
-import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
-import gov.nasa.jpl.aerie.scheduler.conflicts.Conflict;
-import gov.nasa.jpl.aerie.scheduler.conflicts.MissingAssociationConflict;
-import gov.nasa.jpl.aerie.scheduler.model.Plan;
+import gov.nasa.ammos.plandev.constraints.model.EvaluationEnvironment;
+import gov.nasa.ammos.plandev.constraints.model.SimulationResults;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.constraints.time.Windows;
+import gov.nasa.ammos.plandev.merlin.protocol.model.SchedulerModel;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.DurationType;
+import gov.nasa.ammos.plandev.scheduler.conflicts.MissingRecurrenceConflict;
+import gov.nasa.ammos.plandev.scheduler.constraints.activities.ActivityExpression;
+import gov.nasa.ammos.plandev.scheduler.model.SchedulingActivity;
+import gov.nasa.ammos.plandev.scheduler.conflicts.Conflict;
+import gov.nasa.ammos.plandev.scheduler.conflicts.MissingAssociationConflict;
+import gov.nasa.ammos.plandev.scheduler.model.Plan;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;

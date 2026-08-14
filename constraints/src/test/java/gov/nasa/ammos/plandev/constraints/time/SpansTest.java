@@ -1,23 +1,23 @@
-package gov.nasa.jpl.aerie.constraints.time;
+package gov.nasa.ammos.plandev.constraints.time;
 
-import gov.nasa.jpl.aerie.constraints.model.LinearEquation;
-import gov.nasa.jpl.aerie.constraints.model.LinearProfile;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.constraints.model.LinearEquation;
+import gov.nasa.ammos.plandev.constraints.model.LinearProfile;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import static gov.nasa.jpl.aerie.constraints.Assertions.assertEquivalent;
-import static gov.nasa.jpl.aerie.constraints.time.Interval.Inclusivity.Exclusive;
-import static gov.nasa.jpl.aerie.constraints.time.Interval.Inclusivity.Inclusive;
-import static gov.nasa.jpl.aerie.constraints.time.Interval.at;
-import static gov.nasa.jpl.aerie.constraints.time.Interval.interval;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MICROSECONDS;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MILLISECONDS;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECOND;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
+import static gov.nasa.ammos.plandev.constraints.Assertions.assertEquivalent;
+import static gov.nasa.ammos.plandev.constraints.time.Interval.Inclusivity.Exclusive;
+import static gov.nasa.ammos.plandev.constraints.time.Interval.Inclusivity.Inclusive;
+import static gov.nasa.ammos.plandev.constraints.time.Interval.at;
+import static gov.nasa.ammos.plandev.constraints.time.Interval.interval;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MICROSECONDS;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MILLISECONDS;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECOND;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECONDS;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 
 public class SpansTest {

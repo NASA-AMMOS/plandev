@@ -1,15 +1,15 @@
-package gov.nasa.jpl.aerie.banananation;
+package gov.nasa.ammos.plandev.banananation;
 
-import gov.nasa.jpl.aerie.contrib.models.Accumulator;
-import gov.nasa.jpl.aerie.contrib.models.Register;
-import gov.nasa.jpl.aerie.contrib.models.counters.Counter;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.BooleanValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.DoubleValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.EnumValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.IntegerValueMapper;
-import gov.nasa.jpl.aerie.contrib.serialization.mappers.StringValueMapper;
-import gov.nasa.jpl.aerie.merlin.framework.Registrar;
-import gov.nasa.jpl.aerie.spice.SpiceLoader;
+import gov.nasa.ammos.plandev.contrib.models.Accumulator;
+import gov.nasa.ammos.plandev.contrib.models.Register;
+import gov.nasa.ammos.plandev.contrib.models.counters.Counter;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.BooleanValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.DoubleValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.EnumValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.IntegerValueMapper;
+import gov.nasa.ammos.plandev.contrib.serialization.mappers.StringValueMapper;
+import gov.nasa.ammos.plandev.merlin.framework.Registrar;
+import gov.nasa.ammos.plandev.spice.SpiceLoader;
 import spice.basic.CSPICE;
 import spice.basic.SpiceErrorException;
 
@@ -17,8 +17,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static gov.nasa.jpl.aerie.contrib.metadata.UnitRegistrar.discreteResource;
-import static gov.nasa.jpl.aerie.contrib.metadata.UnitRegistrar.realResource;
+import static gov.nasa.ammos.plandev.contrib.metadata.UnitRegistrar.discreteResource;
+import static gov.nasa.ammos.plandev.contrib.metadata.UnitRegistrar.realResource;
 
 public final class Mission {
   public final Accumulator fruit;

@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.server.mocks;
+package gov.nasa.ammos.plandev.merlin.server.mocks;
 
-import gov.nasa.jpl.aerie.merlin.server.services.RevisionData;
+import gov.nasa.ammos.plandev.merlin.server.services.RevisionData;
 
 public record InMemoryRevisionData(
     long planRevision

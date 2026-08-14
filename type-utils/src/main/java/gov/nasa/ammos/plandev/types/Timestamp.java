@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.types;
+package gov.nasa.ammos.plandev.types;
 
 import java.time.Instant;
 import java.time.LocalDateTime;

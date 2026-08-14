@@ -1,23 +1,23 @@
-package gov.nasa.jpl.aerie.scheduler.plan
+package gov.nasa.ammos.plandev.scheduler.plan
 
-import gov.nasa.ammos.aerie.procedural.scheduling.utils.PerishableSimulationResults
-import gov.nasa.ammos.aerie.procedural.timeline.Interval
-import gov.nasa.ammos.aerie.procedural.timeline.collections.Instances
-import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialSegmentOps
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.Segment
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.activities.Instance
-import gov.nasa.ammos.aerie.procedural.timeline.plan.Plan
-import gov.nasa.ammos.aerie.procedural.timeline.util.duration.rangeTo
-import gov.nasa.jpl.aerie.merlin.driver.engine.ProfileSegment
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId
-import gov.nasa.jpl.aerie.types.ActivityInstanceId
+import gov.nasa.ammos.plandev.procedural.scheduling.utils.PerishableSimulationResults
+import gov.nasa.ammos.plandev.procedural.timeline.Interval
+import gov.nasa.ammos.plandev.procedural.timeline.collections.Instances
+import gov.nasa.ammos.plandev.procedural.timeline.ops.SerialSegmentOps
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.Segment
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.activities.Instance
+import gov.nasa.ammos.plandev.procedural.timeline.plan.Plan
+import gov.nasa.ammos.plandev.procedural.timeline.util.duration.rangeTo
+import gov.nasa.ammos.plandev.merlin.driver.engine.ProfileSegment
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId
+import gov.nasa.ammos.plandev.types.ActivityInstanceId
 import java.time.Instant
 import kotlin.jvm.optionals.getOrNull
 
 class MerlinToProcedureSimulationResultsAdapter(
-    private val results: gov.nasa.jpl.aerie.merlin.driver.SimulationResults,
+    private val results: gov.nasa.ammos.plandev.merlin.driver.SimulationResults,
 
     /** A copy of the plan that will not be mutated after creation. */
     private val plan: Plan

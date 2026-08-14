@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.contrib.cells.register;
+package gov.nasa.ammos.plandev.contrib.cells.register;
 
-import gov.nasa.jpl.aerie.merlin.protocol.model.EffectTrait;
+import gov.nasa.ammos.plandev.merlin.protocol.model.EffectTrait;
 
 import java.util.Objects;
 

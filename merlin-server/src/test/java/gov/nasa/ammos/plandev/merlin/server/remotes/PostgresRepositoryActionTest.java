@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes;
+package gov.nasa.ammos.plandev.merlin.server.remotes;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresPlanRepository;
+import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresPlanRepository;
 
 import java.nio.file.Path;
 

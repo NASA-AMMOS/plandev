@@ -1,19 +1,19 @@
-package gov.nasa.jpl.aerie.scheduler;
+package gov.nasa.ammos.plandev.scheduler;
 
-import gov.nasa.jpl.aerie.constraints.time.Windows;
-import gov.nasa.jpl.aerie.constraints.tree.WindowsWrapperExpression;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.scheduler.goals.ProceduralCreationGoal;
-import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
-import gov.nasa.jpl.aerie.scheduler.model.PlanInMemory;
-import gov.nasa.jpl.aerie.scheduler.model.PlanningHorizon;
-import gov.nasa.jpl.aerie.scheduler.model.Problem;
-import gov.nasa.jpl.aerie.scheduler.solver.PrioritySolver;
+import gov.nasa.ammos.plandev.constraints.time.Windows;
+import gov.nasa.ammos.plandev.constraints.tree.WindowsWrapperExpression;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.scheduler.goals.ProceduralCreationGoal;
+import gov.nasa.ammos.plandev.scheduler.model.SchedulingActivity;
+import gov.nasa.ammos.plandev.scheduler.model.PlanInMemory;
+import gov.nasa.ammos.plandev.scheduler.model.PlanningHorizon;
+import gov.nasa.ammos.plandev.scheduler.model.Problem;
+import gov.nasa.ammos.plandev.scheduler.solver.PrioritySolver;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static gov.nasa.jpl.aerie.scheduler.TestUtility.assertSetEquality;
+import static gov.nasa.ammos.plandev.scheduler.TestUtility.assertSetEquality;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class LongDurationPlanTest {

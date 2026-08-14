@@ -1,5 +1,5 @@
-package gov.nasa.jpl.aerie.scheduler.solver;
-import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
+package gov.nasa.ammos.plandev.scheduler.solver;
+import gov.nasa.ammos.plandev.scheduler.model.SchedulingActivity;
 
 import java.util.HashSet;
 import java.util.List;

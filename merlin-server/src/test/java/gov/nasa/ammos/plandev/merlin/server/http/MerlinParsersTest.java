@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.merlin.server.http;
+package gov.nasa.ammos.plandev.merlin.server.http;
 
-import gov.nasa.jpl.aerie.json.JsonParser;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.server.models.HasuraAction;
-import gov.nasa.jpl.aerie.merlin.server.models.HasuraMissionModelEvent;
-import gov.nasa.jpl.aerie.types.MissionModelId;
+import gov.nasa.ammos.plandev.json.JsonParser;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.server.models.HasuraAction;
+import gov.nasa.ammos.plandev.merlin.server.models.HasuraMissionModelEvent;
+import gov.nasa.ammos.plandev.types.MissionModelId;
 import org.junit.jupiter.api.Test;
 
 import javax.json.Json;
@@ -12,12 +12,12 @@ import javax.json.JsonValue;
 import java.util.List;
 import java.util.Objects;
 
-import static gov.nasa.jpl.aerie.json.BasicParsers.listP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.longP;
-import static gov.nasa.jpl.aerie.json.BasicParsers.recursiveP;
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
-import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.*;
-import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsersTest.NestedLists.nestedList;
+import static gov.nasa.ammos.plandev.json.BasicParsers.listP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.longP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.recursiveP;
+import static gov.nasa.ammos.plandev.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.*;
+import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsersTest.NestedLists.nestedList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 

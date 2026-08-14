@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.merlin.protocol.driver;
+package gov.nasa.ammos.plandev.merlin.protocol.driver;
 
-import gov.nasa.jpl.aerie.merlin.protocol.model.TaskFactory;
-import gov.nasa.jpl.aerie.merlin.protocol.types.InSpan;
+import gov.nasa.ammos.plandev.merlin.protocol.model.TaskFactory;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InSpan;
 
 public interface Scheduler {
   <State> State get(CellId<State> cellId);

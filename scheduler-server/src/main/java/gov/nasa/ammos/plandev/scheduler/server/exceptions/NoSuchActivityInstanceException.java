@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.scheduler.server.exceptions;
+package gov.nasa.ammos.plandev.scheduler.server.exceptions;
 
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
 
 public class NoSuchActivityInstanceException extends Exception {
   private final ActivityDirectiveId id;

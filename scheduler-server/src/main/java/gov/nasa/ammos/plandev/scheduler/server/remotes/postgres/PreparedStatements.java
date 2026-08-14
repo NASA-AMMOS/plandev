@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
+package gov.nasa.ammos.plandev.scheduler.server.remotes.postgres;
 
 import javax.json.Json;
-import gov.nasa.jpl.aerie.scheduler.server.http.SchedulerParsers;
-import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleFailure;
+import gov.nasa.ammos.plandev.scheduler.server.http.SchedulerParsers;
+import gov.nasa.ammos.plandev.scheduler.server.services.ScheduleFailure;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;

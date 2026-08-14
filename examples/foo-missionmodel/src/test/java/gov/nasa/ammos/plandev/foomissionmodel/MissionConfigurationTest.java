@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.foomissionmodel;
+package gov.nasa.ammos.plandev.foomissionmodel;
 
-import gov.nasa.jpl.aerie.foomissionmodel.activities.FooActivity;
-import gov.nasa.jpl.aerie.merlin.framework.Registrar;
-import gov.nasa.jpl.aerie.merlin.framework.junit.MerlinExtension;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.foomissionmodel.activities.FooActivity;
+import gov.nasa.ammos.plandev.merlin.framework.Registrar;
+import gov.nasa.ammos.plandev.merlin.framework.junit.MerlinExtension;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -12,8 +12,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.time.Instant;
 
-import static gov.nasa.jpl.aerie.foomissionmodel.generated.ActivityActions.spawn;
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.delay;
+import static gov.nasa.ammos.plandev.foomissionmodel.generated.ActivityActions.spawn;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.delay;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 

@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.server.models.SimulationDatasetId;
-import gov.nasa.jpl.aerie.types.Timestamp;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.server.models.SimulationDatasetId;
+import gov.nasa.ammos.plandev.types.Timestamp;
 import org.intellij.lang.annotations.Language;
 
 import java.sql.Connection;
@@ -11,7 +11,7 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Optional;
 
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MICROSECONDS;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MICROSECONDS;
 
 /*package-local*/ final class CreatePlanDatasetAction implements AutoCloseable {
   private final @Language("SQL") String sql = """

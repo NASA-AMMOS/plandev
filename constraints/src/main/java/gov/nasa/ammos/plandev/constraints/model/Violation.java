@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.constraints.model;
+package gov.nasa.ammos.plandev.constraints.model;
 
-import gov.nasa.ammos.aerie.procedural.constraints.Violations;
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
-import gov.nasa.jpl.aerie.types.ActivityInstanceId;
+import gov.nasa.ammos.plandev.procedural.constraints.Violations;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.types.ActivityInstanceId;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -18,7 +18,7 @@ public record Violation(List<Interval> windows, ArrayList<Long> activityInstance
     this(windows, new ArrayList<>(activityInstanceIds), Optional.ofNullable(message));
   }
 
-  public static List<Violation> fromProceduralViolations(Violations violations, gov.nasa.jpl.aerie.merlin.driver.SimulationResults simResults) {
+  public static List<Violation> fromProceduralViolations(Violations violations, gov.nasa.ammos.plandev.merlin.driver.SimulationResults simResults) {
     final var proceduralViolations = violations.collect();
     final ArrayList<Violation> constraintViolations = new ArrayList<>(proceduralViolations.size());
     for(final var v : proceduralViolations) {

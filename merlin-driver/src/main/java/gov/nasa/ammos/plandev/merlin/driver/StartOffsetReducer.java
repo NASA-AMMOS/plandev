@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.merlin.driver;
+package gov.nasa.ammos.plandev.merlin.driver;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.types.ActivityDirective;
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.types.ActivityDirective;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.ArrayList;

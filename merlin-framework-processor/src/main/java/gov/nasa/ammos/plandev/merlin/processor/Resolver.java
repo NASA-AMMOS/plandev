@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.merlin.processor;
+package gov.nasa.ammos.plandev.merlin.processor;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
@@ -7,9 +7,9 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.WildcardTypeName;
-import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
-import gov.nasa.jpl.aerie.merlin.processor.TypePattern.ClassPattern;
-import gov.nasa.jpl.aerie.merlin.processor.metamodel.TypeRule;
+import gov.nasa.ammos.plandev.merlin.framework.ValueMapper;
+import gov.nasa.ammos.plandev.merlin.processor.TypePattern.ClassPattern;
+import gov.nasa.ammos.plandev.merlin.processor.metamodel.TypeRule;
 
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
@@ -58,7 +58,7 @@ public final class Resolver {
     if (mirror.getKind() == TypeKind.DECLARED || mirror.getKind() == TypeKind.ARRAY) {
       return mapperCode.map($ -> CodeBlock.of(
           "new $T<>(\n$>$>$L$<$<)",
-          gov.nasa.jpl.aerie.contrib.serialization.mappers.NullableValueMapper.class,
+          gov.nasa.ammos.plandev.contrib.serialization.mappers.NullableValueMapper.class,
           $));
     } else {
       return mapperCode;

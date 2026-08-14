@@ -1,12 +1,12 @@
-package gov.nasa.jpl.aerie.banananation;
+package gov.nasa.ammos.plandev.banananation;
 
-import gov.nasa.jpl.aerie.contrib.metadata.Unit;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.AutoValueMapper;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.Export;
+import gov.nasa.ammos.plandev.contrib.metadata.Unit;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.AutoValueMapper;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.Export;
 
 import java.nio.file.Path;
 
-import static gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Template;
+import static gov.nasa.ammos.plandev.merlin.framework.annotations.Export.Template;
 
 public record Configuration(@Unit("count") int initialPlantCount, String initialProducer, Path initialDataPath, InitialConditions initialConditions) {
 

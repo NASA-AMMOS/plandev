@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.workspace.server;
+package gov.nasa.ammos.plandev.workspace.server;
 
-import gov.nasa.jpl.aerie.workspace.server.exceptions.MalformedRequest;
-import gov.nasa.jpl.aerie.workspace.server.types.MetadataKeys;
+import gov.nasa.ammos.plandev.workspace.server.exceptions.MalformedRequest;
+import gov.nasa.ammos.plandev.workspace.server.types.MetadataKeys;
 
 import javax.json.JsonObject;
 import java.time.Instant;

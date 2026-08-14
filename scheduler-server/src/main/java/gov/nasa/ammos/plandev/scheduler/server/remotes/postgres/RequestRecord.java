@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
+package gov.nasa.ammos.plandev.scheduler.server.remotes.postgres;
 
 import java.util.Optional;
-import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleFailure;
+import gov.nasa.ammos.plandev.scheduler.server.services.ScheduleFailure;
 
 public record RequestRecord(
     long specificationId,

@@ -1,12 +1,12 @@
-package gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box;
+package gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box;
 
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.IntervalFunctions.ErrorEstimateInput;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.IntervalFunctions.ErrorEstimateInput;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.DifferentiableResources.asDifferentiable;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.SecantApproximation.ErrorEstimates.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.DifferentiableResources.asDifferentiable;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.SecantApproximation.ErrorEstimates.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.polynomial.Polynomial.polynomial;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SecantApproximationTest {

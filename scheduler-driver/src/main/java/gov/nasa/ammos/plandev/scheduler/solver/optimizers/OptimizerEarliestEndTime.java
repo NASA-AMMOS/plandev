@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.scheduler.solver.optimizers;
+package gov.nasa.ammos.plandev.scheduler.solver.optimizers;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.scheduler.model.SchedulingActivity;
 
 import java.util.List;
 

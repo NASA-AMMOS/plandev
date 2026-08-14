@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.merlin.processor.generator;
+package gov.nasa.ammos.plandev.merlin.processor.generator;
 
 import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
@@ -12,34 +12,34 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import com.squareup.javapoet.TypeVariableName;
 import com.squareup.javapoet.WildcardTypeName;
-import gov.nasa.jpl.aerie.merlin.framework.ActivityMapper;
-import gov.nasa.jpl.aerie.merlin.framework.EmptyInputType;
-import gov.nasa.jpl.aerie.merlin.framework.ModelActions;
-import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
-import gov.nasa.jpl.aerie.merlin.processor.MissionModelProcessor;
-import gov.nasa.jpl.aerie.merlin.processor.Resolver;
-import gov.nasa.jpl.aerie.merlin.processor.TypePattern;
-import gov.nasa.jpl.aerie.merlin.processor.metamodel.ActivityTypeRecord;
-import gov.nasa.jpl.aerie.merlin.processor.metamodel.EffectModelRecord;
-import gov.nasa.jpl.aerie.merlin.processor.metamodel.InputTypeRecord;
-import gov.nasa.jpl.aerie.merlin.processor.metamodel.MissionModelRecord;
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Initializer;
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Scheduler;
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Topic;
-import gov.nasa.jpl.aerie.merlin.protocol.model.InputType;
-import gov.nasa.jpl.aerie.merlin.protocol.model.MerlinPlugin;
-import gov.nasa.jpl.aerie.merlin.protocol.model.ModelType;
-import gov.nasa.jpl.aerie.merlin.protocol.model.OutputType;
-import gov.nasa.jpl.aerie.merlin.protocol.model.SchedulerModel;
-import gov.nasa.jpl.aerie.merlin.protocol.model.SchedulerPlugin;
-import gov.nasa.jpl.aerie.merlin.protocol.model.Task;
-import gov.nasa.jpl.aerie.merlin.protocol.model.TaskFactory;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.DurationType;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.TaskStatus;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.merlin.framework.ActivityMapper;
+import gov.nasa.ammos.plandev.merlin.framework.EmptyInputType;
+import gov.nasa.ammos.plandev.merlin.framework.ModelActions;
+import gov.nasa.ammos.plandev.merlin.framework.ValueMapper;
+import gov.nasa.ammos.plandev.merlin.processor.MissionModelProcessor;
+import gov.nasa.ammos.plandev.merlin.processor.Resolver;
+import gov.nasa.ammos.plandev.merlin.processor.TypePattern;
+import gov.nasa.ammos.plandev.merlin.processor.metamodel.ActivityTypeRecord;
+import gov.nasa.ammos.plandev.merlin.processor.metamodel.EffectModelRecord;
+import gov.nasa.ammos.plandev.merlin.processor.metamodel.InputTypeRecord;
+import gov.nasa.ammos.plandev.merlin.processor.metamodel.MissionModelRecord;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Initializer;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Scheduler;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Topic;
+import gov.nasa.ammos.plandev.merlin.protocol.model.InputType;
+import gov.nasa.ammos.plandev.merlin.protocol.model.MerlinPlugin;
+import gov.nasa.ammos.plandev.merlin.protocol.model.ModelType;
+import gov.nasa.ammos.plandev.merlin.protocol.model.OutputType;
+import gov.nasa.ammos.plandev.merlin.protocol.model.SchedulerModel;
+import gov.nasa.ammos.plandev.merlin.protocol.model.SchedulerPlugin;
+import gov.nasa.ammos.plandev.merlin.protocol.model.Task;
+import gov.nasa.ammos.plandev.merlin.protocol.model.TaskFactory;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.DurationType;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.TaskStatus;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Unit;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 
 import javax.annotation.processing.Generated;
 import javax.annotation.processing.Messager;
@@ -163,7 +163,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                             ClassName.get(Map.class),
                             ClassName.get(String.class),
                             ParameterizedTypeName.get(
-                                ClassName.get(gov.nasa.jpl.aerie.merlin.framework.ActivityMapper.class),
+                                ClassName.get(gov.nasa.ammos.plandev.merlin.framework.ActivityMapper.class),
                                 ClassName.get(missionModel.topLevelModel()),
                                 WildcardTypeName.subtypeOf(Object.class),
                                 WildcardTypeName.subtypeOf(Object.class))))
@@ -220,7 +220,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                         "configuration",
                         Modifier.FINAL)
                     .addParameter(
-                        ClassName.get(gov.nasa.jpl.aerie.merlin.protocol.driver.Initializer.class),
+                        ClassName.get(gov.nasa.ammos.plandev.merlin.protocol.driver.Initializer.class),
                         "builder",
                         Modifier.FINAL)
                     .returns(ClassName.get(missionModel.topLevelModel()))
@@ -232,12 +232,12 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                     .addStatement(
                         "final var $L = new $T($L)",
                         "registrar",
-                        gov.nasa.jpl.aerie.merlin.framework.Registrar.class,
+                        gov.nasa.ammos.plandev.merlin.framework.Registrar.class,
                         "builder")
                     .addCode("\n")
                     .addStatement(
                         "return $T.initializing($L, () -> $L)",
-                        gov.nasa.jpl.aerie.merlin.framework.InitializationContext.class,
+                        gov.nasa.ammos.plandev.merlin.framework.InitializationContext.class,
                         "builder",
                         generateMissionModelInstantiation(missionModel))
                     .build())
@@ -398,7 +398,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                     .addMember("value", "$S", MissionModelProcessor.class.getCanonicalName())
                     .build())
             .addModifiers(Modifier.PUBLIC)
-            .superclass(gov.nasa.jpl.aerie.merlin.framework.ModelActions.class)
+            .superclass(gov.nasa.ammos.plandev.merlin.framework.ModelActions.class)
             .addMethod(MethodSpec.constructorBuilder().addModifiers(Modifier.PRIVATE).build())
             .addMethods(
                 missionModel.activityTypes()
@@ -423,7 +423,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                                     entry.inputType().mapper().name.canonicalName().replace(".", "_"))
                                 .addStatement(
                                     "$T.spawnWithSpan($L.getTaskFactory($L, $L))",
-                                    gov.nasa.jpl.aerie.merlin.framework.ModelActions.class,
+                                    gov.nasa.ammos.plandev.merlin.framework.ModelActions.class,
                                     "mapper",
                                     "model",
                                     "activity")
@@ -450,7 +450,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                                     entry.inputType().mapper().name.canonicalName().replace(".", "_"))
                                 .addStatement(
                                     "$T.deferWithSpan($L, $L.getTaskFactory($L, $L))",
-                                    gov.nasa.jpl.aerie.merlin.framework.ModelActions.class,
+                                    gov.nasa.ammos.plandev.merlin.framework.ModelActions.class,
                                     "duration",
                                     "mapper",
                                     "model",
@@ -469,7 +469,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                                 .addParameter(
                                     ParameterSpec
                                         .builder(
-                                            gov.nasa.jpl.aerie.merlin.protocol.types.Duration.class,
+                                            gov.nasa.ammos.plandev.merlin.protocol.types.Duration.class,
                                             "unit")
                                         .addModifiers(Modifier.FINAL)
                                         .build())
@@ -506,7 +506,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                                     entry.inputType().mapper().name.canonicalName().replace(".", "_"))
                                 .addStatement(
                                     "$T.callWithSpan($L.getTaskFactory($L, $L))",
-                                    gov.nasa.jpl.aerie.merlin.framework.ModelActions.class,
+                                    gov.nasa.ammos.plandev.merlin.framework.ModelActions.class,
                                     "mapper",
                                     "model",
                                     "activity")
@@ -551,7 +551,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                             ClassName.get(Map.class),
                             ClassName.get(String.class),
                             ParameterizedTypeName.get(
-                                ClassName.get(gov.nasa.jpl.aerie.merlin.framework.ActivityMapper.class),
+                                ClassName.get(gov.nasa.ammos.plandev.merlin.framework.ActivityMapper.class),
                                 ClassName.get(missionModel.topLevelModel()),
                                 WildcardTypeName.subtypeOf(Object.class),
                                 WildcardTypeName.subtypeOf(Object.class))),
@@ -645,7 +645,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                 .addMember("value", "$S", MissionModelProcessor.class.getCanonicalName())
                 .build())
         .addSuperinterface(ParameterizedTypeName.get(
-            ClassName.get(gov.nasa.jpl.aerie.merlin.protocol.model.InputType.class),
+            ClassName.get(gov.nasa.ammos.plandev.merlin.protocol.model.InputType.class),
             ClassName.get(inputType.declaration())))
         .addModifiers(Modifier.PUBLIC, Modifier.FINAL)
         .addFields(
@@ -654,7 +654,7 @@ public record MissionModelGenerator(Elements elementUtils, Types typeUtils, Mess
                      .map(parameter -> FieldSpec
                          .builder(
                              ParameterizedTypeName.get(
-                                 ClassName.get(gov.nasa.jpl.aerie.merlin.framework.ValueMapper.class),
+                                 ClassName.get(gov.nasa.ammos.plandev.merlin.framework.ValueMapper.class),
                                  TypeName.get(parameter.type).box()),
                              "mapper_" + parameter.name)
                          .addModifiers(Modifier.PRIVATE, Modifier.FINAL)

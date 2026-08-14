@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.merlin.driver;
+package gov.nasa.ammos.plandev.merlin.driver;
 
-import gov.nasa.jpl.aerie.merlin.protocol.model.DirectiveType;
-import gov.nasa.jpl.aerie.merlin.protocol.model.ModelType;
+import gov.nasa.ammos.plandev.merlin.protocol.model.DirectiveType;
+import gov.nasa.ammos.plandev.merlin.protocol.model.ModelType;
 
 import java.util.Map;
 

@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.workspace.server.types;
+package gov.nasa.ammos.plandev.workspace.server.types;
 
-import gov.nasa.jpl.aerie.json.FormattedError;
+import gov.nasa.ammos.plandev.json.FormattedError;
 
 import javax.json.Json;
 import javax.json.JsonValue;

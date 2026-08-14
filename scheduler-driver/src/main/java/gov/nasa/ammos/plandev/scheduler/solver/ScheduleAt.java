@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler.solver;
+package gov.nasa.ammos.plandev.scheduler.solver;
 
 public enum ScheduleAt {
   EARLIEST,

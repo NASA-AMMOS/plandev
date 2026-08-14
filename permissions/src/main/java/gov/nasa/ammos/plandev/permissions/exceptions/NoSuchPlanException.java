@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.permissions.exceptions;
+package gov.nasa.ammos.plandev.permissions.exceptions;
 
-import gov.nasa.jpl.aerie.permissions.gql.PlanId;
+import gov.nasa.ammos.plandev.permissions.gql.PlanId;
 public final class NoSuchPlanException extends Exception {
   public final PlanId id;
 

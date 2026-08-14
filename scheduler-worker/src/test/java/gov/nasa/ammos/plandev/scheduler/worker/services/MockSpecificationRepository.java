@@ -1,16 +1,16 @@
-package gov.nasa.jpl.aerie.scheduler.worker.services;
+package gov.nasa.ammos.plandev.scheduler.worker.services;
 
 import java.util.Map;
 import java.util.Optional;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
-import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSpecificationException;
-import gov.nasa.jpl.aerie.scheduler.model.GoalId;
-import gov.nasa.jpl.aerie.scheduler.server.models.GoalType;
-import gov.nasa.jpl.aerie.scheduler.server.models.Specification;
-import gov.nasa.jpl.aerie.scheduler.server.models.SpecificationId;
-import gov.nasa.jpl.aerie.scheduler.server.remotes.SpecificationRepository;
-import gov.nasa.jpl.aerie.scheduler.server.remotes.postgres.SpecificationRevisionData;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.scheduler.server.exceptions.NoSuchSpecificationException;
+import gov.nasa.ammos.plandev.scheduler.model.GoalId;
+import gov.nasa.ammos.plandev.scheduler.server.models.GoalType;
+import gov.nasa.ammos.plandev.scheduler.server.models.Specification;
+import gov.nasa.ammos.plandev.scheduler.server.models.SpecificationId;
+import gov.nasa.ammos.plandev.scheduler.server.remotes.SpecificationRepository;
+import gov.nasa.ammos.plandev.scheduler.server.remotes.postgres.SpecificationRevisionData;
 
 class MockSpecificationRepository implements SpecificationRepository
 {

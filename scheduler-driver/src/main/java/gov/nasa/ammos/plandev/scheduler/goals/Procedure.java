@@ -1,28 +1,28 @@
-package gov.nasa.jpl.aerie.scheduler.goals;
+package gov.nasa.ammos.plandev.scheduler.goals;
 
-import gov.nasa.ammos.aerie.procedural.scheduling.ActivityAutoDelete;
-import gov.nasa.ammos.aerie.procedural.scheduling.plan.DeletedAnchorStrategy;
-import gov.nasa.ammos.aerie.procedural.scheduling.utils.DefaultEditablePlanDriver;
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalEvent;
-import gov.nasa.jpl.aerie.merlin.driver.MissionModel;
-import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.ammos.aerie.procedural.scheduling.ProcedureMapper;
-import gov.nasa.ammos.aerie.procedural.scheduling.plan.Edit;
-import gov.nasa.jpl.aerie.scheduler.DirectiveIdGenerator;
-import gov.nasa.jpl.aerie.scheduler.ProcedureLoader;
-import gov.nasa.jpl.aerie.scheduler.model.ActivityType;
-import gov.nasa.jpl.aerie.scheduler.model.GoalId;
-import gov.nasa.jpl.aerie.scheduler.model.Plan;
-import gov.nasa.jpl.aerie.scheduler.model.PlanningHorizon;
-import gov.nasa.jpl.aerie.scheduler.model.Problem;
-import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
-import gov.nasa.jpl.aerie.scheduler.plan.SchedulerPlanEditAdapter;
-import gov.nasa.jpl.aerie.scheduler.plan.SchedulerToProcedurePlanAdapter;
-import gov.nasa.jpl.aerie.scheduler.simulation.SimulationFacade;
-import gov.nasa.jpl.aerie.scheduler.solver.ConflictSatisfaction;
-import gov.nasa.jpl.aerie.scheduler.solver.Evaluation;
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.procedural.scheduling.ActivityAutoDelete;
+import gov.nasa.ammos.plandev.procedural.scheduling.plan.DeletedAnchorStrategy;
+import gov.nasa.ammos.plandev.procedural.scheduling.utils.DefaultEditablePlanDriver;
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.ExternalEvent;
+import gov.nasa.ammos.plandev.merlin.driver.MissionModel;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.procedural.scheduling.ProcedureMapper;
+import gov.nasa.ammos.plandev.procedural.scheduling.plan.Edit;
+import gov.nasa.ammos.plandev.scheduler.DirectiveIdGenerator;
+import gov.nasa.ammos.plandev.scheduler.ProcedureLoader;
+import gov.nasa.ammos.plandev.scheduler.model.ActivityType;
+import gov.nasa.ammos.plandev.scheduler.model.GoalId;
+import gov.nasa.ammos.plandev.scheduler.model.Plan;
+import gov.nasa.ammos.plandev.scheduler.model.PlanningHorizon;
+import gov.nasa.ammos.plandev.scheduler.model.Problem;
+import gov.nasa.ammos.plandev.scheduler.model.SchedulingActivity;
+import gov.nasa.ammos.plandev.scheduler.plan.SchedulerPlanEditAdapter;
+import gov.nasa.ammos.plandev.scheduler.plan.SchedulerToProcedurePlanAdapter;
+import gov.nasa.ammos.plandev.scheduler.simulation.SimulationFacade;
+import gov.nasa.ammos.plandev.scheduler.solver.ConflictSatisfaction;
+import gov.nasa.ammos.plandev.scheduler.solver.Evaluation;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -30,13 +30,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
-import static gov.nasa.jpl.aerie.scheduler.plan.SchedulerPlanEditAdapter.toSchedulingActivity;
+import static gov.nasa.ammos.plandev.scheduler.plan.SchedulerPlanEditAdapter.toSchedulingActivity;
 
 public class Procedure extends Goal {
   private final Path jarPath;
   private final Map<String, SerializedValue> args;
 
-  private gov.nasa.ammos.aerie.procedural.scheduling.Goal goal;
+  private gov.nasa.ammos.plandev.procedural.scheduling.Goal goal;
 
   private ActivityAutoDelete shouldDelete;
   private final GoalId goalId;

@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.streamline_demo;
+package gov.nasa.ammos.plandev.streamline_demo;
 
-import gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Parameter;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.Export.Parameter;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 public final class Configuration {
   @Parameter

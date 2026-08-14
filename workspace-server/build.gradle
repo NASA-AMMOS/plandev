@@ -11,11 +11,11 @@ java {
 }
 
 application {
-  mainClass = 'gov.nasa.jpl.aerie.workspace.server.WorkspaceAppDriver'
+  mainClass = 'gov.nasa.ammos.plandev.workspace.server.WorkspaceAppDriver'
   applicationDefaultJvmArgs = ['-Xmx2g']
 }
 
-group = 'gov.nasa.jpl.aerie'
+group = 'gov.nasa.ammos.plandev'
 version = 'unspecified'
 
 repositories {

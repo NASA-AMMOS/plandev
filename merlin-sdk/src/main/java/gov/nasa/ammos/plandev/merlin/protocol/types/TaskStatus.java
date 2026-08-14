@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.merlin.protocol.types;
+package gov.nasa.ammos.plandev.merlin.protocol.types;
 
-import gov.nasa.jpl.aerie.merlin.protocol.model.Condition;
-import gov.nasa.jpl.aerie.merlin.protocol.model.Task;
-import gov.nasa.jpl.aerie.merlin.protocol.model.TaskFactory;
+import gov.nasa.ammos.plandev.merlin.protocol.model.Condition;
+import gov.nasa.ammos.plandev.merlin.protocol.model.Task;
+import gov.nasa.ammos.plandev.merlin.protocol.model.TaskFactory;
 
 public sealed interface TaskStatus<Return> {
   record Completed<Return>(Return returnValue) implements TaskStatus<Return> {}

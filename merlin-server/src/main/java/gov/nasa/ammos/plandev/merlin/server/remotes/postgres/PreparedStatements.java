@@ -1,12 +1,12 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.merlin.driver.SimulationFailure;
-import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.Parameter;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers;
-import gov.nasa.jpl.aerie.merlin.server.http.ResponseSerializers;
-import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService;
-import gov.nasa.jpl.aerie.types.Timestamp;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationFailure;
+import gov.nasa.ammos.plandev.merlin.protocol.model.InputType.Parameter;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers;
+import gov.nasa.ammos.plandev.merlin.server.http.ResponseSerializers;
+import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService;
+import gov.nasa.ammos.plandev.types.Timestamp;
 import org.intellij.lang.annotations.Language;
 
 import javax.json.Json;

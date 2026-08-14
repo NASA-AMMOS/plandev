@@ -1,12 +1,12 @@
-package gov.nasa.jpl.aerie.merlin.server.models;
+package gov.nasa.ammos.plandev.merlin.server.models;
 
-import gov.nasa.jpl.aerie.constraints.model.ConstraintResult;
-import gov.nasa.jpl.aerie.constraints.model.Violation;
+import gov.nasa.ammos.plandev.constraints.model.ConstraintResult;
+import gov.nasa.ammos.plandev.constraints.model.Violation;
 
 import javax.json.JsonObject;
 import java.util.List;
 
-import static gov.nasa.jpl.aerie.merlin.server.http.ConstraintParsers.proceduralConstraintResultP;
+import static gov.nasa.ammos.plandev.merlin.server.http.ConstraintParsers.proceduralConstraintResultP;
 
 /**
  * A ConstraintResult that is created from the output of running a Procedural Constraint.

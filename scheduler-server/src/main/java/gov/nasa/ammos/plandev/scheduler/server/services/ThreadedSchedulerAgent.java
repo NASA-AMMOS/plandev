@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.scheduler.server.services;
+package gov.nasa.ammos.plandev.scheduler.server.services;
 
-import gov.nasa.jpl.aerie.scheduler.server.ResultsProtocol;
+import gov.nasa.ammos.plandev.scheduler.server.ResultsProtocol;
 
 import java.util.Objects;
 import java.util.concurrent.BlockingQueue;

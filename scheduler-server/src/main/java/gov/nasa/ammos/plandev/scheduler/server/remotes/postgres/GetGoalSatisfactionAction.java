@@ -1,11 +1,11 @@
-package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
+package gov.nasa.ammos.plandev.scheduler.server.remotes.postgres;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
-import gov.nasa.jpl.aerie.scheduler.model.GoalId;
+import gov.nasa.ammos.plandev.scheduler.model.GoalId;
 import org.intellij.lang.annotations.Language;
 
 /*package-local*/ final class GetGoalSatisfactionAction implements AutoCloseable {

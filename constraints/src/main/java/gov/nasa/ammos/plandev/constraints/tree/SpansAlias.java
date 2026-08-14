@@ -1,13 +1,10 @@
-package gov.nasa.jpl.aerie.constraints.tree;
+package gov.nasa.ammos.plandev.constraints.tree;
 
-import gov.nasa.jpl.aerie.constraints.model.EvaluationEnvironment;
-import gov.nasa.jpl.aerie.constraints.model.SimulationResults;
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.constraints.time.Segment;
-import gov.nasa.jpl.aerie.constraints.time.Spans;
-import gov.nasa.jpl.aerie.constraints.time.Windows;
+import gov.nasa.ammos.plandev.constraints.model.EvaluationEnvironment;
+import gov.nasa.ammos.plandev.constraints.model.SimulationResults;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.constraints.time.Spans;
 
-import java.util.Objects;
 import java.util.Set;
 
 public record SpansAlias(String spansAlias) implements Expression<Spans> {

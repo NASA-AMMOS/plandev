@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler.goals;
+package gov.nasa.ammos.plandev.scheduler.goals;
 
 /**
  * In the case of the temporal context changing (i.e. the {@code Expression<Windows>} passed to a Goal

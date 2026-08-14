@@ -1,21 +1,21 @@
-package gov.nasa.jpl.aerie.contrib.streamline.core;
+package gov.nasa.ammos.plandev.contrib.streamline.core;
 
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
-import gov.nasa.jpl.aerie.merlin.framework.Condition;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete;
+import gov.nasa.ammos.plandev.merlin.framework.Condition;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.dynamicsChange;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.updates;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Context.contextualized;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.when;
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.delay;
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.replaying;
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.spawn;
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.waitUntil;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.ZERO;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Resources.dynamicsChange;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Resources.updates;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Context.contextualized;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteResources.when;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.delay;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.replaying;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.spawn;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.waitUntil;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.ZERO;
 
 /**
  * Utilities to create lightweight looping tasks,

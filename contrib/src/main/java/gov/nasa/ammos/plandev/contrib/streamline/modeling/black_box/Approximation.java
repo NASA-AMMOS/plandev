@@ -1,24 +1,24 @@
-package gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box;
+package gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Dynamics;
-import gov.nasa.jpl.aerie.contrib.streamline.core.ErrorCatching;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Expiring;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Dynamics;
+import gov.nasa.ammos.plandev.contrib.streamline.core.ErrorCatching;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Expiring;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resource;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.resource;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiring.expiring;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Reactions.whenever;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Reactions.wheneverUpdates;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.expires;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.ExpiringMonad.bind;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Dependencies.addDependency;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.*;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECOND;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource.resource;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Expiring.expiring;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Reactions.whenever;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Reactions.wheneverUpdates;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Resources.expires;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.monads.ExpiringMonad.bind;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Dependencies.addDependency;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Naming.*;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECOND;
 
 /**
  * General framework for approximating resources.

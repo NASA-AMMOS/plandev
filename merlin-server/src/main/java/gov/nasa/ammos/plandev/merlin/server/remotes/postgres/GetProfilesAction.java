@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
 import org.intellij.lang.annotations.Language;
 
@@ -8,8 +8,8 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.getJsonColumn;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.profileTypeP;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.getJsonColumn;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.profileTypeP;
 
 /*package-local*/ final class GetProfilesAction implements AutoCloseable {
   private final @Language("SQL") String sql = """

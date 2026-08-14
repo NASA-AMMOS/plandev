@@ -1,13 +1,13 @@
-package gov.nasa.jpl.aerie.merlin.framework;
+package gov.nasa.ammos.plandev.merlin.framework;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static gov.nasa.jpl.aerie.merlin.framework.Condition.*;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.*;
+import static gov.nasa.ammos.plandev.merlin.framework.Condition.*;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ConditionTest {

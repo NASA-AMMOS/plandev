@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.scheduler.server.http;
+package gov.nasa.ammos.plandev.scheduler.server.http;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.scheduler.ProcedureLoader;
-import gov.nasa.jpl.aerie.scheduler.model.GoalId;
-import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSchedulingGoalException;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.scheduler.ProcedureLoader;
+import gov.nasa.ammos.plandev.scheduler.model.GoalId;
+import gov.nasa.ammos.plandev.scheduler.server.exceptions.NoSuchSchedulingGoalException;
 
 import java.util.Map;
 

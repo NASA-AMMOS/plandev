@@ -1,21 +1,20 @@
-package gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks;
+package gov.nasa.ammos.plandev.contrib.streamline.modeling.clocks;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource;
-import gov.nasa.jpl.aerie.contrib.streamline.core.monads.ResourceMonad;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.linear.Linear;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.core.monads.ResourceMonad;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resource;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.linear.Linear;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.resource;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Expiring.*;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.Resources.signalling;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.ResourceMonad.bind;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.Discrete.discrete;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.DiscreteResources.not;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad.map;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.EPSILON;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.ZERO;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource.resource;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Expiring.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.Resources.signalling;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.monads.ResourceMonad.bind;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.Discrete.discrete;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.DiscreteResources.not;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete.monads.DiscreteResourceMonad.map;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.EPSILON;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.ZERO;
 
 public final class ClockResources {
   private ClockResources() {}

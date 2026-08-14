@@ -1,13 +1,13 @@
-package gov.nasa.jpl.aerie.contrib.streamline.debugging;
+package gov.nasa.ammos.plandev.contrib.streamline.debugging;
 
-import gov.nasa.jpl.aerie.merlin.framework.CellRef;
-import gov.nasa.jpl.aerie.merlin.framework.Registrar;
-import gov.nasa.jpl.aerie.merlin.protocol.model.CellType;
-import gov.nasa.jpl.aerie.merlin.protocol.model.EffectTrait;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Unit;
+import gov.nasa.ammos.plandev.merlin.framework.CellRef;
+import gov.nasa.ammos.plandev.merlin.framework.Registrar;
+import gov.nasa.ammos.plandev.merlin.protocol.model.CellType;
+import gov.nasa.ammos.plandev.merlin.protocol.model.EffectTrait;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Unit;
 
-import static gov.nasa.jpl.aerie.contrib.serialization.rulesets.BasicValueMappers.string;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Unit.UNIT;
+import static gov.nasa.ammos.plandev.contrib.serialization.rulesets.BasicValueMappers.string;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Unit.UNIT;
 
 public class SimpleLogger {
     private final CellRef<String, Unit> cellRef = CellRef.allocate(UNIT, new CellType<>() {

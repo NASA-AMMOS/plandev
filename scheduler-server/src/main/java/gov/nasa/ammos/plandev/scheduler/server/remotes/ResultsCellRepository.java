@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.scheduler.server.remotes;
+package gov.nasa.ammos.plandev.scheduler.server.remotes;
 
 import java.util.Optional;
-import gov.nasa.jpl.aerie.scheduler.server.ResultsProtocol;
-import gov.nasa.jpl.aerie.scheduler.server.models.SpecificationId;
-import gov.nasa.jpl.aerie.scheduler.server.services.ScheduleRequest;
+import gov.nasa.ammos.plandev.scheduler.server.ResultsProtocol;
+import gov.nasa.ammos.plandev.scheduler.server.models.SpecificationId;
+import gov.nasa.ammos.plandev.scheduler.server.services.ScheduleRequest;
 
 public interface ResultsCellRepository {
   ResultsProtocol.OwnerRole allocate(SpecificationId specificationId, final String requestedBy);

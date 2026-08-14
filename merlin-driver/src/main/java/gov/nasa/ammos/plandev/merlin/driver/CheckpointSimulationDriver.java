@@ -1,16 +1,16 @@
-package gov.nasa.jpl.aerie.merlin.driver;
+package gov.nasa.ammos.plandev.merlin.driver;
 
-import gov.nasa.jpl.aerie.merlin.driver.engine.SimulationEngine;
-import gov.nasa.jpl.aerie.merlin.driver.engine.SpanException;
-import gov.nasa.jpl.aerie.merlin.driver.engine.SpanId;
-import gov.nasa.jpl.aerie.merlin.driver.resources.InMemorySimulationResourceManager;
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Topic;
-import gov.nasa.jpl.aerie.merlin.protocol.model.Task;
-import gov.nasa.jpl.aerie.merlin.protocol.model.TaskFactory;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
-import gov.nasa.jpl.aerie.types.ActivityDirective;
-import gov.nasa.jpl.aerie.types.ActivityDirectiveId;
+import gov.nasa.ammos.plandev.merlin.driver.engine.SimulationEngine;
+import gov.nasa.ammos.plandev.merlin.driver.engine.SpanException;
+import gov.nasa.ammos.plandev.merlin.driver.engine.SpanId;
+import gov.nasa.ammos.plandev.merlin.driver.resources.InMemorySimulationResourceManager;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Topic;
+import gov.nasa.ammos.plandev.merlin.protocol.model.Task;
+import gov.nasa.ammos.plandev.merlin.protocol.model.TaskFactory;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException;
+import gov.nasa.ammos.plandev.types.ActivityDirective;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,10 +27,10 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MAX_VALUE;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MICROSECONDS;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.ZERO;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.min;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MAX_VALUE;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MICROSECONDS;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.ZERO;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.min;
 
 public class CheckpointSimulationDriver {
   private static final Logger LOGGER = LoggerFactory.getLogger(CheckpointSimulationDriver.class);

@@ -1,19 +1,19 @@
-package gov.nasa.jpl.aerie.scheduler.server.services;
+package gov.nasa.ammos.plandev.scheduler.server.services;
 
-import gov.nasa.ammos.aerie.procedural.scheduling.ProcedureMapper;
-import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
-import gov.nasa.jpl.aerie.scheduler.ProcedureLoader;
-import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSchedulingGoalException;
-import gov.nasa.jpl.aerie.scheduler.server.exceptions.NoSuchSpecificationException;
-import gov.nasa.jpl.aerie.scheduler.server.exceptions.SpecificationLoadException;
-import gov.nasa.jpl.aerie.scheduler.model.GoalId;
-import gov.nasa.jpl.aerie.scheduler.server.http.BulkEffectiveArgumentResponse;
-import gov.nasa.jpl.aerie.scheduler.server.http.ProcedureArguments;
-import gov.nasa.jpl.aerie.scheduler.server.models.GoalType;
-import gov.nasa.jpl.aerie.scheduler.server.models.Specification;
-import gov.nasa.jpl.aerie.scheduler.server.models.SpecificationId;
-import gov.nasa.jpl.aerie.scheduler.server.remotes.SpecificationRepository;
-import gov.nasa.jpl.aerie.scheduler.server.remotes.postgres.SpecificationRevisionData;
+import gov.nasa.ammos.plandev.procedural.scheduling.ProcedureMapper;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException;
+import gov.nasa.ammos.plandev.scheduler.ProcedureLoader;
+import gov.nasa.ammos.plandev.scheduler.server.exceptions.NoSuchSchedulingGoalException;
+import gov.nasa.ammos.plandev.scheduler.server.exceptions.NoSuchSpecificationException;
+import gov.nasa.ammos.plandev.scheduler.server.exceptions.SpecificationLoadException;
+import gov.nasa.ammos.plandev.scheduler.model.GoalId;
+import gov.nasa.ammos.plandev.scheduler.server.http.BulkEffectiveArgumentResponse;
+import gov.nasa.ammos.plandev.scheduler.server.http.ProcedureArguments;
+import gov.nasa.ammos.plandev.scheduler.server.models.GoalType;
+import gov.nasa.ammos.plandev.scheduler.server.models.Specification;
+import gov.nasa.ammos.plandev.scheduler.server.models.SpecificationId;
+import gov.nasa.ammos.plandev.scheduler.server.remotes.SpecificationRepository;
+import gov.nasa.ammos.plandev.scheduler.server.remotes.postgres.SpecificationRevisionData;
 
 import java.nio.file.Path;
 import java.util.ArrayList;

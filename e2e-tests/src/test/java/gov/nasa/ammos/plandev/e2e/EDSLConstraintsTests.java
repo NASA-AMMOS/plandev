@@ -1,14 +1,14 @@
-package gov.nasa.jpl.aerie.e2e;
+package gov.nasa.ammos.plandev.e2e;
 
 import com.microsoft.playwright.Playwright;
-import gov.nasa.jpl.aerie.e2e.types.ConstraintActionResponse;
-import gov.nasa.jpl.aerie.e2e.types.ConstraintError;
-import gov.nasa.jpl.aerie.e2e.types.ExternalDataset.ProfileInput;
-import gov.nasa.jpl.aerie.e2e.types.ExternalDataset.ProfileInput.ProfileSegmentInput;
-import gov.nasa.jpl.aerie.e2e.types.ValueSchema;
-import gov.nasa.jpl.aerie.e2e.types.workspaces.HasuraRequestFailure;
-import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
-import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
+import gov.nasa.ammos.plandev.e2e.types.ConstraintActionResponse;
+import gov.nasa.ammos.plandev.e2e.types.ConstraintError;
+import gov.nasa.ammos.plandev.e2e.types.ExternalDataset.ProfileInput;
+import gov.nasa.ammos.plandev.e2e.types.ExternalDataset.ProfileInput.ProfileSegmentInput;
+import gov.nasa.ammos.plandev.e2e.types.ValueSchema;
+import gov.nasa.ammos.plandev.e2e.types.workspaces.HasuraRequestFailure;
+import gov.nasa.ammos.plandev.e2e.utils.GatewayRequests;
+import gov.nasa.ammos.plandev.e2e.utils.HasuraRequests;
 import org.junit.jupiter.api.*;
 
 import javax.json.Json;

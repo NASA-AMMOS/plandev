@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.merlin.driver.resources;
+package gov.nasa.ammos.plandev.merlin.driver.resources;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.RealDynamics;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 
 import java.util.Map;
 

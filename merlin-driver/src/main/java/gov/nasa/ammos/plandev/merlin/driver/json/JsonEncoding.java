@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.merlin.driver.json;
+package gov.nasa.ammos.plandev.merlin.driver.json;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 
 import javax.json.JsonValue;
 
-import static gov.nasa.jpl.aerie.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
+import static gov.nasa.ammos.plandev.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
 
 public final class JsonEncoding {
   public static JsonValue encode(final SerializedValue value) {

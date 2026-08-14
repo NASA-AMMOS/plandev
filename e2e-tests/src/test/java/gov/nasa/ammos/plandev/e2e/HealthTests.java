@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.e2e;
+package gov.nasa.ammos.plandev.e2e;
 
 import com.microsoft.playwright.APIRequestContext;
 import com.microsoft.playwright.APIResponse;
 import com.microsoft.playwright.Playwright;
-import gov.nasa.jpl.aerie.e2e.utils.BaseURL;
+import gov.nasa.ammos.plandev.e2e.utils.BaseURL;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;

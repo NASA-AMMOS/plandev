@@ -1,28 +1,28 @@
-package gov.nasa.jpl.aerie.scheduler.constraints.activities;
+package gov.nasa.ammos.plandev.scheduler.constraints.activities;
 
-import gov.nasa.jpl.aerie.constraints.model.ActivityInstance;
-import gov.nasa.jpl.aerie.constraints.model.DiscreteProfile;
-import gov.nasa.jpl.aerie.constraints.model.EvaluationEnvironment;
-import gov.nasa.jpl.aerie.constraints.model.Profile;
-import gov.nasa.jpl.aerie.constraints.model.SimulationResults;
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.constraints.time.Spans;
-import gov.nasa.jpl.aerie.constraints.tree.DiscreteProfileFromDuration;
-import gov.nasa.jpl.aerie.constraints.tree.DiscreteValue;
-import gov.nasa.jpl.aerie.constraints.tree.DurationLiteral;
-import gov.nasa.jpl.aerie.constraints.tree.Expression;
-import gov.nasa.jpl.aerie.constraints.tree.ProfileExpression;
-import gov.nasa.jpl.aerie.merlin.protocol.model.SchedulerModel;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.DurationType;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.scheduler.model.Plan;
-import gov.nasa.jpl.aerie.scheduler.model.PlanningHorizon;
-import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
-import gov.nasa.jpl.aerie.scheduler.model.ActivityType;
-import gov.nasa.jpl.aerie.scheduler.NotNull;
-import gov.nasa.jpl.aerie.scheduler.Nullable;
-import gov.nasa.jpl.aerie.scheduler.solver.stn.TaskNetworkAdapter;
+import gov.nasa.ammos.plandev.constraints.model.ActivityInstance;
+import gov.nasa.ammos.plandev.constraints.model.DiscreteProfile;
+import gov.nasa.ammos.plandev.constraints.model.EvaluationEnvironment;
+import gov.nasa.ammos.plandev.constraints.model.Profile;
+import gov.nasa.ammos.plandev.constraints.model.SimulationResults;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.constraints.time.Spans;
+import gov.nasa.ammos.plandev.constraints.tree.DiscreteProfileFromDuration;
+import gov.nasa.ammos.plandev.constraints.tree.DiscreteValue;
+import gov.nasa.ammos.plandev.constraints.tree.DurationLiteral;
+import gov.nasa.ammos.plandev.constraints.tree.Expression;
+import gov.nasa.ammos.plandev.constraints.tree.ProfileExpression;
+import gov.nasa.ammos.plandev.merlin.protocol.model.SchedulerModel;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.DurationType;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.scheduler.model.Plan;
+import gov.nasa.ammos.plandev.scheduler.model.PlanningHorizon;
+import gov.nasa.ammos.plandev.scheduler.model.SchedulingActivity;
+import gov.nasa.ammos.plandev.scheduler.model.ActivityType;
+import gov.nasa.ammos.plandev.scheduler.NotNull;
+import gov.nasa.ammos.plandev.scheduler.Nullable;
+import gov.nasa.ammos.plandev.scheduler.solver.stn.TaskNetworkAdapter;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.math.BigDecimal;
@@ -35,7 +35,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.ZERO;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.ZERO;
 
 /**
  * the criteria used to identify activity instances in scheduling goals

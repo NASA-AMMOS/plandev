@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler.solver.stn;
+package gov.nasa.ammos.plandev.scheduler.solver.stn;
 
 import org.slf4j.Logger;
 

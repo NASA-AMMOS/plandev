@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.workspace.server.types;
+package gov.nasa.ammos.plandev.workspace.server.types;
 
 import javax.json.JsonException;
 import javax.json.JsonObject;

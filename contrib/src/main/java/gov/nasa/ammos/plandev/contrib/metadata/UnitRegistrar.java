@@ -1,13 +1,13 @@
-package gov.nasa.jpl.aerie.contrib.metadata;
+package gov.nasa.ammos.plandev.contrib.metadata;
 
-import gov.nasa.jpl.aerie.merlin.framework.MetadataValueMapper;
-import gov.nasa.jpl.aerie.merlin.framework.Registrar;
-import gov.nasa.jpl.aerie.merlin.framework.Resource;
-import gov.nasa.jpl.aerie.merlin.framework.Result;
-import gov.nasa.jpl.aerie.merlin.framework.ValueMapper;
-import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.merlin.framework.MetadataValueMapper;
+import gov.nasa.ammos.plandev.merlin.framework.Registrar;
+import gov.nasa.ammos.plandev.merlin.framework.Resource;
+import gov.nasa.ammos.plandev.merlin.framework.Result;
+import gov.nasa.ammos.plandev.merlin.framework.ValueMapper;
+import gov.nasa.ammos.plandev.merlin.protocol.types.RealDynamics;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 
 import java.util.Map;
 

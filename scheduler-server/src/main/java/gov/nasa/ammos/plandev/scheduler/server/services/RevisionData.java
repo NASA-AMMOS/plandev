@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler.server.services;
+package gov.nasa.ammos.plandev.scheduler.server.services;
 
 public interface RevisionData {
   sealed interface MatchResult {

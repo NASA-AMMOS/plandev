@@ -1,7 +1,6 @@
-package gov.nasa.jpl.aerie.banananation.activities;
+package gov.nasa.ammos.plandev.banananation.activities;
 
-import gov.nasa.jpl.aerie.merlin.framework.annotations.AutoValueMapper;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.AutoValueMapper;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

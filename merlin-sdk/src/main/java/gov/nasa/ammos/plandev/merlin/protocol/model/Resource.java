@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.merlin.protocol.model;
+package gov.nasa.ammos.plandev.merlin.protocol.model;
 
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Querier;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Querier;
 
 public interface Resource<Dynamics> {
   String getType();

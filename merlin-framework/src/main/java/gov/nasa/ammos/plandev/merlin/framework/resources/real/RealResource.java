@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.merlin.framework.resources.real;
+package gov.nasa.ammos.plandev.merlin.framework.resources.real;
 
-import gov.nasa.jpl.aerie.merlin.framework.Condition;
-import gov.nasa.jpl.aerie.merlin.framework.Resource;
-import gov.nasa.jpl.aerie.merlin.protocol.types.RealDynamics;
+import gov.nasa.ammos.plandev.merlin.framework.Condition;
+import gov.nasa.ammos.plandev.merlin.framework.Resource;
+import gov.nasa.ammos.plandev.merlin.protocol.types.RealDynamics;
 
 import java.util.Objects;
 

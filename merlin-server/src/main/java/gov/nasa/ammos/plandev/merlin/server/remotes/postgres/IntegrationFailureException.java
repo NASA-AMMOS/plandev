@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
 public abstract /*sealed*/ class IntegrationFailureException extends RuntimeException {
   public IntegrationFailureException(final String message) {

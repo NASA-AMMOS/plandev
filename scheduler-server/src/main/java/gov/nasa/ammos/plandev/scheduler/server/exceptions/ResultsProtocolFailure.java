@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler.server.exceptions;
+package gov.nasa.ammos.plandev.scheduler.server.exceptions;
 
 /**
  * error whose getMessage() should be reported to a ResultsProtocol.WriterRole.failWith()

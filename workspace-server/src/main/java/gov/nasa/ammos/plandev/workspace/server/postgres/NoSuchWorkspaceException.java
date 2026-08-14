@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.workspace.server.postgres;
+package gov.nasa.ammos.plandev.workspace.server.postgres;
 
 public class NoSuchWorkspaceException extends Exception {
   private final int workspaceId;

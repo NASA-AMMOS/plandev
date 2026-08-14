@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.banananation.activities;
+package gov.nasa.ammos.plandev.banananation.activities;
 
-import gov.nasa.jpl.aerie.contrib.metadata.Unit;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.Export.Parameter;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.metadata.Unit;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.ActivityType;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.Export.Parameter;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 import java.util.List;
 import java.util.Map;

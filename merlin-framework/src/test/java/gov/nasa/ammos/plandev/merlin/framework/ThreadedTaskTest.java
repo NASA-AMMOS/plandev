@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.merlin.framework;
+package gov.nasa.ammos.plandev.merlin.framework;
 
-import gov.nasa.jpl.aerie.merlin.protocol.driver.CellId;
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Scheduler;
-import gov.nasa.jpl.aerie.merlin.protocol.driver.Topic;
-import gov.nasa.jpl.aerie.merlin.protocol.model.TaskFactory;
-import gov.nasa.jpl.aerie.merlin.protocol.types.InSpan;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.CellId;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Scheduler;
+import gov.nasa.ammos.plandev.merlin.protocol.driver.Topic;
+import gov.nasa.ammos.plandev.merlin.protocol.model.TaskFactory;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InSpan;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

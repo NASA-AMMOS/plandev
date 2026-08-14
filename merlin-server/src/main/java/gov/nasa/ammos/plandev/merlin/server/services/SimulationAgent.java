@@ -1,16 +1,16 @@
-package gov.nasa.jpl.aerie.merlin.server.services;
+package gov.nasa.ammos.plandev.merlin.server.services;
 
-import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationException;
-import gov.nasa.jpl.aerie.merlin.driver.SimulationResults;
-import gov.nasa.jpl.aerie.merlin.driver.resources.SimulationResourceManager;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.server.ResultsProtocol;
-import gov.nasa.jpl.aerie.merlin.server.exceptions.MerlinFormattedError;
-import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
-import gov.nasa.jpl.aerie.merlin.server.http.ResponseSerializers;
-import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
-import gov.nasa.jpl.aerie.types.Plan;
+import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationException;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationResults;
+import gov.nasa.ammos.plandev.merlin.driver.resources.SimulationResourceManager;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.server.ResultsProtocol;
+import gov.nasa.ammos.plandev.merlin.server.exceptions.MerlinFormattedError;
+import gov.nasa.ammos.plandev.merlin.server.exceptions.NoSuchPlanException;
+import gov.nasa.ammos.plandev.merlin.server.http.ResponseSerializers;
+import gov.nasa.ammos.plandev.merlin.server.models.PlanId;
+import gov.nasa.ammos.plandev.types.Plan;
 
 import javax.json.Json;
 import java.util.Map;

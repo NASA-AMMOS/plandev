@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.foomissionmodel;
+package gov.nasa.ammos.plandev.foomissionmodel;
 
-import gov.nasa.jpl.aerie.foomissionmodel.generated.ConfigurationMapper;
-import gov.nasa.jpl.aerie.merlin.driver.json.JsonEncoding;
-import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
+import gov.nasa.ammos.plandev.foomissionmodel.generated.ConfigurationMapper;
+import gov.nasa.ammos.plandev.merlin.driver.json.JsonEncoding;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException;
 import org.junit.jupiter.api.Test;
 
 import javax.json.Json;

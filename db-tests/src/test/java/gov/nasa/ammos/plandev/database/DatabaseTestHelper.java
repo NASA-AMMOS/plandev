@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.database;
+package gov.nasa.ammos.plandev.database;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;

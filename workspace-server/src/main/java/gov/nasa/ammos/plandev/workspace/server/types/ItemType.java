@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.workspace.server.types;
+package gov.nasa.ammos.plandev.workspace.server.types;
 
 public enum ItemType {
   file, directory;

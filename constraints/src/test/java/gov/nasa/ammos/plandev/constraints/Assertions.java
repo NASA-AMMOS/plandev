@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.constraints;
+package gov.nasa.ammos.plandev.constraints;
 
-import gov.nasa.jpl.aerie.constraints.model.DiscreteProfile;
-import gov.nasa.jpl.aerie.constraints.model.LinearProfile;
-import gov.nasa.jpl.aerie.constraints.model.Violation;
-import gov.nasa.jpl.aerie.constraints.time.Windows;
-import gov.nasa.jpl.aerie.constraints.tree.Expression;
+import gov.nasa.ammos.plandev.constraints.model.DiscreteProfile;
+import gov.nasa.ammos.plandev.constraints.model.LinearProfile;
+import gov.nasa.ammos.plandev.constraints.model.Violation;
+import gov.nasa.ammos.plandev.constraints.time.Windows;
+import gov.nasa.ammos.plandev.constraints.tree.Expression;
 
 import java.util.Iterator;
 import java.util.Objects;

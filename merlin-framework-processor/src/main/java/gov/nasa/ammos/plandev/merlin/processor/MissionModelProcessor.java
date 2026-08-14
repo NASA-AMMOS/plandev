@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.merlin.processor;
+package gov.nasa.ammos.plandev.merlin.processor;
 
-import gov.nasa.jpl.aerie.merlin.framework.annotations.ActivityType;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.AutoValueMapper;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.MissionModel;
-import gov.nasa.jpl.aerie.merlin.processor.generator.MissionModelGenerator;
-import gov.nasa.jpl.aerie.merlin.processor.metamodel.MissionModelRecord;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.ActivityType;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.AutoValueMapper;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.MissionModel;
+import gov.nasa.ammos.plandev.merlin.processor.generator.MissionModelGenerator;
+import gov.nasa.ammos.plandev.merlin.processor.metamodel.MissionModelRecord;
 
 import javax.annotation.processing.Completion;
 import javax.annotation.processing.Filer;
@@ -153,7 +153,7 @@ public final class MissionModelProcessor implements Processor {
              + "\n"
              + Arrays
                  .stream(trace)
-                 .filter(x -> x.getClassName().startsWith("gov.nasa.jpl.aerie.merlin."))
+                 .filter(x -> x.getClassName().startsWith("gov.nasa.ammos.plandev.merlin."))
                  .map(Object::toString)
                  .collect(Collectors.joining("\n"))),
             ex.element,
@@ -167,7 +167,7 @@ public final class MissionModelProcessor implements Processor {
              + "\n"
              + Arrays
                  .stream(trace)
-                 .filter(x -> x.getClassName().startsWith("gov.nasa.jpl.aerie.merlin."))
+                 .filter(x -> x.getClassName().startsWith("gov.nasa.ammos.plandev.merlin."))
                  .map(Object::toString)
                  .collect(Collectors.joining("\n"))));
       }

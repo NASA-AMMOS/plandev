@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler.worker.postgres;
+package gov.nasa.ammos.plandev.scheduler.worker.postgres;
 
 public record PostgresSchedulingRequestNotificationPayload(
     long specificationRevision,

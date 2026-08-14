@@ -1,14 +1,14 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.merlin.protocol.model.InputType.Parameter;
-import gov.nasa.jpl.aerie.merlin.protocol.model.Resource;
-import gov.nasa.jpl.aerie.merlin.server.models.ActivityDirectiveForValidation;
-import gov.nasa.jpl.aerie.merlin.server.models.ActivityType;
-import gov.nasa.jpl.aerie.merlin.server.models.MissionModelJar;
-import gov.nasa.jpl.aerie.merlin.server.remotes.MissionModelRepository;
-import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService;
-import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService.NoSuchMissionModelException;
-import gov.nasa.jpl.aerie.types.MissionModelId;
+import gov.nasa.ammos.plandev.merlin.protocol.model.InputType.Parameter;
+import gov.nasa.ammos.plandev.merlin.protocol.model.Resource;
+import gov.nasa.ammos.plandev.merlin.server.models.ActivityDirectiveForValidation;
+import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
+import gov.nasa.ammos.plandev.merlin.server.models.MissionModelJar;
+import gov.nasa.ammos.plandev.merlin.server.remotes.MissionModelRepository;
+import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService;
+import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService.NoSuchMissionModelException;
+import gov.nasa.ammos.plandev.types.MissionModelId;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.sql.DataSource;

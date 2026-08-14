@@ -1,28 +1,28 @@
-package gov.nasa.jpl.aerie.scheduler;
+package gov.nasa.ammos.plandev.scheduler;
 
-import gov.nasa.jpl.aerie.constraints.time.Windows;
-import gov.nasa.jpl.aerie.constraints.tree.SpansFromWindows;
-import gov.nasa.jpl.aerie.constraints.tree.WindowsWrapperExpression;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.scheduler.constraints.activities.ActivityExpression;
-import gov.nasa.jpl.aerie.scheduler.constraints.timeexpressions.TimeAnchor;
-import gov.nasa.jpl.aerie.scheduler.constraints.timeexpressions.TimeExpressionRelative;
-import gov.nasa.jpl.aerie.scheduler.constraints.timeexpressions.TimeExpressionRelativeSimple;
-import gov.nasa.jpl.aerie.scheduler.goals.CoexistenceGoal;
-import gov.nasa.jpl.aerie.scheduler.goals.RecurrenceGoal;
-import gov.nasa.jpl.aerie.scheduler.model.SchedulingActivity;
-import gov.nasa.jpl.aerie.scheduler.model.Plan;
-import gov.nasa.jpl.aerie.scheduler.model.PlanInMemory;
-import gov.nasa.jpl.aerie.scheduler.model.PlanningHorizon;
-import gov.nasa.jpl.aerie.scheduler.model.Problem;
-import gov.nasa.jpl.aerie.scheduler.solver.PrioritySolver;
+import gov.nasa.ammos.plandev.constraints.time.Windows;
+import gov.nasa.ammos.plandev.constraints.tree.SpansFromWindows;
+import gov.nasa.ammos.plandev.constraints.tree.WindowsWrapperExpression;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.scheduler.constraints.activities.ActivityExpression;
+import gov.nasa.ammos.plandev.scheduler.constraints.timeexpressions.TimeAnchor;
+import gov.nasa.ammos.plandev.scheduler.constraints.timeexpressions.TimeExpressionRelative;
+import gov.nasa.ammos.plandev.scheduler.constraints.timeexpressions.TimeExpressionRelativeSimple;
+import gov.nasa.ammos.plandev.scheduler.goals.CoexistenceGoal;
+import gov.nasa.ammos.plandev.scheduler.goals.RecurrenceGoal;
+import gov.nasa.ammos.plandev.scheduler.model.SchedulingActivity;
+import gov.nasa.ammos.plandev.scheduler.model.Plan;
+import gov.nasa.ammos.plandev.scheduler.model.PlanInMemory;
+import gov.nasa.ammos.plandev.scheduler.model.PlanningHorizon;
+import gov.nasa.ammos.plandev.scheduler.model.Problem;
+import gov.nasa.ammos.plandev.scheduler.solver.PrioritySolver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static gov.nasa.jpl.aerie.scheduler.SimulationUtility.buildProblemFromFoo;
+import static gov.nasa.ammos.plandev.scheduler.SimulationUtility.buildProblemFromFoo;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class UncontrollableDurationTest {

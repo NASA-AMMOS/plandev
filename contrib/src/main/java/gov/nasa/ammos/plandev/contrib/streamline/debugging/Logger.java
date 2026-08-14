@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.contrib.streamline.debugging;
+package gov.nasa.ammos.plandev.contrib.streamline.debugging;
 
-import gov.nasa.jpl.aerie.merlin.framework.Registrar;
+import gov.nasa.ammos.plandev.merlin.framework.Registrar;
 
 import java.util.Arrays;
 import java.util.Map;

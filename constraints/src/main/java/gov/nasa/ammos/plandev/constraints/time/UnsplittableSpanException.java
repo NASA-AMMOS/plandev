@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.constraints.time;
+package gov.nasa.ammos.plandev.constraints.time;
 
 public final class UnsplittableSpanException extends RuntimeException {
   public UnsplittableSpanException(final String message) {

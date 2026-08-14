@@ -1,15 +1,15 @@
-package gov.nasa.jpl.aerie.merlin.processor.generator;
+package gov.nasa.ammos.plandev.merlin.processor.generator;
 
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
-import gov.nasa.jpl.aerie.merlin.framework.annotations.Export;
-import gov.nasa.jpl.aerie.merlin.processor.TypePattern;
-import gov.nasa.jpl.aerie.merlin.processor.metamodel.InputTypeRecord;
-import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
-import gov.nasa.jpl.aerie.merlin.protocol.types.UnconstructableArgumentException;
+import gov.nasa.ammos.plandev.merlin.framework.annotations.Export;
+import gov.nasa.ammos.plandev.merlin.processor.TypePattern;
+import gov.nasa.ammos.plandev.merlin.processor.metamodel.InputTypeRecord;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException;
+import gov.nasa.ammos.plandev.merlin.protocol.types.UnconstructableArgumentException;
 
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
             ParameterizedTypeName.get(
                 java.util.Map.class,
                 String.class,
-                gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue.class),
+                gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue.class),
             "arguments",
             Modifier.FINAL);
 

@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.scheduler.server.exceptions;
+package gov.nasa.ammos.plandev.scheduler.server.exceptions;
 
-import gov.nasa.jpl.aerie.scheduler.server.models.PlanId;
+import gov.nasa.ammos.plandev.scheduler.server.models.PlanId;
 
 public class NoSuchPlanException extends Exception {
   private final PlanId id;

@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.scheduler.server.remotes.postgres;
+package gov.nasa.ammos.plandev.scheduler.server.remotes.postgres;
 
-import gov.nasa.jpl.aerie.merlin.driver.json.ValueSchemaJsonParser;
-import gov.nasa.jpl.aerie.merlin.protocol.types.ValueSchema;
-import gov.nasa.jpl.aerie.scheduler.model.GoalId;
+import gov.nasa.ammos.plandev.merlin.driver.json.ValueSchemaJsonParser;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.scheduler.model.GoalId;
 import org.intellij.lang.annotations.Language;
 
 import java.sql.Connection;

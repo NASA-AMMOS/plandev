@@ -1,14 +1,14 @@
-package gov.nasa.jpl.aerie.merlin.server.exceptions;
+package gov.nasa.ammos.plandev.merlin.server.exceptions;
 
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
-import gov.nasa.jpl.aerie.constraints.InputMismatchException;
-import gov.nasa.jpl.aerie.json.FormattedError;
-import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader.MissionModelLoadException;
-import gov.nasa.jpl.aerie.merlin.server.http.InvalidJsonEntityException;
-import gov.nasa.jpl.aerie.merlin.server.models.ProcedureLoader;
-import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.DatabaseException;
-import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService.NoSuchMissionModelException;
-import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService.NoSuchActivityTypeException;
+import gov.nasa.ammos.plandev.constraints.InputMismatchException;
+import gov.nasa.ammos.plandev.json.FormattedError;
+import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader.MissionModelLoadException;
+import gov.nasa.ammos.plandev.merlin.server.http.InvalidJsonEntityException;
+import gov.nasa.ammos.plandev.merlin.server.models.ProcedureLoader;
+import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.DatabaseException;
+import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService.NoSuchMissionModelException;
+import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService.NoSuchActivityTypeException;
 
 import javax.json.Json;
 

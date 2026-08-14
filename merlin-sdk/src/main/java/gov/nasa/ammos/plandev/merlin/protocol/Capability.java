@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.merlin.protocol;
+package gov.nasa.ammos.plandev.merlin.protocol;
 
 /**
  * A Capability has object identity. Instances of a Capability type can be distinguished from other instances

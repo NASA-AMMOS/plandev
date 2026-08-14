@@ -1,14 +1,14 @@
-package gov.nasa.jpl.aerie.banananation;
+package gov.nasa.ammos.plandev.banananation;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
-import gov.nasa.jpl.aerie.types.SerializedActivity;
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.types.SerializedActivity;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.Map;
 
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.MILLISECONDS;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.SECONDS;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.duration;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.MILLISECONDS;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.SECONDS;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.duration;
 
 public final class Main {
   public static void main(final String[] args) {

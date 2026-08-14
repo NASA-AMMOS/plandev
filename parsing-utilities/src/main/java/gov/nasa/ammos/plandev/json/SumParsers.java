@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.json;
+package gov.nasa.ammos.plandev.json;
 
 import javax.json.Json;
 import javax.json.JsonObject;
@@ -6,7 +6,7 @@ import javax.json.JsonValue;
 import java.util.List;
 import java.util.Objects;
 
-import static gov.nasa.jpl.aerie.json.BasicParsers.stringP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.stringP;
 
 public final class SumParsers {
   private SumParsers() {}

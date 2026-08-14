@@ -1,6 +1,6 @@
-package gov.nasa.jpl.aerie.orchestration.simulation;
+package gov.nasa.ammos.plandev.orchestration.simulation;
 
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 import java.util.Timer;
 import java.util.TimerTask;

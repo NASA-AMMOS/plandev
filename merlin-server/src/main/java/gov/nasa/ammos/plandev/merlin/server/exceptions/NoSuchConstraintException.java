@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.merlin.server.exceptions;
+package gov.nasa.ammos.plandev.merlin.server.exceptions;
 
 public class NoSuchConstraintException extends Exception {
   public final long id;

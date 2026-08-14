@@ -1,26 +1,26 @@
-package gov.nasa.jpl.aerie.merlin.server.http;
+package gov.nasa.ammos.plandev.merlin.server.http;
 
-import gov.nasa.jpl.aerie.constraints.InputMismatchException;
-import gov.nasa.jpl.aerie.json.FormattedError;
-import gov.nasa.jpl.aerie.merlin.driver.MissionModelLoader.MissionModelLoadException;
-import gov.nasa.jpl.aerie.merlin.server.exceptions.MerlinFormattedError;
-import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchConstraintException;
-import gov.nasa.jpl.aerie.merlin.server.models.ProcedureLoader;
-import gov.nasa.jpl.aerie.merlin.server.remotes.postgres.DatabaseException;
-import gov.nasa.jpl.aerie.permissions.exceptions.PermissionsException;
-import gov.nasa.jpl.aerie.types.SerializedActivity;
-import gov.nasa.jpl.aerie.merlin.protocol.types.InstantiationException;
-import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanDatasetException;
-import gov.nasa.jpl.aerie.merlin.server.exceptions.NoSuchPlanException;
-import gov.nasa.jpl.aerie.merlin.server.exceptions.SimulationDatasetMismatchException;
-import gov.nasa.jpl.aerie.merlin.server.services.ConstraintAction;
-import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
-import gov.nasa.jpl.aerie.merlin.server.services.GenerateConstraintsLibAction;
-import gov.nasa.jpl.aerie.merlin.server.services.GetSimulationResultsAction;
-import gov.nasa.jpl.aerie.merlin.server.services.MissionModelService;
-import gov.nasa.jpl.aerie.merlin.server.services.PlanService;
-import gov.nasa.jpl.aerie.permissions.HasuraAction;
-import gov.nasa.jpl.aerie.permissions.PermissionsService;
+import gov.nasa.ammos.plandev.constraints.InputMismatchException;
+import gov.nasa.ammos.plandev.json.FormattedError;
+import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader.MissionModelLoadException;
+import gov.nasa.ammos.plandev.merlin.server.exceptions.MerlinFormattedError;
+import gov.nasa.ammos.plandev.merlin.server.exceptions.NoSuchConstraintException;
+import gov.nasa.ammos.plandev.merlin.server.models.ProcedureLoader;
+import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.DatabaseException;
+import gov.nasa.ammos.plandev.permissions.exceptions.PermissionsException;
+import gov.nasa.ammos.plandev.types.SerializedActivity;
+import gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException;
+import gov.nasa.ammos.plandev.merlin.server.exceptions.NoSuchPlanDatasetException;
+import gov.nasa.ammos.plandev.merlin.server.exceptions.NoSuchPlanException;
+import gov.nasa.ammos.plandev.merlin.server.exceptions.SimulationDatasetMismatchException;
+import gov.nasa.ammos.plandev.merlin.server.services.ConstraintAction;
+import gov.nasa.ammos.plandev.merlin.server.models.PlanId;
+import gov.nasa.ammos.plandev.merlin.server.services.GenerateConstraintsLibAction;
+import gov.nasa.ammos.plandev.merlin.server.services.GetSimulationResultsAction;
+import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService;
+import gov.nasa.ammos.plandev.merlin.server.services.PlanService;
+import gov.nasa.ammos.plandev.permissions.HasuraAction;
+import gov.nasa.ammos.plandev.permissions.PermissionsService;
 import io.javalin.Javalin;
 import io.javalin.http.Context;
 import io.javalin.http.HttpResponseException;
@@ -38,21 +38,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.constraintArgumentsP;
-import static gov.nasa.jpl.aerie.merlin.server.http.MerlinParsers.parseJson;
+import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.constraintArgumentsP;
+import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.parseJson;
 
-import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraActivityActionP;
-import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraActivityBulkActionP;
-import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraConstraintsCodeAction;
-import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraConstraintsViolationsActionP;
-import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraSimulateActionP;
-import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraUploadExternalDatasetActionP;
-import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraMissionModelActionP;
-import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraMissionModelArgumentsActionP;
-import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraMissionModelEventTriggerP;
-import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraPlanActionP;
-import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraExtendExternalDatasetActionP;
-import static gov.nasa.jpl.aerie.merlin.server.http.HasuraParsers.hasuraNewConstraintRevisionEventTriggerP;
+import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraActivityActionP;
+import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraActivityBulkActionP;
+import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraConstraintsCodeAction;
+import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraConstraintsViolationsActionP;
+import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraSimulateActionP;
+import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraUploadExternalDatasetActionP;
+import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraMissionModelActionP;
+import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraMissionModelArgumentsActionP;
+import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraMissionModelEventTriggerP;
+import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraPlanActionP;
+import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraExtendExternalDatasetActionP;
+import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraNewConstraintRevisionEventTriggerP;
 import static io.javalin.apibuilder.ApiBuilder.before;
 import static io.javalin.apibuilder.ApiBuilder.path;
 import static io.javalin.apibuilder.ApiBuilder.post;
@@ -598,10 +598,10 @@ public final class MerlinBindings implements Plugin {
 
   private void checkPermissions(
       final HasuraAction action,
-      final gov.nasa.jpl.aerie.merlin.server.models.HasuraAction.Session session,
+      final gov.nasa.ammos.plandev.merlin.server.models.HasuraAction.Session session,
       final PlanId planId
   ) throws PermissionsException {
-    final var permissionsPlanId = new gov.nasa.jpl.aerie.permissions.gql.PlanId(planId.id());
+    final var permissionsPlanId = new gov.nasa.ammos.plandev.permissions.gql.PlanId(planId.id());
     permissionsService.check(action, session.hasuraRole(), session.hasuraUserId(), permissionsPlanId);
   }
 

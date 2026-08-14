@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.merlin.processor;
+package gov.nasa.ammos.plandev.merlin.processor;
 
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;

@@ -1,16 +1,16 @@
-package gov.nasa.jpl.aerie.scheduler.constraints;
+package gov.nasa.ammos.plandev.scheduler.constraints;
 
-import gov.nasa.jpl.aerie.constraints.model.EvaluationEnvironment;
-import gov.nasa.jpl.aerie.constraints.model.SimulationResults;
-import gov.nasa.jpl.aerie.constraints.time.Interval;
-import gov.nasa.jpl.aerie.constraints.time.Segment;
-import gov.nasa.jpl.aerie.constraints.time.Windows;
-import gov.nasa.jpl.aerie.constraints.tree.Expression;
-import gov.nasa.jpl.aerie.scheduler.constraints.activities.ActivityExpression;
-import gov.nasa.jpl.aerie.scheduler.constraints.filters.Filters;
-import gov.nasa.jpl.aerie.scheduler.constraints.filters.TimeWindowsFilter;
-import gov.nasa.jpl.aerie.scheduler.constraints.transformers.TimeWindowsTransformer;
-import gov.nasa.jpl.aerie.scheduler.model.Plan;
+import gov.nasa.ammos.plandev.constraints.model.EvaluationEnvironment;
+import gov.nasa.ammos.plandev.constraints.model.SimulationResults;
+import gov.nasa.ammos.plandev.constraints.time.Interval;
+import gov.nasa.ammos.plandev.constraints.time.Segment;
+import gov.nasa.ammos.plandev.constraints.time.Windows;
+import gov.nasa.ammos.plandev.constraints.tree.Expression;
+import gov.nasa.ammos.plandev.scheduler.constraints.activities.ActivityExpression;
+import gov.nasa.ammos.plandev.scheduler.constraints.filters.Filters;
+import gov.nasa.ammos.plandev.scheduler.constraints.filters.TimeWindowsFilter;
+import gov.nasa.ammos.plandev.scheduler.constraints.transformers.TimeWindowsTransformer;
+import gov.nasa.ammos.plandev.scheduler.model.Plan;
 
 import java.util.ArrayList;
 import java.util.List;

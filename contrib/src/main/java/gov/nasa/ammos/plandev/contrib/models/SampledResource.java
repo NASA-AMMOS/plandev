@@ -1,13 +1,13 @@
-package gov.nasa.jpl.aerie.contrib.models;
+package gov.nasa.ammos.plandev.contrib.models;
 
-import gov.nasa.jpl.aerie.merlin.framework.resources.discrete.DiscreteResource;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.framework.resources.discrete.DiscreteResource;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 import java.util.Objects;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
-import static gov.nasa.jpl.aerie.merlin.framework.ModelActions.*;
+import static gov.nasa.ammos.plandev.merlin.framework.ModelActions.*;
 
 /**
  * Simple resource that samples arbitrarily many existing resources/values at a specified period (default period is once

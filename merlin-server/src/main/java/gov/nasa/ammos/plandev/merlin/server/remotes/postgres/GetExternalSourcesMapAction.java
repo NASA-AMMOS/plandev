@@ -1,8 +1,8 @@
-package gov.nasa.jpl.aerie.merlin.server.remotes.postgres;
+package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
-import gov.nasa.ammos.aerie.procedural.timeline.payloads.ExternalSource;
-import gov.nasa.jpl.aerie.merlin.server.http.InvalidJsonEntityException;
-import gov.nasa.jpl.aerie.merlin.server.models.PlanId;
+import gov.nasa.ammos.plandev.procedural.timeline.payloads.ExternalSource;
+import gov.nasa.ammos.plandev.merlin.server.http.InvalidJsonEntityException;
+import gov.nasa.ammos.plandev.merlin.server.models.PlanId;
 import org.intellij.lang.annotations.Language;
 
 import java.sql.Connection;
@@ -12,8 +12,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.eventAttributesP;
-import static gov.nasa.jpl.aerie.merlin.server.remotes.postgres.PostgresParsers.getJsonColumn;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.eventAttributesP;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.getJsonColumn;
 
 /*package-local*/ final class GetExternalSourcesMapAction implements AutoCloseable {
   private final @Language("SQL") String sql = """

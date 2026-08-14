@@ -1,22 +1,22 @@
-package gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box;
+package gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.Dynamics;
-import gov.nasa.jpl.aerie.contrib.streamline.core.Resource;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.SecantApproximation.ErrorEstimates;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.monads.UnstructuredResourceApplicative;
-import gov.nasa.jpl.aerie.contrib.streamline.modeling.linear.Linear;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Dynamics;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Resource;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.SecantApproximation.ErrorEstimates;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.monads.UnstructuredResourceApplicative;
+import gov.nasa.ammos.plandev.contrib.streamline.modeling.linear.Linear;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 import java.util.function.Function;
 
-import static gov.nasa.jpl.aerie.contrib.streamline.core.MutableResource.resource;
-import static gov.nasa.jpl.aerie.contrib.streamline.core.monads.ResourceMonad.map;
-import static gov.nasa.jpl.aerie.contrib.streamline.debugging.Naming.name;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.Approximation.approximate;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.Approximation.relative;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.IntervalFunctions.byBoundingError;
-import static gov.nasa.jpl.aerie.contrib.streamline.modeling.black_box.SecantApproximation.secantApproximation;
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.*;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.MutableResource.resource;
+import static gov.nasa.ammos.plandev.contrib.streamline.core.monads.ResourceMonad.map;
+import static gov.nasa.ammos.plandev.contrib.streamline.debugging.Naming.name;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.Approximation.approximate;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.Approximation.relative;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.IntervalFunctions.byBoundingError;
+import static gov.nasa.ammos.plandev.contrib.streamline.modeling.black_box.SecantApproximation.secantApproximation;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.*;
 
 public final class UnstructuredResources {
   private UnstructuredResources() {}

@@ -1,10 +1,8 @@
-package gov.nasa.jpl.aerie.scheduler.goals;
+package gov.nasa.ammos.plandev.scheduler.goals;
 
-import gov.nasa.jpl.aerie.constraints.time.Spans;
-import gov.nasa.jpl.aerie.constraints.tree.Expression;
-import gov.nasa.jpl.aerie.scheduler.constraints.activities.RelativeActivityTemplate;
-
-import java.util.Map;
+import gov.nasa.ammos.plandev.constraints.time.Spans;
+import gov.nasa.ammos.plandev.constraints.tree.Expression;
+import gov.nasa.ammos.plandev.scheduler.constraints.activities.RelativeActivityTemplate;
 
 /**
  * Describes the desired relation between activities and a set of Spans computed from simulation results.

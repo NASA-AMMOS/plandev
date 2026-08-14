@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.scheduler.server.models;
+package gov.nasa.ammos.plandev.scheduler.server.models;
 
 import java.nio.file.Path;
 

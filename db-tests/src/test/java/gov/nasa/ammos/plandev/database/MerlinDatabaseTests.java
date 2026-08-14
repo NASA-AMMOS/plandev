@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.database;
+package gov.nasa.ammos.plandev.database;
 
-import gov.nasa.jpl.aerie.database.types.PlanDatasetRecord;
-import gov.nasa.jpl.aerie.database.types.SimulationDatasetRecord;
+import gov.nasa.ammos.plandev.database.types.PlanDatasetRecord;
+import gov.nasa.ammos.plandev.database.types.SimulationDatasetRecord;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;

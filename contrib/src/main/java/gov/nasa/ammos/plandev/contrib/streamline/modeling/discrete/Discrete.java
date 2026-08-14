@@ -1,7 +1,7 @@
-package gov.nasa.jpl.aerie.contrib.streamline.modeling.discrete;
+package gov.nasa.ammos.plandev.contrib.streamline.modeling.discrete;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.Dynamics;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Dynamics;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
 public record Discrete<V>(V extract) implements Dynamics<V, Discrete<V>> {
   @Override

@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.contrib.streamline.modeling.clocks;
+package gov.nasa.ammos.plandev.contrib.streamline.modeling.clocks;
 
-import gov.nasa.jpl.aerie.contrib.streamline.core.Dynamics;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.contrib.streamline.core.Dynamics;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 
-import static gov.nasa.jpl.aerie.merlin.protocol.types.Duration.ZERO;
+import static gov.nasa.ammos.plandev.merlin.protocol.types.Duration.ZERO;
 
 public record VariableClock(Duration extract, int multiplier) implements Dynamics<Duration, VariableClock> {
   @Override

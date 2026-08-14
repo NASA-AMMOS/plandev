@@ -389,6 +389,4 @@ const appServer = app.listen(PORT, () => {
   }
 });
 
-app.once('close', () => healthCheckApp.close());
-
 appServer.once('close', () => healthCheckServer.close());

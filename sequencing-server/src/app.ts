@@ -49,7 +49,7 @@ healthCheckApp.get('/health', (_: Request, res: Response) => {
   res.status(200).send();
 });
 
-healthCheckApp.listen(8080);
+const healthCheckServer = healthCheckApp.listen(8080);
 
 logger.info(`Starting sequencing-server app on Node v${process.versions.node}...`);
 
@@ -353,7 +353,7 @@ app.use((err: any, _: Request, res: Response, next: NextFunction) => {
   return next();
 });
 
-app.listen(PORT, () => {
+const appServer = app.listen(PORT, () => {
   logger.info(`connected to port ${PORT}`);
   logger.info(`Worker pool initialized:
               Total workers started: ${piscina.threads.length},
@@ -390,3 +390,5 @@ app.listen(PORT, () => {
 });
 
 app.once('close', () => healthCheckApp.close());
+
+appServer.once('close', () => healthCheckServer.close());

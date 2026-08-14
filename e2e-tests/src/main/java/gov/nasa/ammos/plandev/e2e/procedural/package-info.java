@@ -1,5 +1,5 @@
 @WithMappers(BasicValueMappers.class)
-package gov.nasa.jpl.aerie.e2e.procedural;
+package gov.nasa.ammos.plandev.e2e.procedural;
 
-import gov.nasa.jpl.aerie.contrib.serialization.rulesets.BasicValueMappers;
-import gov.nasa.ammos.aerie.procedural.scheduling.annotations.WithMappers;
+import gov.nasa.ammos.plandev.contrib.serialization.rulesets.BasicValueMappers;
+import gov.nasa.ammos.plandev.procedural.scheduling.annotations.WithMappers;

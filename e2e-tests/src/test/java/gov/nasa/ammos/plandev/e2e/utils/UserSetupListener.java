@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e.utils;
+package gov.nasa.ammos.plandev.e2e.utils;
 
 import com.microsoft.playwright.Playwright;
 import org.jspecify.annotations.NonNull;
@@ -14,14 +14,14 @@ import org.junit.platform.launcher.TestExecutionListener;
 import org.junit.platform.launcher.TestIdentifier;
 import org.junit.platform.launcher.TestPlan;
 
-import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_admin;
-import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_nonOwner;
-import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_owner;
-import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_viewer;
-import static gov.nasa.jpl.aerie.e2e.routes.RoutesTestSuite.routes_admin;
-import static gov.nasa.jpl.aerie.e2e.routes.RoutesTestSuite.routes_nonOwner;
-import static gov.nasa.jpl.aerie.e2e.routes.RoutesTestSuite.routes_owner;
-import static gov.nasa.jpl.aerie.e2e.routes.RoutesTestSuite.routes_viewer;
+import static gov.nasa.ammos.plandev.e2e.E2ETestSuite.test_admin;
+import static gov.nasa.ammos.plandev.e2e.E2ETestSuite.test_nonOwner;
+import static gov.nasa.ammos.plandev.e2e.E2ETestSuite.test_owner;
+import static gov.nasa.ammos.plandev.e2e.E2ETestSuite.test_viewer;
+import static gov.nasa.ammos.plandev.e2e.routes.RoutesTestSuite.routes_admin;
+import static gov.nasa.ammos.plandev.e2e.routes.RoutesTestSuite.routes_nonOwner;
+import static gov.nasa.ammos.plandev.e2e.routes.RoutesTestSuite.routes_owner;
+import static gov.nasa.ammos.plandev.e2e.routes.RoutesTestSuite.routes_viewer;
 
 /**
  * A class that creates all the users shared across E2E Tests prior to any test,

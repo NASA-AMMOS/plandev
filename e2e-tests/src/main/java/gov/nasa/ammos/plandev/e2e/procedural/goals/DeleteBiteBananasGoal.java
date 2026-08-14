@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.e2e.procedural.goals;
+package gov.nasa.ammos.plandev.e2e.procedural.goals;
 
-import gov.nasa.ammos.aerie.procedural.scheduling.Goal;
-import gov.nasa.ammos.aerie.procedural.scheduling.annotations.SchedulingProcedure;
-import gov.nasa.ammos.aerie.procedural.scheduling.plan.DeletedAnchorStrategy;
-import gov.nasa.ammos.aerie.procedural.scheduling.plan.EditablePlan;
+import gov.nasa.ammos.plandev.procedural.scheduling.Goal;
+import gov.nasa.ammos.plandev.procedural.scheduling.annotations.SchedulingProcedure;
+import gov.nasa.ammos.plandev.procedural.scheduling.plan.DeletedAnchorStrategy;
+import gov.nasa.ammos.plandev.procedural.scheduling.plan.EditablePlan;
 import org.jetbrains.annotations.NotNull;
 
 /**

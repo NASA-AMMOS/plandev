@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_admin;
+import static gov.nasa.ammos.plandev.e2e.E2ETestSuite.test_admin;
 
 public class WorkspaceRequests implements AutoCloseable {
   private final APIRequestContext request;

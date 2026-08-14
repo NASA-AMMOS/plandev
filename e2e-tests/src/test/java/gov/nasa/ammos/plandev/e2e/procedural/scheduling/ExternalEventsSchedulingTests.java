@@ -1,10 +1,10 @@
-package gov.nasa.jpl.aerie.e2e.procedural.scheduling;
+package gov.nasa.ammos.plandev.e2e.procedural.scheduling;
 
-import gov.nasa.jpl.aerie.e2e.types.GoalInvocationId;
-import gov.nasa.jpl.aerie.e2e.types.Plan;
-import gov.nasa.jpl.aerie.e2e.utils.ExternalEventUtils;
-import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
-import gov.nasa.jpl.aerie.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.e2e.types.GoalInvocationId;
+import gov.nasa.ammos.plandev.e2e.types.Plan;
+import gov.nasa.ammos.plandev.e2e.utils.ExternalEventUtils;
+import gov.nasa.ammos.plandev.e2e.utils.GatewayRequests;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;

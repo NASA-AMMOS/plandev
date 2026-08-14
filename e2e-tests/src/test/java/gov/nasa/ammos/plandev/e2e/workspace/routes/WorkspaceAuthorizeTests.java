@@ -1,12 +1,12 @@
-package gov.nasa.jpl.aerie.e2e.workspace.routes;
+package gov.nasa.ammos.plandev.e2e.workspace.routes;
 
 import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.options.FilePayload;
 import com.microsoft.playwright.options.FormData;
 import com.microsoft.playwright.options.RequestOptions;
-import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
-import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
-import gov.nasa.jpl.aerie.e2e.utils.WorkspaceRequests;
+import gov.nasa.ammos.plandev.e2e.utils.GatewayRequests;
+import gov.nasa.ammos.plandev.e2e.utils.HasuraRequests;
+import gov.nasa.ammos.plandev.e2e.utils.WorkspaceRequests;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
@@ -22,9 +22,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_admin;
-import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_viewer;
-import static gov.nasa.jpl.aerie.e2e.utils.RequestBodyHelper.getBody;
+import static gov.nasa.ammos.plandev.e2e.E2ETestSuite.test_admin;
+import static gov.nasa.ammos.plandev.e2e.E2ETestSuite.test_viewer;
+import static gov.nasa.ammos.plandev.e2e.utils.RequestBodyHelper.getBody;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Named.named;
 

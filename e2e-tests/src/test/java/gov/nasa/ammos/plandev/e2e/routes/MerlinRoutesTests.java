@@ -1,15 +1,15 @@
-package gov.nasa.jpl.aerie.e2e.routes;
+package gov.nasa.ammos.plandev.e2e.routes;
 
 import com.microsoft.playwright.APIRequest;
 import com.microsoft.playwright.APIRequestContext;
 import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.options.RequestOptions;
-import gov.nasa.jpl.aerie.e2e.types.ActionPermissionsSet;
-import gov.nasa.jpl.aerie.e2e.types.ExternalDataset;
-import gov.nasa.jpl.aerie.e2e.types.ValueSchema;
-import gov.nasa.jpl.aerie.e2e.utils.BaseURL;
-import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
-import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
+import gov.nasa.ammos.plandev.e2e.types.ActionPermissionsSet;
+import gov.nasa.ammos.plandev.e2e.types.ExternalDataset;
+import gov.nasa.ammos.plandev.e2e.types.ValueSchema;
+import gov.nasa.ammos.plandev.e2e.utils.BaseURL;
+import gov.nasa.ammos.plandev.e2e.utils.GatewayRequests;
+import gov.nasa.ammos.plandev.e2e.utils.HasuraRequests;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -29,10 +29,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static gov.nasa.jpl.aerie.e2e.routes.RoutesTestSuite.routes_admin;
-import static gov.nasa.jpl.aerie.e2e.routes.RoutesTestSuite.routes_nonOwner;
-import static gov.nasa.jpl.aerie.e2e.utils.RequestBodyHelper.getArrayBody;
-import static gov.nasa.jpl.aerie.e2e.utils.RequestBodyHelper.getBody;
+import static gov.nasa.ammos.plandev.e2e.routes.RoutesTestSuite.routes_admin;
+import static gov.nasa.ammos.plandev.e2e.routes.RoutesTestSuite.routes_nonOwner;
+import static gov.nasa.ammos.plandev.e2e.utils.RequestBodyHelper.getArrayBody;
+import static gov.nasa.ammos.plandev.e2e.utils.RequestBodyHelper.getBody;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;

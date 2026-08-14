@@ -1,12 +1,12 @@
-package gov.nasa.jpl.aerie.e2e;
+package gov.nasa.ammos.plandev.e2e;
 
 import com.microsoft.playwright.Playwright;
-import gov.nasa.jpl.aerie.e2e.types.ActivityType;
-import gov.nasa.jpl.aerie.e2e.types.ActivityType.Parameter;
-import gov.nasa.jpl.aerie.e2e.types.ResourceType;
-import gov.nasa.jpl.aerie.e2e.types.ValueSchema;
-import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
-import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
+import gov.nasa.ammos.plandev.e2e.types.ActivityType;
+import gov.nasa.ammos.plandev.e2e.types.ActivityType.Parameter;
+import gov.nasa.ammos.plandev.e2e.types.ResourceType;
+import gov.nasa.ammos.plandev.e2e.types.ValueSchema;
+import gov.nasa.ammos.plandev.e2e.utils.GatewayRequests;
+import gov.nasa.ammos.plandev.e2e.utils.HasuraRequests;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
@@ -19,7 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static gov.nasa.jpl.aerie.e2e.types.ValueSchema.*;
+import static gov.nasa.ammos.plandev.e2e.types.ValueSchema.*;
 import static java.util.Map.entry;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

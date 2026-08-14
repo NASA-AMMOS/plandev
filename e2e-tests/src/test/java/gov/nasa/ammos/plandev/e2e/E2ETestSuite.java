@@ -1,9 +1,9 @@
-package gov.nasa.jpl.aerie.e2e;
+package gov.nasa.ammos.plandev.e2e;
 
 import com.microsoft.playwright.Playwright;
-import gov.nasa.jpl.aerie.e2e.types.User;
-import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
-import gov.nasa.jpl.aerie.e2e.utils.UserSetupListener;
+import gov.nasa.ammos.plandev.e2e.types.User;
+import gov.nasa.ammos.plandev.e2e.utils.HasuraRequests;
+import gov.nasa.ammos.plandev.e2e.utils.UserSetupListener;
 import org.junit.platform.suite.api.BeforeSuite;
 import org.junit.platform.suite.api.ExcludePackages;
 import org.junit.platform.suite.api.SelectPackages;
@@ -18,8 +18,8 @@ import java.io.IOException;
  */
 @Suite
 @SuiteDisplayName("E2E Tests (excluding Routes tests)")
-@SelectPackages({"gov.nasa.jpl.aerie.e2e"})
-@ExcludePackages({"gov.nasa.jpl.aerie.e2e.routes"})
+@SelectPackages({"gov.nasa.ammos.plandev.e2e"})
+@ExcludePackages({"gov.nasa.ammos.plandev.e2e.routes"})
 public class E2ETestSuite {
   // Standard users to share between the tests
   public static final User test_admin = new User(

@@ -16,8 +16,10 @@ import java.io.IOException;
 
 /**
  * Test suite for Routes Test files.
- * These tests MUST use one of the docker-compose files in the e2e-tests directory to compose up the system,
- * as only the health check is exposed in the developer or deployment versions of the compose file.
+ * Routes tests are tests that need to communicate *directly* with the internal "Hasura Action" endpoints.
+ * In the standard developer and deployment docker configurations these endpoints are not exposed outside of the
+ * internal docker network. As a result, these tests MUST use one of the docker-compose files in the e2e-tests directory
+ * to compose up the system, as they're configured to expose that internal server to the host machine.
  */
 @Suite
 @SuiteDisplayName("Route Integration Tests")

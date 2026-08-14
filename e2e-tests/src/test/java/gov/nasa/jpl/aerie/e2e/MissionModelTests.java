@@ -7,17 +7,15 @@ import gov.nasa.jpl.aerie.e2e.types.ResourceType;
 import gov.nasa.jpl.aerie.e2e.types.ValueSchema;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import gov.nasa.jpl.aerie.e2e.utils.HasuraRequests;
-import gov.nasa.jpl.aerie.merlin.protocol.types.SerializedValue;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import javax.json.Json;
-import javax.json.JsonObject;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -27,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("merlin")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class MissionModelTests {
   // Requests

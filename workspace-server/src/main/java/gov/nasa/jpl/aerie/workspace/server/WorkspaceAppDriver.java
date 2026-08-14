@@ -11,7 +11,6 @@ import gov.nasa.jpl.aerie.workspace.server.config.UnexpectedSubtypeError;
 import gov.nasa.jpl.aerie.workspace.server.postgres.WorkspacePostgresRepository;
 import io.javalin.Javalin;
 import io.javalin.config.SizeUnit;
-import org.eclipse.jetty.server.Connector;
 import org.eclipse.jetty.server.LowResourceMonitor;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
@@ -40,16 +39,20 @@ public final class WorkspaceAppDriver {
         permissionsService,
         configuration.hasuraAdminSecret());
     // Configure an HTTP server.
-    //default javalin jetty server has a QueuedThreadPool with maxThreads to 250
+    // Default Javalin Jetty server has a QueuedThreadPool with maxThreads to 250
     final var server = new Server(new QueuedThreadPool(250));
     final var connector = new ServerConnector(server);
-    connector.setPort(configuration.httpPort());
-    //set idle timeout to be equal to the idle timeout of hasura
+    // Set idle timeout to be equal to the idle timeout of Hasura (for consistency with other services)
     connector.setIdleTimeout(180000);
+    connector.setPort(configuration.httpPort());
+
+    // Finish configuring Jetty server
     server.addBean(new LowResourceMonitor(server));
     server.insertHandler(new StatisticsHandler());
-    server.setConnectors(new Connector[]{connector});
-    final var javalin = Javalin.create(config -> {
+    server.addConnector(connector);
+
+    // Create and Configure Javalin instance
+    final var workspaceServer = Javalin.create(config -> {
       // Have Javalin generate Entity Tags automatically for endpoints that respond with a simple JSON object (like listFiles)
       // We have to generate them manually for endpoints that respond with an InputStream (such as getFile) (not supported by Javalin)
       config.http.generateEtags = true;
@@ -67,17 +70,16 @@ public final class WorkspaceAppDriver {
         // Expose ETag so the browser client can read it cross-origin (not exposed by default).
         it.exposeHeader("ETag");
       }));
+
       config.plugins.register(workspaceBindings);
       config.jetty.server(() -> server);
     });
 
     // Start the HTTP server.
-    javalin.start(configuration.httpPort());
+    workspaceServer.start(configuration.httpPort());
 
-    Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-      javalin.stop();
-      connector.close();
-    }));
+    // Shutdown the server when the app exits
+    Runtime.getRuntime().addShutdownHook(new Thread(workspaceServer::close));
   }
 
   private record Stores (JWTService jwt, WorkspaceService workspace) {}

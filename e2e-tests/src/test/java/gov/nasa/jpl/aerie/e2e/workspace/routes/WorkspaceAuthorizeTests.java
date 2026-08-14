@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e.bindings.workspace;
+package gov.nasa.jpl.aerie.e2e.workspace.routes;
 
 import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.options.FilePayload;
@@ -10,6 +10,7 @@ import gov.nasa.jpl.aerie.e2e.utils.WorkspaceRequests;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -21,10 +22,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.stream.Stream;
 
-import static gov.nasa.jpl.aerie.e2e.types.User.admin;
-import static gov.nasa.jpl.aerie.e2e.types.User.nonOwner;
-import static gov.nasa.jpl.aerie.e2e.types.User.owner;
-import static gov.nasa.jpl.aerie.e2e.types.User.viewer;
+import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_admin;
+import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_viewer;
 import static gov.nasa.jpl.aerie.e2e.utils.RequestBodyHelper.getBody;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Named.named;
@@ -36,6 +35,7 @@ import static org.junit.jupiter.api.Named.named;
  * Does not test the case where the Workspace Server doesn't have the HasuraAdminSecret provided,
  * as our test environment has that set.
  */
+@Tag("workspace")
 public class WorkspaceAuthorizeTests {
   // Requests
   private static Playwright playwright;
@@ -47,8 +47,6 @@ public class WorkspaceAuthorizeTests {
   private static int parcelId;
 
   private static String adminToken;
-  private static String ownerToken;
-  private static String nonOwnerToken;
   private static String viewerToken;
 
   // Requests
@@ -64,10 +62,8 @@ public class WorkspaceAuthorizeTests {
 
     // Get valid JWT tokens for the users
     try (final var gateway = new GatewayRequests(playwright)) {
-      adminToken = gateway.login(admin);
-      ownerToken = gateway.login(owner);
-      nonOwnerToken = gateway.login(nonOwner);
-      viewerToken = gateway.login(viewer);
+      adminToken = gateway.login(test_admin);
+      viewerToken = gateway.login(test_viewer);
     }
 
     // Set up parcel and dictionary to use across the tests
@@ -115,7 +111,7 @@ public class WorkspaceAuthorizeTests {
     void invalidSecret() {
       final String fakeSecret = adminSecret.substring(0, 1);
       final var headers = Map.of("x-hasura-role", "user",
-                                 "x-hasura-user-id", "bindings_not_owner",
+                                 "x-hasura-user-id", "test_not_owner",
                                  "x-hasura-admin-secret", fakeSecret);
       final var response = wsServer.listWorkspaceContents(headers, workspaceId);
       assertEquals(401, response.status());
@@ -302,7 +298,7 @@ public class WorkspaceAuthorizeTests {
       final String fakeSecret = System.getenv("HASURA_GRAPHQL_ADMIN_SECRET").substring(0, 1);
       final var headers = Map.of("Authorization", "Bearer " +viewerToken,
                                  "x-hasura-admin-secret", fakeSecret,
-                                 "x-hasura-user-id", "bindings_viewer");
+                                 "x-hasura-user-id", "test_viewer");
       final var response = wsServer.listWorkspaceContents(headers, workspaceId);
       assertEquals(401, response.status());
       final var body = getBody(response);

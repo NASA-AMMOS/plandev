@@ -20,7 +20,7 @@ import gov.nasa.jpl.aerie.scheduler.server.services.SchedulerService;
 import gov.nasa.jpl.aerie.scheduler.server.services.SpecificationService;
 import gov.nasa.jpl.aerie.scheduler.server.services.UnexpectedSubtypeError;
 import io.javalin.Javalin;
-import org.eclipse.jetty.server.Connector;
+import io.javalin.plugin.bundled.CorsPluginConfig;
 import org.eclipse.jetty.server.LowResourceMonitor;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
@@ -46,12 +46,12 @@ public final class SchedulerAppDriver {
    */
   public static void main(final String[] args) {
     //load the service configuration options
-    final var config = loadConfiguration();
+    final var appConfig = loadConfiguration();
 
-    final var merlinDatabaseService = new GraphQLMerlinDatabaseService(config.merlinGraphqlURI(), config.hasuraGraphQlAdminSecret());
-    final var permissionsService = new PermissionsService(new GraphQLPermissionsService(config.merlinGraphqlURI(), config.hasuraGraphQlAdminSecret()));
+    final var merlinDatabaseService = new GraphQLMerlinDatabaseService(appConfig.merlinGraphqlURI(), appConfig.hasuraGraphQlAdminSecret());
+    final var permissionsService = new PermissionsService(new GraphQLPermissionsService(appConfig.merlinGraphqlURI(), appConfig.hasuraGraphQlAdminSecret()));
 
-    final var stores = loadStores(config);
+    final var stores = loadStores(appConfig);
 
     //create objects in each service abstraction layer (mirroring MerlinApp)
     final var specificationService = new SpecificationService(stores.specifications());
@@ -68,26 +68,57 @@ public final class SchedulerAppDriver {
         generateSchedulingLibAction,
         permissionsService);
 
-    //default javalin jetty server has a QueuedThreadPool with maxThreads to 250
-    final var server = new Server(new QueuedThreadPool(250));
-    final var connector = new ServerConnector(server);
-    connector.setPort(config.httpPort());
+    // Configure the Jetty HTTP server
+    // Default Javalin Jetty server has a QueuedThreadPool with maxThreads to 250
+    final var jettyServer = new Server(new QueuedThreadPool(250));
+
+    // Create an internal connector to speak within the docker network
+    final var hasuraConnector = new ServerConnector(jettyServer);
     //set idle timeout to be equal to the idle timeout of hasura
-    connector.setIdleTimeout(180000);
-    server.addBean(new LowResourceMonitor(server));
-    server.insertHandler(new StatisticsHandler());
-    server.setConnectors(new Connector[]{connector});
-    //configure the http server (the consumer lambda overlays additional config on the input javalinConfig)
-    final var javalin = Javalin.create(javalinConfig -> {
-      javalinConfig.showJavalinBanner = false;
-      if (config.enableJavalinDevLogging()) javalinConfig.plugins.enableDevLogging();
-      javalinConfig.plugins.enableCors(cors -> cors.add(it -> it.anyHost())); //TODO: probably don't want literally any cross-origin request...
-      javalinConfig.plugins.register(bindings);
-      javalinConfig.jetty.server(() -> server);
+    hasuraConnector.setIdleTimeout(180000);
+    hasuraConnector.setPort(appConfig.httpPort());
+    hasuraConnector.setName("hasura");
+    jettyServer.addConnector(hasuraConnector);
+
+    // Finish configuring the Jetty Server
+    jettyServer.addBean(new LowResourceMonitor(jettyServer));
+    jettyServer.insertHandler(new StatisticsHandler());
+
+    // Create two Javalin instances: a private one for Hasura to communicate with and a public one for the health check
+    final var schedulerServer = Javalin.create();
+    final var healthCheckServer = Javalin.create();
+
+    // Configure the Javalin instances
+    schedulerServer.updateConfig(config -> { // the consumer lambda overlays additional config on the input javalinConfig
+      config.showJavalinBanner = false;
+      if (appConfig.enableJavalinDevLogging()) config.plugins.enableDevLogging();
+      config.plugins.register(bindings);
+      config.jetty.server(() -> jettyServer);
     });
 
-    //start the http server and handle requests as configured above
-    javalin.start(config.httpPort());
+    healthCheckServer.updateConfig(config -> {
+      config.plugins.enableCors(cors -> cors.add(CorsPluginConfig::anyHost));
+      config.routing.ignoreTrailingSlashes = true;
+      config.routing.caseInsensitiveRoutes = true;
+      config.showJavalinBanner = false;
+    });
+
+    // Set up the health check routes
+    healthCheckServer.get("", ctx -> ctx.status(200));
+    healthCheckServer.get("health", ctx -> ctx.status(200));
+
+    // Tie the health checker into the scheduler server health
+    schedulerServer.events(listener -> {
+      listener.serverStarted(() -> healthCheckServer.start(8080));
+      listener.serverStopping(healthCheckServer::close);
+    });
+
+    // Start the HTTP server. Port is unspecified to avoid overriding the Jetty configuration
+    schedulerServer.start();
+
+    // Ensure both servers are shut down when the JVM exits
+    Runtime.getRuntime().addShutdownHook(new Thread(schedulerServer::close));
+    Runtime.getRuntime().addShutdownHook(new Thread(healthCheckServer::close));
   }
 
   private record Stores(SpecificationRepository specifications, ResultsCellRepository results) { }

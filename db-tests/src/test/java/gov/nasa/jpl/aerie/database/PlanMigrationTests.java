@@ -1,13 +1,11 @@
 package gov.nasa.jpl.aerie.database;
 
-import gov.nasa.jpl.aerie.database.TagsTests.Tag;
 import org.junit.jupiter.api.*;
 
 import javax.json.Json;
 import javax.json.JsonArray;
 import javax.json.JsonObject;
 import javax.json.JsonReader;
-import javax.json.JsonValue;
 import java.io.IOException;
 import java.io.StringReader;
 import java.sql.Connection;
@@ -46,7 +44,7 @@ public class PlanMigrationTests {
 
   @BeforeAll
   void beforeAll() throws SQLException, IOException, InterruptedException {
-    helper = new DatabaseTestHelper("aerie_merlin_test", "Plan Migration Tests");
+    helper = new DatabaseTestHelper("plan_migration_tests", "Plan Migration Tests");
     connection = helper.connection();
     merlinHelper = new MerlinDatabaseTestHelper(connection);
     merlinHelper.insertUser("PlanMigrationTests");
@@ -73,7 +71,7 @@ public class PlanMigrationTests {
   }
 
 
-  private record ImpactedDirective(String directiveType, String issue) {};
+  private record ImpactedDirective(String directiveType, String issue) {}
 
   // This function parses the impacted_directives returned by checkModelCompatibilityForPlan and converts those results
   // to an Array of ImpactedDirectives, in order to compare reasons two models may differ.
@@ -221,7 +219,7 @@ public class PlanMigrationTests {
    *
    */
   @Test
-  void checkFailsForNonexistentPlansOrModels() throws SQLException {
+  void checkFailsForNonexistentPlansOrModels() {
     final var sqlEx = assertThrows(
       SQLException.class,
       () -> migratePlanToModel(-1, missionModelId)
@@ -270,7 +268,7 @@ public class PlanMigrationTests {
 
     migratePlanToModel(planId, newModelId);
     final List<Integer> snapshotIds = getLatestSnapshots(planId);
-    assertEquals(snapshotIds.size(), 1);
+    assertEquals(1, snapshotIds.size());
 
     final String oldModelName = getModelName(modelId);
     final String newModelName = getModelName(newModelId);
@@ -333,5 +331,5 @@ public class PlanMigrationTests {
     // verify ActivityToBeModified exists in array, and has reason "altered"
     assertTrue(impacted.contains(new ImpactedDirective("ActivityToBeModified", "altered")));
   }
-  
+
 }

@@ -64,10 +64,23 @@ cd plandev
 
 ## Testing
 
+### Unit Testing
+
 ```sh
 cd plandev
 ./gradlew test
 ```
+
+### E2E Testing
+
+Follow the instructions in the [E2E Test Directory](../e2e-tests/README.md) for how to deploy Plandev for E2E Testing.
+
+```sh
+cd plandev
+./gradlew buildAllProcedureJars --parallel 
+./gradlew e2eTest
+```
+
 
 ## Dependency Updates
 

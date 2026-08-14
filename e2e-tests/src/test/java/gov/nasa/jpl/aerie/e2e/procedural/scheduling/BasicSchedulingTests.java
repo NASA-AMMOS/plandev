@@ -6,6 +6,7 @@ import gov.nasa.jpl.aerie.e2e.types.SimulationDataset;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import javax.json.Json;
@@ -17,6 +18,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("procedural")
+@Tag("scheduling")
 public class BasicSchedulingTests extends ProceduralTestingSetup {
   private int dumbRecurrenceGoalJarId;
   private int decompositionGoalJarId;

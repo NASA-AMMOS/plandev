@@ -28,7 +28,7 @@ import gov.nasa.jpl.aerie.merlin.server.services.TypescriptCodeGenerationService
 import gov.nasa.jpl.aerie.merlin.server.services.UnexpectedSubtypeError;
 import gov.nasa.jpl.aerie.permissions.gql.GraphQLPermissionsService;
 import io.javalin.Javalin;
-import org.eclipse.jetty.server.Connector;
+import io.javalin.plugin.bundled.CorsPluginConfig;
 import org.eclipse.jetty.server.LowResourceMonitor;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
@@ -101,26 +101,57 @@ public final class AerieAppDriver {
         constraintAction,
         permissionsService
     );
-    // Configure an HTTP server.
-    //default javalin jetty server has a QueuedThreadPool with maxThreads to 250
-    final var server = new Server(new QueuedThreadPool(250));
-    final var connector = new ServerConnector(server);
-    connector.setPort(configuration.httpPort());
+    // Configure the Jetty HTTP server.
+    // Default Javalin Jetty server has a QueuedThreadPool with maxThreads to 250
+    final var jettyServer = new Server(new QueuedThreadPool(250));
+
+    // Create an internal connector to speak within the docker network
+    final var hasuraConnector = new ServerConnector(jettyServer);
     //set idle timeout to be equal to the idle timeout of hasura
-    connector.setIdleTimeout(180000);
-    server.addBean(new LowResourceMonitor(server));
-    server.insertHandler(new StatisticsHandler());
-    server.setConnectors(new Connector[]{connector});
-    final var javalin = Javalin.create(config -> {
+    hasuraConnector.setIdleTimeout(180000);
+    hasuraConnector.setPort(configuration.httpPort());
+    hasuraConnector.setName("hasura");
+    jettyServer.addConnector(hasuraConnector);
+
+    // Finish configuring Jetty Server
+    jettyServer.addBean(new LowResourceMonitor(jettyServer));
+    jettyServer.insertHandler(new StatisticsHandler());
+
+    // Create two Javalin instances: a private one for Hasura to communicate with and a public one for the health check
+    final var merlinServer = Javalin.create();
+    final var healthCheckServer = Javalin.create();
+
+    // Configure the Javalin instances
+    merlinServer.updateConfig(config -> {
       config.showJavalinBanner = false;
       if (configuration.enableJavalinDevLogging()) config.plugins.enableDevLogging();
-      config.plugins.enableCors(cors -> cors.add(it -> it.anyHost()));
       config.plugins.register(merlinBindings);
-      config.jetty.server(() -> server);
+      config.jetty.server(() -> jettyServer);
     });
 
-    // Start the HTTP server.
-    javalin.start(configuration.httpPort());
+    healthCheckServer.updateConfig(config -> {
+      config.plugins.enableCors(cors -> cors.add(CorsPluginConfig::anyHost));
+      config.routing.ignoreTrailingSlashes = true;
+      config.routing.caseInsensitiveRoutes = true;
+      config.showJavalinBanner = false;
+    });
+
+    // Set up the health check routes
+    healthCheckServer.get("", ctx -> ctx.status(200));
+    healthCheckServer.get("health", ctx -> ctx.status(200));
+
+    // Tie the health checker into the merlin server health
+    merlinServer.events(listener -> {
+      listener.serverStarted(() -> healthCheckServer.start(8080));
+      listener.serverStopping(healthCheckServer::close);
+    });
+
+    // Start the HTTP server. Port is unspecified to avoid overriding the Jetty configuration
+    merlinServer.start();
+
+    // Ensure both servers are shut down when the JVM exits
+    Runtime.getRuntime().addShutdownHook(new Thread(merlinServer::close));
+    Runtime.getRuntime().addShutdownHook(new Thread(healthCheckServer::close));
   }
 
   private record Stores (

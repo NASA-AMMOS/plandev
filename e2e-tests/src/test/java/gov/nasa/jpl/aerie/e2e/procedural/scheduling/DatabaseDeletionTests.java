@@ -4,6 +4,7 @@ import gov.nasa.jpl.aerie.e2e.types.GoalInvocationId;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.opentest4j.AssertionFailedError;
 
@@ -16,6 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("procedural")
+@Tag("scheduling")
 public class DatabaseDeletionTests extends ProceduralTestingSetup {
   private GoalInvocationId procedureId;
 

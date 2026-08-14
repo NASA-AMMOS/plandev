@@ -16,6 +16,8 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@Tag("merlin")
+@Tag("external_dataset")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class ExternalDatasetsTest {
   // Requests

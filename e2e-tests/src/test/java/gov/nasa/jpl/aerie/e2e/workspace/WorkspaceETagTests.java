@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e;
+package gov.nasa.jpl.aerie.e2e.workspace;
 
 import com.microsoft.playwright.Playwright;
 import gov.nasa.jpl.aerie.e2e.utils.GatewayRequests;
@@ -8,14 +8,16 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Path;
 
-import static gov.nasa.jpl.aerie.e2e.types.User.admin;
+import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_admin;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+@Tag("workspace")
 public class WorkspaceETagTests {
   // Requests
   private static Playwright playwright;
@@ -39,7 +41,7 @@ public class WorkspaceETagTests {
 
     // Get valid JWT tokens for the users
     try (final var gateway = new GatewayRequests(playwright)) {
-      adminToken = gateway.login(admin);
+      adminToken = gateway.login(test_admin);
     }
 
     // Set up parcel and dictionary to use across the tests

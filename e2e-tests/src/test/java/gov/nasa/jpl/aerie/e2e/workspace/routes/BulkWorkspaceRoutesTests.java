@@ -1,4 +1,4 @@
-package gov.nasa.jpl.aerie.e2e.bindings.workspace;
+package gov.nasa.jpl.aerie.e2e.workspace.routes;
 
 import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.options.FilePayload;
@@ -13,6 +13,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -27,7 +28,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import static gov.nasa.jpl.aerie.e2e.types.User.owner;
+import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_owner;
 import static gov.nasa.jpl.aerie.e2e.utils.RequestBodyHelper.getArrayBody;
 import static gov.nasa.jpl.aerie.e2e.utils.RequestBodyHelper.getBody;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,6 +39,7 @@ import static org.junit.jupiter.api.Named.named;
 /**
  * Tests for the /ws/bulk/{workspaceId}/ routes.
  */
+@Tag("workspace")
 public class BulkWorkspaceRoutesTests {
   // Requests
   private static Playwright playwright;
@@ -59,7 +61,7 @@ public class BulkWorkspaceRoutesTests {
 
     // Get valid JWT tokens for the users
     try (final var gateway = new GatewayRequests(playwright)) {
-      ownerToken = gateway.login(owner);
+      ownerToken = gateway.login(test_owner);
     }
 
     // Set up parcel and dictionary to use across the tests
@@ -85,7 +87,7 @@ public class BulkWorkspaceRoutesTests {
 
     @BeforeEach
     void beforeEach() throws IOException {
-      workspaceId = wsServer.createWorkspace(ownerToken, "bulkPutWS", parcelId);
+      workspaceId = wsServer.createWorkspace(test_owner, "bulkPutWS", parcelId);
     }
 
     @AfterEach
@@ -663,8 +665,8 @@ public class BulkWorkspaceRoutesTests {
 
     @BeforeEach
     void beforeEach() throws IOException {
-      workspaceId = wsServer.createWorkspace(ownerToken, "bulkPostWS", parcelId);
-      otherWorkspaceId = wsServer.createWorkspace(ownerToken, "otherBulkPostWs", parcelId);
+      workspaceId = wsServer.createWorkspace(test_owner, "bulkPostWS", parcelId);
+      otherWorkspaceId = wsServer.createWorkspace(test_owner, "otherBulkPostWs", parcelId);
 
       // Prepopulate ws with contents
       final List<BulkPutItem> wsContents = List.of(
@@ -1564,7 +1566,7 @@ public class BulkWorkspaceRoutesTests {
 
     @BeforeEach
     void beforeEach() throws IOException {
-      workspaceId = wsServer.createWorkspace(ownerToken, "bulkDeleteWS", parcelId);
+      workspaceId = wsServer.createWorkspace(test_owner, "bulkDeleteWS", parcelId);
 
       // Prepopulate ws with contents
       final List<BulkPutItem> wsContents = List.of(

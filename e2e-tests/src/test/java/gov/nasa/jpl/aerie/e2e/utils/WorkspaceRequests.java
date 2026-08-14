@@ -20,10 +20,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static gov.nasa.jpl.aerie.e2e.E2ETestSuite.test_admin;
+
 public class WorkspaceRequests implements AutoCloseable {
   private final APIRequestContext request;
   private static final String hasuraAdminSecret = System.getenv("HASURA_GRAPHQL_ADMIN_SECRET");
-  private static final Map<String, String> defaultHeaders = User.admin.session();
+  private static final Map<String, String> defaultHeaders = test_admin.session();
   public enum RequestType {GET, PUT, POST, DELETE}
   public enum MetadataMergeBehavior {deep, deepMerge, shallow, shallowMerge, overwrite}
 
@@ -63,7 +65,7 @@ public class WorkspaceRequests implements AutoCloseable {
   }
 
   /**
-   * Helper method to create an empty workspace owned by "Aerie Legacy". Parses out the workspaceId from the response.
+   * Helper method to create an empty workspace owned by test admin user. Parses out the workspaceId from the response.
    * @param workspaceLocation the name of the folder to be created
    * @param parcelId the parcel id to use for the workspace
    * @return the created workspace's id
@@ -88,14 +90,26 @@ public class WorkspaceRequests implements AutoCloseable {
   }
 
   /**
-   * Helper method to create an empty workspace owned by a particular user. Parses out the workspaceId from the response
-   * @param userToken the JWT token to use
+   * Helper method to create an empty workspace owned by a particular user. Parses out the workspaceId from the response.
+   *
+   * Due to Workspace Creation being admin-only, this method uses the admin secret to grant otherwise non-admin users access.
+   *
+   * @param owner the User who will own the new workspace
    * @param workspaceLocation where to place the workspace
    * @param parcelId the parcel to use
    * @return the workspace server's response
    */
-  public int createWorkspace(String userToken, String workspaceLocation, int parcelId) throws IOException {
-    final var response = createWorkspace(userToken, workspaceLocation, Optional.empty(), parcelId);
+  public int createWorkspace(User owner, String workspaceLocation, int parcelId) throws IOException {
+    final var body = Json.createObjectBuilder()
+                         .add("workspaceLocation", workspaceLocation)
+                         .add("parcelId", parcelId);
+
+    final var options = RequestOptions.create()
+                                      .setHeader("x-hasura-admin-secret", hasuraAdminSecret)
+                                      .setHeader("x-hasura-role", "aerie_admin")
+                                      .setHeader("x-hasura-user-id", owner.name())
+                                      .setData(body.build().toString());
+    final var response = request.post(CREATE_WS_URL, options);
 
     if(!response.ok()){
       throw new IOException(response.statusText());

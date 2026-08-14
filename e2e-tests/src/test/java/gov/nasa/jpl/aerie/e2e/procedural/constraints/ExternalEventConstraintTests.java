@@ -9,6 +9,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -16,13 +17,15 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import javax.json.Json;
 import javax.json.JsonObject;
-import javax.json.JsonValue;
 import java.io.IOException;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Named.named;
 
+@Tag("constraints")
+@Tag("procedural")
+@Tag("external_events")
 public class ExternalEventConstraintTests extends ProceduralTestingSetup {
   private ConstraintInvocationId procedureId;
   private final static String NULL_VALUE = "NULL";
@@ -80,7 +83,7 @@ public class ExternalEventConstraintTests extends ProceduralTestingSetup {
     // in this case, create a plan with no derivation group associations
     var newPlanId = hasura.createPlan(
         modelId,
-        "No Derivation Groups".formatted(this.getClass().getSimpleName()),
+        "No Derivation Groups",
         "48:00:00",
         planStartTimestamp);
 

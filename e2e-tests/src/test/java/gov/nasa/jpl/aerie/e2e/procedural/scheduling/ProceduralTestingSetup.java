@@ -49,8 +49,6 @@ public abstract class ProceduralTestingSetup {
           "Banananation (e2e tests)",
           "aerie_e2e_tests",
           "Proc Scheduling Tests for subclass: %s".formatted(this.getClass().getSimpleName()));
-
-
     }
     // Insert the Plan
     planId = hasura.createPlan(

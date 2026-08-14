@@ -40,6 +40,17 @@ import { randomBytes } from 'node:crypto';
 const logger = getLogger('app');
 const PORT: number = parseInt(getEnv().PORT, 10) ?? 27184;
 
+const healthCheckApp: Application = express();
+healthCheckApp.get('/', (_: Request, res: Response) => {
+  res.send('Aerie Sequencing Service');
+});
+
+healthCheckApp.get('/health', (_: Request, res: Response) => {
+  res.status(200).send();
+});
+
+healthCheckApp.listen(8080);
+
 logger.info(`Starting sequencing-server app on Node v${process.versions.node}...`);
 
 const app: Application = express();
@@ -377,3 +388,5 @@ app.listen(PORT, () => {
     }, 60 * 2 * 1000);
   }
 });
+
+app.once('close', () => healthCheckApp.close());

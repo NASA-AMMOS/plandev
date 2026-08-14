@@ -67,7 +67,7 @@ public class SimulationTests {
       modelId = hasura.createMissionModel(
           gateway.uploadJarFile(),
           "Banananation (e2e tests)",
-          "aerie_e2e_tests",
+          "plandev_e2e_tests",
           "Simulation Tests");
     }
     // Insert the Plan
@@ -310,7 +310,7 @@ public class SimulationTests {
         fooId = hasura.createMissionModel(
             gateway.uploadFooJar(),
             "Foo (e2e tests)",
-            "aerie_e2e_tests",
+            "plandev_e2e_tests",
             "Canceling Simulation Tests");
       }
       // Insert the Plan
@@ -430,7 +430,7 @@ public class SimulationTests {
         fooId = hasura.createMissionModel(
             gateway.uploadFooJar(),
             "Foo (e2e tests)",
-            "aerie_e2e_tests",
+            "plandev_e2e_tests",
             "Simulation Exception Tests");
       }
       // Insert the Plan

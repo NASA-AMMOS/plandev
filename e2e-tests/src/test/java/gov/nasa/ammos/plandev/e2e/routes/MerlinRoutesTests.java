@@ -78,7 +78,7 @@ public class MerlinRoutesTests {
       modelId = hasura.createMissionModel(
           gateway.uploadJarFile(),
           "Banananation (e2e tests)",
-          "aerie_e2e_tests",
+          "plandev_e2e_tests",
           "Merlin Bindings");
     }
 

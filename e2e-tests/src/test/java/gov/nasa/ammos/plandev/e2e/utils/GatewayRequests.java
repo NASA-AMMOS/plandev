@@ -34,7 +34,7 @@ public class GatewayRequests implements AutoCloseable {
         "/auth/login", RequestOptions.create()
                                      .setHeader("Content-Type", "application/json")
                                      .setData(Json.createObjectBuilder()
-                                                  .add("username", "AerieE2eTests")
+                                                  .add("username", "PlanDevE2ETests")
                                                   .add("password", "password")
                                                   .build()
                                                   .toString()));

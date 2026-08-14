@@ -142,7 +142,7 @@ public final class AerieAppDriver {
 
     // Tie the health checker into the merlin server health
     merlinServer.events(listener -> {
-      listener.serverStarting(() -> healthCheckServer.start(8080));
+      listener.serverStarted(() -> healthCheckServer.start(8080));
       listener.serverStopping(healthCheckServer::close);
     });
 

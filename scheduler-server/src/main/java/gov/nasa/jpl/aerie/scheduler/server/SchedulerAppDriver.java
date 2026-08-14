@@ -109,7 +109,7 @@ public final class SchedulerAppDriver {
 
     // Tie the health checker into the scheduler server health
     schedulerServer.events(listener -> {
-      listener.serverStarting(() -> healthCheckServer.start(8080));
+      listener.serverStarted(() -> healthCheckServer.start(8080));
       listener.serverStopping(healthCheckServer::close);
     });
 

@@ -290,7 +290,7 @@ begin
 
   -- 'modify' against a 'modify' must be checked for equality first.
   with false_modify as (
-    select activity_id, name, tags.tag_ids_activity_directive(dd.activity_id, psa.snapshot_id) as tags,
+    select activity_id, name, tags.tag_ids_activity_snapshot(dd.activity_id, psa.snapshot_id) as tags,
            source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, start_offset, type, arguments, metadata, anchor_id, anchored_to_start
     from merlin.plan_snapshot_activities psa
     join diff_diff dd

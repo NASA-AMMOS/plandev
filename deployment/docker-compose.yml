@@ -16,7 +16,7 @@ services:
       ACTION_LOCAL_STORE: /usr/src/app/action_file_store
       ACTION_WORKER_NUM: 1
       ACTION_MAX_WORKER_NUM: 1
-    image: "${REPOSITORY_DOCKER_URL}/plandev-action:${DOCKER_TAG}"
+    image: "${REPOSITORY_DOCKER_URL}/aerie-action:${DOCKER_TAG}"
     ports: [ "27186:27186" ]
     restart: always
     volumes:
@@ -38,7 +38,7 @@ services:
       AERIE_DB_PORT: 5432
       GATEWAY_DB_USER: "${GATEWAY_USERNAME}"
       GATEWAY_DB_PASSWORD: "${GATEWAY_PASSWORD}"
-    image: "${REPOSITORY_DOCKER_URL}/plandev-gateway:${DOCKER_TAG}"
+    image: "${REPOSITORY_DOCKER_URL}/aerie-gateway:${DOCKER_TAG}"
     ports: ["9000:9000"]
     restart: always
     volumes:
@@ -61,7 +61,7 @@ services:
         -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
         -Dorg.slf4j.simpleLogger.logFile=System.err
       UNTRUE_PLAN_START: "2000-01-01T11:58:55.816Z"
-    image: "${REPOSITORY_DOCKER_URL}/plandev-merlin:${DOCKER_TAG}"
+    image: "${REPOSITORY_DOCKER_URL}/aerie-merlin:${DOCKER_TAG}"
     ports: ["27183:8080"] # Exposes only Health Check
     restart: always
     volumes:
@@ -83,7 +83,7 @@ services:
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=WARN
         -Dorg.slf4j.simpleLogger.logFile=System.err
       UNTRUE_PLAN_START: "2000-01-01T11:58:55.816Z"
-    image: "${REPOSITORY_DOCKER_URL}/plandev-merlin-worker:${DOCKER_TAG}"
+    image: "${REPOSITORY_DOCKER_URL}/aerie-merlin-worker:${DOCKER_TAG}"
     ports: ["27187:8080"] # Exposes only Health Check
     restart: always
     volumes:
@@ -104,7 +104,7 @@ services:
       JAVA_OPTS: >
         -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
         -Dorg.slf4j.simpleLogger.logFile=System.err
-    image: "${REPOSITORY_DOCKER_URL}/plandev-scheduler:${DOCKER_TAG}"
+    image: "${REPOSITORY_DOCKER_URL}/aerie-scheduler:${DOCKER_TAG}"
     ports: ["27185:8080"] # Exposes only Health Check
     restart: always
     volumes:
@@ -127,7 +127,7 @@ services:
       JAVA_OPTS: >
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
         -Dorg.slf4j.simpleLogger.logFile=System.err
-    image: "${REPOSITORY_DOCKER_URL}/plandev-scheduler-worker:${DOCKER_TAG}"
+    image: "${REPOSITORY_DOCKER_URL}/aerie-scheduler-worker:${DOCKER_TAG}"
     ports: ["27189:8080"] # Exposes only Health Check
     restart: always
     volumes:
@@ -154,7 +154,7 @@ services:
       SEQUENCING_MAX_WORKER_NUM : 8
       SEQUENCING_MAX_WORKER_HEAP_MB: 1000
       TRANSPILER_ENABLED: "true"
-    image: "${REPOSITORY_DOCKER_URL}/plandev-sequencing:${DOCKER_TAG}"
+    image: "${REPOSITORY_DOCKER_URL}/aerie-sequencing:${DOCKER_TAG}"
     ports: ["27184:8080"] # Exposes only Health Check
     restart: always
     volumes:
@@ -178,7 +178,7 @@ services:
         -Dorg.slf4j.simpleLogger.defaultLogLevel=INFO
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
         -Dorg.slf4j.simpleLogger.logFile=System.err
-    image: "${REPOSITORY_DOCKER_URL}/plandev-workspace:${DOCKER_TAG}"
+    image: "${REPOSITORY_DOCKER_URL}/aerie-workspace:${DOCKER_TAG}"
     ports: [ "28000:28000" ]
     restart: always
     volumes:
@@ -199,7 +199,7 @@ services:
       PUBLIC_HASURA_SERVER_URL: http://hasura:8080/v1/graphql
       PUBLIC_HASURA_WEB_SOCKET_URL: ws://localhost:8080/v1/graphql
       PUBLIC_WORKSPACE_CLIENT_URL: http://localhost:28000
-    image: "${REPOSITORY_DOCKER_URL}/plandev-ui:${DOCKER_TAG}"
+    image: "${REPOSITORY_DOCKER_URL}/aerie-ui:${DOCKER_TAG}"
     ports: ["80:80"]
     restart: always
     networks:
@@ -220,7 +220,7 @@ services:
       HASURA_GRAPHQL_LOG_LEVEL: warn
       HASURA_GRAPHQL_METADATA_DATABASE_URL: "postgres://${AERIE_USERNAME}:${AERIE_PASSWORD}@postgres:5432/aerie_hasura"
       HASURA_GRAPHQL_METADATA_DIR: /hasura-metadata
-    image: "${REPOSITORY_DOCKER_URL}/plandev-hasura:${DOCKER_TAG}"
+    image: "${REPOSITORY_DOCKER_URL}/aerie-hasura:${DOCKER_TAG}"
     ports: ["8080:8080"]
     restart: always
     volumes:
@@ -243,7 +243,7 @@ services:
       SCHEDULER_DB_PASSWORD: "${SCHEDULER_PASSWORD}"
       SEQUENCING_DB_USER: "${SEQUENCING_USERNAME}"
       SEQUENCING_DB_PASSWORD: "${SEQUENCING_PASSWORD}"
-    image: "${REPOSITORY_DOCKER_URL}/plandev-postgres:${DOCKER_TAG}"
+    image: "${REPOSITORY_DOCKER_URL}/aerie-postgres:${DOCKER_TAG}"
     ports: ["5432:5432"]
     restart: always
     volumes:

@@ -26,7 +26,7 @@ public class GatewayRequests implements AutoCloseable {
   }
 
   /**
-   * Auto-login the AerieE2eTests user, whose token is used to upload mission model JARs
+   * Auto-login the PlanDevE2ETests user, whose token is used to upload mission model JARs
    */
   private void login() throws IOException {
     if (token != null) return;

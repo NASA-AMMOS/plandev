@@ -27,7 +27,7 @@ jar {
   duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
   manifest {
-    attributes('Main-Class': 'gov.nasa.jpl.aerie.stateless.Main')
+    attributes('Main-Class': 'gov.nasa.ammos.plandev.stateless.Main')
   }
   from {
     configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }

@@ -45,7 +45,7 @@ services:
       AERIE_DB_PORT: 5432
       GATEWAY_DB_USER: "${GATEWAY_USERNAME}"
       GATEWAY_DB_PASSWORD: "${GATEWAY_PASSWORD}"
-    image: "ghcr.io/nasa-ammos/aerie-gateway:develop"
+    image: "ghcr.io/nasa-ammos/plandev-gateway:develop"
     ports: ["9000:9000"]
     restart: always
     volumes:

@@ -3,7 +3,7 @@
 This library provides utility functions and classes for running procedural
 goals and constraints outside of PlanDev.
 
-# Package gov.nasa.ammos.aerie.procedural.utils
+# Package gov.nasa.ammos.plandev.procedural.utils
 
 Provides plan & simulation results adapters and stubs for testing and / or
 custom drivers.

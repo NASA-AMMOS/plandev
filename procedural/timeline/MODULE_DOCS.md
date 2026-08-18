@@ -75,37 +75,37 @@ call `myProfile.convert(::Intervals)`. The `Intervals` timeline type is the most
 
 There are two options for representing numeric profiles: `Real` and `Numbers`. `Numbers` is piece-wise constant and can contain any primitive numeric type, while `Real` is piece-wise linear and can only contain doubles. `Real` is unique because it is the only profile type so far that represents values that vary within the segment, not just between segments.
 
-# Package gov.nasa.ammos.aerie.procedural.timeline.collections
+# Package gov.nasa.ammos.plandev.procedural.timeline.collections
 The officially supported timeline types.
 
-# Package gov.nasa.ammos.aerie.procedural.timeline.collections.profiles
+# Package gov.nasa.ammos.plandev.procedural.timeline.collections.profiles
 Timeline types for resource profiles.
 
-# Package gov.nasa.ammos.aerie.procedural.timeline.ops
+# Package gov.nasa.ammos.plandev.procedural.timeline.ops
 Operations mixins to be applied to timeline types.
 
-# Package gov.nasa.ammos.aerie.procedural.timeline.ops.coalesce
+# Package gov.nasa.ammos.plandev.procedural.timeline.ops.coalesce
 Operations mixins for specifying whether a timeline should be coalesced.
 
-# Package gov.nasa.ammos.aerie.procedural.timeline.ops.numeric
+# Package gov.nasa.ammos.plandev.procedural.timeline.ops.numeric
 Operations mixins just for numeric types (`Real` and `Numbers`).
 
-# Package gov.nasa.ammos.aerie.procedural.timeline.payloads
+# Package gov.nasa.ammos.plandev.procedural.timeline.payloads
 Payload types (`IntervalLike` implementors) that can be contained in timelines.
 
-# Package gov.nasa.ammos.aerie.procedural.timeline.payloads.activities
+# Package gov.nasa.ammos.plandev.procedural.timeline.payloads.activities
 Containers for representing activity directives and instants.
 
 Currently, there is no specialization for activity
 types, and all directives and instants use `AnyDirective` and `AnyInstance`, respectively. These classes represent
 arguments and computed attributes using `SerializedValue`.
 
-# Package gov.nasa.ammos.aerie.procedural.timeline.plan
+# Package gov.nasa.ammos.plandev.procedural.timeline.plan
 Tools for querying simulation results, activity directives, and general information from a plan.
 
-# Package gov.nasa.ammos.aerie.procedural.timeline.util
+# Package gov.nasa.ammos.plandev.procedural.timeline.util
 Common tools used by operations and timeline constructors to sanitize and process lists.
 
-# Package gov.nasa.ammos.aerie.procedural.timeline.util.duration
+# Package gov.nasa.ammos.plandev.procedural.timeline.util.duration
 Kotlin operator overloads for ergonomic Duration operations.
 

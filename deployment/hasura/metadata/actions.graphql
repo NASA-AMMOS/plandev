@@ -70,14 +70,15 @@ type Mutation {
 }
 
 type Mutation {
-  expandAllActivities(expansionSetId: Int!, simulationDatasetId: Int!): ExpandAllActivitiesResponse
+  expandAllActivities(expansionSetId: Int!, simulationDatasetId: Int!, bypassConstraints: Boolean): ExpandAllActivitiesResponse
 }
 
 type Mutation {
   expandAllTemplates(
     seqIds: [String!]!,
     simulationDatasetId: Int!,
-    modelId: Int!
+    modelId: Int!,
+    bypassConstraints: Boolean,
   ): ExpandAllSequencesResponse
 }
 

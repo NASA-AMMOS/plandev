@@ -1,7 +1,7 @@
 import type { UserCodeError } from '@nasa-jpl/aerie-ts-user-code-runner';
 import pgFormat from 'pg-format';
 import type { Context } from '../app.js';
-import { db, piscina, promiseThrottler, typeCheckingCache } from './../app.js';
+import { db, graphqlClient, piscina, promiseThrottler, typeCheckingCache } from './../app.js';
 import { Result } from '@nasa-jpl/aerie-ts-user-code-runner/build/utils/monads.js';
 import express from 'express';
 import { serializeWithTemporal } from './../utils/temporalSerializers.js';
@@ -25,6 +25,7 @@ import { stringifyActivity } from '../lib/mustache/util/activity.js';
 import { stolBuilder } from '../builders/stolBuilder.js';
 import { concatBuilder } from "../builders/concatBuilder.js";
 import { SequencingLanguage } from '../lib/mustache/enums/language.js';
+import { gql } from 'graphql-request';
 
 const logger = getLogger('app');
 
@@ -359,6 +360,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
 
   //  0. Extract stuff from request
   // needed to uniquely identify sequence templates, along with activity type
+  const bypassConstraints = req.body.input.bypassConstraints !== undefined ? (req.body.input.bypassConstraints as boolean) : true;
   const modelId = req.body.input.modelId as number;
   const simulationDatasetId = req.body.input.simulationDatasetId as number;
   const seqIds = (req.body.input.seqIds as number[]).filter((val, index, arr) => arr.indexOf(val) == index); // remove duplicates, if they're even possible
@@ -366,6 +368,64 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   const seqMetadata = {
     simulationDatasetId
   }
+
+  //  0b. [OPTIONAL] Verify that for the given simulationDatasetId, constraints are up to date
+  if (!bypassConstraints) {
+    // We only block on *violations*. We intentionally don't fail on stale sims,
+    // unchecked constraints, or constraint errors — only on confirmed violations
+    // in the most recent constraint request for this simulation dataset.
+    const { constraint_request } = await graphqlClient.request<{
+      constraint_request: {
+        constraints_run: {
+          results: {
+            errors: object,
+            results: {
+              gaps: object[],
+              violations: object[]
+            }
+          }
+        }[]
+      }[]
+    }>(
+      gql`
+        query GetLatestConstraintViolations($simulationDatasetId: Int!) {
+          constraint_request (
+            where: { simulation_dataset_id: { _eq: $simulationDatasetId } }
+            order_by: { requested_at: desc }
+            limit: 1
+          ) {
+            constraints_run {
+              results {
+                results
+              }
+            }
+          }
+        }
+      `,
+      { simulationDatasetId },
+    );
+
+    const latestRequest = constraint_request[0];
+    if (latestRequest === undefined) {
+      throw new Error(
+        `POST /command-expansion/expand-all-sequence-templates: Expansion for simulation dataset ${simulationDatasetId} failed, as constraints haven't been checked yet.`,
+      );
+    }
+
+    const numViolations = latestRequest.constraints_run.reduce(
+      (total, run) => total + (run.results?.results?.violations?.length ?? 0),
+      0,
+    );
+
+    if (numViolations > 0) {
+      throw new Error(
+        `POST /command-expansion/expand-all-sequence-templates: Expansion for simulation dataset ${simulationDatasetId} failed, as there ${
+          (numViolations > 1) ? 'are' : 'is'
+        } still ${numViolations} violation${(numViolations > 1) ? 's' : ''}.`,
+      );
+    }
+  }
+
 
   //  1. Load simulated activities and templates
   const [sequenceTemplates, filteredSimulatedActivitiesBySeqId] = await Promise.all([
@@ -591,12 +651,70 @@ commandExpansionRouter.post('/expand-all-activity-instances', async (req, res, n
   const context: Context = res.locals['context'];
 
   // Query for expansion set data
+  const bypassConstraints = req.body.input.bypassConstraints !== undefined ? (req.body.input.bypassConstraints as boolean) : true;
   const expansionSetId = req.body.input.expansionSetId as number;
   const simulationDatasetId = req.body.input.simulationDatasetId as number;
   const [expansionSet, simulatedActivities] = await Promise.all([
     context.expansionSetDataLoader.load({ expansionSetId }),
     context.simulatedActivitiesDataLoader.load({ simulationDatasetId }),
   ]);
+
+  //  [OPTIONAL] Verify that for the given simulationDatasetId, constraints are up to date
+  if (!bypassConstraints) {
+    // We only block on *violations*. We intentionally don't fail on stale sims,
+    // unchecked constraints, or constraint errors — only on confirmed violations
+    // in the most recent constraint request for this simulation dataset.
+    const { constraint_request } = await graphqlClient.request<{
+      constraint_request: {
+        constraints_run: {
+          results: {
+            errors: object,
+            results: {
+              gaps: object[],
+              violations: object[]
+            }
+          }
+        }[]
+      }[]
+    }>(
+      gql`
+        query GetLatestConstraintViolations($simulationDatasetId: Int!) {
+          constraint_request (
+            where: { simulation_dataset_id: { _eq: $simulationDatasetId } }
+            order_by: { requested_at: desc }
+            limit: 1
+          ) {
+            constraints_run {
+              results {
+                results
+              }
+            }
+          }
+        }
+      `,
+      { simulationDatasetId },
+    );
+
+    const latestRequest = constraint_request[0];
+    if (latestRequest === undefined) {
+      throw new Error(
+        `POST /command-expansion/expand-all-activity-instances: Expansion for simulation dataset ${simulationDatasetId} failed, as constraints haven't been checked yet.`,
+      );
+    }
+
+    const numViolations = latestRequest.constraints_run.reduce(
+      (total, run) => total + (run.results?.results?.violations?.length ?? 0),
+      0,
+    );
+
+    if (numViolations > 0) {
+      throw new Error(
+        `POST /command-expansion/expand-all-activity-instances: Expansion for simulation dataset ${simulationDatasetId} failed, as there ${
+          (numViolations > 1) ? 'are' : 'is'
+        } still ${numViolations} violation${(numViolations > 1) ? 's' : ''}.`,
+      );
+    }
+  }
 
   const missionModelId = expansionSet.missionModel.id;
   const commandTypes = expansionSet.parcel.command_dictionary.commandTypesTypeScript;

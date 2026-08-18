@@ -20,7 +20,7 @@ services:
     ports: ["27186:27186"]
     restart: always
     volumes:
-      - plandev_file_store:/usr/src/app/action_file_store
+      - aerie_file_store:/usr/src/app/action_file_store
     networks:
       - plandev_net
   plandev_gateway:
@@ -42,7 +42,7 @@ services:
     ports: ["9000:9000"]
     restart: always
     volumes:
-      - plandev_file_store:/app/files
+      - aerie_file_store:/app/files
     networks:
       - plandev_net
   plandev_merlin:
@@ -65,7 +65,7 @@ services:
     ports: ["27183:8080"] # Exposes only Health Check
     restart: always
     volumes:
-      - plandev_file_store:/usr/src/app/merlin_file_store
+      - aerie_file_store:/usr/src/app/merlin_file_store
     networks:
       - plandev_net
   plandev_merlin_worker_1:
@@ -87,7 +87,7 @@ services:
     ports: ["27187:8080"] # Exposes only Health Check
     restart: always
     volumes:
-      - plandev_file_store:/usr/src/app/merlin_file_store:ro
+      - aerie_file_store:/usr/src/app/merlin_file_store:ro
     networks:
       - plandev_net
   plandev_scheduler:
@@ -108,7 +108,7 @@ services:
     ports: ["27185:8080"] # Exposes only Health Check
     restart: always
     volumes:
-      - plandev_file_store:/usr/src/app/merlin_file_store
+      - aerie_file_store:/usr/src/app/merlin_file_store
     networks:
       - plandev_net
   plandev_scheduler_worker_1:
@@ -131,7 +131,7 @@ services:
     ports: ["27189:8080"] # Exposes only Health Check
     restart: always
     volumes:
-      - plandev_file_store:/usr/src/app/merlin_file_store:ro
+      - aerie_file_store:/usr/src/app/merlin_file_store:ro
     networks:
       - plandev_net
   plandev_sequencing:
@@ -158,7 +158,7 @@ services:
     ports: ["27184:8080"] # Exposes only Health Check
     restart: always
     volumes:
-      - plandev_file_store:/usr/src/app/sequencing_file_store
+      - aerie_file_store:/usr/src/app/sequencing_file_store
     networks:
       - plandev_net
   plandev_workspace:
@@ -253,7 +253,7 @@ services:
       - plandev_net
 
 volumes:
-  plandev_file_store:
+  aerie_file_store:
   mission_file_store:
   postgres_data:
   workspace_file_store:

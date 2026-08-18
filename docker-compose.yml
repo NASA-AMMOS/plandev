@@ -27,7 +27,7 @@ services:
     restart: always
     volumes:
       - ./action-server:/app:cached
-      - plandev_file_store:/usr/src/app/action_file_store
+      - aerie_file_store:/usr/src/app/action_file_store
   plandev_gateway:
     container_name: plandev_gateway
     depends_on: ["postgres"]
@@ -49,7 +49,7 @@ services:
     ports: ["9000:9000"]
     restart: always
     volumes:
-      - plandev_file_store:/app/files
+      - aerie_file_store:/app/files
   plandev_merlin:
     build:
       context: ./merlin-server
@@ -75,7 +75,7 @@ services:
     ports: ["27183:8080", "5005:5005"] # Exposes only Health Check and debugger port
     restart: always
     volumes:
-      - plandev_file_store:/usr/src/app/merlin_file_store
+      - aerie_file_store:/usr/src/app/merlin_file_store
   plandev_scheduler:
     build:
       context: ./scheduler-server
@@ -99,7 +99,7 @@ services:
     ports: ["27185:8080", "5006:5005"] # Exposes only Health Check and debugger port
     restart: always
     volumes:
-      - plandev_file_store:/usr/src/app/merlin_file_store
+      - aerie_file_store:/usr/src/app/merlin_file_store
   plandev_sequencing:
     build:
       context: ./sequencing-server
@@ -130,7 +130,7 @@ services:
     restart: always
     volumes:
       - ./sequencing-server:/app:cached
-      - plandev_file_store:/usr/src/app/sequencing_file_store
+      - aerie_file_store:/usr/src/app/sequencing_file_store
   plandev_workspace:
     build:
       context: ./workspace-server
@@ -199,7 +199,7 @@ services:
     ports: ["5007:5005", "27187:8080"] # Exposes only Health Check and debugger port
     restart: always
     volumes:
-      - plandev_file_store:/usr/src/app/merlin_file_store:ro
+      - aerie_file_store:/usr/src/app/merlin_file_store:ro
   plandev_merlin_worker_2:
     build:
       context: ./merlin-worker
@@ -223,7 +223,7 @@ services:
     ports: ["5008:5005", "27188:8080"] # Exposes only Health Check and debugger port
     restart: always
     volumes:
-      - plandev_file_store:/usr/src/app/merlin_file_store:ro
+      - aerie_file_store:/usr/src/app/merlin_file_store:ro
   plandev_scheduler_worker_1:
     build:
       context: ./scheduler-worker
@@ -249,7 +249,7 @@ services:
     ports: ["5009:5005", "27189:8080"] # Exposes only Health Check and debugger port
     restart: always
     volumes:
-      - plandev_file_store:/usr/src/app/merlin_file_store:ro
+      - aerie_file_store:/usr/src/app/merlin_file_store:ro
   plandev_scheduler_worker_2:
     build:
       context: ./scheduler-worker
@@ -275,7 +275,7 @@ services:
     ports: ["5010:5005", "27190:8080"] # Exposes only Health Check and debugger port
     restart: always
     volumes:
-      - plandev_file_store:/usr/src/app/merlin_file_store:ro
+      - aerie_file_store:/usr/src/app/merlin_file_store:ro
   hasura:
     build:
       context: .
@@ -328,6 +328,6 @@ services:
       - ./deployment/postgres-init-db:/docker-entrypoint-initdb.d
 
 volumes:
-  plandev_file_store:
+  aerie_file_store:
   postgres_data:
   workspace_file_store:

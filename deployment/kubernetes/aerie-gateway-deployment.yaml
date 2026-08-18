@@ -20,7 +20,7 @@ spec:
             - containerPort: 9000
           volumeMounts:
             - mountPath: /app/files
-              name: plandev-file-store
+              name: aerie-file-store
           env:
             - name: AUTH_TYPE
               value: none
@@ -52,6 +52,6 @@ spec:
                   name: dev-env
                   key: GATEWAY_PASSWORD
       volumes:
-        - name: plandev-file-store
+        - name: aerie-file-store
           persistentVolumeClaim:
-            claimName: plandev-file-store
+            claimName: aerie-file-store

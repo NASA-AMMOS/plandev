@@ -21,7 +21,7 @@ spec:
           resources: {}
           volumeMounts:
             - mountPath: /usr/src/app/merlin_file_store
-              name: plandev-file-store
+              name: aerie-file-store
               readOnly: true
           env:
             - name: HASURA_GRAPHQL_ADMIN_SECRET
@@ -54,7 +54,7 @@ spec:
                   key: SCHEDULER_PASSWORD
       restartPolicy: Always
       volumes:
-        - name: plandev-file-store
+        - name: aerie-file-store
           persistentVolumeClaim:
-            claimName: plandev-file-store
+            claimName: aerie-file-store
             readOnly: true

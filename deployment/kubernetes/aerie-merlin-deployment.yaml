@@ -20,7 +20,7 @@ spec:
             - containerPort: 27183
           volumeMounts:
             - mountPath: /usr/src/app/merlin_file_store
-              name: plandev-file-store
+              name: aerie-file-store
           env:
             - name: JAVA_OPTS
               value: |
@@ -47,6 +47,6 @@ spec:
                   key: MERLIN_PASSWORD
       restartPolicy: Always
       volumes:
-        - name: plandev-file-store
+        - name: aerie-file-store
           persistentVolumeClaim:
-            claimName: plandev-file-store
+            claimName: aerie-file-store

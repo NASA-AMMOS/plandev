@@ -2,7 +2,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   namespace: plandev-dev
-  name: plandev-file-store
+  name: aerie-file-store
 spec:
   accessModes:
     - ReadWriteMany

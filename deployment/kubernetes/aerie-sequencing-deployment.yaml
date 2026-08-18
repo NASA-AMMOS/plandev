@@ -21,7 +21,7 @@ spec:
           resources: {}
           volumeMounts:
             - mountPath: /usr/src/app/sequencing_file_store
-              name: plandev-file-store
+              name: aerie-file-store
           env:
             - name: HASURA_GRAPHQL_ADMIN_SECRET
               valueFrom:
@@ -54,6 +54,6 @@ spec:
                   key: SEQUENCING_PASSWORD
       restartPolicy: Always
       volumes:
-        - name: plandev-file-store
+        - name: aerie-file-store
           persistentVolumeClaim:
-            claimName: plandev-file-store
+            claimName: aerie-file-store

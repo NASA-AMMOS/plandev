@@ -1,16 +1,16 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: aerie-ui-ingress
-  namespace: aerie-dev
+  name: plandev-ui-ingress
+  namespace: plandev-dev
 spec:
   rules:
-  - http:
-      paths:
-      - backend:
-          service:
-            name: aerie-ui
-            port:
-              number: 80
-        path: /
-        pathType: Prefix
+    - http:
+        paths:
+          - backend:
+              service:
+                name: plandev-ui
+                port:
+                  number: 80
+            path: /
+            pathType: Prefix

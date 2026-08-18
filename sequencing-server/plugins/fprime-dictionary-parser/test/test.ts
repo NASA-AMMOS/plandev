@@ -1,10 +1,10 @@
+import type * as ampcs from '@nasa-jpl/plandev-ampcs';
+import assert from 'assert';
 import * as fs from 'fs';
+import test from 'node:test';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import plugin from '../src/fprime-parser.js';
-import test from 'node:test';
-import assert from 'assert';
-import type * as ampcs from '@nasa-jpl/aerie-ampcs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

@@ -64,10 +64,23 @@ cd plandev
 
 ## Testing
 
+### Unit Testing
+
 ```sh
 cd plandev
 ./gradlew test
 ```
+
+### E2E Testing
+
+Follow the instructions in the [E2E Test Directory](../e2e-tests/README.md) for how to deploy Plandev for E2E Testing.
+
+```sh
+cd plandev
+./gradlew buildAllProcedureJars --parallel 
+./gradlew e2eTest
+```
+
 
 ## Dependency Updates
 
@@ -143,13 +156,14 @@ At times it is helpful to enter a docker container and inspect the filesystem or
 [psql](https://www.postgresql.org/docs/current/app-psql.html) or [hasura-cli](https://hasura.io/docs/latest/hasura-cli/commands/index/). For example a shell can be initialized in the Postgres container with:
 
 ```sh
-docker exec -it aerie-postgres /bin/sh
+docker exec -it plandev-postgres /bin/sh
 ```
 
 ## Apple Silicon
 
 If you're having issues building the Docker containers with Apple Silicon you can try setting the follow environment variables.
 This will disable BuildKit and try to default to using `linux/arm` as the platform.
+
 ```sh
 export DOCKER_DEFAULT_PLATFORM=linux/arm64
 export DOCKER_BUILDKIT=0

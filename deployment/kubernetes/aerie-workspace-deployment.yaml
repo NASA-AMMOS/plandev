@@ -1,22 +1,22 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: aerie-dev
-  name: aerie-workspace
+  namespace: plandev-dev
+  name: plandev-workspace
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: aerie-workspace
+      app: plandev-workspace
   template:
     metadata:
-      name: aerie-workspace
+      name: plandev-workspace
       labels:
-        app: aerie-workspace
+        app: plandev-workspace
     spec:
       containers:
-        - name: aerie-workspace
-          image: ghcr.io/nasa-ammos/aerie-workspace:develop
+        - name: plandev-workspace
+          image: ghcr.io/nasa-ammos/plandev-workspace:develop
           ports:
             - containerPort: 28000
           volumeMounts:

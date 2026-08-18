@@ -31,7 +31,7 @@ import { PromiseThrottler } from './utils/PromiseThrottler.js';
 import { backgroundTranspiler } from './backgroundTranspiler.js';
 import { PluginManager } from './utils/PluginManager.js';
 import { DictionaryType } from './types/types.js';
-import type { ChannelDictionary, CommandDictionary, ParameterDictionary } from '@nasa-jpl/aerie-ampcs';
+import type { ChannelDictionary, CommandDictionary, ParameterDictionary } from '@nasa-jpl/plandev-ampcs';
 import { sequenceTemplateBatchLoader } from './lib/batchLoaders/sequenceTemplateBatchLoader.js';
 import { sequenceFilterBatchLoader } from './lib/batchLoaders/sequenceFilterBatchLoader.js';
 import { writeFile } from './utils/file.js';
@@ -39,6 +39,17 @@ import { randomBytes } from 'node:crypto';
 
 const logger = getLogger('app');
 const PORT: number = parseInt(getEnv().PORT, 10) ?? 27184;
+
+const healthCheckApp: Application = express();
+healthCheckApp.get('/', (_: Request, res: Response) => {
+  res.send('Aerie Sequencing Service');
+});
+
+healthCheckApp.get('/health', (_: Request, res: Response) => {
+  res.status(200).send();
+});
+
+const healthCheckServer = healthCheckApp.listen(8080);
 
 logger.info(`Starting sequencing-server app on Node v${process.versions.node}...`);
 
@@ -342,7 +353,7 @@ app.use((err: any, _: Request, res: Response, next: NextFunction) => {
   return next();
 });
 
-app.listen(PORT, () => {
+const appServer = app.listen(PORT, () => {
   logger.info(`connected to port ${PORT}`);
   logger.info(`Worker pool initialized:
               Total workers started: ${piscina.threads.length},
@@ -377,3 +388,5 @@ app.listen(PORT, () => {
     }, 60 * 2 * 1000);
   }
 });
+
+appServer.once('close', () => healthCheckServer.close());

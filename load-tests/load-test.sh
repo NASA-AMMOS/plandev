@@ -7,7 +7,7 @@ os=$(uname | tr '[A-Z]' '[a-z]')
 cd assets
 cp ../../examples/banananation/build/libs/banananation.jar .
 # Generate BaseURLs file
-cp ../../e2e-tests/src/test/java/gov/nasa/jpl/aerie/e2e/utils/BaseURL.java urls.ts
+cp ../../e2e-tests/src/test/java/gov/nasa/ammos/plandev/e2e/utils/BaseURL.java urls.ts
 
 # Remove blank lines
 sed -e '/^\s*$/d' urls.ts > temp && mv temp urls.ts
@@ -22,7 +22,7 @@ sed -e 's.^[ \t]*.export const .g' \
     urls.ts > temp && mv temp urls.ts
 
 # Generate GQL queries file
-cp ../../e2e-tests/src/test/java/gov/nasa/jpl/aerie/e2e/utils/GQL.java gql.ts
+cp ../../e2e-tests/src/test/java/gov/nasa/ammos/plandev/e2e/utils/GQL.java gql.ts
 
 # Remove blank lines
 sed -e '/^\s*$/d' gql.ts > temp && mv temp gql.ts

@@ -1,0 +1,188 @@
+package gov.nasa.ammos.plandev.e2e.utils;
+
+import com.microsoft.playwright.APIRequest;
+import com.microsoft.playwright.APIRequestContext;
+import com.microsoft.playwright.Playwright;
+import com.microsoft.playwright.options.FilePayload;
+import com.microsoft.playwright.options.FormData;
+import com.microsoft.playwright.options.RequestOptions;
+import gov.nasa.ammos.plandev.e2e.types.User;
+
+import javax.json.Json;
+import javax.json.JsonObject;
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+public class GatewayRequests implements AutoCloseable {
+  private final APIRequestContext request;
+  private static String token;
+
+  public GatewayRequests(Playwright playwright) throws IOException {
+    request = playwright.request().newContext(
+            new APIRequest.NewContextOptions()
+                    .setBaseURL(BaseURL.GATEWAY.url));
+    login();
+  }
+
+  /**
+   * Auto-login the PlanDevE2ETests user, whose token is used to upload mission model JARs
+   */
+  private void login() throws IOException {
+    if (token != null) return;
+    final var response = request.post(
+        "/auth/login", RequestOptions.create()
+                                     .setHeader("Content-Type", "application/json")
+                                     .setData(Json.createObjectBuilder()
+                                                  .add("username", "PlanDevE2ETests")
+                                                  .add("password", "password")
+                                                  .build()
+                                                  .toString()));
+    // Process Response
+    if (!response.ok()) {
+      throw new IOException(response.statusText());
+    }
+
+    final var bodyJson = RequestBodyHelper.getBody(response);
+    if (!bodyJson.getBoolean("success")) {
+      System.err.println("Login failed");
+      throw new RuntimeException(bodyJson.toString());
+    }
+    token = bodyJson.getString("token");
+  }
+
+  /**
+   * Login a particular user to get a JWT Auth Token
+   * @param user the User to be logged in
+   * @return the JWT token from login
+   */
+  public String login(User user) throws IOException {
+    final var response = request.post("/auth/login", RequestOptions.create()
+                                                                   .setHeader("Content-Type", "application/json")
+                                                                   .setData(Json.createObjectBuilder()
+                                                                                .add("username", user.name())
+                                                                                .add("password", "password")
+                                                                                .build()
+                                                                                .toString()));
+    // Process Response
+    if (!response.ok()) {
+      throw new IOException(response.statusText());
+    }
+    try (final var reader = Json.createReader(new StringReader(response.text()))) {
+      final JsonObject bodyJson = reader.readObject();
+      if (!bodyJson.getBoolean("success")) {
+        System.err.println("Login failed");
+        throw new RuntimeException(bodyJson.toString());
+      }
+      return bodyJson.getString("token");
+    }
+  }
+
+  @Override
+  public void close() {
+    request.dispose();
+  }
+
+  /**
+   * Uploads the Banananation JAR
+   */
+  public int uploadJarFile() throws IOException {
+    return uploadJarFile("../examples/banananation/build/libs/banananation.jar");
+  }
+
+  /**
+   * Uploads the Foo JAR
+   */
+  public int uploadFooJar() throws IOException {
+    return uploadJarFile("../examples/foo-missionmodel/build/libs/foo-missionmodel.jar");
+  }
+
+  /**
+   * Uploads the JAR found at searchPath
+   * @param jarPath is relative to the e2e-tests directory.
+   */
+  public int uploadJarFile(String jarPath) throws IOException {
+    // Build File Payload
+    final Path absolutePath = Path.of(jarPath).toAbsolutePath();
+    final byte[] buffer = Files.readAllBytes(absolutePath);
+    final FilePayload payload = new FilePayload(
+        absolutePath.getFileName().toString(),
+        "application/java-archive",
+        buffer);
+
+    final var response = request.post(
+        "/file", RequestOptions.create()
+                               .setHeader("Authorization", "Bearer " + token)
+                               .setMultipart(FormData.create().set("file", payload)));
+
+    // Process Response
+    if (!response.ok()) {
+      throw new IOException(response.statusText());
+    }
+
+    final JsonObject bodyJson = RequestBodyHelper.getBody(response);
+    if (bodyJson.containsKey("errors")) {
+      System.err.println("Errors in response: \n" + bodyJson.get("errors"));
+      throw new RuntimeException(bodyJson.toString());
+    }
+    return bodyJson.getInt("id");
+  }
+
+  public void uploadExternalSourceEventTypes(JsonObject schema) {
+    final var response = request.post("/uploadExternalSourceEventTypes",
+                                      RequestOptions.create()
+                                                    .setHeader("Authorization", "Bearer " + token)
+                                                    .setHeader("Content-Type", "application/json")
+                                                    .setData(schema.toString()));
+    // Process Response
+    final var bodyJson = RequestBodyHelper.getBody(response);
+    if (!(bodyJson.containsKey("createExternalEventTypes") && bodyJson.containsKey("createExternalSourceTypes"))) {
+      System.err.println("Upload failed");
+      throw new RuntimeException(bodyJson.toString());
+    }
+  }
+
+  /**
+   * Upload an external source file from the test resources
+   * @param externalSourcePath Path to the file to be uploaded, relative to the external_event_sources directory in the test resource folder
+   * @param derivationGroupName The derivation group to be associated with the external source
+   * @throws IOException If the file cannot be read
+   */
+  public void uploadExternalSource(Path externalSourcePath, String derivationGroupName) throws IOException {
+    uploadExternalSource(
+        externalSourcePath.getFileName().toString(),
+        Files.readAllBytes(Path.of("src", "test", "resources", "external_event_sources").resolve(externalSourcePath)),
+        derivationGroupName);
+  }
+
+  /**
+   * Upload a byte array containing an external source file to the Gateway
+   * @param externalSourceName The name of the external source
+   * @param externalSourceContents A byte array containing the contents of the external source file
+   * @param derivationGroupName The derivation group to be associated with the external source
+   */
+  public void uploadExternalSource(String externalSourceName, byte[] externalSourceContents, String derivationGroupName) {
+    FilePayload filePayload = new FilePayload(
+        externalSourceName,
+        "application/json",
+        externalSourceContents);
+
+    final var options = RequestOptions
+        .create()
+        .setHeader("Authorization", "Bearer " + token)
+        .setMultipart(FormData.create()
+                              .set("external_source_file", filePayload)
+                              .set("derivation_group_name", derivationGroupName));
+
+
+    final var response = request.post("/uploadExternalSource", options);
+
+    try (final var reader = Json.createReader(new StringReader(response.text()))) {
+      final JsonObject bodyJson = reader.readObject();
+      if (!bodyJson.containsKey("createExternalSource")) {
+        System.err.println("Upload failed");
+        throw new RuntimeException(bodyJson.toString());
+      }
+    }
+  }
+}

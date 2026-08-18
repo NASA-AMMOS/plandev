@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: aerie-dev
-  name: aerie-scheduler-worker
+  namespace: plandev-dev
+  name: plandev-scheduler-worker
 spec:
   ports:
     - name: "27189"
       port: 27189
       targetPort: 8080
   selector:
-    app: aerie-scheduler-worker
+    app: plandev-scheduler-worker

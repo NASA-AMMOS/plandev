@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: aerie-dev
-  name: aerie-merlin-worker
+  namespace: plandev-dev
+  name: plandev-merlin-worker
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: aerie-merlin-worker
+      app: plandev-merlin-worker
   template:
     metadata:
       labels:
-        app: aerie-merlin-worker
+        app: plandev-merlin-worker
     spec:
       containers:
-        - name: aerie-merlin-worker
-          image: ghcr.io/nasa-ammos/aerie-merlin-worker:develop
+        - name: plandev-merlin-worker
+          image: ghcr.io/nasa-ammos/plandev-merlin-worker:develop
           ports:
             - containerPort: 8080
           resources: {}

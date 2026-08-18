@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: aerie-dev
-  name: aerie-gateway
+  namespace: plandev-dev
+  name: plandev-gateway
 spec:
   ports:
     - name: "9000"
@@ -11,4 +11,4 @@ spec:
       nodePort: 30000
   type: NodePort
   selector:
-    app: aerie-gateway
+    app: plandev-gateway

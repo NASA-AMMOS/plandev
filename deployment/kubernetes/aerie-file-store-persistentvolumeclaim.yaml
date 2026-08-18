@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  namespace: aerie-dev
+  namespace: plandev-dev
   name: aerie-file-store
 spec:
   accessModes:

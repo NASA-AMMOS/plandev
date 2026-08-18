@@ -104,7 +104,7 @@ export const req = {
       "valid id": (id) => Number.isInteger(id)
     });
 
-    // add jar to aerie
+    // add jar to plandev
     // create mission model
     const modelInput: MissionModelInsertInput = {
       jar_id,

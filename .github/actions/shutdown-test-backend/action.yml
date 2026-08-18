@@ -1,19 +1,28 @@
 name: Shutdown Test Backend
 description: Shuts down and prints logs for the E2E Test Backend
+inputs:
+  docker-file:
+    description: The docker compose file to use
+    required: false
+    default: 'docker-compose.yml'
 runs:
   using: composite
   steps:
     - name: Print Logs for Services
       if: always()
       shell: bash
-      run: docker compose -f ./e2e-tests/docker-compose-test.yml logs -t
+      run: docker compose -f "$INPUT_DOCKER_FILE" logs -t
+      env:
+        INPUT_DOCKER_FILE: ${{ inputs.docker-file }}
     - name: Stop Services
       if: always()
       shell: bash
       run: |
         docker ps -a
-        docker compose -f ./e2e-tests/docker-compose-test.yml down
+        docker compose -f "$INPUT_DOCKER_FILE" down
         docker ps -a
+      env:
+        INPUT_DOCKER_FILE: ${{ inputs.docker-file }}
     - name: Prune Volumes
       if: always()
       shell: bash

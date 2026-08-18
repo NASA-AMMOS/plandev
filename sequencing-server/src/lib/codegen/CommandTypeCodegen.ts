@@ -1,10 +1,10 @@
 // Language: TypeScript
 // Path: src/libs/CommandTypeCodegen.ts
 
-import type * as ampcs from '@nasa-jpl/aerie-ampcs';
+import type * as ampcs from '@nasa-jpl/plandev-ampcs';
+import type { ChannelDictionary, ParameterDictionary } from '@nasa-jpl/plandev-ampcs';
 import fs from 'fs';
 import reservedWords from 'reserved-words';
-import type { ChannelDictionary, ParameterDictionary } from '@nasa-jpl/aerie-ampcs';
 import { DictionaryType } from '../../types/types.js';
 import { writeFile } from '../../utils/file.js';
 

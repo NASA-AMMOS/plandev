@@ -26,8 +26,8 @@ This step has been entirely automated.
 2. Click "Run Workflow" and run the Workflow against `develop`.
 3. When the workflow has finished, navigate to the run's "Summary" page. Download everything under "Artifacts".
 4. Extract all the downloaded Artifacts.
-5. Empty the contents of [`contrib`'s SPICE resources](../contrib/src/main/resources/gov/nasa/jpl/aerie/spice).
-6. Move `JNISpice.dll`, `libJNISpice_Intel.jnilib`, and `libJNISpice_Intel.so` to [`contrib`'s SPICE resources](../contrib/src/main/resources/gov/nasa/jpl/aerie/spice).
+5. Empty the contents of [`contrib`'s SPICE resources](../contrib/src/main/resources/gov/nasa/ammos/plandev/spice).
+6. Move `JNISpice.dll`, `libJNISpice_Intel.jnilib`, and `libJNISpice_Intel.so` to [`contrib`'s SPICE resources](../contrib/src/main/resources/gov/nasa/ammos/plandev/spice).
 7. Move the `JNISpice-N*.jar` into the [`third-party`](../third-party) folder, replacing the existing JAR.
 8. Update `contrib`'s [build.gradle](../contrib/build.gradle) to use the new JAR.
 
@@ -62,7 +62,7 @@ This step will use `lipo` to combine the Intel and M1 `.jnilib`s into a single `
    ```bash
    lipo -create libJNISpice_Intel.jnilib libJNISpice_M1.jnilib -output libJNISpice.jnilib
    ```
-3. Move `libJNISpice.jnilib` into [`contrib`'s SPICE resources](../contrib/src/main/resources/gov/nasa/jpl/aerie/spice).
+3. Move `libJNISpice.jnilib` into [`contrib`'s SPICE resources](../contrib/src/main/resources/gov/nasa/ammos/plandev/spice).
    It should now be the only `.jnilib` in the directory.
 
 ### Step 4: Compiling the Linux ARM binary
@@ -109,6 +109,6 @@ This step uses a Docker container to compile the Linux-ARM binary.
    ```bash
    docker cp JNIBuilder:/JNISpice/lib/libJNISpice.so libJNISpice_M1.so
    ```
-8. Move `libJNISpice_M1.so` to [`contrib`'s SPICE resources](../contrib/src/main/resources/gov/nasa/jpl/aerie/spice).
+8. Move `libJNISpice_M1.so` to [`contrib`'s SPICE resources](../contrib/src/main/resources/gov/nasa/ammos/plandev/spice).
 
 

@@ -2,7 +2,7 @@ services:
   plandev_proxy:
     container_name: plandev_proxy
     depends_on:
-      - "aerie_ui"
+      - "plandev_ui"
       - "hasura"
       - "plandev_gateway"
     build:
@@ -35,7 +35,7 @@ services:
     ports: !reset []
   plandev_workspace:
     ports: !reset []
-  aerie_ui:
+  plandev_ui:
     ports: !reset []
     environment:
       ORIGIN: https://${AERIE_HOST}

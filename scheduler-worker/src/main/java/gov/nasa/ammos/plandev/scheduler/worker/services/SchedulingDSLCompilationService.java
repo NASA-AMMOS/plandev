@@ -21,10 +21,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SchedulingDSLCompilationService {
 
   private final Process nodeProcess;
+  private static final Logger logger = LoggerFactory.getLogger(SchedulingDSLCompilationService.class);
 
   public SchedulingDSLCompilationService()
   throws IOException
@@ -32,7 +35,10 @@ public class SchedulingDSLCompilationService {
     final var schedulingDslCompilerRoot = System.getenv("SCHEDULING_DSL_COMPILER_ROOT");
     final var schedulingDslCompilerCommand = System.getenv("SCHEDULING_DSL_COMPILER_COMMAND");
     final var nodePath = System.getenv("NODE_PATH");
-    final var processBuilder = new ProcessBuilder(nodePath, "--experimental-vm-modules", schedulingDslCompilerCommand)
+    // --no-node-snapshot is required to use isolated-vm (dependency of plandev-ts-user-code-runner)
+    final var nodeFlags = "--no-node-snapshot";
+    logger.info("Starting Scheduling DSL compilation service subprocess with: {} {} {}", nodePath, nodeFlags, schedulingDslCompilerCommand);
+    final var processBuilder = new ProcessBuilder(nodePath, nodeFlags, schedulingDslCompilerCommand)
         .redirectError(ProcessBuilder.Redirect.INHERIT)
         .directory(new File(schedulingDslCompilerRoot));
     processBuilder.environment().put("NODE_NO_WARNINGS", "1");
@@ -44,6 +50,7 @@ public class SchedulingDSLCompilationService {
     if (!Objects.equals(this.nodeProcess.inputReader().readLine(), "pong")) {
       throw new Error("Could not create node subprocess");
     }
+    logger.info("Scheduling DSL compilation service started successfully");
   }
 
   public void close() {
@@ -79,6 +86,8 @@ public class SchedulingDSLCompilationService {
       final String goalTypescript,
       final Collection<ResourceType> additionalResourceTypes)
   {
+    final long startNanos = System.nanoTime();
+    logger.info("Compiling scheduling goal DSL ({} characters)", goalTypescript.length());
     try {
       final var missionModelTypes = merlinDatabaseService.getMissionModelTypes(planId);
       final var aggregatedResourceTypes = new ArrayList<>(missionModelTypes.resourceTypes());
@@ -87,6 +96,9 @@ public class SchedulingDSLCompilationService {
       return compile(augmentedMissionModelTypes, goalTypescript, SchedulingDSL.schedulingJsonP(augmentedMissionModelTypes), "Goal");
     } catch (IOException | MerlinServiceException e) {
       throw new Error(e);
+    } finally {
+      final long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
+      logger.info("Scheduling goal compilation completed in {} ms", elapsedMs);
     }
   }
 
@@ -100,6 +112,7 @@ public class SchedulingDSLCompilationService {
     final var constraintsGeneratedCode = gov.nasa.ammos.plandev.constraints.TypescriptCodeGenerationService.generateTypescriptTypes(
         ConstraintsTypescriptCodeGenerationHelper.activityTypes(missionModelTypes),
         ConstraintsTypescriptCodeGenerationHelper.resources(missionModelTypes));
+    logger.info("Generated mission model TypeScript types for goal ({} characters)", goalTypescript.length());
     final JsonObject messageJson = Json.createObjectBuilder()
         .add("goalCode", goalTypescript)
         .add("schedulerGeneratedCode", schedulerGeneratedCode)
@@ -126,6 +139,7 @@ public class SchedulingDSLCompilationService {
         case "error" -> {
           final var output = outputReader.readLine();
           try {
+            logger.info("Received error from scheduling DSL compilation process");
             yield new SchedulingDSLCompilationResult.Error<>(parseJson(
                 output,
                 SchedulingCompilationError.schedulingErrorJsonP));
@@ -135,13 +149,14 @@ public class SchedulingDSLCompilationService {
         }
         case "success" -> {
           final var output = outputReader.readLine();
+          logger.info("Compiled scheduling DSL successfully ({} characters)", goalTypescript.length());
           try {
             yield new SchedulingDSLCompilationResult.Success<>(parseJson(output, parser));
           } catch (InvalidJsonEntityException e) {
             throw new Error("Could not parse JSON returned from typescript: " + e.failures + "\n" + output, e);
           }
         }
-        default -> throw new Error("scheduling dsl compiler returned unexpected status: " + status);
+        default -> throw new Error("Scheduling DSL compiler returned unexpected status: " + status);
       };
     } catch (IOException e) {
       throw new Error(e);

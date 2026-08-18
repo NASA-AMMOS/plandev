@@ -1,2 +1,2 @@
-# Ignore the constraints folder, because it is copied from the constraints-dsl-compiler
+# Ignore the constraints folder, because it is copied from the constraints-dsl-compiler (by gradle build)
 constraints

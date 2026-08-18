@@ -8,6 +8,11 @@ FROM node:24.18.0-bullseye-slim AS dsl-node-builder
 
 WORKDIR /opt/constraints-dsl-compiler
 
+# build-essential and python3 are needed to build isolated-vm dependency
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y build-essential python3 \
+    && rm -rf /var/lib/apt/lists/*
+
 # copy constraints-dsl-compiler node app package metadata first, so dependency installation can be cached.
 COPY constraints-dsl-compiler/package.json constraints-dsl-compiler/package-lock.json ./
 # Install dependencies without lifecycle scripts, then only build deps approved by the package's allowScripts policy.
@@ -33,3 +38,4 @@ ENV NODE_PATH="/usr/local/bin/node"
 
 WORKDIR /usr/src/app
 ENTRYPOINT ["/usr/src/app/bin/merlin-server"]
+

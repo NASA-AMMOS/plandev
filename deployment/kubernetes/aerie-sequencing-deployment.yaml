@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: aerie-dev
-  name: aerie-sequencing
+  namespace: plandev-dev
+  name: plandev-sequencing
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: aerie-sequencing
+      app: plandev-sequencing
   template:
     metadata:
       labels:
-        app: aerie-sequencing
+        app: plandev-sequencing
     spec:
       containers:
-        - name: aerie-sequencing
-          image: ghcr.io/nasa-ammos/aerie-sequencing:develop
+        - name: plandev-sequencing
+          image: ghcr.io/nasa-ammos/plandev-sequencing:develop
           ports:
             - containerPort: 27184
           resources: {}

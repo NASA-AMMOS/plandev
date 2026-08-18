@@ -1,7 +1,7 @@
-import fs from 'node:fs';
+import type { ChannelDictionary, CommandDictionary, ParameterDictionary } from '@nasa-jpl/plandev-ampcs';
 import { gql, GraphQLClient } from 'graphql-request';
 import { randomUUID } from 'node:crypto';
-import type { CommandDictionary, ChannelDictionary, ParameterDictionary } from '@nasa-jpl/aerie-ampcs';
+import fs from 'node:fs';
 import { DictionaryType } from '../../src/types/types';
 
 export const commandDictionaryString = fs.readFileSync(

@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: aerie-dev
-  name: aerie-scheduler
+  namespace: plandev-dev
+  name: plandev-scheduler
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: aerie-scheduler
+      app: plandev-scheduler
   template:
     metadata:
       labels:
-        app: aerie-scheduler
+        app: plandev-scheduler
     spec:
       containers:
-        - name: aerie-scheduler
-          image: ghcr.io/nasa-ammos/aerie-scheduler:develop
+        - name: plandev-scheduler
+          image: ghcr.io/nasa-ammos/plandev-scheduler:develop
           ports:
             - containerPort: 27185
           volumeMounts:

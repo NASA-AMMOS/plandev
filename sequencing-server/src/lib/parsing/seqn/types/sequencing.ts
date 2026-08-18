@@ -10,7 +10,7 @@ import type {
   FswCommandArgumentRepeat,
   FswCommandArgumentUnsigned,
   FswCommandArgumentVarString,
-} from '@nasa-jpl/aerie-ampcs';
+} from '@nasa-jpl/plandev-ampcs';
 import type { VariableDeclaration } from '@nasa-jpl/seq-json-schema/types';
 import type { DictionaryTypes } from '../enums/dictionaryTypes.js';
 import type { UserId } from './user.js';

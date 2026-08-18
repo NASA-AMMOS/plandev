@@ -44,8 +44,8 @@ volumes:
 In this case, the IP (`172.27.0.2`) was obtained by running:
 
 ```sh
-$ docker-compose up --build --detach
-Creating network "aerie_default" with the default driver
+$ docker compose up --build --detach
+Creating network "plandev_net" with the default driver
 Creating nfs ... done
 $ docker container ls | grep nfs | cut -d " " -f1
 2724af1ec4d2
@@ -71,7 +71,7 @@ $ docker exec -it 2724af1ec4d2 /bin/bash
 root@2724af1ec4d2:/# touch data/from_server.txt
 ```
 
-Start the default PlanDev services with `docker-compose up` and get the container ID with:
+Start the default PlanDev services with `docker compose up` and get the container ID with:
 
 ```sh
 $ docker container ls | grep aerie_gateway_1 | cut -d " " -f1

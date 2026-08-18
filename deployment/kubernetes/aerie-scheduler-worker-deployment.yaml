@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: aerie-dev
-  name: aerie-scheduler-worker
+  namespace: plandev-dev
+  name: plandev-scheduler-worker
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: aerie-scheduler-worker
+      app: plandev-scheduler-worker
   template:
     metadata:
       labels:
-        app: aerie-scheduler-worker
+        app: plandev-scheduler-worker
     spec:
       containers:
-        - name: aerie-scheduler-worker
-          image: ghcr.io/nasa-ammos/aerie-scheduler-worker:develop
+        - name: plandev-scheduler-worker
+          image: ghcr.io/nasa-ammos/plandev-scheduler-worker:develop
           ports:
             - containerPort: 8080
           resources: {}

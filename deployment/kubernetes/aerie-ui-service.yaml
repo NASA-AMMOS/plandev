@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: aerie-dev
-  name: aerie-ui
+  namespace: plandev-dev
+  name: plandev-ui
 spec:
   ports:
     - name: "80"
       port: 80
       targetPort: 80
   selector:
-    app: aerie-ui
+    app: plandev-ui

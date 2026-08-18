@@ -11,4 +11,4 @@ This directory contains several example mission models.
 | minimal-mission-model   | The absolute minimum to technically be a mission model. Helps test the base case of "zero resources, one activity" |
 | model-migration-1       | Used to test migrating a plan from one mission model to another. This is used as the original mission model        |
 | model-migration-2       | Used to test migrating a plan from one mission model to another. This is used as the modified mission model        |
-| streamline-demo         | This model demonstrates features of the `gov.nasa.jpl.aerie.contrib.streamline` library                            |
+| streamline-demo         | This model demonstrates features of the `gov.nasa.ammos.plandev.contrib.streamline` library                            |

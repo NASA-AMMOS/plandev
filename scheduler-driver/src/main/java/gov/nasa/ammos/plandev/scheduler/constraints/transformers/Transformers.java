@@ -1,0 +1,60 @@
+package gov.nasa.ammos.plandev.scheduler.constraints.transformers;
+
+import gov.nasa.ammos.plandev.constraints.time.Windows;
+import gov.nasa.ammos.plandev.constraints.tree.Expression;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.scheduler.constraints.TimeRangeExpression;
+import gov.nasa.ammos.plandev.scheduler.constraints.activities.ActivityExpression;
+import java.util.ArrayList;
+import java.util.List;
+
+public class Transformers {
+
+  public static TimeWindowsTransformer beforeEach() {
+    return new TransformerBeforeEach(Duration.ZERO);
+  }
+
+
+  public static TimeWindowsTransformer afterEach(final Duration dur) {
+    return new TransformerAfterEach(dur);
+  }
+
+  public static TimeWindowsTransformer beforeEach(final Duration dur) {
+    return new TransformerBeforeEach(dur);
+  }
+
+  public static class EnvelopeBuilder {
+
+    final List<TimeRangeExpression> insideExprs = new ArrayList<>();
+    TimeRangeExpression resetExpr;
+
+    public EnvelopeBuilder withinEach(final TimeRangeExpression expr) {
+      this.resetExpr = expr;
+      return this;
+    }
+
+    public EnvelopeBuilder when(final Expression<Windows> expr) {
+      insideExprs.add(new TimeRangeExpression.Builder().from(expr).build());
+      return this;
+    }
+
+
+    public EnvelopeBuilder when(final ActivityExpression expr) {
+      insideExprs.add(new TimeRangeExpression.Builder().from(expr).build());
+      return this;
+    }
+
+    public EnvelopeBuilder when(final TimeRangeExpression expr) {
+      insideExprs.add(expr);
+      return this;
+    }
+
+    public TimeWindowsTransformer build() {
+      return new TransformWithReset(resetExpr, new TransformerEnvelope(insideExprs));
+    }
+
+
+  }
+
+
+}

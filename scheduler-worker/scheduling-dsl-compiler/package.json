@@ -6,13 +6,15 @@
     "node": "24.x"
   },
   "scripts": {
-    "build": "rm -rf build && tsc",
+    "build": "rm -rf build && tsc && npm run build:guest-libs",
+    "build:guest-libs": "esbuild src/libs/constraints/temporal-polyfill-entry.ts --bundle --platform=neutral --format=esm --target=es2021 --main-fields=module,main --outfile=build/libs/temporal-polyfill-bundle.js",
     "test": "npm run build && node build/main.js",
     "generate-doc": "rm -rf build/docs && npx typedoc src/libs/scheduler-edsl-fluent-api.ts src/libs/constraints-edsl-fluent-api.ts --excludePrivate --excludeInternal --out ./build/docs --name \"Scheduling eDSL Documentation\" --readme none --gitRevision develop --validation.notExported false --logLevel Warn"
   },
   "dependencies": {
     "@js-temporal/polyfill": "0.4.3",
-    "@nasa-jpl/aerie-ts-user-code-runner": "0.5.0",
+    "@nasa-jpl/plandev-ts-user-code-runner": "1.1.0",
+    "esbuild": "0.28.1",
     "source-map": "^0.7.3",
     "typescript": "^4.5.5"
   },
@@ -20,5 +22,9 @@
     "@tsconfig/node16-strictest-esm": "^1.0.2",
     "@types/node": "24.13.3",
     "typedoc": "^0.23.10"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "isolated-vm@6.0.2": true
   }
 }

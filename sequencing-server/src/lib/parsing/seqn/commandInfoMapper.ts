@@ -1,5 +1,5 @@
 import type { SyntaxNode, Tree } from '@lezer/common';
-import type { EnumMap, FswCommandArgument } from '@nasa-jpl/aerie-ampcs';
+import type { EnumMap, FswCommandArgument } from '@nasa-jpl/plandev-ampcs';
 
 export interface CommandInfoMapper {
   /** format string of multiple arguments */

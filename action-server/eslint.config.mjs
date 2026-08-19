@@ -1,10 +1,10 @@
-import { sheriff, tseslint } from "eslint-config-sheriff";
+import { sheriff } from "eslint-config-sheriff";
 import { defineConfig } from "eslint/config";
 
 const sheriffOptions = {
   react: false,
   lodash: false,
-  remeda: false,
+remeda: false,
   next: false,
   astro: false,
   playwright: false,

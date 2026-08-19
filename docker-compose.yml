@@ -1,11 +1,11 @@
 services:
-  aerie_action:
+  plandev_action:
     build:
       context: ./action-server
       dockerfile: Dockerfile
       #dockerfile: Dockerfile.dev #-- Uncomment for development
-    container_name: aerie_action
-    depends_on: [ "postgres" ]
+    container_name: plandev_action
+    depends_on: ["postgres"]
     environment:
       HASURA_GRAPHQL_JWT_SECRET: "${HASURA_GRAPHQL_JWT_SECRET}"
       LOG_FILE: console
@@ -21,15 +21,15 @@ services:
       ACTION_WORKER_NUM: 1
       ACTION_MAX_WORKER_NUM: 1
       SEQUENCING_LOCAL_STORE: /usr/src/app/sequencing_file_store
-    image: aerie_action
-    ports: [ "27186:27186" ]
+    image: plandev_action
+    ports: ["27186:27186"]
     #ports: [ "27186:27186",'9229:9229'] #-- Uncomment for development
     restart: always
     volumes:
       - ./action-server:/app:cached
       - aerie_file_store:/usr/src/app/action_file_store
-  aerie_gateway:
-    container_name: aerie_gateway
+  plandev_gateway:
+    container_name: plandev_gateway
     depends_on: ["postgres"]
     environment:
       AUTH_TYPE: none
@@ -45,16 +45,16 @@ services:
       AERIE_DB_PORT: 5432
       GATEWAY_DB_USER: "${GATEWAY_USERNAME}"
       GATEWAY_DB_PASSWORD: "${GATEWAY_PASSWORD}"
-    image: "ghcr.io/nasa-ammos/aerie-gateway:develop"
+    image: "ghcr.io/nasa-ammos/plandev-gateway:develop"
     ports: ["9000:9000"]
     restart: always
     volumes:
       - aerie_file_store:/app/files
-  aerie_merlin:
+  plandev_merlin:
     build:
       context: ./merlin-server
       dockerfile: Dockerfile
-    container_name: aerie_merlin
+    container_name: plandev_merlin
     depends_on: ["postgres"]
     environment:
       HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
@@ -71,17 +71,17 @@ services:
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
         -Dorg.slf4j.simpleLogger.logFile=System.err
       UNTRUE_PLAN_START: "2000-01-01T11:58:55.816Z"
-    image: aerie_merlin
-    ports: ["27183:27183", "5005:5005"]
+    image: plandev_merlin
+    ports: ["27183:8080", "5005:5005"] # Exposes only Health Check and debugger port
     restart: always
     volumes:
       - aerie_file_store:/usr/src/app/merlin_file_store
-  aerie_scheduler:
+  plandev_scheduler:
     build:
       context: ./scheduler-server
       dockerfile: Dockerfile
-    container_name: aerie_scheduler
-    depends_on: ["aerie_merlin", "postgres"]
+    container_name: plandev_scheduler
+    depends_on: ["plandev_merlin", "postgres"]
     environment:
       HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
       MERLIN_GRAPHQL_URL: http://hasura:8080/v1/graphql
@@ -95,17 +95,17 @@ services:
         -Dorg.slf4j.simpleLogger.defaultLogLevel=INFO
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
         -Dorg.slf4j.simpleLogger.logFile=System.err
-    image: aerie_scheduler
-    ports: ["27185:27185", "5006:5005"]
+    image: plandev_scheduler
+    ports: ["27185:8080", "5006:5005"] # Exposes only Health Check and debugger port
     restart: always
     volumes:
       - aerie_file_store:/usr/src/app/merlin_file_store
-  aerie_sequencing:
+  plandev_sequencing:
     build:
       context: ./sequencing-server
       dockerfile: Dockerfile
       #dockerfile: Dockerfile.dev #-- Uncomment for development
-    container_name: aerie_sequencing
+    container_name: plandev_sequencing
     depends_on: ["postgres"]
     environment:
       HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
@@ -121,22 +121,22 @@ services:
       SEQUENCING_LANGUAGE: "SEQN"
       #DICTIONARY_PARSER_PLUGIN: "/fprime-dictionary-parser/fprime-parser.js" #-- Relative to sequencing-server/plugins, Uncomment to use a different command dictionary parser
       SEQUENCING_WORKER_NUM: 8
-      SEQUENCING_MAX_WORKER_NUM : 8
+      SEQUENCING_MAX_WORKER_NUM: 8
       SEQUENCING_MAX_WORKER_HEAP_MB: 1000
       TRANSPILER_ENABLED: "true"
-    image: aerie_sequencing
-    ports: ["27184:27184"]
+    image: plandev_sequencing
+    ports: ["27184:8080"] # Exposes only Health Check
     #ports: [ "27184:27184",'9229:9229'] #-- Uncomment for development
     restart: always
     volumes:
       - ./sequencing-server:/app:cached
       - aerie_file_store:/usr/src/app/sequencing_file_store
-  aerie_workspace:
+  plandev_workspace:
     build:
       context: ./workspace-server
       dockerfile: Dockerfile
-    container_name: aerie_workspace
-    depends_on: [ "postgres" ]
+    container_name: plandev_workspace
+    depends_on: ["postgres"]
     environment:
       AERIE_DB_HOST: postgres
       AERIE_DB_PORT: 5432
@@ -152,13 +152,13 @@ services:
         -Dorg.slf4j.simpleLogger.defaultLogLevel=INFO
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
         -Dorg.slf4j.simpleLogger.logFile=System.err
-    image: aerie_workspace
-    ports: [ "28000:28000", "5015:5005" ]
+    image: plandev_workspace
+    ports: ["28000:28000", "5015:5005"]
     restart: always
     volumes:
       - workspace_file_store:/usr/src/ws
-  aerie_ui:
-    container_name: aerie_ui
+  plandev_ui:
+    container_name: plandev_ui
     depends_on: ["postgres"]
     environment:
       NODE_TLS_REJECT_UNAUTHORIZED: "0"
@@ -167,7 +167,7 @@ services:
       PUBLIC_ACTION_CLIENT_URL: http://localhost:27186
       PUBLIC_ACTION_INCLUDE_CREDENTIALS: "false"
       PUBLIC_GATEWAY_CLIENT_URL: http://localhost:9000
-      PUBLIC_GATEWAY_SERVER_URL: http://aerie_gateway:9000
+      PUBLIC_GATEWAY_SERVER_URL: http://plandev_gateway:9000
       PUBLIC_HASURA_CLIENT_URL: http://localhost:8080/v1/graphql
       PUBLIC_HASURA_SERVER_URL: http://hasura:8080/v1/graphql
       PUBLIC_HASURA_WEB_SOCKET_URL: ws://localhost:8080/v1/graphql
@@ -176,11 +176,11 @@ services:
     image: "ghcr.io/nasa-ammos/aerie-ui:develop"
     ports: ["80:80"]
     restart: always
-  aerie_merlin_worker_1:
+  plandev_merlin_worker_1:
     build:
       context: ./merlin-worker
       dockerfile: Dockerfile
-    container_name: aerie_merlin_worker_1
+    container_name: plandev_merlin_worker_1
     depends_on: ["postgres"]
     environment:
       AERIE_DB_HOST: postgres
@@ -195,16 +195,16 @@ services:
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
         -Dorg.slf4j.simpleLogger.logFile=System.err
       UNTRUE_PLAN_START: "2000-01-01T11:58:55.816Z"
-    image: "aerie_merlin_worker_1"
-    ports: ["5007:5005", "27187:8080"]
+    image: "plandev_merlin_worker_1"
+    ports: ["5007:5005", "27187:8080"] # Exposes only Health Check and debugger port
     restart: always
     volumes:
       - aerie_file_store:/usr/src/app/merlin_file_store:ro
-  aerie_merlin_worker_2:
+  plandev_merlin_worker_2:
     build:
       context: ./merlin-worker
       dockerfile: Dockerfile
-    container_name: aerie_merlin_worker_2
+    container_name: plandev_merlin_worker_2
     depends_on: ["postgres"]
     environment:
       AERIE_DB_HOST: postgres
@@ -219,16 +219,16 @@ services:
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
         -Dorg.slf4j.simpleLogger.logFile=System.err
       UNTRUE_PLAN_START: "2000-01-01T11:58:55.816Z"
-    image: "aerie_merlin_worker_2"
-    ports: ["5008:5005", "27188:8080"]
+    image: "plandev_merlin_worker_2"
+    ports: ["5008:5005", "27188:8080"] # Exposes only Health Check and debugger port
     restart: always
     volumes:
       - aerie_file_store:/usr/src/app/merlin_file_store:ro
-  aerie_scheduler_worker_1:
+  plandev_scheduler_worker_1:
     build:
       context: ./scheduler-worker
       dockerfile: Dockerfile
-    container_name: aerie_scheduler_worker_1
+    container_name: plandev_scheduler_worker_1
     depends_on: ["postgres"]
     environment:
       HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
@@ -245,16 +245,16 @@ services:
         -Dorg.slf4j.simpleLogger.defaultLogLevel=INFO
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
         -Dorg.slf4j.simpleLogger.logFile=System.err
-    image: "aerie_scheduler_worker_1"
-    ports: ["5009:5005", "27189:8080"]
+    image: "plandev_scheduler_worker_1"
+    ports: ["5009:5005", "27189:8080"] # Exposes only Health Check and debugger port
     restart: always
     volumes:
       - aerie_file_store:/usr/src/app/merlin_file_store:ro
-  aerie_scheduler_worker_2:
+  plandev_scheduler_worker_2:
     build:
       context: ./scheduler-worker
       dockerfile: Dockerfile
-    container_name: aerie_scheduler_worker_2
+    container_name: plandev_scheduler_worker_2
     depends_on: ["postgres"]
     environment:
       HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
@@ -271,8 +271,8 @@ services:
         -Dorg.slf4j.simpleLogger.defaultLogLevel=INFO
         -Dorg.slf4j.simpleLogger.log.com.zaxxer.hikari=INFO
         -Dorg.slf4j.simpleLogger.logFile=System.err
-    image: "aerie_scheduler_worker_2"
-    ports: ["5010:5005", "27190:8080"]
+    image: "plandev_scheduler_worker_2"
+    ports: ["5010:5005", "27190:8080"] # Exposes only Health Check and debugger port
     restart: always
     volumes:
       - aerie_file_store:/usr/src/app/merlin_file_store:ro
@@ -280,13 +280,13 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.hasura
-    container_name: aerie_hasura
+    container_name: plandev_hasura
     depends_on: ["postgres"]
     environment:
       AERIE_DATABASE_URL: "postgres://${AERIE_USERNAME}:${AERIE_PASSWORD}@postgres:5432/aerie?options=-c%20search_path%3Dutil_functions%2Chasura%2Cpermissions%2Ctags%2Cmerlin%2Cscheduler%2Csequencing%2Cactions%2Cui%2Cpublic"
-      AERIE_MERLIN_URL: "http://aerie_merlin:27183"
-      AERIE_SCHEDULER_URL: "http://aerie_scheduler:27185"
-      AERIE_SEQUENCING_URL: "http://aerie_sequencing:27184"
+      AERIE_MERLIN_URL: "http://plandev_merlin:27183"
+      AERIE_SCHEDULER_URL: "http://plandev_scheduler:27185"
+      AERIE_SEQUENCING_URL: "http://plandev_sequencing:27184"
       HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
       HASURA_GRAPHQL_DEV_MODE: "true"
       HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
@@ -296,7 +296,7 @@ services:
       HASURA_GRAPHQL_LOG_LEVEL: info
       HASURA_GRAPHQL_METADATA_DATABASE_URL: "postgres://${AERIE_USERNAME}:${AERIE_PASSWORD}@postgres:5432/aerie_hasura"
       HASURA_GRAPHQL_METADATA_DIR: /hasura-metadata
-    image: aerie_hasura
+    image: plandev_hasura
     ports: ["8080:8080"]
     restart: always
     volumes:
@@ -305,7 +305,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.postgres
-    container_name: aerie_postgres
+    container_name: plandev_postgres
     environment:
       POSTGRES_DB: postgres
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
@@ -320,7 +320,7 @@ services:
       SCHEDULER_DB_PASSWORD: "${SCHEDULER_PASSWORD}"
       SEQUENCING_DB_USER: "${SEQUENCING_USERNAME}"
       SEQUENCING_DB_PASSWORD: "${SEQUENCING_PASSWORD}"
-    image: aerie_postgres
+    image: plandev_postgres
     ports: ["5432:5432"]
     restart: always
     volumes:

@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: aerie-dev
-  name: aerie-merlin
+  namespace: plandev-dev
+  name: plandev-merlin
 spec:
   ports:
     - name: "27183"
       port: 27183
       targetPort: 27183
   selector:
-    app: aerie-merlin
+    app: plandev-merlin

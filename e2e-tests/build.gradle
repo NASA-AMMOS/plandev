@@ -23,6 +23,86 @@ test {
   onlyIf { false }
 }
 
+// Run just the RoutesTestSuite
+task internalTest(type: Test) {
+  ext.parseEnvFile = { filePath ->
+    file(filePath).readLines().each() {
+      if (!it.isEmpty() && !it.startsWith("#")) {
+        def (key, value) = it.tokenize('=')
+        if (key.startsWith("export ")) {
+          key = key.split("export ")[1];
+        }
+        if (System.getenv(key) == null) {
+          environment key, value
+        }
+      }
+    }
+  }
+
+  dependsOn ":examples:banananation:assemble"
+
+  if(file('.env').exists()) {
+    parseEnvFile('.env')
+  } else if(file('../.env').exists()){
+    parseEnvFile('../.env')
+  }
+  environment "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD", 1
+
+  useJUnitPlatform {
+    // Only run test suites, not individual test classes
+    excludeEngines("junit-jupiter")
+  }
+
+  // Only run RoutesTestSuite
+  include('**/routes/RoutesTestSuite*')
+
+  testLogging {
+    exceptionFormat = 'full'
+  }
+}
+
+// Run just External (Hasura/Workspace) Test Suites
+task systemTest(type: Test) {
+  ext.parseEnvFile = { filePath ->
+    file(filePath).readLines().each() {
+      if (!it.isEmpty() && !it.startsWith("#")) {
+        def (key, value) = it.tokenize('=')
+        if (key.startsWith("export ")) {
+          key = key.split("export ")[1];
+        }
+        if (System.getenv(key) == null) {
+          environment key, value
+        }
+      }
+    }
+  }
+
+  dependsOn ":examples:banananation:assemble"
+  dependsOn ":examples:foo-missionmodel:assemble"
+
+  if(file('.env').exists()) {
+    parseEnvFile('.env')
+  } else if(file('../.env').exists()){
+    parseEnvFile('../.env')
+  }
+  environment "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD", 1
+
+  maxHeapSize = "1G" // maximum heap size
+
+  useJUnitPlatform {
+    // Only run test suites, not individual test classes
+    excludeEngines("junit-jupiter")
+  }
+
+  // Only run E2ETestSuite
+  include('**/E2ETestSuite*')
+
+  testLogging {
+    exceptionFormat = 'full'
+  }
+}
+
+// Run all of the E2E and Integration Tests
 task e2eTest(type: Test) {
   ext.parseEnvFile = { filePath ->
     file(filePath).readLines().each() {
@@ -47,9 +127,13 @@ task e2eTest(type: Test) {
     parseEnvFile('../.env')
   }
   environment "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD", 1
-  // Run the tests in parallel to improve performance
-  maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
-  useJUnitPlatform()
+
+  maxHeapSize = "1G" // maximum heap size
+
+  useJUnitPlatform {
+    // Run all tests, skipping the suites to avoid test duplication
+    excludeEngines("junit-platform-suite")
+  }
 
   testLogging {
     exceptionFormat = 'full'
@@ -74,11 +158,11 @@ dependencies {
   testImplementation 'org.glassfish:javax.json:1.1.4'
   testImplementation 'org.apache.commons:commons-lang3:3.13.0'
 
-  testImplementation 'org.junit.jupiter:junit-jupiter-engine:6.0.1'
-  testImplementation 'org.junit.jupiter:junit-jupiter-params:6.0.1'
+  testImplementation 'org.junit.jupiter:junit-jupiter-engine:6.1.3'
+  testImplementation 'org.junit.jupiter:junit-jupiter-params:6.1.3'
 
-  testRuntimeOnly 'org.junit.platform:junit-platform-engine:6.0.1'
-  testImplementation 'org.junit.platform:junit-platform-launcher:6.0.1'
+  testImplementation 'org.junit.platform:junit-platform-launcher:6.1.3'
+  testImplementation('org.junit.platform:junit-platform-suite:6.1.3')
 }
 
 tasks.register('buildAllProcedureJars') {
@@ -93,21 +177,22 @@ tasks.register('buildAllProcedureJars') {
 tasks.create("generateProcedureJarTasks") {
   group = 'ProcedureJars'
 
-  final proceduresDir = findFirstMatchingBuildDir("generated/procedures")
+  // Create a file tree pointing at the folder all generated procedures have been placed inside
+  def generatedFileDir = layout.buildDirectory.dir('generated/sources/annotationProcessor')
+  ConfigurableFileTree tree = fileTree(dir: generatedFileDir)
 
-  if (proceduresDir == null) {
-    println "No procedures folder found"
+  // Include all java files EXCEPT for the ValueMappers
+  // Note: outside of a test context a more detailed path filter may need to be used
+  tree.include '**/*.java'
+  tree.exclude '**/*ValueMappers.java'
+
+  if(tree.isEmpty()) {
+    println "No generated procedures found inside ${generatedFileDir.get()}"
     return
   }
-  println "Generating jar tasks for the following procedures directory: ${proceduresDir}"
 
-  final files = file(proceduresDir).listFiles()
-  if (files.length == 0) {
-    println "No procedures available within folder ${proceduresDir}"
-    return
-  }
-
-  files.toList().each { file ->
+  // Go through each discovered procedure and generate it into a JAR
+  tree.each { File file ->
     final nameWithoutExtension = file.name.replace(".java", "")
     final taskName = "buildProcedureJar_${nameWithoutExtension}"
 
@@ -125,14 +210,6 @@ tasks.create("generateProcedureJarTasks") {
       minimize()
     }
   }
-}
-
-private String findFirstMatchingBuildDir(String pattern) {
-  String found = null
-  final generatedDir = file("build/generated/sources")
-  generatedDir.mkdirs()
-  generatedDir.eachDirRecurse { dir -> if (dir.path.contains(pattern)) found = dir.path }
-  return found
 }
 
 private static String getMainClassFromGeneratedFile(File file) {

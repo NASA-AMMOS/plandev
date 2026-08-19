@@ -12,7 +12,7 @@ app.use(express.json()); // Middleware for parsing JSON bodies
 app.use(corsMiddleware); // TODO: set more strict CORS rules
 
 app.get("/", async (req, res, next) => {
-  res.send("Aerie Action Service");
+  res.send("PlanDev Action Service");
 });
 
 app.get("/health", async (req, res, next) => {

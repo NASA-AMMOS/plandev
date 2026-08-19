@@ -1,5 +1,6 @@
-import * as ampcs from '@nasa-jpl/aerie-ampcs';
+import * as ampcs from '@nasa-jpl/plandev-ampcs';
 import type { GraphQLClient } from 'graphql-request';
+import { DictionaryType } from '../src/types/types';
 import {
   channelDictionaryString,
   commandDictionaryString,
@@ -8,7 +9,6 @@ import {
   removeDictionary,
 } from './testUtils/Dictionary';
 import { getGraphQLClient } from './testUtils/testUtils.js';
-import { DictionaryType } from '../src/types/types';
 
 let graphqlClient: GraphQLClient;
 

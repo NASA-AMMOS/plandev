@@ -8,6 +8,11 @@ FROM node:24.18.0-bullseye-slim AS dsl-node-builder
 
 WORKDIR /opt/scheduling-dsl-compiler
 
+# build-essential and python3 are needed to build isolated-vm dependency
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y build-essential python3 \
+    && rm -rf /var/lib/apt/lists/*
+
 # copy scheduling-dsl-compiler node app package metadata first, so dependency installation can be cached.
 COPY scheduling-dsl-compiler/package.json scheduling-dsl-compiler/package-lock.json ./
 # Install dependencies without lifecycle scripts, then only build deps approved by the package's allowScripts policy.

@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  namespace: aerie-dev
-  name: aerie-action
+  namespace: plandev-dev
+  name: plandev-action
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: aerie-action
+      app: plandev-action
   template:
     metadata:
       labels:
-        app: aerie-action
+        app: plandev-action
     spec:
       containers:
-        - name: aerie-action
-          image: ghcr.io/nasa-ammos/aerie-action:develop
+        - name: plandev-action
+          image: ghcr.io/nasa-ammos/plandev-action:develop
           ports:
             - containerPort: 27186
           resources: {}

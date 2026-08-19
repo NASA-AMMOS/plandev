@@ -1,4 +1,4 @@
-# aerie-deployment
+# plandev-deployment
 
 This document describes how to deploy PlanDev.
 
@@ -25,7 +25,7 @@ Inside the [.env](./.env) there is a collection of variables that **must** be se
 They are, as follows:
 
 | Name                          | Description                                                                                                                  |
-| ----------------------------- |------------------------------------------------------------------------------------------------------------------------------|
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `REPOSITORY_DOCKER_URL`       | The URL used to fetch images of PlanDev packages.                                                                            |
 | `DOCKER_TAG`                  | The version of the PlanDev images to fetch.                                                                                  |
 | `AERIE_USERNAME`              | The username used for PlanDev services when they access the Postgres database.                                               |
@@ -40,7 +40,7 @@ They are, as follows:
 
 ## Configuring Merlin Simulation Workers
 
-A Merlin simulation is executed by an aerie-merlin-worker. A PlanDev deployment can configure one or
+A Merlin simulation is executed by an plandev-merlin-worker. A PlanDev deployment can configure one or
 more workers to provide a PlanDev deployment with the ability to execute multiple concurrent
 simulations. Without a worker PlanDev will not execute any simulations. Workers are declared by adding
 a worker container definition in your docker-compose file for each worker. The default docker-compose.yml

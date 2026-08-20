@@ -3,7 +3,7 @@ import pg from "pg";
 import { configuration } from "./config";
 import logger from "./utils/logger";
 
-const { AERIE_DB, AERIE_DB_HOST, AERIE_DB_PORT, ACTION_DB_USER, ACTION_DB_PASSWORD } = configuration();
+const { PLANDEV_DB, PLANDEV_DB_HOST, PLANDEV_DB_PORT, ACTION_DB_USER, ACTION_DB_PASSWORD } = configuration();
 
 export class ActionsDbManager {
   private static pool: Pool;
@@ -16,9 +16,9 @@ export class ActionsDbManager {
     try {
       logger.info(`Creating PG pool`);
       ActionsDbManager.pool = new pg.Pool({
-        host: AERIE_DB_HOST,
-        port: parseInt(AERIE_DB_PORT),
-        database: AERIE_DB,
+        host: PLANDEV_DB_HOST,
+        port: parseInt(PLANDEV_DB_PORT),
+        database: PLANDEV_DB,
         user: ACTION_DB_USER,
         password: ACTION_DB_PASSWORD,
         max: 3,

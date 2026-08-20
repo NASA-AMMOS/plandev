@@ -5,7 +5,7 @@ import logger from "../utils/logger";
 import { configuration } from "../config";
 import pg from "pg";
 
-const { AERIE_DB, AERIE_DB_HOST, AERIE_DB_PORT, ACTION_DB_USER, ACTION_DB_PASSWORD } = configuration();
+const { PLANDEV_DB, PLANDEV_DB_HOST, PLANDEV_DB_PORT, ACTION_DB_USER, ACTION_DB_PASSWORD } = configuration();
 
 let dbPool: pg.Pool | null = null;
 let dbClient: pg.PoolClient | null = null;
@@ -19,9 +19,9 @@ function getDbPool() {
   if (dbPool) return dbPool;
 
   dbPool = new pg.Pool({
-    host: AERIE_DB_HOST,
-    port: parseInt(AERIE_DB_PORT),
-    database: AERIE_DB,
+    host: PLANDEV_DB_HOST,
+    port: parseInt(PLANDEV_DB_PORT),
+    database: PLANDEV_DB,
     user: ACTION_DB_USER,
     password: ACTION_DB_PASSWORD,
     // should have exactly one client/connection

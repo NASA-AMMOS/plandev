@@ -265,6 +265,7 @@ services:
 volumes:
   plandev_file_store:
     name: ${PLANDEV_FILE_STORE_NAME:?Name of the Mission Model file store volume has not been set.}
+  mission_file_store:
   postgres_data:
   workspace_file_store:
 

@@ -193,12 +193,12 @@ services:
       - workspace_file_store:/usr/src/ws
     networks:
       - plandev_net
-  aerie_ui:
-    container_name: aerie_ui
+  plandev_ui:
+    container_name: plandev_ui
     depends_on: ["postgres"]
     environment:
       ORIGIN: http://localhost
-      PUBLIC_AERIE_FILE_STORE_PREFIX: "/usr/src/app/merlin_file_store/"
+      PUBLIC_PLANDEV_FILE_STORE_PREFIX: "/usr/src/app/merlin_file_store/"
       PUBLIC_ACTION_CLIENT_URL: http://localhost:27186
       PUBLIC_ACTION_INCLUDE_CREDENTIALS: "false"
       PUBLIC_GATEWAY_CLIENT_URL: http://localhost:9000
@@ -207,7 +207,7 @@ services:
       PUBLIC_HASURA_SERVER_URL: http://hasura:8080/v1/graphql
       PUBLIC_HASURA_WEB_SOCKET_URL: ws://localhost:8080/v1/graphql
       PUBLIC_WORKSPACE_CLIENT_URL: http://localhost:28000
-    image: "${REPOSITORY_DOCKER_URL}/aerie-ui:${DOCKER_TAG}"
+    image: "${REPOSITORY_DOCKER_URL}/plandev-ui:${DOCKER_TAG}"
     ports: ["80:80"]
     restart: always
     networks:

@@ -163,7 +163,7 @@ services:
     depends_on: ["postgres"]
     environment:
       NODE_TLS_REJECT_UNAUTHORIZED: "0"
-      PUBLIC_AERIE_FILE_STORE_PREFIX: "/usr/src/app/merlin_file_store/"
+      PUBLIC_PLANDEV_FILE_STORE_PREFIX: "/usr/src/app/merlin_file_store/"
       ORIGIN: http://localhost
       PUBLIC_ACTION_CLIENT_URL: http://localhost:27186
       PUBLIC_ACTION_INCLUDE_CREDENTIALS: "false"
@@ -173,7 +173,7 @@ services:
       PUBLIC_HASURA_SERVER_URL: http://hasura:8080/v1/graphql
       PUBLIC_HASURA_WEB_SOCKET_URL: ws://localhost:8080/v1/graphql
       PUBLIC_WORKSPACE_CLIENT_URL: http://localhost:28000
-    image: "ghcr.io/nasa-ammos/aerie-ui:develop"
+    image: "ghcr.io/nasa-ammos/plandev-ui:develop"
     ports: ["80:80"]
     restart: always
   plandev_merlin_workers:

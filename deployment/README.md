@@ -21,7 +21,7 @@ Each container has environment variables that can be used to fine-tune your depl
 See the [environment variable documentation](./Environment.md) for the complete set of variables.
 See the example [docker-compose.yml](./docker-compose.yml) file for examples on how to set the environment variables.
 
-Inside the [.env](./.env) there is a collection of variables that **must** be set in order to deploy PlanDev using the default [init-aerie.sh](./postgres-init-db/init-aerie.sh) and [docker-compose.yml](./docker-compose.yml).
+Inside the [.env](./.env) there is a collection of variables that **must** be set in order to deploy PlanDev using the default [init-plandev.sh](postgres-init-db/init-plandev.sh) and [docker-compose.yml](./docker-compose.yml).
 They are, as follows:
 
 | Name                          | Description                                                                                                                  |
@@ -59,7 +59,7 @@ docker-compose up --build --detach
 
 ## Postgres Considerations
 
-When the Postgres container starts it will run [init-aerie.sh](./postgres-init-db/init-aerie.sh) to initialize the database with the PlanDev [database objects](./postgres-init-db/sql).
+When the Postgres container starts it will run [init-plandev.sh](postgres-init-db/init-plandev.sh) to initialize the database with the PlanDev [database objects](./postgres-init-db/sql).
 
 **Note:** This script is only run if you start the container with a data directory that is empty; any pre-existing database will be left untouched on container startup. See the 'Initialization scripts' section of the [Docker Postgres documentation](https://hub.docker.com/_/postgres) for more detailed information.
 

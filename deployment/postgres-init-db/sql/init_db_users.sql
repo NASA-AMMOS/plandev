@@ -17,7 +17,7 @@ begin;
   grant select on table permissions.user_role_permission to public;
 
   -- All services can create temp tables
-  grant temp on database aerie to public;
+  grant temp on database :dbName to public;
 
   -- All services can read merlin data
   grant usage on schema merlin to public;

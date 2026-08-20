@@ -111,4 +111,4 @@ event_triggers:
       interval_sec: 10
       num_retries: 0
       timeout_sec: 300
-    webhook: "{{AERIE_MERLIN_URL}}/refreshConstraintProcedureParameterTypes"
+    webhook: "{{PLANDEV_MERLIN_URL}}/refreshConstraintProcedureParameterTypes"

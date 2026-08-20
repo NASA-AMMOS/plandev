@@ -216,17 +216,17 @@ services:
     container_name: hasura
     depends_on: ["postgres"]
     environment:
-      AERIE_DATABASE_URL: "postgres://${AERIE_USERNAME}:${AERIE_PASSWORD}@postgres:5432/aerie?options=-c%20search_path%3Dutil_functions%2Chasura%2Cpermissions%2Ctags%2Cmerlin%2Cscheduler%2Csequencing%2Cactions%2Cui%2Cpublic"
-      AERIE_MERLIN_URL: "http://plandev_merlin:27183"
-      AERIE_SCHEDULER_URL: "http://plandev_scheduler:27185"
-      AERIE_SEQUENCING_URL: "http://plandev_sequencing:27184"
+      PLANDEV_DATABASE_URL: "postgres://${PLANDEV_USERNAME:-${AERIE_USERNAME:?Database admin username has not been set.}}:${PLANDEV_PASSWORD:-${AERIE_PASSWORD:?Database admin password has not been set.}}@postgres:5432/${PLANDEV_DATABASE_NAME}?options=-c%20search_path%3Dutil_functions%2Chasura%2Cpermissions%2Ctags%2Cmerlin%2Cscheduler%2Csequencing%2Cactions%2Cui%2Cpublic"
+      PLANDEV_MERLIN_URL: "http://plandev_merlin:27183"
+      PLANDEV_SCHEDULER_URL: "http://plandev_scheduler:27185"
+      PLANDEV_SEQUENCING_URL: "http://plandev_sequencing:27184"
       HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
       HASURA_GRAPHQL_DEV_MODE: "true"
       HASURA_GRAPHQL_ENABLE_CONSOLE: "true"
       HASURA_GRAPHQL_ENABLED_LOG_TYPES: startup, http-log, webhook-log, websocket-log, query-log
       HASURA_GRAPHQL_JWT_SECRET: "${HASURA_GRAPHQL_JWT_SECRET}"
       HASURA_GRAPHQL_LOG_LEVEL: warn
-      HASURA_GRAPHQL_METADATA_DATABASE_URL: "postgres://${AERIE_USERNAME}:${AERIE_PASSWORD}@postgres:5432/aerie_hasura"
+      HASURA_GRAPHQL_METADATA_DATABASE_URL: "postgres://${PLANDEV_USERNAME:-${AERIE_USERNAME:?Database admin username has not been set.}}:${PLANDEV_PASSWORD:-${AERIE_PASSWORD:?Database admin password has not been set.}}@postgres:5432/${PLANDEV_METADATA_DATABASE_NAME}"
       HASURA_GRAPHQL_METADATA_DIR: /hasura-metadata
     image: "${REPOSITORY_DOCKER_URL}/plandev-hasura:${DOCKER_TAG}"
     ports: ["8080:8080"]

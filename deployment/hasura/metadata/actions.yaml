@@ -2,7 +2,7 @@ actions:
   - name: addExternalDataset
     definition:
       kind: synchronous
-      handler: "{{AERIE_MERLIN_URL}}/addExternalDataset"
+      handler: "{{PLANDEV_MERLIN_URL}}/addExternalDataset"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -10,7 +10,7 @@ actions:
   - name: extendExternalDataset
     definition:
       kind: synchronous
-      handler: "{{AERIE_MERLIN_URL}}/extendExternalDataset"
+      handler: "{{PLANDEV_MERLIN_URL}}/extendExternalDataset"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -18,7 +18,7 @@ actions:
   - name: uploadDictionary
     definition:
       kind: synchronous
-      handler: "{{AERIE_SEQUENCING_URL}}/put-dictionary"
+      handler: "{{PLANDEV_SEQUENCING_URL}}/put-dictionary"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -26,7 +26,7 @@ actions:
   - name: addCommandExpansionTypeScript
     definition:
       kind: synchronous
-      handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/put-expansion"
+      handler: "{{PLANDEV_SEQUENCING_URL}}/command-expansion/put-expansion"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -34,7 +34,7 @@ actions:
   - name: assignActivitiesByFilter
     definition:
       kind: synchronous
-      handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/assign-activities-by-filter"
+      handler: "{{PLANDEV_SEQUENCING_URL}}/command-expansion/assign-activities-by-filter"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -42,7 +42,7 @@ actions:
   - name: addTemplate
     definition:
       kind: synchronous
-      handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/put-template"
+      handler: "{{PLANDEV_SEQUENCING_URL}}/command-expansion/put-template"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -50,7 +50,7 @@ actions:
   - name: createExpansionSet
     definition:
       kind: synchronous
-      handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/put-expansion-set"
+      handler: "{{PLANDEV_SEQUENCING_URL}}/command-expansion/put-expansion-set"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -58,7 +58,7 @@ actions:
   - name: expandAllActivities
     definition:
       kind: synchronous
-      handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/expand-all-activity-instances"
+      handler: "{{PLANDEV_SEQUENCING_URL}}/command-expansion/expand-all-activity-instances"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -66,7 +66,7 @@ actions:
   - name: expandAllTemplates
     definition:
       kind: synchronous
-      handler: "{{AERIE_SEQUENCING_URL}}/command-expansion/expand-all-sequence-templates"
+      handler: "{{PLANDEV_SEQUENCING_URL}}/command-expansion/expand-all-sequence-templates"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -74,7 +74,7 @@ actions:
   - name: getModelEffectiveArguments
     definition:
       kind: ""
-      handler: "{{AERIE_MERLIN_URL}}/getModelEffectiveArguments"
+      handler: "{{PLANDEV_MERLIN_URL}}/getModelEffectiveArguments"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -83,7 +83,7 @@ actions:
   - name: getActivityEffectiveArguments
     definition:
       kind: ""
-      handler: "{{AERIE_MERLIN_URL}}/getActivityEffectiveArguments"
+      handler: "{{PLANDEV_MERLIN_URL}}/getActivityEffectiveArguments"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -92,7 +92,7 @@ actions:
   - name: getActivityEffectiveArgumentsBulk
     definition:
       kind: ""
-      handler: "{{AERIE_MERLIN_URL}}/getActivityEffectiveArgumentsBulk"
+      handler: "{{PLANDEV_MERLIN_URL}}/getActivityEffectiveArgumentsBulk"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -101,7 +101,7 @@ actions:
   - name: getConstraintProcedureEffectiveArgumentsBulk
     definition:
       kind: ""
-      handler: "{{AERIE_MERLIN_URL}}/getConstraintProcedureEffectiveArgumentsBulk"
+      handler: "{{PLANDEV_MERLIN_URL}}/getConstraintProcedureEffectiveArgumentsBulk"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -110,7 +110,7 @@ actions:
   - name: getActivityTypeScript
     definition:
       kind: ""
-      handler: "{{AERIE_SEQUENCING_URL}}/get-activity-typescript"
+      handler: "{{PLANDEV_SEQUENCING_URL}}/get-activity-typescript"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -118,7 +118,7 @@ actions:
   - name: getCommandTypeScript
     definition:
       kind: ""
-      handler: "{{AERIE_SEQUENCING_URL}}/get-command-typescript"
+      handler: "{{PLANDEV_SEQUENCING_URL}}/get-command-typescript"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -126,7 +126,7 @@ actions:
   - name: getSequenceSeqJson
     definition:
       kind: ""
-      handler: "{{AERIE_SEQUENCING_URL}}/seqjson/get-seqjson-for-seqid-and-simulation-dataset"
+      handler: "{{PLANDEV_SEQUENCING_URL}}/seqjson/get-seqjson-for-seqid-and-simulation-dataset"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -135,7 +135,7 @@ actions:
   - name: getSequenceSeqJsonBulk
     definition:
       kind: ""
-      handler: "{{AERIE_SEQUENCING_URL}}/seqjson/bulk-get-seqjson-for-seqid-and-simulation-dataset"
+      handler: "{{PLANDEV_SEQUENCING_URL}}/seqjson/bulk-get-seqjson-for-seqid-and-simulation-dataset"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -144,7 +144,7 @@ actions:
   - name: resourceTypes
     definition:
       kind: ""
-      handler: "{{AERIE_MERLIN_URL}}/resourceTypes"
+      handler: "{{PLANDEV_MERLIN_URL}}/resourceTypes"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -153,7 +153,7 @@ actions:
   - name: schedule
     definition:
       kind: ""
-      handler: "{{AERIE_SCHEDULER_URL}}/schedule"
+      handler: "{{PLANDEV_SCHEDULER_URL}}/schedule"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -161,7 +161,7 @@ actions:
   - name: schedulingDslTypescript
     definition:
       kind: ""
-      handler: "{{AERIE_SCHEDULER_URL}}/schedulingDslTypescript"
+      handler: "{{PLANDEV_SCHEDULER_URL}}/schedulingDslTypescript"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -169,7 +169,7 @@ actions:
   - name: getSchedulingProcedureEffectiveArgumentsBulk
     definition:
       kind: ""
-      handler: "{{AERIE_SCHEDULER_URL}}/getSchedulingProcedureEffectiveArgumentsBulk"
+      handler: "{{PLANDEV_SCHEDULER_URL}}/getSchedulingProcedureEffectiveArgumentsBulk"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -178,7 +178,7 @@ actions:
   - name: constraintsDslTypescript
     definition:
       kind: ""
-      handler: "{{AERIE_MERLIN_URL}}/constraintsDslTypescript"
+      handler: "{{PLANDEV_MERLIN_URL}}/constraintsDslTypescript"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -186,7 +186,7 @@ actions:
   - name: simulate
     definition:
       kind: ""
-      handler: "{{AERIE_MERLIN_URL}}/getSimulationResults"
+      handler: "{{PLANDEV_MERLIN_URL}}/getSimulationResults"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -194,7 +194,7 @@ actions:
   - name: resourceSamples
     definition:
       kind: ""
-      handler: "{{AERIE_MERLIN_URL}}/resourceSamples"
+      handler: "{{PLANDEV_MERLIN_URL}}/resourceSamples"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -203,7 +203,7 @@ actions:
   - name: constraintViolations
     definition:
       kind: ""
-      handler: "{{AERIE_MERLIN_URL}}/constraintViolations"
+      handler: "{{PLANDEV_MERLIN_URL}}/constraintViolations"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -211,7 +211,7 @@ actions:
   - name: validateActivityArguments
     definition:
       kind: ""
-      handler: "{{AERIE_MERLIN_URL}}/validateActivityArguments"
+      handler: "{{PLANDEV_MERLIN_URL}}/validateActivityArguments"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -220,7 +220,7 @@ actions:
   - name: validateModelArguments
     definition:
       kind: ""
-      handler: "{{AERIE_MERLIN_URL}}/validateModelArguments"
+      handler: "{{PLANDEV_MERLIN_URL}}/validateModelArguments"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -229,7 +229,7 @@ actions:
   - name: validatePlan
     definition:
       kind: ""
-      handler: "{{AERIE_MERLIN_URL}}/validatePlan"
+      handler: "{{PLANDEV_MERLIN_URL}}/validatePlan"
       timeout: 300
     permissions:
       - role: aerie_admin

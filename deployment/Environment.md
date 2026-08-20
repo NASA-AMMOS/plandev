@@ -6,6 +6,7 @@ This document provides detailed information about environment variables for each
 - [PlanDev Merlin](#plandev-merlin)
 - [PlanDev Scheduler](#plandev-scheduler)
 - [PlanDev Sequencing](#plandev-sequencing)
+- [PlanDev Workspaces](#plandev-workspaces)
 - [PlanDev Action Server](#plandev-action-server)
 - [PlanDev UI](#plandev-ui)
 - [Hasura](#hasura)
@@ -19,8 +20,9 @@ See the [environment variables document](https://github.com/NASA-AMMOS/plandev-g
 
 | Name                                  | Description                                                                                                                 | Type      | Default                         |
 |---------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|-----------|---------------------------------|
-| `AERIE_DB_HOST`                       | The DB instance that Merlin will connect with                                                                               | `string`  | postgres                        |
-| `AERIE_DB_PORT`                       | The DB instance port number that Merlin will connect with                                                                   | `number`  | 5432                            |
+| `PLANDEV_DB`                          | The name of the PlanDev DB                                                                                                  | `string`  | plandev                         |
+| `PLANDEV_DB_HOST`                     | The DB instance that Merlin will connect with                                                                               | `string`  | postgres                        |
+| `PLANDEV_DB_PORT`                     | The DB instance port number that Merlin will connect with                                                                   | `number`  | 5432                            |
 | `JAVA_OPTS`                           | Configuration for Merlin's logging level and output file                                                                    | `string`  | log level: warn. output: stderr |
 | `MERLIN_PORT`                         | Port number for the Merlin server                                                                                           | `number`  | 27183                           |
 | `MERLIN_LOCAL_STORE`                  | Local storage for Merlin in the container                                                                                   | `string`  | /usr/src/app/merlin_file_store  |
@@ -34,8 +36,9 @@ See the [environment variables document](https://github.com/NASA-AMMOS/plandev-g
 
 | Name                                     | Description                                                                                                                 | Type     | Default                                      |
 |------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|----------|----------------------------------------------|
-| `AERIE_DB_HOST`                          | The DB instance that Merlin will connect with                                                                               | `string` | postgres                                     |
-| `AERIE_DB_PORT`                          | The DB instance port number that Merlin will connect with                                                                   | `number` | 5432                                         |
+| `PLANDEV_DB`                             | The name of the PlanDev DB                                                                                                  | `string` | plandev                                      |
+| `PLANDEV_DB_HOST`                        | The DB instance that Merlin will connect with                                                                               | `string` | postgres                                     |
+| `PLANDEV_DB_PORT`                        | The DB instance port number that Merlin will connect with                                                                   | `number` | 5432                                         |
 | `JAVA_OPTS`                              | Configuration for Merlin's logging level and output file                                                                    | `string` | log level: warn. output: stderr              |
 | `MERLIN_WORKER_LOCAL_STORE`              | The local storage as for the Merlin container                                                                               | `string` | /usr/src/app/merlin_file_store               |
 | `MERLIN_DB_USER`                         | Username of the Merlin DB User                                                                                              | `string` | merlin_service                               |
@@ -47,8 +50,9 @@ See the [environment variables document](https://github.com/NASA-AMMOS/plandev-g
 
 | Name                          | Description                                                      | Type     | Default                         |
 |-------------------------------|------------------------------------------------------------------|----------|---------------------------------|
-| `AERIE_DB_HOST`               | The DB instance that the Scheduler will connect with             | `string` | postgres                        |
-| `AERIE_DB_PORT`               | The DB instance port number that the Scheduler will connect with | `number` | 5432                            |
+| `PLANDEV_DB`                  | The name of the PlanDev DB                                       | `string` | plandev                         |
+| `PLANDEV_DB_HOST`             | The DB instance that the Scheduler will connect with             | `string` | postgres                        |
+| `PLANDEV_DB_PORT`             | The DB instance port number that the Scheduler will connect with | `number` | 5432                            |
 | `HASURA_GRAPHQL_ADMIN_SECRET` | The admin secret for Hasura which gives admin access if used.    | `string` |                                 |
 | `JAVA_OPTS`                   | Configuration for the scheduler's logging level and output file  | `string` | log level: warn. output: stderr |
 | `MERLIN_GRAPHQL_URL`          | URI of the Merlin graphql interface to call                      | `string` | http://hasura:8080/v1/graphql   |
@@ -58,50 +62,69 @@ See the [environment variables document](https://github.com/NASA-AMMOS/plandev-g
 
 ## PlanDev Scheduler Worker
 
-| Name                          | Description                                                           | Type     | Default                                            |
-|-------------------------------|-----------------------------------------------------------------------|----------|----------------------------------------------------|
-| `AERIE_DB_HOST`               | The DB instance that the Scheduler will connect with                  | `string` | postgres                                           |
-| `AERIE_DB_PORT`               | The DB instance port number that the Scheduler will connect with      | `number` | 5432                                               |
-| `HASURA_GRAPHQL_ADMIN_SECRET` | The admin secret for Hasura which gives admin access if used.         | `string` |                                                    |
-| `JAVA_OPTS`                   | Configuration for the scheduler's logging level and output file       | `string` | log level: warn. output: stderr                    |
-| `MERLIN_GRAPHQL_URL`          | URI of the Merlin graphql interface to call                           | `string` | http://hasura:8080/v1/graphql                      |
-| `MERLIN_LOCAL_STORE`          | Local storage for Merlin in the container (for backdoor jar access)   | `string` | /usr/src/app/merlin_file_store                     |
-| `SCHEDULER_DB_USER`           | Username of the Scheduler DB User                                     | `string` | scheduler_service                                  |
-| `SCHEDULER_DB_PASSWORD`       | Password of the Scheduler DB User                                     | `string` |                                                    |
-| `SCHEDULER_OUTPUT_MODE`       | How scheduler output is sent back to PlanDev                            | `string` | UpdateInputPlanWithNewActivities                   |
-| `MAX_NB_CACHED_SIMULATION_ENGINES` | The maximum number of simulation engines to cache in memory during a scheduling run. Must be at least 1 | `number` | 1                                                  |
+| Name                               | Description                                                                                             | Type     | Default                          |
+|------------------------------------|---------------------------------------------------------------------------------------------------------|----------|----------------------------------|
+| `PLANDEV_DB`                       | The name of the PlanDev DB                                                                              | `string` | plandev                          |
+| `PLANDEV_DB_HOST`                  | The DB instance that the Scheduler will connect with                                                    | `string` | postgres                         |
+| `PLANDEV_DB_PORT`                  | The DB instance port number that the Scheduler will connect with                                        | `number` | 5432                             |
+| `HASURA_GRAPHQL_ADMIN_SECRET`      | The admin secret for Hasura which gives admin access if used.                                           | `string` |                                  |
+| `JAVA_OPTS`                        | Configuration for the scheduler's logging level and output file                                         | `string` | log level: warn. output: stderr  |
+| `MERLIN_GRAPHQL_URL`               | URI of the Merlin graphql interface to call                                                             | `string` | http://hasura:8080/v1/graphql    |
+| `MERLIN_LOCAL_STORE`               | Local storage for Merlin in the container (for backdoor jar access)                                     | `string` | /usr/src/app/merlin_file_store   |
+| `SCHEDULER_DB_USER`                | Username of the Scheduler DB User                                                                       | `string` | scheduler_service                |
+| `SCHEDULER_DB_PASSWORD`            | Password of the Scheduler DB User                                                                       | `string` |                                  |
+| `SCHEDULER_OUTPUT_MODE`            | How scheduler output is sent back to PlanDev                                                            | `string` | UpdateInputPlanWithNewActivities |
+| `MAX_NB_CACHED_SIMULATION_ENGINES` | The maximum number of simulation engines to cache in memory during a scheduling run. Must be at least 1 | `number` | 1                                |
 
 ## PlanDev Sequencing
 
 | Name                          | Description                                                                                   | Type     | Default                            |
 |-------------------------------|-----------------------------------------------------------------------------------------------|----------|------------------------------------|
-| `AERIE_DB_HOST`               | Hostname of Postgres instance                                                                 | `string` | postgres                           |
-| `AERIE_DB_PORT`               | Port of Postgres instance                                                                     | `number` | 5432                               |
+| `PLANDEV_DB`                  | The name of the PlanDev DB                                                                    | `string` | plandev                            |
+| `PLANDEV_DB_HOST`             | Hostname of Postgres instance                                                                 | `string` | postgres                           |
+| `PLANDEV_DB_PORT`             | Port of Postgres instance                                                                     | `number` | 5432                               |
 | `HASURA_GRAPHQL_ADMIN_SECRET` | The admin secret for Hasura which gives admin access if used.                                 | `string` |                                    |
 | `LOG_FILE`                    | Either an output filepath to log to, or 'console'                                             | `string` | console                            |
 | `LOG_LEVEL`                   | Logging level for filtering logs                                                              | `string` | warn                               |
-| `MERLIN_GRAPHQL_URL`          | URI of the PlanDev GraphQL API                                                                  | `string` | http://hasura:8080/v1/graphql      |
+| `MERLIN_GRAPHQL_URL`          | URI of the PlanDev GraphQL API                                                                | `string` | http://hasura:8080/v1/graphql      |
 | `SEQUENCING_DB_USER`          | Username of the Sequencing DB User                                                            | `string` | sequencing_service                 |
-| `SEQUENCING_DB_PASSWORD`      | Password of the Sequencing DB User                                                            | `string` |                                    |
 | `SEQUENCING_LOCAL_STORE`      | Local storage file storage in the container                                                   | `string` | /usr/src/app/sequencing_file_store |
 | `SEQUENCING_SERVER_PORT`      | Port the server listens on                                                                    | `number` | 27184                              |
 | `SEQUENCING_LANGUAGE`         | The language that sequences are generated in when using templates ("SEQN", "STOL", or "TEXT") | `string` | "SEQN"                             |
 
+## PlanDev Workspaces
+
+| Name                          | Description                                                   | Type     | Default                       |
+|-------------------------------|---------------------------------------------------------------|----------|-------------------------------|
+| `PLANDEV_DB`                  | The name of the PlanDev DB                                    | `string` | plandev                       |
+| `PLANDEV_DB_HOST`             | Hostname of Postgres instance                                 | `string` | postgres                      |
+| `PLANDEV_DB_PORT`             | Port of Postgres instance                                     | `number` | 5432                          |
+| `SEQUENCING_DB_USER`          | Username of the Sequencing DB User                            | `string` | sequencing_service            |
+| `SEQUENCING_DB_PASSWORD`      | Password of the Sequencing DB User                            | `string` |                               |
+| `WORKSPACE_STORE`             | Local storage for Workspace files within the contaner         | `string` | /usr/src/ws                   |
+| `WORKSPACE_PORT`              | Port within the container the server will run on              | `number` | 28000                         |
+| `HASURA_GRAPHQL_JWT_SECRET`   | The JWT secret for JSON web token auth                        | `string` |                               |
+| `HASURA_GRAPHQL_ADMIN_SECRET` | The admin secret for Hasura which gives admin access if used. | `string` |                               |
+| `HASURA_GRAPHQL_URL`          | URI of the PlanDev GraphQL API from within the container      | `string` | http://hasura:8080/v1/graphql |
+
 ## PlanDev Action Server
 
-| Name                          | Description                                                                                                       | Type     | Default |
-|-------------------------------|-------------------------------------------------------------------------------------------------------------------|----------|---------|
-| `ACTION_COOKIE_NAMES`         | Comma-separated list of browser cookie names to extract and forward to actions as secrets (e.g. `ssosession`)     | `string` |         |
-| `ACTION_CORS_ALLOWED_ORIGIN`  | Allowed CORS origin for the action server. If unset, reflects the request's `Origin` header                       | `string` |         |
-| `ACTION_DB_USER`              | Username of the Action Server DB User                                                                             | `string` |         |
-| `ACTION_DB_PASSWORD`          | Password of the Action Server DB User                                                                             | `string` |         |
-| `ACTION_LOCAL_STORE`          | Local storage for the action server in the container                                                              | `string` | /usr/src/app/action_file_store |
-| `ACTION_WORKER_NUM`           | Number of action worker threads                                                                                   | `number` | 1       |
-| `ACTION_MAX_WORKER_NUM`       | Maximum number of action worker threads                                                                           | `number` | 1       |
-| `HASURA_GRAPHQL_JWT_SECRET`   | The JWT secret for JSON web token auth                                                                            | `string` |         |
-| `LOG_FILE`                    | Either an output filepath to log to, or 'console'                                                                 | `string` | console |
-| `LOG_LEVEL`                   | Logging level for filtering logs                                                                                  | `string` | debug   |
-| `MERLIN_GRAPHQL_URL`          | URI of the PlanDev GraphQL API                                                                                    | `string` | http://hasura:8080/v1/graphql |
+| Name                          | Description                                                                                                   | Type     | Default                        |
+|-------------------------------|---------------------------------------------------------------------------------------------------------------|----------|--------------------------------|
+| `PLANDEV_DB`                  | The name of the PlanDev DB                                                                                    | `string` | plandev                        |
+| `PLANDEV_DB_HOST`             | Hostname of Postgres instance                                                                                 | `string` | postgres                       |
+| `PLANDEV_DB_PORT`             | Port of Postgres instance                                                                                     | `number` | 5432                           |
+| `ACTION_COOKIE_NAMES`         | Comma-separated list of browser cookie names to extract and forward to actions as secrets (e.g. `ssosession`) | `string` |                                |
+| `ACTION_CORS_ALLOWED_ORIGIN`  | Allowed CORS origin for the action server. If unset, reflects the request's `Origin` header                   | `string` |                                |
+| `ACTION_DB_USER`              | Username of the Action Server DB User                                                                         | `string` |                                |
+| `ACTION_DB_PASSWORD`          | Password of the Action Server DB User                                                                         | `string` |                                |
+| `ACTION_LOCAL_STORE`          | Local storage for the action server in the container                                                          | `string` | /usr/src/app/action_file_store |
+| `ACTION_WORKER_NUM`           | Number of action worker threads                                                                               | `number` | 1                              |
+| `ACTION_MAX_WORKER_NUM`       | Maximum number of action worker threads                                                                       | `number` | 1                              |
+| `HASURA_GRAPHQL_JWT_SECRET`   | The JWT secret for JSON web token auth                                                                        | `string` |                                |
+| `LOG_FILE`                    | Either an output filepath to log to, or 'console'                                                             | `string` | console                        |
+| `LOG_LEVEL`                   | Logging level for filtering logs                                                                              | `string` | debug                          |
+| `MERLIN_GRAPHQL_URL`          | URI of the PlanDev GraphQL API                                                                                | `string` | http://hasura:8080/v1/graphql  |
 
 ## PlanDev UI
 
@@ -111,10 +134,10 @@ See the [environment variables document](https://github.com/NASA-AMMOS/plandev-u
 
 | Name                          | Description                                                   | Type     |
 |-------------------------------|---------------------------------------------------------------|----------|
-| `AERIE_DATABASE_URL`          | Url of the PlanDev Postgres database.                           | `string` |
-| `AERIE_MERLIN_URL`            | Url of the Merlin service.                                    | `string` |
-| `AERIE_SCHEDULER_URL`         | Url of the scheduler service.                                 | `string` |
-| `AERIE_SEQUENCING_URL`        | Url of the sequencing service.                                | `string` |
+| `PLANDEV_DATABASE_URL`        | Url of the PlanDev Postgres database.                         | `string` |
+| `PLANDEV_MERLIN_URL`          | Url of the Merlin service.                                    | `string` |
+| `PLANDEV_SCHEDULER_URL`       | Url of the Scheduler service.                                 | `string` |
+| `PLANDEV_SEQUENCING_URL`      | Url of the Sequencing service.                                | `string` |
 | `HASURA_GRAPHQL_ADMIN_SECRET` | The admin secret for Hasura which gives admin access if used. | `string` |
 | `HASURA_GRAPHQL_JWT_SECRET`   | The JWT secret for JSON web token auth. Also in Gateway.      | `string` |
 
@@ -127,17 +150,17 @@ Additionally, Hasura provides documentation on it's own environment variables yo
 
 The default PlanDev deployment uses the default Postgres environment. See the [Docker Postgres documentation](https://hub.docker.com/_/postgres) for more complete information on those environment variables and how to use them.
 
-| Name                     | Description                                                 | Type     |
-|--------------------------|-------------------------------------------------------------|----------|
-| `AERIE_USERNAME`         | Username of the PlanDev DB User, which owns the PlanDev DB  | `string` |
-| `AERIE_PASSWORD`         | Password of the PlanDev DB User, which owns the PlanDev DB    | `string` |
-| `GATEWAY_DB_USER`        | Username of the Gateway DB User                             | `string` |
-| `GATEWAY_DB_PASSWORD`    | Password of the Gateway DB User                             | `string` |
-| `MERLIN_DB_USER`         | Password of the Merlin DB User                              | `string` |
-| `MERLIN_DB_PASSWORD`     | Password of the Merlin DB User                              | `string` |
-| `SCHEDULER_DB_USER`      | Username of the Scheduler DB User.                          | `string` |
-| `SCHEDULER_DB_PASSWORD`  | Password of the Scheduler DB User                           | `string` |
-| `SEQUENCING_DB_USER`     | Username of the Sequencing DB User.                         | `string` |
-| `SEQUENCING_DB_PASSWORD` | Password of the Sequencing DB User                          | `string` |
+| Name                     | Description                                                  | Type     |
+|--------------------------|--------------------------------------------------------------|----------|
+| `PLANDEV_USERNAME`       | Username of the PlanDev DB User, which owns the PlanDev DB   | `string` |
+| `PLANDEV_PASSWORD`       | Password of the PlanDev DB User, which owns the PlanDev DB   | `string` |
+| `GATEWAY_DB_USER`        | Username of the Gateway DB User                              | `string` |
+| `GATEWAY_DB_PASSWORD`    | Password of the Gateway DB User                              | `string` |
+| `MERLIN_DB_USER`         | Password of the Merlin DB User                               | `string` |
+| `MERLIN_DB_PASSWORD`     | Password of the Merlin DB User                               | `string` |
+| `SCHEDULER_DB_USER`      | Username of the Scheduler DB User.                           | `string` |
+| `SCHEDULER_DB_PASSWORD`  | Password of the Scheduler DB User                            | `string` |
+| `SEQUENCING_DB_USER`     | Username of the Sequencing DB User.                          | `string` |
+| `SEQUENCING_DB_PASSWORD` | Password of the Sequencing DB User                           | `string` |
 
 [svelte-kit-adapter-node-docs]: https://github.com/sveltejs/kit/blob/master/packages/adapter-node/README.md

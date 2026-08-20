@@ -74,7 +74,7 @@ root@2724af1ec4d2:/# touch data/from_server.txt
 Start the default PlanDev services with `docker compose up` and get the container ID with:
 
 ```sh
-$ docker container ls | grep aerie_gateway_1 | cut -d " " -f1
+$ docker container ls | grep plandev_gateway | cut -d " " -f1
 ba3ef517965e
 ```
 

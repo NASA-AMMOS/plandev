@@ -17,7 +17,7 @@ server {
     ssl_protocols       TLSv1.3;
 
     location / {
-        proxy_pass http://aerie_ui;
+        proxy_pass http://plandev_ui;
     }
 }
 
@@ -46,6 +46,6 @@ server {
     ssl_protocols       TLSv1.3;
 
     location / {
-        proxy_pass http://aerie_gateway:9000;
+        proxy_pass http://plandev_gateway:9000;
     }
 }

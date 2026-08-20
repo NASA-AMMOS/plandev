@@ -107,7 +107,7 @@ public class EDSLConstraintsTests {
     final var extensions = exception.getExtensions();
     assertEquals("INPUT_MISMATCH_EXCEPTION", extensions.getString("type"));
     assertEquals(expectedMessage, extensions.getString("message"));
-    assertEquals("aerie_merlin", extensions.getString("service"));
+    assertEquals("merlin_server", extensions.getString("service"));
   }
 
   @Test

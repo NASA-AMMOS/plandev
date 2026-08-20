@@ -27,12 +27,12 @@ import java.util.Optional;
 @JsonSerialize(using = FormattedError.FormattedErrorSerializer.class)
 public class FormattedError {
   public enum AerieService {
-    MERLIN_SERVER("aerie_merlin"),
-    SCHEDULER_SERVER("aerie_scheduler"),
-    WORKSPACE_SERVER("aerie_workspace"),
-    PERMISSIONS_SERVICE("aerie_permissions"),
-    SIMULATION_WORKER("aerie_merlin_worker"),
-    SCHEDULER_WORKER("aerie_scheduler_worker");
+    MERLIN_SERVER("merlin_server"),
+    SCHEDULER_SERVER("scheduler_server"),
+    WORKSPACE_SERVER("workspace_server"),
+    PERMISSIONS_SERVICE("permissions_service"),
+    SIMULATION_WORKER("merlin_worker"),
+    SCHEDULER_WORKER("scheduler_worker");
 
     private final String serviceName;
     AerieService(String serviceName) { this.serviceName = serviceName; }

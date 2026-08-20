@@ -233,7 +233,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals("FORBIDDEN", body.getString("type"));
       assertEquals("Role 'viewer' is not allowed to perform action 'write_file_directory'",
                    body.getString("message"));
-      assertEquals("aerie_permissions", body.getString("service"));
+      assertEquals("permissions_service", body.getString("service"));
     }
 
     /**
@@ -250,7 +250,7 @@ public class MetadataWorkspaceRoutesTests {
                     + "because they are not a 'OWNER_COLLABORATOR' for workspace with id '%d'").formatted(
                        test_nonOwner.name(), workspaceId),
                    body.getString("message"));
-      assertEquals("aerie_permissions", body.getString("service"));
+      assertEquals("permissions_service", body.getString("service"));
     }
 
     /**
@@ -722,7 +722,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals("FORBIDDEN", body.getString("type"));
       assertEquals("Role 'viewer' is not allowed to perform action 'write_file_directory'",
                    body.getString("message"));
-      assertEquals("aerie_permissions", body.getString("service"));
+      assertEquals("permissions_service", body.getString("service"));
     }
 
     /**
@@ -739,7 +739,7 @@ public class MetadataWorkspaceRoutesTests {
                     + "because they are not a 'OWNER_COLLABORATOR' for workspace with id '%d'").formatted(
                        test_nonOwner.name(), workspaceId),
                    body.getString("message"));
-      assertEquals("aerie_permissions", body.getString("service"));
+      assertEquals("permissions_service", body.getString("service"));
     }
 
     /**
@@ -1103,7 +1103,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals("FORBIDDEN", body.getString("type"));
       assertEquals(("Role 'viewer' is not allowed to perform action 'delete_file_directory'"),
                    body.getString("message"));
-      assertEquals("aerie_permissions", body.getString("service"));
+      assertEquals("permissions_service", body.getString("service"));
     }
 
     /**
@@ -1120,7 +1120,7 @@ public class MetadataWorkspaceRoutesTests {
                     + "because they are not a 'OWNER_COLLABORATOR' for workspace with id '%d'").formatted(
                        test_nonOwner.name(), workspaceId),
                    body.getString("message"));
-      assertEquals("aerie_permissions", body.getString("service"));
+      assertEquals("permissions_service", body.getString("service"));
     }
 
     /**

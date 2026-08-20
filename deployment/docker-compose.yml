@@ -51,8 +51,9 @@ services:
     environment:
       HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
       HASURA_GRAPHQL_URL: http://hasura:8080/v1/graphql
-      AERIE_DB_HOST: postgres
-      AERIE_DB_PORT: 5432
+      PLANDEV_DB: "${PLANDEV_DATABASE_NAME}"
+      PLANDEV_DB_HOST: postgres
+      PLANDEV_DB_PORT: 5432
       MERLIN_DB_USER: "${MERLIN_USERNAME}"
       MERLIN_DB_PASSWORD: "${MERLIN_PASSWORD}"
       MERLIN_LOCAL_STORE: /usr/src/app/merlin_file_store
@@ -72,8 +73,9 @@ services:
     container_name: plandev_merlin_worker
     depends_on: ["postgres"]
     environment:
-      AERIE_DB_HOST: postgres
-      AERIE_DB_PORT: 5432
+      PLANDEV_DB: "${PLANDEV_DATABASE_NAME}"
+      PLANDEV_DB_HOST: postgres
+      PLANDEV_DB_PORT: 5432
       MERLIN_DB_USER: "${MERLIN_USERNAME}"
       MERLIN_DB_PASSWORD: "${MERLIN_PASSWORD}"
       MERLIN_WORKER_LOCAL_STORE: /usr/src/app/merlin_file_store
@@ -96,8 +98,9 @@ services:
     environment:
       HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
       MERLIN_GRAPHQL_URL: http://hasura:8080/v1/graphql
-      AERIE_DB_HOST: postgres
-      AERIE_DB_PORT: 5432
+      PLANDEV_DB: "${PLANDEV_DATABASE_NAME}"
+      PLANDEV_DB_HOST: postgres
+      PLANDEV_DB_PORT: 5432
       SCHEDULER_DB_USER: "${SCHEDULER_USERNAME}"
       SCHEDULER_DB_PASSWORD: "${SCHEDULER_PASSWORD}"
       SCHEDULER_PORT: 27185
@@ -117,8 +120,9 @@ services:
     environment:
       HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
       MERLIN_GRAPHQL_URL: http://hasura:8080/v1/graphql
-      AERIE_DB_HOST: postgres
-      AERIE_DB_PORT: 5432
+      PLANDEV_DB: "${PLANDEV_DATABASE_NAME}"
+      PLANDEV_DB_HOST: postgres
+      PLANDEV_DB_PORT: 5432
       SCHEDULER_DB_USER: "${SCHEDULER_USERNAME}"
       SCHEDULER_DB_PASSWORD: "${SCHEDULER_PASSWORD}"
       SCHEDULER_OUTPUT_MODE: UpdateInputPlanWithNewActivities
@@ -165,8 +169,9 @@ services:
     container_name: plandev_workspace
     depends_on: ["postgres"]
     environment:
-      AERIE_DB_HOST: postgres
-      AERIE_DB_PORT: 5432
+      PLANDEV_DB: "${PLANDEV_DATABASE_NAME}"
+      PLANDEV_DB_HOST: postgres
+      PLANDEV_DB_PORT: 5432
       SEQUENCING_DB_USER: "${SEQUENCING_USERNAME}"
       SEQUENCING_DB_PASSWORD: "${SEQUENCING_PASSWORD}"
       WORKSPACE_STORE: /usr/src/ws

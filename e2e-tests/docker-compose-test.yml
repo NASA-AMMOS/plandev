@@ -160,7 +160,7 @@ services:
     environment:
       NODE_TLS_REJECT_UNAUTHORIZED: '0'
       ORIGIN: http://localhost
-      PUBLIC_AERIE_FILE_STORE_PREFIX: "/usr/src/app/merlin_file_store/"
+      PUBLIC_PLANDEV_FILE_STORE_PREFIX: "/usr/src/app/merlin_file_store/"
       PUBLIC_ACTION_CLIENT_URL: http://localhost:27186
       PUBLIC_ACTION_INCLUDE_CREDENTIALS: "false"
       PUBLIC_GATEWAY_CLIENT_URL: http://localhost:9000

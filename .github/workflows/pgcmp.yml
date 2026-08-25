@@ -27,8 +27,10 @@ permissions:
   packages: read
 
 env:
-  PLANDEV_USERNAME: "${{secrets.AERIE_USERNAME}}"
-  PLANDEV_PASSWORD: "${{secrets.AERIE_PASSWORD}}"
+  AERIE_USERNAME: "${{secrets.AERIE_USERNAME}}" # Using old envvar names for v2.8.0 compatibility
+  AERIE_PASSWORD: "${{secrets.AERIE_PASSWORD}}" # Using old envvar names for v2.8.0 compatibility
+  PLANDEV_USERNAME: "${{secrets.AERIE_USERNAME}}" # Current envvar names for current version
+  PLANDEV_PASSWORD: "${{secrets.AERIE_PASSWORD}}" # Current envvar names for current version
   HASURA_GRAPHQL_ADMIN_SECRET: "${{secrets.HASURA_GRAPHQL_ADMIN_SECRET}}"
   HASURA_GRAPHQL_JWT_SECRET: "${{secrets.HASURA_GRAPHQL_JWT_SECRET}}"
   POSTGRES_USER: "${{secrets.POSTGRES_USER}}"

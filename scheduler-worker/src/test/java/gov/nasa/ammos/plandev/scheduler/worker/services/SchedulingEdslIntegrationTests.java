@@ -86,12 +86,12 @@ public class SchedulingEdslIntegrationTests {
   private static final MissionModelDescription BANANANATION = new MissionModelDescription(
       "bananantion",
       Map.of("initialDataPath", SerializedValue.of("/etc/hosts")),
-      Path.of(System.getenv("AERIE_ROOT"), "examples", "banananation", "build", "libs")
+      Path.of(System.getenv("PLANDEV_ROOT"), "examples", "banananation", "build", "libs")
   );
   private static final MissionModelDescription MINIMAL_MISSION_MODEL = new MissionModelDescription(
       "minimal-mission-model",
       Map.of(),
-      Path.of(System.getenv("AERIE_ROOT"), "examples", "minimal-mission-model", "build", "libs")
+      Path.of(System.getenv("PLANDEV_ROOT"), "examples", "minimal-mission-model", "build", "libs")
   );
 
   private SchedulingDSLCompilationService schedulingDSLCompiler;
@@ -3283,7 +3283,7 @@ public class SchedulingEdslIntegrationTests {
   private static final MissionModelDescription FOO = new MissionModelDescription(
       "foo",
       Map.of(),
-      Path.of(System.getenv("AERIE_ROOT"), "examples", "foo-missionmodel", "build", "libs")
+      Path.of(System.getenv("PLANDEV_ROOT"), "examples", "foo-missionmodel", "build", "libs")
   );
 
   /**

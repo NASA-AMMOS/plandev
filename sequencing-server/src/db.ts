@@ -6,6 +6,7 @@ import { getEnv } from './env.js';
 const { Pool: DbPool } = pg;
 
 const {
+  PLANDEV_DB: database,
   PLANDEV_DB_HOST: host,
   PLANDEV_DB_PORT: port,
   SEQUENCING_DB_USER: user,
@@ -24,7 +25,7 @@ export class DbExpansion {
   static init() {
     try {
       const config: PoolConfig = {
-        database: 'aerie',
+        database,
         host,
         password,
         port: parseInt(port, 10),

@@ -131,6 +131,11 @@ jobs:
           name: DB Test Results
           path: |
             **/db-tests/build/reports/tests/e2eTest
+      - name: Print and Upload Logs for Services
+        if: always()
+        uses: ./.github/actions/upload-container-logs
+        with:
+          task-name: "Database Tests"
       - name: Shutdown Backend
         uses: ./.github/actions/shutdown-test-backend
 
@@ -161,6 +166,11 @@ jobs:
           name: Sequencing E2E Test Results
           path: |
             **/sequencing-server/test-report.*
+      - name: Print and Upload Logs for Services
+        if: always()
+        uses: ./.github/actions/upload-container-logs
+        with:
+          task-name: "Sequencing E2E Tests"
       - name: Shutdown E2E Test Backend
         if: always()
         uses: ./.github/actions/shutdown-test-backend
@@ -196,6 +206,12 @@ jobs:
           name: Internal E2E Test Results
           path: |
             **/e2e-tests/build/reports/tests/internalTest
+      - name: Print and Upload Logs for Services
+        if: always()
+        uses: ./.github/actions/upload-container-logs
+        with:
+          task-name: "Internal E2E Tests"
+          docker-file: ./e2e-tests/docker-compose-test.yml
       - name: Shutdown Backend
         if: always()
         uses: ./.github/actions/shutdown-test-backend
@@ -231,6 +247,11 @@ jobs:
           name: System E2E Test Results
           path: |
             **/e2e-tests/build/reports/tests/systemTest
+      - name: Print and Upload Logs for Services
+        if: always()
+        uses: ./.github/actions/upload-container-logs
+        with:
+          task-name: "System E2E Tests"
       - name: Shutdown Backend
         if: always()
         uses: ./.github/actions/shutdown-test-backend

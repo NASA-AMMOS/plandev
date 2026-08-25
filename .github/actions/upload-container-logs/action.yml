@@ -1,0 +1,101 @@
+name: Upload Container Logs
+description: Prints and uploads logs for all running containers
+inputs:
+  docker-file:
+    description: The docker compose file that was used to bring up the backend
+    required: false
+    default: 'docker-compose.yml'
+  task-name:
+    description: The job that requested the run. To be used in generating the artifact name.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Make Logs Dir
+      shell: bash
+      run: |
+        mkdir containerLogs
+    - name: Print Logs for Postgres
+      if: always()
+      shell: bash
+      run: docker compose -f "$INPUT_DOCKER_FILE" logs postgres | tee containerLogs/postgres.log
+      env:
+        INPUT_DOCKER_FILE: ${{ inputs.docker-file }}
+    - name: Print Logs for Hasura
+      if: always()
+      shell: bash
+      run: docker compose -f "$INPUT_DOCKER_FILE" logs hasura | tee containerLogs/hasura.log
+      env:
+        INPUT_DOCKER_FILE: ${{ inputs.docker-file }}
+    - name: Print Logs for Gateway Server
+      if: always()
+      shell: bash
+      run: docker compose -f "$INPUT_DOCKER_FILE" logs plandev_gateway | tee containerLogs/gateway_server.log
+      env:
+        INPUT_DOCKER_FILE: ${{ inputs.docker-file }}
+    - name: Print Logs for UI
+      if: always()
+      shell: bash
+      run: docker compose -f "$INPUT_DOCKER_FILE" logs plandev_ui | tee containerLogs/ui.log
+      env:
+        INPUT_DOCKER_FILE: ${{ inputs.docker-file }}
+    - name: Print Logs for Action Server
+      if: always()
+      shell: bash
+      run: docker compose -f "$INPUT_DOCKER_FILE" logs plandev_action | tee containerLogs/action_server.log
+      env:
+        INPUT_DOCKER_FILE: ${{ inputs.docker-file }}
+    - name: Print Logs for Merlin Server
+      if: always()
+      shell: bash
+      run: docker compose -f "$INPUT_DOCKER_FILE" logs plandev_merlin | tee containerLogs/merlin_server.log
+      env:
+        INPUT_DOCKER_FILE: ${{ inputs.docker-file }}
+    - name: Print Logs for Merlin Worker 1
+      if: always()
+      shell: bash
+      run: docker compose -f "$INPUT_DOCKER_FILE" logs plandev_merlin_worker_1 | tee containerLogs/merlin_worker_1.log
+      env:
+        INPUT_DOCKER_FILE: ${{ inputs.docker-file }}
+    - name: Print Logs for Merlin Worker 2
+      if: always()
+      shell: bash
+      run: docker compose -f "$INPUT_DOCKER_FILE" logs plandev_merlin_worker_2 | tee containerLogs/merlin_worker_2.log
+      env:
+        INPUT_DOCKER_FILE: ${{ inputs.docker-file }}
+    - name: Print Logs for Scheduler Server
+      if: always()
+      shell: bash
+      run: docker compose -f "$INPUT_DOCKER_FILE" logs plandev_scheduler | tee containerLogs/scheduler_server.log
+      env:
+        INPUT_DOCKER_FILE: ${{ inputs.docker-file }}
+    - name: Print Logs for Scheduler Worker 1
+      if: always()
+      shell: bash
+      run: docker compose -f "$INPUT_DOCKER_FILE" logs plandev_scheduler_worker_1 | tee containerLogs/scheduler_worker_1.log
+      env:
+        INPUT_DOCKER_FILE: ${{ inputs.docker-file }}
+    - name: Print Logs for Scheduler Worker 2
+      if: always()
+      shell: bash
+      run: docker compose -f "$INPUT_DOCKER_FILE" logs plandev_scheduler_worker_2 | tee containerLogs/scheduler_worker_2.log
+      env:
+        INPUT_DOCKER_FILE: ${{ inputs.docker-file }}
+    - name: Print Logs for Sequencing Server
+      if: always()
+      shell: bash
+      run: docker compose -f "$INPUT_DOCKER_FILE" logs plandev_sequencing | tee containerLogs/sequencing_server.log
+      env:
+        INPUT_DOCKER_FILE: ${{ inputs.docker-file }}
+    - name: Print Logs for Workspaces Server
+      if: always()
+      shell: bash
+      run: docker compose -f "$INPUT_DOCKER_FILE" logs plandev_workspace | tee containerLogs/workspace_server.log
+      env:
+        INPUT_DOCKER_FILE: ${{ inputs.docker-file }}
+    - name: Upload Container Logs
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: Container Logs - ${{ inputs.task-name }}
+        path: containerLogs
+        retention-days: 7

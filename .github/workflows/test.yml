@@ -162,6 +162,7 @@ jobs:
           path: |
             **/sequencing-server/test-report.*
       - name: Shutdown E2E Test Backend
+        if: always()
         uses: ./.github/actions/shutdown-test-backend
 
   java-internal-e2e-test:

@@ -293,7 +293,7 @@ services:
     container_name: plandev_hasura
     depends_on: ["postgres"]
     environment:
-      PLANDEV_DATABASE_URL: "postgres://${PLANDEV_USERNAME:-${AERIE_USERNAME:?Database admin username has not been set.}}:${PLANDEV_PASSWORD:-${AERIE_PASSWORD:?Database admin password has not been set.}}@postgres:5432/${PLANDEV_DATABASE_NAME}?options=-c%20search_path%3Dutil_functions%2Chasura%2Cpermissions%2Ctags%2Cmerlin%2Cscheduler%2Csequencing%2Cactions%2Cui%2Cpublic"
+      PLANDEV_DATABASE_URL: "postgres://${PLANDEV_USERNAME:-${AERIE_USERNAME}}:${PLANDEV_PASSWORD:-${AERIE_PASSWORD}}@postgres:5432/${PLANDEV_DATABASE_NAME:?Database name is not set.}?options=-c%20search_path%3Dutil_functions%2Chasura%2Cpermissions%2Ctags%2Cmerlin%2Cscheduler%2Csequencing%2Cactions%2Cui%2Cpublic"
       PLANDEV_MERLIN_URL: "http://plandev_merlin:27183"
       PLANDEV_SCHEDULER_URL: "http://plandev_scheduler:27185"
       PLANDEV_SEQUENCING_URL: "http://plandev_sequencing:27184"
@@ -304,7 +304,7 @@ services:
       HASURA_GRAPHQL_INFER_FUNCTION_PERMISSIONS: false
       HASURA_GRAPHQL_JWT_SECRET: "${HASURA_GRAPHQL_JWT_SECRET}"
       HASURA_GRAPHQL_LOG_LEVEL: info
-      HASURA_GRAPHQL_METADATA_DATABASE_URL: "postgres://${PLANDEV_USERNAME:-${AERIE_USERNAME:?Database admin username has not been set.}}:${PLANDEV_PASSWORD:-${AERIE_PASSWORD:?Database admin password has not been set.}}@postgres:5432/${PLANDEV_METADATA_DATABASE_NAME}"
+      HASURA_GRAPHQL_METADATA_DATABASE_URL: "postgres://${PLANDEV_USERNAME:-${AERIE_USERNAME}}:${PLANDEV_PASSWORD:-${AERIE_PASSWORD}}@postgres:5432/${PLANDEV_METADATA_DATABASE_NAME:?Metadata database name is not set.}"
       HASURA_GRAPHQL_METADATA_DIR: /hasura-metadata
     image: plandev_hasura
     ports: ["8080:8080"]
@@ -320,10 +320,10 @@ services:
       POSTGRES_DB: postgres
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
       POSTGRES_USER: "${POSTGRES_USER}"
-      PLANDEV_DB: "${PLANDEV_DATABASE_NAME}"
-      PLANDEV_METADATA_DB: "${PLANDEV_METADATA_DATABASE_NAME}"
-      PLANDEV_USERNAME: "${PLANDEV_USERNAME:-${AERIE_USERNAME:?Database admin username has not been set.}}"
-      PLANDEV_PASSWORD: "${PLANDEV_PASSWORD:-${AERIE_PASSWORD:?Database admin password has not been set.}}"
+      PLANDEV_DB: "${PLANDEV_DATABASE_NAME:?Database name is not set.}"
+      PLANDEV_METADATA_DB: "${PLANDEV_METADATA_DATABASE_NAME:?Metadata database name is not set.}"
+      PLANDEV_USERNAME: "${PLANDEV_USERNAME:-${AERIE_USERNAME}}"
+      PLANDEV_PASSWORD: "${PLANDEV_PASSWORD:-${AERIE_PASSWORD}}"
       GATEWAY_DB_USER: "${GATEWAY_USERNAME}"
       GATEWAY_DB_PASSWORD: "${GATEWAY_PASSWORD}"
       MERLIN_DB_USER: "${MERLIN_USERNAME}"

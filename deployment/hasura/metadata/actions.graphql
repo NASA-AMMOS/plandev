@@ -91,14 +91,6 @@ type Query {
 }
 
 type Query {
-  getActivityTypeScript(missionModelId: Int!, activityTypeName: String!): DslTypescriptResponse
-}
-
-type Query {
-  getCommandTypeScript(commandDictionaryId: Int!): DslTypescriptResponse
-}
-
-type Query {
   resourceTypes(missionModelId: Int!): [ResourceType!]!
 }
 

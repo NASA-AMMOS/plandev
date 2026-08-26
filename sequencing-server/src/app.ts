@@ -2,19 +2,15 @@ import bodyParser from 'body-parser';
 import DataLoader from 'dataloader';
 import express, { Application, NextFunction, Request, Response } from 'express';
 import { GraphQLClient } from 'graphql-request';
-import fs from 'node:fs';
-import { Status } from './common.js';
 import { DbExpansion } from './db.js';
 import { getEnv } from './env.js';
 import { activitySchemaBatchLoader } from './lib/batchLoaders/activitySchemaBatchLoader.js';
-import { commandDictionaryTypescriptBatchLoader } from './lib/batchLoaders/commandDictionaryTypescriptBatchLoader.js';
 import { InferredDataloader, objectCacheKeyFunction } from './lib/batchLoaders/index.js';
 import {
   simulatedActivitiesBatchLoader,
   simulatedActivityInstanceBySeqIdBatchLoader,
   simulatedActivityInstanceBySimulatedActivityIdBatchLoader,
 } from './lib/batchLoaders/simulatedActivityBatchLoader.js';
-import { generateTypescriptForGraphQLActivitySchema } from './lib/codegen/ActivityTypescriptCodegen.js';
 import { processDictionary } from './lib/codegen/CommandTypeCodegen.js';
 import './polyfills.js';
 import getLogger from './utils/logger.js';
@@ -58,21 +54,7 @@ export let graphqlClient = new GraphQLClient(getEnv().MERLIN_GRAPHQL_URL, {
 
 export const pluginManager = new PluginManager();
 
-const temporalPolyfillTypes = fs.readFileSync(
-  new URL('./types/TemporalPolyfillTypes.ts', import.meta.url).pathname,
-  'utf-8',
-);
-const channelDictionaryTypes: string = fs.readFileSync(
-  new URL('./types/ChannelTypes.ts', import.meta.url).pathname,
-  'utf-8',
-);
-const parameterDictionaryTypes: string = fs.readFileSync(
-  new URL('./types/ParameterTypes.ts', import.meta.url).pathname,
-  'utf-8',
-);
-
 export type Context = {
-  commandTypescriptDataLoader: InferredDataloader<typeof commandDictionaryTypescriptBatchLoader>;
   activitySchemaDataLoader: InferredDataloader<typeof activitySchemaBatchLoader>;
   simulatedActivitiesDataLoader: InferredDataloader<typeof simulatedActivitiesBatchLoader>;
   simulatedActivityInstanceBySimulatedActivityIdDataLoader: InferredDataloader<
@@ -103,10 +85,6 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
   });
 
   res.locals['context'] = {
-    commandTypescriptDataLoader: new DataLoader(commandDictionaryTypescriptBatchLoader({ graphqlClient }), {
-      cacheKeyFn: objectCacheKeyFunction,
-      name: null,
-    }),
     activitySchemaDataLoader,
     simulatedActivitiesDataLoader: new DataLoader(
       simulatedActivitiesBatchLoader({
@@ -239,72 +217,6 @@ app.post('/put-dictionary', async (req, res, next) => {
   }
 
   res.status(200).json(json);
-  return next();
-});
-
-app.post('/get-command-typescript', async (req, res, next) => {
-  const context: Context = res.locals['context'];
-
-  const commandDictionaryId = req.body.input.commandDictionaryId as number;
-
-  try {
-    const commandTypescript = await context.commandTypescriptDataLoader.load({ dictionaryId: commandDictionaryId });
-
-    res.status(200).json({
-      status: Status.SUCCESS,
-      typescriptFiles: [
-        {
-          filePath: 'command-types.ts',
-          content: commandTypescript,
-        },
-        {
-          filePath: 'TemporalPolyfillTypes.ts',
-          content: temporalPolyfillTypes,
-        },
-        {
-          filePath: 'ChannelTypes.ts',
-          content: channelDictionaryTypes,
-        },
-        {
-          filePath: 'ParameterTypes.ts',
-          content: parameterDictionaryTypes,
-        },
-      ],
-      reason: null,
-    });
-  } catch (e) {
-    res.status(200).json({
-      status: Status.FAILURE,
-      typescriptFiles: null,
-      reason: (e as Error).message,
-    });
-  }
-  return next();
-});
-
-app.post('/get-activity-typescript', async (req, res, next) => {
-  const context: Context = res.locals['context'];
-
-  const missionModelId = req.body.input.missionModelId as number;
-  const activityTypeName = req.body.input.activityTypeName as string;
-
-  const activitySchema = await context.activitySchemaDataLoader.load({ missionModelId, activityTypeName });
-  const activityTypescript = generateTypescriptForGraphQLActivitySchema(activitySchema);
-
-  res.status(200).json({
-    status: Status.SUCCESS,
-    typescriptFiles: [
-      {
-        filePath: 'activity-types.ts',
-        content: activityTypescript,
-      },
-      {
-        filePath: 'TemporalPolyfillTypes.ts',
-        content: temporalPolyfillTypes,
-      },
-    ],
-    reason: null,
-  });
   return next();
 });
 

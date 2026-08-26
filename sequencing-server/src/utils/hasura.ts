@@ -26,7 +26,6 @@ export const ENDPOINTS_WHITELIST = new Set([
   '/',
   '/health',
   '/get-command-typescript',
-  '/get-activity-typescript',
   '/put-dictionary',
   '/seqjson/get-seqjson-for-seqid-and-simulation-dataset',
 ]);

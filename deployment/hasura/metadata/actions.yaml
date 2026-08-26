@@ -83,22 +83,6 @@ actions:
       - role: aerie_admin
       - role: user
       - role: viewer
-  - name: getActivityTypeScript
-    definition:
-      kind: ""
-      handler: "{{AERIE_SEQUENCING_URL}}/get-activity-typescript"
-      timeout: 300
-    permissions:
-      - role: aerie_admin
-      - role: user
-  - name: getCommandTypeScript
-    definition:
-      kind: ""
-      handler: "{{AERIE_SEQUENCING_URL}}/get-command-typescript"
-      timeout: 300
-    permissions:
-      - role: aerie_admin
-      - role: user
   - name: getSequenceSeqJson
     definition:
       kind: ""

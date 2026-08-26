@@ -120,10 +120,6 @@ services:
       SEQUENCING_LOCAL_STORE: /usr/src/app/sequencing_file_store
       SEQUENCING_LANGUAGE: "SEQN"
       #DICTIONARY_PARSER_PLUGIN: "/fprime-dictionary-parser/fprime-parser.js" #-- Relative to sequencing-server/plugins, Uncomment to use a different command dictionary parser
-      SEQUENCING_WORKER_NUM: 8
-      SEQUENCING_MAX_WORKER_NUM: 8
-      SEQUENCING_MAX_WORKER_HEAP_MB: 1000
-      TRANSPILER_ENABLED: "true"
     image: plandev_sequencing
     ports: ["27184:8080"] # Exposes only Health Check
     #ports: [ "27184:27184",'9229:9229'] #-- Uncomment for development
@@ -172,7 +168,6 @@ services:
       PUBLIC_HASURA_SERVER_URL: http://hasura:8080/v1/graphql
       PUBLIC_HASURA_WEB_SOCKET_URL: ws://localhost:8080/v1/graphql
       PUBLIC_WORKSPACE_CLIENT_URL: http://localhost:28000
-      PUBLIC_COMMAND_EXPANSION_MODE: "templating"
     image: "ghcr.io/nasa-ammos/aerie-ui:develop"
     ports: ["80:80"]
     restart: always

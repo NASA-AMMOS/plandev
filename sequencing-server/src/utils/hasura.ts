@@ -25,9 +25,7 @@ const HASURA_PLAN_PERMISSIONS = [
 export const ENDPOINTS_WHITELIST = new Set([
   '/',
   '/health',
-  '/get-command-typescript',
   '/put-dictionary',
-  '/seqjson/get-seqjson-for-seqid-and-simulation-dataset',
 ]);
 
 /**
@@ -37,7 +35,6 @@ export const ENDPOINTS_WHITELIST = new Set([
 const ENDPOINTS_TO_ACTION_KEY: Record<string, string> = {
   '/command-expansion/expand-all-sequence-templates': 'expand_all_templates',
   '/command-expansion/assign-activities-by-filter': 'assign_activities_by_filter',
-  '/seqjson/bulk-get-seqjson-for-seqid-and-simulation-dataset': 'sequence_seq_json_bulk',
 };
 
 /**

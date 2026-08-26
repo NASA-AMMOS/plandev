@@ -83,24 +83,6 @@ actions:
       - role: aerie_admin
       - role: user
       - role: viewer
-  - name: getSequenceSeqJson
-    definition:
-      kind: ""
-      handler: "{{AERIE_SEQUENCING_URL}}/seqjson/get-seqjson-for-seqid-and-simulation-dataset"
-      timeout: 300
-    permissions:
-      - role: aerie_admin
-      - role: user
-      - role: viewer
-  - name: getSequenceSeqJsonBulk
-    definition:
-      kind: ""
-      handler: "{{AERIE_SEQUENCING_URL}}/seqjson/bulk-get-seqjson-for-seqid-and-simulation-dataset"
-      timeout: 300
-    permissions:
-      - role: aerie_admin
-      - role: user
-      - role: viewer
   - name: resourceTypes
     definition:
       kind: ""
@@ -244,5 +226,4 @@ custom_types:
     - name: ActivityArguments
     - name: ProfileSet
     - name: SchedulingFailureReason
-    - name: SequenceSeqJson
     - name: Any

@@ -9,13 +9,11 @@ import { InferredDataloader, objectCacheKeyFunction } from './lib/batchLoaders/i
 import {
   simulatedActivitiesBatchLoader,
   simulatedActivityInstanceBySeqIdBatchLoader,
-  simulatedActivityInstanceBySimulatedActivityIdBatchLoader,
 } from './lib/batchLoaders/simulatedActivityBatchLoader.js';
 import { processDictionary } from './lib/codegen/CommandTypeCodegen.js';
 import './polyfills.js';
 import getLogger from './utils/logger.js';
 import { commandExpansionRouter } from './routes/command-expansion.js';
-import { seqjsonRouter } from './routes/seqjson.js';
 import { getHasuraSession, canUserPerformAction, ENDPOINTS_WHITELIST } from './utils/hasura.js';
 import { PluginManager } from './utils/PluginManager.js';
 import { DictionaryType } from './types/types.js';
@@ -57,9 +55,6 @@ export const pluginManager = new PluginManager();
 export type Context = {
   activitySchemaDataLoader: InferredDataloader<typeof activitySchemaBatchLoader>;
   simulatedActivitiesDataLoader: InferredDataloader<typeof simulatedActivitiesBatchLoader>;
-  simulatedActivityInstanceBySimulatedActivityIdDataLoader: InferredDataloader<
-    typeof simulatedActivityInstanceBySimulatedActivityIdBatchLoader
-  >;
   simulatedActivityInstanceBySeqIdBatchLoader: InferredDataloader<typeof simulatedActivityInstanceBySeqIdBatchLoader>;
   sequenceFilterDataLoader: InferredDataloader<typeof sequenceFilterBatchLoader>;
   sequenceTemplateDataLoader: InferredDataloader<typeof sequenceTemplateBatchLoader>;
@@ -106,16 +101,6 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
         graphqlClient,
       }),
     ),
-    simulatedActivityInstanceBySimulatedActivityIdDataLoader: new DataLoader(
-      simulatedActivityInstanceBySimulatedActivityIdBatchLoader({
-        graphqlClient,
-        activitySchemaDataLoader,
-      }),
-      {
-        cacheKeyFn: objectCacheKeyFunction,
-        name: null,
-      },
-    ),
     simulatedActivityInstanceBySeqIdBatchLoader: new DataLoader(
       simulatedActivityInstanceBySeqIdBatchLoader({
         graphqlClient,
@@ -131,7 +116,6 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
 });
 
 app.use('/command-expansion', commandExpansionRouter);
-app.use('/seqjson', seqjsonRouter);
 
 app.get('/', (_: Request, res: Response) => {
   res.send('Aerie Sequencing Service');

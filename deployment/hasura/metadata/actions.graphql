@@ -2,16 +2,6 @@ interface Error {
   message: String!
 }
 
-enum FallibleStatus {
-  SUCCESS
-  FAILURE
-}
-
-interface Fallible {
-  status: FallibleStatus!
-  errors: [Error!]!
-}
-
 type Mutation {
   addExternalDataset(
     planId: Int!,
@@ -132,26 +122,6 @@ type Query {
 
 type Query {
   validatePlan(planId: Int!): ValidationResponse
-}
-
-type Query {
-  getSequenceSeqJson(seqId: String!, simulationDatasetId: Int!): GetSeqJsonResponse!
-    @deprecated(reason: "Use bulk query getSequenceSeqJsonBulk instead")
-}
-
-input GetSequenceSeqJsonsInput {
-  seqId: String!
-  simulationDatasetId: Int!
-}
-
-type Query {
-  getSequenceSeqJsonBulk(inputs: [GetSequenceSeqJsonsInput!]!): [GetSeqJsonResponse!]!
-}
-
-type GetSeqJsonResponse implements Fallible {
-  status: FallibleStatus!
-  errors: [UserCodeError!]!
-  seqJson: SequenceSeqJson
 }
 
 enum MerlinSimulationStatus {
@@ -322,8 +292,6 @@ scalar ProcedureArguments
 scalar ProfileSet
 
 scalar SchedulingFailureReason
-
-scalar SequenceSeqJson
 
 scalar Dictionary
 

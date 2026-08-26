@@ -1,12 +1,10 @@
 import type { GraphQLClient } from 'graphql-request';
 import {
   simulatedActivitiesBatchLoader,
-  simulatedActivityInstanceBySimulatedActivityIdBatchLoader,
 } from '../../src/lib/batchLoaders/simulatedActivityBatchLoader.js';
 import { removeMissionModel, uploadMissionModel } from '../testUtils/MissionModel.js';
 import { createPlan, removePlan } from '../testUtils/Plan';
 import {
-  convertActivityDirectiveIdToSimulatedActivityId,
   insertActivityDirective,
   removeActivityDirective,
 } from '../testUtils/ActivityDirective';
@@ -50,23 +48,4 @@ it('should load simulated activity instances for simulation_dataset', async () =
     throw simulatedActivities[0];
   }
   expect(simulatedActivities[0]?.[0]?.activityTypeName).toBe('ParameterTest');
-});
-
-it('should load simulated activity instance for simulation_dataset and simulated activity id', async () => {
-  const activitySchemaDataLoader = new DataLoader(activitySchemaBatchLoader({ graphqlClient }));
-
-  const simulatedActivityId = await convertActivityDirectiveIdToSimulatedActivityId(
-    graphqlClient,
-    simulationArtifactIds.simulationDatasetId,
-    activityId,
-  );
-
-  const activityInstances = await simulatedActivityInstanceBySimulatedActivityIdBatchLoader({
-    graphqlClient,
-    activitySchemaDataLoader,
-  })([{ simulationDatasetId: simulationArtifactIds.simulationDatasetId, simulatedActivityId }]);
-  if (activityInstances[0] instanceof Error) {
-    throw activityInstances[0];
-  }
-  expect(activityInstances[0]?.activityTypeName).toBe('ParameterTest');
 });

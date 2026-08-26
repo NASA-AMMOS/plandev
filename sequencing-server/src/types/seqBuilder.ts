@@ -1,9 +1,12 @@
-import type { UserCodeError } from '@nasa-jpl/aerie-ts-user-code-runner';
 import type { SimulatedActivity } from '../lib/batchLoaders/simulatedActivityBatchLoader';
+
+export type ExpansionError = {
+  message: string;
+};
 
 export type ExpandedActivity<T> = SimulatedActivity & {
   expansionResult: T | null;
-  errors: ReturnType<UserCodeError['toJSON']>[] | null;
+  errors: ExpansionError[] | null;
 };
 
 export interface SeqBuilder<Input, Output> {

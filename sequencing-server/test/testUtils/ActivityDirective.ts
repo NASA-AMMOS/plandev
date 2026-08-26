@@ -1,8 +1,4 @@
-import DataLoader from 'dataloader';
 import { gql, GraphQLClient } from 'graphql-request';
-import { activitySchemaBatchLoader } from '../../src/lib/batchLoaders/activitySchemaBatchLoader';
-import { simulatedActivitiesBatchLoader } from '../../src/lib/batchLoaders/simulatedActivityBatchLoader';
-import { assertDefined } from '../../src/utils/assertions';
 
 export async function insertActivityDirective(
   graphqlClient: GraphQLClient,
@@ -57,24 +53,4 @@ export async function removeActivityDirective(
       planId,
     },
   );
-}
-
-export async function convertActivityDirectiveIdToSimulatedActivityId(
-  graphqlClient: GraphQLClient,
-  simulationDatasetId: number,
-  activityId: number,
-): Promise<number> {
-  const activitySchemaDataLoader = new DataLoader(activitySchemaBatchLoader({ graphqlClient }));
-
-  const simulatedActivities = (
-    await simulatedActivitiesBatchLoader({ graphqlClient, activitySchemaDataLoader })([{ simulationDatasetId }])
-  )[0];
-
-  if (simulatedActivities instanceof Error) {
-    throw simulatedActivities;
-  }
-
-  return assertDefined(
-    simulatedActivities?.find(simulatedActivity => simulatedActivity.attributes.directiveId === activityId),
-  ).id;
 }

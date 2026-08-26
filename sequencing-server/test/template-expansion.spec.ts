@@ -10,7 +10,7 @@ import {
   insertSequenceTemplate,
   removeActivitySequenceAssignments,
   removeSequence,
-} from './testUtils/Expansion.js';
+} from './testUtils/SequenceTemplate';
 import { removeMissionModel, uploadMissionModel } from './testUtils/MissionModel.js';
 import { createPlan, removePlan } from './testUtils/Plan.js';
 import { executeSimulation, removeSimulationArtifacts, updateSimulationBounds } from './testUtils/Simulation.js';

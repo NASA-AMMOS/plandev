@@ -3,15 +3,11 @@ import DataLoader from 'dataloader';
 import express, { Application, NextFunction, Request, Response } from 'express';
 import { GraphQLClient } from 'graphql-request';
 import fs from 'node:fs';
-import Piscina from 'piscina';
 import { Status } from './common.js';
 import { DbExpansion } from './db.js';
 import { getEnv } from './env.js';
 import { activitySchemaBatchLoader } from './lib/batchLoaders/activitySchemaBatchLoader.js';
 import { commandDictionaryTypescriptBatchLoader } from './lib/batchLoaders/commandDictionaryTypescriptBatchLoader.js';
-import { expansionBatchLoader } from './lib/batchLoaders/expansionBatchLoader.js';
-import { expansionSetBatchLoader } from './lib/batchLoaders/expansionSetBatchLoader.js';
-import { parcelBatchLoader } from './lib/batchLoaders/parcelBatchLoader.js';
 import { InferredDataloader, objectCacheKeyFunction } from './lib/batchLoaders/index.js';
 import {
   simulatedActivitiesBatchLoader,
@@ -25,9 +21,6 @@ import getLogger from './utils/logger.js';
 import { commandExpansionRouter } from './routes/command-expansion.js';
 import { seqjsonRouter } from './routes/seqjson.js';
 import { getHasuraSession, canUserPerformAction, ENDPOINTS_WHITELIST } from './utils/hasura.js';
-import type { Result } from '@nasa-jpl/aerie-ts-user-code-runner/build/utils/monads';
-import type { CacheItem, UserCodeError } from '@nasa-jpl/aerie-ts-user-code-runner';
-import { PromiseThrottler } from './utils/PromiseThrottler.js';
 import { PluginManager } from './utils/PluginManager.js';
 import { DictionaryType } from './types/types.js';
 import type { ChannelDictionary, CommandDictionary, ParameterDictionary } from '@nasa-jpl/plandev-ampcs';
@@ -88,9 +81,6 @@ export type Context = {
   simulatedActivityInstanceBySeqIdBatchLoader: InferredDataloader<typeof simulatedActivityInstanceBySeqIdBatchLoader>;
   sequenceFilterDataLoader: InferredDataloader<typeof sequenceFilterBatchLoader>;
   sequenceTemplateDataLoader: InferredDataloader<typeof sequenceTemplateBatchLoader>;
-  expansionSetDataLoader: InferredDataloader<typeof expansionSetBatchLoader>;
-  expansionDataLoader: InferredDataloader<typeof expansionBatchLoader>;
-  parcelTypescriptDataLoader: InferredDataloader<typeof parcelBatchLoader>;
 };
 
 app.use(async (req: Request, res: Response, next: NextFunction) => {
@@ -157,19 +147,7 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
         cacheKeyFn: objectCacheKeyFunction,
         name: null,
       },
-    ),
-    expansionSetDataLoader: new DataLoader(expansionSetBatchLoader({ graphqlClient }), {
-      cacheKeyFn: objectCacheKeyFunction,
-      name: null,
-    }),
-    expansionDataLoader: new DataLoader(expansionBatchLoader({ graphqlClient }), {
-      cacheKeyFn: objectCacheKeyFunction,
-      name: null,
-    }),
-    parcelTypescriptDataLoader: new DataLoader(parcelBatchLoader({ graphqlClient }), {
-      cacheKeyFn: objectCacheKeyFunction,
-      name: null,
-    }),
+    )
   } as Context;
   return next();
 });

@@ -147,7 +147,7 @@ app.use(async (req: Request, res: Response, next: NextFunction) => {
         cacheKeyFn: objectCacheKeyFunction,
         name: null,
       },
-    )
+    ),
   } as Context;
   return next();
 });

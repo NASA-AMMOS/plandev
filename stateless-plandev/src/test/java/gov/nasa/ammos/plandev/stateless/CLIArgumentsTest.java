@@ -56,12 +56,12 @@ public class CLIArgumentsTest {
   void topLevelHelp() {
     final String helpString =
     """
-    usage: stateless-aerie COMMAND [ARGS]...
+    usage: stateless-plandev COMMAND [ARGS]...
 
     Available commands:
      - simulate: Simulate a plan using the specified model and configuration
 
-    Stateless Aerie v""";
+    Stateless PlanDev v""";
 
     final var validArgs = new String[][]{{"-h"}, {"--help"}, {}, {"fakeCommand"},
                                          {"-h", "simulate"}, {"--help", "simulate"},
@@ -101,7 +101,7 @@ public class CLIArgumentsTest {
     void simulationHelp() {
       final var helpString =
        """
-       usage: stateless-aerie simulate [-f <arg>] [-h] [-i <arg>] -m <arg> -p
+       usage: stateless-plandev simulate [-f <arg>] [-h] [-i <arg>] -m <arg> -p
               <arg> [-s <arg>] [-v]
        Simulate a plan using the specified model and configuration
         -f,--file <arg>              output file path
@@ -113,7 +113,7 @@ public class CLIArgumentsTest {
         -s,--sim_config <arg>        path to simulation configuration json
         -v,--verbose                 verbosity of simulation
 
-       Stateless Aerie v""";
+       Stateless PlanDev v""";
 
       final var helpArgs = new String[][] {{"simulate", "-h"}, {"simulate", "--help"},
                                            {"simulate", "-p", "foo plan.json", "-h"},
@@ -290,7 +290,7 @@ public class CLIArgumentsTest {
                                    .add( "utcTimeDoy", "2024-183T01:00:00")
                                    .build();
 
-        assertEquals(4, errorJson.keySet().size());
+        assertEquals(4, errorJson.size());
         assertTrue(errorJson.keySet().containsAll(List.of("type", "message", "data", "trace")));
 
         assertEquals("SIMULATION_EXCEPTION", errorJson.getString("type"));

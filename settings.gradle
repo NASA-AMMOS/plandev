@@ -35,7 +35,7 @@ include 'constraints'
 include 'scheduler-driver'
 
 // Stateless Mode
-include 'stateless-aerie'
+include 'stateless-plandev'
 
 // Testing
 include 'db-tests'
@@ -50,7 +50,6 @@ include 'examples:minimal-mission-model'
 include 'examples:model-migration-1'
 include 'examples:model-migration-2'
 include 'examples:streamline-demo'
-include 'stateless-aerie'
 include 'orchestration-utils'
 include 'type-utils'
 include 'workspace-server'

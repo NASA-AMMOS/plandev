@@ -46,7 +46,7 @@ services:
       PLANDEC_DB_PORT: 5432
       GATEWAY_DB_USER: "${GATEWAY_USERNAME}"
       GATEWAY_DB_PASSWORD: "${GATEWAY_PASSWORD}"
-    image: 'ghcr.io/nasa-ammos/plandev-gateway:${GATEWAY_IMAGE_TAG:-develop}'
+    image: 'ghcr.io/nasa-ammos/plandev-gateway:pr-153'
     ports: ['9000:9000']
     restart: always
     volumes:

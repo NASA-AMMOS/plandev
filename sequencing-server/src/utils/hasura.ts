@@ -28,11 +28,7 @@ export const ENDPOINTS_WHITELIST = new Set([
   '/get-command-typescript',
   '/get-activity-typescript',
   '/put-dictionary',
-  '/seqjson/bulk-get-seqjson-for-sequence-standalone',
-  '/seqjson/get-seqjson-for-sequence-standalone',
   '/seqjson/get-seqjson-for-seqid-and-simulation-dataset',
-  '/seqjson/bulk-get-edsl-for-seqjson',
-  '/seqjson/get-edsl-for-seqjson',
 ]);
 
 /**
@@ -366,98 +362,4 @@ async function getMissionModelId(
   }
 
   return missionModelId;
-}
-
-export async function getLatestMissionModel(graphqlClient: GraphQLClient): Promise<{
-  mission_model_aggregate: {
-    aggregate: {
-      max: {
-        id: number;
-      };
-    };
-  };
-}> {
-  return graphqlClient.request<{
-    mission_model_aggregate: {
-      aggregate: {
-        max: {
-          id: number;
-        };
-      };
-    };
-  }>(
-    gql`
-      query GetLatestMissionModel {
-        mission_model_aggregate(order_by: { uploaded_file: { modified_date: asc } }) {
-          aggregate {
-            max {
-              id
-            }
-          }
-        }
-      }
-    `,
-  );
-}
-
-export async function getLatestParcel(graphqlClient: GraphQLClient): Promise<{
-  parcel_aggregate: {
-    aggregate: {
-      max: {
-        id: number;
-      };
-    };
-  };
-}> {
-  return graphqlClient.request<{
-    parcel_aggregate: {
-      aggregate: {
-        max: {
-          id: number;
-        };
-      };
-    };
-  }>(
-    gql`
-      query GetLatestParcel {
-        parcel_aggregate(order_by: { created_at: asc }) {
-          aggregate {
-            max {
-              id
-            }
-          }
-        }
-      }
-    `,
-  );
-}
-
-export async function getExpansionRule(
-  graphqlClient: GraphQLClient,
-  missionModelId: number,
-  parcelId: number,
-): Promise<{
-  expansion_rule: {
-    id: number;
-    activity_type: string;
-    expansion_logic: string;
-  }[];
-}> {
-  return graphqlClient.request<{
-    expansion_rule: {
-      id: number;
-      activity_type: string;
-      expansion_logic: string;
-    }[];
-  }>(
-    gql`
-        query GetExpansonLogic {
-          expansion_rule(where: {parcel_id: {_eq: ${parcelId} }, authoring_mission_model_id: {_eq: ${missionModelId} }}) {
-            id
-            activity_type
-            expansion_logic
-          }
-        }
-      `,
-  );
 }

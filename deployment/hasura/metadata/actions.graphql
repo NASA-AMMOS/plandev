@@ -249,11 +249,6 @@ type DictionaryResponse {
   channel: Dictionary
 }
 
-type AddCommandExpansionResponse {
-  id: Int!
-  errors: [UserCodeError!]
-}
-
 type AddTemplateResponse {
   id: Int!
   errors: [UserCodeError!]
@@ -266,12 +261,6 @@ type AssignActivitiesByFilterResponse {
 type ExpandAllSequencesResponse {
   success: Boolean!
   expandedSequencesBySeqId: json!
-}
-
-type ExpandedActivityInstance {
-  id: Int!
-  commands: [CommandSeqJson!]
-  errors: [UserCodeError!]!
 }
 
 type UserCodeError implements Error {
@@ -341,10 +330,6 @@ scalar ProcedureArguments
 scalar ProfileSet
 
 scalar SchedulingFailureReason
-
-scalar CommandArgumentsSeqJson
-
-scalar CommandSeqJson
 
 scalar SequenceSeqJson
 

@@ -246,8 +246,6 @@ custom_types:
     - name: SchedulingResponse
     - name: DslTypescriptResponse
     - name: DictionaryResponse
-    - name: AddCommandExpansionResponse
-    - name: ExpandedActivityInstance
     - name: UserCodeError
     - name: CodeLocation
     - name: ResourceSamplesResponse
@@ -263,5 +261,4 @@ custom_types:
     - name: ProfileSet
     - name: SchedulingFailureReason
     - name: SequenceSeqJson
-    - name: CommandSeqJson
     - name: Any

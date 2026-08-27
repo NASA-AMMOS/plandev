@@ -42,7 +42,7 @@ services:
       PORT: 9000
       PLANDEV_DB: "${PLANDEV_DATABASE_NAME}"
       PLANDEV_DB_HOST: postgres
-      PLANDEC_DB_PORT: 5432
+      PLANDEV_DB_PORT: 5432
       GATEWAY_DB_USER: "${GATEWAY_USERNAME}"
       GATEWAY_DB_PASSWORD: "${GATEWAY_PASSWORD}"
     image: 'ghcr.io/nasa-ammos/plandev-gateway:${GATEWAY_IMAGE_TAG:-develop}'

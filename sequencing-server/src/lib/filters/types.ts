@@ -117,6 +117,11 @@ export type ActivityMetadataKey = string;
 export type ActivityMetadata = Record<ActivityMetadataKey, ActivityMetadataValue>;
 
 // from types/parameter.ts
+export type Parameter = {
+  order: number;
+  schema: ValueSchema;
+  unit?: string;
+};
 export type ParameterName = string;
 export type ParametersMap = Record<ParameterName, Parameter>;
 export type ArgumentsMap = Record<ParameterName, Argument>;

@@ -4,28 +4,12 @@ import { getGraphQLClient } from './testUtils/testUtils.js';
 import { DictionaryType } from '../src/types/types';
 import { removeMissionModel, uploadMissionModel } from './testUtils/MissionModel';
 import { getParcel, insertParcel, removeParcel } from './testUtils/Parcel';
-import {
-  getExpansion,
-  getExpansionSet,
-  insertExpansion,
-  insertExpansionSet,
-  removeExpansion,
-  removeExpansionSet,
-} from './testUtils/Expansion';
 let graphqlClient: GraphQLClient;
 let missionModelId: number;
 let commandDictonaryId: number;
 let channelDictionaryId: number;
 let parameterDictionaryId: number;
 let parcelId: number;
-const expansion_rule: string = `export default function MyExpansion(props: {
-      activityInstance: ActivityType,
-      channelDictionary: ChannelDictionary | null
-      parameterDictionaries : ParameterDictionary[]
-    }): ExpansionReturn {
-      const { activityInstance, channelDictionary, parameterDictionaries } = props;
-      return [];
-    }`;
 
 beforeAll(async () => {
   graphqlClient = await getGraphQLClient();
@@ -53,91 +37,48 @@ afterAll(async () => {
 });
 
 describe('Sequencing DB State', () => {
-  it('Delete Command Dictionary should remove parcel, and expansion set, but keep expansion rule', async () => {
-    const expansionID = await insertExpansion(graphqlClient, 'BakeBananaBread', expansion_rule, parcelId);
-
-    const setID = await insertExpansionSet(
-      graphqlClient,
-      parcelId,
-      missionModelId,
-      [expansionID],
-      'db state test',
-      'db-state set',
-    );
-
+  it('Deleting a Command Dictionary should delete its dependent parcel', async () => {
     // Command Dictionary is deleted
     await removeDictionary(graphqlClient, commandDictonaryId, DictionaryType.COMMAND);
 
     // Parcel should not exist
     const parcel = await getParcel(graphqlClient, parcelId);
     expect(parcel).toBeNull();
-
-    // Expansion Set should not exist
-    const expansionSet = await getExpansionSet(graphqlClient, setID);
-    expect(expansionSet).toBeNull();
-
-    // expansion rule should exist, with no reference to the parcel
-    const expansion = await getExpansion(graphqlClient, expansionID);
-    expect(expansion.parcel_id).toBeNull();
-    expect(expansion.id).toEqual(expansionID);
-
-    // cleanup
-    await removeExpansion(graphqlClient, expansionID);
   }, 30000);
 
-  it('Delete channel or parameter Dictionary should NOT remove parcel, expansion set, and expansion rule', async () => {
-    const expansionID = await insertExpansion(graphqlClient, 'BakeBananaBread', expansion_rule, parcelId);
-
-    const setID = await insertExpansionSet(
-      graphqlClient,
-      parcelId,
-      missionModelId,
-      [expansionID],
-      'db state test',
-      'db-state set',
-    );
-
-    // Remove the channel and parameter dictionary
+  it('Deleting a channel dictionary should clear the parcel channel dictionary reference', async () => {
     await removeDictionary(graphqlClient, channelDictionaryId, DictionaryType.CHANNEL);
+
+    const parcel = await getParcel(graphqlClient, parcelId);
+    expect(parcel).toMatchObject({
+      id: parcelId,
+      command_dictionary_id: commandDictonaryId,
+      channel_dictionary_id: null,
+    });
+    expect(parcel?.parameter_dictionaries).toContainEqual({
+      parameter_dictionary_id: parameterDictionaryId,
+    });
+  }, 30000);
+
+  it('Deleting a parameter dictionary should remove its parcel association', async () => {
     await removeDictionary(graphqlClient, parameterDictionaryId, DictionaryType.PARAMETER);
 
-    // Parcel should exist
     const parcel = await getParcel(graphqlClient, parcelId);
-    expect(parcel?.id).toEqual(parcelId);
-
-    // Expansion Set should exist
-    const expansionSet = await getExpansionSet(graphqlClient, setID);
-    expect(expansionSet?.id).toEqual(setID);
-    expect(expansionSet?.parcel_id).toEqual(parcelId);
-    expect(expansionSet?.mission_model_id).toEqual(missionModelId);
-    expect(expansionSet?.expansion_rules[0]?.id).toEqual(expansionID);
-
-    // expansion rule should exist, with a reference to the parcel
-    const expansion = await getExpansion(graphqlClient, expansionID);
-    expect(expansion.parcel_id).toEqual(parcelId);
-    expect(expansion.id).toEqual(expansionID);
-
-    // cleanup
-    await removeExpansionSet(graphqlClient, setID);
-    await removeExpansion(graphqlClient, expansionID);
+    expect(parcel).toMatchObject({
+      id: parcelId,
+      command_dictionary_id: commandDictonaryId,
+      channel_dictionary_id: channelDictionaryId,
+    });
+    expect(parcel?.parameter_dictionaries).not.toContainEqual({
+      parameter_dictionary_id: parameterDictionaryId,
+    });
   }, 30000);
 
-  it('Delete Parcel should NOT remove dictionaries, or expansion rule, but remove expansion sets', async () => {
-    const expansionID = await insertExpansion(graphqlClient, 'BakeBananaBread', expansion_rule, parcelId);
-
-    const setID = await insertExpansionSet(
-      graphqlClient,
-      parcelId,
-      missionModelId,
-      [expansionID],
-      'db state test',
-      'db-state set',
-    );
-
-    // Remove the channel and parameter dictionary
+  it('Delete Parcel should not remove dictionaries', async () => {
+    // Remove the parcel
     await removeParcel(graphqlClient, parcelId);
 
-    // Parcel should exist
+    // Parcel should not exist
     const parcel = await getParcel(graphqlClient, parcelId);
     expect(parcel).toBeNull();
 
@@ -148,17 +89,5 @@ describe('Sequencing DB State', () => {
     expect(channelDictionary?.id).toEqual(channelDictionaryId);
     const parameterDictionary = await getDictionary(graphqlClient, parameterDictionaryId, DictionaryType.PARAMETER);
     expect(parameterDictionary?.id).toEqual(parameterDictionaryId);
-
-    // Expansion Set should not exist
-    const expansionSet = await getExpansionSet(graphqlClient, setID);
-    expect(expansionSet).toBeNull();
-
-    // expansion rule should exist, with no reference to the parcel
-    const expansion = await getExpansion(graphqlClient, expansionID);
-    expect(expansion.parcel_id).toBeNull();
-    expect(expansion.id).toEqual(expansionID);
-
-    // cleanup
-    await removeExpansion(graphqlClient, expansionID);
   }, 30000);
 });

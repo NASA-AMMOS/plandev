@@ -58,21 +58,6 @@ export type ParcelToParameterDictionary = {
 
 export type ParcelInsertInput = Omit<Parcel, 'created_at' | 'id' | 'owner' | 'updated_at'>;
 
-export type GetSeqJsonResponseError = {
-  location: {
-    column: number;
-    line: number;
-  };
-  message: string;
-  stack: string;
-};
-
-export type GetSeqJsonResponse = {
-  errors: GetSeqJsonResponseError[];
-  seqJson: SeqJson;
-  status: 'FAILURE' | 'SUCCESS';
-};
-
 export type SeqJson = any; // TODO: Strongly type.
 
 export type UserSequence = {

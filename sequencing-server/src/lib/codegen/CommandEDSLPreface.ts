@@ -383,8 +383,6 @@ declare global {
   }
 
   type Context = {};
-  // @ts-ignore : 'Description' found in JSON Spec
-  type ExpansionReturn = (Command | Load | Activate)[];
 
   type U<BitLength extends 8 | 16 | 32 | 64> = number;
   type U8 = U<8>;

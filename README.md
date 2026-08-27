@@ -12,8 +12,6 @@ PlanDev is a software framework for modeling spacecraft. Its main features inclu
 - A discrete-event simulator
 - An embedded TypeScript DSL for defining and executing scheduling goals
 - An embedded TypeScript DSL for defining and executing constraints
-- An embedded TypeScript DSL for defining and executing activity command expansions
-- An embedded TypeScript DSL for defining sequences
 - A [GraphQL API](https://nasa-ammos.github.io/plandev-docs/api/introduction)
 - A web-based [client application][ui-repo]
 

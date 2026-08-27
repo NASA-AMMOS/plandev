@@ -49,19 +49,20 @@ export async function insertParcel(
   return { parcelId: res.insert_parcel.returning[0]?.id ?? -1 };
 }
 
+export type Parcel = {
+  id: number;
+  name: string;
+  command_dictionary_id: number;
+  channel_dictionary_id: number | null;
+  parameter_dictionaries: {
+    parameter_dictionary_id: number;
+  }[];
+};
 export async function getParcel(
   graphqlClient: GraphQLClient,
   parcelId: number,
-): Promise<{
-  id: number;
-  name: string;
-} | null> {
-  const res = await graphqlClient.request<{
-    parcel_by_pk: {
-      id: number;
-      name: string;
-    };
-  }>(
+): Promise<Parcel | null> {
+  const res = await graphqlClient.request<{ parcel_by_pk: Parcel | null }>(
     gql`
       query GetParcel($parcelId: Int!) {
         parcel_by_pk(id: $parcelId) {

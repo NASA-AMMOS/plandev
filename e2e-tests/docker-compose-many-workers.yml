@@ -117,9 +117,6 @@ services:
       SEQUENCING_DB_PASSWORD: "${SEQUENCING_PASSWORD}"
       SEQUENCING_LOCAL_STORE: /usr/src/app/sequencing_file_store
       SEQUENCING_LANGUAGE: "SEQN"
-      SEQUENCING_WORKER_NUM: 8
-      SEQUENCING_MAX_WORKER_HEAP_MB: 1000
-      TRANSPILER_ENABLED : "true"
     image: plandev_sequencing
     ports: ["27184:27184"]
     restart: always

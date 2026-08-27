@@ -2,16 +2,6 @@ interface Error {
   message: String!
 }
 
-enum FallibleStatus {
-  SUCCESS
-  FAILURE
-}
-
-interface Fallible {
-  status: FallibleStatus!
-  errors: [Error!]!
-}
-
 type Mutation {
   addExternalDataset(
     planId: Int!,
@@ -27,15 +17,6 @@ type Mutation {
 
 type Mutation {
   uploadDictionary(dictionary: String!, persistDictionaryToFilesystem: Boolean!): DictionaryResponse
-}
-
-type Mutation {
-  addCommandExpansionTypeScript(
-    activityTypeName: String!
-    expansionLogic: String!
-    parcelId: Int
-    authoringMissionModelId: Int
-  ): AddCommandExpansionResponse
 }
 
 type Mutation {
@@ -57,20 +38,6 @@ type Mutation {
     activityTypeName: String!
     language: String!
   ): AddTemplateResponse
-}
-
-type Mutation {
-  createExpansionSet(
-    parcelId: Int!,
-    missionModelId: Int!,
-    expansionIds: [Int!]!,
-    description: String,
-    name: String
-  ): ExpansionSetResponse
-}
-
-type Mutation {
-  expandAllActivities(expansionSetId: Int!, simulationDatasetId: Int!): ExpandAllActivitiesResponse
 }
 
 type Mutation {
@@ -111,14 +78,6 @@ type Query {
   getSchedulingProcedureEffectiveArgumentsBulk(
     arguments: [ProcedureEffectiveArgumentsInput!]!
   ): [ProcedureEffectiveArgumentsResponse!]!
-}
-
-type Query {
-  getActivityTypeScript(missionModelId: Int!, activityTypeName: String!): DslTypescriptResponse
-}
-
-type Query {
-  getCommandTypeScript(commandDictionaryId: Int!): DslTypescriptResponse
 }
 
 type Query {
@@ -163,26 +122,6 @@ type Query {
 
 type Query {
   validatePlan(planId: Int!): ValidationResponse
-}
-
-type Query {
-  getSequenceSeqJson(seqId: String!, simulationDatasetId: Int!): GetSeqJsonResponse!
-    @deprecated(reason: "Use bulk query getSequenceSeqJsonBulk instead")
-}
-
-input GetSequenceSeqJsonsInput {
-  seqId: String!
-  simulationDatasetId: Int!
-}
-
-type Query {
-  getSequenceSeqJsonBulk(inputs: [GetSequenceSeqJsonsInput!]!): [GetSeqJsonResponse!]!
-}
-
-type GetSeqJsonResponse implements Fallible {
-  status: FallibleStatus!
-  errors: [UserCodeError!]!
-  seqJson: SequenceSeqJson
 }
 
 enum MerlinSimulationStatus {
@@ -272,15 +211,6 @@ type DictionaryResponse {
   channel: Dictionary
 }
 
-type ExpansionSetResponse {
-  id: Int!
-}
-
-type AddCommandExpansionResponse {
-  id: Int!
-  errors: [UserCodeError!]
-}
-
 type AddTemplateResponse {
   id: Int!
   errors: [UserCodeError!]
@@ -290,20 +220,9 @@ type AssignActivitiesByFilterResponse {
   success: Boolean!
 }
 
-type ExpandAllActivitiesResponse {
-  id: Int!
-  expandedActivityInstances: [ExpandedActivityInstance!]!
-}
-
 type ExpandAllSequencesResponse {
   success: Boolean!
   expandedSequencesBySeqId: json!
-}
-
-type ExpandedActivityInstance {
-  id: Int!
-  commands: [CommandSeqJson!]
-  errors: [UserCodeError!]!
 }
 
 type UserCodeError implements Error {
@@ -373,12 +292,6 @@ scalar ProcedureArguments
 scalar ProfileSet
 
 scalar SchedulingFailureReason
-
-scalar CommandArgumentsSeqJson
-
-scalar CommandSeqJson
-
-scalar SequenceSeqJson
 
 scalar Dictionary
 

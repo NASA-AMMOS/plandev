@@ -49,6 +49,15 @@ insert_permissions:
       check: {}
       set:
         owner: "x-hasura-user-id"
+update_permissions:
+  - role: aerie_admin
+    permission:
+      columns: [derivation_group_name]
+      filter: {}
+  - role: user
+    permission:
+      columns: [derivation_group_name]
+      filter: {}
 delete_permissions:
   - role: aerie_admin
     permission:

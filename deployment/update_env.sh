@@ -1,3 +1,5 @@
+#!/bin/bash
+
 # Fix Gateway Container Permissions
 docker compose exec -u root plandev_gateway chown -R node:node /app/files
 

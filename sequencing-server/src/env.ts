@@ -16,10 +16,6 @@ export type Env = {
   SEQUENCING_DB_PASSWORD: string;
   SEQUENCING_LANGUAGE: SequencingLanguage;
   STORAGE: string;
-  SEQUENCING_WORKER_NUM: string;
-  SEQUENCING_MAX_WORKER_NUM : string
-  SEQUENCING_MAX_WORKER_HEAP_MB: string;
-  TRANSPILER_ENABLED: string;
 };
 
 export const defaultEnv: Env = {
@@ -38,10 +34,6 @@ export const defaultEnv: Env = {
   SEQUENCING_DB_USER: '',
   SEQUENCING_LANGUAGE: "SeqN" as SequencingLanguage,
   STORAGE: 'sequencing_file_store',
-  SEQUENCING_WORKER_NUM: '8',
-  SEQUENCING_MAX_WORKER_HEAP_MB: '1000',
-  SEQUENCING_MAX_WORKER_NUM : '8',
-  TRANSPILER_ENABLED: 'true',
 };
 
 export function getEnv(): Env {
@@ -61,11 +53,6 @@ export function getEnv(): Env {
   const SEQUENCING_DB_PASSWORD = env['SEQUENCING_DB_PASSWORD'] ?? defaultEnv.SEQUENCING_DB_PASSWORD;
   const SEQUENCING_LANGUAGE = env['SEQUENCING_LANGUAGE'] as SequencingLanguage ?? defaultEnv.SEQUENCING_LANGUAGE;
   const STORAGE = env['SEQUENCING_LOCAL_STORE'] ?? defaultEnv.STORAGE;
-  const SEQUENCING_WORKER_NUM = env['SEQUENCING_WORKER_NUM'] ?? defaultEnv.SEQUENCING_WORKER_NUM;
-  const SEQUENCING_MAX_WORKER_NUM = env['SEQUENCING_MAX_WORKER_NUM'] ?? defaultEnv.SEQUENCING_MAX_WORKER_NUM;
-  const SEQUENCING_MAX_WORKER_HEAP_MB =
-    env['SEQUENCING_MAX_WORKER_HEAP_MB'] ?? defaultEnv.SEQUENCING_MAX_WORKER_HEAP_MB;
-  const TRANSPILER_ENABLED = env['TRANSPILER_ENABLED'] ?? defaultEnv.TRANSPILER_ENABLED;
   return {
     ACTION_DB_USER,
     ACTION_DB_PASSWORD,
@@ -82,9 +69,5 @@ export function getEnv(): Env {
     SEQUENCING_DB_PASSWORD,
     SEQUENCING_LANGUAGE,
     STORAGE,
-    SEQUENCING_WORKER_NUM,
-    SEQUENCING_MAX_WORKER_NUM,
-    SEQUENCING_MAX_WORKER_HEAP_MB,
-    TRANSPILER_ENABLED,
   };
 }

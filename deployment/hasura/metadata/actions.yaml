@@ -23,14 +23,6 @@ actions:
     permissions:
       - role: aerie_admin
       - role: user
-  - name: addCommandExpansionTypeScript
-    definition:
-      kind: synchronous
-      handler: "{{PLANDEV_SEQUENCING_URL}}/command-expansion/put-expansion"
-      timeout: 300
-    permissions:
-      - role: aerie_admin
-      - role: user
   - name: assignActivitiesByFilter
     definition:
       kind: synchronous
@@ -43,22 +35,6 @@ actions:
     definition:
       kind: synchronous
       handler: "{{PLANDEV_SEQUENCING_URL}}/command-expansion/put-template"
-      timeout: 300
-    permissions:
-      - role: aerie_admin
-      - role: user
-  - name: createExpansionSet
-    definition:
-      kind: synchronous
-      handler: "{{PLANDEV_SEQUENCING_URL}}/command-expansion/put-expansion-set"
-      timeout: 300
-    permissions:
-      - role: aerie_admin
-      - role: user
-  - name: expandAllActivities
-    definition:
-      kind: synchronous
-      handler: "{{PLANDEV_SEQUENCING_URL}}/command-expansion/expand-all-activity-instances"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -102,40 +78,6 @@ actions:
     definition:
       kind: ""
       handler: "{{PLANDEV_MERLIN_URL}}/getConstraintProcedureEffectiveArgumentsBulk"
-      timeout: 300
-    permissions:
-      - role: aerie_admin
-      - role: user
-      - role: viewer
-  - name: getActivityTypeScript
-    definition:
-      kind: ""
-      handler: "{{PLANDEV_SEQUENCING_URL}}/get-activity-typescript"
-      timeout: 300
-    permissions:
-      - role: aerie_admin
-      - role: user
-  - name: getCommandTypeScript
-    definition:
-      kind: ""
-      handler: "{{PLANDEV_SEQUENCING_URL}}/get-command-typescript"
-      timeout: 300
-    permissions:
-      - role: aerie_admin
-      - role: user
-  - name: getSequenceSeqJson
-    definition:
-      kind: ""
-      handler: "{{PLANDEV_SEQUENCING_URL}}/seqjson/get-seqjson-for-seqid-and-simulation-dataset"
-      timeout: 300
-    permissions:
-      - role: aerie_admin
-      - role: user
-      - role: viewer
-  - name: getSequenceSeqJsonBulk
-    definition:
-      kind: ""
-      handler: "{{PLANDEV_SEQUENCING_URL}}/seqjson/bulk-get-seqjson-for-seqid-and-simulation-dataset"
       timeout: 300
     permissions:
       - role: aerie_admin
@@ -270,9 +212,6 @@ custom_types:
     - name: SchedulingResponse
     - name: DslTypescriptResponse
     - name: DictionaryResponse
-    - name: AddCommandExpansionResponse
-    - name: ExpandAllActivitiesResponse
-    - name: ExpandedActivityInstance
     - name: UserCodeError
     - name: CodeLocation
     - name: ResourceSamplesResponse
@@ -287,6 +226,4 @@ custom_types:
     - name: ActivityArguments
     - name: ProfileSet
     - name: SchedulingFailureReason
-    - name: SequenceSeqJson
-    - name: CommandSeqJson
     - name: Any

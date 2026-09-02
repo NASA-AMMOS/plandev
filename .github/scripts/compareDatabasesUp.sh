@@ -3,10 +3,10 @@
 mkdir results
 mkdir comparison
 
-PGCMPINPUT1=./pgdumpmigrated/AerieMigratedUp \
-PGCMPINPUT2=./pgdumpcurrent/AerieCurrent \
-PGCLABEL1=AerieMigratedUp \
-PGCLABEL2=AerieCurrent \
+PGCMPINPUT1=./pgdumpmigrated/MigratedUpDB \
+PGCMPINPUT2=./pgdumpcurrent/CurrentDB \
+PGCLABEL1=MigratedUpDB \
+PGCLABEL2=CurrentDB \
 PGCFULLOUTPUT=./comparison/fulloutput.txt \
 PGCUNEXPLAINED=./comparison/unexplained.txt \
 PGCBADEXPLAIN=./comparison/badexplanations.txt \

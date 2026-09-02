@@ -113,7 +113,7 @@ public class SchedulerRoutesTests {
       // Check the extensions object
       assertEquals("NO_SUCH_SCHEDULING_SPECIFICATION", extensions.getString("type"));
       assertEquals(expectedMessage, extensions.getString("message"));
-      assertEquals("aerie_permissions", extensions.getString("service"));
+      assertEquals("permissions_service", extensions.getString("service"));
     }
     @Test
     void forbidden(){

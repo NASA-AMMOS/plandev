@@ -2,9 +2,12 @@
 
 set -e
 
+export ADMIN_DB_USER="${PLANDEV_USERNAME}"
+export ADMIN_DB_PASS="${PLANDEV_PASSWORD}"
+
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres <<-EOSQL
   \echo 'Initializing aerie user...'
-  CREATE USER "$AERIE_USERNAME" WITH PASSWORD '$AERIE_PASSWORD';
+  CREATE USER "$ADMIN_DB_USER" WITH PASSWORD '$ADMIN_DB_PASS';
   \echo 'Done!'
 
   \echo 'Initializing gateway user...'
@@ -23,28 +26,29 @@ psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres <<-EOSQL
   CREATE USER "$SEQUENCING_DB_USER" WITH PASSWORD '$SEQUENCING_DB_PASSWORD';
   \echo 'Done!'
 
-  \echo 'Initializing aerie database...'
-  CREATE DATABASE aerie OWNER "$AERIE_USERNAME";
-  \connect aerie
-  ALTER SCHEMA public OWNER TO "$AERIE_USERNAME";
+  \echo 'Initializing "$PLANDEV_DB" database...'
+  CREATE DATABASE "$PLANDEV_DB" OWNER "$ADMIN_DB_USER";
+  \connect "$PLANDEV_DB"
+  ALTER SCHEMA public OWNER TO "$ADMIN_DB_USER";
   \connect postgres
   \echo 'Done!'
 
-  \echo 'Initializing aerie_hasura database...'
-  CREATE DATABASE aerie_hasura;
-  GRANT ALL PRIVILEGES ON DATABASE aerie_hasura TO "$AERIE_USERNAME";
+  \echo 'Initializing "$PLANDEV_METADATA_DB" database...'
+  CREATE DATABASE "$PLANDEV_METADATA_DB";
+  GRANT ALL PRIVILEGES ON DATABASE "$PLANDEV_METADATA_DB" TO "$ADMIN_DB_USER";
   \echo 'Done!'
 EOSQL
 
-export PGPASSWORD="$AERIE_PASSWORD"
+export PGPASSWORD="$ADMIN_DB_PASS"
 
-psql -v ON_ERROR_STOP=1 --username "$AERIE_USERNAME" --dbname "aerie" <<-EOSQL
-  \set aerie_user $AERIE_USERNAME
+psql -v ON_ERROR_STOP=1 --username "$ADMIN_DB_USER" --dbname "$PLANDEV_DB" <<-EOSQL
+  \set aerie_user $ADMIN_DB_USER
   \set gateway_user $GATEWAY_DB_USER
   \set merlin_user $MERLIN_DB_USER
   \set scheduler_user $SCHEDULER_DB_USER
   \set sequencing_user $SEQUENCING_DB_USER
-  \echo 'Initializing aerie database objects...'
+  \set dbName $PLANDEV_DB
+  \echo 'Initializing database objects...'
   \ir /docker-entrypoint-initdb.d/sql/init.sql
   \echo 'Done!'
 EOSQL

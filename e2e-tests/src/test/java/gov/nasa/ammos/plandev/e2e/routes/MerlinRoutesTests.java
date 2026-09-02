@@ -290,7 +290,7 @@ public class MerlinRoutesTests {
       // Check the extensions
       assertEquals("INPUT_MISMATCH_EXCEPTION", extensions.getString("type"));
       assertEquals(expectedMessage, extensions.getString("message"));
-      assertEquals("aerie_merlin", extensions.getString("service"));
+      assertEquals("merlin_server", extensions.getString("service"));
     }
 
     @Test
@@ -330,7 +330,7 @@ public class MerlinRoutesTests {
         // Check the extensions object
         assertEquals("SIM_DATASET_MISMATCH_EXCEPTION", extensions.getString("type"));
         assertEquals(expectedMessage, extensions.getString("message"));
-        assertEquals("aerie_merlin", extensions.getString("service"));
+        assertEquals("merlin_server", extensions.getString("service"));
       } finally {
         hasura.deletePlan(secondPlanId);
       }
@@ -378,7 +378,7 @@ public class MerlinRoutesTests {
       // Check the extensions object
       assertEquals("INPUT_MISMATCH_EXCEPTION", extensions.getString("type"));
       assertEquals(expectedMessage, extensions.getString("message"));
-      assertEquals("aerie_merlin", extensions.getString("service"));
+      assertEquals("merlin_server", extensions.getString("service"));
     }
 
     @Test

@@ -97,7 +97,7 @@ public class WorkspaceAuthorizeTests {
     final var body = getBody(response);
     assertEquals("UNAUTHORIZED", body.getString("type"));
     assertEquals("Invalid Authorization header provided.", body.getString("message"));
-    assertEquals("aerie_workspace", body.getString("service"));
+    assertEquals("workspace_server", body.getString("service"));
   }
 
   @Nested
@@ -118,7 +118,7 @@ public class WorkspaceAuthorizeTests {
       final var body = getBody(response);
       assertEquals("UNAUTHORIZED", body.getString("type"));
       assertEquals("Invalid Hasura admin secret", body.getString("message"));
-      assertEquals("aerie_workspace", body.getString("service"));
+      assertEquals("workspace_server", body.getString("service"));
     }
 
     /**
@@ -134,7 +134,7 @@ public class WorkspaceAuthorizeTests {
       final var body = getBody(response);
       assertEquals("UNAUTHORIZED", body.getString("type"));
       assertEquals("x-hasura-user-id header is required when x-hasura-admin-secret is set", body.getString("message"));
-      assertEquals("aerie_workspace", body.getString("service"));
+      assertEquals("workspace_server", body.getString("service"));
     }
 
     /**
@@ -188,7 +188,7 @@ public class WorkspaceAuthorizeTests {
       final var body = getBody(response);
       assertEquals("FORBIDDEN", body.getString("type"));
       assertEquals("Role 'viewer' is not allowed to perform action 'write_file_directory'", body.getString("message"));
-      assertEquals("aerie_permissions", body.getString("service"));
+      assertEquals("permissions_service", body.getString("service"));
     }
   }
 
@@ -207,7 +207,7 @@ public class WorkspaceAuthorizeTests {
       final var body = getBody(response);
       assertEquals("UNAUTHORIZED", body.getString("type"));
       assertEquals("Invalid Authorization header provided.", body.getString("message"));
-      assertEquals("aerie_workspace", body.getString("service"));
+      assertEquals("workspace_server", body.getString("service"));
     }
 
     private Stream<Arguments> misformattedJWTHeaderArgs() {
@@ -230,7 +230,7 @@ public class WorkspaceAuthorizeTests {
       final var body = getBody(response);
       assertEquals("UNAUTHORIZED", body.getString("type"));
       assertEquals("The token was expected to have 3 parts, but got 0.", body.getString("message"));
-      assertEquals("aerie_workspace", body.getString("service"));
+      assertEquals("workspace_server", body.getString("service"));
     }
 
     /**
@@ -256,7 +256,7 @@ public class WorkspaceAuthorizeTests {
       final var body = getBody(response);
       assertEquals("UNAUTHORIZED", body.getString("type"));
       assertEquals("Provided active role is not in the set of permitted roles.", body.getString("message"));
-      assertEquals("aerie_workspace", body.getString("service"));
+      assertEquals("workspace_server", body.getString("service"));
     }
 
     /**
@@ -284,7 +284,7 @@ public class WorkspaceAuthorizeTests {
       final var body = getBody(response);
       assertEquals("FORBIDDEN", body.getString("type"));
       assertEquals("Role 'viewer' is not allowed to perform action 'write_file_directory'", body.getString("message"));
-      assertEquals("aerie_permissions", body.getString("service"));
+      assertEquals("permissions_service", body.getString("service"));
     }
 
     /**
@@ -304,7 +304,7 @@ public class WorkspaceAuthorizeTests {
       final var body = getBody(response);
       assertEquals("UNAUTHORIZED", body.getString("type"));
       assertEquals("Invalid Hasura admin secret", body.getString("message"));
-      assertEquals("aerie_workspace", body.getString("service"));
+      assertEquals("workspace_server", body.getString("service"));
     }
   }
 }

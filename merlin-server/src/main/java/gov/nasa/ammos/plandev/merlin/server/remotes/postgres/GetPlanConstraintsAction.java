@@ -88,7 +88,7 @@ import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.parseJson;
         switch (typeString) {
           case "EDSL" -> type = new ConstraintType.EDSL(results.getString("definition"));
           case "JAR" -> type = new ConstraintType.JAR(Path.of(jarFilePath.toString(), results.getString("path")));
-          case null, default -> throw new IllegalArgumentException("Type `%s` is not a valid type of Aerie Constraint"
+          case null, default -> throw new IllegalArgumentException("Type `%s` is not a valid type of PlanDev Constraint"
                                                                        .formatted(typeString));
         }
 

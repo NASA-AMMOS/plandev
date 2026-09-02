@@ -1,7 +1,7 @@
 export interface Config {
-  AERIE_DB: string;
-  AERIE_DB_HOST: string;
-  AERIE_DB_PORT: string;
+  PLANDEV_DB: string;
+  PLANDEV_DB_HOST: string;
+  PLANDEV_DB_PORT: string;
   ACTION_COOKIE_NAMES: string[];
   ACTION_CORS_ALLOWED_ORIGIN: string;
   ACTION_DB_USER: string;
@@ -23,9 +23,9 @@ export const configuration = (): Config => {
   const { env } = process;
 
   return {
-    AERIE_DB: env.AERIE_DB ?? "aerie",
-    AERIE_DB_HOST: env.AERIE_DB_HOST ?? "postgres",
-    AERIE_DB_PORT: env.AERIE_DB_PORT ?? "5432",
+    PLANDEV_DB: env.PLANDEV_DB ?? env.AERIE_DB ?? "plandev",
+    PLANDEV_DB_HOST: env.PLANDEV_DB_HOST ?? env.AERIE_DB_HOST ?? "postgres",
+    PLANDEV_DB_PORT: env.PLANDEV_DB_PORT ?? env.AERIE_DB_PORT ?? "5432",
     ACTION_COOKIE_NAMES: (env.ACTION_COOKIE_NAMES ?? '').split(',').map(s => s.trim()).filter(Boolean),
     ACTION_CORS_ALLOWED_ORIGIN: env.ACTION_CORS_ALLOWED_ORIGIN ?? "",
     ACTION_DB_USER: env.ACTION_DB_USER ?? "",

@@ -3,17 +3,17 @@ package gov.nasa.ammos.plandev.merlin.server.config;
 import java.util.Objects;
 
 public record PostgresStore(
+    String database,
     String server,
-    String user,
     Integer port,
-    String password,
-    String database
+    String user,
+    String password
 ) implements Store {
   public PostgresStore {
-    Objects.requireNonNull(server);
-    Objects.requireNonNull(user);
-    Objects.requireNonNull(port);
-    Objects.requireNonNull(password);
     Objects.requireNonNull(database);
+    Objects.requireNonNull(server);
+    Objects.requireNonNull(port);
+    Objects.requireNonNull(user);
+    Objects.requireNonNull(password);
   }
 }

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Migrate the database of an Aerie venue."""
+"""Migrate the database of a PlanDev venue."""
 
 import os
 import argparse
@@ -40,10 +40,10 @@ class Hasura:
   metadata_suffix = ''
   endpoint = ''
   admin_secret = ''
-  db_name = 'Aerie'
+  db_name = 'PlanDev'
   current_version = 0
 
-  def __init__(self, endpoint: str, admin_secret: str, hasura_path: str, env_path: str, db_name='Aerie'):
+  def __init__(self, endpoint: str, admin_secret: str, hasura_path: str, env_path: str, db_name='PlanDev'):
     """
     Initialize a Hasura object.
 
@@ -51,7 +51,7 @@ class Hasura:
     :param admin_secret: The admin secret for the Hasura instance.
     :param hasura_path: The directory containing the config.yaml and migrations folder for the Hasura instance.
     :param env_path: The path to the envfile, if provided.
-    :param db_name: The name that the Hasura instance calls the database. Defaults to 'Aerie'.
+    :param db_name: The name that the Hasura instance calls the database. Defaults to 'PlanDev'.
     """
     self.admin_secret = admin_secret
     self.db_name = db_name
@@ -599,12 +599,12 @@ def migrate(args: argparse.Namespace):
   if not hasura.apply_after(hasura.current_version, args.apply):
     exit(2)
 
-  print(f'\n###############################'
-        f'\nAERIE DATABASE MIGRATION HELPER'
-        f'\n###############################'
+  print(f'\n##################################'
+        f'\nPLANDEV DATABASE MIGRATION HELPER'
+        f'\n##################################'
         f'\n\nMigrating database at {hasura.endpoint}')
   # Find all migration folders for the database
-  migration_path = os.path.abspath(args.hasura_path + "/migrations/Aerie")
+  migration_path = os.path.abspath(args.hasura_path + "/migrations/PlanDev")
   migration = DB_Migration(migration_path, args.revert)
 
   # Enter step-by-step mode if not otherwise specified
@@ -624,9 +624,9 @@ def status(args: argparse.Namespace):
   hasura = create_hasura(args)
 
   clear_screen()
-  print(f'\n###############################'
-        f'\nAERIE DATABASE MIGRATION STATUS'
-        f'\n###############################'
+  print(f'\n##################################'
+        f'\nPLANDEV DATABASE MIGRATION STATUS'
+        f'\n##################################'
         f'\n\nDisplaying status of database at {hasura.endpoint}')
 
   display_string = f"\n\033[4mMIGRATION STATUS:\033[0m\n"
@@ -665,7 +665,7 @@ def create_hasura(args: argparse.Namespace) -> Hasura:
 
   return Hasura(endpoint=hasura_endpoint,
                 admin_secret=hasura_admin_secret,
-                db_name="Aerie",
+                db_name="PlanDev",
                 hasura_path=os.path.abspath(args.hasura_path),
                 env_path=os.path.abspath(args.env_path) if args.env_path else None)
 

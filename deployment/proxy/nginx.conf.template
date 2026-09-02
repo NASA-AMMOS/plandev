@@ -11,20 +11,20 @@ server {
 # terminate TLS and proxy pass UI
 server {
     listen              443 ssl;
-    server_name         ${AERIE_HOST};
+    server_name         ${PLANDEV_HOST};
     ssl_certificate     /cert.pem;
     ssl_certificate_key /key.pem;
     ssl_protocols       TLSv1.3;
 
     location / {
-        proxy_pass http://aerie_ui;
+        proxy_pass http://plandev_ui;
     }
 }
 
 # terminate TLS and proxy pass hasura
 server {
     listen              8080 ssl;
-    server_name         ${AERIE_HOST};
+    server_name         ${PLANDEV_HOST};
     ssl_certificate     /cert.pem;
     ssl_certificate_key /key.pem;
     ssl_protocols       TLSv1.3;
@@ -40,12 +40,12 @@ server {
 # terminate TLS and proxy pass gateway
 server {
     listen              9000 ssl;
-    server_name         ${AERIE_HOST};
+    server_name         ${PLANDEV_HOST};
     ssl_certificate     /cert.pem;
     ssl_certificate_key /key.pem;
     ssl_protocols       TLSv1.3;
 
     location / {
-        proxy_pass http://aerie_gateway:9000;
+        proxy_pass http://plandev_gateway:9000;
     }
 }

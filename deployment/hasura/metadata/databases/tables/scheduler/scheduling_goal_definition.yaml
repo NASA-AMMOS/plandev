@@ -103,4 +103,4 @@ event_triggers:
       interval_sec: 10
       num_retries: 0
       timeout_sec: 300
-    webhook: "{{AERIE_SCHEDULER_URL}}/refreshSchedulingProcedureParameterTypes"
+    webhook: "{{PLANDEV_SCHEDULER_URL}}/refreshSchedulingProcedureParameterTypes"

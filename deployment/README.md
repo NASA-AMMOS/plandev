@@ -21,22 +21,25 @@ Each container has environment variables that can be used to fine-tune your depl
 See the [environment variable documentation](./Environment.md) for the complete set of variables.
 See the example [docker-compose.yml](./docker-compose.yml) file for examples on how to set the environment variables.
 
-Inside the [.env](./.env) there is a collection of variables that **must** be set in order to deploy PlanDev using the default [init-aerie.sh](./postgres-init-db/init-aerie.sh) and [docker-compose.yml](./docker-compose.yml).
+Inside the [.env](./.env) there is a collection of variables that **must** be set in order to deploy PlanDev using the default [init-plandev.sh](postgres-init-db/init-plandev.sh) and [docker-compose.yml](./docker-compose.yml).
 They are, as follows:
 
-| Name                          | Description                                                                                                                  |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `REPOSITORY_DOCKER_URL`       | The URL used to fetch images of PlanDev packages.                                                                            |
-| `DOCKER_TAG`                  | The version of the PlanDev images to fetch.                                                                                  |
-| `AERIE_USERNAME`              | The username used for PlanDev services when they access the Postgres database.                                               |
-| `AERIE_PASSWORD`              | The password used for PlanDev services when they access the Postgres database.                                               |
-| `HASURA_GRAPHQL_ADMIN_SECRET` | The administrator secret for Hasura. Gives complete admin access to everything when used.                                    |
-| `HASURA_GRAPHQL_JWT_SECRET`   | The JWT secret for JSON web token auth.                                                                                      |
-| `POSTGRES_USER`               | The username of the superuser for the Postgres database. This cannot be the same as the `AERIE_USERNAME` value.              |
-| `POSTGRES_PASSWORD`           | The password of the superuser for the Postgres database.                                                                     |
-| `UNTRUE_PLAN_START`           | Temporary solution to provide plan start time to models, should be set to a time that models will not fail to initialize on. |
+| Name                             | Description                                                                                                                  |
+|----------------------------------|------------------------------------------------------------------------------------------------------------------------------|
+| `REPOSITORY_DOCKER_URL`          | The URL used to fetch images of PlanDev packages.                                                                            |
+| `DOCKER_TAG`                     | The version of the PlanDev images to fetch.                                                                                  |
+| `PLANDEV_FILE_STORE_NAME`        | The name of the file store shared between the PlanDev Services.                                                              |           
+| `PLANDEV_DATABASE_NAME`          | The name of the PlanDev database.                                                                                            |           
+| `PLANDEV_METADATA_DATABASE_NAME` | The name of the PlanDev Metadata database. This cannot be the same as `PLANDEV_DATABASE_NAME`.                               |           
+| `PLANDEV_USERNAME`               | The username used for PlanDev services when they access the Postgres database.                                               |
+| `PLANDEV_PASSWORD`               | The password used for PlanDev services when they access the Postgres database.                                               |
+| `HASURA_GRAPHQL_ADMIN_SECRET`    | The administrator secret for Hasura. Gives complete admin access to everything when used.                                    |
+| `HASURA_GRAPHQL_JWT_SECRET`      | The JWT secret for JSON web token auth.                                                                                      |
+| `POSTGRES_USER`                  | The username of the superuser for the Postgres database. This cannot be the same as the `PLANDEV_USERNAME` value.            |
+| `POSTGRES_PASSWORD`              | The password of the superuser for the Postgres database.                                                                     |
+| `UNTRUE_PLAN_START`              | Temporary solution to provide plan start time to models, should be set to a time that models will not fail to initialize on. |
 
-### **At minimum, you _must_ assign values to the environment variables already present in [.env](./.env) in order to deploy PlanDev. Additionally, the `POSTGRES_USER` value _cannot_ be the same as the `AERIE_USERNAME` value.**.
+### **At minimum, you _must_ assign values to the environment variables already present in [.env](./.env) in order to deploy PlanDev. Additionally, the `POSTGRES_USER` value _cannot_ be the same as the `PLANDEV_USERNAME` value.**.
 
 ## Configuring Merlin Simulation Workers
 
@@ -59,7 +62,7 @@ docker-compose up --build --detach
 
 ## Postgres Considerations
 
-When the Postgres container starts it will run [init-aerie.sh](./postgres-init-db/init-aerie.sh) to initialize the database with the PlanDev [database objects](./postgres-init-db/sql).
+When the Postgres container starts it will run [init-plandev.sh](postgres-init-db/init-plandev.sh) to initialize the database with the PlanDev [database objects](./postgres-init-db/sql).
 
 **Note:** This script is only run if you start the container with a data directory that is empty; any pre-existing database will be left untouched on container startup. See the 'Initialization scripts' section of the [Docker Postgres documentation](https://hub.docker.com/_/postgres) for more detailed information.
 

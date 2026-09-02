@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Fix Gateway Container Permissions
-docker compose exec -u root plandev_gateway chown -R node:node /app/files
+docker compose exec -u root aerie_gateway chown -R node:node /app/files
 
 # Add new envvars to the .env
 GATEWAY_CONTAINER_ID=$(docker ps | grep gateway | awk {'print $1'})

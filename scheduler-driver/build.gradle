@@ -12,6 +12,11 @@ java {
 }
 
 test {
+  // The legacy procedure fixture is checked in; its current counterpart is built,
+  // so the 'still works' half of the test can never drift from this source tree.
+  dependsOn ':procedural:examples:banana-procedures:buildAllProcedureJars'
+  systemProperty 'currentGoalJar', "${rootDir}/procedural/examples/banana-procedures/build/libs/SampleProcedure.jar"
+
   useJUnitPlatform()
   testLogging {
     exceptionFormat = 'full'

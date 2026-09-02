@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -61,12 +60,21 @@ public final class MissionModelLoader {
     public static MerlinPlugin loadMissionModelProvider(final Path path, final String name, final String version)
     throws MissionModelLoadException
     {
+        // Models built before the protocol package was renamed declare their plugin under the
+        // old name and link against the old types; both are rewritten on the way in.
+        final boolean legacy;
+        try {
+            legacy = LegacyModelCompat.isLegacy(path);
+        } catch (final IOException ex) {
+            throw new MissionModelLoadException(path, name, version, ex);
+        }
+
         // Look for a MerlinPlugin implementor in the mission model. For correctness, we're assuming there's
         // only one matching MerlinMissionModel in any given mission model.
-        final var className = getImplementingClassName(path, name, version);
+        final var className = getImplementingClassName(path, name, version, legacy);
 
         // Construct a ClassLoader with access to classes in the mission model location.
-        final var classLoader = new URLClassLoader(new URL[] {missionModelPathToUrl(path)});
+        final var classLoader = LegacyModelCompat.classLoader(missionModelPathToUrl(path), legacy);
 
         try {
             final var pluginClass$ = classLoader.loadClass(className);
@@ -80,10 +88,19 @@ public final class MissionModelLoader {
         }
     }
 
-    private static String getImplementingClassName(final Path jarPath, final String name, final String version)
+    private static String getImplementingClassName(
+        final Path jarPath,
+        final String name,
+        final String version,
+        final boolean legacy)
     throws MissionModelLoadException {
         try (final var jarFile = new JarFile(jarPath.toFile())) {
-            final var jarEntry = jarFile.getEntry("META-INF/services/" + MerlinPlugin.class.getCanonicalName());
+            final var serviceEntry = LegacyModelCompat.serviceEntry(MerlinPlugin.class, legacy);
+            final var jarEntry = jarFile.getEntry(serviceEntry);
+            // A JAR from a future SDK declares neither name; say so instead of throwing NPE below.
+            if (jarEntry == null) {
+                throw new MissionModelLoadException(jarPath, name, version);
+            }
             final var inputStream = jarFile.getInputStream(jarEntry);
 
             final var classPathList = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))

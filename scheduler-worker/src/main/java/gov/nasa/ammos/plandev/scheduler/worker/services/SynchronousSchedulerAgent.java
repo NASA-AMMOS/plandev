@@ -6,7 +6,6 @@ import java.io.InputStreamReader;
 import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -25,6 +24,7 @@ import gov.nasa.ammos.plandev.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.ammos.plandev.json.FormattedError;
 import gov.nasa.ammos.plandev.json.FormattedError.AerieService;
 import gov.nasa.ammos.plandev.merlin.driver.MissionModel;
+import gov.nasa.ammos.plandev.merlin.driver.LegacyModelCompat;
 import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader;
 import gov.nasa.ammos.plandev.merlin.driver.SimulationEngineConfiguration;
 import gov.nasa.ammos.plandev.merlin.driver.SimulationResults;
@@ -515,13 +515,19 @@ public record SynchronousSchedulerAgent(
   {
     // Look for a MerlinMissionModel implementor in the mission model. For correctness, we're assuming there's
     // only one matching MerlinMissionModel in any given mission model.
-    final var className = getImplementingClassName(path, name, version);
+    final boolean legacy;
+    try {
+      legacy = LegacyModelCompat.isLegacy(path);
+    } catch (final IOException ex) {
+      throw new SchedulerModelLoadException(path, name, version, ex);
+    }
+
+    final var className = getImplementingClassName(path, name, version, legacy);
 
     // Construct a ClassLoader with access to classes in the mission model location.
-    final var parentClassLoader = Thread.currentThread().getContextClassLoader();
-    final URLClassLoader classLoader;
+    final ClassLoader classLoader;
     try {
-      classLoader = new URLClassLoader(new URL[] {path.toUri().toURL()}, parentClassLoader);
+      classLoader = LegacyModelCompat.classLoader(path.toUri().toURL(), legacy);
     } catch (MalformedURLException ex) {
       throw new Error(ex);
     }
@@ -544,14 +550,19 @@ public record SynchronousSchedulerAgent(
     }
   }
 
-  public static String getImplementingClassName(final Path jarPath, final String name, final String version)
+  public static String getImplementingClassName(
+      final Path jarPath,
+      final String name,
+      final String version,
+      final boolean legacy)
   throws SchedulerModelLoadException
   {
     try {
       final var jarFile = new JarFile(jarPath.toFile());
-      final var jarEntry = jarFile.getEntry("META-INF/services/" + SchedulerPlugin.class.getCanonicalName());
+      final var serviceEntry = LegacyModelCompat.serviceEntry(SchedulerPlugin.class, legacy);
+      final var jarEntry = jarFile.getEntry(serviceEntry);
       if (jarEntry == null) {
-        throw new Error("JAR file `" + jarPath + "` did not declare a service called " + SchedulerPlugin.class.getCanonicalName());
+        throw new Error("JAR file `" + jarPath + "` did not declare a service called " + serviceEntry);
       }
       final var inputStream = jarFile.getInputStream(jarEntry);
 

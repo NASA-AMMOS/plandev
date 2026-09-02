@@ -2,6 +2,8 @@ package gov.nasa.ammos.plandev.scheduler;
 
 import gov.nasa.ammos.plandev.procedural.scheduling.ProcedureMapper;
 
+import gov.nasa.ammos.plandev.merlin.driver.LegacyProcedureCompat;
+
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -14,8 +16,21 @@ public final class ProcedureLoader {
   public static ProcedureMapper<?> loadProcedure(final Path path)
   throws ProcedureLoadException
   {
-    final var className = getImplementingClassName(path);
-    final var classLoader = new URLClassLoader(new URL[] {pathToUrl(path)});
+    // Both answers come from one open: reading a JAR's central directory costs far more
+    // than either question, and this runs per procedure evaluation.
+    final String className;
+    final boolean legacy;
+    try (final var jarFile = new JarFile(path.toFile())) {
+      className = Objects.requireNonNull(jarFile.getManifest().getMainAttributes().getValue("Main-Class"));
+      // A procedure built before the rename bundles a whole stale runtime that used to sit
+      // shadowed behind ours; loading it needs that shadowing put back.
+      legacy = LegacyProcedureCompat.isLegacy(jarFile);
+    } catch (final IOException | NullPointerException ex) {
+      throw new ProcedureLoadException(path, ex instanceof IOException io ? io : new IOException(ex));
+    }
+
+    final var classLoader = LegacyProcedureCompat.classLoader(
+        pathToUrl(path), legacy, ProcedureLoader.class.getClassLoader());
 
     try {
       final var pluginClass$ = classLoader.loadClass(className);
@@ -29,14 +44,6 @@ public final class ProcedureLoader {
     }
   }
 
-  private static String getImplementingClassName(final Path jarPath)
-  throws ProcedureLoadException {
-    try (final var jarFile = new JarFile(jarPath.toFile())) {
-      return Objects.requireNonNull(jarFile.getManifest().getMainAttributes().getValue("Main-Class"));
-    } catch (final IOException ex) {
-      throw new ProcedureLoadException(jarPath, ex);
-    }
-  }
 
   private static URL pathToUrl(final Path path) {
     try {

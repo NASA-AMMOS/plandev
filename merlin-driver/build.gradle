@@ -40,6 +40,9 @@ dependencies {
   api project(':merlin-sdk')
   api 'org.glassfish:javax.json:1.1.4'
   implementation project(':type-utils')
+  // Rewrites the protocol package in mission model JARs built before the rename; see LegacyModelCompat.
+  implementation 'org.ow2.asm:asm:9.7'
+  implementation 'org.ow2.asm:asm-commons:9.7'
   implementation 'it.unimi.dsi:fastutil:8.5.12'
   implementation 'org.slf4j:slf4j-simple:2.0.7'
 

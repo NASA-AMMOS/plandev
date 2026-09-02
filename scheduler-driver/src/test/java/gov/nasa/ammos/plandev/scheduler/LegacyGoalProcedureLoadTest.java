@@ -1,8 +1,10 @@
 package gov.nasa.ammos.plandev.scheduler;
 
+import gov.nasa.ammos.plandev.merlin.driver.LegacyAbiCheck;
 import gov.nasa.ammos.plandev.merlin.driver.LegacyProcedureCompat;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -59,5 +61,34 @@ public final class LegacyGoalProcedureLoadTest {
     assertEquals(
         ProcedureLoader.loadProcedure(CURRENT).getInputType().getParameters().toString(),
         ProcedureLoader.loadProcedure(LEGACY).getInputType().getParameters().toString());
+  }
+
+  /**
+   * The same invariant for procedures, resolved against the classes this service actually
+   * runs, and checked against the full 4.3 artifact's reference set rather than the trimmed
+   * fixture's subset.
+   */
+  @Test
+  void thisRuntimeStillSatisfiesTheRecorded43Abi() throws Exception {
+    final var runtime = getClass().getClassLoader();
+    final var baseline = Files.readAllLines(Path.of("src/test/resources/abi-4.3.0-goal.txt"));
+    final var unsatisfied = LegacyAbiCheck.unsatisfied(
+        baseline, LegacyProcedureCompat.redirect(runtime), runtime);
+    assertTrue(unsatisfied.isEmpty(),
+        () -> "the API has drifted from what 4.3 procedure JARs were compiled against:\n  "
+            + unsatisfied.stream().map(Object::toString).collect(java.util.stream.Collectors.joining("\n  ")));
+  }
+
+  /** Guards the baseline itself: regenerating it from a trimmed fixture would gut the check. */
+  @Test
+  void theBaselineCoversMoreThanTheTrimmedFixture() throws Exception {
+    final var runtime = getClass().getClassLoader();
+    final var baseline = Files.readAllLines(Path.of("src/test/resources/abi-4.3.0-goal.txt"))
+        .stream().filter(l -> !l.isBlank() && !l.startsWith("#")).toList();
+    final var fromFixture = LegacyAbiCheck.references(LEGACY, LegacyProcedureCompat.redirect(runtime));
+    assertTrue(baseline.containsAll(fromFixture), "baseline is missing references the fixture makes");
+    assertTrue(baseline.size() > fromFixture.size(),
+        () -> "baseline (" + baseline.size() + ") should exceed the fixture's own surface ("
+            + fromFixture.size() + "); was it regenerated from the fixture?");
   }
 }

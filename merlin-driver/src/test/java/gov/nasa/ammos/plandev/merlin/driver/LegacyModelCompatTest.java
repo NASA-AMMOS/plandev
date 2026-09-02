@@ -2,6 +2,7 @@ package gov.nasa.ammos.plandev.merlin.driver;
 
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.jar.JarFile;
 
@@ -62,5 +63,67 @@ public final class LegacyModelCompatTest {
 
     // Configuration goes through InputType too.
     assertFalse(modelType.getConfigurationType().getParameters().isEmpty());
+  }
+
+  /**
+   * The invariant the whole compat path rests on: everything a 4.3 JAR asks of this runtime
+   * is still there. Checked against a reference set recorded from the full 4.3 artifact
+   * rather than the trimmed fixture, which carries only a subset -- see the baseline header.
+   *
+   * <p> When this fails the 4.3 window has closed. The answer is to refuse the vintage with
+   * a message naming what is missing, not to widen the remap.
+   */
+  @Test
+  void thisRuntimeStillSatisfiesTheRecorded43Abi() throws Exception {
+    final var baseline = Files.readAllLines(Path.of("src/test/resources/abi-4.3.0-model.txt"));
+    final var unsatisfied = LegacyAbiCheck.unsatisfied(
+        baseline, LegacyModelCompat.redirect(), getClass().getClassLoader());
+    assertTrue(unsatisfied.isEmpty(),
+        () -> "the protocol has drifted from what 4.3 model JARs were compiled against:\n  "
+            + unsatisfied.stream().map(Object::toString).collect(java.util.stream.Collectors.joining("\n  ")));
+  }
+
+  /** Guards the baseline itself: regenerating it from a trimmed fixture would gut the check. */
+  @Test
+  void theBaselineCoversMoreThanTheTrimmedFixture() throws Exception {
+    final var baseline = Files.readAllLines(Path.of("src/test/resources/abi-4.3.0-model.txt"))
+        .stream().filter(l -> !l.isBlank() && !l.startsWith("#")).toList();
+    final var fromFixture = LegacyAbiCheck.references(LEGACY_JAR, LegacyModelCompat.redirect());
+    assertTrue(baseline.containsAll(fromFixture), "baseline is missing references the fixture makes");
+    assertTrue(baseline.size() > fromFixture.size(),
+        () -> "baseline (" + baseline.size() + ") should exceed the fixture's own surface ("
+            + fromFixture.size() + "); was it regenerated from the fixture?");
+  }
+
+  /** A check that has never failed is not known to work. */
+  @Test
+  void theAbiCheckReportsAReferenceTheRuntimeDoesNotHave() throws Exception {
+    final var jar = Files.createTempFile("drifted", ".jar");
+    try (final var out = new java.util.jar.JarOutputStream(Files.newOutputStream(jar))) {
+      out.putNextEntry(new java.util.zip.ZipEntry("example/Caller.class"));
+      out.write(callerReferencing("gov/nasa/jpl/aerie/merlin/protocol/types/Duration",
+                                  "aMethodThatWasRemoved", "()V"));
+      out.closeEntry();
+    }
+    final var unsatisfied = LegacyAbiCheck.unsatisfiedReferences(
+        jar, LegacyModelCompat.redirect(), getClass().getClassLoader());
+    assertEquals(1, unsatisfied.size(), () -> String.valueOf(unsatisfied));
+    assertEquals("aMethodThatWasRemoved", unsatisfied.get(0).member());
+    assertEquals("no such method", unsatisfied.get(0).reason());
+  }
+
+  /** A class whose only content is one call into {@code owner}. */
+  private static byte[] callerReferencing(final String owner, final String name, final String descriptor) {
+    final var writer = new org.objectweb.asm.ClassWriter(0);
+    writer.visit(org.objectweb.asm.Opcodes.V21, org.objectweb.asm.Opcodes.ACC_PUBLIC,
+                 "example/Caller", null, "java/lang/Object", null);
+    final var method = writer.visitMethod(org.objectweb.asm.Opcodes.ACC_PUBLIC, "call", "()V", null, null);
+    method.visitCode();
+    method.visitMethodInsn(org.objectweb.asm.Opcodes.INVOKESTATIC, owner, name, descriptor, false);
+    method.visitInsn(org.objectweb.asm.Opcodes.RETURN);
+    method.visitMaxs(0, 0);
+    method.visitEnd();
+    writer.visitEnd();
+    return writer.toByteArray();
   }
 }

@@ -74,6 +74,9 @@ public final class LegacyModelCompat {
    * marks the SDK compileOnlyApi precisely so the runtime supplies it -- so the redirect
    * is unconditional and needs no classpath probe.
    */
+  /** The redirect this compat path applies; exposed so {@link LegacyAbiCheck} can use the same rule. */
+  public static java.util.function.UnaryOperator<String> redirect() { return PROTOCOL_REDIRECT; }
+
   private static final java.util.function.UnaryOperator<String> PROTOCOL_REDIRECT = internalName ->
       internalName.startsWith(LEGACY_PROTOCOL)
           ? CURRENT_PROTOCOL + internalName.substring(LEGACY_PROTOCOL.length())

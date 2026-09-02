@@ -76,3 +76,17 @@ publishing {
     }
   }
 }
+
+// Records what a 4.3 JAR asks of this service, for LegacyAbiCheck. Must run here rather
+// than centrally: the redirect is decided against this service's own classpath.
+tasks.register('regenerateAbiBaseline', JavaExec) {
+  group = 'verification'
+  description = 'Rewrite the checked-in 4.3 ABI baseline from an original 4.3 artifact.'
+  classpath = sourceSets.test.runtimeClasspath
+  mainClass = 'gov.nasa.ammos.plandev.merlin.driver.LegacyAbiCheck'
+  args = [
+    findProperty('legacyJar') ?: '',
+    "$projectDir/src/test/resources/abi-4.3.0-model.txt",
+    'model',
+  ]
+}

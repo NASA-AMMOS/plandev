@@ -94,6 +94,12 @@ public final class LegacyProcedureCompat {
   private static final Map<ClassLoader, Map<String, String>> REDIRECTS =
       Collections.synchronizedMap(new WeakHashMap<>());
 
+  /** The redirect this compat path applies; exposed so {@link LegacyAbiCheck} can use the same rule. */
+  public static java.util.function.UnaryOperator<String> redirect(final ClassLoader runtime) {
+    final var decided = redirectsFor(runtime);
+    return decided::get;
+  }
+
   private static Map<String, String> redirectsFor(final ClassLoader runtime) {
     final var cache = REDIRECTS.computeIfAbsent(runtime, ignored -> new ConcurrentHashMap<>());
     return new AbstractMap<>() {

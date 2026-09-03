@@ -1,2 +1,8 @@
+# force node modules & build files to be installed/built inside the image
+node_modules
+build
+*.tsbuildinfo
+# remove unnecessary files from the image
 .gradle
+.idea
 test

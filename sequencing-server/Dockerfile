@@ -34,7 +34,7 @@ ENV NODE_ENV=production
 COPY --from=build /app/package.json /app/package-lock.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/build ./build
-copy --from=build /app/plugins ./plugins
+COPY --from=build /app/plugins ./plugins
 
 # npm is not required by the running service - remove to reduce vulnerable dependencies
 RUN rm -rf /usr/local/lib/node_modules/npm \

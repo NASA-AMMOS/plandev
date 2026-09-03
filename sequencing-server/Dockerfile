@@ -15,6 +15,8 @@ FROM base AS build
 
 # copy node app package metadata first, so dependency installation can be cached.
 COPY package.json package-lock.json ./
+COPY plugins/ampcs-dictionary-parser/package.json ./plugins/ampcs-dictionary-parser/
+COPY plugins/fprime-dictionary-parser/package.json ./plugins/fprime-dictionary-parser/
 # Install without lifecycle scripts, then run only scripts approved by allowScripts.
 RUN npm ci --ignore-scripts \
     && npm rebuild --strict-allow-scripts
@@ -28,10 +30,11 @@ FROM base AS runtime
 
 ENV NODE_ENV=production
 
-# copy built app files & make them owned by non-root `node` user
-COPY --from=build --chown=node:node /app/package.json /app/package-lock.json ./
-COPY --from=build --chown=node:node /app/node_modules ./node_modules
-COPY --from=build --chown=node:node /app/build ./build
+# copy built app files
+COPY --from=build /app/package.json /app/package-lock.json ./
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/build ./build
+copy --from=build /app/plugins ./plugins
 
 # npm is not required by the running service - remove to reduce vulnerable dependencies
 RUN rm -rf /usr/local/lib/node_modules/npm \

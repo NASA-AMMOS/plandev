@@ -12,7 +12,7 @@
     "node": "24.x"
   },
   "scripts": {
-    "build": "npm run build:clean; npm run build:plugins; tsc -p tsconfig.build.json; npm run copy-preface; npm run copy-temporal-polyfill; npm run copy-parsing-languages",
+    "build": "npm run build:clean && npm run build:plugins && tsc -p tsconfig.build.json && npm run copy-preface && npm run copy-temporal-polyfill && npm run copy-parsing-languages",
     "build:plugins": "npm run build --workspaces;",
     "build:server": "tsc -p tsconfig.build.json",
     "build:clean": "rm -rf ./build",

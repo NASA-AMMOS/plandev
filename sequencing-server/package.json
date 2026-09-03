@@ -75,6 +75,9 @@
     },
     "graphql-request": {
       "form-data": "^3.0.4"
+    },
+    "cross-fetch": {
+      "node-fetch": "2.7.0"
     }
   },
   "allowScripts": {

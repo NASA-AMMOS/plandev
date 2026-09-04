@@ -71,32 +71,76 @@ public final class MissionModelLoader {
         try {
             final var pluginClass$ = classLoader.loadClass(className);
             if (!MerlinPlugin.class.isAssignableFrom(pluginClass$)) {
-                throw new MissionModelLoadException(path, name, version);
+                throw new MissionModelLoadException(
+                    path,
+                    name,
+                    version,
+                    "No implementation found for `%s`".formatted(MerlinPlugin.class.getSimpleName())
+                );
             }
 
             return (MerlinPlugin) pluginClass$.getConstructor().newInstance();
         } catch (final ReflectiveOperationException ex) {
-            throw new MissionModelLoadException(path, name, version, ex);
+            throw new MissionModelLoadException(
+                path,
+                name,
+                version,
+                "No implementation found for `%s`".formatted(MerlinPlugin.class.getSimpleName()),
+                ex
+            );
         }
     }
 
-    private static String getImplementingClassName(final Path jarPath, final String name, final String version)
-    throws MissionModelLoadException {
+    private static String getImplementingClassName(
+        final Path jarPath,
+        final String name,
+        final String version
+    ) throws MissionModelLoadException {
+        final var serviceDescriptor =
+            "META-INF/services/" + MerlinPlugin.class.getCanonicalName();
+
         try (final var jarFile = new JarFile(jarPath.toFile())) {
-            final var jarEntry = jarFile.getEntry("META-INF/services/" + MerlinPlugin.class.getCanonicalName());
-            final var inputStream = jarFile.getInputStream(jarEntry);
-
-            final var classPathList = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))
-                .lines()
-                .toList();
-
-            if (classPathList.size() != 1) {
-                throw new MissionModelLoadException(jarPath, name, version);
+            final var jarEntry = jarFile.getEntry(serviceDescriptor);
+            if (jarEntry == null) {
+                throw new MissionModelLoadException(
+                    jarPath,
+                    name,
+                    version,
+                    """
+                    Required service descriptor `%s` is missing. The mission model JAR may be stale \
+                    or built against an incompatible PlanDev version. Clean and rebuild the mission \
+                    model, then upload the rebuilt JAR.
+                    """.formatted(serviceDescriptor).strip());
             }
 
-            return classPathList.get(0);
+            try (
+                final var inputStream = jarFile.getInputStream(jarEntry);
+                final var reader = new BufferedReader(
+                    new InputStreamReader(inputStream, StandardCharsets.UTF_8))
+            ) {
+                final var classPathList = reader.lines()
+                                                .map(String::strip)
+                                                .filter(line -> !line.isEmpty() && !line.startsWith("#"))
+                                                .toList();
+
+                if (classPathList.size() != 1) {
+                    throw new MissionModelLoadException(
+                        jarPath,
+                        name,
+                        version,
+                        "Service descriptor `%s` must name exactly one provider."
+                            .formatted(serviceDescriptor));
+                }
+
+                return classPathList.getFirst();
+            }
         } catch (final IOException ex) {
-            throw new MissionModelLoadException(jarPath, name, version, ex);
+            throw new MissionModelLoadException(
+                jarPath,
+                name,
+                version,
+                "Could not read the mission model JAR.",
+                ex);
         }
     }
 
@@ -111,19 +155,26 @@ public final class MissionModelLoader {
     }
 
     public static class MissionModelLoadException extends Exception {
-        private MissionModelLoadException(final Path path, final String name, final String version) {
-            this(path, name, version, null);
+        private MissionModelLoadException(
+            final Path path,
+            final String name,
+            final String version,
+            final String explanation
+        ) {
+          this(path, name, version, explanation, null);
         }
 
-        private MissionModelLoadException(final Path path, final String name, final String version, final Throwable cause) {
-            super(
-                String.format(
-                    "No implementation found for `%s` at path `%s` wih name \"%s\" and version \"%s\"",
-                    MerlinPlugin.class.getSimpleName(),
-                    path,
-                    name,
-                    version),
-                cause);
+        private MissionModelLoadException(
+            final Path path,
+            final String name,
+            final String version,
+            final String explanation,
+            final Throwable cause
+        ) {
+          super(
+              "Could not load mission model \"%s\" version \"%s\" from `%s`: %s"
+                  .formatted(name, version, path, explanation),
+              cause);
         }
     }
 

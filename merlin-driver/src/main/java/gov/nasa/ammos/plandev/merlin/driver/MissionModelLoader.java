@@ -71,12 +71,23 @@ public final class MissionModelLoader {
         try {
             final var pluginClass$ = classLoader.loadClass(className);
             if (!MerlinPlugin.class.isAssignableFrom(pluginClass$)) {
-                throw new MissionModelLoadException(path, name, version);
+                throw new MissionModelLoadException(
+                    path,
+                    name,
+                    version,
+                    "No implementation found for `%s`".formatted(MerlinPlugin.class.getSimpleName())
+                );
             }
 
             return (MerlinPlugin) pluginClass$.getConstructor().newInstance();
         } catch (final ReflectiveOperationException ex) {
-            throw new MissionModelLoadException(path, name, version, ex);
+            throw new MissionModelLoadException(
+                path,
+                name,
+                version,
+                "No implementation found for `%s`".formatted(MerlinPlugin.class.getSimpleName()),
+                ex
+            );
         }
     }
 
@@ -144,20 +155,6 @@ public final class MissionModelLoader {
     }
 
     public static class MissionModelLoadException extends Exception {
-        private MissionModelLoadException(final Path path, final String name, final String version) {
-            this(path, name, version, (Throwable) null);
-        }
-
-        private MissionModelLoadException(final Path path, final String name, final String version, final Throwable cause) {
-            super(
-                String.format(
-                    "No implementation found for `%s` at path `%s` wih name \"%s\" and version \"%s\"",
-                    MerlinPlugin.class.getSimpleName(),
-                    path,
-                    name,
-                    version),
-                cause);
-        }
         private MissionModelLoadException(
             final Path path,
             final String name,

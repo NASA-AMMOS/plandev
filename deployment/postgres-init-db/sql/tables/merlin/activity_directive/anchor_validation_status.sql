@@ -24,12 +24,13 @@ comment on column merlin.anchor_validation_status.plan_id is e''
 comment on column merlin.anchor_validation_status.reason_invalid is e''
   'If null, the anchor is valid. If not null, this contains a reason why the anchor is invalid.';
 
+-- `language sql` (not plpgsql) so the planner can inline this into the calling
+-- query and pick the (anchor_id, plan_id) index. The plpgsql wrapper was opaque
+-- to the planner and chose a worse plan.
 create function merlin.get_dependent_activities(_activity_id int, _plan_id int)
   returns table(activity_id int, total_offset interval)
   stable
-  language plpgsql as $$
-begin
-  return query
+  language sql as $$
   with recursive d_activities(activity_id, anchor_id, anchored_to_start, start_offset, total_offset) as (
       select ad.id, ad.anchor_id, ad.anchored_to_start, ad.start_offset, ad.start_offset
       from merlin.activity_directive ad
@@ -41,7 +42,6 @@ begin
         and ad.anchored_to_start  -- stop at next end-time anchor
   ) select da.activity_id, da.total_offset
   from d_activities da;
-end;
 $$;
 
 comment on function merlin.get_dependent_activities(_activity_id int, _plan_id int) is e''

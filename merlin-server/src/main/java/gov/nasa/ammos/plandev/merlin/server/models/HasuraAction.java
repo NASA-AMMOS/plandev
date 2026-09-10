@@ -1,5 +1,8 @@
 package gov.nasa.ammos.plandev.merlin.server.models;
 
+import gov.nasa.ammos.plandev.merlin.protocol.model.InputType.Parameter;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 import gov.nasa.ammos.plandev.types.MissionModelId;
 import gov.nasa.ammos.plandev.types.SerializedActivity;
 import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
@@ -38,4 +41,27 @@ public record HasuraAction<I extends HasuraAction.Input>(String name, I input, S
   public record NewConstraintRevisionEvent(long constraintId, long revision) implements Input {}
   public record ConstraintArgumentItem(long constraintId, long revision, Map<String, SerializedValue> arguments) implements Input {}
   public record ConstraintArguments(List<ConstraintArgumentItem> items) implements Input {}
+
+  // --- Declared models: type registration + recorded-results ingestion ---
+  public record ModelResourceType(String name, ValueSchema schema) {}
+
+  public record RegisterModelTypesInput(
+      MissionModelId missionModelId,
+      List<ActivityType> activityTypes,
+      List<ModelResourceType> resourceTypes,
+      List<Parameter> parameters
+  ) implements Input {}
+
+  public record ExternalSimulationResults(
+      Timestamp startTime,
+      Duration duration,
+      ProfileSet profiles,
+      List<ExternalSpan> spans
+  ) {}
+
+  public record IngestExternalSimulationResultsInput(
+      PlanId planId,
+      Optional<Long> simulationId,
+      ExternalSimulationResults results
+  ) implements Input {}
 }

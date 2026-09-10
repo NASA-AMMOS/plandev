@@ -7,4 +7,7 @@ public record MissionModelRecord(
     String name,
     String version,
     String owner,
+    String modelType,
+    String externalIdentityHash,
+    String externalCapabilities,
     Path path) {}

@@ -2,6 +2,9 @@ package gov.nasa.ammos.plandev.merlin.server.http;
 
 import gov.nasa.ammos.plandev.json.JsonParser;
 import gov.nasa.ammos.plandev.types.SerializedActivity;
+import gov.nasa.ammos.plandev.merlin.protocol.model.InputType.Parameter;
+import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
+import gov.nasa.ammos.plandev.merlin.server.models.ExternalSpan;
 import gov.nasa.ammos.plandev.merlin.server.models.HasuraAction;
 import gov.nasa.ammos.plandev.merlin.server.models.HasuraMissionModelEvent;
 
@@ -23,6 +26,8 @@ import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.planIdP;
 import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.simulationDatasetIdP;
 import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.timestampP;
 import static gov.nasa.ammos.plandev.merlin.server.http.ProfileParsers.profileSetP;
+import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.durationP;
+import static gov.nasa.ammos.plandev.merlin.driver.json.ValueSchemaJsonParser.valueSchemaP;
 
 public abstract class HasuraParsers {
   private HasuraParsers() {}
@@ -209,4 +214,96 @@ public abstract class HasuraParsers {
             .map(
                 untuple(HasuraAction.ExtendExternalDatasetInput::new),
                 $ -> tuple($.datasetId(), $.profileSet())));
+
+  // --- Declared models -------------------------------------------------------------------------
+  // The wire shape of registerModelTypes and ingestExternalSimulationResults. Both are the payloads a
+  // run transfer file carries verbatim, so a producer writing the file and an adapter POSTing over HTTP
+  // send the same bytes.
+
+  private static final JsonParser<Parameter> modelParameterP =
+      productP
+          .field("name", stringP)
+          .field("schema", valueSchemaP)
+          .map(
+              untuple(Parameter::new),
+              $ -> tuple($.name(), $.schema()));
+
+  private static final JsonParser<HasuraAction.ModelResourceType> modelResourceTypeP =
+      productP
+          .field("name", stringP)
+          .field("schema", valueSchemaP)
+          .map(
+              untuple(HasuraAction.ModelResourceType::new),
+              $ -> tuple($.name(), $.schema()));
+
+  private static final JsonParser<ActivityType> modelActivityTypeP =
+      productP
+          .field("name", stringP)
+          // ORDERED: merlin persists each parameter's index as its `order` and the argument form is
+          // laid out in it, so this array's order is part of the declaration rather than incidental.
+          .field("parameters", listP(modelParameterP))
+          .field("requiredParameters", listP(stringP))
+          .field("computedAttributesSchema", valueSchemaP)
+          .optionalField("subsystem", stringP)
+          .optionalField("description", stringP)
+          .map(
+              untuple((name, parameters, required, computed, subsystem, description) ->
+                  new ActivityType(name, parameters, required, computed, subsystem, description)),
+              $ -> tuple($.name(), $.parameters(), $.requiredParameters(),
+                         $.computedAttributesValueSchema(), $.subsystem(), $.description()));
+
+  public static final JsonParser<HasuraAction<HasuraAction.RegisterModelTypesInput>> hasuraRegisterModelTypesActionP =
+      hasuraActionF(
+          productP
+              .field("missionModelId", missionModelIdP)
+              .field("activityTypes", listP(modelActivityTypeP))
+              .field("resourceTypes", listP(modelResourceTypeP))
+              .field("parameters", listP(modelParameterP))
+              .map(
+                  untuple((missionModelId, activityTypes, resourceTypes, parameters) ->
+                      new HasuraAction.RegisterModelTypesInput(missionModelId, activityTypes, resourceTypes, parameters)),
+                  $ -> tuple($.missionModelId(), $.activityTypes(), $.resourceTypes(), $.parameters())));
+
+  private static final JsonParser<ExternalSpan> externalSpanP =
+      productP
+          .field("spanId", longP)
+          // optionalField, not nullableP: these are OMITTED when they do not apply. A `parentId: null`
+          // is a parse failure, and the format says so, because "absent" and "explicitly null" would
+          // otherwise be two spellings of one state.
+          .optionalField("parentId", longP)
+          .field("type", stringP)
+          .field("startOffset", durationP)
+          // An absent duration is an UNFINISHED span -- one still running when the simulation ended.
+          .optionalField("duration", durationP)
+          .optionalField("directiveId", longP)
+          .field("arguments", mapP(serializedValueP))
+          .optionalField("computedAttributes", serializedValueP)
+          .map(
+              untuple((spanId, parentId, type, startOffset, duration, directiveId, arguments, computedAttributes) ->
+                  new ExternalSpan(
+                      spanId, parentId, type, startOffset, duration, directiveId, arguments, computedAttributes)),
+              $ -> tuple($.spanId(), $.parentId(), $.type(), $.startOffset(), $.duration(),
+                         $.directiveId(), $.arguments(), $.computedAttributes()));
+
+  private static final JsonParser<HasuraAction.ExternalSimulationResults> externalSimulationResultsP =
+      productP
+          .field("startTime", timestampP)
+          .field("duration", durationP)
+          .field("profiles", profileSetP)
+          .field("spans", listP(externalSpanP))
+          .map(
+              untuple((startTime, duration, profiles, spans) ->
+                  new HasuraAction.ExternalSimulationResults(startTime, duration, profiles, spans)),
+              $ -> tuple($.startTime(), $.duration(), $.profiles(), $.spans()));
+
+  public static final JsonParser<HasuraAction<HasuraAction.IngestExternalSimulationResultsInput>> hasuraIngestExternalSimulationResultsActionP =
+      hasuraActionF(
+          productP
+              .field("planId", planIdP)
+              .optionalField("simulationId", nullableP(longP))
+              .field("results", externalSimulationResultsP)
+              .map(
+                  untuple((planId, simulationId, results) ->
+                      new HasuraAction.IngestExternalSimulationResultsInput(planId, simulationId.flatMap($ -> $), results)),
+                  $ -> tuple($.planId(), Optional.of($.simulationId()), $.results())));
 }

@@ -236,6 +236,44 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
    *
    * retrieves the metadata via a single atomic graphql query
    */
+  /**
+   * Why scheduling is refused for a model with no JAR. Three different reasons, three different
+   * remedies, and conflating them sends people to fix the wrong thing.
+   *
+   * <ul>
+   *   <li><b>The model declares {@code plandevScheduling} unsupported.</b> A permanent property of the
+   *       model rather than a gap in PlanDev -- a framework whose own dispatcher places activities
+   *       during simulation has a schedule that is an OUTPUT, and running PlanDev's scheduler against
+   *       one pits two schedulers against each other. The declaration supplies the explanation and it
+   *       is repeated VERBATIM, so that neither this service nor the UI contains a sentence about any
+   *       particular framework. Nothing to fix.
+   *   <li><b>It declares it supported.</b> Then PlanDev is the one that cannot: the scheduler simulates
+   *       against a classloaded model, and there is no adapter over anything else. A PlanDev gap, and
+   *       saying so is the honest answer.
+   *   <li><b>Nothing is declared.</b> Unknown is treated as unsupported -- the safe direction, since
+   *       guessing "supported" for a forward-dispatch model would put two schedulers on one plan -- but
+   *       it is reported as unknown, because unlike the other two this one has a remedy.
+   * </ul>
+   */
+  private static String schedulingRefusal(final JsonObject model) {
+    final var declared = model.get("external_capabilities");
+    if (declared instanceof JsonObject capabilities
+        && capabilities.get("plandevScheduling") instanceof JsonObject entry) {
+      if (!entry.getBoolean("supported", false)) {
+        final var reason = entry.getString("reason", "");
+        return reason.isBlank()
+            ? "Its declaration reports that PlanDev scheduling does not apply to this model."
+            : reason;
+      }
+      return "Its declaration reports that PlanDev scheduling applies to this model, but PlanDev "
+             + "cannot drive it: the scheduler simulates against a classloaded model, and there is no "
+             + "adapter for a model without one. Constraints and plan editing work regardless.";
+    }
+    return "Its declaration does not say whether PlanDev scheduling applies to this model, so it is "
+           + "treated as unsupported. Declare the plandevScheduling capability to say otherwise. "
+           + "Constraints and plan editing work regardless.";
+  }
+
   @Override
   public PlanMetadata getPlanMetadata(final PlanId planId)
   throws IOException, NoSuchPlanException, MerlinServiceException
@@ -245,7 +283,7 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
         + "plan_by_pk( id: %s ) { "
         + "  id revision start_time duration "
         + "  mission_model { "
-        + "    id name version "
+        + "    id name version model_type external_capabilities "
         + "    uploaded_file { name } "
         + "  } "
         + "  simulations(limit:1, order_by:{revision:desc} ) { arguments }"
@@ -265,8 +303,19 @@ public record GraphQLMerlinDatabaseService(URI merlinGraphqlURI, String hasuraGr
       final var modelName = model.getString("name");
       final var modelVersion = model.getString("version");
 
-      final var file = model.getJsonObject("uploaded_file");
-      final var modelPath = Path.of(file.getString("name"));
+      // Read the raw value: a model with no JAR has `uploaded_file` as JSON null, and getJsonObject
+      // would throw ClassCastException on the cast -- which the catch below turns into "no plan exists
+      // with id N", a thoroughly misleading way to report "this model has no JAR".
+      final var fileValue = model.get("uploaded_file");
+      if (fileValue == null || fileValue.getValueType() == JsonValue.ValueType.NULL) {
+        // The scheduler simulates in-process against a classloaded MissionModel. A model with no JAR
+        // has nothing to classload, and driving something else in its place needs a PlanEditAdapter
+        // that does not exist. Until it does, say so plainly.
+        throw new MerlinServiceException(
+            "Plan %s uses mission model %s (\"%s\"), which has no JAR. %s"
+                .formatted(planId, modelId, modelName, schedulingRefusal(model)));
+      }
+      final var modelPath = Path.of(((JsonObject) fileValue).getString("name"));
       //NB: not using the "path" field because it is just a hex-encoded duplicate of the name field anyway
       //NB: the name includes the .jar extension
 

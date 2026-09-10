@@ -2,6 +2,7 @@ package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
 import gov.nasa.ammos.plandev.merlin.protocol.model.InputType.Parameter;
 import gov.nasa.ammos.plandev.merlin.protocol.model.Resource;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityDirectiveForValidation;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
 import gov.nasa.ammos.plandev.merlin.server.models.MissionModelJar;
@@ -74,6 +75,51 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
   }
 
   @Override
+  public List<Parameter> getModelParameters(final MissionModelId missionModelId) throws NoSuchMissionModelException {
+    try (final var connection = this.dataSource.getConnection();
+         final var getModelParametersAction = new GetModelParametersAction(connection)) {
+      return getModelParametersAction.get(missionModelId.id());
+    } catch (final SQLException ex) {
+      throw new DatabaseException(
+          "Failed to retrieve stored model parameters for mission model with id `%s`".formatted(missionModelId), ex);
+    }
+  }
+
+  @Override
+  public Map<String, ValueSchema> getResourceTypes(final MissionModelId missionModelId)
+  throws NoSuchMissionModelException {
+    try (final var connection = this.dataSource.getConnection();
+         final var getResourceTypesAction = new GetResourceTypesAction(connection)) {
+      return getResourceTypesAction.get(missionModelId.id());
+    } catch (final SQLException ex) {
+      throw new DatabaseException(
+          "Failed to retrieve resource types for mission model with id `%s`".formatted(missionModelId), ex);
+    }
+  }
+
+  @Override
+  public boolean updateExternalIdentityHash(final MissionModelId missionModelId, final String identityHash) {
+    try (final var connection = this.dataSource.getConnection();
+         final var action = new UpdateExternalIdentityHashAction(connection)) {
+      return action.apply(missionModelId.id(), identityHash);
+    } catch (final SQLException ex) {
+      throw new DatabaseException(
+          "Failed to record the declaration digest for mission model with id `%s`".formatted(missionModelId), ex);
+    }
+  }
+
+  @Override
+  public boolean updateExternalCapabilities(final MissionModelId missionModelId, final String capabilitiesJson) {
+    try (final var connection = this.dataSource.getConnection();
+         final var action = new UpdateExternalCapabilitiesAction(connection)) {
+      return action.apply(missionModelId.id(), capabilitiesJson);
+    } catch (final SQLException ex) {
+      throw new DatabaseException(
+          "Failed to record capabilities for mission model with id `%s`".formatted(missionModelId), ex);
+    }
+  }
+
+  @Override
   public void updateModelParameters(final MissionModelId missionModelId, final List<Parameter> modelParameters)
   {
     try (final var connection = this.dataSource.getConnection()) {
@@ -129,6 +175,20 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
   }
 
   @Override
+  public void updateResourceTypeSchemas(
+      final MissionModelId missionModelId,
+      final Map<String, ValueSchema> resourceTypes)
+  throws NoSuchMissionModelException {
+    try (final var connection = this.dataSource.getConnection();
+         final var insertResourceTypesAction = new InsertResourceTypesAction(connection)) {
+      insertResourceTypesAction.apply((int) missionModelId.id(), resourceTypes);
+    } catch (final SQLException ex) {
+      throw new DatabaseException(
+          "Failed to update resource types for mission model with id `%s`".formatted(missionModelId), ex);
+    }
+  }
+
+  @Override
   public Map<MissionModelId, List<ActivityDirectiveForValidation>> getUnvalidatedDirectives() {
     try (final var connection = this.dataSource.getConnection();
          final var unvalidatedDirectivesAction = new GetUnvalidatedDirectivesAction(connection)) {
@@ -154,6 +214,9 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
     model.name = record.name();
     model.version = record.version();
     model.owner = record.owner();
+    model.modelType = record.modelType();
+    model.externalIdentityHash = record.externalIdentityHash();
+    model.externalCapabilities = record.externalCapabilities();
     model.path = record.path();
 
     return model;

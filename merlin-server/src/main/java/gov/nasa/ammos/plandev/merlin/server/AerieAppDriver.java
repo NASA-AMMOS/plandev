@@ -12,6 +12,8 @@ import gov.nasa.ammos.plandev.merlin.server.remotes.PlanRepository;
 import gov.nasa.ammos.plandev.merlin.server.remotes.ResultsCellRepository;
 import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresConstraintRepository;
 import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresMissionModelRepository;
+import gov.nasa.ammos.plandev.merlin.server.remotes.ExternalSimulationResultsRepository;
+import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresExternalSimulationResultsRepository;
 import gov.nasa.ammos.plandev.merlin.server.services.ValidationWorker;
 import gov.nasa.ammos.plandev.permissions.PermissionsService;
 import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresPlanRepository;
@@ -99,7 +101,8 @@ public final class AerieAppDriver {
         simulationAction,
         generateConstraintsLibAction,
         constraintAction,
-        permissionsService
+        permissionsService,
+        stores.externalSimulationResults()
     );
     // Configure the Jetty HTTP server.
     // Default Javalin Jetty server has a QueuedThreadPool with maxThreads to 250
@@ -124,6 +127,12 @@ public final class AerieAppDriver {
     // Configure the Javalin instances
     merlinServer.updateConfig(config -> {
       config.showJavalinBanner = false;
+      // Javalin's own default is 1 MB, which silently 413s the one endpoint that carries a whole
+      // artifact rather than a few fields: a complete recorded result set (a day of one model is
+      // 5.6 MB, a week 38.6 MB). The limit is GLOBAL, so raising it here admits a large body on every
+      // route -- MerlinBindings puts the 1 MB limit back for every path that has not earned the
+      // exemption, which is all but one of them.
+      config.http.maxRequestSize = 256L * 1024 * 1024;
       if (configuration.enableJavalinDevLogging()) config.plugins.enableDevLogging();
       config.plugins.register(merlinBindings);
       config.jetty.server(() -> jettyServer);
@@ -158,7 +167,8 @@ public final class AerieAppDriver {
       PlanRepository plans,
       MissionModelRepository missionModels,
       ResultsCellRepository results,
-      ConstraintRepository constraints
+      ConstraintRepository constraints,
+      ExternalSimulationResultsRepository externalSimulationResults
   ) {}
 
   private static Stores loadStores(final AppConfiguration config) {
@@ -182,7 +192,8 @@ public final class AerieAppDriver {
           new PostgresPlanRepository(hikariDataSource, config.merlinFileStore()),
           new PostgresMissionModelRepository(hikariDataSource),
           new PostgresResultsCellRepository(hikariDataSource),
-          new PostgresConstraintRepository(hikariDataSource));
+          new PostgresConstraintRepository(hikariDataSource),
+          new PostgresExternalSimulationResultsRepository(hikariDataSource));
     } else {
       throw new UnexpectedSubtypeError(Store.class, store);
     }

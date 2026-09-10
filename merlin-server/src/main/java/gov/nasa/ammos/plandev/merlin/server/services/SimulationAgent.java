@@ -93,6 +93,18 @@ public record SimulationAgent (
           .data(errorMsgBuilder.build())
           .trace(ex.cause));
       return;
+    } catch (final ExternalModelException ex) {
+      // Without this clause these fall to the worker's catch-all and reach the user as
+      // UNEXPECTED_SIMULATION_EXCEPTION / "Something went wrong while simulating", with the real text
+      // buried in the stack trace. They are the opposite of unexpected: each is a specific, actionable
+      // condition whose message says what to do about it. `kind` rides alongside so a client can branch
+      // on it rather than parse prose.
+      writer.failWith(b -> b
+          .type("EXTERNAL_MODEL_EXCEPTION")
+          .message(ex.getMessage())
+          .data(Json.createObjectBuilder().add("kind", ex.kind.name()).build())
+          .trace(ex));
+      return;
     } catch (final MissionModelService.NoSuchMissionModelException ex) {
       final var formattedError = new MerlinFormattedError(ex);
       writer.failWith(b -> b

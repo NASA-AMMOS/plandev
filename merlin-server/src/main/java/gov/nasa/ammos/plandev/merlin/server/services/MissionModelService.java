@@ -74,6 +74,19 @@ public interface MissionModelService {
   void refreshResourceTypes(MissionModelId missionModelId) throws NoSuchMissionModelException,
                                                                   MissionModelLoadException;
 
+  /**
+   * Store the activity, resource and configuration types of a model that has no JAR to introspect.
+   *
+   * <p>The inverse of the {@code refresh*} methods above: those DERIVE metadata from a model PlanDev
+   * holds, this accepts metadata DECLARED to PlanDev for a model it does not.
+   */
+  void registerModelTypes(
+      MissionModelId missionModelId,
+      Map<String, ActivityType> activityTypes,
+      Map<String, ValueSchema> resourceTypes,
+      List<Parameter> parameters
+  ) throws NoSuchMissionModelException;
+
   sealed interface ActivityInstantiationFailure {
     record NoSuchActivityType(NoSuchActivityTypeException ex) implements ActivityInstantiationFailure { }
     record InstantiationFailure(InstantiationException ex) implements ActivityInstantiationFailure { }

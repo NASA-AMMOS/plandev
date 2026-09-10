@@ -110,7 +110,11 @@ select_permissions:
 insert_permissions:
   - role: aerie_admin
     permission:
-      columns: [mission, name, version, description, jar_id, default_view_id]
+      # model_type, external_identity_hash and external_capabilities are settable ON INSERT rather
+      # than by a follow-up update, deliberately: any update to mission_model bumps its revision, and
+      # the import sequence depends on the model revision being settled before the run's
+      # simulation_dataset is created. Writing them here costs no extra revision.
+      columns: [mission, name, version, description, jar_id, model_type, external_identity_hash, external_capabilities, default_view_id]
       check: {}
       set:
         owner: "x-hasura-user-id"

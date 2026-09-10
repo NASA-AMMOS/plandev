@@ -296,3 +296,77 @@ scalar SchedulingFailureReason
 scalar Dictionary
 
 scalar Any
+
+# --- Declared models: type registration + recorded-results ingestion ------------------------------
+#
+# Both of these are opaque scalars rather than modelled input types, and that is deliberate. A
+# ValueSchema is a recursive tagged union and a result set is megabytes of profile segments; spelling
+# either out in SDL would give Hasura a second copy of a schema merlin's own parsers already own, and
+# the two would drift. The authority is ValueSchemaJsonParser and HasuraParsers, and the run transfer
+# JSON Schema is what a producer validates against before sending.
+
+scalar ValueSchema
+
+scalar ExternalSimulationResults
+
+input ModelParameterInput {
+  name: String!
+  schema: ValueSchema!
+}
+
+input ModelResourceTypeInput {
+  name: String!
+  schema: ValueSchema!
+}
+
+input ModelActivityTypeInput {
+  name: String!
+  """
+  ORDERED. merlin persists each parameter's index as its `order` and the argument form is laid out in
+  it, so this array's order is part of the declaration rather than incidental.
+  """
+  parameters: [ModelParameterInput!]!
+  requiredParameters: [String!]!
+  """
+  Not optional: a model that computes nothing declares a closed empty struct. The gate holds every
+  finished span's computed attributes to this, so an undeclared attribute is refused rather than
+  silently stored as something command expansion cannot type.
+  """
+  computedAttributesSchema: ValueSchema!
+  subsystem: String
+  description: String
+}
+
+type RegisterModelTypesResponse {
+  activityTypeCount: Int!
+  resourceTypeCount: Int!
+  parameterCount: Int!
+}
+
+type IngestExternalSimulationResultsResponse {
+  simulationDatasetId: Int!
+}
+
+type Mutation {
+  registerModelTypes(
+    missionModelId: Int!
+    activityTypes: [ModelActivityTypeInput!]!
+    resourceTypes: [ModelResourceTypeInput!]!
+    parameters: [ModelParameterInput!]!
+  ): RegisterModelTypesResponse
+}
+
+type Mutation {
+  """
+  Store a simulation PlanDev did not perform as a first-class run: one simulation_dataset with its
+  spans and resource profiles, status 'success'.
+
+  Pass `simulationId: null` and merlin resolves the plan's own simulation row -- which is also where
+  the run's configuration comes from, so the dataset is stamped with the arguments the plan holds.
+  """
+  ingestExternalSimulationResults(
+    planId: Int!
+    simulationId: Int
+    results: ExternalSimulationResults!
+  ): IngestExternalSimulationResultsResponse
+}

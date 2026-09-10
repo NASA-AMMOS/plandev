@@ -19,6 +19,12 @@ import gov.nasa.ammos.plandev.merlin.server.services.GenerateConstraintsLibActio
 import gov.nasa.ammos.plandev.merlin.server.services.GetSimulationResultsAction;
 import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService;
 import gov.nasa.ammos.plandev.merlin.server.services.PlanService;
+import gov.nasa.ammos.plandev.merlin.server.services.ExternalModelException;
+import gov.nasa.ammos.plandev.merlin.server.services.ExternalResultsGate;
+import gov.nasa.ammos.plandev.merlin.server.remotes.ExternalSimulationResultsRepository;
+import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
+import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
+import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
 import gov.nasa.ammos.plandev.permissions.HasuraAction;
 import gov.nasa.ammos.plandev.permissions.PermissionsService;
 import io.javalin.Javalin;
@@ -47,6 +53,8 @@ import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraCons
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraConstraintsViolationsActionP;
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraSimulateActionP;
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraUploadExternalDatasetActionP;
+import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraRegisterModelTypesActionP;
+import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraIngestExternalSimulationResultsActionP;
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraMissionModelActionP;
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraMissionModelArgumentsActionP;
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraMissionModelEventTriggerP;
@@ -78,6 +86,7 @@ public final class MerlinBindings implements Plugin {
   private final GenerateConstraintsLibAction generateConstraintsLibAction;
   private final ConstraintAction constraintAction;
   private final PermissionsService permissionsService;
+  private final ExternalSimulationResultsRepository externalSimulationResultsRepository;
   private static final Logger logger = LoggerFactory.getLogger(MerlinBindings.class);
 
   public MerlinBindings(
@@ -86,7 +95,8 @@ public final class MerlinBindings implements Plugin {
       final GetSimulationResultsAction simulationAction,
       final GenerateConstraintsLibAction generateConstraintsLibAction,
       final ConstraintAction constraintAction,
-      final PermissionsService permissionsService
+      final PermissionsService permissionsService,
+      final ExternalSimulationResultsRepository externalSimulationResultsRepository
   ) {
     this.missionModelService = missionModelService;
     this.planService = planService;
@@ -94,6 +104,159 @@ public final class MerlinBindings implements Plugin {
     this.generateConstraintsLibAction = generateConstraintsLibAction;
     this.constraintAction = constraintAction;
     this.permissionsService = permissionsService;
+    this.externalSimulationResultsRepository = externalSimulationResultsRepository;
+  }
+
+  /**
+   * Store the activity, resource and configuration types of a model that has no JAR.
+   *
+   * <p>The inverse of the {@code refresh*} endpoints: those derive metadata from a model PlanDev holds,
+   * this accepts metadata declared for one it does not.
+   */
+  private void registerModelTypes(final Context ctx) {
+    try {
+      final var input = parseJson(ctx.body(), hasuraRegisterModelTypesActionP).input();
+
+      final var activityTypes = input.activityTypes().stream()
+          .collect(Collectors.toMap(ActivityType::name, $ -> $));
+      final var resourceTypes = input.resourceTypes().stream()
+          .collect(Collectors.toMap(
+              gov.nasa.ammos.plandev.merlin.server.models.HasuraAction.ModelResourceType::name,
+              gov.nasa.ammos.plandev.merlin.server.models.HasuraAction.ModelResourceType::schema));
+
+      this.missionModelService.registerModelTypes(
+          input.missionModelId(), activityTypes, resourceTypes, input.parameters());
+
+      ctx.status(200).result(Json.createObjectBuilder()
+          .add("activityTypeCount", activityTypes.size())
+          .add("resourceTypeCount", resourceTypes.size())
+          .add("parameterCount", input.parameters().size())
+          .build().toString());
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
+    } catch (final MissionModelService.NoSuchMissionModelException ex) {
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    } catch (final ExternalModelException ex) {
+      // 422, not 500. The gate's message IS the product here -- it names the declaration that will not
+      // work and why -- and Javalin would otherwise turn this into a bare 500 with a stack trace.
+      ctx.status(422).result(serializeExternalModelException(ex).toString());
+    }
+  }
+
+  /**
+   * Build the closed world a pushed result set is checked against: the plan's model types plus the
+   * directives the plan actually holds.
+   *
+   * <p>Unlike the streaming pull path, this REFUSES rather than degrading when the world cannot be
+   * built. Nothing downstream re-checks an ingested result -- profiles and spans land in Postgres
+   * verbatim -- so ingesting unchecked is the one outcome that cannot be undone. The exception is an
+   * operator who has explicitly turned the gate off, whose instruction this should not override.
+   */
+  private ExternalResultsGate gateForPlan(final PlanId planId, final Duration duration) {
+    try {
+      final var plan = this.planService.getPlanForSimulation(planId);
+      return ExternalResultsGate.of(
+          "plan " + planId + " (mission model " + plan.missionModelId() + ")",
+          this.missionModelService.getActivityTypes(plan.missionModelId()),
+          this.missionModelService.getResourceSchemas(plan.missionModelId()),
+          plan.activityDirectives().keySet().stream().map(ActivityDirectiveId::id).collect(Collectors.toSet()),
+          duration.in(Duration.MICROSECONDS));
+    } catch (final Exception ex) {
+      if (ExternalResultsGate.Mode.fromEnv() == ExternalResultsGate.Mode.OFF) {
+        logger.warn("Could not build an ingest gate for plan {}, and the gate is disabled; "
+                    + "ingesting unchecked ({})", planId, ex.toString());
+        return ExternalResultsGate.disabled();
+      }
+      throw new ExternalModelException(
+          ExternalModelException.Kind.INGEST_GATE,
+          ("Could not determine what mission model %s declares, so these results cannot be checked "
+           + "before they are stored: %s").formatted(planId, ex));
+    }
+  }
+
+  private void ingestExternalSimulationResults(final Context ctx) {
+    try {
+      final var body = parseJson(ctx.body(), hasuraIngestExternalSimulationResultsActionP);
+      final var input = body.input();
+      final var results = input.results();
+      final var requestedBy = body.session().hasuraUserId();
+
+      // The gate is the whole validation story for these results: nothing downstream re-checks them.
+      // finish() must run BEFORE the insert, which is why it is here rather than in the repository.
+      final var gate = gateForPlan(input.planId(), results.duration());
+      gate.checkIngest(results.profiles(), results.spans());
+      gate.finish();
+
+      final var simulationDatasetId = this.externalSimulationResultsRepository.insertExternalSimulationResults(
+          input.planId(), input.simulationId(),
+          results.startTime(), results.duration(), results.profiles(), results.spans(), requestedBy);
+
+      ctx.status(201).result(Json.createObjectBuilder()
+          .add("simulationDatasetId", simulationDatasetId)
+          .build().toString());
+    } catch (final JsonParsingException ex) {
+      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    } catch (final InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
+    } catch (final ExternalModelException ex) {
+      // 422: the request was well-formed and understood, and refused on its content. The findings are
+      // the actionable part, so they travel in the body rather than in a log line.
+      ctx.status(422).result(serializeExternalModelException(ex).toString());
+    }
+  }
+
+  /**
+   * Hasura's own action-error shape: {@code message} plus {@code extensions}.
+   *
+   * <p>The nesting is not cosmetic. Hasura surfaces a non-2xx action response as a GraphQL error and
+   * merges {@code extensions} into it, but labels anything else {@code code: "unexpected"} -- so a
+   * top-level {@code kind} reaches the client as an error that reads like a merlin crash rather than
+   * like a refusal. Put the kind in {@code extensions.code} and the client gets both the sentence and
+   * something to branch on, without parsing prose.
+   */
+  private static javax.json.JsonObject serializeExternalModelException(final ExternalModelException ex) {
+    return Json.createObjectBuilder()
+        .add("message", ex.getMessage() == null ? ex.toString() : ex.getMessage())
+        .add("extensions", Json.createObjectBuilder().add("code", ex.kind.name()))
+        .build();
+  }
+
+  /**
+   * The one route that legitimately receives a large body, and is therefore exempt from
+   * {@link #ORDINARY_MAX_REQUEST_BYTES}.
+   *
+   * <p>It carries a whole artifact rather than a handful of fields: a complete simulation result set.
+   * A day of one recorded model is 5.6 MB and a week 38.6 MB, so the ordinary limit is not a tight fit
+   * for it -- it is the wrong order of magnitude.
+   */
+  private static final java.util.Set<String> LARGE_BODY_PATHS =
+      java.util.Set.of("/ingestExternalSimulationResults");
+
+  /**
+   * What every OTHER route may accept. This is Javalin's own former default, kept deliberately.
+   *
+   * <p>Javalin's size limit is global, so admitting a large body anywhere admits one everywhere --
+   * which would put a 256 MB allocation behind every endpoint merlin serves, most of which take a plan
+   * id and a couple of strings. Raising the engine's ceiling and re-imposing the small limit here for
+   * everything not on the list above keeps the exemption where it is earned.
+   */
+  private static final long ORDINARY_MAX_REQUEST_BYTES = 1024L * 1024L;
+
+  /**
+   * Reject an oversized body before a handler allocates it.
+   *
+   * <p>Thrown rather than written: a {@code before} handler that merely sets a status does not stop the
+   * endpoint that follows it, so the request would be answered twice -- once with the refusal and once
+   * by a handler reading the body this was supposed to prevent.
+   */
+  private static void enforceRequestSize(final Context ctx) {
+    if (LARGE_BODY_PATHS.contains(ctx.path())) return;
+    if (ctx.contentLength() <= ORDINARY_MAX_REQUEST_BYTES) return;
+    throw new io.javalin.http.ContentTooLargeResponse(
+        "request body is %d bytes; %s accepts at most %d"
+            .formatted(ctx.contentLength(), ctx.path(), ORDINARY_MAX_REQUEST_BYTES));
   }
 
   @Override
@@ -103,6 +266,7 @@ public final class MerlinBindings implements Plugin {
 
     javalin.routes(() -> {
       before(ctx -> ctx.contentType("application/json"));
+      before(MerlinBindings::enforceRequestSize);
 
       path("resourceTypes", () -> post(this::getResourceTypes));
       path("getSimulationResults", () -> post(this::getSimulationResults));
@@ -111,6 +275,8 @@ public final class MerlinBindings implements Plugin {
       path("refreshModelParameters", () -> post(this::postRefreshModelParameters));
       path("refreshActivityTypes", () -> post(this::postRefreshActivityTypes));
       path("refreshResourceTypes", () -> post(this::postRefreshResourceTypes));
+      path("registerModelTypes", () -> post(this::registerModelTypes));
+      path("ingestExternalSimulationResults", () -> post(this::ingestExternalSimulationResults));
       path("validateActivityArguments", () -> post(this::validateActivityArguments));
       path("validateModelArguments", () -> post(this::validateModelArguments));
       path("validatePlan", () -> post(this::validatePlan));

@@ -51,7 +51,9 @@ comment on column merlin.mission_model.version is e''
 comment on column merlin.mission_model.owner is e''
   'A human-meaningful identifier for the user responsible for this model.';
 comment on column merlin.mission_model.jar_id is e''
-  'An uploaded JAR file defining the mission model.';
+  'An uploaded JAR file defining the mission model. Null if the model is not is_executable.';
+comment on column merlin.mission_model.is_executable is e''
+  'A flag that is set to true if the model is executable, otherwise false. If true, jar_id must be non-null.';
 comment on column merlin.mission_model.created_at is e''
   'The time this mission model was uploaded into Aerie.';
 comment on column merlin.mission_model.description is e''

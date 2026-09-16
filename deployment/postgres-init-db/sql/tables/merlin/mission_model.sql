@@ -11,7 +11,7 @@ create table merlin.mission_model (
   owner text,
   jar_id integer,
 
-  is_executable boolean not null default true
+  is_executable boolean not null default true,
 
   created_at timestamptz not null default now(),
 

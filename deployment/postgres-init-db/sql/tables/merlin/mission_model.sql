@@ -28,6 +28,8 @@ create table merlin.mission_model (
     foreign key (owner) references permissions.users
     on update cascade
     on delete set null,
+  constraint mission_model_executable_jar_exists
+    check (is_executable = false or jar_id is not null),
   foreign key (default_view_id)
     references ui.view
     on delete set null

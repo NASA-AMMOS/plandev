@@ -7,6 +7,7 @@ import gov.nasa.ammos.aerie.procedural.timeline.Interval
 import gov.nasa.ammos.aerie.procedural.timeline.Timeline
 import gov.nasa.ammos.aerie.procedural.timeline.ops.SerialConstantOps
 import gov.nasa.ammos.aerie.procedural.timeline.util.preprocessList
+import gov.nasa.jpl.aerie.merlin.protocol.types.Duration
 
 /** A profile of piece-wise constant values. */
 data class Constants<V: Any>(private val timeline: Timeline<Segment<V>, Constants<V>>):

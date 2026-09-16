@@ -63,7 +63,7 @@ fun <I: IntervalLike<I>> truncateList(list: List<I>, opts: CollectOptions, explo
             binarySearch(list, opts.bounds.start, false, opts.bounds.startInclusivity == Interval.Inclusivity.Inclusive)
               ?: -1
             ) + 1
-        var result = list.subList(startIndex, endIndex)
+        var result = if (startIndex < endIndex) list.subList(startIndex, endIndex) else emptyList()
         if (result.isEmpty()) result
         else if (!opts.truncateMarginal) {
           result

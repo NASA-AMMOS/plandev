@@ -239,5 +239,13 @@ data class Real(private val timeline: Timeline<Segment<LinearEquation>, Real>):
       Segment(Duration.MIN_VALUE ..< stepTime, LinearEquation(0.0)),
       Segment(stepTime .. Duration.MAX_VALUE, LinearEquation(value))
     )
+
+    /**
+     * A profile representing the current simulation time, in seconds elapsed since plan start.
+     *
+     * This is useful for comparing against other time-valued profiles (e.g. [Constants] of [java.time.Instant],
+     * converted to elapsed seconds since plan start) to detect things like "has at least N seconds passed since X".
+     */
+    @JvmStatic fun clock() = Real(LinearEquation(Duration.ZERO, 0.0, 1.0))
   }
 }

@@ -3,7 +3,7 @@ alter table merlin.mission_model
 
   add column is_executable boolean not null default true,
   add constraint mission_model_executable_jar_exists
-    check (not is_executable or jar_id is not null),
+    check (not is_executable or jar_id is not null);
 
   comment on column merlin.mission_model.jar_id is e''
     'An uploaded JAR file defining the mission model. Null if the model is not is_executable.';

@@ -104,12 +104,8 @@ interface SerialConstantOps<V: Any, THIS: SerialConstantOps<V, THIS>>: SerialSeg
     when {
       l is CharSequence && v is CharSequence -> l.contains(v)
       l is CharSequence && v is Char -> l.contains(v)
-      l is Iterable<*> && v is Iterable<*> -> l.toList().containsAll(v.toList())
-      l is Iterable<*> && v is Array<*> -> l.toList().containsAll(v.toList())
-      l is Iterable<*> -> l.contains(v)
-      l is Array<*> && v is Iterable<*> -> l.toList().containsAll(v.toList())
-      l is Array<*> && v is Array<*> -> l.toList().containsAll(v.toList())
-      l is Array<*> -> l.contains(v)
+      l is Collection<*> && v is Collection<*> -> l.containsAll(v)
+      l is Collection<*> -> l.contains(v)
       else -> throw UnsupportedOperationException(
           "contains is not supported for type ${l::class.java.name}"
       )

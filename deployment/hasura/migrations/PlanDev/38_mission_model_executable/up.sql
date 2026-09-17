@@ -4,11 +4,13 @@ alter table merlin.mission_model
 alter table merlin.mission_model
   add column is_executable boolean not null default true;
 
+alter table merlin.mission_model
+  rename constraint mission_model_references_jar to mission_model_references_file;
+
 comment on column merlin.mission_model.definition_file_id is e''
   'An uploaded file defining the mission model. (JAR file for Java models)';
 comment on column merlin.mission_model.is_executable is e''
   'A flag that is set to true if the model is executable, otherwise false.';
-
 
 alter table merlin.plan
   add column is_read_only boolean not null default false;

@@ -12,6 +12,7 @@ create table merlin.plan (
     on update cascade,
 
   is_locked boolean not null default false,
+  is_read_only boolean not null detault false,
 
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -63,7 +64,11 @@ comment on column merlin.plan.start_time is e''
 comment on column merlin.plan.parent_id is e''
   'The plan id of the parent of this plan. May be NULL if this plan does not have a parent.';
 comment on column merlin.plan.is_locked is e''
-  'A boolean representing whether this plan can be deleted and if changes can happen to the activities of this plan.';
+  'A temporary lock on the receiving plan while a merge is in progress. '
+  'Blocks activity directive changes, plan start/duration changes, and plan deletion. '
+  'Managed by the merge workflow independently of the is_read_only setting.';
+comment on column merlin.plan.is_read_only is e''
+  'When true, prohibits changes to the plan''s activity directives and time bounds.';
 comment on column merlin.plan.created_at is e''
   'The time at which this plan was created.';
 comment on column merlin.plan.updated_at is e''

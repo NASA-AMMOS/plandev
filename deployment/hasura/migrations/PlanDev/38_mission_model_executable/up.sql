@@ -12,6 +12,18 @@ comment on column merlin.mission_model.definition_file_id is e''
 comment on column merlin.mission_model.is_executable is e''
   'A flag that is set to true if the model is executable, otherwise false.';
 
+create or replace function merlin.increment_revision_mission_model_jar_update()
+returns trigger
+security definer
+language plpgsql as $$begin
+  update merlin.mission_model
+  set revision = revision + 1
+  where definition_file_id = new.id
+    or definition_file_id = old.id;
+
+  return new;
+end$$;
+
 alter table merlin.plan
   add column is_read_only boolean not null default false;
 

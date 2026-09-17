@@ -71,8 +71,8 @@ security definer
 language plpgsql as $$begin
   update merlin.mission_model
   set revision = revision + 1
-  where jar_id = new.id
-    or jar_id = old.id;
+  where definition_file_id = new.id
+    or definition_file_id = old.id;
 
   return new;
 end$$;

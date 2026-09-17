@@ -59,7 +59,7 @@ export async function uploadMissionModel(graphqlClient: GraphQLClient): Promise<
         mission: 'banananation',
         name: 'banananation' + randomUUID(),
         version: '0.0.0',
-        jar_id: missionModelFileId,
+        definition_file_id: missionModelFileId,
       },
     },
   );

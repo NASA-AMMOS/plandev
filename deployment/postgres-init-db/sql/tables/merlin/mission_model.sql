@@ -19,8 +19,8 @@ create table merlin.mission_model (
     primary key (id),
   constraint mission_model_natural_key
     unique (mission, name, version),
-  constraint mission_model_references_jar
-    foreign key (jar_id)
+  constraint mission_model_references_file
+    foreign key (definition_file_id)
     references merlin.uploaded_file
     on update cascade
     on delete restrict,

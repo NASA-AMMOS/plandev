@@ -1,4 +1,7 @@
 alter table merlin.mission_model
+  rename constraint mission_model_references_file to mission_model_references_jar;
+
+alter table merlin.mission_model
   drop column is_executable;
 
 alter table merlin.mission_model
@@ -6,7 +9,6 @@ alter table merlin.mission_model
 
 comment on column merlin.mission_model.jar_id is e''
     'An uploaded JAR file defining the mission model.';
-
 
 alter table merlin.plan
   drop column is_read_only;

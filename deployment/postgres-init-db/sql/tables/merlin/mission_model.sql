@@ -9,7 +9,7 @@ create table merlin.mission_model (
   default_view_id integer default null,
 
   owner text,
-  jar_id integer,
+  definition_file_id integer not null,
 
   is_executable boolean not null default true,
 
@@ -28,8 +28,6 @@ create table merlin.mission_model (
     foreign key (owner) references permissions.users
     on update cascade
     on delete set null,
-  constraint mission_model_executable_jar_exists
-    check (not is_executable or jar_id is not null),
   foreign key (default_view_id)
     references ui.view
     on delete set null
@@ -50,10 +48,10 @@ comment on column merlin.mission_model.version is e''
   'A human-meaningful version qualifier.';
 comment on column merlin.mission_model.owner is e''
   'A human-meaningful identifier for the user responsible for this model.';
-comment on column merlin.mission_model.jar_id is e''
-  'An uploaded JAR file defining the mission model. Null if the model is not is_executable.';
+comment on column merlin.mission_model.definition_file_id is e''
+  'An uploaded file defining the mission model. (JAR file for Java models)';
 comment on column merlin.mission_model.is_executable is e''
-  'A flag that is set to true if the model is executable, otherwise false. If true, jar_id must be non-null.';
+  'A flag that is set to true if the model is executable, otherwise false.';
 comment on column merlin.mission_model.created_at is e''
   'The time this mission model was uploaded into Aerie.';
 comment on column merlin.mission_model.description is e''

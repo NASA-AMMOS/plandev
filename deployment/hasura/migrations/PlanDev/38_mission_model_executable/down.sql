@@ -10,6 +10,18 @@ alter table merlin.mission_model
 comment on column merlin.mission_model.jar_id is e''
     'An uploaded JAR file defining the mission model.';
 
+create or replace function merlin.increment_revision_mission_model_jar_update()
+returns trigger
+security definer
+language plpgsql as $$begin
+  update merlin.mission_model
+  set revision = revision + 1
+  where jar_id = new.id
+    or jar_id = old.id;
+
+  return new;
+end$$;
+
 alter table merlin.plan
   drop column is_read_only;
 

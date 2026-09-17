@@ -13,7 +13,7 @@ import java.util.Optional;
     select m.mission, m.name, m.version, m.owner, encode(f.path, 'escape')
     from merlin.mission_model AS m
     inner join merlin.uploaded_file AS f
-      on m.jar_id = f.id
+      on m.definition_file_id = f.id
     where m.id = ?
     """;
 

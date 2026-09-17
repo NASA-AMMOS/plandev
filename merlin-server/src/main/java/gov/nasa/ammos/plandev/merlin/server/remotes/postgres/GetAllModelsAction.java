@@ -13,7 +13,7 @@ import java.util.Map;
   private static final @Language("SQL") String sql = """
     select m.id, m.mission, m.name, m.version, m.owner, f.path
     from merlin.mission_model as m
-    inner join merlin.uploaded_file as f on m.jar_id = f.id
+    inner join merlin.uploaded_file as f on m.definition_file_id = f.id
     """;
 
   private final PreparedStatement statement;

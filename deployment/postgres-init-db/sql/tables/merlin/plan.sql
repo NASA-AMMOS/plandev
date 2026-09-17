@@ -12,7 +12,7 @@ create table merlin.plan (
     on update cascade,
 
   is_locked boolean not null default false,
-  is_read_only boolean not null detault false,
+  is_read_only boolean not null default false,
 
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),

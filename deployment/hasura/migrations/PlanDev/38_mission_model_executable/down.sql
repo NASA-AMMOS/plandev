@@ -1,9 +1,12 @@
 alter table merlin.mission_model
-  rename column definition_file_id to jar_id,
   drop column is_executable;
 
-  comment on column merlin.mission_model.jar_id is e''
+alter table merlin.mission_model
+  rename column definition_file_id to jar_id;
+
+comment on column merlin.mission_model.jar_id is e''
     'An uploaded JAR file defining the mission model.';
+
 
 alter table merlin.plan
   drop column is_read_only;

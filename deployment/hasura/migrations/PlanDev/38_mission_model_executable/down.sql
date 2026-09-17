@@ -5,5 +5,10 @@ alter table merlin.mission_model
   comment on column merlin.mission_model.jar_id is e''
     'An uploaded JAR file defining the mission model.';
 
+alter table merlin.plan
+  drop column is_read_only;
+
+comment on column merlin.plan.is_locked is e''
+  'A boolean representing whether this plan can be deleted and if changes can happen to the activities of this plan.';
 
 call migrations.mark_migration_rolled_back('38');

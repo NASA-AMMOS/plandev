@@ -9,7 +9,9 @@ create table merlin.mission_model (
   default_view_id integer default null,
 
   owner text,
-  jar_id integer not null,
+  definition_file_id integer not null,
+
+  is_executable boolean not null default true,
 
   created_at timestamptz not null default now(),
 
@@ -17,8 +19,8 @@ create table merlin.mission_model (
     primary key (id),
   constraint mission_model_natural_key
     unique (mission, name, version),
-  constraint mission_model_references_jar
-    foreign key (jar_id)
+  constraint mission_model_references_file
+    foreign key (definition_file_id)
     references merlin.uploaded_file
     on update cascade
     on delete restrict,
@@ -46,8 +48,10 @@ comment on column merlin.mission_model.version is e''
   'A human-meaningful version qualifier.';
 comment on column merlin.mission_model.owner is e''
   'A human-meaningful identifier for the user responsible for this model.';
-comment on column merlin.mission_model.jar_id is e''
-  'An uploaded JAR file defining the mission model.';
+comment on column merlin.mission_model.definition_file_id is e''
+  'An uploaded file defining the mission model. (JAR file for Java models)';
+comment on column merlin.mission_model.is_executable is e''
+  'A flag that is set to true if the model is executable, otherwise false.';
 comment on column merlin.mission_model.created_at is e''
   'The time this mission model was uploaded into Aerie.';
 comment on column merlin.mission_model.description is e''
@@ -67,8 +71,8 @@ security definer
 language plpgsql as $$begin
   update merlin.mission_model
   set revision = revision + 1
-  where jar_id = new.id
-    or jar_id = old.id;
+  where definition_file_id = new.id
+    or definition_file_id = old.id;
 
   return new;
 end$$;

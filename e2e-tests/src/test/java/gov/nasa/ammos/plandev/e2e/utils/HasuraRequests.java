@@ -109,7 +109,7 @@ public class HasuraRequests implements AutoCloseable {
   throws IOException, InterruptedException
   {
     final var insertModelBuilder = Json.createObjectBuilder()
-                                     .add("jar_id", jarId)
+                                     .add("definition_file_id", jarId)
                                      .add("name", name)
                                      .add("mission", mission)
                                      .add("version", version);

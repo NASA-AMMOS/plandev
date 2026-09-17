@@ -1,5 +1,7 @@
 alter table merlin.mission_model
-  rename column jar_id to definition_file_id,
+  rename column jar_id to definition_file_id;
+
+alter table merlin.mission_model
   add column is_executable boolean not null default true;
 
 comment on column merlin.mission_model.definition_file_id is e''

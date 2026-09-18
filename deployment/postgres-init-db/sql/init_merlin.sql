@@ -90,6 +90,7 @@ begin;
   ------------
   -- Functions
   \ir functions/merlin/reanchoring_functions.sql
+  \ir functions/merlin/plan_readonly_exception.sql
   \ir functions/merlin/external_events/subtract_later_ranges.sql
 
   -- Snapshots

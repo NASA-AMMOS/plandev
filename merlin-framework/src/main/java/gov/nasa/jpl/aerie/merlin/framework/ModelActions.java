@@ -132,6 +132,7 @@ public /*non-final*/ class ModelActions {
 
 
   public static void delay(final Duration duration) {
+    if (duration.isNegative()) throw new IllegalArgumentException("Cannot delay for a negative duration");
     context.get().delay(duration);
   }
 

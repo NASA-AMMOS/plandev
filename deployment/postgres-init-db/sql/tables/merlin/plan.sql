@@ -166,8 +166,9 @@ declare
   old_plan_end timestamptz;
   new_plan_end timestamptz;
 begin
-  -- Catch Plan_Locked
+  -- Catch Plan Locked or Read Only
   call merlin.plan_locked_exception(old.id);
+  call merlin.plan_readonly_exception(old.id);
 
   -- Set variables
   old_plan_end := old.start_time + old.duration;
@@ -202,8 +203,9 @@ declare
   start_time_difference interval;
   end_time_difference interval;
 begin
-  -- Catch Plan_Locked
+  -- Catch Plan Locked or Read Only
   call merlin.plan_locked_exception(old.id);
+  call merlin.plan_readonly_exception(old.id);
 
   -- Set variables
   old_plan_end := old.start_time + old.duration;
@@ -317,7 +319,39 @@ begin
 end
 $$;
 
-create trigger cleanup_on_delete_trigger
+create trigger cleanup_before_delete_trigger
   before delete on merlin.plan
   for each row
 execute function merlin.cleanup_on_delete();
+
+create function merlin.cascade_delete_readonly_model()
+  returns trigger
+  language plpgsql as $$
+begin
+  -- Don't delete the model if the plan is not readonly
+  if not old.is_read_only then
+    return old;
+  end if;
+
+  -- Don't delete the model if another plan is using it
+  if exists(select from merlin.plan
+            where plan.id != old.id
+              and plan.model_id = old.model_id) > 0 then
+    return old;
+  end if;
+
+  -- Don't delete the model if it's executable
+  if (select is_executable from merlin.mission_model where id = old.model_id) then
+    return old;
+  end if;
+
+  -- Otherwise, delete the plan's mission model
+  delete from merlin.mission_model
+  where id = old.model_id;
+end
+$$;
+
+create trigger cleanup_after_delete_trigger
+  after delete on merlin.plan
+  for each row
+execute function merlin.cascade_delete_readonly_model();

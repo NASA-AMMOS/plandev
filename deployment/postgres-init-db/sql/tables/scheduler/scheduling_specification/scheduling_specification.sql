@@ -79,3 +79,20 @@ create trigger increment_revision_on_update_trigger
   for each row
   when (pg_trigger_depth() < 1)
   execute function util_functions.increment_revision_update();
+
+create function scheduler.check_plan_readonly_insert_update()
+  returns trigger
+  security definer
+  language plpgsql as $$
+declare
+  _plan_id int;
+begin
+  select plan_id
+  from scheduler.scheduling_specification
+  where id = new.specification_id
+  into _plan_id;
+  call merlin.plan_locked_exception(_plan_id);
+  call merlin.plan_readonly_exception(_plan_id);
+  return new;
+end;
+$$;

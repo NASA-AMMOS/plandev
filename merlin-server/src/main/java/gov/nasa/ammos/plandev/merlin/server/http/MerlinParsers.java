@@ -7,6 +7,8 @@ import gov.nasa.ammos.plandev.merlin.driver.SimulationFailure;
 import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import gov.nasa.ammos.plandev.merlin.server.models.ConstraintId;
 import gov.nasa.ammos.plandev.merlin.server.models.DatasetId;
+import gov.nasa.ammos.plandev.merlin.server.models.InsertExternalSimulationInput;
+import gov.nasa.ammos.plandev.merlin.server.models.InsertModelInput;
 import gov.nasa.ammos.plandev.merlin.server.models.PlanId;
 import gov.nasa.ammos.plandev.merlin.server.models.SimulationDatasetId;
 import gov.nasa.ammos.plandev.merlin.server.services.UnexpectedSubtypeError;
@@ -127,6 +129,19 @@ public abstract class MerlinParsers {
           model -> tuple(model.uploadedFileId(), model.requester(), model.modelName())
       );
 
+  public static JsonParser<InsertExternalSimulationInput> externalSimInputP = productP
+      .field("planId", planIdP)
+      .field("resultsFileId", intP)
+      .field("planStartTime", timestampP)
+      .field("simulationStartTime", timestampP)
+      .field("simulationDuration", durationP)
+      .field("simulationArguments", simulationArgumentsP)
+      .map(
+          untuple(InsertExternalSimulationInput::new),
+          s -> tuple(
+              s.planId(), s.resultsFileId(), s.planStartTime(),
+              s.simulationStartTime(), s.simulationDuration(), s.simulationArguments())
+      );
   public static <T> T parseJson(final String subject, final JsonParser<T> parser)
   throws JsonParsingException, InvalidJsonEntityException
   {

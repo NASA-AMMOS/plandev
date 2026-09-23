@@ -50,6 +50,11 @@ public final class LocalPlanService implements PlanService {
   }
 
   @Override
+  public int addExternalSimulationDataset(final PlanId planId, final int resultsFileId) throws NoSuchPlanException {
+    return this.planRepository.addExternalSimulationDataset(planId);
+  }
+
+  @Override
   public long addExternalDataset(
       final PlanId planId,
       final Optional<SimulationDatasetId> simulationDatasetId,

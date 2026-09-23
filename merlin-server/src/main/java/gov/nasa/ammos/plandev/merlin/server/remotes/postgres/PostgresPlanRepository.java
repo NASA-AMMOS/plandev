@@ -200,6 +200,11 @@ public final class PostgresPlanRepository implements PlanRepository {
   }
 
   @Override
+  public int addExternalSimulationDataset(final PlanId planid) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public long addExternalDataset(
       final PlanId planId,
       final Optional<SimulationDatasetId> simulationDatasetId,

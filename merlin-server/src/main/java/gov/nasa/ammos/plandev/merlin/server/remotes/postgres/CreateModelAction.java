@@ -9,8 +9,8 @@ import java.sql.SQLException;
 
 final class CreateModelAction implements AutoCloseable {
   private static final @Language("SQL") String sql = """
-    insert into merlin.mission_model (mission, name, version, owner, definition_file_id)
-    values ('', ?, current_time::text, ?, ?)
+    insert into merlin.mission_model (mission, name, version, owner, definition_file_id, is_executable)
+    values ('', ?, current_time::text, ?, ?, false)
     returning id;
   """;
 

@@ -26,6 +26,7 @@ import static gov.nasa.ammos.plandev.json.BasicParsers.*;
 import static gov.nasa.ammos.plandev.json.Uncurry.tuple;
 import static gov.nasa.ammos.plandev.json.Uncurry.untuple;
 import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.pgTimestampP;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.simulationArgumentsP;
 
 public abstract class MerlinParsers {
   private MerlinParsers() {}
@@ -117,6 +118,14 @@ public abstract class MerlinParsers {
             constraintArguments -> tuple(constraintArguments.id(), constraintArguments.revision()));
   }
 
+  public static JsonParser<InsertModelInput> modelInputP = productP
+      .field("uploadedFileId", intP)
+      .field("requester", stringP)
+      .field("modelName", stringP)
+      .map(
+          untuple(InsertModelInput::new),
+          model -> tuple(model.uploadedFileId(), model.requester(), model.modelName())
+      );
 
   public static <T> T parseJson(final String subject, final JsonParser<T> parser)
   throws JsonParsingException, InvalidJsonEntityException

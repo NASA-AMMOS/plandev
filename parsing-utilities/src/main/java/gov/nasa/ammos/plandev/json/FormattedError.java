@@ -14,6 +14,7 @@ import javax.json.JsonValue;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.file.NoSuchFileException;
 import java.sql.SQLException;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -173,6 +174,10 @@ public class FormattedError {
 
   // region Constructors for specific exceptions
   //  This helps `type` be consistent every time the exception is thrown.
+  // NoSuchFileException
+  public FormattedError(AerieService service, NoSuchFileException nse) {
+    this(service, "NO_SUCH_FILE", nse);
+  }
 
   // IOException
   public FormattedError(AerieService service, IOException nse) {

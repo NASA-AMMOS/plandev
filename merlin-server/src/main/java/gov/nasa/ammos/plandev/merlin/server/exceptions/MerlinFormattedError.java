@@ -103,4 +103,8 @@ public class MerlinFormattedError extends FormattedError {
   public MerlinFormattedError(ProcedureLoader.ProcedureLoadException ex) {
     super(AerieService.MERLIN_SERVER, "PROCEDURE_LOAD_EXCEPTION", ex);
   }
+
+  public MerlinFormattedError(InvalidMissionModelTypeException ex) {
+    super(AerieService.MERLIN_SERVER, "INVALID_MODEL_TYPE", ex);
+  }
 }

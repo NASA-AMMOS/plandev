@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.constraintArgumentsP;
+import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.modelInputP;
 import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.parseJson;
 
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraActivityActionP;
@@ -122,6 +123,7 @@ public final class MerlinBindings implements Plugin {
       path("constraintsDslTypescript", () -> post(this::getConstraintsDslTypescript));
       path("refreshConstraintProcedureParameterTypes", () -> post(this::refreshConstrainProcedureParameterTypes));
       path("getConstraintProcedureEffectiveArgumentsBulk", () -> post(this::getConstraintProcedureEffectiveArgumentsBulk));
+      path("insertModel", () -> post(this::insertModel));
       path("health", () -> get(ctx -> ctx.status(200)));
     });
 
@@ -172,6 +174,20 @@ public final class MerlinBindings implements Plugin {
       logger.error("Unexpected error processing request: {}", fe);
       ctx.status(500).json(fe);
     });
+  }
+
+  private void insertModel(@NotNull Context ctx) throws SQLException {
+    try{
+      final var body = parseJson(ctx.body(), modelInputP);
+      final var modelId = this.missionModelService.createMissionModel(body);
+      ctx.status(200).result(String.valueOf(modelId.id()));
+    } catch (InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
+    } catch (InvalidMissionModelTypeException ex) {
+      ctx.status(405).json(new MerlinFormattedError(ex));
+    } catch (NoSuchFileException ex) {
+      ctx.status(405).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+    }
   }
 
   private void postRefreshModelParameters(final Context ctx) {

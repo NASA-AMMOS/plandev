@@ -2,7 +2,7 @@ package gov.nasa.ammos.plandev.merlin.server.models;
 
 import java.nio.file.Path;
 
-public sealed interface MissionModelJar permits ExecutableModel, NonExecutableModel {
+public sealed interface MissionModelFile permits ExecutableModel, NonExecutableModel {
   String name();
   String version();
   String mission();

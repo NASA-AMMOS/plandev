@@ -14,7 +14,7 @@ import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
-import gov.nasa.ammos.plandev.merlin.server.models.MissionModelJar;
+import gov.nasa.ammos.plandev.merlin.server.models.MissionModelFile;
 import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService;
 
 import java.nio.file.Path;
@@ -31,7 +31,7 @@ import java.util.function.Supplier;
 public final class StubMissionModelService implements MissionModelService {
   public static final MissionModelId EXISTENT_MISSION_MODEL_ID = new MissionModelId(1L);
   public static final MissionModelId NONEXISTENT_MISSION_MODEL_ID = new MissionModelId(-1L);
-  public static final MissionModelJar EXISTENT_MISSION_MODEL;
+  public static final MissionModelFile EXISTENT_MISSION_MODEL;
 
   public static final String EXISTENT_ACTIVITY_TYPE = "activity";
   public static final String NONEXISTENT_ACTIVITY_TYPE = "no-activity";
@@ -111,12 +111,12 @@ public final class StubMissionModelService implements MissionModelService {
   }
 
   @Override
-  public Map<MissionModelId, MissionModelJar> getMissionModels() {
+  public Map<MissionModelId, MissionModelFile> getMissionModels() {
     return Map.of(EXISTENT_MISSION_MODEL_ID, EXISTENT_MISSION_MODEL);
   }
 
   @Override
-  public MissionModelJar getMissionModelById(final MissionModelId missionModelId) throws NoSuchMissionModelException {
+  public MissionModelFile getMissionModelById(final MissionModelId missionModelId) throws NoSuchMissionModelException {
     if (!Objects.equals(missionModelId, EXISTENT_MISSION_MODEL_ID)) {
       throw new NoSuchMissionModelException(missionModelId);
     }

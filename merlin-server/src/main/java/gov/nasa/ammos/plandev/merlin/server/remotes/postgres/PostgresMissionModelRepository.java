@@ -6,8 +6,10 @@ import gov.nasa.ammos.plandev.merlin.server.exceptions.InvalidMissionModelTypeEx
 import gov.nasa.ammos.plandev.merlin.server.exceptions.InvalidMissionModelTypeException.ModelType;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityDirectiveForValidation;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
+import gov.nasa.ammos.plandev.merlin.server.models.ExecutableModel;
 import gov.nasa.ammos.plandev.merlin.server.models.InsertModelInput;
 import gov.nasa.ammos.plandev.merlin.server.models.MissionModelJar;
+import gov.nasa.ammos.plandev.merlin.server.models.NonExecutableModel;
 import gov.nasa.ammos.plandev.merlin.server.remotes.MissionModelRepository;
 import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService;
 import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService.NoSuchMissionModelException;
@@ -183,13 +185,9 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
   }
 
   private static MissionModelJar missionModelRecordToMissionModelJar(final MissionModelRecord record) {
-    final var model = new MissionModelJar();
-    model.mission = record.mission();
-    model.name = record.name();
-    model.version = record.version();
-    model.owner = record.owner();
-    model.path = record.path();
-
-    return model;
+    if(record.executable()) {
+      return new ExecutableModel(record.mission(), record.name(), record.version(), record.owner(), record.path());
+    }
+    return new NonExecutableModel(record.mission(), record.name(), record.version(), record.owner(), record.path());
   }
 }

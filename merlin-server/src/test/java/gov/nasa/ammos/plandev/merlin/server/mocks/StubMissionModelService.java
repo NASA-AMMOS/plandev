@@ -1,5 +1,6 @@
 package gov.nasa.ammos.plandev.merlin.server.mocks;
 
+import gov.nasa.ammos.plandev.merlin.server.models.ExecutableModel;
 import gov.nasa.ammos.plandev.merlin.server.models.InsertModelInput;
 import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
 import gov.nasa.ammos.plandev.types.MissionModelId;
@@ -89,12 +90,13 @@ public final class StubMissionModelService implements MissionModelService {
       new TreeMap<>());
 
   static {
-    EXISTENT_MISSION_MODEL = new MissionModelJar();
-    EXISTENT_MISSION_MODEL.name = "missionModel";
-    EXISTENT_MISSION_MODEL.version = "1.0a";
-    EXISTENT_MISSION_MODEL.mission = "mission";
-    EXISTENT_MISSION_MODEL.owner = "Tester";
-    EXISTENT_MISSION_MODEL.path = Path.of("existent-missionModel");
+    EXISTENT_MISSION_MODEL = new ExecutableModel(
+        "missionModel",
+        "1.0a",
+        "mission",
+        "Tester",
+        Path.of("existent-missionModel")
+    );
 
     RESOURCES = new LinkedHashMap<>();
     RESOURCES.put("mode", ValueSchema.ofVariant(List.of(

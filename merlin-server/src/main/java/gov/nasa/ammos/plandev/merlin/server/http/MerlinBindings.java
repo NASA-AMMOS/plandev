@@ -207,7 +207,7 @@ public final class MerlinBindings implements Plugin {
     //}
   }
 
-  private void postRefreshModelParameters(final Context ctx) {
+  private void postRefreshModelParameters(final Context ctx) throws IOException {
     try {
       final var missionModelId = parseJson(ctx.body(), hasuraMissionModelEventTriggerP).missionModelId();
       this.missionModelService.refreshModelParameters(missionModelId);

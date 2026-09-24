@@ -1,7 +1,7 @@
 package gov.nasa.ammos.plandev.merlin.server.remotes;
 
 import gov.nasa.ammos.plandev.merlin.protocol.model.InputType.Parameter;
-import gov.nasa.ammos.plandev.merlin.protocol.model.Resource;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 import gov.nasa.ammos.plandev.merlin.server.exceptions.InvalidMissionModelTypeException;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityDirectiveForValidation;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
@@ -20,8 +20,8 @@ import java.util.Map;
 
 public interface MissionModelRepository {
     // Queries
-    Map<MissionModelId, MissionModelFile> getAllMissionModels();
-    MissionModelFile getMissionModel(MissionModelId id) throws NoSuchMissionModelException;
+    Map<MissionModelId, MissionModelFile> getAllMissionModels(final Path missionModelDataPath);
+    MissionModelFile getMissionModel(MissionModelId id, Path missionModelDataPath) throws NoSuchMissionModelException;
     Map<String, ActivityType> getActivityTypes(MissionModelId missionModelId) throws NoSuchMissionModelException;
 
     // Mutations
@@ -29,7 +29,7 @@ public interface MissionModelRepository {
     throws SQLException, NoSuchFileException, InvalidMissionModelTypeException;
     void updateModelParameters(MissionModelId missionModelId, final List<Parameter> modelParameters) throws NoSuchMissionModelException;
     void updateActivityTypes(MissionModelId missionModelId, final Map<String, ActivityType> activityTypes, final List<String> subsystems) throws NoSuchMissionModelException;
-    void updateResourceTypes(MissionModelId missionModelId, final Map<String, Resource<?>> resourceTypes) throws NoSuchMissionModelException;
+    void updateResourceTypes(MissionModelId missionModelId, final Map<String, ValueSchema> resourceTypes) throws NoSuchMissionModelException;
     Map<MissionModelId, List<ActivityDirectiveForValidation>> getUnvalidatedDirectives();
     void updateDirectiveValidations(List<Pair<ActivityDirectiveForValidation, BulkArgumentValidationResponse>> updates);
 }

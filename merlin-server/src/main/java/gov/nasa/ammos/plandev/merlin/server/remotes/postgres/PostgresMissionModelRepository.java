@@ -1,7 +1,7 @@
 package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
 import gov.nasa.ammos.plandev.merlin.protocol.model.InputType.Parameter;
-import gov.nasa.ammos.plandev.merlin.protocol.model.Resource;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 import gov.nasa.ammos.plandev.merlin.server.exceptions.InvalidMissionModelTypeException;
 import gov.nasa.ammos.plandev.merlin.server.exceptions.InvalidMissionModelTypeException.ModelType;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityDirectiveForValidation;
@@ -37,7 +37,7 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
   }
 
   @Override
-  public Map<MissionModelId, MissionModelFile> getAllMissionModels() {
+  public Map<MissionModelId, MissionModelFile> getAllMissionModels(final Path missionModelDataPath) {
     try (final var connection = this.dataSource.getConnection()) {
       try (final var getAllMissionModelsAction = new GetAllModelsAction(connection)) {
         return getAllMissionModelsAction
@@ -46,7 +46,7 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
             .stream()
             .collect(Collectors.toMap(
                 e -> new MissionModelId(e.getKey()),
-                e -> missionModelRecordToMissionModelJar(e.getValue())));
+                e -> missionModelRecordToMissionModelJar(e.getValue(), missionModelDataPath)));
       }
     } catch (final SQLException ex) {
       throw new DatabaseException("Failed to retrieve all mission models", ex);
@@ -54,12 +54,12 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
   }
 
   @Override
-  public MissionModelFile getMissionModel(final MissionModelId missionModelId) throws NoSuchMissionModelException {
+  public MissionModelFile getMissionModel(final MissionModelId missionModelId, final Path missionModelDataPath) throws NoSuchMissionModelException {
     try (final var connection = this.dataSource.getConnection()) {
       try (final var getMissionModelAction = new GetModelAction(connection)) {
         return getMissionModelAction
             .get(missionModelId.id())
-            .map(PostgresMissionModelRepository::missionModelRecordToMissionModelJar)
+            .map(r ->missionModelRecordToMissionModelJar(r, missionModelDataPath))
             .orElseThrow(() -> new NoSuchMissionModelException(missionModelId));
       }
     } catch (final SQLException ex) {
@@ -146,17 +146,12 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
   }
 
   @Override
-  public void updateResourceTypes(final MissionModelId missionModelId, final Map<String, Resource<?>> resources)
+  public void updateResourceTypes(final MissionModelId missionModelId, final Map<String, ValueSchema> resources)
   {
-    final var resourceTypes = resources.entrySet()
-                                       .stream()
-                                       .collect(Collectors.toMap(
-                                           Map.Entry::getKey,
-                                           entry -> entry.getValue().getOutputType().getSchema()));
     try (final var connection = this.dataSource.getConnection()) {
       try (final var insertResourceTypesAction = new InsertResourceTypesAction(connection)) {
         final long id = missionModelId.id();
-        insertResourceTypesAction.apply((int) id, resourceTypes);
+        insertResourceTypesAction.apply((int) id, resources);
       }
     } catch (final SQLException ex) {
       throw new DatabaseException(
@@ -184,10 +179,10 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
     }
   }
 
-  private static MissionModelFile missionModelRecordToMissionModelJar(final MissionModelRecord record) {
+  private static MissionModelFile missionModelRecordToMissionModelJar(final MissionModelRecord record, final Path missionModelDataPath) {
     if(record.executable()) {
-      return new ExecutableModel(record.mission(), record.name(), record.version(), record.owner(), record.path());
+      return new ExecutableModel(record.mission(), record.name(), record.version(), record.owner(), missionModelDataPath.resolve(record.path()));
     }
-    return new NonExecutableModel(record.mission(), record.name(), record.version(), record.owner(), record.path());
+    return new NonExecutableModel(record.mission(), record.name(), record.version(), record.owner(), missionModelDataPath.resolve(record.path()));
   }
 }

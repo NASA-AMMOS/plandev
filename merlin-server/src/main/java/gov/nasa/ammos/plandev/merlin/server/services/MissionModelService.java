@@ -18,6 +18,7 @@ import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
 import gov.nasa.ammos.plandev.merlin.server.models.MissionModelFile;
 
+import java.io.IOException;
 import java.nio.file.NoSuchFileException;
 import java.sql.SQLException;
 import java.util.List;
@@ -59,7 +60,7 @@ public interface MissionModelService {
   throws NoSuchMissionModelException, MissionModelLoadException, InstantiationException;
 
   List<Parameter> getModelParameters(MissionModelId missionModelId)
-  throws NoSuchMissionModelException, MissionModelLoadException;
+  throws NoSuchMissionModelException, MissionModelLoadException, IOException;
 
   Map<String, SerializedValue> getModelEffectiveArguments(MissionModelId missionModelId, Map<String, SerializedValue> arguments)
   throws NoSuchMissionModelException, MissionModelLoadException, InstantiationException;
@@ -75,7 +76,7 @@ public interface MissionModelService {
   MissionModelId createMissionModel(InsertModelInput modelInput)
   throws SQLException, NoSuchFileException, InvalidMissionModelTypeException;
   void refreshModelParameters(MissionModelId missionModelId)
-  throws NoSuchMissionModelException, MissionModelLoadException;
+  throws NoSuchMissionModelException, MissionModelLoadException, IOException;
   void refreshActivityTypes(MissionModelId missionModelId) throws NoSuchMissionModelException,
                                                                   MissionModelLoadException;
   void refreshResourceTypes(MissionModelId missionModelId) throws NoSuchMissionModelException,

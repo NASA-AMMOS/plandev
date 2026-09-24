@@ -7,4 +7,5 @@ public record MissionModelRecord(
     String name,
     String version,
     String owner,
-    Path path) {}
+    Path path,
+    boolean executable) {}

@@ -81,10 +81,6 @@ type Query {
 }
 
 type Query {
-  resourceTypes(missionModelId: Int!): [ResourceType!]!
-}
-
-type Query {
   schedule(specificationId: Int!): SchedulingResponse
 }
 
@@ -134,11 +130,6 @@ enum SchedulingStatus {
   complete
   failed
   incomplete
-}
-
-type ResourceType {
-  name: String!
-  schema: ResourceSchema!
 }
 
 type MerlinSimulationResponse {

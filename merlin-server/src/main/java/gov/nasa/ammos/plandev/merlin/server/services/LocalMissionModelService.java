@@ -5,6 +5,7 @@ import gov.nasa.ammos.plandev.merlin.driver.MissionModel;
 import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader;
 import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader.MissionModelLoadException;
 import gov.nasa.ammos.plandev.merlin.server.exceptions.InvalidMissionModelTypeException;
+import gov.nasa.ammos.plandev.merlin.server.http.InvalidJsonEntityException;
 import gov.nasa.ammos.plandev.merlin.server.models.InsertModelInput;
 import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
 import gov.nasa.ammos.plandev.types.MissionModelId;
@@ -82,7 +83,7 @@ public final class LocalMissionModelService implements MissionModelService {
 
   @Override
   public Map<String, ValueSchema> getResourceSchemas(final MissionModelId missionModelId)
-  throws NoSuchMissionModelException, MissionModelLoadException
+  throws NoSuchMissionModelException, MissionModelLoadException, InvalidJsonEntityException, IOException
   {
     final var model = getMissionModelById(missionModelId);
     return model.extractResourceSchemas(untruePlanStart, SerializedValue.of(Map.of()));
@@ -255,7 +256,7 @@ public final class LocalMissionModelService implements MissionModelService {
 
   @Override
   public List<Parameter> getModelParameters(final MissionModelId missionModelId)
-  throws NoSuchMissionModelException, MissionModelLoadException, IOException
+  throws NoSuchMissionModelException, MissionModelLoadException, IOException, InvalidJsonEntityException
   {
     final var model = getMissionModelById(missionModelId);
     return model.extractModelParameters();
@@ -318,14 +319,14 @@ public final class LocalMissionModelService implements MissionModelService {
 
   @Override
   public void refreshModelParameters(final MissionModelId missionModelId)
-  throws NoSuchMissionModelException, MissionModelLoadException, IOException
+  throws NoSuchMissionModelException, MissionModelLoadException, IOException, InvalidJsonEntityException
   {
     this.missionModelRepository.updateModelParameters(missionModelId, getModelParameters(missionModelId));
   }
 
   @Override
   public void refreshActivityTypes(final MissionModelId missionModelId)
-  throws NoSuchMissionModelException, MissionModelLoadException
+  throws NoSuchMissionModelException, MissionModelLoadException, InvalidJsonEntityException, IOException
   {
     final var model = this.getMissionModelById(missionModelId);
     final var activityTypesAndSubsystems = model.extractActivityTypesAndSubsystems();
@@ -336,7 +337,7 @@ public final class LocalMissionModelService implements MissionModelService {
 
   @Override
   public void refreshResourceTypes(final MissionModelId missionModelId)
-  throws NoSuchMissionModelException, MissionModelLoadException {
+  throws NoSuchMissionModelException, MissionModelLoadException, InvalidJsonEntityException, IOException {
     final var model = getMissionModelById(missionModelId);
     this.missionModelRepository.updateResourceTypes(
         missionModelId,

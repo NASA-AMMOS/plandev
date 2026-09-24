@@ -1,5 +1,6 @@
 package gov.nasa.ammos.plandev.merlin.server.services;
 
+import gov.nasa.ammos.plandev.merlin.server.http.InvalidJsonEntityException;
 import gov.nasa.ammos.plandev.procedural.constraints.ProcedureMapper;
 import gov.nasa.ammos.plandev.constraints.InputMismatchException;
 import gov.nasa.ammos.plandev.constraints.model.ConstraintResult;
@@ -19,6 +20,7 @@ import gov.nasa.ammos.plandev.merlin.server.models.*;
 import gov.nasa.ammos.plandev.types.MissionModelId;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
 
@@ -259,7 +261,8 @@ public class ConstraintAction {
           Optional.of(simDatasetId),
           ((ConstraintType.EDSL) constraint.type()).definition()
       );
-    } catch (MissionModelService.NoSuchMissionModelException | NoSuchPlanException | MissionModelLoader.MissionModelLoadException ex) {
+    } catch (MissionModelService.NoSuchMissionModelException | NoSuchPlanException |
+             MissionModelLoader.MissionModelLoadException | InvalidJsonEntityException | IOException ex) {
       return Fallible.failure(
           new ConstraintsDSLCompilationService.ConstraintsDSLCompilationResult.Error(
              List.of(

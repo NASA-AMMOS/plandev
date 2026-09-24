@@ -52,7 +52,6 @@ import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraCons
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraConstraintsViolationsActionP;
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraSimulateActionP;
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraUploadExternalDatasetActionP;
-import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraMissionModelActionP;
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraMissionModelArgumentsActionP;
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraMissionModelEventTriggerP;
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraPlanActionP;
@@ -206,7 +205,7 @@ public final class MerlinBindings implements Plugin {
     //}
   }
 
-  private void postRefreshModelParameters(final Context ctx) throws IOException {
+  private void postRefreshModelParameters(final Context ctx) {
     try {
       final var missionModelId = parseJson(ctx.body(), hasuraMissionModelEventTriggerP).missionModelId();
       this.missionModelService.refreshModelParameters(missionModelId);
@@ -219,6 +218,10 @@ public final class MerlinBindings implements Plugin {
       ctx.status(404).json(new MerlinFormattedError(ex));
     } catch (final MissionModelLoadException ex) {
       ctx.status(400).json(new MerlinFormattedError(ex));
+    } catch (IOException ex) {
+      final var fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex);
+      logger.warn("Refresh Model Parameters: IO Exception: {}", fe);
+      ctx.status(500).json(fe);
     }
   }
 
@@ -235,6 +238,10 @@ public final class MerlinBindings implements Plugin {
       ctx.status(404).json(new MerlinFormattedError(ex));
     } catch (final MissionModelLoadException ex) {
       ctx.status(400).json(new MerlinFormattedError(ex));
+    } catch (IOException ex) {
+      final var fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex);
+      logger.warn("Refresh Activity Types: IO Exception: {}", fe);
+      ctx.status(500).json(fe);
     }
   }
 
@@ -251,6 +258,10 @@ public final class MerlinBindings implements Plugin {
       ctx.status(404).json(new MerlinFormattedError(ex));
     } catch (final MissionModelLoadException ex) {
       ctx.status(400).json(new MerlinFormattedError(ex));
+    }  catch (IOException ex) {
+      final var fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex);
+      logger.warn("Refresh Resource Types: IO Exception: {}", fe);
+      ctx.status(500).json(fe);
     }
   }
 

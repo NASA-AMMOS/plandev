@@ -2,6 +2,7 @@ package gov.nasa.ammos.plandev.merlin.server.services;
 
 import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader.MissionModelLoadException;
 import gov.nasa.ammos.plandev.merlin.server.exceptions.InvalidMissionModelTypeException;
+import gov.nasa.ammos.plandev.merlin.server.http.InvalidJsonEntityException;
 import gov.nasa.ammos.plandev.merlin.server.models.InsertModelInput;
 import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
 import gov.nasa.ammos.plandev.types.MissionModelId;
@@ -33,7 +34,7 @@ public interface MissionModelService {
   throws NoSuchMissionModelException;
 
   Map<String, ValueSchema> getResourceSchemas(MissionModelId missionModelId)
-  throws NoSuchMissionModelException, MissionModelLoadException;
+  throws NoSuchMissionModelException, MissionModelLoadException, InvalidJsonEntityException, IOException;
 
   /**
    * getActivityTypes uses the cached result of refreshActivityTypes. For this reason, refreshActivityTypes
@@ -60,7 +61,7 @@ public interface MissionModelService {
   throws NoSuchMissionModelException, MissionModelLoadException, InstantiationException;
 
   List<Parameter> getModelParameters(MissionModelId missionModelId)
-  throws NoSuchMissionModelException, MissionModelLoadException, IOException;
+  throws NoSuchMissionModelException, MissionModelLoadException, IOException, InvalidJsonEntityException;
 
   Map<String, SerializedValue> getModelEffectiveArguments(MissionModelId missionModelId, Map<String, SerializedValue> arguments)
   throws NoSuchMissionModelException, MissionModelLoadException, InstantiationException;
@@ -76,11 +77,11 @@ public interface MissionModelService {
   MissionModelId createMissionModel(InsertModelInput modelInput)
   throws SQLException, NoSuchFileException, InvalidMissionModelTypeException;
   void refreshModelParameters(MissionModelId missionModelId)
-  throws NoSuchMissionModelException, MissionModelLoadException, IOException;
-  void refreshActivityTypes(MissionModelId missionModelId) throws NoSuchMissionModelException,
-                                                                  MissionModelLoadException;
-  void refreshResourceTypes(MissionModelId missionModelId) throws NoSuchMissionModelException,
-                                                                  MissionModelLoadException;
+  throws NoSuchMissionModelException, MissionModelLoadException, IOException, InvalidJsonEntityException;
+  void refreshActivityTypes(MissionModelId missionModelId)
+  throws NoSuchMissionModelException, MissionModelLoadException, InvalidJsonEntityException, IOException;
+  void refreshResourceTypes(MissionModelId missionModelId)
+  throws NoSuchMissionModelException, MissionModelLoadException, InvalidJsonEntityException, IOException;
 
   sealed interface ActivityInstantiationFailure {
     record NoSuchActivityType(NoSuchActivityTypeException ex) implements ActivityInstantiationFailure { }

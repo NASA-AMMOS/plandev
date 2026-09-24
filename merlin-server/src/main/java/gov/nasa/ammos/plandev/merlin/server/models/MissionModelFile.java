@@ -4,6 +4,7 @@ import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader;
 import gov.nasa.ammos.plandev.merlin.protocol.model.InputType;
 import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
+import gov.nasa.ammos.plandev.merlin.server.http.InvalidJsonEntityException;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.io.IOException;
@@ -25,8 +26,10 @@ public sealed interface MissionModelFile permits ExecutableModel, NonExecutableM
    */
   Path definitionFile();
 
-  List<InputType.Parameter> extractModelParameters() throws MissionModelLoader.MissionModelLoadException, IOException;
-  Pair<Map<String, ActivityType>, List<String>> extractActivityTypesAndSubsystems() throws MissionModelLoader.MissionModelLoadException;
+  List<InputType.Parameter> extractModelParameters() throws MissionModelLoader.MissionModelLoadException, IOException,
+                                                            InvalidJsonEntityException;
+  Pair<Map<String, ActivityType>, List<String>> extractActivityTypesAndSubsystems()
+  throws MissionModelLoader.MissionModelLoadException, IOException, InvalidJsonEntityException;
   Map<String, ValueSchema> extractResourceSchemas(Instant planStart, SerializedValue configuration)
-  throws MissionModelLoader.MissionModelLoadException;
+  throws MissionModelLoader.MissionModelLoadException, InvalidJsonEntityException, IOException;
 }

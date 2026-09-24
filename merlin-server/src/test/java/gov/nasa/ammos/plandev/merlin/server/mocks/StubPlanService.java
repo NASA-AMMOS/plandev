@@ -83,6 +83,11 @@ public final class StubPlanService implements PlanService {
   }
 
   @Override
+  public void markPlanReadOnly(final PlanId planId) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public int addExternalSimulationDataset(final PlanId planId, final int resultsFileId) throws NoSuchPlanException {
     throw new UnsupportedOperationException("StubPlanService does not store external simulation datasets");
   }

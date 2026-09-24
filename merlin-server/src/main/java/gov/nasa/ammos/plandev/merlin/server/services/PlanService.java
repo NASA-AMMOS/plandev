@@ -26,6 +26,8 @@ public interface PlanService {
 
   List<ConstraintRecord> getConstraintsForPlan(PlanId planId) throws NoSuchPlanException;
 
+  void markPlanReadOnly(PlanId planId) throws NoSuchPlanException;
+
   int addExternalSimulationDataset(PlanId planId, int resultsFileId) throws NoSuchPlanException;
 
   long addExternalDataset(

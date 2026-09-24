@@ -142,6 +142,9 @@ public abstract class MerlinParsers {
               s.planId(), s.resultsFileId(), s.planStartTime(),
               s.simulationStartTime(), s.simulationDuration(), s.simulationArguments())
       );
+
+  public static JsonParser<PlanId> markPlanReadOnlyInputP = productP.field("planId", planIdP);
+
   public static <T> T parseJson(final String subject, final JsonParser<T> parser)
   throws JsonParsingException, InvalidJsonEntityException
   {

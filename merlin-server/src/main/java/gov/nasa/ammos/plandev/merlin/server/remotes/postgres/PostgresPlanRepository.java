@@ -200,6 +200,17 @@ public final class PostgresPlanRepository implements PlanRepository {
   }
 
   @Override
+  public void markPlanReadOnly(final PlanId planId) throws NoSuchPlanException {
+    try(final var connection = this.dataSource.getConnection();
+        final var markPlanReadOnlyAction = new MarkPlanReadOnlyAction(connection)
+    ) {
+      markPlanReadOnlyAction.apply(planId.id());
+    } catch (SQLException ex) {
+      throw new DatabaseException("Failed to mark plan as read only", ex);
+    }
+  }
+
+  @Override
   public int addExternalSimulationDataset(final PlanId planid) {
     throw new UnsupportedOperationException();
   }

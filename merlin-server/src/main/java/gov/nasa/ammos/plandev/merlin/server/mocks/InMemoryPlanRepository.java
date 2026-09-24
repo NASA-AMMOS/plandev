@@ -124,6 +124,11 @@ public final class InMemoryPlanRepository implements PlanRepository {
   }
 
   @Override
+  public void markPlanReadOnly(final PlanId planId) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public int addExternalSimulationDataset(final PlanId planid) {
     throw new UnsupportedOperationException();
   }

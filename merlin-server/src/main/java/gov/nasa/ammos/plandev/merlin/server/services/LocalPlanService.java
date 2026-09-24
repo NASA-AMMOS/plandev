@@ -50,6 +50,11 @@ public final class LocalPlanService implements PlanService {
   }
 
   @Override
+  public void markPlanReadOnly(final PlanId planId) throws NoSuchPlanException {
+    this.planRepository.markPlanReadOnly(planId);
+  }
+
+  @Override
   public int addExternalSimulationDataset(final PlanId planId, final int resultsFileId) throws NoSuchPlanException {
     return this.planRepository.addExternalSimulationDataset(planId);
   }

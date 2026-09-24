@@ -39,6 +39,8 @@ public interface PlanRepository {
 
   List<ConstraintRecord> getPlanConstraints(PlanId planId) throws NoSuchPlanException;
 
+  void markPlanReadOnly(PlanId planId) throws NoSuchPlanException;
+
   int addExternalSimulationDataset(PlanId planid);
 
   long addExternalDataset(

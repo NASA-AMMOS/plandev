@@ -57,6 +57,7 @@ import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraMiss
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraPlanActionP;
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraExtendExternalDatasetActionP;
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraNewConstraintRevisionEventTriggerP;
+import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.markPlanReadOnlyInputP;
 import static io.javalin.apibuilder.ApiBuilder.before;
 import static io.javalin.apibuilder.ApiBuilder.path;
 import static io.javalin.apibuilder.ApiBuilder.post;
@@ -127,6 +128,7 @@ public final class MerlinBindings implements Plugin {
       path("getConstraintProcedureEffectiveArgumentsBulk", () -> post(this::getConstraintProcedureEffectiveArgumentsBulk));
       path("insertModel", () -> post(this::insertModel));
       path("insertExternalSimulationDataset", () -> post(this::insertExternalSimulationDataset));
+      path("markPlanReadOnly", () -> post(this::markPlanReadOnly));
       path("health", () -> get(ctx -> ctx.status(200)));
     });
 
@@ -203,6 +205,17 @@ public final class MerlinBindings implements Plugin {
     }// catch (SQLException e) {
       //throw new RuntimeException(e);
     //}
+  }
+
+  private void markPlanReadOnly(@NotNull Context ctx) {
+    try {
+      final var planId = parseJson(ctx.body(), markPlanReadOnlyInputP);
+      this.planService.markPlanReadOnly(planId);
+    } catch (InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
+    } catch (NoSuchPlanException ex) {
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    }
   }
 
   private void postRefreshModelParameters(final Context ctx) {

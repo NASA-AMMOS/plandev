@@ -22,7 +22,7 @@ import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityDirectiveForValidation;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
-import gov.nasa.ammos.plandev.merlin.server.models.MissionModelJar;
+import gov.nasa.ammos.plandev.merlin.server.models.MissionModelFile;
 import gov.nasa.ammos.plandev.merlin.server.remotes.MissionModelRepository;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -66,12 +66,12 @@ public final class LocalMissionModelService implements MissionModelService {
   }
 
   @Override
-  public Map<MissionModelId, MissionModelJar> getMissionModels() {
+  public Map<MissionModelId, MissionModelFile> getMissionModels() {
     return this.missionModelRepository.getAllMissionModels();
   }
 
   @Override
-  public MissionModelJar getMissionModelById(final MissionModelId missionModelId) throws NoSuchMissionModelException {
+  public MissionModelFile getMissionModelById(final MissionModelId missionModelId) throws NoSuchMissionModelException {
     try {
       return this.missionModelRepository.getMissionModel(missionModelId);
     } catch (NoSuchMissionModelException ex) {
@@ -398,12 +398,12 @@ public final class LocalMissionModelService implements MissionModelService {
       final SerializedValue configuration)
   throws NoSuchMissionModelException, MissionModelLoadException
   {
-    final var missionModelJar = this.missionModelRepository.getMissionModel(missionModelId);
+    final var missionModelFile = this.missionModelRepository.getMissionModel(missionModelId);
     return MissionModelLoader.loadMissionModel(
         planStart,
         configuration,
-        missionModelDataPath.resolve(missionModelJar.path),
-        missionModelJar.name,
-        missionModelJar.version);
+        missionModelDataPath.resolve(missionModelFile.definitionFile()),
+        missionModelFile.name(),
+        missionModelFile.version());
   }
 }

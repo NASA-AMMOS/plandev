@@ -8,7 +8,7 @@ import gov.nasa.ammos.plandev.merlin.server.models.ActivityDirectiveForValidatio
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
 import gov.nasa.ammos.plandev.merlin.server.models.ExecutableModel;
 import gov.nasa.ammos.plandev.merlin.server.models.InsertModelInput;
-import gov.nasa.ammos.plandev.merlin.server.models.MissionModelJar;
+import gov.nasa.ammos.plandev.merlin.server.models.MissionModelFile;
 import gov.nasa.ammos.plandev.merlin.server.models.NonExecutableModel;
 import gov.nasa.ammos.plandev.merlin.server.remotes.MissionModelRepository;
 import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService;
@@ -37,7 +37,7 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
   }
 
   @Override
-  public Map<MissionModelId, MissionModelJar> getAllMissionModels() {
+  public Map<MissionModelId, MissionModelFile> getAllMissionModels() {
     try (final var connection = this.dataSource.getConnection()) {
       try (final var getAllMissionModelsAction = new GetAllModelsAction(connection)) {
         return getAllMissionModelsAction
@@ -54,7 +54,7 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
   }
 
   @Override
-  public MissionModelJar getMissionModel(final MissionModelId missionModelId) throws NoSuchMissionModelException {
+  public MissionModelFile getMissionModel(final MissionModelId missionModelId) throws NoSuchMissionModelException {
     try (final var connection = this.dataSource.getConnection()) {
       try (final var getMissionModelAction = new GetModelAction(connection)) {
         return getMissionModelAction
@@ -184,7 +184,7 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
     }
   }
 
-  private static MissionModelJar missionModelRecordToMissionModelJar(final MissionModelRecord record) {
+  private static MissionModelFile missionModelRecordToMissionModelJar(final MissionModelRecord record) {
     if(record.executable()) {
       return new ExecutableModel(record.mission(), record.name(), record.version(), record.owner(), record.path());
     }

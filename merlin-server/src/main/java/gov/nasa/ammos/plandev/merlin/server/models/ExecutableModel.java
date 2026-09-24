@@ -9,7 +9,7 @@ public record ExecutableModel(
     String mission,
     String owner,
     Path definitionFile
-) implements MissionModelJar {
+) implements MissionModelFile {
   @Override
   public boolean equals(final Object object) {
     if (object.getClass() != ExecutableModel.class) {

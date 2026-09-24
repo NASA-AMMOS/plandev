@@ -16,7 +16,7 @@ import gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException;
 import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
-import gov.nasa.ammos.plandev.merlin.server.models.MissionModelJar;
+import gov.nasa.ammos.plandev.merlin.server.models.MissionModelFile;
 
 import java.nio.file.NoSuchFileException;
 import java.sql.SQLException;
@@ -26,9 +26,9 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public interface MissionModelService {
-  Map<MissionModelId, MissionModelJar> getMissionModels();
+  Map<MissionModelId, MissionModelFile> getMissionModels();
 
-  MissionModelJar getMissionModelById(MissionModelId missionModelId)
+  MissionModelFile getMissionModelById(MissionModelId missionModelId)
   throws NoSuchMissionModelException;
 
   Map<String, ValueSchema> getResourceSchemas(MissionModelId missionModelId)

@@ -109,7 +109,6 @@ public final class MerlinBindings implements Plugin {
     javalin.routes(() -> {
       before(ctx -> ctx.contentType("application/json"));
 
-      path("resourceTypes", () -> post(this::getResourceTypes));
       path("getSimulationResults", () -> post(this::getSimulationResults));
       path("resourceSamples", () -> post(this::getResourceSamples));
       path("constraintViolations", () -> post(this::getConstraintViolations));
@@ -244,25 +243,6 @@ public final class MerlinBindings implements Plugin {
       final var missionModelId = parseJson(ctx.body(), hasuraMissionModelEventTriggerP).missionModelId();
       this.missionModelService.refreshResourceTypes(missionModelId);
       ctx.status(200);
-    } catch (final JsonParsingException ex) {
-      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
-    } catch (final InvalidJsonEntityException ex) {
-      ctx.status(400).json(new MerlinFormattedError(ex));
-    } catch (final MissionModelService.NoSuchMissionModelException ex) {
-      ctx.status(404).json(new MerlinFormattedError(ex));
-    } catch (final MissionModelLoadException ex) {
-      ctx.status(400).json(new MerlinFormattedError(ex));
-    }
-  }
-
-  @Deprecated
-  private void getResourceTypes(final Context ctx) {
-    try {
-      final var missionModelId = parseJson(ctx.body(), hasuraMissionModelActionP).input().missionModelId();
-
-      final var schemaMap = this.missionModelService.getResourceSchemas(missionModelId);
-
-      ctx.result(ResponseSerializers.serializeValueSchemas(schemaMap).toString());
     } catch (final JsonParsingException ex) {
       ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
     } catch (final InvalidJsonEntityException ex) {

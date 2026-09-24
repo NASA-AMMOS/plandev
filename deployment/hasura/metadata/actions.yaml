@@ -83,15 +83,6 @@ actions:
       - role: aerie_admin
       - role: user
       - role: viewer
-  - name: resourceTypes
-    definition:
-      kind: ""
-      handler: "{{PLANDEV_MERLIN_URL}}/resourceTypes"
-      timeout: 300
-    permissions:
-      - role: aerie_admin
-      - role: user
-      - role: viewer
   - name: schedule
     definition:
       kind: ""
@@ -203,7 +194,6 @@ custom_types:
           value: incomplete
   input_objects: []
   objects:
-    - name: ResourceType
     - name: MerlinSimulationResponse
     - name: ValidationResponse
     - name: ValidationNotice

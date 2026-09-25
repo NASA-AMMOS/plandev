@@ -2,12 +2,9 @@ package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
 import gov.nasa.ammos.plandev.merlin.protocol.model.InputType.Parameter;
 import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
-import gov.nasa.ammos.plandev.merlin.server.exceptions.InvalidMissionModelTypeException;
-import gov.nasa.ammos.plandev.merlin.server.exceptions.InvalidMissionModelTypeException.ModelType;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityDirectiveForValidation;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
 import gov.nasa.ammos.plandev.merlin.server.models.ExecutableModel;
-import gov.nasa.ammos.plandev.merlin.server.models.InsertModelInput;
 import gov.nasa.ammos.plandev.merlin.server.models.MissionModelFile;
 import gov.nasa.ammos.plandev.merlin.server.models.NonExecutableModel;
 import gov.nasa.ammos.plandev.merlin.server.remotes.MissionModelRepository;
@@ -16,12 +13,7 @@ import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService.NoSuchM
 import gov.nasa.ammos.plandev.types.MissionModelId;
 import org.apache.commons.lang3.tuple.Pair;
 
-import javax.json.Json;
-import javax.json.stream.JsonParsingException;
 import javax.sql.DataSource;
-import java.io.FileReader;
-import java.io.IOException;
-import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -81,31 +73,6 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
     } catch (final SQLException ex) {
       throw new DatabaseException(
           "Failed to retrieve activity types for mission model with id `%s`".formatted(missionModelId), ex);
-    }
-  }
-
-  @Override
-  public MissionModelId createMissionModel(final InsertModelInput modelInput, final Path missionModelDataPath)
-  throws SQLException, NoSuchFileException, InvalidMissionModelTypeException
-  {
-    try (final var connection = this.dataSource.getConnection();
-         final var getFileAction = new GetUploadedFileAction(connection);
-         final var createModelAction = new CreateModelAction(connection)) {
-      // Validate that the file being used as a mission model file is a non-executable model.json
-      final var modelPath = missionModelDataPath.resolve(getFileAction.get(modelInput.uploadedFileId()));
-      try (final var fileReader = new FileReader(modelPath.toString());
-           final var parser = Json.createParser(fileReader)) {
-        if(!parser.hasNext()) {
-          throw new InvalidMissionModelTypeException(ModelType.JSON, ModelType.JAR);
-        }
-      } catch (final IOException e) {
-        throw new NoSuchFileException("Mission Model file does not exist at %s".formatted(modelPath.toString()));
-      } catch (final JsonParsingException e) {
-        throw new InvalidMissionModelTypeException(ModelType.JSON, ModelType.JAR);
-      }
-
-      // Otherwise, allow the insert
-      return createModelAction.apply(modelInput.modelName(), modelInput.requester(), modelInput.uploadedFileId());
     }
   }
 

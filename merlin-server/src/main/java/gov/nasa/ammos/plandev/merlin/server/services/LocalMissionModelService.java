@@ -21,7 +21,9 @@ import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityDirectiveForValidation;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
+import gov.nasa.ammos.plandev.merlin.server.models.ExecutableModel;
 import gov.nasa.ammos.plandev.merlin.server.models.MissionModelFile;
+import gov.nasa.ammos.plandev.merlin.server.models.NonExecutableModel;
 import gov.nasa.ammos.plandev.merlin.server.remotes.MissionModelRepository;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
@@ -127,7 +129,16 @@ public final class LocalMissionModelService implements MissionModelService {
     // load mission model once for all activities
     ModelType<?, ?> modelType;
     try {
-      modelType = this.loadMissionModelType(missionModelId);
+      switch (this.getMissionModelById(missionModelId)) {
+        case ExecutableModel executableModel -> modelType = this.loadMissionModelType(missionModelId);
+        // A non-executable model has no code to validate arguments with, and loading it as a JAR would fail on every
+        // poll, so its directives are completed as unavailable instead of being left pending.
+        case NonExecutableModel nonExecutableModel -> {
+          return activities.stream()
+              .map($ -> (BulkArgumentValidationResponse) new BulkArgumentValidationResponse.Unavailable())
+              .toList();
+        }
+      }
       // try and catch NoSuchMissionModel here, so we can serialize it out to each activity validation
       // rather than catching it at a higher level in the workerLoop itself
     } catch (NoSuchMissionModelException e) {

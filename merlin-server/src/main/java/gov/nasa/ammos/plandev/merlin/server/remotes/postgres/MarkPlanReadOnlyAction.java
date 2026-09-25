@@ -35,7 +35,10 @@ final class MarkPlanReadOnlyAction implements AutoCloseable {
     this.preCheckStatement.setLong(1, planId);
     try(final var results = this.preCheckStatement.executeQuery()) {
       if(!results.next()) throw new NoSuchPlanException(new PlanId(planId));
-      if(!results.getBoolean("executable")) throw new SQLException("Cannot mark plan %s read only. Only plans with non-executable models may be marked read only");
+      if(results.getBoolean("executable")) {
+        throw new SQLException("Cannot mark plan %s read only. ".formatted(planId)
+                               + "Only plans with non-executable models may be marked read only");
+      }
     }
 
     // Perform update

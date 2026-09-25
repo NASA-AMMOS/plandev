@@ -4,9 +4,7 @@ import gov.nasa.ammos.plandev.merlin.driver.DirectiveTypeRegistry;
 import gov.nasa.ammos.plandev.merlin.driver.MissionModel;
 import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader;
 import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader.MissionModelLoadException;
-import gov.nasa.ammos.plandev.merlin.server.exceptions.InvalidMissionModelTypeException;
 import gov.nasa.ammos.plandev.merlin.server.http.InvalidJsonEntityException;
-import gov.nasa.ammos.plandev.merlin.server.models.InsertModelInput;
 import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
 import gov.nasa.ammos.plandev.types.MissionModelId;
 import gov.nasa.ammos.plandev.types.Plan;
@@ -30,9 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
-import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -308,13 +304,6 @@ public final class LocalMissionModelService implements MissionModelService {
         canceledListener,
         simulationExtentConsumer,
         resourceManager);
-  }
-
-  @Override
-  public MissionModelId createMissionModel(final InsertModelInput modelInput)
-  throws SQLException, NoSuchFileException, InvalidMissionModelTypeException
-  {
-    return this.missionModelRepository.createMissionModel(modelInput, missionModelDataPath);
   }
 
   @Override

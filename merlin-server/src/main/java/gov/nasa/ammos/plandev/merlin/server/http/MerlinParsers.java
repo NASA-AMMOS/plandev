@@ -120,15 +120,6 @@ public abstract class MerlinParsers {
             constraintArguments -> tuple(constraintArguments.id(), constraintArguments.revision()));
   }
 
-  public static JsonParser<InsertModelInput> modelInputP = productP
-      .field("uploadedFileId", intP)
-      .field("requester", stringP)
-      .field("modelName", stringP)
-      .map(
-          untuple(InsertModelInput::new),
-          model -> tuple(model.uploadedFileId(), model.requester(), model.modelName())
-      );
-
   public static JsonParser<InsertExternalSimulationInput> externalSimInputP = productP
       .field("planId", planIdP)
       .field("resultsFileId", intP)

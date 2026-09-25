@@ -1,9 +1,7 @@
 package gov.nasa.ammos.plandev.merlin.server.services;
 
 import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader.MissionModelLoadException;
-import gov.nasa.ammos.plandev.merlin.server.exceptions.InvalidMissionModelTypeException;
 import gov.nasa.ammos.plandev.merlin.server.http.InvalidJsonEntityException;
-import gov.nasa.ammos.plandev.merlin.server.models.InsertModelInput;
 import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
 import gov.nasa.ammos.plandev.types.MissionModelId;
 import gov.nasa.ammos.plandev.types.Plan;
@@ -20,8 +18,6 @@ import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
 import gov.nasa.ammos.plandev.merlin.server.models.MissionModelFile;
 
 import java.io.IOException;
-import java.nio.file.NoSuchFileException;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -74,8 +70,6 @@ public interface MissionModelService {
   ) throws NoSuchMissionModelException, MissionModelService.NoSuchActivityTypeException, MissionModelLoadException;
 
 
-  MissionModelId createMissionModel(InsertModelInput modelInput)
-  throws SQLException, NoSuchFileException, InvalidMissionModelTypeException;
   void refreshModelParameters(MissionModelId missionModelId)
   throws NoSuchMissionModelException, MissionModelLoadException, IOException, InvalidJsonEntityException;
   void refreshActivityTypes(MissionModelId missionModelId)

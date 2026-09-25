@@ -21,8 +21,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static gov.nasa.ammos.plandev.json.BasicParsers.anyP;
 import static gov.nasa.ammos.plandev.json.BasicParsers.listP;
+import static gov.nasa.ammos.plandev.json.BasicParsers.objP;
 import static gov.nasa.ammos.plandev.json.BasicParsers.productP;
 import static gov.nasa.ammos.plandev.json.BasicParsers.stringP;
 import static gov.nasa.ammos.plandev.json.Uncurry.tuple;
@@ -47,7 +47,7 @@ public record NonExecutableModel(
         List<ActivityType> activityTypes,
         List<Pair<String, ValueSchema>> resourceTypes,
         Optional<List<InputType.Parameter>> parameters,
-        Optional<JsonValue> metadata
+        Optional<JsonObject> metadata
     ) {
       this(
           activityTypes.stream().collect(Collectors.toMap(ActivityType::name, t -> t)),
@@ -118,14 +118,14 @@ public record NonExecutableModel(
       .field("activity_types", listP(activityTypeP))
       .field("resource_types", listP(resourceTypeP))
       .optionalField("parameters", listP(modelParamP))
-      .optionalField("metadata", anyP)
+      .optionalField("metadata", objP)
       .map(
           untuple(ParsedMissionModel::new),
           model -> tuple(
               model.activityTypes.values().stream().toList(),
               model.resourceTypes.entrySet().stream().map(e -> Pair.of(e.getKey(), e.getValue())).toList(),
               model.parameters,
-              model.metadata.map(m -> m)
+              model.metadata
           )
       );
 

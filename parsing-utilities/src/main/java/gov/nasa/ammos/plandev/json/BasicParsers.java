@@ -43,6 +43,25 @@ public abstract class BasicParsers {
     }
   };
 
+  public static final JsonParser<JsonObject> objP = new JsonParser<JsonObject>() {
+    @Override
+    public JsonObject getSchema(final SchemaCache anchors) {
+      return Json.createObjectBuilder().add("type", "object").build();
+    }
+
+    @Override
+    public JsonParseResult<JsonObject> parse(final JsonValue json) {
+      if (!(json instanceof JsonObject)) return JsonParseResult.failure("expected object");
+
+      return JsonParseResult.success(json.asJsonObject());
+    }
+
+    @Override
+    public JsonValue unparse(final JsonObject value) {
+      return value;
+    }
+  };
+
   public static final JsonParser<Void> noneP = new JsonParser<>() {
     @Override
     public JsonObject getSchema(final SchemaCache anchors) {

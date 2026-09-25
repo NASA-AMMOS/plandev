@@ -1,7 +1,6 @@
 package gov.nasa.ammos.plandev.merlin.server.mocks;
 
 import gov.nasa.ammos.plandev.merlin.server.models.ExecutableModel;
-import gov.nasa.ammos.plandev.merlin.server.models.InsertModelInput;
 import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
 import gov.nasa.ammos.plandev.types.MissionModelId;
 import gov.nasa.ammos.plandev.types.Plan;
@@ -210,11 +209,6 @@ public final class StubMissionModelService implements MissionModelService {
     }
 
     return SUCCESSFUL_SIMULATION_RESULTS;
-  }
-
-  @Override
-  public MissionModelId createMissionModel(final InsertModelInput modelInput) {
-    throw new UnsupportedOperationException();
   }
 
   @Override

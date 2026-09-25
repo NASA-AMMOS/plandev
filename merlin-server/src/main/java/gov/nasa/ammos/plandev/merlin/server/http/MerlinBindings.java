@@ -3,7 +3,6 @@ package gov.nasa.ammos.plandev.merlin.server.http;
 import gov.nasa.ammos.plandev.constraints.InputMismatchException;
 import gov.nasa.ammos.plandev.json.FormattedError;
 import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader.MissionModelLoadException;
-import gov.nasa.ammos.plandev.merlin.server.exceptions.InvalidMissionModelTypeException;
 import gov.nasa.ammos.plandev.merlin.server.exceptions.MerlinFormattedError;
 import gov.nasa.ammos.plandev.merlin.server.exceptions.NoSuchConstraintException;
 import gov.nasa.ammos.plandev.merlin.server.models.ProcedureLoader;
@@ -35,7 +34,6 @@ import javax.json.Json;
 import javax.json.JsonException;
 import javax.json.stream.JsonParsingException;
 import java.io.IOException;
-import java.nio.file.NoSuchFileException;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +41,6 @@ import java.util.stream.Collectors;
 
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.constraintArgumentsP;
 import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.externalSimInputP;
-import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.modelInputP;
 import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.parseJson;
 
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraActivityActionP;
@@ -126,7 +123,6 @@ public final class MerlinBindings implements Plugin {
       path("constraintsDslTypescript", () -> post(this::getConstraintsDslTypescript));
       path("refreshConstraintProcedureParameterTypes", () -> post(this::refreshConstrainProcedureParameterTypes));
       path("getConstraintProcedureEffectiveArgumentsBulk", () -> post(this::getConstraintProcedureEffectiveArgumentsBulk));
-      path("insertModel", () -> post(this::insertModel));
       path("insertExternalSimulationDataset", () -> post(this::insertExternalSimulationDataset));
       path("markPlanReadOnly", () -> post(this::markPlanReadOnly));
       path("health", () -> get(ctx -> ctx.status(200)));
@@ -179,20 +175,6 @@ public final class MerlinBindings implements Plugin {
       logger.error("Unexpected error processing request: {}", fe);
       ctx.status(500).json(fe);
     });
-  }
-
-  private void insertModel(@NotNull Context ctx) throws SQLException {
-    try{
-      final var body = parseJson(ctx.body(), modelInputP);
-      final var modelId = this.missionModelService.createMissionModel(body);
-      ctx.status(200).result(String.valueOf(modelId.id()));
-    } catch (InvalidJsonEntityException ex) {
-      ctx.status(400).json(new MerlinFormattedError(ex));
-    } catch (InvalidMissionModelTypeException ex) {
-      ctx.status(405).json(new MerlinFormattedError(ex));
-    } catch (NoSuchFileException ex) {
-      ctx.status(405).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
-    }
   }
 
   private void insertExternalSimulationDataset(@NotNull Context ctx) {

@@ -116,5 +116,7 @@ public interface MissionModelService {
     record NoSuchMissionModelError(NoSuchMissionModelException ex) implements BulkArgumentValidationResponse { }
     record NoSuchActivityError(NoSuchActivityTypeException ex) implements BulkArgumentValidationResponse { }
     record InstantiationError(InstantiationException ex) implements BulkArgumentValidationResponse { }
+    /** The directive's model is non-executable, so there is nothing to validate its arguments against. */
+    record Unavailable() implements BulkArgumentValidationResponse { }
   }
 }

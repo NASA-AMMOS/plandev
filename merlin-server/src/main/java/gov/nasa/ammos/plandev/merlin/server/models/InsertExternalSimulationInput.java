@@ -9,6 +9,7 @@ import java.util.Map;
 public record InsertExternalSimulationInput(
     PlanId planId,
     int resultsFileId,
+    String requester,
     Timestamp planStartTime,
     Timestamp simulationStartTime,
     Duration simulationDuration,

@@ -180,13 +180,24 @@ public final class MerlinBindings implements Plugin {
   private void insertExternalSimulationDataset(@NotNull Context ctx) {
     try{
       final var body = parseJson(ctx.body(), externalSimInputP);
-      //final var modelId = this.missionModelService.createMissionModel(body);
-      //ctx.status(200).result(String.valueOf(modelId.id()));
+      // Get the path of the sim results file to be uploaded
+      final var uploadedFilePath = this.missionModelService.getUploadedFilePath(body.resultsFileId());
+      // Post the results
+      this.planService.addExternalSimulationDataset(body, uploadedFilePath);
+      ctx.status(200);
     } catch (InvalidJsonEntityException ex) {
       ctx.status(400).json(new MerlinFormattedError(ex));
-    }// catch (SQLException e) {
-      //throw new RuntimeException(e);
-    //}
+    } catch (SQLException ex) {
+      final var fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex);
+      logger.warn("Insert External Simulation Dataset: SQL Exception: {}", fe);
+      ctx.status(500).json(fe);
+    } catch (IOException ex) {
+      final var fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex);
+      logger.warn("Insert External Simulation Dataset: IO Exception: {}", fe);
+      ctx.status(500).json(fe);
+    } catch (NoSuchPlanException ex) {
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    }
   }
 
   private void markPlanReadOnly(@NotNull Context ctx) {

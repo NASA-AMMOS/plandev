@@ -20,9 +20,10 @@ import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresPars
         simulation_start_time,
         simulation_end_time,
         arguments,
-        requested_by
+        requested_by,
+        status
       )
-    values(?, ?::timestamptz, ?::timestamptz, ?::jsonb, ?)
+    values(?, ?::timestamptz, ?::timestamptz, ?::jsonb, ?, ?)
     returning
       dataset_id,
       status,
@@ -37,31 +38,34 @@ import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresPars
     this.statement = connection.prepareStatement(sql);
   }
 
+  // TODO: Extend external datasets to support spans and remove this override
   public SimulationDatasetRecord apply(
       final long simulationId,
       final Timestamp simulationStart,
       final Timestamp simulationEnd,
       final Map<String, SerializedValue> arguments,
-      final String requestedBy
+      final String requestedBy,
+      final Status status
   ) throws SQLException {
     this.statement.setLong(1, simulationId);
     PreparedStatements.setTimestamp(this.statement, 2, simulationStart);
     PreparedStatements.setTimestamp(this.statement, 3, simulationEnd);
     this.statement.setString(4, simulationArgumentsP.unparse(arguments).toString());
     this.statement.setString(5, requestedBy);
+    this.statement.setString(6, status.label);
 
     try (final var results = this.statement.executeQuery()) {
       if (!results.next()) throw new FailedInsertException("merlin.simulation_dataset");
-      final Status status;
+      final Status returnedStatus;
       try {
-        status = Status.fromString(results.getString(2));
+        returnedStatus = Status.fromString(results.getString(2));
       } catch (final Status.InvalidSimulationStatusException ex) {
         throw new Error("Simulation Dataset initialized with invalid state.");
       }
 
       final var datasetId = results.getLong(1);
       final var reason = PreparedStatements.getFailureReason(results, 3);
-      final var state = new SimulationStateRecord(status, reason);
+      final var state = new SimulationStateRecord(returnedStatus, reason);
       final var canceled = results.getBoolean(4);
       final var simulationDatasetId = results.getLong(5);
 
@@ -75,6 +79,16 @@ import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresPars
           simulationDatasetId
       );
     }
+  }
+
+  public SimulationDatasetRecord apply(
+      final long simulationId,
+      final Timestamp simulationStart,
+      final Timestamp simulationEnd,
+      final Map<String, SerializedValue> arguments,
+      final String requestedBy
+  ) throws SQLException {
+    return apply(simulationId, simulationStart, simulationEnd, arguments, requestedBy, Status.PENDING);
   }
 
   @Override

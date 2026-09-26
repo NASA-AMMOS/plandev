@@ -1,5 +1,6 @@
 package gov.nasa.ammos.plandev.merlin.server.mocks;
 
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 import gov.nasa.ammos.plandev.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
@@ -129,7 +130,13 @@ public final class InMemoryPlanRepository implements PlanRepository {
   }
 
   @Override
-  public int addExternalSimulationDataset(final PlanId planid) {
+  public void createExternalSimDataset(
+      final PlanId planId,
+      final Timestamp simulationStart,
+      final Timestamp simulationEnd,
+      final Map<String, SerializedValue> simulationArguments,
+      final String requestedBy)
+  {
     throw new UnsupportedOperationException();
   }
 

@@ -1,5 +1,7 @@
 package gov.nasa.ammos.plandev.merlin.server.services;
 
+import gov.nasa.ammos.plandev.merlin.server.http.InvalidJsonEntityException;
+import gov.nasa.ammos.plandev.merlin.server.models.InsertExternalSimulationInput;
 import gov.nasa.ammos.plandev.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
@@ -15,6 +17,8 @@ import gov.nasa.ammos.plandev.types.Plan;
 import gov.nasa.ammos.plandev.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -55,8 +59,19 @@ public final class LocalPlanService implements PlanService {
   }
 
   @Override
-  public int addExternalSimulationDataset(final PlanId planId, final int resultsFileId) throws NoSuchPlanException {
-    return this.planRepository.addExternalSimulationDataset(planId);
+  public void addExternalSimulationDataset(final InsertExternalSimulationInput request, final Path resultsFilePath)
+  throws IOException, InvalidJsonEntityException
+  {
+    final Timestamp simEnd = request.simulationStartTime().plusMicros(request.simulationDuration().micros());
+
+    // Add a "success" simulation dataset row for the plan
+    this.planRepository.createExternalSimDataset(
+        request.planId(),
+        request.simulationStartTime(),
+        simEnd,
+        request.simulationArguments(),
+        request.requester()
+    );
   }
 
   @Override

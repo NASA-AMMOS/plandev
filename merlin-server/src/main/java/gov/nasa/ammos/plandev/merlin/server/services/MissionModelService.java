@@ -18,12 +18,17 @@ import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
 import gov.nasa.ammos.plandev.merlin.server.models.MissionModelFile;
 
 import java.io.IOException;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public interface MissionModelService {
+  Path getUploadedFilePath(int fileId) throws SQLException, NoSuchFileException;
+
   Map<MissionModelId, MissionModelFile> getMissionModels();
 
   MissionModelFile getMissionModelById(MissionModelId missionModelId)

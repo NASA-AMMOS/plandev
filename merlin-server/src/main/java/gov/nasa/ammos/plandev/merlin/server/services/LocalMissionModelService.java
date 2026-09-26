@@ -30,7 +30,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -63,6 +65,11 @@ public final class LocalMissionModelService implements MissionModelService {
     this.missionModelDataPath = missionModelDataPath;
     this.missionModelRepository = missionModelRepository;
     this.untruePlanStart = untruePlanStart;
+  }
+
+  @Override
+  public Path getUploadedFilePath(int uploadedFileId) throws SQLException, NoSuchFileException {
+    return missionModelDataPath.resolve(this.missionModelRepository.getUploadedFilePath(uploadedFileId));
   }
 
   @Override

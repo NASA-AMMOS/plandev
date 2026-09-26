@@ -1406,6 +1406,52 @@ public class ExternalEventTests {
         assertEquals(expectedResults.size(), results.size());
         assertTrue(results.containsAll(expectedResults));
       }
+
+      /**
+       * Rule 4 with many keys. Every key is in every source and the sources don't overlap, so all duplicates survive
+       * the range filter and only DISTINCT ON decides which one is kept. It must be the latest valid_at (C) for every key.
+       * The rule4 test above has a single key, so any pick is right by luck: Postgres sorts are not stable, and the
+       * view orders by valid_at in a subquery rather than in the DISTINCT ON's own ORDER BY.
+       *
+       * A:  +a0..a199+
+       * B:             +a0..a199+
+       * C:                          +a0..a199+
+       * (all 200 keys, all from C)
+       */
+      @Test
+      void rule4_manyDuplicateKeys() throws SQLException {
+        final int keys = 200;
+        try (final var statement = connection.createStatement()) {
+          // one statement per table, so this is two refreshes rather than 600
+          statement.executeUpdate(
+              // language=sql
+              """
+              INSERT INTO merlin.external_source
+              SELECT s.key, '%1$s', '%2$s', s.valid_at::timestamptz, s.start_time::timestamptz,
+                     s.start_time::timestamptz + interval '1 day', '%3$s'
+              FROM (VALUES ('A', '2024-01-01T00:00:00Z', '2024-01-01T00:00:00Z'),
+                           ('B', '2024-01-02T00:00:00Z', '2024-01-02T00:00:00Z'),
+                           ('C', '2024-01-03T00:00:00Z', '2024-01-03T00:00:00Z')) s(key, valid_at, start_time);
+              """.formatted(SOURCE_TYPE, DERIVATION_GROUP, CREATED_AT)
+          );
+          statement.executeUpdate(
+              // language=sql
+              """
+              INSERT INTO merlin.external_event
+              SELECT 'a' || i, '%1$s', s.key, s.derivation_group_name, s.start_time + i * interval '1 minute', '00:00:30'
+              FROM merlin.external_source s, generate_series(0, %2$d - 1) i;
+              """.formatted(EVENT_TYPE, keys)
+          );
+        }
+
+        final var results = getDerivedEvents();
+
+        assertEquals(keys, results.size());
+        final var notFromLatest = results.stream().filter(r -> !r.source_key().equals("C")).toList();
+        assertEquals(0, notFromLatest.size(),
+                     "%d of %d keys kept an earlier source's version, e.g. %s"
+                         .formatted(notFromLatest.size(), keys, notFromLatest.stream().limit(3).toList()));
+      }
     }
 
     /**

@@ -1,5 +1,6 @@
 package gov.nasa.ammos.plandev.merlin.server.mocks;
 
+import gov.nasa.ammos.plandev.merlin.server.models.InsertExternalSimulationInput;
 import gov.nasa.ammos.plandev.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
@@ -19,6 +20,7 @@ import gov.nasa.ammos.plandev.types.Plan;
 import gov.nasa.ammos.plandev.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -88,7 +90,7 @@ public final class StubPlanService implements PlanService {
   }
 
   @Override
-  public int addExternalSimulationDataset(final PlanId planId, final int resultsFileId) throws NoSuchPlanException {
+  public void addExternalSimulationDataset(final InsertExternalSimulationInput request, final Path resultsFilePath) throws NoSuchPlanException {
     throw new UnsupportedOperationException("StubPlanService does not store external simulation datasets");
   }
 

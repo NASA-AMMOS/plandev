@@ -10,12 +10,15 @@ import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService.BulkArg
 import gov.nasa.ammos.plandev.types.MissionModelId;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 
 public interface MissionModelRepository {
     // Queries
+    Path getUploadedFilePath(int uploadedFileId) throws SQLException, NoSuchFileException;
     Map<MissionModelId, MissionModelFile> getAllMissionModels(final Path missionModelDataPath);
     MissionModelFile getMissionModel(MissionModelId id, Path missionModelDataPath) throws NoSuchMissionModelException;
     Map<String, ActivityType> getActivityTypes(MissionModelId missionModelId) throws NoSuchMissionModelException;

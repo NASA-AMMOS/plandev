@@ -1,5 +1,7 @@
 package gov.nasa.ammos.plandev.merlin.server.remotes;
 
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.server.http.InvalidJsonEntityException;
 import gov.nasa.ammos.plandev.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
@@ -16,6 +18,8 @@ import gov.nasa.ammos.plandev.types.Plan;
 import gov.nasa.ammos.plandev.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +45,14 @@ public interface PlanRepository {
 
   void markPlanReadOnly(PlanId planId) throws NoSuchPlanException;
 
-  int addExternalSimulationDataset(PlanId planid);
+  void createExternalSimDataset(
+      PlanId planId,
+      Timestamp simulationStart,
+      Timestamp simulationEnd,
+      Map<String, SerializedValue> simulationArguments,
+      Path resultsFilePath,
+      String requestedBy
+  ) throws InvalidJsonEntityException, IOException;
 
   long addExternalDataset(
       PlanId planId,

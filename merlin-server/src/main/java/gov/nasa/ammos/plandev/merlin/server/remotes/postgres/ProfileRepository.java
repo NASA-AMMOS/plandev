@@ -255,33 +255,38 @@ import static gov.nasa.ammos.plandev.merlin.server.http.ProfileParsers.realDynam
   ) throws SQLException {
     final var realProfiles = profileSet.realProfiles();
     final var discreteProfiles = profileSet.discreteProfiles();
+
+    final var updatedProfileDurations = new HashMap<Long, Duration>();
+
     for (final var entry : profileSet.realProfiles().entrySet()) {
       final var resource = entry.getKey();
       final var record = records.get(resource);
-      try (
-          final var appendProfileSegmentsAction = new AppendProfileSegmentsAction(connection);
-          final var updateProfileDurationAction = new UpdateProfileDurationAction(connection)) {
+      try (final var appendProfileSegmentsAction = new AppendProfileSegmentsAction(connection)) {
         final var newProfileDuration = appendProfileSegmentsAction.apply(
             datasetId,
             record,
             realProfiles.get(resource).segments(),
             realDynamicsP);
-        updateProfileDurationAction.apply(datasetId, record.id(), newProfileDuration);
+        updatedProfileDurations.put(record.id(), newProfileDuration);
       }
     }
+
     for (final var entry : profileSet.discreteProfiles().entrySet()) {
       final var resource = entry.getKey();
       final var record = records.get(resource);
       try (
-          final var appendProfileSegmentsAction = new AppendProfileSegmentsAction(connection);
-          final var updateProfileDurationAction = new UpdateProfileDurationAction(connection)) {
+          final var appendProfileSegmentsAction = new AppendProfileSegmentsAction(connection)) {
         final var newProfileDuration = appendProfileSegmentsAction.apply(
             datasetId,
             record,
             discreteProfiles.get(resource).segments(),
             serializedValueP);
-        updateProfileDurationAction.apply(datasetId, record.id(), newProfileDuration);
+        updatedProfileDurations.put(record.id(), newProfileDuration);
       }
+    }
+
+    try (final var updateProfileDurationAction = new UpdateProfileDurationBulkAction(connection)) {
+      updateProfileDurationAction.apply(datasetId, updatedProfileDurations);
     }
   }
 

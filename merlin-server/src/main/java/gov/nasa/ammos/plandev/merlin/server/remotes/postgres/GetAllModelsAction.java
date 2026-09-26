@@ -11,9 +11,17 @@ import java.util.Map;
 
 /*package-local*/ final class GetAllModelsAction implements AutoCloseable {
   private static final @Language("SQL") String sql = """
-    select m.id, m.mission, m.name, m.version, m.owner, f.path
-    from merlin.mission_model as m
-    inner join merlin.uploaded_file as f on m.definition_file_id = f.id
+    select
+      m.id as id,
+      m.mission as mission,
+      m.name as name,
+      m.version as version,
+      m.owner as owner,
+      encode(f.path, 'escape') as path,
+      m.is_executable as executable
+    from merlin.mission_model AS m
+    inner join merlin.uploaded_file AS f
+      on m.definition_file_id = f.id;
     """;
 
   private final PreparedStatement statement;
@@ -27,12 +35,13 @@ import java.util.Map;
       final var missionModels = new HashMap<Long, MissionModelRecord>();
 
       while (results.next()) {
-        final var id = results.getLong(1);
-        final var mission = results.getString(2);
-        final var name = results.getString(3);
-        final var version = results.getString(4);
-        final var owner = results.getString(5);
-        final var path = Path.of(results.getString(6));
+        final var id = results.getLong("id");
+        final var mission = results.getString("mission");
+        final var name = results.getString("name");
+        final var version = results.getString("version");
+        final var owner = results.getString("owner");
+        final var path = Path.of(results.getString("path"));
+        final var executable = results.getBoolean("executable");
 
         missionModels.put(
             id,
@@ -41,7 +50,9 @@ import java.util.Map;
                 name,
                 version,
                 owner,
-                path));
+                path,
+                executable
+            ));
       }
 
       return missionModels;

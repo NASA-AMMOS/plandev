@@ -225,7 +225,7 @@ begin
   -- Don't delete the model if another plan is using it
   if exists(select from merlin.plan
             where plan.id != old.id
-              and plan.model_id = old.model_id) > 0 then
+              and plan.model_id = old.model_id) then
     return old;
   end if;
 

@@ -26,6 +26,7 @@ import io.javalin.http.Context;
 import io.javalin.http.HttpResponseException;
 import io.javalin.http.UnauthorizedResponse;
 import io.javalin.plugin.Plugin;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,6 +40,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.constraintArgumentsP;
+import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.externalSimInputP;
 import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.parseJson;
 
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraActivityActionP;
@@ -47,12 +49,12 @@ import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraCons
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraConstraintsViolationsActionP;
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraSimulateActionP;
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraUploadExternalDatasetActionP;
-import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraMissionModelActionP;
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraMissionModelArgumentsActionP;
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraMissionModelEventTriggerP;
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraPlanActionP;
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraExtendExternalDatasetActionP;
 import static gov.nasa.ammos.plandev.merlin.server.http.HasuraParsers.hasuraNewConstraintRevisionEventTriggerP;
+import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.markPlanReadOnlyInputP;
 import static io.javalin.apibuilder.ApiBuilder.before;
 import static io.javalin.apibuilder.ApiBuilder.path;
 import static io.javalin.apibuilder.ApiBuilder.post;
@@ -104,7 +106,6 @@ public final class MerlinBindings implements Plugin {
     javalin.routes(() -> {
       before(ctx -> ctx.contentType("application/json"));
 
-      path("resourceTypes", () -> post(this::getResourceTypes));
       path("getSimulationResults", () -> post(this::getSimulationResults));
       path("resourceSamples", () -> post(this::getResourceSamples));
       path("constraintViolations", () -> post(this::getConstraintViolations));
@@ -122,6 +123,8 @@ public final class MerlinBindings implements Plugin {
       path("constraintsDslTypescript", () -> post(this::getConstraintsDslTypescript));
       path("refreshConstraintProcedureParameterTypes", () -> post(this::refreshConstrainProcedureParameterTypes));
       path("getConstraintProcedureEffectiveArgumentsBulk", () -> post(this::getConstraintProcedureEffectiveArgumentsBulk));
+      path("insertExternalSimulationDataset", () -> post(this::insertExternalSimulationDataset));
+      path("markPlanReadOnly", () -> post(this::markPlanReadOnly));
       path("health", () -> get(ctx -> ctx.status(200)));
     });
 
@@ -174,6 +177,40 @@ public final class MerlinBindings implements Plugin {
     });
   }
 
+  private void insertExternalSimulationDataset(@NotNull Context ctx) {
+    try{
+      final var body = parseJson(ctx.body(), externalSimInputP);
+      // Get the path of the sim results file to be uploaded
+      final var uploadedFilePath = this.missionModelService.getUploadedFilePath(body.resultsFileId());
+      // Post the results
+      this.planService.addExternalSimulationDataset(body, uploadedFilePath);
+      ctx.status(200);
+    } catch (InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
+    } catch (SQLException ex) {
+      final var fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex);
+      logger.warn("Insert External Simulation Dataset: SQL Exception: {}", fe);
+      ctx.status(500).json(fe);
+    } catch (IOException ex) {
+      final var fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex);
+      logger.warn("Insert External Simulation Dataset: IO Exception: {}", fe);
+      ctx.status(500).json(fe);
+    } catch (NoSuchPlanException ex) {
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    }
+  }
+
+  private void markPlanReadOnly(@NotNull Context ctx) {
+    try {
+      final var planId = parseJson(ctx.body(), markPlanReadOnlyInputP);
+      this.planService.markPlanReadOnly(planId);
+    } catch (InvalidJsonEntityException ex) {
+      ctx.status(400).json(new MerlinFormattedError(ex));
+    } catch (NoSuchPlanException ex) {
+      ctx.status(404).json(new MerlinFormattedError(ex));
+    }
+  }
+
   private void postRefreshModelParameters(final Context ctx) {
     try {
       final var missionModelId = parseJson(ctx.body(), hasuraMissionModelEventTriggerP).missionModelId();
@@ -187,6 +224,10 @@ public final class MerlinBindings implements Plugin {
       ctx.status(404).json(new MerlinFormattedError(ex));
     } catch (final MissionModelLoadException ex) {
       ctx.status(400).json(new MerlinFormattedError(ex));
+    } catch (IOException ex) {
+      final var fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex);
+      logger.warn("Refresh Model Parameters: IO Exception: {}", fe);
+      ctx.status(500).json(fe);
     }
   }
 
@@ -203,6 +244,10 @@ public final class MerlinBindings implements Plugin {
       ctx.status(404).json(new MerlinFormattedError(ex));
     } catch (final MissionModelLoadException ex) {
       ctx.status(400).json(new MerlinFormattedError(ex));
+    } catch (IOException ex) {
+      final var fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex);
+      logger.warn("Refresh Activity Types: IO Exception: {}", fe);
+      ctx.status(500).json(fe);
     }
   }
 
@@ -219,25 +264,10 @@ public final class MerlinBindings implements Plugin {
       ctx.status(404).json(new MerlinFormattedError(ex));
     } catch (final MissionModelLoadException ex) {
       ctx.status(400).json(new MerlinFormattedError(ex));
-    }
-  }
-
-  @Deprecated
-  private void getResourceTypes(final Context ctx) {
-    try {
-      final var missionModelId = parseJson(ctx.body(), hasuraMissionModelActionP).input().missionModelId();
-
-      final var schemaMap = this.missionModelService.getResourceSchemas(missionModelId);
-
-      ctx.result(ResponseSerializers.serializeValueSchemas(schemaMap).toString());
-    } catch (final JsonParsingException ex) {
-      ctx.status(400).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
-    } catch (final InvalidJsonEntityException ex) {
-      ctx.status(400).json(new MerlinFormattedError(ex));
-    } catch (final MissionModelService.NoSuchMissionModelException ex) {
-      ctx.status(404).json(new MerlinFormattedError(ex));
-    } catch (final MissionModelLoadException ex) {
-      ctx.status(400).json(new MerlinFormattedError(ex));
+    }  catch (IOException ex) {
+      final var fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex);
+      logger.warn("Refresh Resource Types: IO Exception: {}", fe);
+      ctx.status(500).json(fe);
     }
   }
 

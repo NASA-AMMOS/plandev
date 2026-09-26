@@ -1,5 +1,6 @@
 package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
+import gov.nasa.ammos.plandev.merlin.server.ExternalSimulationFileParser;
 import gov.nasa.ammos.plandev.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
@@ -21,6 +22,7 @@ import gov.nasa.ammos.plandev.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.sql.DataSource;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -196,6 +198,47 @@ public final class PostgresPlanRepository implements PlanRepository {
     } catch (final SQLException ex) {
       throw new DatabaseException(
           "Failed to retrieve constraints for plan with id `%s`".formatted(planId), ex);
+    }
+  }
+
+  @Override
+  public void markPlanReadOnly(final PlanId planId) throws NoSuchPlanException {
+    try(final var connection = this.dataSource.getConnection();
+        final var markPlanReadOnlyAction = new MarkPlanReadOnlyAction(connection)
+    ) {
+      markPlanReadOnlyAction.apply(planId.id());
+    } catch (SQLException ex) {
+      throw new DatabaseException("Failed to mark plan as read only", ex);
+    }
+  }
+
+  @Override
+  public void createExternalSimDataset(
+      final PlanId planId,
+      final Timestamp simulationStart,
+      final Timestamp simulationEnd,
+      final Map<String, SerializedValue> simulationArguments,
+      final String requestedBy
+  ) throws InvalidJsonEntityException, IOException {
+    try(final var connection = this.dataSource.getConnection();
+        final var getSimulationAction = new GetSimulationAction(connection);
+        final var createSimulationDatasetAction = new CreateSimulationDatasetAction(connection)
+    ) {
+      // Create the Simulation Dataset Row
+      final var simulationSpecification = getSimulationAction.get(planId.id());
+      final long datasetId = createSimulationDatasetAction.apply(
+          simulationSpecification.id(),
+          simulationStart,
+          simulationEnd,
+          simulationArguments,
+          requestedBy,
+          SimulationStateRecord.Status.SUCCESS).datasetId();
+
+      // Populate the row by parsing the external file
+      final var simFileParser = new ExternalSimulationFileParser(connection);
+      simFileParser.parse(rootFilePath, datasetId, simulationStart);
+    } catch (SQLException ex) {
+      throw new DatabaseException("Failed to create external simulation dataset.", ex);
     }
   }
 

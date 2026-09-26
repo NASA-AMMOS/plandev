@@ -7,6 +7,8 @@ import gov.nasa.ammos.plandev.merlin.driver.SimulationFailure;
 import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import gov.nasa.ammos.plandev.merlin.server.models.ConstraintId;
 import gov.nasa.ammos.plandev.merlin.server.models.DatasetId;
+import gov.nasa.ammos.plandev.merlin.server.models.InsertExternalSimulationInput;
+import gov.nasa.ammos.plandev.merlin.server.models.InsertModelInput;
 import gov.nasa.ammos.plandev.merlin.server.models.PlanId;
 import gov.nasa.ammos.plandev.merlin.server.models.SimulationDatasetId;
 import gov.nasa.ammos.plandev.merlin.server.services.UnexpectedSubtypeError;
@@ -26,6 +28,7 @@ import static gov.nasa.ammos.plandev.json.BasicParsers.*;
 import static gov.nasa.ammos.plandev.json.Uncurry.tuple;
 import static gov.nasa.ammos.plandev.json.Uncurry.untuple;
 import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.pgTimestampP;
+import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.simulationArgumentsP;
 
 public abstract class MerlinParsers {
   private MerlinParsers() {}
@@ -117,6 +120,31 @@ public abstract class MerlinParsers {
             constraintArguments -> tuple(constraintArguments.id(), constraintArguments.revision()));
   }
 
+  public static JsonParser<InsertModelInput> modelInputP = productP
+      .field("uploadedFileId", intP)
+      .field("requester", stringP)
+      .field("modelName", stringP)
+      .map(
+          untuple(InsertModelInput::new),
+          model -> tuple(model.uploadedFileId(), model.requester(), model.modelName())
+      );
+
+  public static JsonParser<InsertExternalSimulationInput> externalSimInputP = productP
+      .field("planId", planIdP)
+      .field("resultsFileId", intP)
+      .field("requester", stringP)
+      .field("planStartTime", timestampP)
+      .field("simulationStartTime", timestampP)
+      .field("simulationDuration", durationP)
+      .field("simulationArguments", simulationArgumentsP)
+      .map(
+          untuple(InsertExternalSimulationInput::new),
+          s -> tuple(
+              s.planId(), s.resultsFileId(), s.requester(), s.planStartTime(),
+              s.simulationStartTime(), s.simulationDuration(), s.simulationArguments())
+      );
+
+  public static JsonParser<PlanId> markPlanReadOnlyInputP = productP.field("planId", planIdP);
 
   public static <T> T parseJson(final String subject, final JsonParser<T> parser)
   throws JsonParsingException, InvalidJsonEntityException

@@ -1,10 +1,12 @@
 package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
 import gov.nasa.ammos.plandev.merlin.protocol.model.InputType.Parameter;
-import gov.nasa.ammos.plandev.merlin.protocol.model.Resource;
+import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityDirectiveForValidation;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
-import gov.nasa.ammos.plandev.merlin.server.models.MissionModelJar;
+import gov.nasa.ammos.plandev.merlin.server.models.ExecutableModel;
+import gov.nasa.ammos.plandev.merlin.server.models.MissionModelFile;
+import gov.nasa.ammos.plandev.merlin.server.models.NonExecutableModel;
 import gov.nasa.ammos.plandev.merlin.server.remotes.MissionModelRepository;
 import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService;
 import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService.NoSuchMissionModelException;
@@ -12,6 +14,8 @@ import gov.nasa.ammos.plandev.types.MissionModelId;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.sql.DataSource;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
@@ -26,7 +30,16 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
   }
 
   @Override
-  public Map<MissionModelId, MissionModelJar> getAllMissionModels() {
+  public Path getUploadedFilePath(final int uploadedFileId) throws SQLException, NoSuchFileException {
+    try (final var connection = this.dataSource.getConnection();
+         final var getUploadedFileAction = new GetUploadedFileAction(connection)
+    ) {
+      return getUploadedFileAction.get(uploadedFileId);
+    }
+  }
+
+  @Override
+  public Map<MissionModelId, MissionModelFile> getAllMissionModels(final Path missionModelDataPath) {
     try (final var connection = this.dataSource.getConnection()) {
       try (final var getAllMissionModelsAction = new GetAllModelsAction(connection)) {
         return getAllMissionModelsAction
@@ -35,7 +48,7 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
             .stream()
             .collect(Collectors.toMap(
                 e -> new MissionModelId(e.getKey()),
-                e -> missionModelRecordToMissionModelJar(e.getValue())));
+                e -> missionModelRecordToMissionModelJar(e.getValue(), missionModelDataPath)));
       }
     } catch (final SQLException ex) {
       throw new DatabaseException("Failed to retrieve all mission models", ex);
@@ -43,12 +56,12 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
   }
 
   @Override
-  public MissionModelJar getMissionModel(final MissionModelId missionModelId) throws NoSuchMissionModelException {
+  public MissionModelFile getMissionModel(final MissionModelId missionModelId, final Path missionModelDataPath) throws NoSuchMissionModelException {
     try (final var connection = this.dataSource.getConnection()) {
       try (final var getMissionModelAction = new GetModelAction(connection)) {
         return getMissionModelAction
             .get(missionModelId.id())
-            .map(PostgresMissionModelRepository::missionModelRecordToMissionModelJar)
+            .map(r ->missionModelRecordToMissionModelJar(r, missionModelDataPath))
             .orElseThrow(() -> new NoSuchMissionModelException(missionModelId));
       }
     } catch (final SQLException ex) {
@@ -110,17 +123,12 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
   }
 
   @Override
-  public void updateResourceTypes(final MissionModelId missionModelId, final Map<String, Resource<?>> resources)
+  public void updateResourceTypes(final MissionModelId missionModelId, final Map<String, ValueSchema> resources)
   {
-    final var resourceTypes = resources.entrySet()
-                                       .stream()
-                                       .collect(Collectors.toMap(
-                                           Map.Entry::getKey,
-                                           entry -> entry.getValue().getOutputType().getSchema()));
     try (final var connection = this.dataSource.getConnection()) {
       try (final var insertResourceTypesAction = new InsertResourceTypesAction(connection)) {
         final long id = missionModelId.id();
-        insertResourceTypesAction.apply((int) id, resourceTypes);
+        insertResourceTypesAction.apply((int) id, resources);
       }
     } catch (final SQLException ex) {
       throw new DatabaseException(
@@ -148,14 +156,10 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
     }
   }
 
-  private static MissionModelJar missionModelRecordToMissionModelJar(final MissionModelRecord record) {
-    final var model = new MissionModelJar();
-    model.mission = record.mission();
-    model.name = record.name();
-    model.version = record.version();
-    model.owner = record.owner();
-    model.path = record.path();
-
-    return model;
+  private static MissionModelFile missionModelRecordToMissionModelJar(final MissionModelRecord record, final Path missionModelDataPath) {
+    if(record.executable()) {
+      return new ExecutableModel(record.mission(), record.name(), record.version(), record.owner(), missionModelDataPath.resolve(record.path()));
+    }
+    return new NonExecutableModel(record.mission(), record.name(), record.version(), record.owner(), missionModelDataPath.resolve(record.path()));
   }
 }

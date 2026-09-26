@@ -4,6 +4,7 @@ import gov.nasa.ammos.plandev.merlin.driver.DirectiveTypeRegistry;
 import gov.nasa.ammos.plandev.merlin.driver.MissionModel;
 import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader;
 import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader.MissionModelLoadException;
+import gov.nasa.ammos.plandev.merlin.server.http.InvalidJsonEntityException;
 import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
 import gov.nasa.ammos.plandev.types.MissionModelId;
 import gov.nasa.ammos.plandev.types.Plan;
@@ -20,13 +21,18 @@ import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityDirectiveForValidation;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
-import gov.nasa.ammos.plandev.merlin.server.models.MissionModelJar;
+import gov.nasa.ammos.plandev.merlin.server.models.ExecutableModel;
+import gov.nasa.ammos.plandev.merlin.server.models.MissionModelFile;
+import gov.nasa.ammos.plandev.merlin.server.models.NonExecutableModel;
 import gov.nasa.ammos.plandev.merlin.server.remotes.MissionModelRepository;
 import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -62,14 +68,19 @@ public final class LocalMissionModelService implements MissionModelService {
   }
 
   @Override
-  public Map<MissionModelId, MissionModelJar> getMissionModels() {
-    return this.missionModelRepository.getAllMissionModels();
+  public Path getUploadedFilePath(int uploadedFileId) throws SQLException, NoSuchFileException {
+    return missionModelDataPath.resolve(this.missionModelRepository.getUploadedFilePath(uploadedFileId));
   }
 
   @Override
-  public MissionModelJar getMissionModelById(final MissionModelId missionModelId) throws NoSuchMissionModelException {
+  public Map<MissionModelId, MissionModelFile> getMissionModels() {
+    return this.missionModelRepository.getAllMissionModels(missionModelDataPath);
+  }
+
+  @Override
+  public MissionModelFile getMissionModelById(final MissionModelId missionModelId) throws NoSuchMissionModelException {
     try {
-      return this.missionModelRepository.getMissionModel(missionModelId);
+      return this.missionModelRepository.getMissionModel(missionModelId, missionModelDataPath);
     } catch (NoSuchMissionModelException ex) {
       throw new NoSuchMissionModelException(missionModelId, ex);
     }
@@ -77,18 +88,10 @@ public final class LocalMissionModelService implements MissionModelService {
 
   @Override
   public Map<String, ValueSchema> getResourceSchemas(final MissionModelId missionModelId)
-  throws NoSuchMissionModelException, MissionModelLoadException
+  throws NoSuchMissionModelException, MissionModelLoadException, InvalidJsonEntityException, IOException
   {
-    // TODO: [AERIE-1516] Teardown the missionModel after use to release any system resources (e.g. threads).
-    final var schemas = new HashMap<String, ValueSchema>();
-
-    for (final var entry : loadAndInstantiateMissionModel(missionModelId).getResources().entrySet()) {
-      final var name = entry.getKey();
-      final var resource = entry.getValue();
-      schemas.put(name, resource.getOutputType().getSchema());
-    }
-
-    return schemas;
+    final var model = getMissionModelById(missionModelId);
+    return model.extractResourceSchemas(untruePlanStart, SerializedValue.of(Map.of()));
   }
 
   /**
@@ -133,7 +136,16 @@ public final class LocalMissionModelService implements MissionModelService {
     // load mission model once for all activities
     ModelType<?, ?> modelType;
     try {
-      modelType = this.loadMissionModelType(missionModelId);
+      switch (this.getMissionModelById(missionModelId)) {
+        case ExecutableModel executableModel -> modelType = this.loadMissionModelType(missionModelId);
+        // A non-executable model has no code to validate arguments with, and loading it as a JAR would fail on every
+        // poll, so its directives are completed as unavailable instead of being left pending.
+        case NonExecutableModel nonExecutableModel -> {
+          return activities.stream()
+              .map($ -> (BulkArgumentValidationResponse) new BulkArgumentValidationResponse.Unavailable())
+              .toList();
+        }
+      }
       // try and catch NoSuchMissionModel here, so we can serialize it out to each activity validation
       // rather than catching it at a higher level in the workerLoop itself
     } catch (NoSuchMissionModelException e) {
@@ -258,9 +270,10 @@ public final class LocalMissionModelService implements MissionModelService {
 
   @Override
   public List<Parameter> getModelParameters(final MissionModelId missionModelId)
-  throws NoSuchMissionModelException, MissionModelLoadException
+  throws NoSuchMissionModelException, MissionModelLoadException, IOException, InvalidJsonEntityException
   {
-    return this.loadMissionModelType(missionModelId).getConfigurationType().getParameters();
+    final var model = getMissionModelById(missionModelId);
+    return model.extractModelParameters();
   }
 
   @Override
@@ -313,62 +326,36 @@ public final class LocalMissionModelService implements MissionModelService {
 
   @Override
   public void refreshModelParameters(final MissionModelId missionModelId)
-  throws NoSuchMissionModelException, MissionModelLoadException
+  throws NoSuchMissionModelException, MissionModelLoadException, IOException, InvalidJsonEntityException
   {
     this.missionModelRepository.updateModelParameters(missionModelId, getModelParameters(missionModelId));
   }
 
   @Override
   public void refreshActivityTypes(final MissionModelId missionModelId)
-  throws NoSuchMissionModelException, MissionModelLoadException
+  throws NoSuchMissionModelException, MissionModelLoadException, InvalidJsonEntityException, IOException
   {
-    final var modelType = this.loadMissionModelType(missionModelId);
-    final var registry = DirectiveTypeRegistry.extract(modelType);
-    final var activityTypes = new HashMap<String, ActivityType>();
-    registry.directiveTypes().forEach((name, directiveType) -> {
-      final var inputType = directiveType.getInputType();
-      final var outputType = directiveType.getOutputType();
-      activityTypes.put(
-          name, new ActivityType(
-              name,
-              inputType.getParameters(),
-              inputType.getRequiredParameters(),
-              outputType.getSchema(),
-              directiveType.getSubsystem(),
-              directiveType.getDescription()
-          ));
-    });
-    final var subsystems = modelType.getSubsystems();
+    final var model = this.getMissionModelById(missionModelId);
+    final var activityTypesAndSubsystems = model.extractActivityTypesAndSubsystems();
+    final var activityTypes = activityTypesAndSubsystems.getLeft();
+    final var subsystems = activityTypesAndSubsystems.getRight();
     this.missionModelRepository.updateActivityTypes(missionModelId, activityTypes, subsystems);
   }
 
   @Override
   public void refreshResourceTypes(final MissionModelId missionModelId)
-  throws NoSuchMissionModelException, MissionModelLoadException {
-    final var model = this.loadAndInstantiateMissionModel(missionModelId);
-    this.missionModelRepository.updateResourceTypes(missionModelId, model.getResources());
+  throws NoSuchMissionModelException, MissionModelLoadException, InvalidJsonEntityException, IOException {
+    final var model = getMissionModelById(missionModelId);
+    this.missionModelRepository.updateResourceTypes(
+        missionModelId,
+        model.extractResourceSchemas(untruePlanStart, SerializedValue.of(Map.of())));
   }
 
   private ModelType<?, ?> loadMissionModelType(final MissionModelId missionModelId)
   throws NoSuchMissionModelException, MissionModelLoadException
   {
-    final var missionModelJar = this.missionModelRepository.getMissionModel(missionModelId);
-    return MissionModelLoader.loadModelType(missionModelDataPath.resolve(missionModelJar.path), missionModelJar.name, missionModelJar.version);
-  }
-
-  /**
-   * Load a {@link MissionModel} from the mission model repository using the mission model's default mission model configuration
-   *
-   * @param missionModelId The ID of the mission model in the mission model repository to load.
-   * @return A {@link MissionModel} domain object allowing use of the loaded mission model.
-   * @throws MissionModelLoadException If the mission model cannot be loaded -- the JAR may be invalid, or the mission model
-   * it contains may not abide by the expected contract at load time.
-   * @throws NoSuchMissionModelException If no mission model is known by the given ID.
-   */
-  private MissionModel<?> loadAndInstantiateMissionModel(final MissionModelId missionModelId)
-  throws NoSuchMissionModelException, MissionModelLoadException
-  {
-    return loadAndInstantiateMissionModel(missionModelId, untruePlanStart, SerializedValue.of(Map.of()));
+    final var missionModelJar = this.missionModelRepository.getMissionModel(missionModelId, missionModelDataPath);
+    return MissionModelLoader.loadModelType(missionModelDataPath.resolve(missionModelJar.definitionFile()), missionModelJar.name(), missionModelJar.version());
   }
 
   /**
@@ -387,12 +374,12 @@ public final class LocalMissionModelService implements MissionModelService {
       final SerializedValue configuration)
   throws NoSuchMissionModelException, MissionModelLoadException
   {
-    final var missionModelJar = this.missionModelRepository.getMissionModel(missionModelId);
+    final var missionModelFile = this.missionModelRepository.getMissionModel(missionModelId, missionModelDataPath);
     return MissionModelLoader.loadMissionModel(
         planStart,
         configuration,
-        missionModelDataPath.resolve(missionModelJar.path),
-        missionModelJar.name,
-        missionModelJar.version);
+        missionModelDataPath.resolve(missionModelFile.definitionFile()),
+        missionModelFile.name(),
+        missionModelFile.version());
   }
 }

@@ -123,6 +123,7 @@ public abstract class MerlinParsers {
   public static JsonParser<InsertExternalSimulationInput> externalSimInputP = productP
       .field("planId", planIdP)
       .field("resultsFileId", intP)
+      .field("requester", stringP)
       .field("planStartTime", timestampP)
       .field("simulationStartTime", timestampP)
       .field("simulationDuration", durationP)
@@ -130,7 +131,7 @@ public abstract class MerlinParsers {
       .map(
           untuple(InsertExternalSimulationInput::new),
           s -> tuple(
-              s.planId(), s.resultsFileId(), s.planStartTime(),
+              s.planId(), s.resultsFileId(), s.requester(), s.planStartTime(),
               s.simulationStartTime(), s.simulationDuration(), s.simulationArguments())
       );
 

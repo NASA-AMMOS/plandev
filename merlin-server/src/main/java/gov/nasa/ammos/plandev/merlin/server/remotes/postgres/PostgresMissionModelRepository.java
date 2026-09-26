@@ -14,6 +14,7 @@ import gov.nasa.ammos.plandev.types.MissionModelId;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.sql.DataSource;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -26,6 +27,15 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
 
   public PostgresMissionModelRepository(final DataSource dataSource) {
     this.dataSource = dataSource;
+  }
+
+  @Override
+  public Path getUploadedFilePath(final int uploadedFileId) throws SQLException, NoSuchFileException {
+    try (final var connection = this.dataSource.getConnection();
+         final var getUploadedFileAction = new GetUploadedFileAction(connection)
+    ) {
+      return getUploadedFileAction.get(uploadedFileId);
+    }
   }
 
   @Override

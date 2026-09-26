@@ -151,7 +151,6 @@ create function merlin.generate_activity_directive_name()
 returns trigger
 security invoker
 language plpgsql as $$begin
-  call merlin.plan_locked_exception(new.plan_id);
   if new.name is null then
     new.name = new.type || ' ' || new.id;
   end if;
@@ -189,7 +188,6 @@ create function merlin.activity_directive_set_arguments_updated_at()
   security definer
   language plpgsql as
 $$ begin
-  call merlin.plan_locked_exception(new.plan_id);
   new.last_modified_arguments_at = now();
 
   -- request new validation
@@ -239,7 +237,6 @@ language plpgsql as $$
     _type text;
     _subValue jsonb;
   begin
-  call merlin.plan_locked_exception(new.plan_id);
   for _key, _value in
     select * from jsonb_each(new.metadata::jsonb)
   loop
@@ -285,16 +282,13 @@ before insert or update on merlin.activity_directive
 for each row
 execute function merlin.check_activity_directive_metadata();
 
-create function merlin.check_locked_on_delete()
-  returns trigger
-  security definer
-  language plpgsql as $$
-  begin
-    call merlin.plan_locked_exception(old.plan_id);
-    return old;
-  end $$;
+-- Locked Triggers
+create trigger check_locked_on_update_insert_trigger
+  before insert or update on merlin.activity_directive
+  for each row
+execute procedure util_functions.check_plan_locked_readonly_insert_update();
 
 create trigger check_locked_on_delete_trigger
 before delete on merlin.activity_directive
 for each row
-execute procedure merlin.check_locked_on_delete();
+execute procedure util_functions.check_plan_locked_readonly_delete();

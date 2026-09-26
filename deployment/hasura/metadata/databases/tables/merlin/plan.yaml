@@ -86,14 +86,14 @@ select_permissions:
 insert_permissions:
   - role: aerie_admin
     permission:
-      columns: [name, duration, model_id, parent_id, start_time, description]
+      columns: [name, duration, model_id, parent_id, start_time, is_read_only, description]
       check: {}
       set:
         owner: "x-hasura-user-id"
         updated_by: "x-hasura-user-id"
   - role: user
     permission:
-      columns: [name, duration, model_id, parent_id, start_time, description]
+      columns: [name, duration, model_id, parent_id, start_time, is_read_only, description]
       check: {}
       set:
         owner: "x-hasura-user-id"
@@ -101,7 +101,7 @@ insert_permissions:
 update_permissions:
   - role: aerie_admin
     permission:
-      columns: [name, owner, duration, model_id, parent_id, start_time, description]
+      columns: [name, owner, duration, parent_id, start_time, description]
       filter: {}
       set:
         updated_by: "x-hasura-user-id"

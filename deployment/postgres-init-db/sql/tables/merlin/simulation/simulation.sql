@@ -27,7 +27,6 @@ create table merlin.simulation (
     check (simulation_start_time <= simulation_end_time)
 );
 
-
 comment on table merlin.simulation is e''
   'A specification for simulating an activity plan.';
 
@@ -47,3 +46,8 @@ before update on merlin.simulation
 for each row
 when (pg_trigger_depth() < 1)
 execute function util_functions.increment_revision_update();
+
+create trigger check_locked_on_update_trigger
+  before update on merlin.simulation
+  for each row
+execute procedure util_functions.check_plan_locked_readonly_insert_update();

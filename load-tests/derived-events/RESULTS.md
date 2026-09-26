@@ -1,8 +1,8 @@
 # derived_events refresh: baseline, storm, and staleness (#1890)
 
 Measured 2026-09-25/26 on the `develop` schema (v4.4.0, commit 2a57122de). The harness is this directory
-(see `README.md`). The raw output behind every number below is in `results/2026-09-25/`, one folder per run, named
-as in the tables. No architecture changes were made; the only schema touch was temporary logging on
+(see `README.md`). The raw output behind every number below is in `results/2026-09-25/` and `results/2026-09-26/` (2nd session:
+Dataset B storms, re-run benchmarks, harness validation), one folder per run, named as in the tables. No architecture changes were made; the only schema touch was temporary logging on
 `merlin.refresh_derived_events_on_trigger()` (`instrument.sql`, since reverted).
 
 **Environment:** local `pd` stack `eeperf`. PostgreSQL 16.14 with stock settings (`work_mem` 4MB,
@@ -65,13 +65,19 @@ The README in the harness has details.
 
 ## B. Baseline refresh
 
-| Dataset | Events | Sources | DGs | Derived rows | CONCURRENTLY: cold-ish / median (range), n=5 | Plain REFRESH median | SELECT only |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| A (1 src/DG, no overlap) | 1,500,000 | 15 | 15 | 1,500,000 | 17.8s / **9.3s** (8.4–17.8) | 4.4s (3.6–6.0) | 2.6s |
-| B (10 rev/DG, 50% overlap, 30% key reuse) | 1,500,000 | 150 | 15 | 420,000 | 3.9s / **3.8s** (3.5–3.9)* | 2.6s | 1.9s |
+Two sessions, a day apart. Each ran 5 runs per kind after a Postgres restart; the columns show the 1st session,
+then the 2nd.
 
-\* Measured before `seed.sql` vacuumed away Dataset A's dead tuples. The events table was bloated to 751 MB. After
-vacuum, the sweep measured B at 3.2s concurrent / 2.0s plain.
+| Dataset | Events | Sources | DGs | Derived rows | CONCURRENTLY first run | CONCURRENTLY median (range) | Plain REFRESH median | SELECT only |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| A (1 src/DG, no overlap) | 1,500,000 | 15 | 15 | 1,500,000 | 17.8s / 7.8s | **9.3s** (8.4–17.8) / **7.8s** (7.7–8.0) | 4.4s / 3.5s | 2.6s / 2.4s |
+| B (10 rev/DG, 50% overlap, 30% key reuse) | 1,500,000 | 150 | 15 | 420,000 | 3.9s* / 3.6s | **3.8s*** (3.5–3.9) / **3.1s** (3.1–4.1) | 2.6s* / 1.8s | 1.9s / 1.6s |
+
+\* Measured before `seed.sql` vacuumed away Dataset A's dead tuples, when the events table was bloated to 751 MB.
+
+Expect about ±20% between sessions on this laptop. The 17.8s first run did not repeat in the 2nd session (7.8s), so
+treat "cold" as unreliable inside a Docker VM, where restarting Postgres empties `shared_buffers` but the VM page
+cache stays warm. `sweep.sh` (3 runs per point) landed between the two sessions: A 8.1s, B 3.2s.
 
 "Cold-ish" means after a Postgres restart, so `shared_buffers` is empty but the VM page cache is still warm.
 "SELECT only" is `EXPLAIN (ANALYZE, TIMING OFF)` of the view definition.
@@ -79,8 +85,17 @@ vacuum, the sweep measured B at 3.2s concurrent / 2.0s plain.
 - **Sizes, Dataset A:** MV 273 MB heap / 370 MB total, `external_event` 377 MB, `external_source` 48 kB.
 - **Per concurrent refresh, Dataset A:** 1.88 GB temp written and 53 kB WAL (no changes). A plain refresh writes
   613 MB temp and 417 MB WAL, since it rewrites everything.
-- **Resources:** the container peaked at about 124% CPU, meaning one backend is mostly single-core bound, and
-  136 MB RSS. The backend spends much of its time in `IO:BufFileRead/Write` (temp files).
+- **Resources:** the container peaked at 110–124% CPU, meaning one backend is mostly single-core bound, and
+  136–215 MB RSS. The backend spends much of its time in `IO:BufFileRead/Write` (temp files).
+- **Background writer and WAL** (2nd session, Dataset A, a whole benchmark: 5 concurrent, 5 plain, 2 EXPLAINs,
+  1 auto_explain run):
+  - 2.07 GB WAL, almost all from the plain refreshes.
+  - 3 requested checkpoints, triggered by WAL volume.
+  - `buffers_backend` +167k: backends writing out their own dirty buffers, because 128 MB `shared_buffers` is small
+    next to a 370 MB MV.
+  - `buffers_checkpoint` +4.9k.
+  - A no-op CONCURRENTLY refresh by itself writes almost no WAL; its cost is CPU and temp files.
+- `pg_stat_statements` is not preloaded in the stock deployment, so it was not used.
 
 ### Scaling (`sweep.sh`, 3 runs per point, medians)
 
@@ -131,7 +146,7 @@ vacuum, the sweep measured B at 3.2s concurrent / 2.0s plain.
 | Full hash join of the old MV against newdata to build the diff | 2.5s | ~0.7 GB |
 | Apply the diff (0 rows for a no-op refresh) | ~0 | |
 
-So about 2/3 of every trigger refresh is spent proving that nothing, or almost nothing, changed.
+So about 2/3 of every trigger refresh is spent proving that nothing, or almost nothing, changed. In the 2nd session the same phases took 2.6s / 3.4s / 1.6s (A) and 1.5s / 0.9s / 0.4s (B).
 
 ## D. Refresh amplification (Dataset A, real Gateway `/uploadExternalSource` of a 3-event source)
 
@@ -144,7 +159,7 @@ One upload into an existing DG, from `storm-single-A`. Everything is the same pi
 | external_event INSERT (3 rows) | 23:41:49.752 | 23:42:06.037 | 16.3s |
 
 HTTP was 40.7s (first run after re-seed); a warm repeat was 31.9s (3 × ~10.5s). On Dataset B, one upload took
-9.75s (3 refreshes, 9.66s total). A brand-new DG gives the same 3 refreshes; the DG refresh just isn't a no-op
+9.4–9.8s (3 refreshes) in two sessions. A brand-new DG gives the same 3 refreshes; the DG refresh just isn't a no-op
 then. The Gateway's reply confirms the DG upsert changed nothing: `"upsertDerivationGroup": null`.
 
 | Scenario (Dataset A) | Files | Refresh calls | Refresh work* | Time in refresh fn incl. lock wait | Request wall time |
@@ -156,9 +171,27 @@ then. The Gateway's reply confirms the DG upsert changed nothing: `"upsertDeriva
 | 10 concurrent, same DG | 10 | 30 | ~290s | 1,618s | 32 → 290s |
 | 12 concurrent, same DG | 12 | 36 | ~365s | — | 31 → 300s, then 2 × HTTP 500 at 302s |
 
+| Scenario (Dataset B) | Files | Refresh calls | Refresh work* | Time in refresh fn incl. lock wait | Request wall time |
+|---|---:|---:|---:|---:|---:|
+| Single source | 1 | 3 | 9.3s | same | 9.4s |
+| 5 sequential | 5 | 15 | 47.8s | 47.8s | 48.6s (9.5–9.9s each) |
+| 5 concurrent, same DG | 5 | 15 | ~47s | 142s | 9.8 → 47.2s |
+| 5 concurrent, different DGs | 5 | 15 | ~50s | 149s | 9.6 → 50.1s |
+| 10 concurrent, same DG (3 runs) | 10 | 30 | ~100s | 546s | 10 → 98–102s |
+| 10 concurrent, same DG (1st run, outlier) | 10 | 30 | ~245s | 1,716s | 10s, then a 147s stall, then 165 → 245s |
+
 \* Refresh work equals wall time here because the refreshes run strictly one after another.
 
+**The one outlier (`storm-same-B-10`).** Transaction 1398 got the lock at 02:42:53, after 23s in the queue. Its
+first refresh, the one computing from a stale pre-wait snapshot, then ran **147s** instead of about 3s. It was
+active the whole time, with no lock waits and no temp files for about 142s; its other two refreshes took 3–4s.
+Nothing else was logged except a spread checkpoint finishing 2s after the stall ended. Three reruns with
+`auto_explain` on anything over 20s did not reproduce it (98–102s each), so its cause is unknown. It is recorded here
+because a single stall like this is enough to push a queue past the Gateway's 300s timeout.
+
 ## E. Storm behaviour
+
+Dataset A (Dataset B storms, same shape, are in section D):
 
 | | 5 same DG | 5 different DGs | 10 same DG | 12 same DG |
 |---|---|---|---|---|
@@ -302,11 +335,26 @@ This directory:
 | `cancel-repro.sh` | Timeout and cancellation cases |
 | `README.md` | Commands |
 
+## Validation of the harness itself (2026-09-26)
+
+The README walkthrough ran end to end against the eeperf stack. It started from an uninstrumented DB with every
+`perf-%` DG replaced (not a brand-new stack), on a small 150k-event Dataset A. `DELAY=3` was used where a case
+needs a slow refresh (`results/2026-09-26/validate.log`). Every script path passed:
+- `SEQUENTIAL=1` no longer hangs.
+- `DELAY` serialized 4 uploads at about 11s each.
+- The fixed idle check waited correctly: 3 uploads, curl timed out at 5s, DB idle at 34s, all 3 committed and the
+  MV consistent.
+- All `cancel-repro.sh` cases gave the same outcomes as the full-size runs.
+- **The stale-snapshot race reproduced at 150k rows with only a 3s lock wait**, for both writers. It does not need
+  a large dataset, which makes it a candidate for a DB test.
+- The delay reset to 0 and no sampler sessions leaked.
+
 **Caveats:**
 - `results/2026-09-25/storm-same-A-12/verify.txt` was captured before the 2 timed-out transactions finished; the
   harness's idle check has since been fixed. The final state described in section F was checked by hand afterwards:
   both sources committed, and the MV matched a fresh recompute.
 - During the early storm runs, a harness bug leaked idle 250ms sampler sessions (up to 11), since fixed. Per-upload
   refresh time stayed around 31s throughout, and the standalone benchmarks ran before any leak.
+- The 147s stall in `storm-same-B-10` is unexplained (section D).
 - Production-shaped Dataset C was not built; there are no LRO numbers yet. It is one `seed.sql` invocation once
   someone supplies sources/DG, events/source, and overlap.

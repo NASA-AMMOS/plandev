@@ -6,12 +6,15 @@
 #   C1  pg_cancel_backend on an upload's backend while its refresh runs (holds the MV lock)
 #   C2  pg_cancel_backend on an upload's backend while its refresh waits for the MV lock
 #   D   5 concurrent same-DG uploads; cancel the lock holder of the 2nd tx and one waiter, the rest continue
-# Needs instrument.sql applied and a seeded dataset whose refresh takes several seconds (Dataset A: ~10s).
+# Needs instrument.sql applied and a refresh that takes several seconds: Dataset A (~10s), or any dataset plus
+# DELAY=<s> (artificial post-refresh delay while holding the MV lock; repro only).
 set -euo pipefail
 here=$(dirname "$0")
 source "$here/env.sh"
 case_=${1:?A|B1|B2|C1|C2|D}
 dir="$OUT/cancel-$case_"; rm -rf "$dir"; mkdir -p "$dir"
+psqlx -qc "update public.derived_events_bench set refresh_delay = ${DELAY:-0}"
+trap 'psqlx -qc "update public.derived_events_bench set refresh_delay = 0"' EXIT
 
 # pid of the backend holding (holder) or waiting for (waiter) the MV's ExclusiveLock
 mvpid() {

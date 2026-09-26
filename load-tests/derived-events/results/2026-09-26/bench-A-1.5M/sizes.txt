@@ -1,0 +1,5 @@
+ dgs | sources | events  | derived | mv_heap | mv_total | events_total | sources_total 
+-----+---------+---------+---------+---------+----------+--------------+---------------
+  15 |      15 | 1500000 | 1500000 | 273 MB  | 370 MB   | 864 MB       | 160 kB
+(1 row)
+

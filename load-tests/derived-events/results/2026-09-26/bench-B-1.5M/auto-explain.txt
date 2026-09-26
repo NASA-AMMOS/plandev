@@ -1,0 +1,293 @@
+2026-09-26 02:39:08.835 UTC [207] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp207.1", size 138895360
+2026-09-26 02:39:08.835 UTC [207] STATEMENT:  explain (analyze, timing off, buffers, summary)  SELECT DISTINCT ON (event_key, derivation_group_name) event_key,
+	    source_key,
+	    derivation_group_name,
+	    event_type_name,
+	    duration,
+	    start_time,
+	    source_range,
+	    valid_at,
+	    attributes
+	   FROM ( SELECT s.key AS source_key,
+	            ee.key AS event_key,
+	            ee.event_type_name,
+	            ee.duration,
+	            s.derivation_group_name,
+	            ee.start_time,
+	            s.source_range,
+	            s.valid_at,
+	            ee.attributes
+	           FROM merlin.external_event ee
+	             JOIN ( WITH base_ranges AS (
+	                         SELECT external_source.key,
+	                            external_source.derivation_group_name,
+	                            tstzmultirange(tstzrange(external_source.start_time, external_source.end_time)) AS range,
+	                            external_source.valid_at
+	                           FROM merlin.external_source
+	                          ORDER BY external_source.valid_at
+	                        ), base_and_sub_ranges AS (
+	                         SELECT base.key,
+	                            base.derivation_group_name,
+	                            base.range AS original_range,
+	                            array_remove(array_agg(subsequent.range ORDER BY subsequent.valid_at), NULL::tstzmultirange) AS subsequent_ranges,
+	                            base.valid_at
+	                           FROM base_ranges base
+	                             LEFT JOIN base_ranges subsequent ON base.derivation_group_name = subsequent.derivation_group_name AND base.valid_at < subsequent.valid_at
+	                          GROUP BY base.key, base.derivation_group_name, base.valid_at, base.range
+	                        )
+	                 SELECT r.key,
+	                    r.derivation_group_name,
+	                    merlin.subtract_later_ranges(r.original_range, r.subsequent_ranges) AS source_range,
+	                    r.valid_at
+	                   FROM base_and_sub_ranges r
+	                  ORDER BY r.derivation_group_name DESC, r.valid_at) s ON s.key = ee.source_key AND s.derivation_group_name = ee.derivation_group_name
+	          WHERE s.source_range @> ee.start_time
+	          ORDER BY s.valid_at DESC) output
+2026-09-26 02:39:08.840 UTC [207] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp207.0", size 141950976
+2026-09-26 02:39:08.840 UTC [207] STATEMENT:  explain (analyze, timing off, buffers, summary)  SELECT DISTINCT ON (event_key, derivation_group_name) event_key,
+	    source_key,
+	    derivation_group_name,
+	    event_type_name,
+	    duration,
+	    start_time,
+	    source_range,
+	    valid_at,
+	    attributes
+	   FROM ( SELECT s.key AS source_key,
+	            ee.key AS event_key,
+	            ee.event_type_name,
+	            ee.duration,
+	            s.derivation_group_name,
+	            ee.start_time,
+	            s.source_range,
+	            s.valid_at,
+	            ee.attributes
+	           FROM merlin.external_event ee
+	             JOIN ( WITH base_ranges AS (
+	                         SELECT external_source.key,
+	                            external_source.derivation_group_name,
+	                            tstzmultirange(tstzrange(external_source.start_time, external_source.end_time)) AS range,
+	                            external_source.valid_at
+	                           FROM merlin.external_source
+	                          ORDER BY external_source.valid_at
+	                        ), base_and_sub_ranges AS (
+	                         SELECT base.key,
+	                            base.derivation_group_name,
+	                            base.range AS original_range,
+	                            array_remove(array_agg(subsequent.range ORDER BY subsequent.valid_at), NULL::tstzmultirange) AS subsequent_ranges,
+	                            base.valid_at
+	                           FROM base_ranges base
+	                             LEFT JOIN base_ranges subsequent ON base.derivation_group_name = subsequent.derivation_group_name AND base.valid_at < subsequent.valid_at
+	                          GROUP BY base.key, base.derivation_group_name, base.valid_at, base.range
+	                        )
+	                 SELECT r.key,
+	                    r.derivation_group_name,
+	                    merlin.subtract_later_ranges(r.original_range, r.subsequent_ranges) AS source_range,
+	                    r.valid_at
+	                   FROM base_and_sub_ranges r
+	                  ORDER BY r.derivation_group_name DESC, r.valid_at) s ON s.key = ee.source_key AND s.derivation_group_name = ee.derivation_group_name
+	          WHERE s.source_range @> ee.start_time
+	          ORDER BY s.valid_at DESC) output
+2026-09-26 02:39:10.462 UTC [215] LOG:  duration: 1541.097 ms  plan:
+	Query Text: refresh materialized view concurrently merlin.derived_events;
+	Unique  (cost=56453.20..56453.27 rows=10 width=191) (actual rows=420000 loops=1)
+	  Buffers: shared hit=509 read=29616, temp read=68556 written=68641
+	  ->  Sort  (cost=56453.20..56453.22 rows=10 width=191) (actual rows=825000 loops=1)
+	        Sort Key: output.event_key, output.derivation_group_name
+	        Sort Method: external merge  Disk: 135640kB
+	        Buffers: shared hit=509 read=29616, temp read=68556 written=68641
+	        ->  Subquery Scan on output  (cost=56452.91..56453.03 rows=10 width=191) (actual rows=825000 loops=1)
+	              Buffers: shared hit=506 read=29616, temp read=34649 written=34692
+	              ->  Sort  (cost=56452.91..56452.93 rows=10 width=191) (actual rows=825000 loops=1)
+	                    Sort Key: r.valid_at DESC
+	                    Sort Method: external merge  Disk: 138624kB
+	                    Buffers: shared hit=506 read=29616, temp read=34649 written=34692
+	                    ->  Hash Join  (cost=76.83..56452.74 rows=10 width=191) (actual rows=825000 loops=1)
+	                          Hash Cond: ((ee.source_key = r.key) AND (ee.derivation_group_name = r.derivation_group_name))
+	                          Join Filter: ((merlin.subtract_later_ranges(r.original_range, r.subsequent_ranges)) @> ee.start_time)
+	                          Rows Removed by Join Filter: 675000
+	                          Buffers: shared hit=503 read=29616
+	                          ->  Seq Scan on external_event ee  (cost=0.00..45000.95 rows=1499995 width=114) (actual rows=1500000 loops=1)
+	                                Buffers: shared hit=385 read=29616
+	                          ->  Hash  (cost=74.58..74.58 rows=150 width=104) (actual rows=150 loops=1)
+	                                Buckets: 1024  Batches: 1  Memory Usage: 23kB
+	                                Buffers: shared hit=118
+	                                ->  Sort  (cost=74.20..74.58 rows=150 width=104) (actual rows=150 loops=1)
+	                                      Sort Key: r.derivation_group_name DESC, r.valid_at
+	                                      Sort Method: quicksort  Memory: 37kB
+	                                      Buffers: shared hit=118
+	                                      CTE base_ranges
+	                                        ->  Sort  (cost=10.67..11.05 rows=150 width=67) (actual rows=150 loops=1)
+	                                              Sort Key: external_source.valid_at
+	                                              Sort Method: quicksort  Memory: 37kB
+	                                              Buffers: shared hit=3
+	                                              ->  Seq Scan on external_source  (cost=0.00..5.25 rows=150 width=67) (actual rows=150 loops=1)
+	                                                    Buffers: shared hit=3
+	                                      ->  Subquery Scan on r  (cost=15.73..57.73 rows=150 width=104) (actual rows=150 loops=1)
+	                                            Buffers: shared hit=118
+	                                            ->  GroupAggregate  (cost=15.73..20.23 rows=150 width=136) (actual rows=150 loops=1)
+	                                                  Group Key: base.key, base.derivation_group_name, base.valid_at, base.range
+	                                                  Buffers: shared hit=8
+	                                                  ->  Sort  (cost=15.73..16.11 rows=150 width=144) (actual rows=690 loops=1)
+	                                                        Sort Key: base.key, base.derivation_group_name, base.valid_at, base.range, subsequent.valid_at
+	                                                        Sort Method: quicksort  Memory: 110kB
+	                                                        Buffers: shared hit=8
+	                                                        ->  Hash Left Join  (cost=4.88..10.31 rows=150 width=144) (actual rows=690 loops=1)
+	                                                              Hash Cond: (base.derivation_group_name = subsequent.derivation_group_name)
+	                                                              Join Filter: (base.valid_at < subsequent.valid_at)
+	                                                              Rows Removed by Join Filter: 825
+	                                                              Buffers: shared hit=3
+	                                                              ->  CTE Scan on base_ranges base  (cost=0.00..3.00 rows=150 width=104) (actual rows=150 loops=1)
+	                                                                    Buffers: shared hit=3
+	                                                              ->  Hash  (cost=3.00..3.00 rows=150 width=72) (actual rows=150 loops=1)
+	                                                                    Buckets: 1024  Batches: 1  Memory Usage: 21kB
+	                                                                    ->  CTE Scan on base_ranges subsequent  (cost=0.00..3.00 rows=150 width=72) (actual rows=150 loops=1)
+2026-09-26 02:39:10.467 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.1", size 138895360
+2026-09-26 02:39:10.467 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:10.472 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.0", size 141950976
+2026-09-26 02:39:10.472 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.490 UTC [215] LOG:  duration: 921.887 ms  plan:
+	Query Text: SELECT newdata.*::pg_temp_25.pg_temp_17883 FROM pg_temp_25.pg_temp_17883 newdata WHERE newdata.* IS NOT NULL AND EXISTS (SELECT 1 FROM pg_temp_25.pg_temp_17883 newdata2 WHERE newdata2.* IS NOT NULL AND newdata2.* OPERATOR(pg_catalog.*=) newdata.* AND newdata2.ctid OPERATOR(pg_catalog.<>) newdata.ctid)
+	Merge Semi Join  (cost=254571.62..15538741.75 rows=208950 width=175) (actual rows=0 loops=1)
+	  Merge Cond: (newdata.* *= newdata2.*)
+	  Join Filter: (newdata2.ctid <> newdata.ctid)
+	  Rows Removed by Join Filter: 420000
+	  Buffers: shared hit=3, local read=19584, temp read=40694 written=40742
+	  ->  Sort  (cost=127285.81..128330.56 rows=417900 width=181) (actual rows=420000 loops=1)
+	        Sort Key: newdata.* USING *<
+	        Sort Method: external merge  Disk: 81400kB
+	        Buffers: shared hit=3, local read=9792, temp read=20347 written=20371
+	        ->  Seq Scan on pg_temp_17883 newdata  (cost=0.00..13992.00 rows=417900 width=181) (actual rows=420000 loops=1)
+	              Filter: (newdata.* IS NOT NULL)
+	              Buffers: local read=9792
+	  ->  Materialize  (cost=127285.81..129375.31 rows=417900 width=181) (actual rows=420000 loops=1)
+	        Buffers: local read=9792, temp read=20347 written=20371
+	        ->  Sort  (cost=127285.81..128330.56 rows=417900 width=181) (actual rows=420000 loops=1)
+	              Sort Key: newdata2.* USING *<
+	              Sort Method: external merge  Disk: 81400kB
+	              Buffers: local read=9792, temp read=20347 written=20371
+	              ->  Seq Scan on pg_temp_17883 newdata2  (cost=0.00..13992.00 rows=417900 width=181) (actual rows=420000 loops=1)
+	                    Filter: (newdata2.* IS NOT NULL)
+	                    Buffers: local read=9792
+	JIT:
+	  Functions: 13
+	  Options: Inlining true, Optimization true, Expressions true, Deforming true
+2026-09-26 02:39:11.490 UTC [215] CONTEXT:  SQL statement "SELECT newdata.*::pg_temp_25.pg_temp_17883 FROM pg_temp_25.pg_temp_17883 newdata WHERE newdata.* IS NOT NULL AND EXISTS (SELECT 1 FROM pg_temp_25.pg_temp_17883 newdata2 WHERE newdata2.* IS NOT NULL AND newdata2.* OPERATOR(pg_catalog.*=) newdata.* AND newdata2.ctid OPERATOR(pg_catalog.<>) newdata.ctid)"
+2026-09-26 02:39:11.493 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.3", size 83353600
+2026-09-26 02:39:11.493 UTC [215] CONTEXT:  SQL statement "SELECT newdata.*::pg_temp_25.pg_temp_17883 FROM pg_temp_25.pg_temp_17883 newdata WHERE newdata.* IS NOT NULL AND EXISTS (SELECT 1 FROM pg_temp_25.pg_temp_17883 newdata2 WHERE newdata2.* IS NOT NULL AND newdata2.* OPERATOR(pg_catalog.*=) newdata.* AND newdata2.ctid OPERATOR(pg_catalog.<>) newdata.ctid)"
+2026-09-26 02:39:11.493 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.495 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.2", size 83353600
+2026-09-26 02:39:11.495 UTC [215] CONTEXT:  SQL statement "SELECT newdata.*::pg_temp_25.pg_temp_17883 FROM pg_temp_25.pg_temp_17883 newdata WHERE newdata.* IS NOT NULL AND EXISTS (SELECT 1 FROM pg_temp_25.pg_temp_17883 newdata2 WHERE newdata2.* IS NOT NULL AND newdata2.* OPERATOR(pg_catalog.*=) newdata.* AND newdata2.ctid OPERATOR(pg_catalog.<>) newdata.ctid)"
+2026-09-26 02:39:11.495 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.739 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.5", size 6798168
+2026-09-26 02:39:11.739 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.739 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.749 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.20", size 6539174
+2026-09-26 02:39:11.749 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.749 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.751 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.4", size 6761874
+2026-09-26 02:39:11.751 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.751 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.760 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.19", size 6504013
+2026-09-26 02:39:11.760 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.760 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.762 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.11", size 6764550
+2026-09-26 02:39:11.762 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.762 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.772 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.26", size 6506696
+2026-09-26 02:39:11.772 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.772 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.774 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.7", size 6760636
+2026-09-26 02:39:11.774 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.774 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.783 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.22", size 6502905
+2026-09-26 02:39:11.783 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.783 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.785 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.13", size 6814164
+2026-09-26 02:39:11.785 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.785 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.794 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.28", size 6554510
+2026-09-26 02:39:11.794 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.794 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.796 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.17", size 6685040
+2026-09-26 02:39:11.796 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.796 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.805 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.32", size 6430360
+2026-09-26 02:39:11.805 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.805 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.807 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.15", size 6747452
+2026-09-26 02:39:11.807 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.807 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.816 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.30", size 6490055
+2026-09-26 02:39:11.816 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.816 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.818 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.6", size 6709062
+2026-09-26 02:39:11.818 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.818 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.828 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.21", size 6453434
+2026-09-26 02:39:11.828 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.828 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.830 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.16", size 6753448
+2026-09-26 02:39:11.830 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.830 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.839 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.31", size 6495878
+2026-09-26 02:39:11.839 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.839 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.841 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.14", size 6767230
+2026-09-26 02:39:11.841 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.841 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.851 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.29", size 6509207
+2026-09-26 02:39:11.851 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.851 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.853 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.8", size 6743860
+2026-09-26 02:39:11.853 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.853 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.862 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.23", size 6486759
+2026-09-26 02:39:11.862 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.862 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.864 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.12", size 6746410
+2026-09-26 02:39:11.864 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.864 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.873 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.27", size 6489341
+2026-09-26 02:39:11.873 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.873 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.875 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.10", size 6746122
+2026-09-26 02:39:11.875 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.875 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.884 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.25", size 6488905
+2026-09-26 02:39:11.884 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.884 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.886 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.18", size 6804462
+2026-09-26 02:39:11.886 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.886 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.895 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.33", size 6544670
+2026-09-26 02:39:11.895 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.895 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.897 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.9", size 6865674
+2026-09-26 02:39:11.897 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.897 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.907 UTC [215] LOG:  temporary file: path "base/pgsql_tmp/pgsql_tmp215.24", size 6603867
+2026-09-26 02:39:11.907 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"
+2026-09-26 02:39:11.907 UTC [215] STATEMENT:  refresh materialized view concurrently merlin.derived_events;
+2026-09-26 02:39:11.907 UTC [215] LOG:  duration: 410.527 ms  plan:
+	Query Text: INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid
+	Insert on pg_temp_17883_2  (cost=92726.09..92736.56 rows=0 width=0) (actual rows=0 loops=1)
+	  Buffers: shared hit=2117 read=7680, local read=9792, temp read=24315 written=24315
+	  ->  Sort  (cost=92726.09..92736.56 rows=4190 width=181) (actual rows=0 loops=1)
+	        Sort Key: mv.ctid
+	        Sort Method: quicksort  Memory: 25kB
+	        Buffers: shared hit=2117 read=7680, local read=9792, temp read=24315 written=24315
+	        ->  Hash Full Join  (cost=35517.00..92474.00 rows=4190 width=181) (actual rows=0 loops=1)
+	              Hash Cond: ((newdata.event_key = mv.event_key) AND (newdata.source_key = mv.source_key) AND (newdata.derivation_group_name = mv.derivation_group_name) AND (newdata.event_type_name = mv.event_type_name))
+	              Join Filter: (newdata.* *= mv.*)
+	              Filter: ((newdata.* IS NULL) OR (mv.* IS NULL))
+	              Rows Removed by Filter: 420000
+	              Buffers: shared hit=2112 read=7680, local read=9792, temp read=24315 written=24315
+	              ->  Seq Scan on pg_temp_17883 newdata  (cost=0.00..13992.00 rows=420000 width=220) (actual rows=420000 loops=1)
+	                    Buffers: local read=9792
+	              ->  Hash  (cost=13992.00..13992.00 rows=420000 width=226) (actual rows=420000 loops=1)
+	                    Buckets: 32768  Batches: 16  Memory Usage: 7176kB
+	                    Buffers: shared hit=2112 read=7680, temp written=12379
+	                    ->  Seq Scan on derived_events mv  (cost=0.00..13992.00 rows=420000 width=226) (actual rows=420000 loops=1)
+	                          Buffers: shared hit=2112 read=7680
+2026-09-26 02:39:11.907 UTC [215] CONTEXT:  SQL statement "INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_temp_17883 AS newdata FROM merlin.derived_events mv FULL JOIN pg_temp_25.pg_temp_17883 newdata ON (newdata.event_key OPERATOR(pg_catalog.=) mv.event_key AND newdata.source_key OPERATOR(pg_catalog.=) mv.source_key AND newdata.derivation_group_name OPERATOR(pg_catalog.=) mv.derivation_group_name AND newdata.event_type_name OPERATOR(pg_catalog.=) mv.event_type_name AND newdata.* OPERATOR(pg_catalog.*=) mv.*) WHERE newdata.* IS NULL OR mv.* IS NULL ORDER BY tid"

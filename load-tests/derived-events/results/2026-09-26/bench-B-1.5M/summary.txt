@@ -1,0 +1,20 @@
+ dgs | sources | events  | derived | mv_heap | mv_total | events_total | sources_total 
+-----+---------+---------+---------+---------+----------+--------------+---------------
+  15 |     150 | 1500000 |  420000 | 77 MB   | 104 MB   | 672 MB       | 152 kB
+(1 row)
+
+concurrent: first 3.6s  median 3.1s  range 3.1-4.1s  (n=5)
+     plain: first 1.8s  median 1.8s  range 1.8-1.9s  (n=5)
+pg_stat_database (temp_files temp_bytes blks_read blks_hit tup_inserted tup_deleted) before/after:
+34695|423027777913|69973202|271326046|57416418|16866706
+34895|427791478503|70365853|271381246|59517015|16867301
+pg_stat_bgwriter/pg_stat_wal (ckpt_timed ckpt_req buf_checkpoint buf_clean buf_backend buf_alloc wal_bytes wal_buffers_full) before/after:
+18|42|199754|310909|8657377|8367765|23873577963|2180713
+18|43|199941|310909|8703333|8379597|24450964384|2240795
+explain timing off:  Planning Time: 0.282 ms
+explain timing off:  Execution Time: 1629.578 ms
+concurrent refresh phases (auto_explain):
+  1541.097 ms   refresh materialized view concurrently merlin.derived_events;
+  921.887 ms   SELECT newdata.*::pg_temp_25.pg_temp_17883 FROM pg_temp_25.pg_temp_17883 newdata WHERE new
+  410.527 ms   INSERT INTO pg_temp_25.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_25.pg_tem
+peak docker stats: 19:38:56 100.51% 123.7MiB / 31.29GiB 0B / 622MB

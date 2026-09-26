@@ -1,0 +1,64 @@
+== storm same-B-10-explain: n=10 mode=same delay=0 sequential=0 curl_args=[] run=1790391055
+client wall: 100.36s   until DB idle: 100.46s
+-- requests (label http seconds; body snippet)
+same-B-10-explain-1 200            9.473s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-01","en
+same-B-10-explain-2 200           19.519s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-01","en
+same-B-10-explain-3 200           29.403s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-01","en
+same-B-10-explain-5 200           39.500s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-01","en
+same-B-10-explain-10 200           59.616s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-01","en
+same-B-10-explain-6 200           49.584s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-01","en
+same-B-10-explain-9 200           90.141s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-01","en
+same-B-10-explain-7 200          100.265s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-01","en
+same-B-10-explain-8 200           69.695s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-01","en
+same-B-10-explain-4 200           79.936s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-01","en
+http_200=10 
+graphql error bodies: 0
+-- refreshes per transaction (pid tx: count, first START -> last END, sum ms, tables)
+refreshes started=30 completed=30 total_refresh_ms=546191
+pid=321 tx=1474: started=3 ended=3 02:50:55.903 -> 02:51:05.290  sum=9385ms  [deriva,extern,extern,]
+pid=324 tx=1475: started=3 ended=3 02:50:55.903 -> 02:51:15.341  sum=19437ms  [deriva,extern,extern,]
+pid=323 tx=1476: started=3 ended=3 02:50:55.903 -> 02:51:25.230  sum=29325ms  [deriva,extern,extern,]
+pid=345 tx=1477: started=3 ended=3 02:50:55.914 -> 02:51:35.303  sum=39387ms  [deriva,extern,extern,]
+pid=348 tx=1478: started=3 ended=3 02:50:55.919 -> 02:51:45.393  sum=49472ms  [deriva,extern,extern,]
+pid=347 tx=1479: started=3 ended=3 02:50:55.920 -> 02:51:55.441  sum=59520ms  [deriva,extern,extern,]
+pid=344 tx=1480: started=3 ended=3 02:50:55.926 -> 02:52:05.529  sum=69601ms  [deriva,extern,extern,]
+pid=343 tx=1481: started=3 ended=3 02:50:55.926 -> 02:52:15.779  sum=79850ms  [deriva,extern,extern,]
+pid=346 tx=1482: started=3 ended=3 02:50:55.926 -> 02:52:25.974  sum=90046ms  [deriva,extern,extern,]
+pid=342 tx=1483: started=3 ended=3 02:50:55.926 -> 02:52:36.097  sum=100168ms  [deriva,extern,extern,]
+2026-09-26 02:52:37.403 UTC [341] FATAL:  terminating connection due to administrator command
+-- lock waits (log_lock_waits, >1s):
+      22
+-- sampler: max concurrent backends waiting on a lock / holding the MV lock
+max waiting on a lock: 9
+-- verify
+ mv_rows | expected_rows | row_missing_from_mv | row_extra_in_mv | key_missing_from_mv | key_extra_in_mv | rule4_violations 
+---------+---------------+---------------------+-----------------+---------------------+-----------------+------------------
+  420003 |        420003 |                   0 |               0 |                   0 |               0 |            40543
+(1 row)
+
+sample missing_from_mv (source_key, count):
+ source_key | count 
+------------+-------
+(0 rows)
+
+sample extra_in_mv (source_key, count):
+ source_key | count 
+------------+-------
+(0 rows)
+
+per source matching 'tiny-1790391055-%'
+     source_key     |     dg     |        valid_at        |          created_at           | events_committed | expected_in_mv | actual_in_mv 
+--------------------+------------+------------------------+-------------------------------+------------------+----------------+--------------
+ tiny-1790391055-1  | perf-dg-01 | 2036-09-25 14:50:56+00 | 2026-09-26 02:50:55.90221+00  |                3 |              0 |            0
+ tiny-1790391055-2  | perf-dg-01 | 2036-09-25 14:50:57+00 | 2026-09-26 02:50:55.902206+00 |                3 |              0 |            0
+ tiny-1790391055-3  | perf-dg-01 | 2036-09-25 14:50:58+00 | 2026-09-26 02:50:55.903172+00 |                3 |              0 |            0
+ tiny-1790391055-4  | perf-dg-01 | 2036-09-25 14:50:59+00 | 2026-09-26 02:50:55.925331+00 |                3 |              0 |            0
+ tiny-1790391055-5  | perf-dg-01 | 2036-09-25 14:51:00+00 | 2026-09-26 02:50:55.913084+00 |                3 |              0 |            0
+ tiny-1790391055-6  | perf-dg-01 | 2036-09-25 14:51:01+00 | 2026-09-26 02:50:55.918783+00 |                3 |              0 |            0
+ tiny-1790391055-7  | perf-dg-01 | 2036-09-25 14:51:02+00 | 2026-09-26 02:50:55.926008+00 |                3 |              0 |            0
+ tiny-1790391055-8  | perf-dg-01 | 2036-09-25 14:51:03+00 | 2026-09-26 02:50:55.925458+00 |                3 |              0 |            0
+ tiny-1790391055-9  | perf-dg-01 | 2036-09-25 14:51:04+00 | 2026-09-26 02:50:55.925199+00 |                3 |              0 |            0
+ tiny-1790391055-10 | perf-dg-01 | 2036-09-25 14:51:05+00 | 2026-09-26 02:50:55.919163+00 |                3 |              3 |            3
+(10 rows)
+
+COMMIT

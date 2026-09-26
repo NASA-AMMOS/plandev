@@ -1,0 +1,49 @@
+== storm multi-B-5: n=5 mode=multi delay=0 sequential=0 curl_args=[] run=1790390488
+client wall: 50.18s   until DB idle: 50.27s
+-- requests (label http seconds; body snippet)
+multi-B-5-1    200           19.750s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-01","en
+multi-B-5-2    200            9.640s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-02","en
+multi-B-5-3    200           50.084s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-03","en
+multi-B-5-4    200           39.951s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-04","en
+multi-B-5-5    200           29.880s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-05","en
+http_200=5 
+graphql error bodies: 0
+-- refreshes per transaction (pid tx: count, first START -> last END, sum ms, tables)
+refreshes started=15 completed=15 total_refresh_ms=148803
+pid=61 tx=1382: started=3 ended=3 02:41:29.293 -> 02:41:38.831  sum=9537ms  [deriva,extern,extern,]
+pid=50 tx=1383: started=3 ended=3 02:41:29.294 -> 02:41:48.943  sum=19648ms  [deriva,extern,extern,]
+pid=62 tx=1384: started=3 ended=3 02:41:29.300 -> 02:41:59.082  sum=29780ms  [deriva,extern,extern,]
+pid=51 tx=1385: started=3 ended=3 02:41:29.301 -> 02:42:09.154  sum=39852ms  [deriva,extern,extern,]
+pid=365 tx=1386: started=3 ended=3 02:41:29.302 -> 02:42:19.291  sum=49987ms  [deriva,extern,extern,]
+2026-09-26 02:42:20.598 UTC [428] FATAL:  terminating connection due to administrator command
+-- lock waits (log_lock_waits, >1s):
+       7
+-- sampler: max concurrent backends waiting on a lock / holding the MV lock
+max waiting on a lock: 4
+-- verify
+ mv_rows | expected_rows | row_missing_from_mv | row_extra_in_mv | key_missing_from_mv | key_extra_in_mv | rule4_violations 
+---------+---------------+---------------------+-----------------+---------------------+-----------------+------------------
+  420015 |        420015 |                   0 |               0 |                   0 |               0 |            39247
+(1 row)
+
+sample missing_from_mv (source_key, count):
+ source_key | count 
+------------+-------
+(0 rows)
+
+sample extra_in_mv (source_key, count):
+ source_key | count 
+------------+-------
+(0 rows)
+
+per source matching 'tiny-1790390488-%'
+    source_key     |     dg     |        valid_at        |          created_at           | events_committed | expected_in_mv | actual_in_mv 
+-------------------+------------+------------------------+-------------------------------+------------------+----------------+--------------
+ tiny-1790390488-1 | perf-dg-01 | 2036-09-25 14:41:29+00 | 2026-09-26 02:41:29.293784+00 |                3 |              3 |            3
+ tiny-1790390488-2 | perf-dg-02 | 2036-09-25 14:41:30+00 | 2026-09-26 02:41:29.293281+00 |                3 |              3 |            3
+ tiny-1790390488-3 | perf-dg-03 | 2036-09-25 14:41:31+00 | 2026-09-26 02:41:29.300851+00 |                3 |              3 |            3
+ tiny-1790390488-4 | perf-dg-04 | 2036-09-25 14:41:32+00 | 2026-09-26 02:41:29.300981+00 |                3 |              3 |            3
+ tiny-1790390488-5 | perf-dg-05 | 2036-09-25 14:41:33+00 | 2026-09-26 02:41:29.299497+00 |                3 |              3 |            3
+(5 rows)
+
+COMMIT

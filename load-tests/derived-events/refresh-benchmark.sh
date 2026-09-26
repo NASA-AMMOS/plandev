@@ -22,7 +22,10 @@ trap 'kill $sampler 2>/dev/null' EXIT
 
 dbstats="select temp_files, temp_bytes, blks_read, blks_hit, tup_inserted, tup_deleted
          from pg_stat_database where datname = current_database()"
+iostats="select checkpoints_timed, checkpoints_req, buffers_checkpoint, buffers_clean, buffers_backend, buffers_alloc,
+         w.wal_bytes, w.wal_buffers_full from pg_stat_bgwriter, pg_stat_wal w"
 psqlx -Atc "$dbstats" >"$dir/dbstats-before.txt"
+psqlx -Atc "$iostats" >"$dir/iostats-before.txt"
 
 # one run: prints "<kind> <ms> <wal_bytes> <temp_bytes>"
 run() {
@@ -48,6 +51,7 @@ SQL
 
 sleep 1.5  # let the backends flush pg_stat_database
 psqlx -Atc "$dbstats" >"$dir/dbstats-after.txt"
+psqlx -Atc "$iostats" >"$dir/iostats-after.txt"
 
 def=$(psqlx -Atc "select pg_get_viewdef('merlin.derived_events'::regclass, true)")
 psqlx -c "explain (analyze, buffers, wal, settings, summary) ${def%;}" >"$dir/plan.txt"
@@ -83,6 +87,8 @@ psqlx -c "select
   done
   echo "pg_stat_database (temp_files temp_bytes blks_read blks_hit tup_inserted tup_deleted) before/after:"
   cat "$dir/dbstats-before.txt" "$dir/dbstats-after.txt"
+  echo "pg_stat_bgwriter/pg_stat_wal (ckpt_timed ckpt_req buf_checkpoint buf_clean buf_backend buf_alloc wal_bytes wal_buffers_full) before/after:"
+  cat "$dir/iostats-before.txt" "$dir/iostats-after.txt"
   grep -E "Execution Time|Planning Time" "$dir/plan-timing-off.txt" | sed 's/^/explain timing off: /'
   echo "concurrent refresh phases (auto_explain):"
   awk '/duration: .* plan:/{d=$0; sub(/.*duration: /,"",d); sub(/ plan:.*/,"",d); getline; q=$0; sub(/.*Query Text: /,"",q); printf "  %10s  %.90s\n", d, q}' "$dir/auto-explain.txt"

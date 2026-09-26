@@ -1,0 +1,48 @@
+== storm same-A-5: n=5 mode=same delay=0 sequential=0 curl_args=[] run=1790379853
+client wall: 157.51s   until DB idle: 157.65s
+-- requests (label http seconds; body snippet)
+same-A-5-1     200           32.824s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-01","en
+same-A-5-3     200           64.075s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-01","en
+same-A-5-5     200          125.871s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-01","en
+same-A-5-4     200           95.979s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-01","en
+same-A-5-2     200          157.403s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-01","en
+http_200=5 
+graphql error bodies: 0
+-- refreshes per transaction (pid tx: count, first START -> last END, sum ms, tables)
+refreshes started=15 completed=15 total_refresh_ms=474866
+pid=54 tx=888: started=3 ended=3 23:44:14.597 -> 23:44:47.032  sum=32433ms  [deriva,extern,extern,]
+pid=40 tx=889: started=3 ended=3 23:44:14.606 -> 23:45:18.465  sum=63854ms  [deriva,extern,extern,]
+pid=53 tx=890: started=3 ended=3 23:44:14.623 -> 23:45:50.349  sum=95719ms  [deriva,extern,extern,]
+pid=362 tx=891: started=3 ended=3 23:44:14.624 -> 23:46:20.290  sum=125662ms  [deriva,extern,extern,]
+pid=363 tx=892: started=3 ended=3 23:44:14.629 -> 23:46:51.830  sum=157197ms  [deriva,extern,extern,]
+-- lock waits (log_lock_waits, >1s):
+       8
+-- sampler: max concurrent backends waiting on a lock / holding the MV lock
+max waiting on a lock: 4
+-- verify
+ mv_rows | expected_rows | row_missing_from_mv | row_extra_in_mv | key_missing_from_mv | key_extra_in_mv | rule4_violations 
+---------+---------------+---------------------+-----------------+---------------------+-----------------+------------------
+ 1499943 |       1499943 |                   0 |               0 |                   0 |               0 |                0
+(1 row)
+
+sample missing_from_mv (source_key, count):
+ source_key | count 
+------------+-------
+(0 rows)
+
+sample extra_in_mv (source_key, count):
+ source_key | count 
+------------+-------
+(0 rows)
+
+per source matching 'tiny-1790379853-%'
+    source_key     |     dg     |        valid_at        |          created_at           | events_committed | expected_in_mv | actual_in_mv 
+-------------------+------------+------------------------+-------------------------------+------------------+----------------+--------------
+ tiny-1790379853-1 | perf-dg-01 | 2036-09-25 11:44:14+00 | 2026-09-25 23:44:14.596603+00 |                3 |              0 |            0
+ tiny-1790379853-2 | perf-dg-01 | 2036-09-25 11:44:15+00 | 2026-09-25 23:44:14.628297+00 |                3 |              0 |            0
+ tiny-1790379853-3 | perf-dg-01 | 2036-09-25 11:44:16+00 | 2026-09-25 23:44:14.605469+00 |                3 |              0 |            0
+ tiny-1790379853-4 | perf-dg-01 | 2036-09-25 11:44:17+00 | 2026-09-25 23:44:14.621911+00 |                3 |              0 |            0
+ tiny-1790379853-5 | perf-dg-01 | 2036-09-25 11:44:18+00 | 2026-09-25 23:44:14.620593+00 |                3 |              3 |            3
+(5 rows)
+
+COMMIT

@@ -1,0 +1,6 @@
+== storm single-A: n=1 mode=same delay=0 sequential=0 curl_args=[] run=1790379684
+client wall: 40.82s   until DB idle: 40.98s
+-- requests (label http seconds; body snippet)
+single-A-1     200           40.720s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-01","en
+http_200=1 
+graphql error bodies: 0

@@ -1,0 +1,7 @@
+SET
+BEGIN
+ERROR:  canceling statement due to statement timeout
+CONTEXT:  SQL statement "refresh materialized view concurrently merlin.derived_events"
+PL/pgSQL function merlin.refresh_derived_events_on_trigger() line 8 at SQL statement
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ROLLBACK

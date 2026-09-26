@@ -1,0 +1,22 @@
+ mv_rows | expected_rows | row_missing_from_mv | row_extra_in_mv | key_missing_from_mv | key_extra_in_mv | rule4_violations 
+---------+---------------+---------------------+-----------------+---------------------+-----------------+------------------
+  420003 |        420003 |                   0 |               0 |                   0 |               0 |            40543
+(1 row)
+
+sample missing_from_mv (source_key, count):
+ source_key | count 
+------------+-------
+(0 rows)
+
+sample extra_in_mv (source_key, count):
+ source_key | count 
+------------+-------
+(0 rows)
+
+per source matching 'tiny-1790384602-%'
+    source_key     |     dg     |        valid_at        |          created_at          | events_committed | expected_in_mv | actual_in_mv 
+-------------------+------------+------------------------+------------------------------+------------------+----------------+--------------
+ tiny-1790384602-1 | perf-dg-01 | 2036-09-25 13:03:23+00 | 2026-09-26 01:03:23.54493+00 |                3 |              3 |            3
+(1 row)
+
+COMMIT

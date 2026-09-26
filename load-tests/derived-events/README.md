@@ -4,6 +4,8 @@ Measures the current `merlin.derived_events` materialized-view refresh (global
 `REFRESH MATERIALIZED VIEW CONCURRENTLY` from 3 statement-level triggers), reproduces the refresh storm under
 concurrent ingests, and checks the view for staleness after each scenario. Plain bash + psql + curl, no deps.
 
+Findings from the first run (2026-09-25, v4.4.0): [RESULTS.md](RESULTS.md). Raw outputs: `results/2026-09-25/`.
+
 Everything talks to a running PlanDev stack: the Postgres container through `docker exec`, and the Gateway over
 HTTP (`AUTH_TYPE=none`). Defaults target the `pd` stack `eeperf`. Override them for any other compose stack:
 

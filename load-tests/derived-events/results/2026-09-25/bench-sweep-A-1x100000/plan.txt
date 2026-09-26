@@ -1,0 +1,59 @@
+                                                                                        QUERY PLAN                                                                                         
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Unique  (cost=72966.44..72967.19 rows=100 width=194) (actual time=2496.559..2831.132 rows=1500000 loops=1)
+   Buffers: shared hit=12389 read=33081, temp read=127573 written=127728
+   ->  Sort  (cost=72966.44..72966.69 rows=100 width=194) (actual time=2496.557..2704.125 rows=1500000 loops=1)
+         Sort Key: output.event_key, output.derivation_group_name
+         Sort Method: external merge  Disk: 249296kB
+         Buffers: shared hit=12389 read=33081, temp read=127573 written=127728
+         ->  Subquery Scan on output  (cost=72961.87..72963.12 rows=100 width=194) (actual time=804.853..1051.763 rows=1500000 loops=1)
+               Buffers: shared hit=12386 read=33081, temp read=65255 written=65334
+               ->  Sort  (cost=72961.87..72962.12 rows=100 width=194) (actual time=804.850..938.379 rows=1500000 loops=1)
+                     Sort Key: r.valid_at DESC
+                     Sort Method: external merge  Disk: 261048kB
+                     Buffers: shared hit=12386 read=33081, temp read=65255 written=65334
+                     ->  Hash Join  (cost=7.64..72958.55 rows=100 width=194) (actual time=0.398..441.388 rows=1500000 loops=1)
+                           Hash Cond: ((ee.source_key = r.key) AND (ee.derivation_group_name = r.derivation_group_name))
+                           Join Filter: ((merlin.subtract_later_ranges(r.original_range, r.subsequent_ranges)) @> ee.start_time)
+                           Buffers: shared hit=12383 read=33081
+                           ->  Seq Scan on external_event ee  (cost=0.00..60452.77 rows=1499777 width=117) (actual time=0.011..161.893 rows=1500000 loops=1)
+                                 Buffers: shared hit=12374 read=33081
+                           ->  Hash  (cost=7.41..7.41 rows=15 width=104) (actual time=0.364..0.368 rows=15 loops=1)
+                                 Buckets: 1024  Batches: 1  Memory Usage: 10kB
+                                 Buffers: shared hit=9
+                                 ->  Sort  (cost=7.37..7.41 rows=15 width=104) (actual time=0.360..0.363 rows=15 loops=1)
+                                       Sort Key: r.derivation_group_name DESC, r.valid_at
+                                       Sort Method: quicksort  Memory: 26kB
+                                       Buffers: shared hit=9
+                                       CTE base_ranges
+                                         ->  Sort  (cost=1.52..1.56 rows=15 width=67) (actual time=0.096..0.097 rows=15 loops=1)
+                                               Sort Key: external_source.valid_at
+                                               Sort Method: quicksort  Memory: 26kB
+                                               Buffers: shared hit=1
+                                               ->  Seq Scan on external_source  (cost=0.00..1.22 rows=15 width=67) (actual time=0.082..0.084 rows=15 loops=1)
+                                                     Buffers: shared hit=1
+                                       ->  Subquery Scan on r  (cost=1.32..5.52 rows=15 width=104) (actual time=0.298..0.325 rows=15 loops=1)
+                                             Buffers: shared hit=9
+                                             ->  GroupAggregate  (cost=1.32..1.77 rows=15 width=136) (actual time=0.171..0.180 rows=15 loops=1)
+                                                   Group Key: base.key, base.derivation_group_name, base.valid_at, base.range
+                                                   Buffers: shared hit=6
+                                                   ->  Sort  (cost=1.32..1.36 rows=15 width=144) (actual time=0.166..0.168 rows=15 loops=1)
+                                                         Sort Key: base.key, base.derivation_group_name, base.valid_at, base.range, subsequent.valid_at
+                                                         Sort Method: quicksort  Memory: 26kB
+                                                         Buffers: shared hit=6
+                                                         ->  Hash Left Join  (cost=0.49..1.03 rows=15 width=144) (actual time=0.137..0.142 rows=15 loops=1)
+                                                               Hash Cond: (base.derivation_group_name = subsequent.derivation_group_name)
+                                                               Join Filter: (base.valid_at < subsequent.valid_at)
+                                                               Rows Removed by Join Filter: 15
+                                                               Buffers: shared hit=1
+                                                               ->  CTE Scan on base_ranges base  (cost=0.00..0.30 rows=15 width=104) (actual time=0.097..0.098 rows=15 loops=1)
+                                                                     Buffers: shared hit=1
+                                                               ->  Hash  (cost=0.30..0.30 rows=15 width=72) (actual time=0.011..0.012 rows=15 loops=1)
+                                                                     Buckets: 1024  Batches: 1  Memory Usage: 10kB
+                                                                     ->  CTE Scan on base_ranges subsequent  (cost=0.00..0.30 rows=15 width=72) (actual time=0.001..0.003 rows=15 loops=1)
+ Planning:
+   Buffers: shared hit=202
+ Planning Time: 0.516 ms
+ Execution Time: 2880.747 ms
+(55 rows)
+

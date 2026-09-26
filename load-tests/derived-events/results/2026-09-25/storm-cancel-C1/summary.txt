@@ -1,0 +1,35 @@
+== storm cancel-C1: n=1 mode=same delay=0 sequential=0 curl_args=[] run=1790381485
+client wall: 2.49s   until DB idle: 2.59s
+-- requests (label http seconds; body snippet)
+cancel-C1-1    200            2.388s  {"errors":[{"extensions":{"code":"unexpected","internal":{"arguments":[],"error":{"description":null,"exec_sta
+http_200=1 
+graphql error bodies: 1
+-- refreshes per transaction (pid tx: count, first START -> last END, sum ms, tables)
+refreshes started=1 completed=0 total_refresh_ms=0
+pid=693 tx=1007: started=1 ended=0 00:11:26.100 ->   sum=0ms  [deriva,]
+-- lock waits (log_lock_waits, >1s):
+       0
+-- sampler: max concurrent backends waiting on a lock / holding the MV lock
+max waiting on a lock: 0
+-- verify
+ mv_rows | expected_rows | row_missing_from_mv | row_extra_in_mv | key_missing_from_mv | key_extra_in_mv | rule4_violations 
+---------+---------------+---------------------+-----------------+---------------------+-----------------+------------------
+ 1499715 |       1499715 |                   0 |               0 |                   0 |               0 |                0
+(1 row)
+
+sample missing_from_mv (source_key, count):
+ source_key | count 
+------------+-------
+(0 rows)
+
+sample extra_in_mv (source_key, count):
+ source_key | count 
+------------+-------
+(0 rows)
+
+per source matching 'tiny-1790381485-%'
+ source_key | dg | valid_at | created_at | events_committed | expected_in_mv | actual_in_mv 
+------------+----+----------+------------+------------------+----------------+--------------
+(0 rows)
+
+COMMIT

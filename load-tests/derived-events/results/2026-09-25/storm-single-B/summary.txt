@@ -1,0 +1,37 @@
+== storm single-B: n=1 mode=same delay=0 sequential=0 curl_args=[] run=1790384602
+client wall: 9.82s   until DB idle: 9.93s
+-- requests (label http seconds; body snippet)
+single-B-1     200            9.754s  {"upsertDerivationGroup":null,"createExternalSource":{"attributes":{},"derivation_group_name":"perf-dg-01","en
+http_200=1 
+graphql error bodies: 0
+-- refreshes per transaction (pid tx: count, first START -> last END, sum ms, tables)
+refreshes started=3 completed=3 total_refresh_ms=9664
+pid=2982 tx=1184: started=3 ended=3 01:03:23.546 -> 01:03:33.212  sum=9664ms  [deriva,extern,extern,]
+2026-09-26 01:03:34.518 UTC [3111] FATAL:  terminating connection due to administrator command
+-- lock waits (log_lock_waits, >1s):
+       0
+-- sampler: max concurrent backends waiting on a lock / holding the MV lock
+max waiting on a lock: 0
+-- verify
+ mv_rows | expected_rows | row_missing_from_mv | row_extra_in_mv | key_missing_from_mv | key_extra_in_mv | rule4_violations 
+---------+---------------+---------------------+-----------------+---------------------+-----------------+------------------
+  420003 |        420003 |                   0 |               0 |                   0 |               0 |            40543
+(1 row)
+
+sample missing_from_mv (source_key, count):
+ source_key | count 
+------------+-------
+(0 rows)
+
+sample extra_in_mv (source_key, count):
+ source_key | count 
+------------+-------
+(0 rows)
+
+per source matching 'tiny-1790384602-%'
+    source_key     |     dg     |        valid_at        |          created_at          | events_committed | expected_in_mv | actual_in_mv 
+-------------------+------------+------------------------+------------------------------+------------------+----------------+--------------
+ tiny-1790384602-1 | perf-dg-01 | 2036-09-25 13:03:23+00 | 2026-09-26 01:03:23.54493+00 |                3 |              3 |            3
+(1 row)
+
+COMMIT

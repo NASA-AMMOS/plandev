@@ -1,0 +1,64 @@
+                                                                                      QUERY PLAN                                                                                       
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Unique  (cost=139526.23..139526.27 rows=5 width=191) (actual time=2191.033..2333.278 rows=360000 loops=1)
+   Buffers: shared hit=525 read=45028, temp read=102062 written=102143
+   ->  Sort  (cost=139526.23..139526.25 rows=5 width=191) (actual time=2191.032..2283.309 rows=787500 loops=1)
+         Sort Key: output.event_key, output.derivation_group_name
+         Sort Method: external merge  Disk: 129472kB
+         Buffers: shared hit=525 read=45028, temp read=102062 written=102143
+         ->  Subquery Scan on output  (cost=139526.11..139526.18 rows=5 width=191) (actual time=913.422..1071.931 rows=787500 loops=1)
+               Buffers: shared hit=522 read=45028, temp read=69697 written=69738
+               ->  Sort  (cost=139526.11..139526.13 rows=5 width=191) (actual time=913.400..999.296 rows=787500 loops=1)
+                     Sort Key: r.valid_at DESC
+                     Sort Method: external merge  Disk: 132144kB
+                     Buffers: shared hit=522 read=45028, temp read=69697 written=69738
+                     ->  Hash Join  (cost=109732.78..139526.06 rows=5 width=191) (actual time=464.473..742.492 rows=787500 loops=1)
+                           Hash Cond: ((r.key = ee.source_key) AND (r.derivation_group_name = ee.derivation_group_name))
+                           Join Filter: ((merlin.subtract_later_ranges(r.original_range, r.subsequent_ranges)) @> ee.start_time)
+                           Rows Removed by Join Filter: 712500
+                           Buffers: shared hit=519 read=45028, temp read=36666 written=36666
+                           ->  Sort  (cost=136.46..136.96 rows=200 width=104) (actual time=16.193..16.209 rows=300 loops=1)
+                                 Sort Key: r.derivation_group_name DESC, r.valid_at
+                                 Sort Method: quicksort  Memory: 50kB
+                                 Buffers: shared hit=95
+                                 CTE base_ranges
+                                   ->  Sort  (cost=24.84..25.59 rows=300 width=67) (actual time=11.441..11.448 rows=300 loops=1)
+                                         Sort Key: external_source.valid_at
+                                         Sort Method: quicksort  Memory: 50kB
+                                         Buffers: shared hit=8
+                                         ->  Seq Scan on external_source  (cost=0.00..12.50 rows=300 width=67) (actual time=11.365..11.399 rows=300 loops=1)
+                                               Buffers: shared hit=8
+                                 ->  Subquery Scan on r  (cost=45.72..103.22 rows=200 width=104) (actual time=15.101..16.077 rows=300 loops=1)
+                                       Buffers: shared hit=95
+                                       ->  GroupAggregate  (cost=45.72..53.22 rows=200 width=136) (actual time=14.942..15.410 rows=300 loops=1)
+                                             Group Key: base.key, base.derivation_group_name, base.valid_at, base.range
+                                             Buffers: shared hit=13
+                                             ->  Sort  (cost=45.72..46.47 rows=300 width=144) (actual time=14.929..14.999 rows=2865 loops=1)
+                                                   Sort Key: base.key, base.derivation_group_name, base.valid_at, base.range, subsequent.valid_at
+                                                   Sort Method: quicksort  Memory: 454kB
+                                                   Buffers: shared hit=13
+                                                   ->  Hash Left Join  (cost=9.75..33.38 rows=300 width=144) (actual time=11.513..11.841 rows=2865 loops=1)
+                                                         Hash Cond: (base.derivation_group_name = subsequent.derivation_group_name)
+                                                         Join Filter: (base.valid_at < subsequent.valid_at)
+                                                         Rows Removed by Join Filter: 3150
+                                                         Buffers: shared hit=8
+                                                         ->  CTE Scan on base_ranges base  (cost=0.00..6.00 rows=300 width=104) (actual time=11.442..11.454 rows=300 loops=1)
+                                                               Buffers: shared hit=8
+                                                         ->  Hash  (cost=6.00..6.00 rows=300 width=72) (actual time=0.064..0.065 rows=300 loops=1)
+                                                               Buckets: 1024  Batches: 1  Memory Usage: 33kB
+                                                               ->  CTE Scan on base_ranges subsequent  (cost=0.00..6.00 rows=300 width=72) (actual time=0.003..0.045 rows=300 loops=1)
+                           ->  Hash  (cost=60516.93..60516.93 rows=1506493 width=114) (actual time=447.337..447.337 rows=1500000 loops=1)
+                                 Buckets: 65536 (originally 65536)  Batches: 64 (originally 32)  Memory Usage: 7681kB
+                                 Buffers: shared hit=424 read=45028, temp written=24827
+                                 ->  Seq Scan on external_event ee  (cost=0.00..60516.93 rows=1506493 width=114) (actual time=0.024..160.870 rows=1500000 loops=1)
+                                       Buffers: shared hit=424 read=45028
+ Planning:
+   Buffers: shared hit=202
+ Planning Time: 0.592 ms
+ JIT:
+   Functions: 42
+   Options: Inlining false, Optimization false, Expressions true, Deforming true
+   Timing: Generation 1.761 ms, Inlining 0.000 ms, Optimization 0.566 ms, Emission 10.857 ms, Total 13.184 ms
+ Execution Time: 2367.640 ms
+(60 rows)
+

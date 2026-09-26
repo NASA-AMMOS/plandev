@@ -1,0 +1,25 @@
+ mv_rows | expected_rows | row_missing_from_mv | row_extra_in_mv | key_missing_from_mv | key_extra_in_mv | rule4_violations 
+---------+---------------+---------------------+-----------------+---------------------+-----------------+------------------
+ 1499943 |       1499886 |               99943 |          100000 |                   3 |              60 |                0
+(1 row)
+
+sample missing_from_mv (source_key, count):
+   source_key    | count 
+-----------------+-------
+ perf-src-02-000 | 99940
+ race-1790380083 |     3
+(2 rows)
+
+sample extra_in_mv (source_key, count):
+   source_key    | count  
+-----------------+--------
+ perf-src-02-000 | 100000
+(1 row)
+
+per source matching 'race-1790380083'
+   source_key    |     dg     |           valid_at            |          created_at           | events_committed | expected_in_mv | actual_in_mv 
+-----------------+------------+-------------------------------+-------------------------------+------------------+----------------+--------------
+ race-1790380083 | perf-dg-02 | 2046-09-25 23:48:03.543496+00 | 2026-09-25 23:48:03.543496+00 |                3 |              3 |            0
+(1 row)
+
+COMMIT

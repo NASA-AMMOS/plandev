@@ -1,0 +1,17 @@
+ dgs | sources | events  | derived | mv_heap | mv_total | events_total | sources_total 
+-----+---------+---------+---------+---------+----------+--------------+---------------
+  15 |     150 | 1500000 |  420000 | 77 MB   | 104 MB   | 751 MB       | 96 kB
+(1 row)
+
+concurrent: first 3.9s  median 3.8s  range 3.5-3.9s  (n=5)
+     plain: first 2.6s  median 2.6s  range 2.1-2.6s  (n=5)
+pg_stat_database (temp_files temp_bytes blks_read blks_hit tup_inserted tup_deleted) before/after:
+902|19896033630|2277907|41098624|13482198|1502237
+1102|24659767455|2909645|41145395|15582795|1502832
+explain timing off:  Planning Time: 0.402 ms
+explain timing off:  Execution Time: 1915.411 ms
+concurrent refresh phases (auto_explain):
+  2060.372 ms   refresh materialized view concurrently merlin.derived_events;
+  1020.471 ms   SELECT newdata.*::pg_temp_27.pg_temp_17883 FROM pg_temp_27.pg_temp_17883 newdata WHERE new
+  516.188 ms   INSERT INTO pg_temp_27.pg_temp_17883_2 SELECT mv.ctid AS tid, newdata.*::pg_temp_27.pg_tem
+peak docker stats: 16:38:51 104.77% 104.6MiB / 31.29GiB 1.63MB / 61.4kB

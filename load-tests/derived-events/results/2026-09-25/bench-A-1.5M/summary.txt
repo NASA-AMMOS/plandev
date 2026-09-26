@@ -1,0 +1,13 @@
+ dgs | sources | events  | derived | mv_heap | mv_total | events_total | sources_total 
+-----+---------+---------+---------+---------+----------+--------------+---------------
+  15 |      15 | 1500000 | 1500000 | 273 MB  | 370 MB   | 377 MB       | 48 kB
+(1 row)
+
+concurrent: first 17.8s  median 9.3s  range 8.4-17.8s  (n=5)
+     plain: first 3.6s  median 4.4s  range 3.6-6.0s  (n=5)
+pg_stat_database (temp_files temp_bytes blks_read blks_hit tup_inserted tup_deleted) before/after:
+7|614218944|208872|16932966|3011760|1340
+687|13063730919|819417|16979153|10512357|1935
+explain timing off:  Planning Time: 0.304 ms
+explain timing off:  Execution Time: 2621.315 ms
+peak docker stats: 16:35:15 123.65% 135.9MiB / 31.29GiB 1.64MB / 1.15GB

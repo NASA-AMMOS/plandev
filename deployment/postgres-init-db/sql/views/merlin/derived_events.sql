@@ -69,7 +69,11 @@ from (
   and s.derivation_group_name = ee.derivation_group_name
   where s.source_range @> ee.start_time
   order by valid_at desc
-) output;
+) output
+order by
+  output.event_key,
+  output.derivation_group_name,
+  output.valid_at desc;
 
 -- create a unique index, which allows concurrent refreshes
 create unique index on merlin.derived_events (

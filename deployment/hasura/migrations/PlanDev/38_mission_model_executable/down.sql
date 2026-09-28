@@ -197,10 +197,10 @@ create function merlin.check_locked_on_delete()
   returns trigger
   security definer
   language plpgsql as $$
-begin
-  call merlin.plan_locked_exception(old.plan_id);
-  return old;
-end $$;
+  begin
+    call merlin.plan_locked_exception(old.plan_id);
+    return old;
+  end $$;
 
 create trigger check_locked_on_delete_trigger
   before delete on merlin.activity_directive
@@ -208,54 +208,54 @@ create trigger check_locked_on_delete_trigger
 execute procedure merlin.check_locked_on_delete();
 
 create or replace function merlin.check_activity_directive_metadata()
-  returns trigger
-  security definer
-  language plpgsql as $$
-declare
-  _key text;
-  _value jsonb;
-  _schema jsonb;
-  _type text;
-  _subValue jsonb;
-begin
+returns trigger
+security definer
+language plpgsql as $$
+  declare
+    _key text;
+    _value jsonb;
+    _schema jsonb;
+    _type text;
+    _subValue jsonb;
+  begin
   call merlin.plan_locked_exception(new.plan_id);
   for _key, _value in
     select * from jsonb_each(new.metadata::jsonb)
-    loop
-      select schema into _schema from merlin.activity_directive_metadata_schema where key = _key;
-      _type := _schema->>'type';
-      if _type = 'string' then
-        if jsonb_typeof(_value) != 'string' then
-          raise exception 'invalid metadata value for key %. Expected: string, Received: %', _key, _value;
-        end if;
-      elsif _type = 'long_string' then
-        if jsonb_typeof(_value) != 'string' then
-          raise exception 'invalid metadata value for key %. Expected: string, Received: %', _key, _value;
-        end if;
-      elsif _type = 'boolean' then
-        if jsonb_typeof(_value) != 'boolean' then
-          raise exception 'invalid metadata value for key %. Expected: boolean, Received: %', _key, _value;
-        end if;
-      elsif _type = 'number' then
-        if jsonb_typeof(_value) != 'number' then
-          raise exception 'invalid metadata value for key %. Expected: number, Received: %', _key, _value;
-        end if;
-      elsif _type = 'enum' then
-        if (_value not in (select * from jsonb_array_elements(_schema->'enumerates'))) then
-          raise exception 'invalid metadata value for key %. Expected: %, Received: %', _key, _schema->>'enumerates', _value;
-        end if;
-      elsif _type = 'enum_multiselect' then
-        if jsonb_typeof(_value) != 'array' then
-          raise exception 'invalid metadata value for key %. Expected an array of enumerates: %, Received: %', _key, _schema->>'enumerates', _value;
-        end if;
-        for _subValue in select * from jsonb_array_elements(_value)
-          loop
-            if (_subValue not in (select * from jsonb_array_elements(_schema->'enumerates'))) then
-              raise exception 'invalid metadata value for key %. Expected one of the valid enumerates: %, Received: %', _key, _schema->>'enumerates', _value;
-            end if;
-          end loop;
+  loop
+    select schema into _schema from merlin.activity_directive_metadata_schema where key = _key;
+    _type := _schema->>'type';
+    if _type = 'string' then
+      if jsonb_typeof(_value) != 'string' then
+        raise exception 'invalid metadata value for key %. Expected: string, Received: %', _key, _value;
       end if;
-    end loop;
+    elsif _type = 'long_string' then
+      if jsonb_typeof(_value) != 'string' then
+        raise exception 'invalid metadata value for key %. Expected: string, Received: %', _key, _value;
+      end if;
+    elsif _type = 'boolean' then
+      if jsonb_typeof(_value) != 'boolean' then
+        raise exception 'invalid metadata value for key %. Expected: boolean, Received: %', _key, _value;
+      end if;
+    elsif _type = 'number' then
+      if jsonb_typeof(_value) != 'number' then
+        raise exception 'invalid metadata value for key %. Expected: number, Received: %', _key, _value;
+      end if;
+    elsif _type = 'enum' then
+      if (_value not in (select * from jsonb_array_elements(_schema->'enumerates'))) then
+        raise exception 'invalid metadata value for key %. Expected: %, Received: %', _key, _schema->>'enumerates', _value;
+      end if;
+    elsif _type = 'enum_multiselect' then
+      if jsonb_typeof(_value) != 'array' then
+        raise exception 'invalid metadata value for key %. Expected an array of enumerates: %, Received: %', _key, _schema->>'enumerates', _value;
+      end if;
+      for _subValue in select * from jsonb_array_elements(_value)
+        loop
+          if (_subValue not in (select * from jsonb_array_elements(_schema->'enumerates'))) then
+            raise exception 'invalid metadata value for key %. Expected one of the valid enumerates: %, Received: %', _key, _schema->>'enumerates', _value;
+          end if;
+        end loop;
+    end if;
+  end loop;
   return new;
 end$$;
 
@@ -269,9 +269,9 @@ $$ begin
 
   -- request new validation
   update merlin.activity_directive_validations
-  set last_modified_arguments_at = new.last_modified_arguments_at,
-      status = 'pending'
-  where (directive_id, plan_id) = (new.id, new.plan_id);
+    set last_modified_arguments_at = new.last_modified_arguments_at,
+        status = 'pending'
+    where (directive_id, plan_id) = (new.id, new.plan_id);
 
   return new;
 end $$;
@@ -432,13 +432,13 @@ comment on column merlin.plan.is_locked is e''
 
 -- Update functions that refer to "definition_file_id"
 create or replace function merlin.increment_revision_mission_model_jar_update()
-  returns trigger
-  security definer
-  language plpgsql as $$begin
+returns trigger
+security definer
+language plpgsql as $$begin
   update merlin.mission_model
   set revision = revision + 1
   where jar_id = new.id
-     or jar_id = old.id;
+    or jar_id = old.id;
 
   return new;
 end$$;

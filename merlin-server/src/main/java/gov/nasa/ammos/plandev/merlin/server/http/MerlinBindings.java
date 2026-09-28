@@ -4,6 +4,7 @@ import gov.nasa.ammos.plandev.constraints.InputMismatchException;
 import gov.nasa.ammos.plandev.json.FormattedError;
 import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader.MissionModelLoadException;
 import gov.nasa.ammos.plandev.merlin.server.exceptions.MerlinFormattedError;
+import gov.nasa.ammos.plandev.merlin.server.exceptions.MissionModelNotExecutableException;
 import gov.nasa.ammos.plandev.merlin.server.exceptions.NoSuchConstraintException;
 import gov.nasa.ammos.plandev.merlin.server.models.ProcedureLoader;
 import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.DatabaseException;
@@ -165,6 +166,8 @@ public final class MerlinBindings implements Plugin {
     });
     javalin.exception(MissionModelLoadException.class, (ex, ctx) ->
         ctx.status(500).json(new MerlinFormattedError(ex)));
+    javalin.exception(MissionModelNotExecutableException.class, (ex, ctx) ->
+        ctx.status(400).json(new MerlinFormattedError(ex)));
     javalin.exception(
         HttpResponseException.class, (ex, ctx) ->
             ctx.status(ex.getStatus()).json(new FormattedError(FormattedError.AerieService.MERLIN_SERVER, "HTTP_RESPONSE_EXCEPTION", ex)));

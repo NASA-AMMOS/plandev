@@ -52,6 +52,17 @@ public class MerlinFormattedError extends FormattedError {
     );
   }
 
+  public MerlinFormattedError(MissionModelNotExecutableException mne) {
+    super(
+        AerieService.MERLIN_SERVER,
+        "MISSION_MODEL_NOT_EXECUTABLE",
+        mne,
+        Json.createObjectBuilder()
+            .add("mission_model_id", mne.missionModelId.id())
+            .build()
+    );
+  }
+
   public MerlinFormattedError(NoSuchActivityTypeException nae) {
     super(
         AerieService.MERLIN_SERVER,

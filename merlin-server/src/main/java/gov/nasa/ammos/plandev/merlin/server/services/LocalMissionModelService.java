@@ -21,6 +21,7 @@ import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityDirectiveForValidation;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
+import gov.nasa.ammos.plandev.merlin.server.exceptions.MissionModelNotExecutableException;
 import gov.nasa.ammos.plandev.merlin.server.models.ExecutableModel;
 import gov.nasa.ammos.plandev.merlin.server.models.MissionModelFile;
 import gov.nasa.ammos.plandev.merlin.server.models.NonExecutableModel;
@@ -136,18 +137,15 @@ public final class LocalMissionModelService implements MissionModelService {
     // load mission model once for all activities
     ModelType<?, ?> modelType;
     try {
-      switch (this.getMissionModelById(missionModelId)) {
-        case ExecutableModel executableModel -> modelType = this.loadMissionModelType(missionModelId);
-        // A non-executable model has no code to validate arguments with, and loading it as a JAR would fail on every
-        // poll, so its directives are completed as unavailable instead of being left pending.
-        case NonExecutableModel nonExecutableModel -> {
-          return activities.stream()
-              .map($ -> (BulkArgumentValidationResponse) new BulkArgumentValidationResponse.Unavailable())
-              .toList();
-        }
-      }
+      modelType = this.loadMissionModelType(missionModelId);
       // try and catch NoSuchMissionModel here, so we can serialize it out to each activity validation
       // rather than catching it at a higher level in the workerLoop itself
+    } catch (MissionModelNotExecutableException e) {
+      // A non-executable model has no code to validate arguments with, so its directives are completed as
+      // unavailable instead of being left pending and retried on every poll.
+      return activities.stream()
+          .map($ -> (BulkArgumentValidationResponse) new BulkArgumentValidationResponse.Unavailable())
+          .toList();
     } catch (NoSuchMissionModelException e) {
       return activities.stream()
           .map(directive -> new BulkArgumentValidationResponse.NoSuchMissionModelError(e))
@@ -230,7 +228,12 @@ public final class LocalMissionModelService implements MissionModelService {
       final MissionModelId missionModelId,
       final List<SerializedActivity> serializedActivities)
   throws NoSuchMissionModelException, MissionModelLoadException {
-      final var modelType = this.loadMissionModelType(missionModelId);
+      final ModelType<?, ?> modelType;
+      try {
+        modelType = this.loadMissionModelType(missionModelId);
+      } catch (MissionModelNotExecutableException e) {
+        return getNonExecutableActivityEffectiveArguments(missionModelId, serializedActivities);
+      }
       final var registry = DirectiveTypeRegistry.extract(modelType);
       final var response = new ArrayList<BulkEffectiveArgumentResponse>();
 
@@ -255,6 +258,22 @@ public final class LocalMissionModelService implements MissionModelService {
       }
 
       return response;
+  }
+
+  /**
+   * A non-executable model declares no default arguments, so an activity's effective arguments are the ones it was
+   * given. Its activity types are still known, so an unknown type is still reported.
+   */
+  private List<BulkEffectiveArgumentResponse> getNonExecutableActivityEffectiveArguments(
+      final MissionModelId missionModelId,
+      final List<SerializedActivity> serializedActivities)
+  throws NoSuchMissionModelException {
+    final var activityTypes = this.missionModelRepository.getActivityTypes(missionModelId);
+    return serializedActivities.stream()
+        .map(activity -> activityTypes.containsKey(activity.getTypeName())
+            ? (BulkEffectiveArgumentResponse) new BulkEffectiveArgumentResponse.Success(activity)
+            : new BulkEffectiveArgumentResponse.TypeFailure(new NoSuchActivityTypeException(activity.getTypeName())))
+        .toList();
   }
 
   @Override
@@ -282,9 +301,14 @@ public final class LocalMissionModelService implements MissionModelService {
          MissionModelLoadException,
          InstantiationException
   {
-    return this.loadMissionModelType(missionModelId)
-        .getConfigurationType()
-        .getEffectiveArguments(arguments);
+    try {
+      return this.loadMissionModelType(missionModelId)
+          .getConfigurationType()
+          .getEffectiveArguments(arguments);
+    } catch (MissionModelNotExecutableException e) {
+      // no defaults to fill in, as for activities
+      return arguments;
+    }
   }
 
   /**
@@ -351,10 +375,17 @@ public final class LocalMissionModelService implements MissionModelService {
         model.extractResourceSchemas(untruePlanStart, SerializedValue.of(Map.of())));
   }
 
+  /**
+   * @throws MissionModelNotExecutableException If the model is non-executable, so there is no code to load. Every
+   * caller loads the model through here, so none can reach MissionModelLoader with a model's JSON definition file.
+   */
   private ModelType<?, ?> loadMissionModelType(final MissionModelId missionModelId)
   throws NoSuchMissionModelException, MissionModelLoadException
   {
-    final var missionModelJar = this.missionModelRepository.getMissionModel(missionModelId, missionModelDataPath);
+    final var missionModelJar = switch (this.missionModelRepository.getMissionModel(missionModelId, missionModelDataPath)) {
+      case ExecutableModel executableModel -> executableModel;
+      case NonExecutableModel nonExecutableModel -> throw new MissionModelNotExecutableException(missionModelId);
+    };
     return MissionModelLoader.loadModelType(missionModelDataPath.resolve(missionModelJar.definitionFile()), missionModelJar.name(), missionModelJar.version());
   }
 

@@ -37,12 +37,12 @@ comment on column merlin.plan.is_read_only is e''
 
 -- Add readonly check function
 create procedure merlin.plan_readonly_exception(plan_id integer)
-  language plpgsql as $$
-begin
-  if(select is_read_only from merlin.plan p where p.id = plan_id limit 1) then
-    raise exception 'Plan % is marked as Read Only and cannot be edited.', plan_id;
-  end if;
-end
+language plpgsql as $$
+  begin
+    if(select is_read_only from merlin.plan p where p.id = plan_id limit 1) then
+      raise exception 'Plan % is marked as Read Only and cannot be edited.', plan_id;
+    end if;
+  end
 $$;
 
 comment on procedure merlin.plan_readonly_exception(plan_id integer) is e''
@@ -265,61 +265,61 @@ $$ begin
 
   -- request new validation
   update merlin.activity_directive_validations
-  set last_modified_arguments_at = new.last_modified_arguments_at,
-      status = 'pending'
-  where (directive_id, plan_id) = (new.id, new.plan_id);
+    set last_modified_arguments_at = new.last_modified_arguments_at,
+        status = 'pending'
+    where (directive_id, plan_id) = (new.id, new.plan_id);
 
   return new;
 end $$;
 
 create or replace function merlin.check_activity_directive_metadata()
-  returns trigger
-  security definer
-  language plpgsql as $$
-declare
-  _key text;
-  _value jsonb;
-  _schema jsonb;
-  _type text;
-  _subValue jsonb;
-begin
+returns trigger
+security definer
+language plpgsql as $$
+  declare
+    _key text;
+    _value jsonb;
+    _schema jsonb;
+    _type text;
+    _subValue jsonb;
+  begin
   for _key, _value in
     select * from jsonb_each(new.metadata::jsonb)
-    loop
-      select schema into _schema from merlin.activity_directive_metadata_schema where key = _key;
-      _type := _schema->>'type';
-      if _type = 'string' then
-        if jsonb_typeof(_value) != 'string' then
-          raise exception 'invalid metadata value for key %. Expected: string, Received: %', _key, _value;
-        end if;
-      elsif _type = 'long_string' then
-        if jsonb_typeof(_value) != 'string' then
-          raise exception 'invalid metadata value for key %. Expected: string, Received: %', _key, _value;
-        end if;
-      elsif _type = 'boolean' then
-        if jsonb_typeof(_value) != 'boolean' then
-          raise exception 'invalid metadata value for key %. Expected: boolean, Received: %', _key, _value;
-        end if;
-      elsif _type = 'number' then
-        if jsonb_typeof(_value) != 'number' then
-          raise exception 'invalid metadata value for key %. Expected: number, Received: %', _key, _value;
-        end if;
-      elsif _type = 'enum' then
-        if (_value not in (select * from jsonb_array_elements(_schema->'enumerates'))) then
-          raise exception 'invalid metadata value for key %. Expected: %, Received: %', _key, _schema->>'enumerates', _value;
-        end if;
-      elsif _type = 'enum_multiselect' then
-        if jsonb_typeof(_value) != 'array' then
-          raise exception 'invalid metadata value for key %. Expected an array of enumerates: %, Received: %', _key, _schema->>'enumerates', _value;
-        end if;
-        for _subValue in select * from jsonb_array_elements(_value)
-          loop
-            if (_subValue not in (select * from jsonb_array_elements(_schema->'enumerates'))) then
-              raise exception 'invalid metadata value for key %. Expected one of the valid enumerates: %, Received: %', _key, _schema->>'enumerates', _value;
-            end if;
-          end loop;
+  loop
+    select schema into _schema from merlin.activity_directive_metadata_schema where key = _key;
+    _type := _schema->>'type';
+    if _type = 'string' then
+      if jsonb_typeof(_value) != 'string' then
+        raise exception 'invalid metadata value for key %. Expected: string, Received: %', _key, _value;
       end if;
-    end loop;
+    elsif _type = 'long_string' then
+      if jsonb_typeof(_value) != 'string' then
+        raise exception 'invalid metadata value for key %. Expected: string, Received: %', _key, _value;
+      end if;
+    elsif _type = 'boolean' then
+      if jsonb_typeof(_value) != 'boolean' then
+        raise exception 'invalid metadata value for key %. Expected: boolean, Received: %', _key, _value;
+      end if;
+    elsif _type = 'number' then
+      if jsonb_typeof(_value) != 'number' then
+        raise exception 'invalid metadata value for key %. Expected: number, Received: %', _key, _value;
+      end if;
+    elsif _type = 'enum' then
+      if (_value not in (select * from jsonb_array_elements(_schema->'enumerates'))) then
+        raise exception 'invalid metadata value for key %. Expected: %, Received: %', _key, _schema->>'enumerates', _value;
+      end if;
+    elsif _type = 'enum_multiselect' then
+      if jsonb_typeof(_value) != 'array' then
+        raise exception 'invalid metadata value for key %. Expected an array of enumerates: %, Received: %', _key, _schema->>'enumerates', _value;
+      end if;
+      for _subValue in select * from jsonb_array_elements(_value)
+        loop
+          if (_subValue not in (select * from jsonb_array_elements(_schema->'enumerates'))) then
+            raise exception 'invalid metadata value for key %. Expected one of the valid enumerates: %, Received: %', _key, _schema->>'enumerates', _value;
+          end if;
+        end loop;
+    end if;
+  end loop;
   return new;
 end$$;
 
@@ -429,9 +429,9 @@ create or replace function merlin.duplicate_plan(_plan_id integer, new_plan_name
   returns integer -- plan_id of the new plan
   security definer
   language plpgsql as $$
-declare
-  new_plan_id integer;
-  created_snapshot_id integer;
+  declare
+    new_plan_id integer;
+    created_snapshot_id integer;
 begin
   if not exists(select from merlin.plan where plan.id = _plan_id) then
     raise exception 'Plan % does not exist.', _plan_id;
@@ -445,19 +445,19 @@ begin
   select merlin.create_snapshot(_plan_id) into created_snapshot_id;
 
   insert into merlin.plan(revision, name, model_id, duration, start_time, parent_id, owner, updated_by)
-  select
-    0, new_plan_name, model_id, duration, start_time, _plan_id, new_owner, new_owner
-  from merlin.plan where id = _plan_id
-  returning id into new_plan_id;
+    select
+        0, new_plan_name, model_id, duration, start_time, _plan_id, new_owner, new_owner
+    from merlin.plan where id = _plan_id
+    returning id into new_plan_id;
   insert into merlin.activity_directive(
-    id, plan_id, name, source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, created_by,
-    last_modified_at, last_modified_by, start_offset, type, arguments,
-    last_modified_arguments_at, metadata, anchor_id, anchored_to_start)
-  select
-    id, new_plan_id, name, source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, created_by,
-    last_modified_at, last_modified_by, start_offset, type, arguments,
-    last_modified_arguments_at, metadata, anchor_id, anchored_to_start
-  from merlin.activity_directive where activity_directive.plan_id = _plan_id;
+      id, plan_id, name, source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, created_by,
+      last_modified_at, last_modified_by, start_offset, type, arguments,
+      last_modified_arguments_at, metadata, anchor_id, anchored_to_start)
+    select
+      id, new_plan_id, name, source_scheduling_goal_id, source_scheduling_goal_invocation_id, created_at, created_by,
+      last_modified_at, last_modified_by, start_offset, type, arguments,
+      last_modified_arguments_at, metadata, anchor_id, anchored_to_start
+    from merlin.activity_directive where activity_directive.plan_id = _plan_id;
 
   with source_plan as (
     select simulation_template_id, arguments, simulation_start_time, simulation_end_time
@@ -473,15 +473,15 @@ begin
   where s.plan_id = new_plan_id;
 
   insert into merlin.preset_to_directive(preset_id, activity_id, plan_id)
-  select preset_id, activity_id, new_plan_id
-  from merlin.preset_to_directive ptd where ptd.plan_id = _plan_id;
+    select preset_id, activity_id, new_plan_id
+    from merlin.preset_to_directive ptd where ptd.plan_id = _plan_id;
 
   insert into tags.plan_tags(plan_id, tag_id)
-  select new_plan_id, tag_id
-  from tags.plan_tags pt where pt.plan_id = _plan_id;
+    select new_plan_id, tag_id
+    from tags.plan_tags pt where pt.plan_id = _plan_id;
   insert into tags.activity_directive_tags(plan_id, directive_id, tag_id)
-  select new_plan_id, directive_id, tag_id
-  from tags.activity_directive_tags adt where adt.plan_id = _plan_id;
+    select new_plan_id, directive_id, tag_id
+    from tags.activity_directive_tags adt where adt.plan_id = _plan_id;
 
   insert into merlin.plan_latest_snapshot(plan_id, snapshot_id) values(new_plan_id, created_snapshot_id);
   return new_plan_id;
@@ -547,8 +547,8 @@ begin
   end if;
 
   insert into merlin.merge_request(plan_id_receiving_changes, snapshot_id_supplying_changes, merge_base_snapshot_id, requester_username)
-  values(plan_id_receiving, supplying_snapshot_id, merge_base_snapshot_id, request_username)
-  returning id into merge_request_id;
+    values(plan_id_receiving, supplying_snapshot_id, merge_base_snapshot_id, request_username)
+    returning id into merge_request_id;
   return merge_request_id;
 end
 $$;

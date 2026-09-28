@@ -1,33 +1,13 @@
--- Rule 1. An External Event superseded by nothing will be present in the final, derived result.
--- Rule 2. An External Event partially superseded by a later External Source, but whose start time occurs before the start of said External Source(s), will be present in the final, derived result.
--- Rule 3. An External Event whose start is superseded by another External Source, even if its end occurs after the end of said External Source, will be replaced by the contents of that External Source (whether they are blank spaces, or other events).
--- Rule 4. An External Event who shares an ID with an External Event in a later External Source will always be replaced.
+-- Hasura runs each migration transactionally. These trigger changes lock the external-event tables while the cache is
+-- backfilled, so venue services should remain stopped for the migration as recommended by the deployment procedure.
+drop trigger refresh_derived_events_on_derivation_group on merlin.derivation_group;
+drop trigger refresh_derived_events_on_external_source on merlin.external_source;
+drop trigger refresh_derived_events_on_external_event on merlin.external_event;
+drop function merlin.refresh_derived_events_on_trigger();
 
--- This is a trigger-maintained cache, not authoritative data. Consumers should only read it;
--- source and event changes maintain it transactionally through the triggers below.
-create table merlin.derived_events (
-  event_key text not null,
-  source_key text not null,
-  derivation_group_name text not null,
-  event_type_name text not null,
-  duration interval not null,
-  start_time timestamp with time zone not null,
-  source_range tstzmultirange not null,
-  valid_at timestamp with time zone not null,
-  attributes jsonb not null,
-
-  constraint derived_events_pkey
-    primary key (derivation_group_name, event_key)
-);
-
-comment on table merlin.derived_events is e''
-  'Caches the final event set for each derivation group. Do not modify directly.';
-
--- Group-scoped derivation needs an index whose leading column is the derivation group.
 create index external_event_derivation_group_source_key_index
   on merlin.external_event (derivation_group_name, source_key);
 
--- Keep the derivation rules in one group-scoped function so a source upload does not recompute unrelated groups.
 create function merlin.compute_derived_events(p_derivation_group_name text)
 returns table (
   event_key text,
@@ -43,8 +23,6 @@ returns table (
 language sql
 stable
 as $$
-  -- "distinct on (event_key, derivation_group_name)" and "order by valid_at" satisfies rule 4
-  -- (only the most recently valid version of an event is included)
   select distinct on (output.event_key, output.derivation_group_name)
       output.event_key,
       output.source_key,
@@ -56,7 +34,6 @@ as $$
       output.valid_at,
       output.attributes
   from (
-    -- select the events from the sources and include them as they fit into the ranges determined by sub
     select
       s.key as source_key,
       ee.key as event_key,
@@ -70,8 +47,6 @@ as $$
     from merlin.external_event ee
     join (
       with base_ranges as (
-        -- base_ranges orders sources by their valid time
-        -- and extracts the multirange that they are stated to be valid over
         select
           external_source.key,
           external_source.derivation_group_name,
@@ -81,8 +56,6 @@ as $$
         where external_source.derivation_group_name = $1
         order by external_source.valid_at
       ), base_and_sub_ranges as (
-        -- base_and_sub_ranges takes each of the sources above and compiles a list of all the sources that follow it
-        -- and their multiranges that they are stated to be valid over
         select
           base.key,
           base.derivation_group_name,
@@ -95,9 +68,6 @@ as $$
           and base.valid_at < subsequent.valid_at
         group by base.key, base.derivation_group_name, base.valid_at, base.range
       )
-      -- this final selection (s) utilizes the first, as well as merlin.subtract_later_ranges,
-      -- to produce a sparse multirange that a given source is valid over.
-      -- See merlin.subtract_later_ranges for further details on subtracted ranges.
       select
         r.key,
         r.derivation_group_name,
@@ -118,10 +88,47 @@ as $$
     output.valid_at desc;
 $$;
 
+-- Build the replacement before dropping the old materialized view. Recompute from authoritative source/event data
+-- rather than copying a view that may be stale or contain a pre-ordering-fix result.
+create table merlin.derived_events_next (
+  event_key text not null,
+  source_key text not null,
+  derivation_group_name text not null,
+  event_type_name text not null,
+  duration interval not null,
+  start_time timestamp with time zone not null,
+  source_range tstzmultirange not null,
+  valid_at timestamp with time zone not null,
+  attributes jsonb not null,
+
+  constraint derived_events_pkey
+    primary key (derivation_group_name, event_key)
+);
+
+insert into merlin.derived_events_next (
+  event_key,
+  source_key,
+  derivation_group_name,
+  event_type_name,
+  duration,
+  start_time,
+  source_range,
+  valid_at,
+  attributes
+)
+select computed.*
+from merlin.derivation_group dg
+cross join lateral merlin.compute_derived_events(dg.name) computed;
+
+drop materialized view merlin.derived_events;
+alter table merlin.derived_events_next rename to derived_events;
+
+comment on table merlin.derived_events is e''
+  'Caches the final event set for each derivation group. Do not modify directly.';
+
 comment on function merlin.compute_derived_events(text) is e''
   'Computes the current derived event set for one derivation group.';
 
--- Readers continue to see the previously committed rows while this transaction replaces one group's cache.
 create function merlin.refresh_derived_events(p_derivation_group_name text)
 returns void
 language plpgsql
@@ -149,8 +156,7 @@ $$;
 comment on function merlin.refresh_derived_events(text) is e''
   'Atomically replaces the derived event set for one derivation group.';
 
--- This queue coalesces multiple statements into one refresh per group. Its primary key also serializes
--- concurrent transactions that modify the same group while allowing different groups to refresh independently.
+-- One pending row coalesces all changes to a group in this transaction and serializes concurrent updates to that group.
 create table merlin.derived_events_refresh_queue (
   derivation_group_name text not null,
 
@@ -158,7 +164,7 @@ create table merlin.derived_events_refresh_queue (
     primary key (derivation_group_name)
 );
 
--- Transition tables provide all groups affected by a statement without firing one queue operation per changed row.
+-- Transition tables collect affected groups once per statement instead of running queue logic once per changed row.
 create function merlin.queue_derived_events_refresh_on_insert()
 returns trigger
 language plpgsql
@@ -217,13 +223,12 @@ begin
 end;
 $$;
 
--- Deferred means immediately before transaction commit: the refresh remains synchronous and atomic with the upload.
+-- This fires before commit, keeping refresh synchronous and atomic while allowing all upload statements to coalesce.
 create constraint trigger refresh_derived_events_from_queue
 after insert on merlin.derived_events_refresh_queue
 deferrable initially deferred
 for each row execute function merlin.refresh_derived_events_from_queue();
 
--- Source changes must refresh even when a source has no events, because an empty source can supersede older coverage.
 create trigger queue_derived_events_on_external_source_insert
 after insert on merlin.external_source
 referencing new table as new_rows
@@ -254,5 +259,4 @@ after delete on merlin.external_event
 referencing old table as old_rows
 for each statement execute function merlin.queue_derived_events_refresh_on_delete();
 
--- Derivation-group changes need no direct trigger. Populated group renames cascade through the source/event triggers,
--- and a group with no sources has no derived events to refresh.
+call migrations.mark_migration_applied('38');

@@ -127,6 +127,10 @@ public class DatabaseTestHelper {
     return connection;
   }
 
+  public Connection newConnection() throws SQLException {
+    return hikariDataSource.getConnection();
+  }
+
   private static String getEnv(final String key) {
     final var env = System.getenv(key);
     return env == null ? Assertions.fail("Could not find envvar: "+key) : env;

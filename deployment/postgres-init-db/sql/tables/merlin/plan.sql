@@ -315,6 +315,14 @@ begin
   set parent_id = old.parent_id
   where
     parent_id = old.id;
+
+  -- Delete the simulation datasets associated with this plan
+  -- Done here to avoid a foreign key update introducing NULL values to NON-NULL columns
+  delete from merlin.simulation_dataset sd
+    using merlin.simulation s
+  where s.plan_id = old.id
+    and sd.simulation_id = s.id;
+
   return old;
 end
 $$;
@@ -348,6 +356,8 @@ begin
   -- Otherwise, delete the plan's mission model
   delete from merlin.mission_model
   where id = old.model_id;
+
+  return old;
 end
 $$;
 

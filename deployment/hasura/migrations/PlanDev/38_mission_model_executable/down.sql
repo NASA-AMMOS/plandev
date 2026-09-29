@@ -292,6 +292,30 @@ drop trigger cleanup_after_delete_trigger on merlin.plan;
 drop function merlin.cascade_delete_readonly_model();
 
 -- Update existing triggers on Plan
+create or replace function merlin.cleanup_on_delete()
+  returns trigger
+  language plpgsql as $$
+begin
+  -- prevent deletion if the plan is locked
+  if old.is_locked then
+    raise exception 'Cannot delete locked plan.';
+  end if;
+
+  -- withdraw pending rqs
+  update merlin.merge_request
+  set status='withdrawn'
+  where plan_id_receiving_changes = old.id
+    and status = 'pending';
+
+  -- have the children be 'adopted' by this plan's parent
+  update merlin.plan
+  set parent_id = old.parent_id
+  where
+    parent_id = old.id;
+  return old;
+end
+$$;
+
 alter trigger cleanup_before_delete_trigger on merlin.plan
   rename to cleanup_on_delete_trigger;
 

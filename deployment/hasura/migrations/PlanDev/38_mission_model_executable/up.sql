@@ -209,6 +209,38 @@ begin
 end;
 $$;
 
+create or replace function merlin.cleanup_on_delete()
+  returns trigger
+  language plpgsql as $$
+begin
+  -- prevent deletion if the plan is locked
+  if old.is_locked then
+    raise exception 'Cannot delete locked plan.';
+  end if;
+
+  -- withdraw pending rqs
+  update merlin.merge_request
+  set status='withdrawn'
+  where plan_id_receiving_changes = old.id
+    and status = 'pending';
+
+  -- have the children be 'adopted' by this plan's parent
+  update merlin.plan
+  set parent_id = old.parent_id
+  where
+    parent_id = old.id;
+
+  -- Delete the simulation datasets associated with this plan
+  -- Done here to avoid a foreign key update introducing NULL values to NON-NULL columns
+  delete from merlin.simulation_dataset sd
+    using merlin.simulation s
+  where s.plan_id = old.id
+    and sd.simulation_id = s.id;
+
+  return old;
+end
+$$;
+
 alter trigger cleanup_on_delete_trigger on merlin.plan
 rename to cleanup_before_delete_trigger;
 
@@ -237,6 +269,8 @@ begin
   -- Otherwise, delete the plan's mission model
   delete from merlin.mission_model
   where id = old.model_id;
+
+  return old;
 end
 $$;
 

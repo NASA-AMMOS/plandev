@@ -23,6 +23,8 @@ returns table (
 language sql
 stable
 as $$
+  -- "distinct on (event_key, derivation_group_name)" and "order by valid_at" satisfies rule 4
+  -- (only the most recently valid version of an event is included)
   select distinct on (output.event_key, output.derivation_group_name)
       output.event_key,
       output.source_key,
@@ -34,6 +36,7 @@ as $$
       output.valid_at,
       output.attributes
   from (
+    -- select the events from the sources and include them as they fit into the ranges determined by sub
     select
       s.key as source_key,
       ee.key as event_key,
@@ -47,6 +50,8 @@ as $$
     from merlin.external_event ee
     join (
       with base_ranges as (
+        -- base_ranges orders sources by their valid time
+        -- and extracts the multirange that they are stated to be valid over
         select
           external_source.key,
           external_source.derivation_group_name,
@@ -56,6 +61,8 @@ as $$
         where external_source.derivation_group_name = $1
         order by external_source.valid_at
       ), base_and_sub_ranges as (
+        -- base_and_sub_ranges takes each of the sources above and compiles a list of all the sources that follow it
+        -- and their multiranges that they are stated to be valid over
         select
           base.key,
           base.derivation_group_name,
@@ -68,6 +75,9 @@ as $$
           and base.valid_at < subsequent.valid_at
         group by base.key, base.derivation_group_name, base.valid_at, base.range
       )
+      -- this final selection (s) utilizes the first, as well as merlin.subtract_later_ranges,
+      -- to produce a sparse multirange that a given source is valid over.
+      -- See merlin.subtract_later_ranges for further details on subtracted ranges.
       select
         r.key,
         r.derivation_group_name,

@@ -11,6 +11,7 @@ begin;
   \ir types/merlin/activity-directive-metadata.sql
   \ir types/merlin/plan-merge-types.sql
   \ir types/merlin/constraint_type.sql
+  \ir types/merlin/plan_import_request_type.sql
 
   ------------
   -- Tables
@@ -26,6 +27,7 @@ begin;
   -- Plan
   \ir tables/merlin/plan.sql
   \ir tables/merlin/plan_collaborators.sql
+  \ir tables/merlin/plan_import_request.sql
 
   -- Scheduling Goals and Scheduling Goal Specification
   \ir init_scheduler_mid_merlin.sql

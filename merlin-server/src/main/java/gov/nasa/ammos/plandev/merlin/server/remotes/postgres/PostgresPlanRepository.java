@@ -1,6 +1,9 @@
 package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
+import gov.nasa.ammos.plandev.json.FormattedError;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationFailure;
 import gov.nasa.ammos.plandev.merlin.server.ExternalSimulationFileParser;
+import gov.nasa.ammos.plandev.merlin.server.exceptions.MerlinFormattedError;
 import gov.nasa.ammos.plandev.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
@@ -220,10 +223,11 @@ public final class PostgresPlanRepository implements PlanRepository {
       final Map<String, SerializedValue> simulationArguments,
       final Path resultsFilePath,
       final String requestedBy
-  ) throws InvalidJsonEntityException, IOException {
+  ) throws FailedUpdateException {
     try(final var connection = this.dataSource.getConnection();
         final var getSimulationAction = new GetSimulationAction(connection);
-        final var createSimulationDatasetAction = new CreateSimulationDatasetAction(connection)
+        final var createSimulationDatasetAction = new CreateSimulationDatasetAction(connection);
+        final var setSimulationDatasetStatus = new SetSimulationStateAction(connection)
     ) {
       // Create the Simulation Dataset Row
       final var simulationSpecification = getSimulationAction.get(planId.id());
@@ -233,13 +237,36 @@ public final class PostgresPlanRepository implements PlanRepository {
           simulationEnd,
           simulationArguments,
           requestedBy,
-          SimulationStateRecord.Status.SUCCESS).datasetId();
+          SimulationStateRecord.Status.INCOMPLETE).datasetId();
 
       // Populate the row by parsing the external file
-      final var simFileParser = new ExternalSimulationFileParser(connection);
-      simFileParser.parse(resultsFilePath, datasetId, simulationStart);
+      try {
+        final var simFileParser = new ExternalSimulationFileParser(connection);
+        simFileParser.parse(resultsFilePath, datasetId, simulationStart);
+        setSimulationDatasetStatus.apply(datasetId, SimulationStateRecord.success());
+      } catch (SQLException | InvalidJsonEntityException | IOException ex) {
+        final FormattedError fe;
+
+        switch (ex) {
+          case SQLException sq -> fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, sq);
+          case InvalidJsonEntityException ije -> fe = new MerlinFormattedError(ije);
+          case IOException io -> fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, io);
+          default -> fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, "INTERNAL_ERROR", ex);
+        }
+
+        // Catch failures between creating and posting the simulation dataset
+        final var simFailureReason = new SimulationFailure.Builder()
+            .type(fe.getType())
+            .message("Failed to parse and upload simulation results: "+fe.getMessage())
+            .data(fe.toJson())
+            .trace(ex)
+            .build();
+        setSimulationDatasetStatus.apply(datasetId, SimulationStateRecord.failed(simFailureReason));
+      }
     } catch (SQLException ex) {
       throw new DatabaseException("Failed to create external simulation dataset.", ex);
+    } catch (NoSuchSimulationDatasetException nsd) {
+      throw new FailedUpdateException("merlin.simulation_dataset");
     }
   }
 

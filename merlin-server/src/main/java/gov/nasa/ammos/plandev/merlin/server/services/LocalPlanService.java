@@ -1,7 +1,7 @@
 package gov.nasa.ammos.plandev.merlin.server.services;
 
-import gov.nasa.ammos.plandev.merlin.server.http.InvalidJsonEntityException;
 import gov.nasa.ammos.plandev.merlin.server.models.InsertExternalSimulationInput;
+import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.FailedUpdateException;
 import gov.nasa.ammos.plandev.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
@@ -17,7 +17,6 @@ import gov.nasa.ammos.plandev.types.Plan;
 import gov.nasa.ammos.plandev.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 
-import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
@@ -60,7 +59,7 @@ public final class LocalPlanService implements PlanService {
 
   @Override
   public void addExternalSimulationDataset(final InsertExternalSimulationInput request, final Path resultsFilePath)
-  throws IOException, InvalidJsonEntityException
+  throws FailedUpdateException
   {
     final Timestamp simEnd = request.simulationStartTime().plusMicros(request.simulationDuration().micros());
 

@@ -8,6 +8,7 @@ import gov.nasa.ammos.plandev.merlin.server.exceptions.MissionModelNotExecutable
 import gov.nasa.ammos.plandev.merlin.server.exceptions.NoSuchConstraintException;
 import gov.nasa.ammos.plandev.merlin.server.models.ProcedureLoader;
 import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.DatabaseException;
+import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.FailedUpdateException;
 import gov.nasa.ammos.plandev.permissions.exceptions.PermissionsException;
 import gov.nasa.ammos.plandev.types.SerializedActivity;
 import gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException;
@@ -198,8 +199,10 @@ public final class MerlinBindings implements Plugin {
       final var fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex);
       logger.warn("Insert External Simulation Dataset: IO Exception: {}", fe);
       ctx.status(500).json(fe);
-    } catch (NoSuchPlanException ex) {
-      ctx.status(404).json(new MerlinFormattedError(ex));
+    } catch (FailedUpdateException ex) {
+      final var fe = new MerlinFormattedError(ex);
+      logger.warn("Insert External Simulation Dataset: Database Exception: {}", fe);
+      ctx.status(500).json(fe);
     }
   }
 

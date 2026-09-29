@@ -11,6 +11,8 @@ import org.junit.jupiter.api.TestInstance;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -123,47 +125,72 @@ public class ExternalEventTests {
   }
 
   protected void insertExternalSource(ExternalSource externalSource) throws SQLException {
-    try(final var statement = connection.createStatement()) {
-      System.out.println("STARTING " + externalSource);
-      // create the source
-      statement.executeUpdate(
-          // language=sql
-          """
-          INSERT INTO
-            merlin.external_source
-          VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s');
-          """.formatted(
-              externalSource.key,
-              externalSource.source_type_name,
-              externalSource.derivation_group_name,
-              externalSource.valid_at,
-              externalSource.start_time,
-              externalSource.end_time,
-              externalSource.created_at
-          )
-      );
-      System.out.println("FINISHED " + externalSource);
+    System.out.println("STARTING " + externalSource);
+    insertExternalSources(List.of(externalSource));
+    System.out.println("FINISHED " + externalSource);
+  }
+
+  protected void insertExternalSources(List<ExternalSource> externalSources) throws SQLException {
+    if (externalSources.isEmpty()) return;
+
+    final var rows = String.join(", ", externalSources.stream()
+        .map($ -> "(?, ?, ?, ?::timestamptz, ?::timestamptz, ?::timestamptz, ?::timestamptz)")
+        .toList());
+    try(final var statement = connection.prepareStatement(
+        // language=sql
+        """
+        INSERT INTO merlin.external_source
+        VALUES %s;
+        """.formatted(rows)
+    )) {
+      int parameterIndex = 1;
+      for (final var externalSource : externalSources) {
+        statement.setString(parameterIndex++, externalSource.key);
+        statement.setString(parameterIndex++, externalSource.source_type_name);
+        statement.setString(parameterIndex++, externalSource.derivation_group_name);
+        statement.setString(parameterIndex++, externalSource.valid_at);
+        statement.setString(parameterIndex++, externalSource.start_time);
+        statement.setString(parameterIndex++, externalSource.end_time);
+        statement.setString(parameterIndex++, externalSource.created_at);
+      }
+      statement.executeUpdate();
     }
   }
 
   protected void insertExternalEvent(ExternalEvent externalEvent) throws SQLException {
-    try(final var statement = connection.createStatement()) {
-      // create the event
-      statement.executeUpdate(
-          // language=sql
-          """
-          INSERT INTO
-            merlin.external_event
-          VALUES ('%s', '%s', '%s', '%s', '%s', '%s');
-          """.formatted(
-              externalEvent.key,
-              externalEvent.event_type_name,
-              externalEvent.source_key,
-              externalEvent.derivation_group_name,
-              externalEvent.start_time,
-              externalEvent.duration
-          )
-      );
+    insertExternalEvents(List.of(externalEvent));
+  }
+
+  protected void insertExternalEvents(List<ExternalEvent> externalEvents) throws SQLException {
+    if (externalEvents.isEmpty()) return;
+
+    final var rows = String.join(", ", externalEvents.stream()
+        .map($ -> "(?, ?, ?, ?, ?::timestamptz, ?::interval)")
+        .toList());
+    try(final var statement = connection.prepareStatement(
+        // language=sql
+        """
+        INSERT INTO merlin.external_event (
+          key,
+          event_type_name,
+          source_key,
+          derivation_group_name,
+          start_time,
+          duration
+        )
+        VALUES %s;
+        """.formatted(rows)
+    )) {
+      int parameterIndex = 1;
+      for (final var externalEvent : externalEvents) {
+        statement.setString(parameterIndex++, externalEvent.key);
+        statement.setString(parameterIndex++, externalEvent.event_type_name);
+        statement.setString(parameterIndex++, externalEvent.source_key);
+        statement.setString(parameterIndex++, externalEvent.derivation_group_name);
+        statement.setString(parameterIndex++, externalEvent.start_time);
+        statement.setString(parameterIndex++, externalEvent.duration);
+      }
+      statement.executeUpdate();
     }
   }
 
@@ -1405,6 +1432,93 @@ public class ExternalEventTests {
         );
         assertEquals(expectedResults.size(), results.size());
         assertTrue(results.containsAll(expectedResults));
+      }
+
+      /**
+       * Verifies that rule 4 selects each event from the source with the latest valid_at. The larger revision set
+       * guards against a missing ORDER BY being hidden by incidental row ordering in derived_events.
+       */
+      @Test
+      void rule4NewestValidAtWinsForManyEventRevisions() throws SQLException {
+        final int eventCount = 100;
+        final int sourceCount = 32;
+        final String expectedSourceKey = "source-" + (sourceCount - 1);
+        final String expectedValidAt = "2024-01-01 00:00:31+00";
+        final var sources = new ArrayList<ExternalSource>(sourceCount);
+        final var events = new ArrayList<ExternalEvent>(sourceCount * eventCount);
+        final var firstSourceStart = Instant.parse("2024-02-01T00:00:00Z");
+
+        // Give every event key one revision per source; rule 4 must choose the greatest valid_at.
+        for (int revision = 0; revision < sourceCount; revision++) {
+          final var sourceKey = "source-" + revision;
+          final var sourceStart = firstSourceStart.plus(revision * 2L, ChronoUnit.DAYS);
+          sources.add(new ExternalSource(
+              sourceKey,
+              SOURCE_TYPE,
+              DERIVATION_GROUP,
+              Instant.parse("2024-01-01T00:00:00Z").plusSeconds(revision).toString(),
+              sourceStart.toString(),
+              sourceStart.plus(1, ChronoUnit.DAYS).toString(),
+              CREATED_AT
+          ));
+
+          for (int eventNumber = 0; eventNumber < eventCount; eventNumber++) {
+            events.add(new ExternalEvent(
+                "event-" + eventNumber,
+                EVENT_TYPE,
+                sourceKey,
+                DERIVATION_GROUP,
+                sourceStart.plus(1, ChronoUnit.HOURS).plus(eventNumber, ChronoUnit.MICROS).toString(),
+                "00:00:00.000001"
+            ));
+          }
+        }
+
+        // Keep the source windows disjoint so every revision reaches rule 4. If the windows overlapped,
+        // the newer sources would remove the older sources' ranges before the event-key deduplication.
+        insertExternalSources(sources);
+
+        // Insert all revisions in one statement so derived_events is refreshed once, after all candidate
+        // event versions exist, rather than once per event.
+        insertExternalEvents(events);
+
+        final var results = getDerivedEvents();
+        assertEquals(eventCount, results.size(), "expected exactly one derived row per event key");
+        assertEquals(
+            eventCount,
+            results.stream().map(DerivedEvent::key).distinct().count(),
+            "expected every derived row to have a unique event key"
+        );
+
+        final var incorrectResults = results.stream()
+            .filter(event -> !expectedSourceKey.equals(event.source_key())
+                             || !expectedValidAt.equals(event.valid_at()))
+            .toList();
+        final var firstIncorrectResults = incorrectResults.stream()
+            .limit(20)
+            .map(event -> "%s -> source=%s, valid_at=%s".formatted(
+                event.key(),
+                event.source_key(),
+                event.valid_at()
+            ))
+            .reduce((left, right) -> left + "\n" + right)
+            .orElse("none");
+
+        assertTrue(
+            incorrectResults.isEmpty(),
+            """
+            derived_events selected an older source for %d of %d events.
+            expected every event to come from %s with valid_at=%s.
+            first incorrect results:
+            %s
+            """.formatted(
+                incorrectResults.size(),
+                eventCount,
+                expectedSourceKey,
+                expectedValidAt,
+                firstIncorrectResults
+            )
+        );
       }
     }
 

@@ -42,7 +42,7 @@ public final class PostgresSpanStreamer implements AutoCloseable {
   public void accept(long spanId, SpanRecord span) throws SQLException {
     if (closed) throw new IllegalStateException("accept cannot be called on a closed PostgresProfileStreamer");
 
-    //decide whether the span goes in "held children" or "to upload" buffer
+    // If the span has a parentId, decide whether it needs to be held or can go into the buffer
     if(span.parentId().isPresent()){
       final var pId = span.parentId().get();
       if(uploadedSpanIds.contains(pId)) {
@@ -51,6 +51,9 @@ public final class PostgresSpanStreamer implements AutoCloseable {
         heldChildrenBuffer.putIfAbsent(pId, new ArrayList<>());
         heldChildrenBuffer.get(pId).add(Pair.of(spanId, span));
       }
+    } else {
+      // Otherwise, add it to the buffer
+      addToBuffer(spanId, span);
     }
   }
 

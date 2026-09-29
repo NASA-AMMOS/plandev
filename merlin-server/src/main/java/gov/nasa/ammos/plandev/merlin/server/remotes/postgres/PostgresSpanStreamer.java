@@ -1,13 +1,14 @@
 package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
 import gov.nasa.ammos.plandev.types.Timestamp;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.HashSet;
+import java.util.List;
 
 public final class PostgresSpanStreamer implements AutoCloseable {
   // Buffer information
@@ -16,14 +17,14 @@ public final class PostgresSpanStreamer implements AutoCloseable {
 
   // Buffers
   private final HashMap<Long, SpanRecord> spansBuffer;
+  private final HashMap<Long, List<Pair<Long, SpanRecord>>> heldChildrenBuffer;
+  private final HashSet<Long> uploadedSpanIds;
 
   // Request information
   private final Connection connection;
   private final long datasetId;
   private final Timestamp simulationStart;
 
-  // Parallelism
-  private final ExecutorService queryQueue;
   private boolean closed = false;
 
   public PostgresSpanStreamer(final Connection connection, final long datasetId, final Timestamp simulationStart) {
@@ -34,36 +35,58 @@ public final class PostgresSpanStreamer implements AutoCloseable {
     THRESHOLD = DEFAULT_THRESHOLD;
     spansBuffer = HashMap.newHashMap(THRESHOLD);
 
-    this.queryQueue = Executors.newSingleThreadExecutor();
+    heldChildrenBuffer = HashMap.newHashMap(THRESHOLD);
+    uploadedSpanIds = new HashSet<>();
   }
 
-  public void accept(long spanId, SpanRecord span) {
+  public void accept(long spanId, SpanRecord span) throws SQLException {
     if (closed) throw new IllegalStateException("accept cannot be called on a closed PostgresProfileStreamer");
+
+    //decide whether the span goes in "held children" or "to upload" buffer
+    if(span.parentId().isPresent()){
+      final var pId = span.parentId().get();
+      if(uploadedSpanIds.contains(pId)) {
+        addToBuffer(spanId, span);
+      } else {
+        heldChildrenBuffer.putIfAbsent(pId, new ArrayList<>());
+        heldChildrenBuffer.get(pId).add(Pair.of(spanId, span));
+      }
+    }
+  }
+
+  private void addToBuffer(long spanId, SpanRecord span) throws SQLException {
     if(spansBuffer.size() == THRESHOLD) {
       postSpans();
     }
     spansBuffer.put(spanId, span);
   }
 
-  private void postSpans() {
-    // Make a copy of the map with the current contents, then empty the map
-    final var spans = Map.copyOf(spansBuffer);
+  private void postSpans() throws SQLException {
+    try (final var postSpansAction = new PostSpansAction(connection)) {
+      postSpansAction.apply(datasetId, spansBuffer, simulationStart);
+    }
+
+    final var newlyUploaded = spansBuffer.keySet();
+    // Empty the buffer now that it's been posted
     spansBuffer.clear();
-    // Send the spans off to be posted in another thread
-    queryQueue.submit(() -> {
-      try (final var postSpansAction = new PostSpansAction(connection)) {
-        postSpansAction.apply(datasetId, spans, simulationStart);
-      } catch (SQLException e) {
-        throw new DatabaseException("Unable to post spans", e);
+
+    // Log all the posted ids in the HashSet
+    uploadedSpanIds.addAll(newlyUploaded);
+
+    // Go through the posted spans and add any children they were waiting on to the buffer to be posted
+    for(final var spanId : newlyUploaded)  {
+      for(final var span : heldChildrenBuffer.getOrDefault(spanId, List.of())) {
+        addToBuffer(span.getKey(), span.getValue());
       }
-    });
+    }
   }
 
   @Override
-  public void close() {
+  public void close() throws SQLException {
     if (closed) return;
     closed = true;
-    postSpans();
-    queryQueue.close();  // This waits for all submitted jobs to complete before returning
+    while(!spansBuffer.isEmpty()) {
+      postSpans();
+    }
   }
 }

@@ -86,7 +86,7 @@ public class ExternalSimulationFileParser {
       JsonParser fileStream,
       final PostgresSpanStreamer streamer,
       final Timestamp simulationStart
-  ) throws InvalidJsonEntityException {
+  ) throws InvalidJsonEntityException, SQLException {
     while(fileStream.hasNext()) {
       final var curEvent = fileStream.next();
       switch (curEvent) {

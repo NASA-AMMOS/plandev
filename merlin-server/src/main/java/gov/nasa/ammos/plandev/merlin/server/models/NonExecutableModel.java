@@ -84,30 +84,30 @@ public record NonExecutableModel(
       .optionalField("parameters", listP(modelParamP))
       .optionalField("required_parameters", listP(stringP))
       .optionalField("computed_attributes_schema", valueSchemaP)
-      .optionalField("description", stringP)
       .optionalField("subsystem", stringP)
+      .optionalField("description", stringP)
       .map(
           untuple((
               name,
               params,
               reqParams,
               compAttr,
-              desc,
-              subsys) -> new ActivityType(
+              subsys,
+              desc) -> new ActivityType(
                   name,
                   params.orElse(List.of()),
                   reqParams.orElse(List.of()),
                   compAttr.orElse(ValueSchema.ofStruct(Map.of())), // Default Value
-                  desc,
-                  subsys
+                  subsys,
+                  desc
           )),
           actType -> tuple(
               actType.name(),
               Optional.of(actType.parameters()),
               Optional.of(actType.requiredParameters()),
               Optional.of(actType.computedAttributesValueSchema()),
-              actType.description(),
-              actType.subsystem()
+              actType.subsystem(),
+              actType.description()
           ));
 
   private final static JsonParser<Pair<String, ValueSchema>> resourceTypeP = productP

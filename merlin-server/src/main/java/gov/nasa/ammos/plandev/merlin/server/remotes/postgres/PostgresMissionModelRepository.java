@@ -48,7 +48,7 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
             .stream()
             .collect(Collectors.toMap(
                 e -> new MissionModelId(e.getKey()),
-                e -> missionModelRecordToMissionModelJar(e.getValue(), missionModelDataPath)));
+                e -> missionModelRecordToMissionModelFile(e.getValue(), missionModelDataPath)));
       }
     } catch (final SQLException ex) {
       throw new DatabaseException("Failed to retrieve all mission models", ex);
@@ -61,7 +61,7 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
       try (final var getMissionModelAction = new GetModelAction(connection)) {
         return getMissionModelAction
             .get(missionModelId.id())
-            .map(r ->missionModelRecordToMissionModelJar(r, missionModelDataPath))
+            .map(r -> missionModelRecordToMissionModelFile(r, missionModelDataPath))
             .orElseThrow(() -> new NoSuchMissionModelException(missionModelId));
       }
     } catch (final SQLException ex) {
@@ -156,10 +156,10 @@ public final class PostgresMissionModelRepository implements MissionModelReposit
     }
   }
 
-  private static MissionModelFile missionModelRecordToMissionModelJar(final MissionModelRecord record, final Path missionModelDataPath) {
+  private static MissionModelFile missionModelRecordToMissionModelFile(final MissionModelRecord record, final Path missionModelDataPath) {
     if(record.executable()) {
-      return new ExecutableModel(record.mission(), record.name(), record.version(), record.owner(), missionModelDataPath.resolve(record.path()));
+      return new ExecutableModel(record.name(), record.version(), record.mission(), record.owner(), missionModelDataPath.resolve(record.path()));
     }
-    return new NonExecutableModel(record.mission(), record.name(), record.version(), record.owner(), missionModelDataPath.resolve(record.path()));
+    return new NonExecutableModel(record.name(), record.version(), record.mission(), record.owner(), missionModelDataPath.resolve(record.path()));
   }
 }

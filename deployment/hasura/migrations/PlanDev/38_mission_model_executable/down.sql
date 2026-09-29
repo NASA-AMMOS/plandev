@@ -1,3 +1,7 @@
+-- Remove the plan import request table
+drop table merlin.plan_import_request;
+drop type merlin.plan_import_request_status;
+
 -- Restore Branching/Merging Functions
 create or replace function merlin.create_merge_request(plan_id_supplying integer, plan_id_receiving integer, request_username text)
   returns integer

@@ -110,6 +110,11 @@ public final class StubMissionModelService implements MissionModelService {
   }
 
   @Override
+  public Path getUploadedFilePath(final int fileId) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public Map<MissionModelId, MissionModelFile> getMissionModels() {
     return Map.of(EXISTENT_MISSION_MODEL_ID, EXISTENT_MISSION_MODEL);
   }

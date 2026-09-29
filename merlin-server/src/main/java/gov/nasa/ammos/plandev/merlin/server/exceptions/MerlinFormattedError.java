@@ -7,6 +7,7 @@ import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader.MissionModelLoadE
 import gov.nasa.ammos.plandev.merlin.server.http.InvalidJsonEntityException;
 import gov.nasa.ammos.plandev.merlin.server.models.ProcedureLoader;
 import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.DatabaseException;
+import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.FailedUpdateException;
 import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService.NoSuchMissionModelException;
 import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService.NoSuchActivityTypeException;
 
@@ -108,6 +109,10 @@ public class MerlinFormattedError extends FormattedError {
   }
 
   public MerlinFormattedError(DatabaseException ex) {
+    super(AerieService.MERLIN_SERVER, "DATABASE_EXCEPTION", ex);
+  }
+
+  public MerlinFormattedError(FailedUpdateException ex) {
     super(AerieService.MERLIN_SERVER, "DATABASE_EXCEPTION", ex);
   }
 

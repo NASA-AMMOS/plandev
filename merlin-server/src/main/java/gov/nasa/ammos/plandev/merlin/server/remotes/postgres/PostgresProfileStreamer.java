@@ -26,6 +26,7 @@ public final class PostgresProfileStreamer implements AutoCloseable {
   private final HashMap<String, ProfileRecord> profileRecords;
 
   // Buffers
+  private int currentBufferSize;
   private final HashMap<String, ResourceProfile<Optional<RealDynamics>>> realResourceBuffer;
   private final HashMap<String, ResourceProfile<Optional<SerializedValue>>> discreteResourceBuffer;
 
@@ -39,6 +40,7 @@ public final class PostgresProfileStreamer implements AutoCloseable {
 
     THRESHOLD = DEFAULT_THRESHOLD;
     profileRecords = new HashMap<>();
+    currentBufferSize = 0;
     realResourceBuffer = HashMap.newHashMap(THRESHOLD);
     discreteResourceBuffer = HashMap.newHashMap(THRESHOLD);
   }
@@ -48,11 +50,12 @@ public final class PostgresProfileStreamer implements AutoCloseable {
       final ValueSchema profileSchema,
       ProfileSegment<Optional<RealDynamics>> segment
   ) throws SQLException {
-    if(totalSegments() == THRESHOLD) {
+    if(currentBufferSize == THRESHOLD) {
       postProfileSegments();
     }
     realResourceBuffer.putIfAbsent(profileName, new ResourceProfile<>(profileSchema, new ArrayList<>()));
     realResourceBuffer.get(profileName).segments().add(segment);
+    currentBufferSize++;
   }
 
   public void acceptDiscreteSegment(
@@ -60,11 +63,12 @@ public final class PostgresProfileStreamer implements AutoCloseable {
       final ValueSchema profileSchema,
       ProfileSegment<Optional<SerializedValue>> segment
   ) throws SQLException {
-    if(totalSegments() == THRESHOLD) {
+    if(currentBufferSize == THRESHOLD) {
       postProfileSegments();
     }
     discreteResourceBuffer.putIfAbsent(profileName, new ResourceProfile<>(profileSchema, new ArrayList<>()));
     discreteResourceBuffer.get(profileName).segments().add(segment);
+    currentBufferSize++;
   }
 
 
@@ -93,13 +97,47 @@ public final class PostgresProfileStreamer implements AutoCloseable {
     }
 
     // Else, add them to the db and store their mappings
-    try(final var postProfilesAction = new PostProfilesAction(connection)) {
+    try(final var postProfilesAction = new PostProfilesAction(connection);
+        final var postSegmentsAction = new PostProfileSegmentsAction(connection)) {
       final var mappings = postProfilesAction.apply(
           datasetId,
           realProfilesToAdd,
           discreteProfilesToAdd
       );
       profileRecords.putAll(mappings);
+
+      // Post the new profile segments and take them out of the buffer
+      for(final var entry : realProfilesToAdd.entrySet()) {
+        final var profileRecord = profileRecords.get(entry.getKey());
+        final var segments = entry.getValue().segments();
+
+        postSegmentsAction.apply(
+            datasetId,
+            profileRecord,
+            segments,
+            realDynamicsP
+        );
+
+        // Pull the posted segments out of the buffer
+        realResourceBuffer.remove(profileRecord.name());
+        currentBufferSize -= segments.size();
+      }
+
+      for(final var entry : discreteProfilesToAdd.entrySet()) {
+        final var profileRecord = profileRecords.get(entry.getKey());
+        final var segments = entry.getValue().segments();
+
+        postSegmentsAction.apply(
+            datasetId,
+            profileRecord,
+            segments,
+            serializedValueP
+        );
+
+        // Pull the posted segments out of the buffer
+        discreteResourceBuffer.remove(profileRecord.name());
+        currentBufferSize -= segments.size();
+      }
     }
   }
 
@@ -136,15 +174,14 @@ public final class PostgresProfileStreamer implements AutoCloseable {
       }
     }
 
-    extendProfileDurations(updatedProfileDurations);
+    if(!updatedProfileDurations.isEmpty()) {
+      extendProfileDurations(updatedProfileDurations);
+    }
 
     // Clear queue
     realResourceBuffer.clear();
     discreteResourceBuffer.clear();
-  }
-
-  private int totalSegments() {
-    return realResourceBuffer.size()+discreteResourceBuffer.size();
+    currentBufferSize = 0;
   }
 
   @Override

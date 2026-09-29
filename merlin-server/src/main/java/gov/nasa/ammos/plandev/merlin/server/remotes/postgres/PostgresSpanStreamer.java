@@ -69,7 +69,7 @@ public final class PostgresSpanStreamer implements AutoCloseable {
       postSpansAction.apply(datasetId, spansBuffer, simulationStart);
     }
 
-    final var newlyUploaded = spansBuffer.keySet();
+    final var newlyUploaded = new HashSet<>(spansBuffer.keySet());
     // Empty the buffer now that it's been posted
     spansBuffer.clear();
 

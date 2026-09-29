@@ -285,8 +285,10 @@ import static gov.nasa.ammos.plandev.merlin.server.http.ProfileParsers.realDynam
       }
     }
 
-    try (final var updateProfileDurationAction = new UpdateProfileDurationBulkAction(connection)) {
-      updateProfileDurationAction.apply(datasetId, updatedProfileDurations);
+    if(!updatedProfileDurations.isEmpty()) {
+      try (final var updateProfileDurationAction = new UpdateProfileDurationBulkAction(connection)) {
+        updateProfileDurationAction.apply(datasetId, updatedProfileDurations);
+      }
     }
   }
 

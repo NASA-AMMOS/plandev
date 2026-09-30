@@ -259,6 +259,7 @@ public class FormattedError {
 
   public String getType() { return type; }
   public String getMessage() { return message; }
+  public Optional<String> getTrace() { return trace; }
 
   /**
    * Export this object to a JsonObject.

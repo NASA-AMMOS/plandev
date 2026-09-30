@@ -267,21 +267,28 @@ public final class PostgresPlanRepository implements PlanRepository {
             .trace(ex)
             .build();
 
-        final var importFailure = new PlanImportFailure(
-            fe.getType(),
-            message,
-            fe,
-            ex
-        );
+        final var importFailure = new PlanImportFailure(fe.getType(), message, fe);
 
         // Update the request before the simulation dataset
         setPlanImportRequestStatus.fail(requestId, importFailure);
         setSimulationDatasetStatus.apply(datasetId, SimulationStateRecord.failed(simFailureReason));
       }
     } catch (SQLException ex) {
+      markPlanImportRequestFailure(requestId, new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
       throw new DatabaseException("Failed to create external simulation dataset.", ex);
     } catch (NoSuchSimulationDatasetException nsd) {
+      markPlanImportRequestFailure(requestId, new MerlinFormattedError(nsd));
       throw new FailedUpdateException("merlin.simulation_dataset");
+    }
+  }
+
+  public void markPlanImportRequestFailure(int requestId, FormattedError error) {
+    try(final var connection = this.dataSource.getConnection();
+        final var setPlanImportRequestStatus = new SetPlanImportRequestStatusAction(connection)) {
+      final var failureReason = new PlanImportFailure(error.getType(), error.getMessage(), error);
+      setPlanImportRequestStatus.fail(requestId, failureReason);
+    } catch (SQLException ex) {
+      throw new DatabaseException("Failed to update plan import request.", ex);
     }
   }
 

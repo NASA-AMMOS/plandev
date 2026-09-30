@@ -8,6 +8,7 @@ import gov.nasa.ammos.plandev.merlin.server.http.InvalidJsonEntityException;
 import gov.nasa.ammos.plandev.merlin.server.models.ProcedureLoader;
 import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.DatabaseException;
 import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.FailedUpdateException;
+import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.NoSuchSimulationDatasetException;
 import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService.NoSuchMissionModelException;
 import gov.nasa.ammos.plandev.merlin.server.services.MissionModelService.NoSuchActivityTypeException;
 
@@ -90,6 +91,11 @@ public class MerlinFormattedError extends FormattedError {
   public MerlinFormattedError(NoSuchConstraintException ex) {
     super(AerieService.MERLIN_SERVER, "NO_SUCH_CONSTRAINT", ex);
   }
+
+  public MerlinFormattedError(NoSuchSimulationDatasetException ex) {
+    super(AerieService.MERLIN_SERVER, "NO_SUCH_SIMULATION_DATASET", ex);
+  }
+
   // endregion
 
   public MerlinFormattedError(MissionModelLoadException mle) {

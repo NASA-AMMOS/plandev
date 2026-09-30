@@ -45,6 +45,7 @@ public interface PlanRepository {
   void markPlanReadOnly(PlanId planId) throws NoSuchPlanException;
 
   void createExternalSimDataset(
+      int requestId,
       PlanId planId,
       Timestamp simulationStart,
       Timestamp simulationEnd,

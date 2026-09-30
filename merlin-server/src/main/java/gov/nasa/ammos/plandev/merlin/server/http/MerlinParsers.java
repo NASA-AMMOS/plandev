@@ -8,7 +8,6 @@ import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import gov.nasa.ammos.plandev.merlin.server.models.ConstraintId;
 import gov.nasa.ammos.plandev.merlin.server.models.DatasetId;
 import gov.nasa.ammos.plandev.merlin.server.models.InsertExternalSimulationInput;
-import gov.nasa.ammos.plandev.merlin.server.models.InsertModelInput;
 import gov.nasa.ammos.plandev.merlin.server.models.PlanId;
 import gov.nasa.ammos.plandev.merlin.server.models.SimulationDatasetId;
 import gov.nasa.ammos.plandev.merlin.server.services.UnexpectedSubtypeError;
@@ -121,6 +120,7 @@ public abstract class MerlinParsers {
   }
 
   public static JsonParser<InsertExternalSimulationInput> externalSimInputP = productP
+      .field("requestId", intP)
       .field("planId", planIdP)
       .field("resultsFileId", intP)
       .field("requester", stringP)
@@ -131,7 +131,7 @@ public abstract class MerlinParsers {
       .map(
           untuple(InsertExternalSimulationInput::new),
           s -> tuple(
-              s.planId(), s.resultsFileId(), s.requester(), s.planStartTime(),
+              s.requestId(), s.planId(), s.resultsFileId(), s.requester(), s.planStartTime(),
               s.simulationStartTime(), s.simulationDuration(), s.simulationArguments())
       );
 

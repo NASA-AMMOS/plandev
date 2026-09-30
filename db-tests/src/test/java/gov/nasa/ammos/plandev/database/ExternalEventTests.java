@@ -1633,7 +1633,7 @@ public class ExternalEventTests {
           concurrentUpload = executor.submit(() -> {
             insertExternalSources(concurrentConnection, List.of(newerSource));
             insertExternalEvents(concurrentConnection, List.of(
-                new ExternalEvent("a", "2024-03-01T01:00:00Z", "00:10:00", newerSource)
+                new ExternalEvent("b", "2024-03-01T01:00:00Z", "00:10:00", newerSource)
             ));
             concurrentConnection.commit();
             return null;
@@ -1672,9 +1672,14 @@ public class ExternalEventTests {
         }
 
         final var results = getDerivedEvents();
-        assertEquals(1, results.size());
-        assertEquals("a", results.getFirst().key());
-        assertEquals("newer", results.getFirst().source_key());
+        assertEquals(2, results.size());
+
+        assertTrue(results.stream().anyMatch(
+            result -> result.key().equals("a") && result.source_key().equals("older")
+        ));
+        assertTrue(results.stream().anyMatch(
+            result -> result.key().equals("b") && result.source_key().equals("newer")
+        ));
       }
 
       @Test

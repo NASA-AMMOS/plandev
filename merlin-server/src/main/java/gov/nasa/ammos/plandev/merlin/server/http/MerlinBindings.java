@@ -6,6 +6,7 @@ import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader.MissionModelLoadE
 import gov.nasa.ammos.plandev.merlin.server.exceptions.MerlinFormattedError;
 import gov.nasa.ammos.plandev.merlin.server.exceptions.MissionModelNotExecutableException;
 import gov.nasa.ammos.plandev.merlin.server.exceptions.NoSuchConstraintException;
+import gov.nasa.ammos.plandev.merlin.server.models.InsertExternalSimulationInput;
 import gov.nasa.ammos.plandev.merlin.server.models.ProcedureLoader;
 import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.DatabaseException;
 import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.FailedUpdateException;
@@ -36,6 +37,7 @@ import javax.json.Json;
 import javax.json.JsonException;
 import javax.json.stream.JsonParsingException;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
@@ -182,28 +184,43 @@ public final class MerlinBindings implements Plugin {
   }
 
   private void insertExternalSimulationDataset(@NotNull Context ctx) {
+    final InsertExternalSimulationInput body;
+    final Path uploadedFilePath;
+
     try{
-      final var body = parseJson(ctx.body(), externalSimInputP);
+      // Parse the body
+      body = parseJson(ctx.body(), externalSimInputP);
+
       // Get the path of the sim results file to be uploaded
-      final var uploadedFilePath = this.missionModelService.getUploadedFilePath(body.resultsFileId());
-      // Post the results
-      this.planService.addExternalSimulationDataset(body, uploadedFilePath);
-      ctx.status(200);
+      uploadedFilePath = this.missionModelService.getUploadedFilePath(body.resultsFileId());
+      // Set status to 202 ACCEPTED
+      ctx.status(202);
     } catch (InvalidJsonEntityException ex) {
+      // Cannot report failure on request row, as the body with that information failed to parse
       ctx.status(400).json(new MerlinFormattedError(ex));
+      return;
     } catch (SQLException ex) {
       final var fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex);
       logger.warn("Insert External Simulation Dataset: SQL Exception: {}", fe);
       ctx.status(500).json(fe);
+      return;
     } catch (IOException ex) {
       final var fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex);
       logger.warn("Insert External Simulation Dataset: IO Exception: {}", fe);
       ctx.status(500).json(fe);
-    } catch (FailedUpdateException ex) {
-      final var fe = new MerlinFormattedError(ex);
-      logger.warn("Insert External Simulation Dataset: Database Exception: {}", fe);
-      ctx.status(500).json(fe);
+      return;
     }
+
+    // Post the results independent of this request finishing
+    new Thread(() -> {
+      try {
+        planService.addExternalSimulationDataset(body, uploadedFilePath);
+      } catch (FailedUpdateException ex) {
+        final var fe = new MerlinFormattedError(ex);
+        logger.warn("Insert External Simulation Dataset: Database Exception: {}", fe);
+        ctx.status(500).json(fe);
+      }
+    }).start();
   }
 
   private void markPlanReadOnly(@NotNull Context ctx) {

@@ -132,12 +132,13 @@ public final class InMemoryPlanRepository implements PlanRepository {
 
   @Override
   public void createExternalSimDataset(
-      final PlanId planId,
-      final Timestamp simulationStart,
-      final Timestamp simulationEnd,
-      final Map<String, SerializedValue> simulationArguments,
-      final Path resultsFilePath,
-      final String requestedBy)
+          final int requestId,
+          final PlanId planId,
+          final Timestamp simulationStart,
+          final Timestamp simulationEnd,
+          final Map<String, SerializedValue> simulationArguments,
+          final Path resultsFilePath,
+          final String requestedBy)
   {
     throw new UnsupportedOperationException();
   }

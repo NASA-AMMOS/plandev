@@ -7,6 +7,7 @@ import gov.nasa.ammos.plandev.types.Timestamp;
 import java.util.Map;
 
 public record InsertExternalSimulationInput(
+    int requestId,
     PlanId planId,
     int resultsFileId,
     String requester,

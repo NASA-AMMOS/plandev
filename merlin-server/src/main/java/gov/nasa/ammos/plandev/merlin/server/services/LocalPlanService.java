@@ -65,6 +65,7 @@ public final class LocalPlanService implements PlanService {
 
     // Add a "success" simulation dataset row for the plan
     this.planRepository.createExternalSimDataset(
+        request.requestId(),
         request.planId(),
         request.simulationStartTime(),
         simEnd,

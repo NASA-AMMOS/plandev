@@ -217,6 +217,7 @@ public final class PostgresPlanRepository implements PlanRepository {
 
   @Override
   public void createExternalSimDataset(
+      final int requestId,
       final PlanId planId,
       final Timestamp simulationStart,
       final Timestamp simulationEnd,
@@ -227,7 +228,8 @@ public final class PostgresPlanRepository implements PlanRepository {
     try(final var connection = this.dataSource.getConnection();
         final var getSimulationAction = new GetSimulationAction(connection);
         final var createSimulationDatasetAction = new CreateSimulationDatasetAction(connection);
-        final var setSimulationDatasetStatus = new SetSimulationStateAction(connection)
+        final var setSimulationDatasetStatus = new SetSimulationStateAction(connection);
+        final var setPlanImportRequestStatus = new SetPlanImportRequestStatusAction(connection)
     ) {
       // Create the Simulation Dataset Row
       final var simulationSpecification = getSimulationAction.get(planId.id());
@@ -244,6 +246,7 @@ public final class PostgresPlanRepository implements PlanRepository {
         final var simFileParser = new ExternalSimulationFileParser(connection);
         simFileParser.parse(resultsFilePath, datasetId, simulationStart);
         setSimulationDatasetStatus.apply(datasetId, SimulationStateRecord.success());
+        setPlanImportRequestStatus.succeed(requestId);
       } catch (SQLException | InvalidJsonEntityException | IOException ex) {
         final FormattedError fe;
 
@@ -254,13 +257,25 @@ public final class PostgresPlanRepository implements PlanRepository {
           default -> fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, "INTERNAL_ERROR", ex);
         }
 
+        final var message = "Failed to parse and upload simulation results: "+fe.getMessage();
+
         // Catch failures between creating and posting the simulation dataset
         final var simFailureReason = new SimulationFailure.Builder()
             .type(fe.getType())
-            .message("Failed to parse and upload simulation results: "+fe.getMessage())
+            .message(message)
             .data(fe.toJson())
             .trace(ex)
             .build();
+
+        final var importFailure = new PlanImportFailure(
+            fe.getType(),
+            message,
+            fe,
+            ex
+        );
+
+        // Update the request before the simulation dataset
+        setPlanImportRequestStatus.fail(requestId, importFailure);
         setSimulationDatasetStatus.apply(datasetId, SimulationStateRecord.failed(simFailureReason));
       }
     } catch (SQLException ex) {

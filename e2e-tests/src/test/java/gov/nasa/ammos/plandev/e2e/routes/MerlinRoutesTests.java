@@ -41,7 +41,7 @@ import static org.junit.jupiter.api.Named.named;
 
 @Tag("routes")
 @Tag("merlin")
-// "resourceTypes" and "getActivityEffectiveArguments" are not tested, as they are deprecated
+// "getActivityEffectiveArguments" is not tested, as it is deprecated
 public class MerlinRoutesTests {
   // Requests
   private static Playwright playwright;

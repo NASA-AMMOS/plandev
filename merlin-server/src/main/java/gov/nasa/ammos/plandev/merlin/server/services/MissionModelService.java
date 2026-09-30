@@ -1,6 +1,7 @@
 package gov.nasa.ammos.plandev.merlin.server.services;
 
 import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader.MissionModelLoadException;
+import gov.nasa.ammos.plandev.merlin.server.http.InvalidJsonEntityException;
 import gov.nasa.ammos.plandev.types.ActivityDirectiveId;
 import gov.nasa.ammos.plandev.types.MissionModelId;
 import gov.nasa.ammos.plandev.types.Plan;
@@ -14,21 +15,27 @@ import gov.nasa.ammos.plandev.merlin.protocol.types.InstantiationException;
 import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
 import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 import gov.nasa.ammos.plandev.merlin.server.models.ActivityType;
-import gov.nasa.ammos.plandev.merlin.server.models.MissionModelJar;
+import gov.nasa.ammos.plandev.merlin.server.models.MissionModelFile;
 
+import java.io.IOException;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public interface MissionModelService {
-  Map<MissionModelId, MissionModelJar> getMissionModels();
+  Path getUploadedFilePath(int fileId) throws SQLException, NoSuchFileException;
 
-  MissionModelJar getMissionModelById(MissionModelId missionModelId)
+  Map<MissionModelId, MissionModelFile> getMissionModels();
+
+  MissionModelFile getMissionModelById(MissionModelId missionModelId)
   throws NoSuchMissionModelException;
 
   Map<String, ValueSchema> getResourceSchemas(MissionModelId missionModelId)
-  throws NoSuchMissionModelException, MissionModelLoadException;
+  throws NoSuchMissionModelException, MissionModelLoadException, InvalidJsonEntityException, IOException;
 
   /**
    * getActivityTypes uses the cached result of refreshActivityTypes. For this reason, refreshActivityTypes
@@ -55,7 +62,7 @@ public interface MissionModelService {
   throws NoSuchMissionModelException, MissionModelLoadException, InstantiationException;
 
   List<Parameter> getModelParameters(MissionModelId missionModelId)
-  throws NoSuchMissionModelException, MissionModelLoadException;
+  throws NoSuchMissionModelException, MissionModelLoadException, IOException, InvalidJsonEntityException;
 
   Map<String, SerializedValue> getModelEffectiveArguments(MissionModelId missionModelId, Map<String, SerializedValue> arguments)
   throws NoSuchMissionModelException, MissionModelLoadException, InstantiationException;
@@ -67,12 +74,13 @@ public interface MissionModelService {
       final SimulationResourceManager resourceManager
   ) throws NoSuchMissionModelException, MissionModelService.NoSuchActivityTypeException, MissionModelLoadException;
 
+
   void refreshModelParameters(MissionModelId missionModelId)
-  throws NoSuchMissionModelException, MissionModelLoadException;
-  void refreshActivityTypes(MissionModelId missionModelId) throws NoSuchMissionModelException,
-                                                                  MissionModelLoadException;
-  void refreshResourceTypes(MissionModelId missionModelId) throws NoSuchMissionModelException,
-                                                                  MissionModelLoadException;
+  throws NoSuchMissionModelException, MissionModelLoadException, IOException, InvalidJsonEntityException;
+  void refreshActivityTypes(MissionModelId missionModelId)
+  throws NoSuchMissionModelException, MissionModelLoadException, InvalidJsonEntityException, IOException;
+  void refreshResourceTypes(MissionModelId missionModelId)
+  throws NoSuchMissionModelException, MissionModelLoadException, InvalidJsonEntityException, IOException;
 
   sealed interface ActivityInstantiationFailure {
     record NoSuchActivityType(NoSuchActivityTypeException ex) implements ActivityInstantiationFailure { }
@@ -113,5 +121,7 @@ public interface MissionModelService {
     record NoSuchMissionModelError(NoSuchMissionModelException ex) implements BulkArgumentValidationResponse { }
     record NoSuchActivityError(NoSuchActivityTypeException ex) implements BulkArgumentValidationResponse { }
     record InstantiationError(InstantiationException ex) implements BulkArgumentValidationResponse { }
+    /** The directive's model is non-executable, so there is nothing to validate its arguments against. */
+    record Unavailable() implements BulkArgumentValidationResponse { }
   }
 }

@@ -23,6 +23,7 @@ public final class PostgresProfileStreamer implements AutoCloseable {
   private final int THRESHOLD;
 
   // Profile Information
+  private final HashMap<Long, String> profileIdsToName;
   private final HashMap<String, ProfileRecord> profileRecords;
 
   // Buffers
@@ -39,7 +40,10 @@ public final class PostgresProfileStreamer implements AutoCloseable {
     this.datasetId = datasetId;
 
     THRESHOLD = DEFAULT_THRESHOLD;
+
+    profileIdsToName = new HashMap<>();
     profileRecords = new HashMap<>();
+
     currentBufferSize = 0;
     realResourceBuffer = HashMap.newHashMap(THRESHOLD);
     discreteResourceBuffer = HashMap.newHashMap(THRESHOLD);
@@ -104,7 +108,12 @@ public final class PostgresProfileStreamer implements AutoCloseable {
           realProfilesToAdd,
           discreteProfilesToAdd
       );
-      profileRecords.putAll(mappings);
+      mappings.forEach(
+          (name, profile) -> {
+            profileRecords.put(name, profile);
+            profileIdsToName.put(profile.id(), name);
+          }
+      );
 
       // Post the new profile segments and take them out of the buffer
       for(final var entry : realProfilesToAdd.entrySet()) {
@@ -147,6 +156,12 @@ public final class PostgresProfileStreamer implements AutoCloseable {
   private void extendProfileDurations(Map<Long, Duration> updatedDurations) throws SQLException {
     try(final var extendProfiles = new UpdateProfileDurationBulkAction(connection)) {
       extendProfiles.apply(datasetId, updatedDurations);
+    }
+    // Update the durations on the records
+    for(final var idDurationPair : updatedDurations.entrySet()) {
+      final var oldProfile = profileRecords.get(profileIdsToName.get(idDurationPair.getKey()));
+      final var updatedProfile = oldProfile.updateDuration(idDurationPair.getValue());
+      profileRecords.put(updatedProfile.name(), updatedProfile);
     }
   }
 

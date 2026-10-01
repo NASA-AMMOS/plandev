@@ -1545,6 +1545,10 @@ public class ExternalEventTests {
     @TestInstance(TestInstance.Lifecycle.PER_CLASS)
     class GeneralDerivationTests {
       // GENERAL
+      /**
+       * verifies that inserting a source and its events in one transaction queues a single refresh for their
+       * derivation group. derived events remain unchanged until commit, then include the inserted event.
+       */
       @Test
       void refreshIsDeferredAndCoalescedWithinTransaction() throws SQLException {
         final var source = new ExternalSource(
@@ -1588,6 +1592,10 @@ public class ExternalEventTests {
         assertEquals("A", results.getFirst().source_key());
       }
 
+      /**
+       * verifies that a second upload to the same derivation group waits while the first transaction is open.
+       * after both uploads commit, events from both sources remain in the cache, & no updates are lost.
+       */
       @Test
       void concurrentRefreshesForSameGroupAreSerialized() throws Exception {
         final var olderSource = new ExternalSource(
@@ -1682,6 +1690,10 @@ public class ExternalEventTests {
         ));
       }
 
+      /**
+       * verifies that increasing an older source's valid_at makes its revision of a shared event key become
+       * the derived result, replacing the previously selected revision without reinserting either event.
+       */
       @Test
       void updatingSourcePrecedenceRecomputesDerivedEvents() throws SQLException {
         final var olderSource = new ExternalSource(
@@ -1724,6 +1736,10 @@ public class ExternalEventTests {
         assertEquals("older", getDerivedEvents().getFirst().source_key());
       }
 
+      /**
+       * verifies that deleting the source supplying the selected event revision restores the older source's
+       * revision of the same event key, rather than leaving a stale row or removing the event entirely.
+       */
       @Test
       void deletingNewestSourceRestoresOlderDerivedEvents() throws SQLException {
         final var olderSource = new ExternalSource(
@@ -1763,6 +1779,120 @@ public class ExternalEventTests {
         }
 
         assertEquals("older", getDerivedEvents().getFirst().source_key());
+      }
+
+      /**
+       * verifies that changing an event's start time within its source's coverage updates the derived row.
+       * another event in the same source remains unchanged, and the result still contains exactly two events.
+       */
+      @Test
+      void updatingExternalEventRecomputesDerivedEvents() throws SQLException {
+        final var source = new ExternalSource(
+            "A",
+            SOURCE_TYPE,
+            DERIVATION_GROUP,
+            "2024-01-01T00:00:00Z",
+            "2024-01-01T00:00:00Z",
+            "2024-01-01T01:00:00Z",
+            CREATED_AT
+        );
+
+        insertStandardTypes();
+        insertExternalSource(source);
+        insertExternalEvents(List.of(
+            new ExternalEvent("a", "2024-01-01T00:30:00Z", "00:10:00", source),
+            new ExternalEvent("b", "2024-01-01T00:10:00Z", "00:05:00", source)
+        ));
+
+        final var before = getDerivedEvents();
+        assertEquals(2, before.size());
+        final var originalA = before.stream()
+                                    .filter(event -> event.key().equals("a"))
+                                    .findFirst().orElseThrow();
+        final var originalB = before.stream()
+                                    .filter(event -> event.key().equals("b"))
+                                    .findFirst().orElseThrow();
+        assertEquals("2024-01-01 00:30:00+00", originalA.start_time());
+
+        // Move 'a' while keeping its full duration inside the source's coverage.
+        try (final var statement = connection.createStatement()) {
+          assertEquals(1, statement.executeUpdate(
+              """
+              UPDATE merlin.external_event
+              SET start_time = '2024-01-01T00:40:00Z'
+              WHERE key = 'a'
+                AND source_key = 'A'
+                AND derivation_group_name = '%s'
+                AND event_type_name = '%s';
+              """.formatted(DERIVATION_GROUP, EVENT_TYPE)
+          ));
+        }
+
+        final var expectedA = new DerivedEvent(
+            originalA.key(),
+            originalA.event_type_name(),
+            originalA.source_key(),
+            originalA.derivation_group_name(),
+            "2024-01-01 00:40:00+00",
+            originalA.duration(),
+            originalA.source_range(),
+            originalA.valid_at()
+        );
+
+        final var after = getDerivedEvents();
+        assertEquals(2, after.size());
+        assertTrue(after.contains(expectedA), "a should reflect the updated start time");
+        assertTrue(after.contains(originalB), "b should remain unchanged");
+      }
+
+      /**
+       * verifies that deleting an event removes its derived row while preserving another event unchanged.
+       * the source remains intact, the test exercises event deletion without a source change triggering refresh.
+       */
+      @Test
+      void deletingExternalEventRemovesDerivedEvent() throws SQLException {
+        final var source = new ExternalSource(
+            "A",
+            SOURCE_TYPE,
+            DERIVATION_GROUP,
+            "2024-01-01T00:00:00Z",
+            "2024-01-01T00:00:00Z",
+            "2024-01-01T01:00:00Z",
+            CREATED_AT
+        );
+
+        insertStandardTypes();
+        insertExternalSource(source);
+        insertExternalEvents(List.of(
+            new ExternalEvent("a", "2024-01-01T00:30:00Z", "00:10:00", source),
+            new ExternalEvent("b", "2024-01-01T00:10:00Z", "00:05:00", source)
+        ));
+
+        final var before = getDerivedEvents();
+        assertEquals(2, before.size());
+        assertTrue(before.stream().anyMatch(event -> event.key().equals("a")));
+        final var originalB = before.stream()
+                                    .filter(event -> event.key().equals("b"))
+                                    .findFirst().orElseThrow();
+
+        // Delete only the event; leave its source intact.
+        try (final var statement = connection.createStatement()) {
+          assertEquals(1, statement.executeUpdate(
+              """
+              DELETE FROM merlin.external_event
+              WHERE key = 'a'
+                AND source_key = 'A'
+                AND derivation_group_name = '%s'
+                AND event_type_name = '%s';
+              """.formatted(DERIVATION_GROUP, EVENT_TYPE)
+          ));
+        }
+
+        assertEquals(
+            List.of(originalB),
+            getDerivedEvents(),
+            "only unchanged event b should remain"
+        );
       }
 
       /**

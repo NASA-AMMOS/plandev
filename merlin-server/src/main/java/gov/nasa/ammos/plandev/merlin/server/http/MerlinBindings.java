@@ -7,6 +7,7 @@ import gov.nasa.ammos.plandev.merlin.server.exceptions.MerlinFormattedError;
 import gov.nasa.ammos.plandev.merlin.server.exceptions.MissionModelNotExecutableException;
 import gov.nasa.ammos.plandev.merlin.server.exceptions.NoSuchConstraintException;
 import gov.nasa.ammos.plandev.merlin.server.models.InsertExternalSimulationInput;
+import gov.nasa.ammos.plandev.merlin.server.models.NonExecutableModel;
 import gov.nasa.ammos.plandev.merlin.server.models.ProcedureLoader;
 import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.DatabaseException;
 import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.FailedUpdateException;
@@ -326,6 +327,14 @@ public final class MerlinBindings implements Plugin {
       final var force = body.input().force().orElse(false);
 
       this.checkPermissions(HasuraAction.simulate, body.session(), planId);
+
+      // Non-executable models cannot be simulated
+      final var modelId = this.planService.getPlanForValidation(planId).missionModelId();
+      final var model = this.missionModelService.getMissionModelById(modelId);
+      if(model instanceof NonExecutableModel) {
+        ctx.status(405).json(new MerlinFormattedError(new MissionModelNotExecutableException(modelId)));
+        return;
+      }
 
       final var response = this.simulationAction.run(planId, force, body.session());
       ctx.result(ResponseSerializers.serializeSimulationResultsResponse(response).toString());

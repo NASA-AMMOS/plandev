@@ -13,9 +13,11 @@ import gov.nasa.ammos.plandev.scheduler.server.models.GoalType;
 import gov.nasa.ammos.plandev.scheduler.server.models.Specification;
 import gov.nasa.ammos.plandev.scheduler.server.models.SpecificationId;
 import gov.nasa.ammos.plandev.scheduler.server.remotes.SpecificationRepository;
+import gov.nasa.ammos.plandev.scheduler.server.remotes.postgres.PlanReadOnlyCheckResult;
 import gov.nasa.ammos.plandev.scheduler.server.remotes.postgres.SpecificationRevisionData;
 
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -61,6 +63,12 @@ public record SpecificationService(SpecificationRepository specificationReposito
       }
     }
     return responses;
+  }
+
+  public PlanReadOnlyCheckResult checkPlanReadOnlyModelExecutability(SpecificationId specificationId)
+  throws SQLException
+  {
+    return this.specificationRepository.checkPlanReadOnlyModelExecutable(specificationId);
   }
 
   public void refreshSchedulingProcedureParameterTypes(long goalId, long revision) {

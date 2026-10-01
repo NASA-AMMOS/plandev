@@ -57,10 +57,11 @@ public class DatabaseTestHelper {
 
       runProcess(
           pb,
-          "Failed to create test Postgres database at %s:%s as user %s - " +
-          "ensure PlanDev's Postgres container is available on port %s " +
-          "and you are not running any other local instances of Postgres"
-              .formatted(postgresHost, postgresPort, postgresUsername)
+          (
+            "Failed to create test Postgres database at %s:%s as user %s - " +
+            "ensure PlanDev's Postgres container is available on port %s " +
+            "and you are not running any other local instances of Postgres"
+          ).formatted(postgresHost, postgresPort, postgresUsername, postgresPort)
       );
     }
 

@@ -156,8 +156,17 @@ begin
     valid_at,
     attributes
   )
-  select *
-  from merlin.compute_derived_events(p_derivation_group_name);
+  select
+    d.event_key,
+    d.source_key,
+    d.derivation_group_name,
+    d.event_type_name,
+    d.duration,
+    d.start_time,
+    d.source_range,
+    d.valid_at,
+    d.attributes
+  from merlin.compute_derived_events(p_derivation_group_name) d;
 end;
 $$;
 

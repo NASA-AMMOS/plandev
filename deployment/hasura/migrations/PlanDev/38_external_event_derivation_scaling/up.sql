@@ -112,7 +112,19 @@ create table merlin.derived_events_next (
   attributes jsonb not null,
 
   constraint derived_events_pkey
-    primary key (derivation_group_name, event_key)
+    primary key (derivation_group_name, event_key),
+
+  constraint derived_events_references_derivation_group
+    foreign key (derivation_group_name)
+      references merlin.derivation_group(name)
+      on update cascade
+      on delete cascade,
+
+  constraint derived_events_references_event_type
+    foreign key (event_type_name)
+      references merlin.external_event_type(name)
+      on update cascade
+      on delete cascade
 );
 
 insert into merlin.derived_events_next (
@@ -132,6 +144,9 @@ cross join lateral merlin.compute_derived_events(dg.name) computed;
 
 drop materialized view merlin.derived_events;
 alter table merlin.derived_events_next rename to derived_events;
+
+create index derived_events_event_type_name_index
+  on merlin.derived_events (event_type_name);
 
 comment on table merlin.derived_events is e''
   'Caches the final event set for each derivation group. Do not modify directly.';

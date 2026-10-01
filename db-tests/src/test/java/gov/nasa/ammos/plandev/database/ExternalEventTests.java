@@ -15,6 +15,9 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.postgresql.util.PSQLException;
 
@@ -125,18 +128,23 @@ public class ExternalEventTests {
   }
 
   protected void insertExternalSource(ExternalSource externalSource) throws SQLException {
-    System.out.println("STARTING " + externalSource);
     insertExternalSources(List.of(externalSource));
-    System.out.println("FINISHED " + externalSource);
   }
 
   protected void insertExternalSources(List<ExternalSource> externalSources) throws SQLException {
+    insertExternalSources(connection, externalSources);
+  }
+
+  private static void insertExternalSources(
+      Connection targetConnection,
+      List<ExternalSource> externalSources
+  ) throws SQLException {
     if (externalSources.isEmpty()) return;
 
     final var rows = String.join(", ", externalSources.stream()
         .map($ -> "(?, ?, ?, ?::timestamptz, ?::timestamptz, ?::timestamptz, ?::timestamptz)")
         .toList());
-    try(final var statement = connection.prepareStatement(
+    try(final var statement = targetConnection.prepareStatement(
         // language=sql
         """
         INSERT INTO merlin.external_source
@@ -162,12 +170,19 @@ public class ExternalEventTests {
   }
 
   protected void insertExternalEvents(List<ExternalEvent> externalEvents) throws SQLException {
+    insertExternalEvents(connection, externalEvents);
+  }
+
+  private static void insertExternalEvents(
+      Connection targetConnection,
+      List<ExternalEvent> externalEvents
+  ) throws SQLException {
     if (externalEvents.isEmpty()) return;
 
     final var rows = String.join(", ", externalEvents.stream()
         .map($ -> "(?, ?, ?, ?, ?::timestamptz, ?::interval)")
         .toList());
-    try(final var statement = connection.prepareStatement(
+    try(final var statement = targetConnection.prepareStatement(
         // language=sql
         """
         INSERT INTO merlin.external_event (
@@ -1530,6 +1545,356 @@ public class ExternalEventTests {
     @TestInstance(TestInstance.Lifecycle.PER_CLASS)
     class GeneralDerivationTests {
       // GENERAL
+      /**
+       * verifies that inserting a source and its events in one transaction queues a single refresh for their
+       * derivation group. derived events remain unchanged until commit, then include the inserted event.
+       */
+      @Test
+      void refreshIsDeferredAndCoalescedWithinTransaction() throws SQLException {
+        final var source = new ExternalSource(
+            "A",
+            SOURCE_TYPE,
+            DERIVATION_GROUP,
+            "2024-01-01T00:00:00Z",
+            "2024-01-01T00:00:00Z",
+            "2024-01-01T01:00:00Z",
+            CREATED_AT
+        );
+        final var event = new ExternalEvent("a", "2024-01-01T00:30:00Z", "00:10:00", source);
+
+        insertStandardTypes();
+
+        connection.setAutoCommit(false);
+        try {
+          insertExternalSource(source);
+          insertExternalEvent(event);
+
+          try (final var statement = connection.createStatement();
+               final var queuedGroups = statement.executeQuery(
+                   "SELECT count(*) FROM merlin.derived_events_refresh_queue"
+               )) {
+            assertTrue(queuedGroups.next());
+            assertEquals(1, queuedGroups.getInt(1));
+          }
+          assertTrue(getDerivedEvents().isEmpty(), "derived events should not refresh before commit");
+
+          connection.commit();
+        } finally {
+          if (!connection.getAutoCommit()) {
+            connection.rollback();
+            connection.setAutoCommit(true);
+          }
+        }
+
+        final var results = getDerivedEvents();
+        assertEquals(1, results.size());
+        assertEquals("a", results.getFirst().key());
+        assertEquals("A", results.getFirst().source_key());
+      }
+
+      /**
+       * verifies that a second upload to the same derivation group waits while the first transaction is open.
+       * after both uploads commit, events from both sources remain in the cache, & no updates are lost.
+       */
+      @Test
+      void concurrentRefreshesForSameGroupAreSerialized() throws Exception {
+        final var olderSource = new ExternalSource(
+            "older",
+            SOURCE_TYPE,
+            DERIVATION_GROUP,
+            "2024-01-01T00:00:00Z",
+            "2024-02-01T00:00:00Z",
+            "2024-02-02T00:00:00Z",
+            CREATED_AT
+        );
+        final var newerSource = new ExternalSource(
+            "newer",
+            SOURCE_TYPE,
+            DERIVATION_GROUP,
+            "2024-01-02T00:00:00Z",
+            "2024-03-01T00:00:00Z",
+            "2024-03-02T00:00:00Z",
+            CREATED_AT
+        );
+
+        insertStandardTypes();
+
+        connection.setAutoCommit(false);
+        final var concurrentConnection = helper.newConnection();
+        concurrentConnection.setAutoCommit(false);
+        final var executor = Executors.newSingleThreadExecutor();
+        Future<Void> concurrentUpload = null;
+        try {
+          insertExternalSources(connection, List.of(olderSource));
+          insertExternalEvents(connection, List.of(
+              new ExternalEvent("a", "2024-02-01T01:00:00Z", "00:10:00", olderSource)
+          ));
+
+          final int concurrentBackendPid;
+          try (final var statement = concurrentConnection.createStatement();
+               final var result = statement.executeQuery("SELECT pg_backend_pid()")) {
+            assertTrue(result.next());
+            concurrentBackendPid = result.getInt(1);
+          }
+
+          // The queue row held by the first upload is also the per-group concurrency lock.
+          concurrentUpload = executor.submit(() -> {
+            insertExternalSources(concurrentConnection, List.of(newerSource));
+            insertExternalEvents(concurrentConnection, List.of(
+                new ExternalEvent("b", "2024-03-01T01:00:00Z", "00:10:00", newerSource)
+            ));
+            concurrentConnection.commit();
+            return null;
+          });
+
+          boolean concurrentUploadIsWaiting = false;
+          final long lockWaitDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+          try (final var statement = connection.prepareStatement(
+              "SELECT wait_event_type FROM pg_stat_activity WHERE pid = ?"
+          )) {
+            statement.setInt(1, concurrentBackendPid);
+            while (System.nanoTime() < lockWaitDeadline) {
+              try (final var result = statement.executeQuery()) {
+                if (result.next() && "Lock".equals(result.getString("wait_event_type"))) {
+                  concurrentUploadIsWaiting = true;
+                  break;
+                }
+              }
+              Thread.sleep(10);
+            }
+          }
+          assertTrue(concurrentUploadIsWaiting, "the concurrent upload should wait for the same-group queue row");
+
+          connection.commit();
+          concurrentUpload.get(5, TimeUnit.SECONDS);
+        } finally {
+          if (!connection.getAutoCommit()) {
+            connection.rollback();
+            connection.setAutoCommit(true);
+          }
+          if (concurrentUpload != null) concurrentUpload.cancel(true);
+          executor.shutdownNow();
+          executor.awaitTermination(5, TimeUnit.SECONDS);
+          concurrentConnection.rollback();
+          concurrentConnection.close();
+        }
+
+        final var results = getDerivedEvents();
+        assertEquals(2, results.size());
+
+        assertTrue(results.stream().anyMatch(
+            result -> result.key().equals("a") && result.source_key().equals("older")
+        ));
+        assertTrue(results.stream().anyMatch(
+            result -> result.key().equals("b") && result.source_key().equals("newer")
+        ));
+      }
+
+      /**
+       * verifies that increasing an older source's valid_at makes its revision of a shared event key become
+       * the derived result, replacing the previously selected revision without reinserting either event.
+       */
+      @Test
+      void updatingSourcePrecedenceRecomputesDerivedEvents() throws SQLException {
+        final var olderSource = new ExternalSource(
+            "older",
+            SOURCE_TYPE,
+            DERIVATION_GROUP,
+            "2024-01-01T00:00:00Z",
+            "2024-02-01T00:00:00Z",
+            "2024-02-02T00:00:00Z",
+            CREATED_AT
+        );
+        final var newerSource = new ExternalSource(
+            "newer",
+            SOURCE_TYPE,
+            DERIVATION_GROUP,
+            "2024-01-02T00:00:00Z",
+            "2024-03-01T00:00:00Z",
+            "2024-03-02T00:00:00Z",
+            CREATED_AT
+        );
+
+        insertStandardTypes();
+        insertExternalSources(List.of(olderSource, newerSource));
+        insertExternalEvents(List.of(
+            new ExternalEvent("a", "2024-02-01T01:00:00Z", "00:10:00", olderSource),
+            new ExternalEvent("a", "2024-03-01T01:00:00Z", "00:10:00", newerSource)
+        ));
+        assertEquals("newer", getDerivedEvents().getFirst().source_key());
+
+        try (final var statement = connection.createStatement()) {
+          statement.executeUpdate(
+              """
+              UPDATE merlin.external_source
+              SET valid_at = '2024-01-03T00:00:00Z'
+              WHERE key = 'older' AND derivation_group_name = '%s';
+              """.formatted(DERIVATION_GROUP)
+          );
+        }
+
+        assertEquals("older", getDerivedEvents().getFirst().source_key());
+      }
+
+      /**
+       * verifies that deleting the source supplying the selected event revision restores the older source's
+       * revision of the same event key, rather than leaving a stale row or removing the event entirely.
+       */
+      @Test
+      void deletingNewestSourceRestoresOlderDerivedEvents() throws SQLException {
+        final var olderSource = new ExternalSource(
+            "older",
+            SOURCE_TYPE,
+            DERIVATION_GROUP,
+            "2024-01-01T00:00:00Z",
+            "2024-02-01T00:00:00Z",
+            "2024-02-02T00:00:00Z",
+            CREATED_AT
+        );
+        final var newerSource = new ExternalSource(
+            "newer",
+            SOURCE_TYPE,
+            DERIVATION_GROUP,
+            "2024-01-02T00:00:00Z",
+            "2024-03-01T00:00:00Z",
+            "2024-03-02T00:00:00Z",
+            CREATED_AT
+        );
+
+        insertStandardTypes();
+        insertExternalSources(List.of(olderSource, newerSource));
+        insertExternalEvents(List.of(
+            new ExternalEvent("a", "2024-02-01T01:00:00Z", "00:10:00", olderSource),
+            new ExternalEvent("a", "2024-03-01T01:00:00Z", "00:10:00", newerSource)
+        ));
+        assertEquals("newer", getDerivedEvents().getFirst().source_key());
+
+        try (final var statement = connection.createStatement()) {
+          statement.executeUpdate(
+              """
+              DELETE FROM merlin.external_source
+              WHERE key = 'newer' AND derivation_group_name = '%s';
+              """.formatted(DERIVATION_GROUP)
+          );
+        }
+
+        assertEquals("older", getDerivedEvents().getFirst().source_key());
+      }
+
+      /**
+       * verifies that changing an event's start time within its source's coverage updates the derived row.
+       * another event in the same source remains unchanged, and the result still contains exactly two events.
+       */
+      @Test
+      void updatingExternalEventRecomputesDerivedEvents() throws SQLException {
+        final var source = new ExternalSource(
+            "A",
+            SOURCE_TYPE,
+            DERIVATION_GROUP,
+            "2024-01-01T00:00:00Z",
+            "2024-01-01T00:00:00Z",
+            "2024-01-01T01:00:00Z",
+            CREATED_AT
+        );
+
+        insertStandardTypes();
+        insertExternalSource(source);
+        insertExternalEvents(List.of(
+            new ExternalEvent("a", "2024-01-01T00:30:00Z", "00:10:00", source),
+            new ExternalEvent("b", "2024-01-01T00:10:00Z", "00:05:00", source)
+        ));
+
+        final var before = getDerivedEvents();
+        assertEquals(2, before.size());
+        final var originalA = before.stream()
+                                    .filter(event -> event.key().equals("a"))
+                                    .findFirst().orElseThrow();
+        final var originalB = before.stream()
+                                    .filter(event -> event.key().equals("b"))
+                                    .findFirst().orElseThrow();
+        assertEquals("2024-01-01 00:30:00+00", originalA.start_time());
+
+        // Move 'a' while keeping its full duration inside the source's coverage.
+        try (final var statement = connection.createStatement()) {
+          assertEquals(1, statement.executeUpdate(
+              """
+              UPDATE merlin.external_event
+              SET start_time = '2024-01-01T00:40:00Z'
+              WHERE key = 'a'
+                AND source_key = 'A'
+                AND derivation_group_name = '%s'
+                AND event_type_name = '%s';
+              """.formatted(DERIVATION_GROUP, EVENT_TYPE)
+          ));
+        }
+
+        final var expectedA = new DerivedEvent(
+            originalA.key(),
+            originalA.event_type_name(),
+            originalA.source_key(),
+            originalA.derivation_group_name(),
+            "2024-01-01 00:40:00+00",
+            originalA.duration(),
+            originalA.source_range(),
+            originalA.valid_at()
+        );
+
+        final var after = getDerivedEvents();
+        assertEquals(2, after.size());
+        assertTrue(after.contains(expectedA), "a should reflect the updated start time");
+        assertTrue(after.contains(originalB), "b should remain unchanged");
+      }
+
+      /**
+       * verifies that deleting an event removes its derived row while preserving another event unchanged.
+       * the source remains intact, the test exercises event deletion without a source change triggering refresh.
+       */
+      @Test
+      void deletingExternalEventRemovesDerivedEvent() throws SQLException {
+        final var source = new ExternalSource(
+            "A",
+            SOURCE_TYPE,
+            DERIVATION_GROUP,
+            "2024-01-01T00:00:00Z",
+            "2024-01-01T00:00:00Z",
+            "2024-01-01T01:00:00Z",
+            CREATED_AT
+        );
+
+        insertStandardTypes();
+        insertExternalSource(source);
+        insertExternalEvents(List.of(
+            new ExternalEvent("a", "2024-01-01T00:30:00Z", "00:10:00", source),
+            new ExternalEvent("b", "2024-01-01T00:10:00Z", "00:05:00", source)
+        ));
+
+        final var before = getDerivedEvents();
+        assertEquals(2, before.size());
+        assertTrue(before.stream().anyMatch(event -> event.key().equals("a")));
+        final var originalB = before.stream()
+                                    .filter(event -> event.key().equals("b"))
+                                    .findFirst().orElseThrow();
+
+        // Delete only the event; leave its source intact.
+        try (final var statement = connection.createStatement()) {
+          assertEquals(1, statement.executeUpdate(
+              """
+              DELETE FROM merlin.external_event
+              WHERE key = 'a'
+                AND source_key = 'A'
+                AND derivation_group_name = '%s'
+                AND event_type_name = '%s';
+              """.formatted(DERIVATION_GROUP, EVENT_TYPE)
+          ));
+        }
+
+        assertEquals(
+            List.of(originalB),
+            getDerivedEvents(),
+            "only unchanged event b should remain"
+        );
+      }
+
       /**
        *  An event that overlaps another event in the same source does not supersede the first event.
        */

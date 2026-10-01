@@ -25,6 +25,23 @@ At the beginning of the load test typescript file, we define configuration optio
 
 Using the existing tests as examples, you can easily add new load testing scenarios (that will run in parallel with existing tests) to the existing `load-test.ts`, or create an entirely new test suite that can run separately (e.g. `soak-test.ts`). When designing tests, keep [these recommended load test types in mind](https://k6.io/docs/test-types/load-test-types/). The example tests in `load-test.ts` should act as a good starting point for designing your own tests; the [`k6` docs](https://k6.io/docs/) are also a great resource.
 
+## External event derivation benchmark
+
+`external-events/benchmark.sh` seeds deterministic external sources and events directly into a development database and times a gateway-shaped source upload. The generated rows use `benchmark-`-prefixed identifiers and can be removed with the matching cleanup command.
+
+```bash
+# Seed 80,000 event revisions across 10 derivation groups.
+./external-events/benchmark.sh seed
+
+# Upload 1,000 new event revisions into benchmark-group-0.
+./external-events/benchmark.sh mutate 0 1 1000
+
+./external-events/benchmark.sh stats
+./external-events/benchmark.sh cleanup
+```
+
+The script reads the repository `.env`. Its connection can be overridden with the `EXTERNAL_EVENTS_BENCHMARK_HOST`, `PORT`, `DATABASE`, `USER`, and `PASSWORD` environment variables. Run the script with `help` for larger dataset examples.
+
 ## Visualizing results
 
 `k6` supports several output formats and ways to [visualize results](https://k6.io/blog/ways-to-visualize-k6-results/), in this directory we demo just one. The load testing script will call `k6` with a few flags to output test results in both a numerical JSON and visual HTML format.

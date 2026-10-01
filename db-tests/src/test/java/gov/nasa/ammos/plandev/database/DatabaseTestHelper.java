@@ -44,11 +44,13 @@ public class DatabaseTestHelper {
    */
   private HikariDataSource startDatabase() throws IOException, InterruptedException {
     // Create test database and grant privileges as postgres user
+    // drop first to remove any leftovers from previously interrupted runs
     {
       final var pb = new ProcessBuilder("psql",
                                         "postgresql://" + postgresUsername + ":" + postgresPassword
                                         + "@" + postgresHost + ":" + postgresPort + "/postgres",
                                         "-v", "ON_ERROR_STOP=1",
+                                        "-c", "DROP DATABASE IF EXISTS " + dbName + ";",
                                         "-c", "CREATE DATABASE " + dbName + ";",
                                         "-c", "GRANT ALL PRIVILEGES ON DATABASE " + dbName + " TO "+plandevUsername+";"
       );

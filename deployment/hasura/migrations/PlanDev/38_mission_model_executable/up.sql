@@ -620,6 +620,37 @@ create table merlin.plan_import_request (
       on delete set null
 );
 
+-- Allow Gateway to write to plan_import_request
+do $$
+  declare
+    _merlin_user text;
+    _gateway_user text;
+  begin
+    -- Find the merlin user
+    select grantee
+    from information_schema.role_table_grants
+    where table_schema = 'merlin'
+      and table_name = 'constraint_request'
+      and privilege_type = 'INSERT'
+      and grantee != (select current_user)
+    limit 1
+    into _merlin_user;
+
+    -- Use the merlin user to isolate the gateway user
+    select grantee
+    from information_schema.role_table_grants
+    where table_schema = 'merlin'
+      and table_name = 'uploaded_file'
+      and privilege_type = 'INSERT'
+      and grantee != (select current_user)
+      and grantee != _merlin_user
+    limit 1
+    into _gateway_user;
+
+    execute format('grant select, insert, update, delete on merlin.plan_import_request to %I', _gateway_user);
+  end
+$$;
+
 comment on table merlin.plan_import_request is e''
 'A request for a Read Only Plan to be imported from a plan.json file';
 

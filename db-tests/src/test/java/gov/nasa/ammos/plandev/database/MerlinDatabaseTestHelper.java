@@ -75,7 +75,7 @@ public final class MerlinDatabaseTestHelper {
           .executeQuery(
               //language=sql
               """
-              INSERT INTO merlin.mission_model (name, mission, owner, version, jar_id)
+              INSERT INTO merlin.mission_model (name, mission, owner, version, definition_file_id)
               VALUES ('test-mission-model-%s', 'test-mission', '%s', '0', %s)
               RETURNING id;
               """.formatted(UUID.randomUUID().toString(), username, fileId)

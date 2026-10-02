@@ -36,6 +36,10 @@ begin
     raise exception 'Cannot migrate plan %: it has open merge requests.', _plan_id;
   end if;
 
+  -- Check that the plan is not readonly or locked
+  call merlin.plan_locked_exception(_plan_id);
+  call merlin.plan_readonly_exception(_plan_id);
+
   -- Get the old model ID associated with the plan
   select model_id into _old_model_id from merlin.plan where id = _plan_id;
 

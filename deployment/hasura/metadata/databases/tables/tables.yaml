@@ -75,6 +75,7 @@
 # Plan
 - "!include merlin/plan.yaml"
 - "!include merlin/plan_collaborators.yaml"
+- "!include merlin/plan_import_request.yaml"
 
 # Activity Directives
 - "!include merlin/activity_directive/activity_directive_metadata_schema.yaml"

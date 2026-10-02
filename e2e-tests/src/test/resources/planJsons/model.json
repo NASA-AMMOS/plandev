@@ -1,0 +1,81 @@
+{
+    "parameters": [{ "name": "initial_state_of_charge", "schema": { "type": "real" } }],
+
+    "activity_types": [
+      {
+        "name": "Calibrate",
+        "description": "Perform detector calibration."
+      },
+      {
+        "name": "TakeImage",
+        "description": "Point the camera and capture a burst of frames.",
+        "subsystem": "imaging",
+        "parameters": [
+          { "name": "target", "schema": { "type": "string" } },
+          { "name": "count", "schema": { "type": "int", "metadata": { "unit": "frames" } } },
+          {
+            "name": "mode",
+            "schema": {
+              "type": "variant",
+              "variants": [
+                { "key": "AUTO", "label": "Automatic" },
+                { "key": "MANUAL", "label": "Manual" }
+              ]
+            }
+          },
+          {
+            "name": "compression",
+            "schema": {
+              "type": "struct",
+              "items": {
+                "algorithm": { "type": "string" },
+                "quality": { "type": "int" }
+              }
+            }
+          },
+          {
+            "name": "filters",
+            "schema": {
+              "type": "series",
+              "items": { "type": "string" }
+            }
+          }
+        ],
+        "required_parameters": ["target", "count"],
+        "computed_attributes_schema": {
+          "type": "struct",
+          "items": {
+            "image_id": { "type": "string" },
+            "bytes": { "type": "int" }
+          }
+        }
+      },
+      {
+        "name": "DownlinkChunk",
+        "description": "Downlink one chunk of image data.",
+        "subsystem": "comms",
+        "parameters": [{ "name": "bytes", "schema": { "type": "int" } }]
+      }
+    ],
+
+    "resource_types": [
+      {
+        "name": "/battery/state_of_charge",
+        "schema": {
+          "type": "struct",
+          "items": { "initial": { "type": "real" }, "rate": { "type": "real" } },
+          "metadata": { "unit": "fraction" }
+        }
+      },
+      {
+        "name": "/camera/mode",
+        "schema": {
+          "type": "variant",
+          "variants": [
+            { "key": "IDLE", "label": "Idle" },
+            { "key": "IMAGING", "label": "Imaging" }
+          ]
+        }
+      }
+    ]
+}

@@ -1,5 +1,9 @@
 package gov.nasa.ammos.plandev.merlin.server.remotes.postgres;
 
+import gov.nasa.ammos.plandev.json.FormattedError;
+import gov.nasa.ammos.plandev.merlin.driver.SimulationFailure;
+import gov.nasa.ammos.plandev.merlin.server.ExternalSimulationFileParser;
+import gov.nasa.ammos.plandev.merlin.server.exceptions.MerlinFormattedError;
 import gov.nasa.ammos.plandev.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
@@ -21,6 +25,7 @@ import gov.nasa.ammos.plandev.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.sql.DataSource;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -196,6 +201,94 @@ public final class PostgresPlanRepository implements PlanRepository {
     } catch (final SQLException ex) {
       throw new DatabaseException(
           "Failed to retrieve constraints for plan with id `%s`".formatted(planId), ex);
+    }
+  }
+
+  @Override
+  public void markPlanReadOnly(final PlanId planId) throws NoSuchPlanException {
+    try(final var connection = this.dataSource.getConnection();
+        final var markPlanReadOnlyAction = new MarkPlanReadOnlyAction(connection)
+    ) {
+      markPlanReadOnlyAction.apply(planId.id());
+    } catch (SQLException ex) {
+      throw new DatabaseException("Failed to mark plan as read only", ex);
+    }
+  }
+
+  @Override
+  public void createExternalSimDataset(
+      final int requestId,
+      final PlanId planId,
+      final Timestamp simulationStart,
+      final Timestamp simulationEnd,
+      final Map<String, SerializedValue> simulationArguments,
+      final Path resultsFilePath,
+      final String requestedBy
+  ) throws FailedUpdateException {
+    try(final var connection = this.dataSource.getConnection();
+        final var getSimulationAction = new GetSimulationAction(connection);
+        final var createSimulationDatasetAction = new CreateSimulationDatasetAction(connection);
+        final var setSimulationDatasetStatus = new SetSimulationStateAction(connection);
+        final var setPlanImportRequestStatus = new SetPlanImportRequestStatusAction(connection)
+    ) {
+      // Create the Simulation Dataset Row
+      final var simulationSpecification = getSimulationAction.get(planId.id());
+      final long datasetId = createSimulationDatasetAction.apply(
+          simulationSpecification.id(),
+          simulationStart,
+          simulationEnd,
+          simulationArguments,
+          requestedBy,
+          SimulationStateRecord.Status.INCOMPLETE).datasetId();
+
+      // Populate the row by parsing the external file
+      try {
+        final var simFileParser = new ExternalSimulationFileParser(connection);
+        simFileParser.parse(resultsFilePath, datasetId, simulationStart);
+        setSimulationDatasetStatus.apply(datasetId, SimulationStateRecord.success());
+        setPlanImportRequestStatus.succeed(requestId);
+      } catch (SQLException | InvalidJsonEntityException | IOException ex) {
+        final FormattedError fe;
+
+        switch (ex) {
+          case SQLException sq -> fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, sq);
+          case InvalidJsonEntityException ije -> fe = new MerlinFormattedError(ije);
+          case IOException io -> fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, io);
+          default -> fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, "INTERNAL_ERROR", ex);
+        }
+
+        final var message = "Failed to parse and upload simulation results: "+fe.getMessage();
+
+        // Catch failures between creating and posting the simulation dataset
+        final var simFailureReason = new SimulationFailure.Builder()
+            .type(fe.getType())
+            .message(message)
+            .data(fe.toJson())
+            .trace(ex)
+            .build();
+
+        final var importFailure = new PlanImportFailure(fe.getType(), message, fe);
+
+        // Update the request before the simulation dataset
+        setPlanImportRequestStatus.fail(requestId, importFailure);
+        setSimulationDatasetStatus.apply(datasetId, SimulationStateRecord.failed(simFailureReason));
+      }
+    } catch (SQLException ex) {
+      markPlanImportRequestFailure(requestId, new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
+      throw new DatabaseException("Failed to create external simulation dataset.", ex);
+    } catch (NoSuchSimulationDatasetException nsd) {
+      markPlanImportRequestFailure(requestId, new MerlinFormattedError(nsd));
+      throw new FailedUpdateException("merlin.simulation_dataset");
+    }
+  }
+
+  public void markPlanImportRequestFailure(int requestId, FormattedError error) {
+    try(final var connection = this.dataSource.getConnection();
+        final var setPlanImportRequestStatus = new SetPlanImportRequestStatusAction(connection)) {
+      final var failureReason = new PlanImportFailure(error.getType(), error.getMessage(), error);
+      setPlanImportRequestStatus.fail(requestId, failureReason);
+    } catch (SQLException ex) {
+      throw new DatabaseException("Failed to update plan import request.", ex);
     }
   }
 

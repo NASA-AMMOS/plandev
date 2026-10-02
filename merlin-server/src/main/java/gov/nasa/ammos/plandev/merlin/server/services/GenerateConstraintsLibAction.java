@@ -2,6 +2,7 @@ package gov.nasa.ammos.plandev.merlin.server.services;
 
 import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader;
 import gov.nasa.ammos.plandev.merlin.server.exceptions.NoSuchPlanException;
+import gov.nasa.ammos.plandev.merlin.server.http.InvalidJsonEntityException;
 import gov.nasa.ammos.plandev.merlin.server.models.PlanId;
 import gov.nasa.ammos.plandev.types.MissionModelId;
 
@@ -44,7 +45,7 @@ public record GenerateConstraintsLibAction(TypescriptCodeGenerationServiceAdapte
                  "constraints-ast.ts", constraintsAst,
                  "TemporalPolyfillTypes.d.ts", temporalPolyfillTypes
           ));
-    } catch (MissionModelService.NoSuchMissionModelException | NoSuchPlanException | IOException | MissionModelLoader.MissionModelLoadException e) {
+    } catch (MissionModelService.NoSuchMissionModelException | NoSuchPlanException | IOException | InvalidJsonEntityException| MissionModelLoader.MissionModelLoadException e) {
       return new Response.Failure(e.getMessage());
     }
   }

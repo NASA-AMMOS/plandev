@@ -33,16 +33,14 @@ import static gov.nasa.ammos.plandev.merlin.server.http.MerlinParsers.durationP;
 import static gov.nasa.ammos.plandev.merlin.server.http.ProfileParsers.discreteProfileSegmentP;
 import static gov.nasa.ammos.plandev.merlin.server.http.ProfileParsers.realProfileSegmentP;
 import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.activityArgumentsP;
+import static javax.json.stream.JsonParser.Event.*;
+
 
 public class ExternalSimulationFileParser {
-  private enum TopLevelState { none, spans, profiles }
-
-  private TopLevelState currentState;
   private final Connection connection;
 
   public ExternalSimulationFileParser(Connection connection) {
     this.connection = connection;
-    this.currentState = TopLevelState.none;
   }
 
   public void parse(
@@ -55,28 +53,24 @@ public class ExternalSimulationFileParser {
         final var spanStreamer = new PostgresSpanStreamer(connection, datasetId, simulationStart);
         final var profileStreamer = new PostgresProfileStreamer(connection, datasetId)
     ) {
+      expectToken(jsonParser, START_OBJECT);
       while(jsonParser.hasNext()) {
         final var curEvent = jsonParser.next();
         switch (curEvent) {
-          case START_ARRAY -> {
-            // Parse the contents of the spans array
-            if(currentState == TopLevelState.spans) {
-              parseSpansArray(jsonParser, spanStreamer, simulationStart);
-            }
-          }
-          case START_OBJECT -> {
-            // Parse the contents of the profiles object
-            if(currentState == TopLevelState.profiles) {
-              parseProfilesObject(jsonParser, profileStreamer);
-            }
-          }
           case KEY_NAME -> {
-            // Set the current top-level state
             final var keyName = jsonParser.getString();
-            if(currentState == TopLevelState.none) {
-              currentState = TopLevelState.valueOf(keyName);
+            if (keyName.equals("spans")) {
+              parseSpansArray(jsonParser, spanStreamer, simulationStart);
+            } else if (keyName.equals("profiles")) {
+              parseProfilesObject(jsonParser, profileStreamer);
+            } else {
+              throw new IllegalArgumentException("Unexpected key: \"" + keyName + "\". Valid values are \"spans\" and \"profiles\".");
             }
           }
+          case END_OBJECT -> {
+            return;
+          }
+          default -> throw new IllegalStateException("Unexpected token: " + curEvent);
         }
       }
     }
@@ -87,21 +81,15 @@ public class ExternalSimulationFileParser {
       final PostgresSpanStreamer streamer,
       final Timestamp simulationStart
   ) throws InvalidJsonEntityException, SQLException {
+    expectToken(fileStream, START_ARRAY);
+
     while(fileStream.hasNext()) {
-      final var curEvent = fileStream.next();
-      switch (curEvent) {
-        case START_OBJECT -> {
-          // Fetch each object as we get it
-          final var span = spanP
-              .parse(fileStream.getObject())
-              .getSuccessOrThrow(reason -> new InvalidJsonEntityException(List.of(reason)));
-         streamer.accept(span.spanId, span.toPGSpanRecord(simulationStart));
-        }
-        case END_ARRAY -> {
-          currentState = TopLevelState.none;
-          return;
-        }
-      }
+      if (fileStream.next() == END_ARRAY) return;
+
+      final var span = spanP
+          .parse(fileStream.getObject())
+          .getSuccessOrThrow(reason -> new InvalidJsonEntityException(List.of(reason)));
+      streamer.accept(span.spanId, span.toPGSpanRecord(simulationStart));
     }
   }
 
@@ -109,6 +97,8 @@ public class ExternalSimulationFileParser {
       JsonParser fileStream,
       PostgresProfileStreamer profileStreamer
   ) throws InvalidJsonEntityException, SQLException {
+    expectToken(fileStream, START_OBJECT);
+
     while(fileStream.hasNext()) {
       final var curEvent = fileStream.next();
       switch (curEvent){
@@ -118,9 +108,9 @@ public class ExternalSimulationFileParser {
           parseProfile(fileStream, profileName, profileStreamer);
         }
         case END_OBJECT -> {
-          currentState = TopLevelState.none;
           return;
         }
+        default -> throw new IllegalStateException("Unexpected value: " + curEvent);
       }
     }
   }
@@ -130,6 +120,8 @@ public class ExternalSimulationFileParser {
       String profileName,
       PostgresProfileStreamer profileStreamer
   ) throws InvalidJsonEntityException, SQLException {
+    expectToken(fileStream, START_OBJECT);
+
     ValueSchema schema = null;
     Profile.ProfileType type = null;
 
@@ -159,11 +151,14 @@ public class ExternalSimulationFileParser {
               final var profile = new Profile(profileName, type, schema);
               parseProfileSegments(fileStream, profile, profileStreamer);
               break;
+            default:
+              throw new IllegalStateException("Unexpected key: " + fileStream.getString());
           }
         }
         case END_OBJECT -> {
           return;
         }
+        default -> throw new IllegalStateException("Unexpected JSON token: " + curEvent);
       }
     }
   }
@@ -173,6 +168,8 @@ public class ExternalSimulationFileParser {
       final Profile currentProfile,
       final PostgresProfileStreamer profileStreamer
   ) throws InvalidJsonEntityException, SQLException {
+    expectToken(fileStream, START_ARRAY);
+
     while (fileStream.hasNext()) {
       final var curEvent = fileStream.next();
       switch (curEvent) {
@@ -199,7 +196,15 @@ public class ExternalSimulationFileParser {
         case END_ARRAY -> {
           return;
         }
+        default -> throw new IllegalStateException("Unexpected value: " + curEvent);
       }
+    }
+  }
+
+  private static void expectToken(JsonParser fileStream, JsonParser.Event expected) {
+    var nextToken = fileStream.next();
+    if (nextToken != expected) {
+      throw new IllegalStateException("Expected " + expected + ", got " + nextToken);
     }
   }
 

@@ -17,7 +17,7 @@ import java.util.Optional;
 import static gov.nasa.ammos.plandev.merlin.driver.json.SerializedValueJsonParser.serializedValueP;
 import static gov.nasa.ammos.plandev.merlin.server.http.ProfileParsers.realDynamicsP;
 
-public final class PostgresProfileStreamer implements AutoCloseable {
+public class PostgresProfileStreamer implements AutoCloseable {
   // Buffer information
   private final static int DEFAULT_THRESHOLD = 4096;
   private final int THRESHOLD;

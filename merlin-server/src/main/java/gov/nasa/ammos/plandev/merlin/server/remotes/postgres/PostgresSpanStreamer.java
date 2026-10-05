@@ -10,7 +10,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 
-public final class PostgresSpanStreamer implements AutoCloseable {
+public class PostgresSpanStreamer implements AutoCloseable {
   // Buffer information
   private final static int DEFAULT_THRESHOLD = 4096;
   private final int THRESHOLD;

@@ -50,8 +50,8 @@ public class ExternalSimulationFileParser {
   ) throws IOException, InvalidJsonEntityException, SQLException {
     try(final var fileReader = new FileReader(filePath.toFile());
         final var jsonParser = Json.createParser(fileReader);
-        final var spanStreamer = new PostgresSpanStreamer(connection, datasetId, simulationStart);
-        final var profileStreamer = new PostgresProfileStreamer(connection, datasetId)
+        final var spanStreamer = createSpanStreamer(datasetId, simulationStart);
+        final var profileStreamer = createProfileStreamer(datasetId)
     ) {
       expectToken(jsonParser, START_OBJECT);
       while(jsonParser.hasNext()) {
@@ -74,6 +74,14 @@ public class ExternalSimulationFileParser {
         }
       }
     }
+  }
+
+  protected PostgresSpanStreamer createSpanStreamer(long datasetId, Timestamp simulationStart) throws SQLException {
+    return new PostgresSpanStreamer(connection, datasetId, simulationStart);
+  }
+
+  protected PostgresProfileStreamer createProfileStreamer(long datasetId) throws SQLException {
+    return new PostgresProfileStreamer(connection, datasetId);
   }
 
   private void parseSpansArray(

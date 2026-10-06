@@ -36,6 +36,7 @@ public final class WorkspaceAppDriver {
     final var workspaceBindings = new WorkspaceBindings(
         stores.jwt,
         stores.workspace,
+        stores.history,
         permissionsService,
         configuration.hasuraAdminSecret());
     // Configure an HTTP server.
@@ -82,7 +83,7 @@ public final class WorkspaceAppDriver {
     Runtime.getRuntime().addShutdownHook(new Thread(workspaceServer::close));
   }
 
-  private record Stores (JWTService jwt, WorkspaceService workspace) {}
+  private record Stores (JWTService jwt, WorkspaceService workspace, WorkspaceHistory history) {}
 
   private static Stores loadStores(final AppConfiguration config) {
     final var store = config.store();
@@ -102,8 +103,10 @@ public final class WorkspaceAppDriver {
       final var hikariDataSource = new HikariDataSource(hikariConfig);
 
       final var jwt = new JWTService(config.jwtSecret());
-      final var workspace = new WorkspaceFileSystemService(new WorkspacePostgresRepository(config.workspaceFileStore(), hikariDataSource));
-      return new Stores(jwt, workspace);
+      final var repository = new WorkspacePostgresRepository(config.workspaceFileStore(), hikariDataSource);
+      final var history = new WorkspaceHistory(repository);
+      final var workspace = new WorkspaceFileSystemService(repository, history);
+      return new Stores(jwt, workspace, history);
     } else {
       throw new UnexpectedSubtypeError(Store.class, store);
     }

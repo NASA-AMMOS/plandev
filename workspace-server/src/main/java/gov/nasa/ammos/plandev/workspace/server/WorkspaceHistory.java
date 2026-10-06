@@ -1,0 +1,584 @@
+package gov.nasa.ammos.plandev.workspace.server;
+
+import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
+import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.Status;
+import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.dircache.DirCacheCheckout;
+import org.eclipse.jgit.lib.Constants;
+import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.lib.PersonIdent;
+import org.eclipse.jgit.lib.RefUpdate;
+import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.revwalk.RevWalk;
+import org.eclipse.jgit.treewalk.EmptyTreeIterator;
+import org.eclipse.jgit.treewalk.TreeWalk;
+import org.eclipse.jgit.treewalk.filter.TreeFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Predicate;
+
+/**
+ * The single owner of workspace mutations and of the Git history that records them.
+ *
+ * <p><b>Invariant.</b> After every successful workspace mutation, the workspace working tree is represented by Git
+ * history and the repository is clean. Every mutation of workspace-managed files (file and directory create, save,
+ * move, copy, delete, metadata edits, cross-workspace operations) runs inside {@link #mutate}; the mutating methods of
+ * {@link WorkspaceFileSystemService} call {@link #requireLocked} so a path that bypasses this class fails loudly.
+ *
+ * <p><b>Flow.</b> {@link #mutate} takes each involved workspace's lock (in ascending id order, so two cross-workspace
+ * operations cannot deadlock), brings each repository to a clean, initialized state, records the pre-operation state,
+ * runs the mutation (which performs its own validation, e.g. existence, readOnly and ETag checks, under the lock),
+ * stages the complete resulting delta ({@code git add -A}), commits it if anything changed, and verifies the
+ * repository is clean before returning. A request never reports success if the history update failed.
+ *
+ * <p><b>Clean.</b> A repository is clean when {@code git status} reports no staged, modified, missing, conflicting or
+ * untracked files, and no ignored file exists outside {@code .seqdev/}. Ignore rules are fully controlled here:
+ * {@code core.excludesFile} points at {@code /dev/null}, {@code .git/info/exclude} contains only {@code /.seqdev/},
+ * and {@code .gitignore}/{@code .gitattributes} cannot exist in the tree ({@link WorkspacePaths}). Outside the
+ * definition by design: {@code .git/} itself, {@code .seqdev/} (runtime state, never committed) and empty
+ * directories (not representable in Git; creating or deleting one produces no commit).
+ *
+ * <p><b>Failure.</b> If the mutation throws, reports failure, or its history cannot be recorded, the workspace is
+ * restored to its pre-operation state: tracked files and the index are checked out from the pre-operation HEAD, the
+ * paths this operation created (untracked or newly added after it ran; equivalent to "created by this operation"
+ * because the repository was verified clean beforehand under the same lock) are removed, directories it created or
+ * deleted are removed or recreated, and {@code .seqdev/state.json} is restored. If that restoration itself fails, a
+ * {@link Kind#REPOSITORY_INCONSISTENT} error is raised rather than claiming success; nothing is ever {@code git clean}ed
+ * wholesale or reset on the strength of an unverified assumption.
+ *
+ * <p><b>Cross-workspace.</b> Two repositories cannot share a transaction. Commits are made in the order the caller
+ * lists the workspaces (destination first for moves). If the first commit fails, every workspace is restored. If a
+ * later commit fails, the workspaces already committed keep their change and the remaining ones are restored, raising
+ * {@link Kind#PARTIALLY_APPLIED}: for a move this means it degraded to a copy, which is preferable to losing data.
+ *
+ * <p><b>Pre-existing state.</b> A workspace without a repository is initialized lazily on its first mutation with a
+ * baseline commit authored by {@link #systemIdent()} ("Initialize workspace history"). A repository that is dirty when
+ * a mutation starts (out-of-band edit, crash mid-operation) is reconciled by committing that state as a separately
+ * labelled system commit and logging a warning; it is never reset.
+ *
+ * <p><b>Deployment assumption.</b> Locks are in-process. This is correct only while a single workspace-server
+ * instance owns the workspace volume (the current deployment: one replica, no other service mounts the volume) and
+ * nothing outside this class writes to a workspace's working tree. Reads do not take the lock.
+ */
+public class WorkspaceHistory {
+  private static final Logger logger = LoggerFactory.getLogger(WorkspaceHistory.class);
+
+  static final String INIT_MESSAGE = "Initialize workspace history";
+  static final String MIGRATE_MESSAGE = "Migrate workspace metadata";
+  static final String RECONCILE_MESSAGE = "Reconcile out-of-band workspace changes";
+
+  public enum Kind {
+    /** The history could not be recorded; the workspace was restored to its pre-operation state. */
+    HISTORY_NOT_RECORDED("WORKSPACE_HISTORY_ERROR"),
+    /** A cross-workspace mutation was applied to some workspaces only; see {@link PartialMutationException}. */
+    PARTIALLY_APPLIED("WORKSPACE_MUTATION_PARTIAL"),
+    /** The repository is not in a state this class can vouch for, and was not (or could not be) repaired. */
+    REPOSITORY_INCONSISTENT("WORKSPACE_REPOSITORY_INCONSISTENT");
+
+    public final String errorType;
+
+    Kind(final String errorType) {
+      this.errorType = errorType;
+    }
+  }
+
+  public static class WorkspaceHistoryException extends RuntimeException {
+    public final Kind kind;
+
+    WorkspaceHistoryException(final Kind kind, final String message, final Throwable cause) {
+      super(message, cause);
+      this.kind = kind;
+    }
+  }
+
+  /** A later commit of a cross-workspace mutation failed after earlier workspaces were committed. */
+  public static final class PartialMutationException extends WorkspaceHistoryException {
+    public final List<Integer> committedWorkspaceIds;
+    public final int restoredWorkspaceId;
+
+    PartialMutationException(final List<Integer> committed, final int restored, final Throwable cause) {
+      super(Kind.PARTIALLY_APPLIED,
+            "Workspace(s) %s were updated but workspace %d could not be and was restored".formatted(committed, restored),
+            cause);
+      this.committedWorkspaceIds = List.copyOf(committed);
+      this.restoredWorkspaceId = restored;
+    }
+  }
+
+  @FunctionalInterface
+  public interface Mutation<T> {
+    T apply() throws Exception;
+  }
+
+  /** A file's most recent content change, derived from history. {@code baseline} marks the history's root commit. */
+  public record LastEdit(String by, Instant at, boolean baseline) {}
+
+  private record Before(ObjectId head, Set<Path> directories, byte[] state) {}
+
+  private record LastEditIndex(ObjectId head, Map<String, LastEdit> edits) {}
+
+  private final WorkspaceRoots roots;
+  // ponytail: one lock per workspace id, never evicted; a few bytes per workspace ever touched by this process.
+  private final Map<Integer, ReentrantLock> locks = new ConcurrentHashMap<>();
+  private final Map<Path, LastEditIndex> lastEditCache = new ConcurrentHashMap<>();
+  private final Set<Path> configured = ConcurrentHashMap.newKeySet();
+
+  public WorkspaceHistory(final WorkspaceRoots roots) {
+    this.roots = roots;
+  }
+
+  //region Mutation boundary
+  /** Run a single-workspace mutation. See {@link #mutate(LinkedHashMap, String, Mutation, Predicate)}. */
+  public <T> T mutate(
+      final int workspaceId,
+      final String userId,
+      final String message,
+      final Mutation<T> mutation,
+      final Predicate<T> succeeded) throws Exception
+  {
+    final var commits = new LinkedHashMap<Integer, String>();
+    commits.put(workspaceId, message);
+    return mutate(commits, userId, mutation, succeeded);
+  }
+
+  /**
+   * Run a mutation across one or more workspaces under their locks, then record it in each workspace's history.
+   *
+   * @param commits the involved workspaces, in commit order, each with its commit message
+   * @param userId the PlanDev user the commits are authored by
+   * @param mutation performs validation and the filesystem change; may return a failure result instead of throwing
+   * @param succeeded whether a returned result is a success; a failure result is rolled back and returned as-is
+   * @return the mutation's result
+   * @throws WorkspaceHistoryException if history could not be recorded (the change was rolled back), was recorded in
+   *     only some workspaces, or the repository could not be restored
+   * @throws Exception anything the mutation throws, after the workspaces have been restored
+   */
+  public <T> T mutate(
+      final LinkedHashMap<Integer, String> commits,
+      final String userId,
+      final Mutation<T> mutation,
+      final Predicate<T> succeeded) throws Exception
+  {
+    final var ids = List.copyOf(commits.keySet());
+    final var lockOrder = ids.stream().sorted().map(this::lockFor).toList();
+    lockOrder.forEach(ReentrantLock::lock);
+    try {
+      final var rootsById = new LinkedHashMap<Integer, Path>();
+      final var before = new HashMap<Integer, Before>();
+      for (final var id : ids) {
+        final var root = roots.workspaceRootPath(id).normalize();
+        rootsById.put(id, root);
+        ensureReady(root);
+        before.put(id, capture(root));
+      }
+
+      final T result;
+      try {
+        result = mutation.apply();
+      } catch (Exception e) {
+        restoreAll(ids, rootsById, before, e);
+        throw e;
+      }
+      if (!succeeded.test(result)) {
+        restoreAll(ids, rootsById, before, null);
+        return result;
+      }
+
+      final var committed = new ArrayList<Integer>();
+      for (final var id : ids) {
+        final var root = rootsById.get(id);
+        try (final var git = open(root)) {
+          if (stageAll(git)) commit(git, commits.get(id), userIdent(userId));
+          requireClean(git, root);
+          committed.add(id);
+        } catch (Exception e) {
+          logger.error("Recording history for workspace {} failed; restoring", id, e);
+          restoreAll(ids.subList(committed.size(), ids.size()), rootsById, before, e);
+          if (committed.isEmpty()) {
+            throw new WorkspaceHistoryException(
+                Kind.HISTORY_NOT_RECORDED,
+                "The change could not be recorded in workspace history and was rolled back.",
+                e);
+          }
+          throw new PartialMutationException(committed, id, e);
+        }
+      }
+      return result;
+    } finally {
+      lockOrder.reversed().forEach(ReentrantLock::unlock);
+    }
+  }
+
+  /** Run an action under a workspace's lock without recording history (e.g. deleting the whole workspace). */
+  public <T> T withLock(final int workspaceId, final Mutation<T> action) throws Exception {
+    final var lock = lockFor(workspaceId);
+    lock.lock();
+    try {
+      final var root = roots.workspaceRootPath(workspaceId).normalize(); // before the action may delete the record
+      final var result = action.apply();
+      lastEditCache.remove(root);
+      configured.remove(root);
+      return result;
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /** Throw unless the current thread holds every given workspace's mutation lock. */
+  public void requireLocked(final int... workspaceIds) {
+    for (final var id : workspaceIds) {
+      final var lock = locks.get(id);
+      if (lock == null || !lock.isHeldByCurrentThread()) {
+        throw new IllegalStateException(
+            "Workspace %d was mutated outside WorkspaceHistory.mutate; every workspace mutation must go through it."
+                .formatted(id));
+      }
+    }
+  }
+
+  private ReentrantLock lockFor(final int workspaceId) {
+    return locks.computeIfAbsent(workspaceId, k -> new ReentrantLock());
+  }
+
+  /** The Git commit step. Overridable only so tests can inject a deterministic failure. */
+  protected void commit(final Git git, final String message, final PersonIdent author) throws GitAPIException {
+    git.commit()
+       .setMessage(message)
+       .setAuthor(author)
+       .setCommitter(systemIdent())
+       .setAllowEmpty(true)
+       .setSign(false)
+       .setNoVerify(true)
+       .call();
+  }
+  //endregion
+
+  //region Initialization and reconciliation
+  /**
+   * Bring a workspace to "initialized and clean". Migrates legacy sidecar metadata into {@link WorkspaceState} if the
+   * workspace has none, initializes the repository with a baseline commit if it has none, and reconciles any dirty
+   * state with a labelled system commit. Caller holds the lock.
+   */
+  private void ensureReady(final Path root) throws IOException, GitAPIException {
+    if (!Files.isDirectory(root)) {
+      throw new WorkspaceHistoryException(Kind.REPOSITORY_INCONSISTENT, "Workspace directory " + root + " is missing.", null);
+    }
+    final var hasRepo = Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR));
+    if (!hasRepo) requireNoReservedPaths(root);
+
+    final var migrated = !WorkspaceState.exists(root);
+    if (migrated) WorkspaceState.migrateFromSidecars(root);
+
+    if (!hasRepo) {
+      configured.remove(root); // a recreated directory needs its new repository configured
+      Git.init().setDirectory(root.toFile()).setInitialBranch("main").call().close();
+    }
+
+    try (final var git = open(root)) {
+      configure(root, git.getRepository());
+      if (git.getRepository().resolve(Constants.HEAD) == null) {
+        requireNoReservedPaths(root);
+        stageAll(git);
+        commit(git, INIT_MESSAGE, systemIdent());
+        logger.info("Initialized history for workspace at {}", root);
+      } else {
+        final var dirty = dirtyPaths(git.status().call());
+        if (!dirty.isEmpty()) {
+          requireNoReservedPaths(root);
+          if (!migrated) logger.warn("Workspace at {} has changes outside history; reconciling: {}", root, dirty);
+          stageAll(git);
+          commit(git, migrated ? MIGRATE_MESSAGE : RECONCILE_MESSAGE, systemIdent());
+        }
+      }
+      requireClean(git, root);
+    }
+  }
+
+  /**
+   * Make every repository behavior that could change file bytes or what is tracked explicit at repository level,
+   * rather than inheriting it from the server's $HOME or system Git config. Applied once per process per workspace.
+   */
+  private void configure(final Path root, final Repository repo) throws IOException {
+    if (configured.contains(root)) return;
+    final var cfg = repo.getConfig();
+    cfg.setBoolean("core", null, "autocrlf", false);
+    cfg.setBoolean("core", null, "safecrlf", false);
+    cfg.setString("core", null, "excludesFile", "/dev/null");
+    cfg.setString("core", null, "hooksPath", "/dev/null");
+    cfg.setBoolean("commit", null, "gpgSign", false);
+    cfg.setBoolean("tag", null, "gpgSign", false);
+    cfg.save();
+
+    final var info = repo.getDirectory().toPath().resolve("info");
+    Files.createDirectories(info);
+    Files.writeString(info.resolve("exclude"), "/" + WorkspacePaths.STATE_DIR + "/\n", StandardCharsets.UTF_8);
+    Files.deleteIfExists(info.resolve("attributes"));
+    configured.add(root);
+  }
+
+  /**
+   * Fail closed if the tree contains reserved names that would make Git skip or rewrite user files (only possible for
+   * workspaces created or edited outside the file API, since the API rejects these names).
+   */
+  private static void requireNoReservedPaths(final Path root) throws IOException {
+    final var found = new ArrayList<String>();
+    Files.walkFileTree(root, new SimpleFileVisitor<>() {
+      @Override
+      public FileVisitResult preVisitDirectory(final Path dir, final BasicFileAttributes attrs) {
+        if (dir.equals(root)) return FileVisitResult.CONTINUE;
+        final var name = dir.getFileName().toString();
+        if (dir.getParent().equals(root) && (name.equals(WorkspacePaths.GIT_DIR) || name.equals(WorkspacePaths.STATE_DIR))) {
+          return FileVisitResult.SKIP_SUBTREE;
+        }
+        if (WorkspacePaths.isReservedName(name)) found.add(WorkspacePaths.key(root, dir));
+        return FileVisitResult.CONTINUE;
+      }
+
+      @Override
+      public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) {
+        if (WorkspacePaths.isReservedName(file.getFileName().toString())) found.add(WorkspacePaths.key(root, file));
+        return FileVisitResult.CONTINUE;
+      }
+    });
+    if (!found.isEmpty()) {
+      throw new WorkspaceHistoryException(
+          Kind.REPOSITORY_INCONSISTENT,
+          "Workspace at %s contains reserved paths %s; remove them before it can be modified.".formatted(root, found),
+          null);
+    }
+  }
+  //endregion
+
+  //region Git helpers
+  private static Git open(final Path root) throws IOException {
+    // Opens <root>/.git only; never discovers a repository in a parent directory. Closing the Git closes the repo.
+    return Git.open(root.toFile());
+  }
+
+  /** {@code git add -A}. Returns whether anything is staged relative to HEAD. */
+  private static boolean stageAll(final Git git) throws GitAPIException {
+    git.add().addFilepattern(".").call();
+    git.add().addFilepattern(".").setUpdate(true).call();
+    final var status = git.status().call();
+    return !(status.getAdded().isEmpty() && status.getChanged().isEmpty() && status.getRemoved().isEmpty());
+  }
+
+  /** Every path that makes the repository not clean, per the definition in the class Javadoc. */
+  static Set<String> dirtyPaths(final Status status) {
+    final var dirty = new TreeSet<String>();
+    dirty.addAll(status.getAdded());
+    dirty.addAll(status.getChanged());
+    dirty.addAll(status.getRemoved());
+    dirty.addAll(status.getMissing());
+    dirty.addAll(status.getModified());
+    dirty.addAll(status.getConflicting());
+    // Untracked files are listed individually; untracked *folders* add nothing beyond them except empty
+    // directories, which are deliberately outside the definition.
+    dirty.addAll(status.getUntracked());
+    for (final var ignored : status.getIgnoredNotInIndex()) {
+      if (!ignored.equals(WorkspacePaths.STATE_DIR) && !ignored.startsWith(WorkspacePaths.STATE_DIR + "/")) {
+        dirty.add(ignored);
+      }
+    }
+    return dirty;
+  }
+
+  private static void requireClean(final Git git, final Path root) throws GitAPIException {
+    final var dirty = dirtyPaths(git.status().call());
+    if (!dirty.isEmpty()) {
+      throw new WorkspaceHistoryException(
+          Kind.REPOSITORY_INCONSISTENT,
+          "Workspace at %s is not clean: %s".formatted(root, dirty),
+          null);
+    }
+  }
+
+  static PersonIdent systemIdent() {
+    return new PersonIdent("PlanDev", "");
+  }
+
+  private static PersonIdent userIdent(final String userId) {
+    return userId == null || userId.isBlank() ? systemIdent() : new PersonIdent(userId, "");
+  }
+  //endregion
+
+  //region Rollback
+  private Before capture(final Path root) throws IOException {
+    try (final var git = open(root)) {
+      final var head = git.getRepository().resolve(Constants.HEAD);
+      final var stateFile = WorkspaceState.file(root);
+      final var state = Files.isRegularFile(stateFile) ? Files.readAllBytes(stateFile) : null;
+      return new Before(head, directories(root), state);
+    }
+  }
+
+  // ponytail: walks every directory of the workspace per mutation, the same order of cost as `git status`.
+  private static Set<Path> directories(final Path root) throws IOException {
+    final var dirs = new HashSet<Path>();
+    for (final var p : WorkspacePaths.walk(root, Integer.MAX_VALUE)) {
+      if (Files.isDirectory(p)) dirs.add(p);
+    }
+    return dirs;
+  }
+
+  /** Restore each workspace; if any cannot be restored, fail with REPOSITORY_INCONSISTENT. */
+  private void restoreAll(
+      final List<Integer> ids,
+      final Map<Integer, Path> rootsById,
+      final Map<Integer, Before> before,
+      final Exception cause)
+  {
+    final var failed = new ArrayList<Integer>();
+    final var errors = new ArrayList<Exception>();
+    for (final var id : ids) {
+      try {
+        restore(rootsById.get(id), before.get(id));
+      } catch (Exception e) {
+        logger.error("Could not restore workspace {} after a failed mutation", id, e);
+        failed.add(id);
+        errors.add(e);
+      }
+    }
+    if (!errors.isEmpty()) {
+      final var ex = new WorkspaceHistoryException(
+          Kind.REPOSITORY_INCONSISTENT,
+          "A failed change could not be fully rolled back in workspace(s) %s; the workspace may not match its history."
+              .formatted(failed),
+          errors.getFirst());
+      errors.stream().skip(1).forEach(ex::addSuppressed);
+      if (cause != null) ex.addSuppressed(cause);
+      throw ex;
+    }
+  }
+
+  private void restore(final Path root, final Before before) throws IOException, GitAPIException {
+    try (final var git = open(root); final var walk = new RevWalk(git.getRepository())) {
+      final var repo = git.getRepository();
+
+      // Record what this operation created. The repository was clean before it ran (verified under this lock),
+      // so every untracked or newly added path now is one it created.
+      final var status = git.status().call();
+      final var created = new TreeSet<String>();
+      created.addAll(status.getUntracked());
+      created.addAll(status.getAdded());
+
+      // Move the branch back only if the operation's commit actually landed.
+      if (!before.head().equals(repo.resolve(Constants.HEAD))) {
+        final var update = repo.updateRef(Constants.HEAD);
+        update.setNewObjectId(before.head());
+        final var result = update.forceUpdate();
+        if (result != RefUpdate.Result.FORCED && result != RefUpdate.Result.NO_CHANGE) {
+          throw new IOException("Could not move HEAD back to " + before.head().name() + ": " + result);
+        }
+      }
+
+      // Index and tracked files back to the pre-operation commit.
+      final RevCommit commit = walk.parseCommit(before.head());
+      final var checkout = new DirCacheCheckout(repo, repo.lockDirCache(), commit.getTree());
+      checkout.setFailOnConflict(false);
+      checkout.checkout();
+
+      for (final var path : created) Files.deleteIfExists(root.resolve(path));
+
+      // Directories: remove the ones the operation created (deepest first), recreate the ones it removed.
+      final var now = directories(root);
+      final var added = now.stream()
+                           .filter(d -> !before.directories().contains(d))
+                           .sorted(Comparator.comparingInt(Path::getNameCount).reversed())
+                           .toList();
+      for (final var dir : added) Files.delete(dir);
+      for (final var dir : before.directories()) Files.createDirectories(dir);
+
+      final var stateFile = WorkspaceState.file(root);
+      if (before.state() == null) {
+        Files.deleteIfExists(stateFile);
+      } else {
+        final var tmp = stateFile.resolveSibling("state.json.tmp");
+        Files.createDirectories(stateFile.getParent());
+        Files.write(tmp, before.state());
+        Files.move(tmp, stateFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+      }
+
+      requireClean(git, root);
+    }
+  }
+  //endregion
+
+  //region Reads (lock-free)
+  /** Whether the workspace has been put under history (and its metadata migrated). */
+  public boolean isInitialized(final Path root) {
+    return WorkspaceState.exists(root) && Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR));
+  }
+
+  /**
+   * The most recent commit that changed each content path (sidecars excluded), keyed by '/'-separated
+   * workspace-relative path. Cached per workspace by HEAD; when HEAD advances only the new commits are walked.
+   */
+  public Map<String, LastEdit> lastEdits(final Path root) throws IOException {
+    if (!Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR))) return Map.of();
+    try (final var git = open(root); final var walk = new RevWalk(git.getRepository())) {
+      final var repo = git.getRepository();
+      final var head = repo.resolve(Constants.HEAD);
+      if (head == null) return Map.of();
+      final var cached = lastEditCache.get(root);
+      if (cached != null && cached.head().equals(head)) return cached.edits();
+
+      final var edits = new HashMap<String, LastEdit>();
+      var reachedCache = false;
+      walk.markStart(walk.parseCommit(head));
+      for (final var commit : walk) {
+        if (cached != null && commit.equals(cached.head())) {
+          reachedCache = true;
+          break;
+        }
+        try (final var tw = new TreeWalk(repo)) {
+          tw.setRecursive(true);
+          tw.setFilter(TreeFilter.ANY_DIFF);
+          if (commit.getParentCount() > 0) {
+            tw.addTree(walk.parseCommit(commit.getParent(0)).getTree());
+          } else {
+            tw.addTree(new EmptyTreeIterator());
+          }
+          tw.addTree(commit.getTree());
+          final var author = commit.getAuthorIdent();
+          final var edit = new LastEdit(author.getName(), author.getWhenAsInstant(), commit.getParentCount() == 0);
+          while (tw.next()) {
+            if (tw.getRawMode(1) == 0) continue; // deleted in this commit
+            final var path = tw.getPathString();
+            if (RenderType.isAerieMetadataFile(path.substring(path.lastIndexOf('/') + 1))) continue;
+            edits.putIfAbsent(path, edit);
+          }
+        }
+      }
+      if (reachedCache) cached.edits().forEach(edits::putIfAbsent);
+
+      final var result = Map.copyOf(edits);
+      lastEditCache.put(root, new LastEditIndex(head.copy(), result));
+      return result;
+    }
+  }
+  //endregion
+}

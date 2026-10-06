@@ -13,11 +13,11 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.function.BiFunction;
 
 /**
  * A tree representing the contents of a directory on the file system.
@@ -37,8 +37,14 @@ public class DirectoryTree {
    * @param inputList a list of Paths contained within the root directory
    * @param extensionMappings a map of file extensions to RenderTypes.
    *    Used to determine the RenderType of file paths
+   * @param metadataView maps (file path, raw sidecar JSON) to the metadata presented for the file
    */
-  public DirectoryTree(Path root, List<Path> inputList, Map<String, RenderType> extensionMappings, boolean withMetadata) {
+  public DirectoryTree(
+      Path root,
+      List<Path> inputList,
+      Map<String, RenderType> extensionMappings,
+      boolean withMetadata,
+      BiFunction<Path, JsonObject, JsonObject> metadataView) {
     if(!root.toFile().isDirectory()) {
       throw new IllegalArgumentException("Cannot create a DirectoryTree from a file.");
     }
@@ -49,7 +55,7 @@ public class DirectoryTree {
         this.root.addChild(new DirectoryNode(path));
       } else {
         final var rType = RenderType.getRenderType(path.getFileName().toString(), extensionMappings);
-        this.root.addChild(new FileNode(path, rType, withMetadata));
+        this.root.addChild(new FileNode(path, rType, withMetadata, metadataView));
       }
     }
   }
@@ -61,8 +67,6 @@ public class DirectoryTree {
 
     final Optional<JsonObject> metadata;
     final Optional<MetadataStatus> metadataStatus;
-
-    final boolean readOnly;
 
     private enum MetadataStatus {
       ok, // Metadata file exists and is valid
@@ -76,10 +80,9 @@ public class DirectoryTree {
       this.name = path.getFileName().toString();
       this.metadata = Optional.empty();
       this.metadataStatus = Optional.empty();
-      this.readOnly = false;
     }
 
-    FileNode(Path path, RenderType renderType, boolean getMetadata) {
+    FileNode(Path path, RenderType renderType, boolean getMetadata, BiFunction<Path, JsonObject, JsonObject> metadataView) {
       this.path = path;
       this.renderType = renderType;
       this.name = path.getFileName().toString();
@@ -88,7 +91,6 @@ public class DirectoryTree {
       if (!getMetadata || renderType == RenderType.METADATA) {
         this.metadata = Optional.empty();
         this.metadataStatus = Optional.empty();
-        this.readOnly = false;
         return;
       }
 
@@ -97,23 +99,20 @@ public class DirectoryTree {
       if (!metadataFile.exists() || metadataFile.isDirectory()) {
         this.metadata = Optional.empty();
         this.metadataStatus = Optional.of(MetadataStatus.missing);
-        this.readOnly = false;
         return;
       }
 
       // Attempt to read the metadata file
       final JsonObject fileContents;
       try(final var reader = Json.createReader(new FileReader(metadataFile))){
-        fileContents = reader.readObject();
+        fileContents = metadataView.apply(path, reader.readObject());
       } catch (FileNotFoundException fnf) {
         this.metadata = Optional.empty();
         this.metadataStatus = Optional.of(MetadataStatus.missing);
-        this.readOnly = false;
         return;
       } catch (JsonException je) {
         this.metadata = Optional.empty();
         this.metadataStatus = Optional.of(MetadataStatus.malformed);
-        this.readOnly = false;
         return;
       }
 
@@ -121,15 +120,11 @@ public class DirectoryTree {
       if(!validateMetadataFile(fileContents)) {
         this.metadata = Optional.empty();
         this.metadataStatus = Optional.of(MetadataStatus.malformed);
-        this.readOnly = false;
         return;
       }
 
       this.metadata = Optional.of(fileContents);
       this.metadataStatus = Optional.of(MetadataStatus.ok);
-
-      // Set "readOnly", if it's present in the metadata
-      readOnly = fileContents.getBoolean("readOnly", false);
     }
 
     private boolean validateMetadataFile(JsonObject metadata) throws JsonException {
@@ -172,10 +167,6 @@ public class DirectoryTree {
         return false;
       }
       return true;
-    }
-
-    boolean isReadOnly() {
-      return readOnly;
     }
 
     JsonObjectBuilder toJsonBuilder() {
@@ -224,25 +215,6 @@ public class DirectoryTree {
       }
     }
 
-    private List<Path> readOnlyNodes() {
-      final var nodeList = new ArrayList<Path>();
-      children.forEach((key, child) -> {
-        if(child instanceof DirectoryNode subDir) {
-          for(final Path subPath : subDir.readOnlyNodes()) {
-            nodeList.add(this.path.resolve(subPath));
-          }
-        } else {
-          // Skip Metadata files
-          if(!RenderType.isAerieMetadataFile(child.name)) {
-            if(child.isReadOnly()) {
-              nodeList.add(path.resolve(child.path));
-            }
-          }
-        }
-      });
-      return nodeList;
-    }
-
     @Override
     JsonObjectBuilder toJsonBuilder() {
       final var contentsArray = Json.createArrayBuilder();
@@ -257,10 +229,6 @@ public class DirectoryTree {
                  .add("type", renderType.name())
                  .add("contents", contentsArray);
     }
-  }
-
-  public List<Path> readOnlyNodes() {
-    return root.readOnlyNodes();
   }
 
   /**

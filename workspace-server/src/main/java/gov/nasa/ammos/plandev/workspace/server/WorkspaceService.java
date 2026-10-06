@@ -21,6 +21,9 @@ import java.util.Set;
 
 /**
  * An interface that defines how the Aerie system can interact with the Workspaces backend.
+ *
+ * Every method that changes workspace content must be called inside {@link WorkspaceHistory#mutate}, which holds the
+ * workspace lock and records the change in the workspace's Git history.
  */
 public interface WorkspaceService {
   /**
@@ -197,7 +200,7 @@ public interface WorkspaceService {
    * @return true if the file was deleted, false otherwise
    */
   boolean deleteFile(final int workspaceId, final Path filePath)
-  throws NoSuchWorkspaceException, WorkspaceFileOpException;
+  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException;
 
   /**
    * Get a DirectoryTree representing the contents of the directory down to the specified depth
@@ -254,8 +257,11 @@ public interface WorkspaceService {
    * @param directoryPath the path to the directory
    * @return true if the directory was deleted, false otherwise
    * @throws NoSuchWorkspaceException if the specified workspace does not exist
+   * @throws WorkspaceFileOpException if `directoryPath` is the workspace root
+   * @throws IOException if the workspace's runtime state cannot be updated
    */
-  boolean deleteDirectory(final int workspaceId, final Path directoryPath) throws NoSuchWorkspaceException;
+  boolean deleteDirectory(final int workspaceId, final Path directoryPath)
+  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException;
 
   /**
    * Returns whether the file located at 'filePath' is marked as "readOnly" in its metadata.
@@ -332,5 +338,5 @@ public interface WorkspaceService {
    * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory, or if the metadata file for "filePath" is a directory
    */
   boolean deleteMetadataFile(final int workspaceId, final Path filePath)
-  throws NoSuchWorkspaceException, WorkspaceFileOpException;
+  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException;
 }

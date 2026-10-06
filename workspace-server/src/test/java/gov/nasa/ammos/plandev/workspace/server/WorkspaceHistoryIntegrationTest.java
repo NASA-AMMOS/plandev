@@ -10,6 +10,7 @@ import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.DiffFormatter;
+import org.eclipse.jgit.lib.FileMode;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.treewalk.TreeWalk;
@@ -25,12 +26,17 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,6 +46,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Exercises workspace mutations end to end below HTTP: the binding handlers (validation, readOnly, ETag), the
@@ -186,6 +193,33 @@ class WorkspaceHistoryIntegrationTest {
 
   private boolean isReadOnly(final int ws, final String path) throws Exception {
     return history.mutate(ws, USER, "check", () -> fs.isReadOnly(ws, Path.of(path)), r -> true);
+  }
+
+  private static final boolean POSIX = FileSystems.getDefault().supportedFileAttributeViews().contains("posix");
+
+  private static void deleteRecursively(final Path path) throws IOException {
+    if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) return;
+    try (final var paths = Files.walk(path)) {
+      for (final var p : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(p);
+    }
+  }
+
+  private void deleteSidecar(final int ws, final String path) throws Exception {
+    history.mutate(ws, USER, "drop metadata", () -> fs.deleteMetadataFile(ws, Path.of(path)), r -> r);
+  }
+
+  private void setUserMetadata(final int ws, final String path, final String status) throws Exception {
+    history.mutate(ws, USER, "meta", () -> fs.updateMetadataKeys(
+        ws, Path.of(path),
+        new MetadataUpdates.Builder(USER).user(Json.createObjectBuilder().add("status", status).build()).build(),
+        MetadataMergeBehavior.deepMerge), r -> true);
+  }
+
+  private JsonObject metadata(final int ws, final String path) throws Exception {
+    try (final var in = fs.loadMetadataFile(ws, Path.of(path)).readingStream();
+         final var reader = Json.createReader(in)) {
+      return reader.readObject();
+    }
   }
 
   /** Initialize a workspace's history (an empty directory creation is a no-op mutation). */
@@ -777,6 +811,45 @@ class WorkspaceHistoryIntegrationTest {
       assertClean(WS1);
     }
 
+    /**
+     * A real I/O failure while replacing one sidecar (its directory is not writable): the sidecar is either fully
+     * legacy or fully migrated, never partial, and the next adoption finishes the job without losing metadata.
+     */
+    @Test
+    void aFailedSidecarReplacementIsAtomicAndResumable() throws Exception {
+      assumeTrue(POSIX && !"root".equals(System.getProperty("user.name")), "needs POSIX permissions enforced");
+      final var legacy = """
+          {"version":"1","createdBy":"carol","createdAt":"2025-01-01T00:00:00Z",\
+          "lastEditedBy":"dave","lastEditedAt":"2025-02-02T00:00:00Z","readOnly":true}""";
+      for (final var dir : List.of("a", "b")) {
+        Files.createDirectories(root(WS1).resolve(dir));
+        Files.writeString(root(WS1).resolve(dir + "/x.txt"), dir);
+        Files.writeString(root(WS1).resolve(dir + "/.x.txt.meta.seqdev"), legacy);
+      }
+      final var locked = root(WS1).resolve("b");
+      Files.setPosixFilePermissions(locked, PosixFilePermissions.fromString("r-xr-xr-x"));
+      try {
+        assertFailure(bindings.handleCreateDirectory(WS1, Path.of("z"), USER), 500, null);
+      } finally {
+        Files.setPosixFilePermissions(locked, PosixFilePermissions.fromString("rwxr-xr-x"));
+      }
+      assertFalse(read(WS1, "a/.x.txt.meta.seqdev").contains("readOnly"), "a was migrated");
+      assertEquals(legacy, read(WS1, "b/.x.txt.meta.seqdev"), "b is untouched, not partially written");
+      assertEquals(Optional.of(true), WorkspaceState.load(root(WS1)).readOnly("b/x.txt"));
+      try (final var internal = Files.list(root(WS1).resolve(".seqdev"))) {
+        assertEquals(List.of("state.json"), internal.map(p -> p.getFileName().toString()).toList());
+      }
+      assertFalse(history.isManaged(root(WS1)));
+
+      init(WS1);
+      assertFalse(read(WS1, "b/.x.txt.meta.seqdev").contains("readOnly"));
+      for (final var file : List.of("a/x.txt", "b/x.txt")) {
+        assertTrue(isReadOnly(WS1, file), file);
+        assertEquals("dave", fs.getLastEditInfo(WS1, Path.of(file)).lastEditedBy(), file);
+      }
+      assertClean(WS1);
+    }
+
     @Test
     void migrationIsIdempotent() throws Exception {
       writeLegacyWorkspace();
@@ -851,10 +924,64 @@ class WorkspaceHistoryIntegrationTest {
       saveOk(WS1, "b.txt", "v1");
     }
 
+    interface Corruption {
+      void apply(Path seqdev, Path state) throws IOException;
+    }
+
+    /** Everything under .seqdev, so a test can tell the corruption was left exactly as it was. */
+    private static String fingerprint(final Path seqdev) throws IOException {
+      if (!Files.exists(seqdev, LinkOption.NOFOLLOW_LINKS)) return "absent";
+      try (final var paths = Files.walk(seqdev)) {
+        final var out = new StringBuilder();
+        for (final var p : paths.sorted().toList()) {
+          out.append(seqdev.relativize(p)).append(Files.isDirectory(p) ? "/" : "=" + Files.readString(p)).append('\n');
+        }
+        return out.toString();
+      }
+    }
+
     @Test
-    void missingRuntimeStateIsRejected() throws Exception {
-      Files.delete(WorkspaceState.file(root(WS1)));
-      assertTrue(assertRefused().contains("runtime state"));
+    void invalidRuntimeStateIsRejectedAndLeftUntouched() throws Exception {
+      final var seqdev = root(WS1).resolve(".seqdev");
+      final var state = WorkspaceState.file(root(WS1));
+      final var good = Files.readAllBytes(state);
+      final var cases = new LinkedHashMap<String, Corruption>();
+      cases.put("missing .seqdev", (d, f) -> deleteRecursively(d));
+      cases.put(".seqdev is a file", (d, f) -> { deleteRecursively(d); Files.writeString(d, "x"); });
+      cases.put("missing state.json", (d, f) -> Files.delete(f));
+      cases.put("state.json is a directory", (d, f) -> { Files.delete(f); Files.createDirectory(f); });
+      cases.put("malformed JSON", (d, f) -> Files.writeString(f, "{\"version\":1,"));
+      cases.put("unsupported version", (d, f) -> Files.writeString(f, "{\"version\":2,\"files\":{}}"));
+      cases.put("missing version", (d, f) -> Files.writeString(f, "{\"files\":{}}"));
+      cases.put("files is not an object", (d, f) -> Files.writeString(f, "{\"version\":1,\"files\":[]}"));
+      cases.put("readOnly is not a boolean", (d, f) ->
+          Files.writeString(f, "{\"version\":1,\"files\":{\"a.txt\":{\"readOnly\":\"no\"}}}"));
+
+      for (final var c : cases.entrySet()) {
+        c.getValue().apply(seqdev, state);
+        final var corrupted = fingerprint(seqdev);
+        assertTrue(assertRefused().contains("invalid runtime state"), c.getKey());
+        assertEquals(corrupted, fingerprint(seqdev), c.getKey() + ": must not be repaired");
+
+        deleteRecursively(seqdev);
+        Files.createDirectories(seqdev);
+        Files.write(state, good);
+      }
+      saveOk(WS1, "b.txt", "v1");
+    }
+
+    @Test
+    void staleTempFilesAreRemovedAndNothingElseIs() throws Exception {
+      final var seqdev = root(WS1).resolve(".seqdev");
+      final var stale = seqdev.resolve("tmp-" + java.util.UUID.randomUUID());
+      Files.writeString(stale, "left by a crash");
+      final var others = List.of(seqdev.resolve("tmp-notauuid"), seqdev.resolve("notes.tmp"));
+      for (final var other : others) Files.writeString(other, "not ours");
+
+      saveOk(WS1, "b.txt", "v1");
+      assertFalse(Files.exists(stale));
+      others.forEach(o -> assertTrue(Files.exists(o), o::toString));
+      assertClean(WS1);
     }
 
     @Test
@@ -918,6 +1045,22 @@ class WorkspaceHistoryIntegrationTest {
                    commits.stream().map(RevCommit::getFullMessage).toList());
       assertEquals("uncommitted", read(WS1, "a.txt"));
       assertClean(WS1);
+    }
+
+    @Test
+    void invalidExistingRuntimeStateBlocksAdoption() throws Exception {
+      Files.writeString(root(WS1).resolve("a.txt"), "A");
+      Files.createDirectories(root(WS1).resolve(".seqdev"));
+      Files.writeString(WorkspaceState.file(root(WS1)), "{\"version\":7,\"files\":{}}");
+      assertFailure(bindings.handleCreateDirectory(WS1, Path.of("x"), USER), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
+      assertFalse(Files.exists(root(WS1).resolve(".git")));
+      assertEquals("{\"version\":7,\"files\":{}}", Files.readString(WorkspaceState.file(root(WS1))));
+
+      Files.delete(WorkspaceState.file(root(WS1)));
+      Files.delete(root(WS1).resolve(".seqdev"));
+      Files.writeString(root(WS1).resolve(".seqdev"), "not a directory");
+      assertFailure(bindings.handleCreateDirectory(WS1, Path.of("x"), USER), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
+      assertFalse(Files.exists(root(WS1).resolve(".git")));
     }
 
     @Test
@@ -1003,23 +1146,73 @@ class WorkspaceHistoryIntegrationTest {
     }
   }
 
-  /** A copied file is a new file, whether it is copied on its own or inside a directory. */
+  /**
+   * A copied file is a new file, whether it is copied on its own or inside a directory; a copied or moved file never
+   * inherits metadata from a file it overwrites.
+   */
   @Nested
   class CopySemantics {
     private JsonObject metadata(final String path) throws Exception {
-      try (final var in = fs.loadMetadataFile(WS1, Path.of(path)).readingStream();
-           final var reader = Json.createReader(in)) {
-        return reader.readObject();
+      return WorkspaceHistoryIntegrationTest.this.metadata(WS1, path);
+    }
+
+    /** Destination has carol's sidecar with user metadata; source has no sidecar at all. */
+    private void sourceWithoutSidecarAndDestinationWithOne() throws Exception {
+      assertSuccess(bindings.handleFileUpload(WS1, Path.of("dest.txt"), upload("dest.txt", "old"), true, null, "carol"));
+      setUserMetadata(WS1, "dest.txt", "final");
+      saveOk(WS1, "src.txt", "new");
+      deleteSidecar(WS1, "src.txt");
+      assertFalse(Files.exists(root(WS1).resolve(".src.txt.meta.seqdev")));
+    }
+
+    @Test
+    void aCopyDoesNotInheritTheOverwrittenFilesMetadata() throws Exception {
+      sourceWithoutSidecarAndDestinationWithOne();
+      assertSuccess(bindings.handleCopy(Path.of("src.txt"), Path.of("dest.txt"), WS1, WS1, true, USER));
+      final var meta = metadata("dest.txt");
+      assertFalse(meta.containsKey("user"), meta::toString);
+      assertEquals(USER, meta.getString("createdBy"));
+      assertEquals("new", read(WS1, "dest.txt"));
+      assertClean(WS1);
+    }
+
+    @Test
+    void aMoveDoesNotInheritTheOverwrittenFilesMetadata() throws Exception {
+      sourceWithoutSidecarAndDestinationWithOne();
+      assertSuccess(bindings.handleMove(Path.of("src.txt"), Path.of("dest.txt"), WS1, WS1, true, USER));
+      final var meta = metadata("dest.txt");
+      assertFalse(meta.containsKey("user"), meta::toString);
+      assertEquals(USER, meta.getString("createdBy"));
+      assertEquals("new", read(WS1, "dest.txt"));
+      assertClean(WS1);
+    }
+
+    @Test
+    void theExecutableBitSurvivesSavesAndCopies() throws Exception {
+      assumeTrue(POSIX, "needs POSIX permissions");
+      saveOk(WS1, "run.sh", "v1");
+      Files.setPosixFilePermissions(root(WS1).resolve("run.sh"), PosixFilePermissions.fromString("rwxr-xr-x"));
+      try (final var git = git(WS1)) { // record the mode as PlanDev would find it in a managed workspace
+        git.add().addFilepattern("run.sh").call();
+        git.commit().setMessage("chmod").setSign(false).call();
       }
+
+      saveOk(WS1, "run.sh", "v2");
+      assertTrue(Files.isExecutable(root(WS1).resolve("run.sh")));
+      final var diff = headDiff(WS1);
+      assertEquals(1, diff.size(), diff::toString);
+      assertEquals(FileMode.EXECUTABLE_FILE, diff.getFirst().getOldMode());
+      assertEquals(FileMode.EXECUTABLE_FILE, diff.getFirst().getNewMode(), "a save changes content, not mode");
+
+      assertSuccess(bindings.handleCopy(Path.of("run.sh"), Path.of("copy.sh"), WS1, WS1, false, USER));
+      assertTrue(Files.isExecutable(root(WS1).resolve("copy.sh")));
+      assertClean(WS1);
     }
 
     @Test
     void fileAndDirectoryCopiesProduceTheSameMetadata() throws Exception {
       assertSuccess(bindings.handleFileUpload(WS1, Path.of("d/x.txt"), upload("x.txt", "x"), true, null, "carol"));
-      history.mutate(WS1, "carol", "meta", () -> fs.updateMetadataKeys(
-          WS1, Path.of("d/x.txt"),
-          new MetadataUpdates.Builder("carol").user(Json.createObjectBuilder().add("status", "final").build()).build(),
-          MetadataMergeBehavior.deepMerge), r -> true);
+      setUserMetadata(WS1, "d/x.txt", "final");
       setReadOnly(WS1, "d/x.txt", true);
 
       assertSuccess(bindings.handleCopy(Path.of("d/x.txt"), Path.of("single.txt"), WS1, WS1, false, USER));

@@ -4,15 +4,17 @@ import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
 
 import javax.json.Json;
 import javax.json.JsonException;
+import javax.json.JsonNumber;
 import javax.json.JsonObject;
 import javax.json.JsonValue;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,6 +47,7 @@ final class WorkspaceState {
     }
   }
 
+  private static final int VERSION = 1;
   private static final List<String> LEGACY_KEYS = List.of("readOnly", "lastEditedBy", "lastEditedAt");
 
   private final Path root;
@@ -59,24 +62,41 @@ final class WorkspaceState {
     return root.resolve(WorkspacePaths.STATE_DIR).resolve("state.json");
   }
 
-  /** Load the state, or an empty state if none has been written yet. */
+  /**
+   * Load the state, or an empty state if none has been written yet. Anything else that is not exactly the current
+   * schema (a non-regular file, malformed JSON, another version, wrongly typed fields) is an IOException: runtime state
+   * holds locks, so it is never silently read as "no state".
+   */
   static WorkspaceState load(final Path root) throws IOException {
     final var files = new TreeMap<String, Entry>();
     final var path = file(root);
-    if (Files.isRegularFile(path)) {
-      try (final var reader = Json.createReader(new StringReader(Files.readString(path)))) {
-        for (final var e : reader.readObject().getJsonObject("files").entrySet()) {
-          final var o = e.getValue().asJsonObject();
-          files.put(e.getKey(), new Entry(
-              o.containsKey("readOnly") ? o.getBoolean("readOnly") : null,
-              o.getString("legacyLastEditedBy", null),
-              o.getString("legacyLastEditedAt", null)));
-        }
-      } catch (JsonException | ClassCastException | NullPointerException e) {
-        throw new IOException("Workspace runtime state at " + path + " is malformed", e);
+    if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) return new WorkspaceState(root, files);
+    if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) {
+      throw new IOException("Workspace runtime state at " + path + " is not a regular file");
+    }
+    try (final var reader = Json.createReader(new StringReader(Files.readString(path)))) {
+      final var json = reader.readObject();
+      if (!(json.get("version") instanceof JsonNumber v) || !v.isIntegral() || v.intValue() != VERSION) {
+        throw new IllegalArgumentException("unsupported version " + json.get("version"));
       }
+      for (final var e : json.getJsonObject("files").entrySet()) {
+        final var o = e.getValue().asJsonObject();
+        files.put(e.getKey(), new Entry(
+            optional(o, "readOnly", JsonValue.ValueType.TRUE, JsonValue.ValueType.FALSE) == null ? null : o.getBoolean("readOnly"),
+            optional(o, "legacyLastEditedBy", JsonValue.ValueType.STRING) == null ? null : o.getString("legacyLastEditedBy"),
+            optional(o, "legacyLastEditedAt", JsonValue.ValueType.STRING) == null ? null : o.getString("legacyLastEditedAt")));
+      }
+    } catch (JsonException | ClassCastException | NullPointerException | IllegalArgumentException e) {
+      throw new IOException("Workspace runtime state at " + path + " is malformed: " + e.getMessage(), e);
     }
     return new WorkspaceState(root, files);
+  }
+
+  /** The field's value if present (and of one of the given types), null if absent; any other type is malformed. */
+  private static JsonValue optional(final JsonObject o, final String key, final JsonValue.ValueType... types) {
+    final var value = o.get(key);
+    if (value == null || Arrays.asList(types).contains(value.getValueType())) return value;
+    throw new IllegalArgumentException("'%s' has type %s".formatted(key, value.getValueType()));
   }
 
   void save() throws IOException {
@@ -88,13 +108,8 @@ final class WorkspaceState {
       if (entry.legacyLastEditedAt() != null) o.add("legacyLastEditedAt", entry.legacyLastEditedAt());
       filesJson.add(key, o);
     });
-    final var json = Json.createObjectBuilder().add("version", 1).add("files", filesJson).build().toString();
-
-    final var target = file(root);
-    Files.createDirectories(target.getParent());
-    final var tmp = target.resolveSibling("state.json.tmp");
-    Files.writeString(tmp, json, StandardCharsets.UTF_8);
-    Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+    final var json = Json.createObjectBuilder().add("version", VERSION).add("files", filesJson).build().toString();
+    WorkspacePaths.writeAtomically(root, file(root), json.getBytes(StandardCharsets.UTF_8));
   }
 
   Optional<Entry> entry(final String key) {
@@ -158,9 +173,9 @@ final class WorkspaceState {
    * Migrate sidecars that predate the versioned/runtime split: move {@code readOnly} and {@code lastEdited*} out of
    * every well-formed sidecar that still has them into this state file, then rewrite that sidecar with only its
    * versioned fields. Idempotent and resumable: completion is "no sidecar still has a legacy field", never "the state
-   * file exists". The state file is written before any sidecar is rewritten, so an interrupted run loses nothing and
-   * the next run finishes it; sidecars without legacy fields and malformed sidecars are left untouched. The caller
-   * holds the workspace mutation lock.
+   * file exists". The state file is written before any sidecar is rewritten, and every write is an atomic replace, so
+   * an interrupted run leaves each sidecar either legacy (finished by the next run) or fully migrated, never partial;
+   * sidecars without legacy fields and malformed sidecars are left untouched. The caller holds the workspace lock.
    */
   static void migrateFromSidecars(final Path root) throws IOException {
     final var state = load(root);
@@ -196,7 +211,7 @@ final class WorkspaceState {
 
     state.save();
     for (final var rewrite : rewrites.entrySet()) {
-      Files.writeString(rewrite.getKey(), rewrite.getValue(), StandardCharsets.UTF_8);
+      WorkspacePaths.writeAtomically(root, rewrite.getKey(), rewrite.getValue().getBytes(StandardCharsets.UTF_8));
     }
   }
 

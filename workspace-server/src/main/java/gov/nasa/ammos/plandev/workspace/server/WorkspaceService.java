@@ -246,9 +246,10 @@ public interface WorkspaceService {
    * @param sourceFilePath the path, relative to the workspace root, of the directory
    * @param destWorkspaceId the id of the destination workspace, note that this can be the same as sourceWorkspaceId
    * @param destFilePath the path of the copied directory, relative to the new workspace root
+   * @param userId the user copying the directory, recorded as the creator of every copied file
    * @return true if the directory was copied, false otherwise
    */
-  boolean copyDirectory(final int sourceWorkspaceId, final Path sourceFilePath, final int destWorkspaceId, final Path destFilePath)
+  boolean copyDirectory(final int sourceWorkspaceId, final Path sourceFilePath, final int destWorkspaceId, final Path destFilePath, final String userId)
   throws NoSuchWorkspaceException, WorkspaceFileOpException;
 
   /**

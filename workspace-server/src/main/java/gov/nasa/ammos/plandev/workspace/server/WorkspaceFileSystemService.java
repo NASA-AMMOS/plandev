@@ -9,7 +9,6 @@ import gov.nasa.ammos.plandev.workspace.server.postgres.WorkspacePostgresReposit
 import gov.nasa.ammos.plandev.workspace.server.types.MetadataKeys;
 import gov.nasa.ammos.plandev.workspace.server.types.MetadataMergeBehavior;
 import io.javalin.http.UploadedFile;
-import io.javalin.util.FileUtil;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -29,9 +28,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
@@ -97,12 +96,14 @@ public class WorkspaceFileSystemService implements WorkspaceService {
    *   result stays within the root directory.
    * Prevents path traversal attacks by rejecting absolute paths and any resolved path that escape the specified root.
    * Also rejects any path naming a reserved internal name ({@link WorkspacePaths}, e.g. {@code .git}) at any
-   * segment, so every file API (read, write, move, copy, delete, metadata) shares one rule.
+   * segment, and any path through an existing symbolic link (unsupported workspace content: a link could reach
+   * {@code .git} or leave the root while the lexical path looks fine), so every file API (read, write, move, copy,
+   * delete, metadata) shares one rule.
    * @param rootPath the workspace root path
    * @param filePath the untrusted path to resolve against the root
    * @return the resolved and normalized path, guaranteed to be within the root
    * @throws SecurityException if the resolved path escapes the root or if the input is absolute
-   * @throws ReservedPathException if the path names a reserved internal name
+   * @throws ReservedPathException if the path names a reserved internal name or goes through a symbolic link
    */
   Path resolveReadingPath(final Path rootPath, final Path filePath) {
     // disallow absolute file paths, since Path.of("/foo").resolve(Path.of("/etc/passwd")) -> "/etc/passwd"
@@ -117,6 +118,9 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var reserved = WorkspacePaths.firstReservedSegment(normalizedRootPath.relativize(resolvedPath));
     if (reserved != null) {
       throw new ReservedPathException(filePath, reserved);
+    }
+    for (var p = resolvedPath; !p.equals(normalizedRootPath); p = p.getParent()) {
+      if (Files.isSymbolicLink(p)) throw ReservedPathException.symbolicLink(filePath, p.getFileName().toString());
     }
     return resolvedPath;
   }
@@ -406,10 +410,20 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
     if(Files.isDirectory(path)) return Optional.empty();
 
-    // Hash while streaming to disk so the returned ETag matches what we wrote, with no extra read.
+    // Stream to a temp file, hashing as we go so the returned ETag matches what we wrote, then rename it into place
+    // so lock-free readers see the old or the new bytes, never a partial file. The temp file lives in the ignored
+    // runtime directory, so a crash cannot leave stray content in the tree.
     final var md = WorkspaceService.newSHA256Digest();
-    try (final var contentStream = new DigestInputStream(file.content(), md)) {
-      FileUtil.streamToFile(contentStream, path.toString());
+    final var tmp = repoPath.resolve(WorkspacePaths.STATE_DIR).resolve("upload-" + UUID.randomUUID() + ".tmp");
+    try {
+      Files.createDirectories(tmp.getParent());
+      Files.createDirectories(path.getParent());
+      try (final var contentStream = new DigestInputStream(file.content(), md)) {
+        Files.copy(contentStream, tmp);
+      }
+      Files.move(tmp, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+    } finally {
+      Files.deleteIfExists(tmp);
     }
     updateMetadata(repoPath, filePath, metadataUpdates, MetadataMergeBehavior.deepMerge);
     return Optional.of(WorkspaceService.eTagFromDigest(md.digest()));
@@ -477,15 +491,31 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     }
     // Create any parent directories that don't already exist
     Files.createDirectories(destPath.getParent());
+    copyAsNewFile(sourcePath, sourceMetadataPath, destRepoPath, destPath, destMetadataPath, userId, Instant.now());
+    return true;
+  }
 
-    // Copy hidden metadata file if it exists
+  /**
+   * Copy one content file as a new file in the destination, whether it is copied on its own or inside a directory:
+   * its sidecar's semantic metadata ({@code version}, {@code user}) comes along, {@code createdBy}/{@code createdAt}
+   * are the copier and the copy time, {@code readOnly} does not carry over, and {@code lastEdited*} is derived from
+   * the destination's commit.
+   */
+  private void copyAsNewFile(
+      final Path sourcePath,
+      final Path sourceMetadataPath,
+      final Path destRoot,
+      final Path destPath,
+      final Path destMetadataPath,
+      final String userId,
+      final Instant now)
+  throws IOException, WorkspaceFileOpException
+  {
     if (Files.exists(sourceMetadataPath)) {
       Files.copy(sourceMetadataPath, destMetadataPath, StandardCopyOption.REPLACE_EXISTING);
     }
-    // Update the metadata (a copy is a new, unlocked file)
-    final var key = WorkspacePaths.key(destRepoPath, destPath);
-    updateState(destRepoPath, s -> s.remove(key));
-    final var now = Instant.now();
+    final var key = WorkspacePaths.key(destRoot, destPath);
+    updateState(destRoot, s -> s.remove(key));
     final var metadataUpdates = new MetadataUpdates.Builder(userId)
         .createdAt(now)
         .createdBy(userId)
@@ -493,11 +523,8 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         .lastEditedBy(userId)
         .readOnly(false)
         .build();
-    updateMetadata(destRepoPath, destFilePath, metadataUpdates, MetadataMergeBehavior.deepMerge);
-
-    // Copy the main file
+    updateMetadata(destRoot, destRoot.normalize().relativize(destPath), metadataUpdates, MetadataMergeBehavior.deepMerge);
     Files.copy(sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING);
-    return true;
   }
 
   @Override
@@ -580,7 +607,12 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
-  public boolean copyDirectory(final int sourceWorkspaceId, final Path sourceFilePath, final int destWorkspaceId, final Path destFilePath)
+  public boolean copyDirectory(
+      final int sourceWorkspaceId,
+      final Path sourceFilePath,
+      final int destWorkspaceId,
+      final Path destFilePath,
+      final String userId)
   throws NoSuchWorkspaceException, WorkspaceFileOpException
   {
     history.requireLocked(sourceWorkspaceId, destWorkspaceId);
@@ -604,25 +636,19 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         throw new WorkspaceFileOpException("Cannot copy a directory into itself.");
       }
 
-      // Copy files/subdirectories. Sidecars are copied as-is; each copied file takes its source's readOnly flag.
-      final var sourceState = WorkspaceState.load(sourceRepoPath);
-      final var copiedFlags = new HashMap<String, Boolean>();
+      // Every content file is copied exactly as copyFile copies one; sidecars travel with their content file, and a
+      // sidecar whose content file is gone is metadata of nothing and is not copied.
+      final var now = Instant.now();
       Files.createDirectories(destPath);
       for (final var source : WorkspacePaths.walk(sourcePath, Integer.MAX_VALUE)) {
         final Path target = destPath.resolve(sourcePath.relativize(source));
         if (Files.isDirectory(source)) {
           Files.createDirectories(target);
-        } else {
-          Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
-          if (!RenderType.isAerieMetadataFile(source.getFileName().toString())) {
-            copiedFlags.put(
-                WorkspacePaths.key(destRepoPath, target),
-                sourceState.readOnly(WorkspacePaths.key(sourceRepoPath, source)).orElse(null));
-          }
+        } else if (!RenderType.isAerieMetadataFile(source.getFileName().toString())) {
+          final var sidecarName = RenderType.toMetadataFileName(source.getFileName().toString());
+          copyAsNewFile(source, source.resolveSibling(sidecarName), destRepoPath, target, target.resolveSibling(sidecarName), userId, now);
         }
       }
-      updateState(destRepoPath, s -> copiedFlags.forEach(s::setReadOnly));
-
       return true;
     } catch (IOException e) {
       logger.error("Error copying directory", e);
@@ -662,7 +688,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws WorkspaceFileOpException, IOException, JsonException
   {
     resolveMetadataPath(repoPath, filePath); // rejects directories and metadata files
-    if (!history.isInitialized(repoPath)) {
+    if (!history.isManaged(repoPath)) {
       throw new IllegalStateException("readOnly was checked outside a workspace mutation for " + repoPath);
     }
     final var key = WorkspacePaths.key(repoPath, resolveReadingPath(repoPath, filePath));
@@ -756,7 +782,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
    * The returned function maps (absolute content path, raw sidecar) to the presented metadata.
    */
   private BiFunction<Path, JsonObject, JsonObject> metadataView(final Path root) throws IOException {
-    if (!history.isInitialized(root)) return (path, sidecar) -> sidecar;
+    if (!history.isManaged(root)) return (path, sidecar) -> sidecar;
     final var state = WorkspaceState.load(root);
     final var edits = history.lastEdits(root);
     return (path, sidecar) -> effectiveMetadata(sidecar, WorkspacePaths.key(root, path), state, edits);

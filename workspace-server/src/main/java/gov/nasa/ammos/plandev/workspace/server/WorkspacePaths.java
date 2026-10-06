@@ -59,7 +59,8 @@ public final class WorkspacePaths {
 
   /**
    * Like {@code Files.walk(dir, maxDepth)} minus the starting directory, but never descends into (or returns) a
-   * reserved name, so Git internals and runtime state never leak into listings, copies or scans.
+   * reserved name, so Git internals and runtime state never leak into listings, copies or scans. Symbolic links are
+   * neither followed nor returned: they are not supported workspace content.
    */
   public static List<Path> walk(final Path dir, final int maxDepth) throws IOException {
     final var out = new ArrayList<Path>();
@@ -74,8 +75,8 @@ public final class WorkspacePaths {
 
       @Override
       public FileVisitResult visitFile(final Path f, final BasicFileAttributes attrs) {
-        // Directories at maxDepth arrive here instead of preVisitDirectory
-        if (!isReservedName(f.getFileName().toString())) out.add(f);
+        // Directories at maxDepth arrive here instead of preVisitDirectory; unfollowed symlinks arrive here too
+        if (!attrs.isSymbolicLink() && !isReservedName(f.getFileName().toString())) out.add(f);
         return FileVisitResult.CONTINUE;
       }
 

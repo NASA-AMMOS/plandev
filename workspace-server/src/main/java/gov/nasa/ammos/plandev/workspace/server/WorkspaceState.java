@@ -45,6 +45,8 @@ final class WorkspaceState {
     }
   }
 
+  private static final List<String> LEGACY_KEYS = List.of("readOnly", "lastEditedBy", "lastEditedAt");
+
   private final Path root;
   private final TreeMap<String, Entry> files;
 
@@ -55,10 +57,6 @@ final class WorkspaceState {
 
   static Path file(final Path root) {
     return root.resolve(WorkspacePaths.STATE_DIR).resolve("state.json");
-  }
-
-  static boolean exists(final Path root) {
-    return Files.isRegularFile(file(root));
   }
 
   /** Load the state, or an empty state if none has been written yet. */
@@ -157,10 +155,12 @@ final class WorkspaceState {
   }
 
   /**
-   * One-time migration of a workspace whose sidecars predate the versioned/runtime split: move {@code readOnly} and
-   * {@code lastEdited*} out of every well-formed sidecar into this state file, then rewrite the sidecar with only its
-   * versioned fields. The state file is written before any sidecar is rewritten, so an interrupted migration never
-   * loses a lock; malformed sidecars are left untouched. The caller holds the workspace mutation lock.
+   * Migrate sidecars that predate the versioned/runtime split: move {@code readOnly} and {@code lastEdited*} out of
+   * every well-formed sidecar that still has them into this state file, then rewrite that sidecar with only its
+   * versioned fields. Idempotent and resumable: completion is "no sidecar still has a legacy field", never "the state
+   * file exists". The state file is written before any sidecar is rewritten, so an interrupted run loses nothing and
+   * the next run finishes it; sidecars without legacy fields and malformed sidecars are left untouched. The caller
+   * holds the workspace mutation lock.
    */
   static void migrateFromSidecars(final Path root) throws IOException {
     final var state = load(root);
@@ -176,6 +176,7 @@ final class WorkspaceState {
       } catch (JsonException | IOException e) {
         continue;
       }
+      if (LEGACY_KEYS.stream().noneMatch(sidecar::containsKey)) continue;
 
       final var contentName = name.substring(1, name.length() - RenderType.aerieMetadataExtension.length());
       final var key = WorkspacePaths.key(root, path.resolveSibling(contentName));
@@ -183,8 +184,8 @@ final class WorkspaceState {
       final var readOnlyType = rawReadOnly == null ? null : rawReadOnly.getValueType();
       final Boolean readOnly = readOnlyType == JsonValue.ValueType.TRUE ? Boolean.TRUE
           : readOnlyType == JsonValue.ValueType.FALSE ? Boolean.FALSE : null;
-      final var entry = new Entry(readOnly, stringOrNull(sidecar, "lastEditedBy"), stringOrNull(sidecar, "lastEditedAt"));
-      if (!entry.isEmpty()) state.files.put(key, entry);
+      // The sidecar still holding legacy fields means it was never rewritten, so its values are the source of truth.
+      state.put(key, new Entry(readOnly, stringOrNull(sidecar, "lastEditedBy"), stringOrNull(sidecar, "lastEditedAt")));
 
       rewrites.put(path, WorkspaceFileSystemService.serializeSidecar(
           stringOrNull(sidecar, "version"),

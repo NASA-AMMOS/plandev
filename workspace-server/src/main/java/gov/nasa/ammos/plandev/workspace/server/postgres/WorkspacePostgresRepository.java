@@ -1,12 +1,14 @@
 package gov.nasa.ammos.plandev.workspace.server.postgres;
 
+import gov.nasa.ammos.plandev.workspace.server.WorkspaceRoots;
+
 import javax.sql.DataSource;
 import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 
-public final class WorkspacePostgresRepository {
+public final class WorkspacePostgresRepository implements WorkspaceRoots {
   private final Path baseRepositoryPath;
   private final DataSource dataSource;
 
@@ -38,6 +40,7 @@ public final class WorkspacePostgresRepository {
     }
   }
 
+  @Override
   public Path workspaceRootPath(int workspaceId) throws NoSuchWorkspaceException {
     try(final var connection = dataSource.getConnection();
         final var getRootPath = new GetWorkspaceRootPathAction(connection)) {

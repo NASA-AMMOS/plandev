@@ -10,6 +10,7 @@ import gov.nasa.ammos.plandev.permissions.gql.WorkspaceId;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.FileLockedException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.MalformedRequest;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.NoSuchFileException;
+import gov.nasa.ammos.plandev.workspace.server.exceptions.ReservedPathException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
@@ -42,6 +43,7 @@ import java.nio.file.Path;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -59,16 +61,19 @@ public class WorkspaceBindings implements Plugin {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceBindings.class);
   private final JWTService jwtService;
   private final WorkspaceService workspaceService;
+  private final WorkspaceHistory history;
   private final PermissionsService permissionsService;
   private final String hasuraAdminSecret;
 
   public WorkspaceBindings(
       final JWTService jwtService,
       final WorkspaceService workspaceService,
+      final WorkspaceHistory history,
       final PermissionsService permissionsService,
       final String hasuraAdminSecret) {
     this.jwtService = jwtService;
     this.workspaceService = workspaceService;
+    this.history = history;
     this.permissionsService = permissionsService;
     this.hasuraAdminSecret = hasuraAdminSecret;
   }
@@ -169,6 +174,14 @@ public class WorkspaceBindings implements Plugin {
     });
     javalin.exception(NumberFormatException.class, (ex, ctx) ->
         ctx.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, ex)));
+    // More specific than SecurityException: a request naming .git, .seqdev etc. is a bad request, not a server error
+    javalin.exception(ReservedPathException.class, (ex, ctx) ->
+        ctx.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, "RESERVED_PATH", ex)));
+    javalin.exception(WorkspaceHistory.WorkspaceHistoryException.class, (ex, ctx) -> {
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ex.kind.errorType, ex);
+      logger.error("Workspace history error: {}", fe);
+      ctx.status(500).json(fe);
+    });
     javalin.exception(SecurityException.class, (ex, ctx) -> {
       final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ex);
       logger.warn("Security Exception: {}", fe);
@@ -344,7 +357,7 @@ public class WorkspaceBindings implements Plugin {
 
     final var errorMsg = "Unable to delete Workspace %d.".formatted(workspaceId);
     try {
-      if (workspaceService.deleteWorkspace(workspaceId)) {
+      if (history.withLock(workspaceId, () -> workspaceService.deleteWorkspace(workspaceId))) {
         context.status(200).result("Workspace deleted.");
       } else {
         logger.warn(errorMsg);
@@ -355,6 +368,12 @@ public class WorkspaceBindings implements Plugin {
     } catch (SQLException e) {
       final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, e, errorMsg);
       logger.warn("DELETE WORKSPACE: SQL Exception: {}", fe);
+      context.status(500).json(fe);
+    } catch (RuntimeException e) {
+      throw e;
+    } catch (Exception e) {
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, "UNKNOWN_ERROR", errorMsg, (Throwable) e);
+      logger.warn("DELETE WORKSPACE: Exception: {}", fe);
       context.status(500).json(fe);
     }
   }
@@ -493,7 +512,7 @@ public class WorkspaceBindings implements Plugin {
         context.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, "Query parameter 'overwrite' is not permitted when creating a directory."));
         return;
       }
-      uploadResults = handleCreateDirectory(pathInfo.workspaceId(), pathInfo.filePath());
+      uploadResults = handleCreateDirectory(pathInfo.workspaceId(), pathInfo.filePath(), authorize(context).userId());
     } else {
       context.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, "Query param 'type' has invalid value "+type));
       return;
@@ -604,7 +623,7 @@ public class WorkspaceBindings implements Plugin {
       return;
     }
 
-    final var deleteResults = handleDelete(pathInfo.workspaceId, pathInfo.filePath);
+    final var deleteResults = handleDelete(pathInfo.workspaceId, pathInfo.filePath, authorize(context).userId());
 
     switch (deleteResults){
       case HandlerResult.Success success -> context.status(success.status()).result(success.response());
@@ -614,7 +633,76 @@ public class WorkspaceBindings implements Plugin {
   // endregion
 
   // region Single Item Action Handlers
-  private HandlerResult handleFileUpload(
+  /**
+   * Run a handler as one workspace mutation: its validation (existence, readOnly, ETag) and its filesystem change run
+   * under the workspace lock, and the change is committed to the workspace's history before success is reported.
+   * A Failure result, an exception, or a history failure leaves the workspace as it was.
+   */
+  private HandlerResult mutate(
+      final int workspaceId,
+      final String userId,
+      final String commitMessage,
+      final WorkspaceHistory.Mutation<HandlerResult> handler)
+  {
+    final var commits = new LinkedHashMap<Integer, String>();
+    commits.put(workspaceId, commitMessage);
+    return mutate(commits, userId, null, handler);
+  }
+
+  /**
+   * As {@link #mutate(int, String, String, WorkspaceHistory.Mutation)}, across workspaces committed in the given
+   * order. {@code partialMessage} describes the outcome if a later workspace's commit fails after an earlier one's
+   * succeeded (see {@link WorkspaceHistory.PartialMutationException}).
+   */
+  private HandlerResult mutate(
+      final LinkedHashMap<Integer, String> commits,
+      final String userId,
+      final String partialMessage,
+      final WorkspaceHistory.Mutation<HandlerResult> handler)
+  {
+    try {
+      return history.mutate(commits, userId, handler, result -> result instanceof HandlerResult.Success);
+    } catch (WorkspaceHistory.WorkspaceHistoryException whe) {
+      final var message = whe instanceof WorkspaceHistory.PartialMutationException && partialMessage != null
+          ? partialMessage
+          : whe.getMessage();
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, whe.kind.errorType, message, (Throwable) whe);
+      logger.error("WORKSPACE MUTATION: {}", fe);
+      return new HandlerResult.Failure(500, fe);
+    } catch (NoSuchWorkspaceException nsw) {
+      return new HandlerResult.Failure(404, new WorkspaceFormattedError(nsw));
+    } catch (ReservedPathException rpe) {
+      // Reported per item so one bad path in a bulk request does not hide the other items' results
+      return new HandlerResult.Failure(400, new FormattedError(AerieService.WORKSPACE_SERVER, "RESERVED_PATH", rpe));
+    } catch (RuntimeException re) {
+      throw re;
+    } catch (Exception e) {
+      final var message = e.getMessage() != null ? e.getMessage() : "Unknown error.";
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, "UNKNOWN_ERROR", message, (Throwable) e);
+      logger.error("WORKSPACE MUTATION: Unexpected exception: {}", fe);
+      return new HandlerResult.Failure(500, fe);
+    }
+  }
+
+  private static void respond(final Context context, final HandlerResult result) {
+    switch (result) {
+      case HandlerResult.Success success -> context.status(success.status()).result(success.response());
+      case HandlerResult.Failure failure -> context.status(failure.status()).json(failure.error());
+    }
+  }
+
+  HandlerResult handleFileUpload(
+      int workspaceId,
+      Path uploadPath,
+      UploadedFile file,
+      boolean overwrite,
+      String ifMatch,
+      final String userId) {
+    return mutate(workspaceId, userId, "Update " + uploadPath,
+                  () -> handleFileUploadLocked(workspaceId, uploadPath, file, overwrite, ifMatch, userId));
+  }
+
+  private HandlerResult handleFileUploadLocked(
       int workspaceId,
       Path uploadPath,
       UploadedFile file,
@@ -692,7 +780,13 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
-  private HandlerResult handleCreateDirectory(int workspaceId, Path destinationPath) {
+  HandlerResult handleCreateDirectory(int workspaceId, Path destinationPath, String userId) {
+    // Empty directories are not representable in Git, so this usually records nothing; it still runs under the lock.
+    return mutate(workspaceId, userId, "Create directory " + destinationPath,
+                  () -> handleCreateDirectoryLocked(workspaceId, destinationPath));
+  }
+
+  private HandlerResult handleCreateDirectoryLocked(int workspaceId, Path destinationPath) {
     try {
       if (workspaceService.createDirectory(workspaceId, destinationPath)) {
         return new HandlerResult.Success(200, "Directory created.");
@@ -730,7 +824,30 @@ public class WorkspaceBindings implements Plugin {
     return !normalizedSourcePath.getParent().equals(normalizedDestPath.getParent());
   }
 
-  private HandlerResult handleMove(
+  HandlerResult handleMove(
+      Path toMove,
+      Path destinationPath,
+      int sourceWorkspaceId,
+      int destinationWorkspaceId,
+      boolean overwrite,
+      String userId
+  ) {
+    // Destination first: if the source's commit then fails, the move degrades to a copy instead of losing data.
+    final var commits = new LinkedHashMap<Integer, String>();
+    if (sourceWorkspaceId == destinationWorkspaceId) {
+      commits.put(sourceWorkspaceId, "Move %s -> %s".formatted(toMove, destinationPath));
+    } else {
+      commits.put(destinationWorkspaceId, "Move workspace %d:%s -> %s".formatted(sourceWorkspaceId, toMove, destinationPath));
+      commits.put(sourceWorkspaceId, "Move %s -> workspace %d:%s".formatted(toMove, destinationWorkspaceId, destinationPath));
+    }
+    final var partialMessage = ("Move degraded to a copy: '%s' in Workspace %d was copied, with its metadata, to '%s' in "
+                                + "Workspace %d, but could not be removed from Workspace %d and was restored there.")
+        .formatted(toMove, sourceWorkspaceId, destinationPath, destinationWorkspaceId, sourceWorkspaceId);
+    return mutate(commits, userId, partialMessage, () -> handleMoveLocked(
+        toMove, destinationPath, sourceWorkspaceId, destinationWorkspaceId, overwrite, userId));
+  }
+
+  private HandlerResult handleMoveLocked(
       Path toMove,
       Path destinationPath,
       int sourceWorkspaceId,
@@ -823,7 +940,25 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
-  private HandlerResult handleCopy(
+  HandlerResult handleCopy(
+      Path toCopy,
+      Path destinationPath,
+      int sourceWorkspaceId,
+      int destinationWorkspaceId,
+      boolean overwrite,
+      String userId
+  ) {
+    // The source is locked too, so it cannot change while being read; it has nothing to commit.
+    final var commits = new LinkedHashMap<Integer, String>();
+    commits.put(destinationWorkspaceId, sourceWorkspaceId == destinationWorkspaceId
+        ? "Copy %s -> %s".formatted(toCopy, destinationPath)
+        : "Copy workspace %d:%s -> %s".formatted(sourceWorkspaceId, toCopy, destinationPath));
+    commits.putIfAbsent(sourceWorkspaceId, "Copy %s -> workspace %d:%s".formatted(toCopy, destinationWorkspaceId, destinationPath));
+    return mutate(commits, userId, null, () -> handleCopyLocked(
+        toCopy, destinationPath, sourceWorkspaceId, destinationWorkspaceId, overwrite, userId));
+  }
+
+  private HandlerResult handleCopyLocked(
       Path toCopy,
       Path destinationPath,
       int sourceWorkspaceId,
@@ -896,7 +1031,11 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
-  private HandlerResult handleDelete(int workspaceId, Path filePath) {
+  HandlerResult handleDelete(int workspaceId, Path filePath, String userId) {
+    return mutate(workspaceId, userId, "Delete " + filePath, () -> handleDeleteLocked(workspaceId, filePath));
+  }
+
+  private HandlerResult handleDeleteLocked(int workspaceId, Path filePath) {
     try {
       final var errorMsg = "Could not delete %s.".formatted(filePath);
 
@@ -1107,7 +1246,7 @@ public class WorkspaceBindings implements Plugin {
                 .add("response", uploadResults.jsonResponse());
       }
       else if (item.uploadType() == ItemType.directory) {
-        uploadResults = handleCreateDirectory(workspaceId, item.path());
+        uploadResults = handleCreateDirectory(workspaceId, item.path(), userId);
         response.add("status", uploadResults.status())
                 .add("response", uploadResults.jsonResponse());
       } else {
@@ -1355,14 +1494,14 @@ public class WorkspaceBindings implements Plugin {
     }
 
     // Return multipart response
-    context.status(207).json(handleBulkDelete(workspaceId, toDelete).toString());
+    context.status(207).json(handleBulkDelete(workspaceId, toDelete, authorize(context).userId()).toString());
   }
 
-  private JsonArray handleBulkDelete(int workspaceId, List<String> toDelete) {
+  private JsonArray handleBulkDelete(int workspaceId, List<String> toDelete, String userId) {
     final var responseArray = Json.createArrayBuilder();
 
     for(final var item : toDelete) {
-      final var results = handleDelete(workspaceId, Path.of(item));
+      final var results = handleDelete(workspaceId, Path.of(item), userId);
       final var response = Json.createObjectBuilder()
                                .add("item", item)
                                .add("status", results.status())
@@ -1487,37 +1626,36 @@ public class WorkspaceBindings implements Plugin {
       return;
     }
 
-    // Check that the underlying file exists
-    if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
-      context.status(404).json(new WorkspaceFormattedError(new NoSuchFileException(pathInfo.workspaceId, pathInfo.filePath)));
-      return;
-    }
-
-    // Update the metadata
-    try {
-      if(workspaceService.updateMetadataKeys(pathInfo.workspaceId, pathInfo.filePath, updates, mergeBehavior)) {
-        context.status(200).result("Metadata for file %s updated successfully.".formatted(pathInfo.filePath));
-      } else {
-        context.status(500).json(new FormattedError(AerieService.WORKSPACE_SERVER, "Unable to update metadata for file %s".formatted(pathInfo.filePath)));
+    respond(context, mutate(pathInfo.workspaceId, authorize(context).userId(), "Update metadata for " + pathInfo.filePath, () -> {
+      // Check that the underlying file exists
+      if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
+        return new HandlerResult.Failure(404, new WorkspaceFormattedError(new NoSuchFileException(pathInfo.workspaceId, pathInfo.filePath)));
       }
-    } catch (NoSuchWorkspaceException nsw) {
-      context.status(404).json(new WorkspaceFormattedError(nsw));
-    } catch (IOException ioe) {
-      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ioe);
-      logger.warn("SET METADATA: IO Exception: {}", fe);
-      context.status(500).json(fe);
-    } catch (WorkspaceFileOpException wfe) {
-      final var fe = new WorkspaceFormattedError(wfe, "Could not update metadata.");
-      logger.warn("SET METADATA: WorkspaceFileOpException: {}", fe);
-      context.status(500).json(fe);
-    } catch (JsonException je) {
-      final var fe = new FormattedError(
-          AerieService.WORKSPACE_SERVER,
-          je,
-          "Metadata for file %s is malformed.".formatted(pathInfo.filePath));
-      logger.warn("SET METADATA: JsonException: {}", fe);
-      context.status(500).json(fe);
-    }
+
+      // Update the metadata
+      try {
+        if(workspaceService.updateMetadataKeys(pathInfo.workspaceId, pathInfo.filePath, updates, mergeBehavior)) {
+          return new HandlerResult.Success(200, "Metadata for file %s updated successfully.".formatted(pathInfo.filePath));
+        } else {
+          return new HandlerResult.Failure(500, new FormattedError(AerieService.WORKSPACE_SERVER, "Unable to update metadata for file %s".formatted(pathInfo.filePath)));
+        }
+      } catch (IOException ioe) {
+        final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ioe);
+        logger.warn("SET METADATA: IO Exception: {}", fe);
+        return new HandlerResult.Failure(500, fe);
+      } catch (WorkspaceFileOpException wfe) {
+        final var fe = new WorkspaceFormattedError(wfe, "Could not update metadata.");
+        logger.warn("SET METADATA: WorkspaceFileOpException: {}", fe);
+        return new HandlerResult.Failure(500, fe);
+      } catch (JsonException je) {
+        final var fe = new FormattedError(
+            AerieService.WORKSPACE_SERVER,
+            je,
+            "Metadata for file %s is malformed.".formatted(pathInfo.filePath));
+        logger.warn("SET METADATA: JsonException: {}", fe);
+        return new HandlerResult.Failure(500, fe);
+      }
+    }));
   }
 
   /**
@@ -1572,39 +1710,39 @@ public class WorkspaceBindings implements Plugin {
       return;
     }
 
-    // Check that the underlying file exists
-    if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
-      context.status(404).json(new WorkspaceFormattedError(new NoSuchFileException(pathInfo.workspaceId, pathInfo.filePath)));
-      return;
-    }
-
-    // Unset Metadata Keys
-    try {
-      if(workspaceService.unsetMetadataKeys(pathInfo.workspaceId, pathInfo.filePath, toUnset, authorize(context).userId())) {
-        context.status(200).result("Metadata for file %s updated successfully.".formatted(pathInfo.filePath));
-      } else {
-        context.status(500).json(new FormattedError(
-            AerieService.WORKSPACE_SERVER,
-            "Unable to update metadata for file %s".formatted(pathInfo.filePath)));
+    final var userId = authorize(context).userId();
+    respond(context, mutate(pathInfo.workspaceId, userId, "Update metadata for " + pathInfo.filePath, () -> {
+      // Check that the underlying file exists
+      if (!workspaceService.checkFileExists(pathInfo.workspaceId, pathInfo.filePath)) {
+        return new HandlerResult.Failure(404, new WorkspaceFormattedError(new NoSuchFileException(pathInfo.workspaceId, pathInfo.filePath)));
       }
-    } catch (NoSuchWorkspaceException nsw) {
-      context.status(404).json(new WorkspaceFormattedError(nsw));
-    } catch (IOException ioe) {
-      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ioe);
-      logger.warn("UNSET METADATA: IO Exception: {}", fe);
-      context.status(500).json(fe);
-    } catch (WorkspaceFileOpException wfe) {
-      final var fe = new WorkspaceFormattedError(wfe, "Could not update metadata.");
-      logger.warn("UNSET METADATA: WorkspaceFileOpException: {}", fe);
-      context.status(500).json(fe);
-    } catch (JsonException je) {
-      final var fe = new FormattedError(
-          AerieService.WORKSPACE_SERVER,
-          je,
-          "Metadata for file %s is malformed.".formatted(pathInfo.filePath));
-      logger.warn("UNSET METADATA: JsonException: {}", fe);
-      context.status(500).json(fe);
-    }
+
+      // Unset Metadata Keys
+      try {
+        if(workspaceService.unsetMetadataKeys(pathInfo.workspaceId, pathInfo.filePath, toUnset, userId)) {
+          return new HandlerResult.Success(200, "Metadata for file %s updated successfully.".formatted(pathInfo.filePath));
+        } else {
+          return new HandlerResult.Failure(500, new FormattedError(
+              AerieService.WORKSPACE_SERVER,
+              "Unable to update metadata for file %s".formatted(pathInfo.filePath)));
+        }
+      } catch (IOException ioe) {
+        final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ioe);
+        logger.warn("UNSET METADATA: IO Exception: {}", fe);
+        return new HandlerResult.Failure(500, fe);
+      } catch (WorkspaceFileOpException wfe) {
+        final var fe = new WorkspaceFormattedError(wfe, "Could not update metadata.");
+        logger.warn("UNSET METADATA: WorkspaceFileOpException: {}", fe);
+        return new HandlerResult.Failure(500, fe);
+      } catch (JsonException je) {
+        final var fe = new FormattedError(
+            AerieService.WORKSPACE_SERVER,
+            je,
+            "Metadata for file %s is malformed.".formatted(pathInfo.filePath));
+        logger.warn("UNSET METADATA: JsonException: {}", fe);
+        return new HandlerResult.Failure(500, fe);
+      }
+    }));
   }
 
   /**
@@ -1619,21 +1757,25 @@ public class WorkspaceBindings implements Plugin {
     }
 
     // Delete Metadata File
-    try {
-      if(workspaceService.deleteMetadataFile(pathInfo.workspaceId, pathInfo.filePath)) {
-        context.status(200).result("Metadata for file %s deleted.".formatted(pathInfo.filePath));
-      } else {
-        context.status(500).json(new FormattedError(
-            AerieService.WORKSPACE_SERVER,
-            "Unable to delete metadata for file %s".formatted(pathInfo.filePath)));
+    respond(context, mutate(pathInfo.workspaceId, authorize(context).userId(), "Delete metadata for " + pathInfo.filePath, () -> {
+      try {
+        if(workspaceService.deleteMetadataFile(pathInfo.workspaceId, pathInfo.filePath)) {
+          return new HandlerResult.Success(200, "Metadata for file %s deleted.".formatted(pathInfo.filePath));
+        } else {
+          return new HandlerResult.Failure(500, new FormattedError(
+              AerieService.WORKSPACE_SERVER,
+              "Unable to delete metadata for file %s".formatted(pathInfo.filePath)));
+        }
+      } catch (WorkspaceFileOpException wfe) {
+        final var fe = new WorkspaceFormattedError(wfe, "Could not delete metadata.");
+        logger.warn("DELETE METADATA: WorkspaceFileOpException: {}", fe);
+        return new HandlerResult.Failure(500, fe);
+      } catch (IOException ioe) {
+        final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ioe);
+        logger.warn("DELETE METADATA: IO Exception: {}", fe);
+        return new HandlerResult.Failure(500, fe);
       }
-    } catch (NoSuchWorkspaceException nsw) {
-      context.status(404).json(new WorkspaceFormattedError(nsw));
-    } catch (WorkspaceFileOpException wfe) {
-      final var fe = new WorkspaceFormattedError(wfe, "Could not delete metadata.");
-      logger.warn("DELETE METADATA: WorkspaceFileOpException: {}", fe);
-      context.status(500).json(fe);
-    }
+    }));
   }
   //endregion
 }

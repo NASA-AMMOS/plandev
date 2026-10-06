@@ -1,11 +1,13 @@
 package gov.nasa.ammos.plandev.workspace.server;
 
+import gov.nasa.ammos.plandev.workspace.server.exceptions.ReservedPathException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.FieldSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -18,7 +20,7 @@ class WorkspaceFileSystemServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new WorkspaceFileSystemService(null);
+    service = new WorkspaceFileSystemService(null, null, null);
   }
 
   @Nested
@@ -59,6 +61,26 @@ class WorkspaceFileSystemServiceTest {
           service.resolveReadingPath(Path.of("/workspace/123"), Path.of("folder/../..//../etc/passwd")));
       assertThrows(SecurityException.class, () ->
           service.resolveReadingPath(Path.of("/workspace/123"), Path.of("folder/../../workspace/123/../456/file.txt")));
+    }
+  }
+
+  @Nested
+  class ReservedPathTests {
+    final Path root = Path.of("/workspace/123");
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        ".git", ".git/HEAD", ".git/config", ".git/refs/heads/main", "foo/.git", "foo/.git/config", ".GIT/HEAD",
+        "a/../.git/HEAD", ".gitignore", "x/.gitattributes", ".gitmodules", ".seqdev", ".seqdev/state.json"})
+    void reservedPathsAreRejected(String path) {
+      assertThrows(ReservedPathException.class, () -> service.resolveReadingPath(root, Path.of(path)));
+      assertThrows(ReservedPathException.class, () -> service.resolveWritingPath(root, Path.of(path)));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {".github/workflow.yml", "my.git", ".git.meta.seqdev", "git", "a/.gitkeep", ".seqdev2"})
+    void similarNamesAreAllowed(String path) {
+      assertDoesNotThrow(() -> service.resolveWritingPath(root, Path.of(path)));
     }
   }
 

@@ -27,7 +27,6 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
-import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -308,11 +307,7 @@ public class WorkspaceHistory {
 
   /** Fail closed unless a managed workspace is exactly as this class left it. */
   private void requireTrusted(final Path root) throws IOException, GitAPIException {
-    for (final var internal : List.of(root.resolve(WorkspacePaths.STATE_DIR), WorkspaceState.file(root))) {
-      if (Files.isSymbolicLink(internal) || !Files.exists(internal)) {
-        throw inconsistent("Workspace at %s is missing its runtime state (%s).".formatted(root, internal));
-      }
-    }
+    requireValidRuntimeState(root, true);
     try (final var git = open(root)) {
       requireExpectedGitState(git.getRepository(), false);
       configure(root, git.getRepository());
@@ -323,6 +318,7 @@ public class WorkspaceHistory {
                                .formatted(root, summarize(dirty)));
       }
     }
+    WorkspacePaths.removeStaleTempFiles(root); // only once trusted: a rejected workspace is left exactly as found
   }
 
   /**
@@ -331,6 +327,7 @@ public class WorkspaceHistory {
    */
   private void adopt(final Path root) throws IOException, GitAPIException {
     // Validate everything before writing anything
+    requireValidRuntimeState(root, false);
     requireAdoptable(root);
     if (Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR))) {
       try (final var git = open(root)) {
@@ -339,6 +336,7 @@ public class WorkspaceHistory {
     } else {
       Git.init().setDirectory(root.toFile()).setInitialBranch(BRANCH).call().close();
     }
+    WorkspacePaths.removeStaleTempFiles(root);
     WorkspaceState.migrateFromSidecars(root);
     configured.remove(root); // a new or newly adopted repository gets its config (re)applied
 
@@ -365,6 +363,35 @@ public class WorkspaceHistory {
     if (!Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR), LinkOption.NOFOLLOW_LINKS)) return false;
     try (final var git = open(root)) {
       return git.getRepository().getConfig().getBoolean(MANAGED_SECTION, null, MANAGED_KEY, false);
+    }
+  }
+
+  /**
+   * {@code .seqdev} must be a real directory holding a regular {@code state.json} in the current schema. Required for
+   * a managed workspace; for one being adopted, whatever already exists must be valid. Never repaired automatically:
+   * runtime state holds locks, so "unreadable" must not turn into "unlocked".
+   */
+  private static void requireValidRuntimeState(final Path root, final boolean required) {
+    final var dir = root.resolve(WorkspacePaths.STATE_DIR);
+    final var file = WorkspaceState.file(root);
+    final String problem;
+    if (!Files.exists(dir, LinkOption.NOFOLLOW_LINKS)) {
+      problem = required ? dir + " is missing" : null;
+    } else if (!Files.isDirectory(dir, LinkOption.NOFOLLOW_LINKS)) {
+      problem = dir + " is not a directory";
+    } else if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
+      problem = required ? file + " is missing" : null;
+    } else {
+      String loadProblem = null;
+      try {
+        WorkspaceState.load(root);
+      } catch (IOException e) {
+        loadProblem = e.getMessage();
+      }
+      problem = loadProblem;
+    }
+    if (problem != null) {
+      throw inconsistent("Workspace at %s has invalid runtime state: %s. It was left untouched.".formatted(root, problem));
     }
   }
 
@@ -606,10 +633,7 @@ public class WorkspaceHistory {
       if (before.state() == null) {
         Files.deleteIfExists(stateFile);
       } else {
-        final var tmp = stateFile.resolveSibling("state.json.tmp");
-        Files.createDirectories(stateFile.getParent());
-        Files.write(tmp, before.state());
-        Files.move(tmp, stateFile, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        WorkspacePaths.writeAtomically(root, stateFile, before.state());
       }
 
       requireClean(git, root);

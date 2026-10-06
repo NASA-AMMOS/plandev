@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
@@ -411,15 +410,17 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     if(Files.isDirectory(path)) return Optional.empty();
 
     // Stream to a temp file, hashing as we go so the returned ETag matches what we wrote, then rename it into place
-    // so lock-free readers see the old or the new bytes, never a partial file. The temp file lives in the ignored
-    // runtime directory, so a crash cannot leave stray content in the tree.
+    // so lock-free readers see the old or the new bytes, never a partial file. Overwriting keeps the file's
+    // permissions (notably the executable bit, which Git versions), so a save changes content only.
     final var md = WorkspaceService.newSHA256Digest();
-    final var tmp = repoPath.resolve(WorkspacePaths.STATE_DIR).resolve("upload-" + UUID.randomUUID() + ".tmp");
+    final var tmp = WorkspacePaths.tempFile(repoPath);
     try {
-      Files.createDirectories(tmp.getParent());
       Files.createDirectories(path.getParent());
       try (final var contentStream = new DigestInputStream(file.content(), md)) {
         Files.copy(contentStream, tmp);
+      }
+      if (Files.exists(path) && path.getFileSystem().supportedFileAttributeViews().contains("posix")) {
+        Files.setPosixFilePermissions(tmp, Files.getPosixFilePermissions(path));
       }
       Files.move(tmp, path, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     } finally {
@@ -447,9 +448,11 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var newPath = resolveWritingPath(newRepoPath, newFilePath);
     final var newMetadataPath = resolveMetadataPath(newRepoPath, newFilePath);
 
-    // Find hidden metadata files, if they exist, and move them
+    // The moved file keeps its own metadata, never that of a file it overwrites
     if(Files.exists(oldMetadataPath)) {
       Files.move(oldMetadataPath, newMetadataPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+    } else {
+      Files.deleteIfExists(newMetadataPath);
     }
     // Ensure the moved file has a sidecar (lastEdited* itself comes from the move's commit)
     final var metadataUpdates = new MetadataUpdates.Builder(userId)
@@ -499,7 +502,8 @@ public class WorkspaceFileSystemService implements WorkspaceService {
    * Copy one content file as a new file in the destination, whether it is copied on its own or inside a directory:
    * its sidecar's semantic metadata ({@code version}, {@code user}) comes along, {@code createdBy}/{@code createdAt}
    * are the copier and the copy time, {@code readOnly} does not carry over, and {@code lastEdited*} is derived from
-   * the destination's commit.
+   * the destination's commit. Nothing is inherited from a file the copy overwrites. The content keeps the source's
+   * permissions (a copy of an executable is executable).
    */
   private void copyAsNewFile(
       final Path sourcePath,
@@ -513,6 +517,8 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   {
     if (Files.exists(sourceMetadataPath)) {
       Files.copy(sourceMetadataPath, destMetadataPath, StandardCopyOption.REPLACE_EXISTING);
+    } else {
+      Files.deleteIfExists(destMetadataPath);
     }
     final var key = WorkspacePaths.key(destRoot, destPath);
     updateState(destRoot, s -> s.remove(key));
@@ -524,7 +530,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         .readOnly(false)
         .build();
     updateMetadata(destRoot, destRoot.normalize().relativize(destPath), metadataUpdates, MetadataMergeBehavior.deepMerge);
-    Files.copy(sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING);
+    Files.copy(sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
   }
 
   @Override
@@ -872,7 +878,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   {
     final var metadataFile = resolveMetadataPath(root, filePath).toFile();
     final var newFileContents = generateUpdatedMetadataFile(readMetadataFile(metadataFile), updates, mergeBehavior).build();
-    writeMetadataFile(newFileContents, metadataFile);
+    writeMetadataFile(root, newFileContents, metadataFile);
     if (updates.readOnly().isPresent()) {
       final var key = WorkspacePaths.key(root, resolveReadingPath(root, filePath));
       updateState(root, s -> s.setReadOnly(key, updates.readOnly().get()));
@@ -882,11 +888,12 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   /**
    * Write a sidecar's versioned fields (version, createdBy, createdAt, user). Skips the write when the bytes would
    * not change, so an edit that only touches derived or runtime fields leaves the sidecar, and history, untouched.
+   * @param root The workspace root (for its temp directory; the write is an atomic replace).
    * @param contents The contents of the metadata file to be written.
    * @param metadataFile The File to be written to.
    * @throws IOException If the File cannot be written to for any reason
    */
-  private void writeMetadataFile(final MetadataUpdates contents, final File metadataFile) throws IOException {
+  private void writeMetadataFile(final Path root, final MetadataUpdates contents, final File metadataFile) throws IOException {
     // Fill in "created" information, using the "metadataLastEdited" information as a fallback
     final var serialized = serializeSidecar(
         contents.version().orElse("1"),
@@ -895,7 +902,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         contents.user().orElse(null));
     final var path = metadataFile.toPath();
     if (Files.isRegularFile(path) && Files.readString(path, StandardCharsets.UTF_8).equals(serialized)) return;
-    Files.writeString(path, serialized, StandardCharsets.UTF_8);
+    WorkspacePaths.writeAtomically(root, path, serialized.getBytes(StandardCharsets.UTF_8));
   }
 
   /** The on-disk (and committed) form of a sidecar. Null fields are omitted; a missing version defaults to "1". */
@@ -1119,7 +1126,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     }
 
     // Write out the updated file; readOnly lives in runtime state, lastEdited* is derived and has nothing to unset
-    writeMetadataFile(fileContentsBuilder.build(), metadataFile);
+    writeMetadataFile(root, fileContentsBuilder.build(), metadataFile);
     if (keysToUnset.contains(MetadataKeys.readOnly.name())) {
       final var key = WorkspacePaths.key(root, resolveReadingPath(root, filePath));
       updateState(root, s -> s.setReadOnly(key, null));

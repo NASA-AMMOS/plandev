@@ -6,10 +6,12 @@ import org.eclipse.jgit.api.Status;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.dircache.DirCacheCheckout;
 import org.eclipse.jgit.lib.Constants;
+import org.eclipse.jgit.lib.FileMode;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.RefUpdate;
 import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.lib.RepositoryState;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.treewalk.EmptyTreeIterator;
@@ -22,15 +24,16 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -64,8 +67,9 @@ import java.util.function.Predicate;
  * <p><b>Failure.</b> If the mutation throws, reports failure, or its history cannot be recorded, the workspace is
  * restored to its pre-operation state: tracked files and the index are checked out from the pre-operation HEAD, the
  * paths this operation created (untracked or newly added after it ran; equivalent to "created by this operation"
- * because the repository was verified clean beforehand under the same lock) are removed, directories it created or
- * deleted are removed or recreated, and {@code .seqdev/state.json} is restored. If that restoration itself fails, a
+ * because the repository was verified clean beforehand under the same lock) are removed along with any parent
+ * directories that leaves empty, and {@code .seqdev/state.json} is restored. Empty directories are not versioned
+ * state, so a pre-existing empty directory the operation removed is not recreated. If restoration itself fails, a
  * {@link Kind#REPOSITORY_INCONSISTENT} error is raised rather than claiming success; nothing is ever {@code git clean}ed
  * wholesale or reset on the strength of an unverified assumption.
  *
@@ -74,10 +78,18 @@ import java.util.function.Predicate;
  * later commit fails, the workspaces already committed keep their change and the remaining ones are restored, raising
  * {@link Kind#PARTIALLY_APPLIED}: for a move this means it degraded to a copy, which is preferable to losing data.
  *
- * <p><b>Pre-existing state.</b> A workspace without a repository is initialized lazily on its first mutation with a
- * baseline commit authored by {@link #systemIdent()} ("Initialize workspace history"). A repository that is dirty when
- * a mutation starts (out-of-band edit, crash mid-operation) is reconciled by committing that state as a separately
- * labelled system commit and logging a warning; it is never reset.
+ * <p><b>Adoption.</b> A workspace is <i>managed</i> once its repository config carries {@code plandev.managed=true},
+ * which is written only after adoption has fully succeeded. An unmanaged workspace (new, pre-history, or a repository
+ * PlanDev did not finish adopting) is adopted on its first mutation: its tree must contain no reserved names and no
+ * symbolic links; legacy sidecar metadata is migrated (resumably); a repository is created if missing; and the current
+ * state is recorded by a commit authored by {@link #systemIdent()} ("Initialize workspace history" for a new
+ * repository, "Adopt workspace into history" for an existing one with uncommitted state).
+ *
+ * <p><b>Trust.</b> Before every mutation of a managed workspace the repository must be exactly what this class left
+ * behind: no in-progress Git operation, HEAD attached to {@code main}, an index of plain files outside reserved names,
+ * runtime state present, and a clean working tree. Anything else (an out-of-band edit, residue of a crash
+ * mid-operation, a manual checkout) is rejected with {@link Kind#REPOSITORY_INCONSISTENT} naming what is wrong. It is
+ * never committed, reset or repaired automatically.
  *
  * <p><b>Deployment assumption.</b> Locks are in-process. This is correct only while a single workspace-server
  * instance owns the workspace volume (the current deployment: one replica, no other service mounts the volume) and
@@ -87,8 +99,10 @@ public class WorkspaceHistory {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceHistory.class);
 
   static final String INIT_MESSAGE = "Initialize workspace history";
-  static final String MIGRATE_MESSAGE = "Migrate workspace metadata";
-  static final String RECONCILE_MESSAGE = "Reconcile out-of-band workspace changes";
+  static final String ADOPT_MESSAGE = "Adopt workspace into history";
+  static final String BRANCH = "main";
+  private static final String MANAGED_SECTION = "plandev";
+  private static final String MANAGED_KEY = "managed";
 
   public enum Kind {
     /** The history could not be recorded; the workspace was restored to its pre-operation state. */
@@ -136,7 +150,7 @@ public class WorkspaceHistory {
   /** A file's most recent content change, derived from history. {@code baseline} marks the history's root commit. */
   public record LastEdit(String by, Instant at, boolean baseline) {}
 
-  private record Before(ObjectId head, Set<Path> directories, byte[] state) {}
+  private record Before(ObjectId head, byte[] state) {}
 
   private record LastEditIndex(ObjectId head, Map<String, LastEdit> edits) {}
 
@@ -211,7 +225,10 @@ public class WorkspaceHistory {
       for (final var id : ids) {
         final var root = rootsById.get(id);
         try (final var git = open(root)) {
-          if (stageAll(git)) commit(git, commits.get(id), userIdent(userId));
+          if (stageAll(git)) {
+            requireValidIndex(git.getRepository());
+            commit(git, commits.get(id), userIdent(userId));
+          }
           requireClean(git, root);
           committed.add(id);
         } catch (Exception e) {
@@ -276,44 +293,102 @@ public class WorkspaceHistory {
   }
   //endregion
 
-  //region Initialization and reconciliation
-  /**
-   * Bring a workspace to "initialized and clean". Migrates legacy sidecar metadata into {@link WorkspaceState} if the
-   * workspace has none, initializes the repository with a baseline commit if it has none, and reconciles any dirty
-   * state with a labelled system commit. Caller holds the lock.
-   */
+  //region Adoption and trust
+  /** Bring a workspace to "managed, trusted and clean", adopting it first if it is not managed yet. Caller holds the lock. */
   private void ensureReady(final Path root) throws IOException, GitAPIException {
     if (!Files.isDirectory(root)) {
-      throw new WorkspaceHistoryException(Kind.REPOSITORY_INCONSISTENT, "Workspace directory " + root + " is missing.", null);
+      throw inconsistent("Workspace directory " + root + " is missing.");
     }
-    final var hasRepo = Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR));
-    if (!hasRepo) requireNoReservedPaths(root);
-
-    final var migrated = !WorkspaceState.exists(root);
-    if (migrated) WorkspaceState.migrateFromSidecars(root);
-
-    if (!hasRepo) {
-      configured.remove(root); // a recreated directory needs its new repository configured
-      Git.init().setDirectory(root.toFile()).setInitialBranch("main").call().close();
+    if (isManaged(root)) {
+      requireTrusted(root);
+    } else {
+      adopt(root);
     }
+  }
+
+  /** Fail closed unless a managed workspace is exactly as this class left it. */
+  private void requireTrusted(final Path root) throws IOException, GitAPIException {
+    for (final var internal : List.of(root.resolve(WorkspacePaths.STATE_DIR), WorkspaceState.file(root))) {
+      if (Files.isSymbolicLink(internal) || !Files.exists(internal)) {
+        throw inconsistent("Workspace at %s is missing its runtime state (%s).".formatted(root, internal));
+      }
+    }
+    try (final var git = open(root)) {
+      requireExpectedGitState(git.getRepository(), false);
+      configure(root, git.getRepository());
+      requireValidIndex(git.getRepository());
+      final var dirty = dirtyPaths(git.status().call());
+      if (!dirty.isEmpty()) {
+        throw inconsistent("Workspace at %s has changes that are not in its history: %s. They were left untouched."
+                               .formatted(root, summarize(dirty)));
+      }
+    }
+  }
+
+  /**
+   * Put a workspace under history. Every step is idempotent and the managed marker is written last, so an adoption
+   * interrupted at any point is simply redone by the next mutation.
+   */
+  private void adopt(final Path root) throws IOException, GitAPIException {
+    // Validate everything before writing anything
+    requireAdoptable(root);
+    if (Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR))) {
+      try (final var git = open(root)) {
+        requireExpectedGitState(git.getRepository(), true);
+      }
+    } else {
+      Git.init().setDirectory(root.toFile()).setInitialBranch(BRANCH).call().close();
+    }
+    WorkspaceState.migrateFromSidecars(root);
+    configured.remove(root); // a new or newly adopted repository gets its config (re)applied
 
     try (final var git = open(root)) {
-      configure(root, git.getRepository());
-      if (git.getRepository().resolve(Constants.HEAD) == null) {
-        requireNoReservedPaths(root);
-        stageAll(git);
-        commit(git, INIT_MESSAGE, systemIdent());
-        logger.info("Initialized history for workspace at {}", root);
-      } else {
-        final var dirty = dirtyPaths(git.status().call());
-        if (!dirty.isEmpty()) {
-          requireNoReservedPaths(root);
-          if (!migrated) logger.warn("Workspace at {} has changes outside history; reconciling: {}", root, dirty);
-          stageAll(git);
-          commit(git, migrated ? MIGRATE_MESSAGE : RECONCILE_MESSAGE, systemIdent());
-        }
+      final var repo = git.getRepository();
+      configure(root, repo);
+      final var unborn = repo.resolve(Constants.HEAD) == null;
+      if (stageAll(git) || unborn) {
+        requireValidIndex(repo);
+        commit(git, unborn ? INIT_MESSAGE : ADOPT_MESSAGE, systemIdent());
       }
+      requireValidIndex(repo);
       requireClean(git, root);
+
+      final var cfg = repo.getConfig();
+      cfg.setBoolean(MANAGED_SECTION, null, MANAGED_KEY, true);
+      cfg.save();
+      logger.info("Workspace at {} is now under history", root);
+    }
+  }
+
+  /** Whether a workspace has been fully adopted (see the class Javadoc). Never discovers a parent repository. */
+  boolean isManaged(final Path root) throws IOException {
+    if (!Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR), LinkOption.NOFOLLOW_LINKS)) return false;
+    try (final var git = open(root)) {
+      return git.getRepository().getConfig().getBoolean(MANAGED_SECTION, null, MANAGED_KEY, false);
+    }
+  }
+
+  /**
+   * PlanDev uses a deliberately small subset of Git: one branch, always checked out, no merges or other multi-step
+   * operations. Refuse to touch a repository outside that subset rather than switching branches or aborting anything.
+   */
+  private static void requireExpectedGitState(final Repository repo, final boolean allowUnborn) throws IOException {
+    final var root = repo.getWorkTree();
+    final var state = repo.getRepositoryState();
+    if (state != RepositoryState.SAFE) {
+      throw inconsistent("Workspace at %s has a Git operation in progress (%s); finish or abort it outside PlanDev."
+                             .formatted(root, state.getDescription()));
+    }
+    final var head = repo.exactRef(Constants.HEAD);
+    if (head == null || !head.isSymbolic()) {
+      throw inconsistent("Workspace at %s has a detached HEAD; check out branch '%s' outside PlanDev.".formatted(root, BRANCH));
+    }
+    if (!head.getTarget().getName().equals(Constants.R_HEADS + BRANCH)) {
+      throw inconsistent("Workspace at %s has '%s' checked out; PlanDev only uses branch '%s'."
+                             .formatted(root, Repository.shortenRefName(head.getTarget().getName()), BRANCH));
+    }
+    if (!allowUnborn && head.getObjectId() == null) {
+      throw inconsistent("Workspace at %s has no commits on branch '%s'.".formatted(root, BRANCH));
     }
   }
 
@@ -327,6 +402,7 @@ public class WorkspaceHistory {
     cfg.setBoolean("core", null, "autocrlf", false);
     cfg.setBoolean("core", null, "safecrlf", false);
     cfg.setString("core", null, "excludesFile", "/dev/null");
+    cfg.setString("core", null, "attributesFile", "/dev/null");
     cfg.setString("core", null, "hooksPath", "/dev/null");
     cfg.setBoolean("commit", null, "gpgSign", false);
     cfg.setBoolean("tag", null, "gpgSign", false);
@@ -340,10 +416,11 @@ public class WorkspaceHistory {
   }
 
   /**
-   * Fail closed if the tree contains reserved names that would make Git skip or rewrite user files (only possible for
-   * workspaces created or edited outside the file API, since the API rejects these names).
+   * Fail closed if the tree contains reserved names that would make Git skip or rewrite user files, or symbolic links
+   * (unsupported workspace content: one could point into {@code .git} or outside the workspace). Only possible for
+   * workspaces created or edited outside the file API, which rejects both. Links are never followed.
    */
-  private static void requireNoReservedPaths(final Path root) throws IOException {
+  private static void requireAdoptable(final Path root) throws IOException {
     final var found = new ArrayList<String>();
     Files.walkFileTree(root, new SimpleFileVisitor<>() {
       @Override
@@ -359,16 +436,46 @@ public class WorkspaceHistory {
 
       @Override
       public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) {
-        if (WorkspacePaths.isReservedName(file.getFileName().toString())) found.add(WorkspacePaths.key(root, file));
+        if (attrs.isSymbolicLink()) {
+          found.add(WorkspacePaths.key(root, file) + " (symbolic link)");
+        } else if (WorkspacePaths.isReservedName(file.getFileName().toString())) {
+          found.add(WorkspacePaths.key(root, file));
+        }
         return FileVisitResult.CONTINUE;
       }
     });
     if (!found.isEmpty()) {
-      throw new WorkspaceHistoryException(
-          Kind.REPOSITORY_INCONSISTENT,
-          "Workspace at %s contains reserved paths %s; remove them before it can be modified.".formatted(root, found),
-          null);
+      throw inconsistent("Workspace at %s contains unsupported paths %s; remove them before it can be modified."
+                             .formatted(root, summarize(found)));
     }
+  }
+
+  /** The index (== HEAD once clean) holds only regular files outside reserved names: no symlinks or submodules. */
+  private static void requireValidIndex(final Repository repo) throws IOException {
+    final var bad = new ArrayList<String>();
+    final var index = repo.readDirCache();
+    for (int i = 0; i < index.getEntryCount(); i++) {
+      final var entry = index.getEntry(i);
+      final var path = entry.getPathString();
+      final var mode = entry.getRawMode();
+      if (!FileMode.REGULAR_FILE.equals(mode) && !FileMode.EXECUTABLE_FILE.equals(mode)) {
+        bad.add(path + " (" + entry.getFileMode() + ")");
+      } else if (Arrays.stream(path.split("/")).anyMatch(WorkspacePaths::isReservedName)) {
+        bad.add(path);
+      }
+    }
+    if (!bad.isEmpty()) {
+      throw inconsistent("Workspace at %s tracks unsupported paths %s.".formatted(repo.getWorkTree(), summarize(bad)));
+    }
+  }
+
+  private static WorkspaceHistoryException inconsistent(final String message) {
+    return new WorkspaceHistoryException(Kind.REPOSITORY_INCONSISTENT, message, null);
+  }
+
+  private static String summarize(final Collection<String> paths) {
+    final var shown = paths.stream().limit(20).toList();
+    return paths.size() > shown.size() ? shown + " and " + (paths.size() - shown.size()) + " more" : shown.toString();
   }
   //endregion
 
@@ -408,12 +515,7 @@ public class WorkspaceHistory {
 
   private static void requireClean(final Git git, final Path root) throws GitAPIException {
     final var dirty = dirtyPaths(git.status().call());
-    if (!dirty.isEmpty()) {
-      throw new WorkspaceHistoryException(
-          Kind.REPOSITORY_INCONSISTENT,
-          "Workspace at %s is not clean: %s".formatted(root, dirty),
-          null);
-    }
+    if (!dirty.isEmpty()) throw inconsistent("Workspace at %s is not clean: %s".formatted(root, summarize(dirty)));
   }
 
   static PersonIdent systemIdent() {
@@ -431,17 +533,8 @@ public class WorkspaceHistory {
       final var head = git.getRepository().resolve(Constants.HEAD);
       final var stateFile = WorkspaceState.file(root);
       final var state = Files.isRegularFile(stateFile) ? Files.readAllBytes(stateFile) : null;
-      return new Before(head, directories(root), state);
+      return new Before(head, state);
     }
-  }
-
-  // ponytail: walks every directory of the workspace per mutation, the same order of cost as `git status`.
-  private static Set<Path> directories(final Path root) throws IOException {
-    final var dirs = new HashSet<Path>();
-    for (final var p : WorkspacePaths.walk(root, Integer.MAX_VALUE)) {
-      if (Files.isDirectory(p)) dirs.add(p);
-    }
-    return dirs;
   }
 
   /** Restore each workspace; if any cannot be restored, fail with REPOSITORY_INCONSISTENT. */
@@ -501,16 +594,13 @@ public class WorkspaceHistory {
       checkout.setFailOnConflict(false);
       checkout.checkout();
 
-      for (final var path : created) Files.deleteIfExists(root.resolve(path));
-
-      // Directories: remove the ones the operation created (deepest first), recreate the ones it removed.
-      final var now = directories(root);
-      final var added = now.stream()
-                           .filter(d -> !before.directories().contains(d))
-                           .sorted(Comparator.comparingInt(Path::getNameCount).reversed())
-                           .toList();
-      for (final var dir : added) Files.delete(dir);
-      for (final var dir : before.directories()) Files.createDirectories(dir);
+      // Remove what the operation created, then any parent directory that leaves empty (empty directories are not
+      // versioned state; this only avoids leaving a failed save's new folders behind).
+      for (final var path : created) {
+        var p = root.resolve(path);
+        Files.deleteIfExists(p);
+        for (p = p.getParent(); !p.equals(root) && isEmptyDirectory(p); p = p.getParent()) Files.delete(p);
+      }
 
       final var stateFile = WorkspaceState.file(root);
       if (before.state() == null) {
@@ -525,14 +615,15 @@ public class WorkspaceHistory {
       requireClean(git, root);
     }
   }
+  private static boolean isEmptyDirectory(final Path dir) throws IOException {
+    if (!Files.isDirectory(dir, LinkOption.NOFOLLOW_LINKS)) return false;
+    try (final var entries = Files.list(dir)) {
+      return entries.findAny().isEmpty();
+    }
+  }
   //endregion
 
   //region Reads (lock-free)
-  /** Whether the workspace has been put under history (and its metadata migrated). */
-  public boolean isInitialized(final Path root) {
-    return WorkspaceState.exists(root) && Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR));
-  }
-
   /**
    * The most recent commit that changed each content path (sidecars excluded), keyed by '/'-separated
    * workspace-relative path. Cached per workspace by HEAD; when HEAD advances only the new commits are walked.

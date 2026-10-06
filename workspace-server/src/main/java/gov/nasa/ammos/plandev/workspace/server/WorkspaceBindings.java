@@ -1003,7 +1003,7 @@ public class WorkspaceBindings implements Plugin {
 
     try {
       if (workspaceService.isDirectory(sourceWorkspaceId, toCopy)) {
-        if (workspaceService.copyDirectory(sourceWorkspaceId, toCopy, destinationWorkspaceId, destinationPath)) {
+        if (workspaceService.copyDirectory(sourceWorkspaceId, toCopy, destinationWorkspaceId, destinationPath, userId)) {
           return new HandlerResult.Success(200, successMsg);
         } else {
           return new HandlerResult.Failure(500, new FormattedError(AerieService.WORKSPACE_SERVER, errorMsg));

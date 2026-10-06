@@ -850,6 +850,45 @@ class WorkspaceHistoryIntegrationTest {
       assertClean(WS1);
     }
 
+    /** A sidecar whose runtime fields cannot be read might be a lock; adoption refuses rather than unlocking it. */
+    @Test
+    void unmigratableLegacySidecarsFailAdoptionClosed() throws Exception {
+      writeLegacyWorkspace();
+      final var goodSidecar = read(WS1, "seq/.a.txt.meta.seqdev");
+      Files.writeString(root(WS1).resolve(".b.txt.meta.seqdev"), "{\"readOnly\": tru");
+      Files.writeString(root(WS1).resolve("c.txt"), "C");
+      Files.writeString(root(WS1).resolve(".c.txt.meta.seqdev"), "{\"version\":\"1\",\"readOnly\":\"true\"}");
+
+      final var result = bindings.handleCreateDirectory(WS1, Path.of("x"), USER);
+      assertFailure(result, 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
+      final var message = result.jsonResponse().asJsonObject().getString("message");
+      assertTrue(message.contains(".b.txt.meta.seqdev") && message.contains(".c.txt.meta.seqdev") && message.contains("readOnly"), message);
+      assertFalse(Files.exists(root(WS1).resolve(".git")), "nothing was changed");
+      assertFalse(Files.exists(WorkspaceState.file(root(WS1))));
+      assertEquals(goodSidecar, read(WS1, "seq/.a.txt.meta.seqdev"));
+
+      // Once repaired explicitly, adoption succeeds and every lock survives
+      Files.writeString(root(WS1).resolve(".b.txt.meta.seqdev"), "{\"readOnly\": true}");
+      Files.writeString(root(WS1).resolve(".c.txt.meta.seqdev"), "{\"version\":\"1\",\"readOnly\":true}");
+      init(WS1);
+      for (final var file : List.of("seq/a.txt", "b.txt", "c.txt")) assertTrue(isReadOnly(WS1, file), file);
+      assertClean(WS1);
+    }
+
+    @Test
+    void migrationKeepsEverythingButTheRuntimeFields() throws Exception {
+      Files.writeString(root(WS1).resolve("a.txt"), "A");
+      Files.writeString(root(WS1).resolve(".a.txt.meta.seqdev"), """
+          {"version":"1","createdBy":"carol","createdAt":"2025-01-01T00:00:00Z","user":{"status":"final"},\
+          "custom":{"x":1},"readOnly":true,"lastEditedBy":"dave","lastEditedAt":"2025-02-02T00:00:00Z"}""");
+      WorkspaceState.migrateFromSidecars(root(WS1));
+      try (final var reader = Json.createReader(Files.newBufferedReader(root(WS1).resolve(".a.txt.meta.seqdev")))) {
+        assertEquals(Json.createReader(new java.io.StringReader("""
+            {"version":"1","createdBy":"carol","createdAt":"2025-01-01T00:00:00Z","user":{"status":"final"},"custom":{"x":1}}"""))
+                         .readObject(), reader.readObject());
+      }
+    }
+
     @Test
     void migrationIsIdempotent() throws Exception {
       writeLegacyWorkspace();

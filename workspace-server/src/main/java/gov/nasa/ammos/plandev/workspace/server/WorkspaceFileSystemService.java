@@ -905,6 +905,15 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     WorkspacePaths.writeAtomically(root, path, serialized.getBytes(StandardCharsets.UTF_8));
   }
 
+  /** A sidecar object in the same on-disk format, unchanged (used when migration only strips runtime fields). */
+  static String serializeSidecar(final JsonObject sidecar) {
+    final var out = new StringWriter();
+    try (final var writer = Json.createWriterFactory(config).createWriter(out)) {
+      writer.writeObject(sidecar);
+    }
+    return out.toString();
+  }
+
   /** The on-disk (and committed) form of a sidecar. Null fields are omitted; a missing version defaults to "1". */
   static String serializeSidecar(final String version, final String createdBy, final String createdAt, final JsonObject user) {
     final var out = new StringWriter();

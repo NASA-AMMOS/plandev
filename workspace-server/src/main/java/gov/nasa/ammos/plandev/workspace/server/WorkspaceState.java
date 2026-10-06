@@ -172,7 +172,9 @@ final class WorkspaceState {
   /**
    * Migrate sidecars that predate the versioned/runtime split: move {@code readOnly} and {@code lastEdited*} out of
    * every well-formed sidecar that still has them into this state file, then rewrite that sidecar with only its
-   * versioned fields. Idempotent and resumable: completion is "no sidecar still has a legacy field", never "the state
+   * versioned fields. A sidecar that cannot be parsed, or whose runtime fields have the wrong type, fails the whole
+   * migration before anything is written (it may hold a lock that must not silently become "unlocked"). Idempotent and
+   * resumable: completion is "no sidecar still has a legacy field", never "the state
    * file exists". The state file is written before any sidecar is rewritten, and every write is an atomic replace, so
    * an interrupted run leaves each sidecar either legacy (finished by the next run) or fully migrated, never partial;
    * sidecars without legacy fields and malformed sidecars are left untouched. The caller holds the workspace lock.
@@ -180,42 +182,53 @@ final class WorkspaceState {
   static void migrateFromSidecars(final Path root) throws IOException {
     final var state = load(root);
     final var rewrites = new TreeMap<Path, String>();
+    final var unmigratable = new ArrayList<String>();
 
     for (final var path : WorkspacePaths.walk(root, Integer.MAX_VALUE)) {
       final var name = path.getFileName().toString();
       if (!Files.isRegularFile(path) || !RenderType.isAerieMetadataFile(name)) continue;
 
+      // A sidecar that cannot be read might hold a lock; guessing would turn "unreadable" into "unlocked"
       final JsonObject sidecar;
       try (final var reader = Json.createReader(new StringReader(Files.readString(path)))) {
         sidecar = reader.readObject();
       } catch (JsonException | IOException e) {
+        unmigratable.add(WorkspacePaths.key(root, path) + " (not a readable JSON object)");
         continue;
       }
       if (LEGACY_KEYS.stream().noneMatch(sidecar::containsKey)) continue;
 
       final var contentName = name.substring(1, name.length() - RenderType.aerieMetadataExtension.length());
       final var key = WorkspacePaths.key(root, path.resolveSibling(contentName));
-      final var rawReadOnly = sidecar.get("readOnly");
-      final var readOnlyType = rawReadOnly == null ? null : rawReadOnly.getValueType();
-      final Boolean readOnly = readOnlyType == JsonValue.ValueType.TRUE ? Boolean.TRUE
-          : readOnlyType == JsonValue.ValueType.FALSE ? Boolean.FALSE : null;
+      final Entry entry;
+      try {
+        entry = new Entry(
+            optional(sidecar, "readOnly", JsonValue.ValueType.TRUE, JsonValue.ValueType.FALSE) == null
+                ? null : sidecar.getBoolean("readOnly"),
+            optional(sidecar, "lastEditedBy", JsonValue.ValueType.STRING) == null ? null : sidecar.getString("lastEditedBy"),
+            optional(sidecar, "lastEditedAt", JsonValue.ValueType.STRING) == null ? null : sidecar.getString("lastEditedAt"));
+      } catch (IllegalArgumentException e) {
+        unmigratable.add(WorkspacePaths.key(root, path) + " (" + e.getMessage() + ")");
+        continue;
+      }
       // The sidecar still holding legacy fields means it was never rewritten, so its values are the source of truth.
-      state.put(key, new Entry(readOnly, stringOrNull(sidecar, "lastEditedBy"), stringOrNull(sidecar, "lastEditedAt")));
+      state.put(key, entry);
 
-      rewrites.put(path, WorkspaceFileSystemService.serializeSidecar(
-          stringOrNull(sidecar, "version"),
-          stringOrNull(sidecar, "createdBy"),
-          stringOrNull(sidecar, "createdAt"),
-          sidecar.get("user") instanceof JsonObject user ? user : null));
+      // Lossless apart from the runtime fields: everything else in the sidecar is kept as-is
+      final var versioned = Json.createObjectBuilder(sidecar);
+      LEGACY_KEYS.forEach(versioned::remove);
+      rewrites.put(path, WorkspaceFileSystemService.serializeSidecar(versioned.build()));
     }
 
+    if (!unmigratable.isEmpty()) {
+      throw WorkspaceHistory.inconsistent(
+          "Workspace at %s has metadata files that cannot be migrated: %s. Repair or delete them; nothing was changed."
+              .formatted(root, WorkspaceHistory.summarize(unmigratable)));
+    }
     state.save();
     for (final var rewrite : rewrites.entrySet()) {
       WorkspacePaths.writeAtomically(root, rewrite.getKey(), rewrite.getValue().getBytes(StandardCharsets.UTF_8));
     }
   }
 
-  private static String stringOrNull(final JsonObject o, final String key) {
-    return o.get(key) instanceof javax.json.JsonString s ? s.getString() : null;
-  }
 }

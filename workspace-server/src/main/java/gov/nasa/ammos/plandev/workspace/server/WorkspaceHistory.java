@@ -329,15 +329,15 @@ public class WorkspaceHistory {
     // Validate everything before writing anything
     requireValidRuntimeState(root, false);
     requireAdoptable(root);
-    if (Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR))) {
+    final var hasRepo = Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR));
+    if (hasRepo) {
       try (final var git = open(root)) {
         requireExpectedGitState(git.getRepository(), true);
       }
-    } else {
-      Git.init().setDirectory(root.toFile()).setInitialBranch(BRANCH).call().close();
     }
     WorkspacePaths.removeStaleTempFiles(root);
-    WorkspaceState.migrateFromSidecars(root);
+    WorkspaceState.migrateFromSidecars(root); // validates every sidecar before writing anything
+    if (!hasRepo) Git.init().setDirectory(root.toFile()).setInitialBranch(BRANCH).call().close();
     configured.remove(root); // a new or newly adopted repository gets its config (re)applied
 
     try (final var git = open(root)) {
@@ -496,11 +496,11 @@ public class WorkspaceHistory {
     }
   }
 
-  private static WorkspaceHistoryException inconsistent(final String message) {
+  static WorkspaceHistoryException inconsistent(final String message) {
     return new WorkspaceHistoryException(Kind.REPOSITORY_INCONSISTENT, message, null);
   }
 
-  private static String summarize(final Collection<String> paths) {
+  static String summarize(final Collection<String> paths) {
     final var shown = paths.stream().limit(20).toList();
     return paths.size() > shown.size() ? shown + " and " + (paths.size() - shown.size()) + " more" : shown.toString();
   }

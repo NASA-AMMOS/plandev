@@ -220,6 +220,12 @@ public class ExternalSimulationFileParser {
       Optional<Long> parentId
   ) {
     SpanRecord toPGSpanRecord(Timestamp simStartTime) {
+      Optional<SerializedValue> compAtt = this.computedAttributes;
+      // If this is a completed span (noted by it having a duration) that is missing its computed attributes,
+      // give it the default computed attribute value of an empty struct
+      if(this.duration.isPresent() && this.computedAttributes.isEmpty()) {
+        compAtt = Optional.of(SerializedValue.of(Map.of()));
+      }
       return new SpanRecord(
           type,
           simStartTime.plusMicros(startOffset.micros()).toInstant(),
@@ -229,7 +235,7 @@ public class ExternalSimulationFileParser {
           new ActivityAttributesRecord(
               directiveId,
               arguments,
-              computedAttributes
+              compAtt
           )
       );
     }

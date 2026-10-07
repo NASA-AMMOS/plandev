@@ -130,17 +130,19 @@ public class ExternalSimulationFileParser {
       switch (curEvent) {
         case KEY_NAME -> {
           switch (fileStream.getString()) {
-            case "type":
-              fileStream.next(); // get to the VALUE_STRING
+            case "type" -> {
+              fileStream.next();
+              // get to the VALUE_STRING
               type = Profile.ProfileType.valueOf(fileStream.getString());
-              break;
-            case "schema":
-              fileStream.next(); // get to the START_OBJECT
+            }
+            case "schema" -> {
+              fileStream.next();
+              // get to the START_OBJECT
               schema = valueSchemaP
                   .parse(fileStream.getObject())
                   .getSuccessOrThrow(reason -> new InvalidJsonEntityException(List.of(reason)));
-              break;
-            case "segments":
+            }
+            case "segments" -> {
               // Because we are only reading the file once
               // (as opposed to opening it once for the profiles, then a second time for the segments)
               // segments MUST be the last key in the object
@@ -150,9 +152,8 @@ public class ExternalSimulationFileParser {
               }
               final var profile = new Profile(profileName, type, schema);
               parseProfileSegments(fileStream, profile, profileStreamer);
-              break;
-            default:
-              throw new IllegalStateException("Unexpected key: " + fileStream.getString());
+            }
+            default -> throw new IllegalStateException("Unexpected key: " + fileStream.getString());
           }
         }
         case END_OBJECT -> {

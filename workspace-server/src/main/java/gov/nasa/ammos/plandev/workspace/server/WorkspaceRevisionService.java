@@ -30,11 +30,12 @@ import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * SeqDev file revisions: explicit, immutable, per-file bookmarks of a file's committed state.
@@ -46,14 +47,13 @@ import java.util.concurrent.atomic.AtomicReference;
  * not its path, so a rename within the workspace keeps them; a copy, a re-created path, or a file arriving from another
  * workspace is a new file with none.
  *
- * <p><b>Representation.</b> Each revision is a row in the {@link WorkspaceRevisionStore} (the authoritative catalog)
- * mirrored by an annotated tag {@code plandev/revisions/<revision id>} on its commit, for discoverability and export.
- * Reads go through the catalog only; tags are never enumerated as revisions.
+ * <p><b>Representation.</b> Git is the authority: a revision exists because its annotated tag
+ * {@code plandev/revisions/<revision id>} exists ({@link GitFileRevisions}). The {@link WorkspaceRevisionStore} is a
+ * projection of those tags for queries; reads go through it, and {@link #reindexRevisionsFromGit} rebuilds it.
  *
- * <p><b>Consistency.</b> The catalog and Git cannot share a transaction. The row is inserted in an open transaction,
- * then the tag is created, then the transaction commits. A tag failure rolls the row back. A commit failure deletes
- * the new tag; if that also fails, a {@link Kind#REVISION_CATALOG_INCONSISTENT} error names the orphaned tag. A
- * revision is never reported as created unless both exist.
+ * <p><b>Consistency.</b> Under the workspace lock, the next ordinal is derived from the tags, the tag is created, and
+ * then the row is projected. A tag failure means no revision. A projection failure after the tag exists does not undo
+ * it: the revision exists, a {@link RevisionNotIndexedException} names it, and a reindex makes it visible.
  *
  * <p><b>Reads</b> of historical content use the revision's commit tree directly; nothing is checked out, so HEAD, the
  * index and the working tree are never touched. A row whose commit or file is missing from the repository is a
@@ -66,7 +66,19 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class WorkspaceRevisionService {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceRevisionService.class);
-  static final String TAG_PREFIX = "plandev/revisions/";
+
+  /** The revision was created (its tag exists) but is not yet in the catalog; {@link #reindexRevisionsFromGit} repairs it. */
+  public static final class RevisionNotIndexedException extends WorkspaceHistoryException {
+    public final UUID revisionId;
+
+    RevisionNotIndexedException(final Revision revision, final Exception cause) {
+      super(Kind.REVISION_NOT_INDEXED,
+            "Revision %s (%s) of %s was created, but could not be added to the revision index; reindex the workspace's revisions."
+                .formatted(revision.name(), revision.id(), revision.pathAtRevision()),
+            cause);
+      this.revisionId = revision.id();
+    }
+  }
 
   /**
    * A file's revisions, oldest first; {@code changedSinceLatest} is empty when it has none. {@code workingCopyETag} is
@@ -111,21 +123,43 @@ public class WorkspaceRevisionService {
           : history.mutate(workspaceId, null, "Assign file identity " + key, // internal, system-authored commit
                            () -> files.ensureFileId(workspaceId, filePath, userId), id -> true);
 
+      final Revision revision;
       try (final var git = Git.open(root.toFile())) {
-        final var head = git.getRepository().resolve(Constants.HEAD);
-        final var tagged = new AtomicReference<Revision>();
-        try {
-          return store.create(workspaceId, fileId, key, head.name(), userId, revision -> {
-            createTag(git, revision, head);
-            tagged.set(revision);
-          });
-        } catch (Exception e) {
-          // TODO: a production implementation should treat connection.commit() failure as potentially indeterminate
-          //  and reconcile the revision ID before compensating the Git tag.
-          if (tagged.get() != null) removeOrphanedTag(git, tagged.get(), e);
-          throw e;
-        }
+        final var repo = git.getRepository();
+        // ponytail: parses and validates every revision tag on each create; cache an index if workspaces get large
+        final var ordinal = 1 + GitFileRevisions.readAll(repo, workspaceId).stream()
+            .filter(r -> r.fileId().equals(fileId))
+            .mapToLong(Revision::ordinal)
+            .max().orElse(0);
+        final var head = repo.resolve(Constants.HEAD);
+        // Microseconds: the catalog's timestamp precision, so a row and its tag hold the same instant
+        revision = new Revision(UUID.randomUUID(), workspaceId, fileId, ordinal, WorkspaceRevisionStore.revisionName(ordinal),
+                                key, head.name(), userId, Instant.now().truncatedTo(ChronoUnit.MICROS));
+        createTag(git, revision, head); // from here on, the revision exists
       }
+      try {
+        store.insert(revision);
+      } catch (Exception e) {
+        logger.error("Revision {} was created but not indexed", revision.id(), e);
+        throw new RevisionNotIndexedException(revision, e);
+      }
+      return revision;
+    });
+  }
+
+  /**
+   * Rebuild the workspace's catalog from its revision tags. Every tag is validated first; if any is invalid, the
+   * catalog is left untouched. Otherwise it is replaced, in one transaction, by exactly what the tags record.
+   * @return the revisions now in the catalog
+   */
+  public List<Revision> reindexRevisionsFromGit(final int workspaceId) throws Exception {
+    return history.withTrustedWorkspace(workspaceId, () -> {
+      final List<Revision> revisions;
+      try (final var repo = Git.open(root(workspaceId).toFile()).getRepository()) {
+        revisions = GitFileRevisions.readAll(repo, workspaceId);
+      }
+      store.replaceWorkspaceRevisions(workspaceId, revisions);
+      return revisions;
     });
   }
 
@@ -146,8 +180,8 @@ public class WorkspaceRevisionService {
       final var headTree = walk.parseCommit(head).getTree();
       final var revisionTree = revisionTree(repo, walk, latest);
       final var changed = !(blobId(repo, headTree, key).equals(requireBlobId(repo, revisionTree, latest, latest.pathAtRevision()))
-                            && blobId(repo, headTree, sidecarKey(key))
-                                .equals(requireBlobId(repo, revisionTree, latest, sidecarKey(latest.pathAtRevision()))));
+                            && blobId(repo, headTree, GitFileRevisions.sidecarKey(key))
+                                .equals(requireBlobId(repo, revisionTree, latest, GitFileRevisions.sidecarKey(latest.pathAtRevision()))));
       return new RevisionList(fileId, revisions, Optional.of(changed), etag);
     }
   }
@@ -205,59 +239,23 @@ public class WorkspaceRevisionService {
           ? WorkspaceHistory.systemIdent().getName()
           : revision.createdBy();
       git.tag()
-         .setName(TAG_PREFIX + revision.id())
+         .setName(GitFileRevisions.TAG_PREFIX + revision.id())
          .setObjectId(walk.parseCommit(commit))
          .setAnnotated(true)
          .setSigned(false)
          .setTagger(new PersonIdent(name, "", revision.createdAt(), ZoneOffset.UTC))
-         .setMessage(annotation(revision))
+         .setMessage(GitFileRevisions.annotation(revision))
          .call();
     }
   }
-
-  protected void deleteTag(final Git git, final String tagName) throws Exception {
-    if (git.tagDelete().setTags(tagName).call().isEmpty()) throw new IOException("Tag " + tagName + " was not deleted");
-  }
   //endregion
-
-  /** The annotated tag's message: a deliberately small, versioned JSON record of the revision. */
-  static String annotation(final Revision revision) {
-    final var json = Json.createObjectBuilder()
-        .add("type", "plandev-file-revision")
-        .add("version", 1)
-        .add("revisionId", revision.id().toString())
-        .add("fileId", revision.fileId().toString())
-        .add("ordinal", revision.ordinal())
-        .add("path", revision.pathAtRevision())
-        .add("name", revision.name())
-        .add("createdAt", revision.createdAt().toString());
-    if (revision.createdBy() == null) json.addNull("createdBy");
-    else json.add("createdBy", revision.createdBy());
-    return json.build().toString() + "\n";
-  }
-
-  private void removeOrphanedTag(final Git git, final Revision revision, final Exception cause) {
-    final var tag = TAG_PREFIX + revision.id();
-    try {
-      deleteTag(git, tag);
-    } catch (Exception cleanup) {
-      logger.error("Revision {} was not recorded and its tag {} in {} could not be removed; the tag is orphaned",
-                   revision.id(), tag, git.getRepository().getWorkTree(), cleanup);
-      final var ex = new WorkspaceHistoryException(
-          Kind.REVISION_CATALOG_INCONSISTENT,
-          "The revision could not be recorded, and its Git tag %s could not be removed.".formatted(tag),
-          cause);
-      ex.addSuppressed(cleanup);
-      throw ex;
-    }
-  }
 
   private HistoricalFile read(final Path root, final Revision revision) throws IOException {
     try (final var repo = Git.open(root.toFile()).getRepository(); final var walk = new RevWalk(repo)) {
       final var tree = revisionTree(repo, walk, revision);
       final var content = repo.open(requireBlobId(repo, tree, revision, revision.pathAtRevision())).getBytes();
       final var sidecar = new String(
-          repo.open(requireBlobId(repo, tree, revision, sidecarKey(revision.pathAtRevision()))).getBytes(),
+          repo.open(requireBlobId(repo, tree, revision, GitFileRevisions.sidecarKey(revision.pathAtRevision()))).getBytes(),
           StandardCharsets.UTF_8);
       final JsonObject metadata;
       try (final var reader = Json.createReader(new StringReader(sidecar))) {
@@ -314,10 +312,5 @@ public class WorkspaceRevisionService {
     if (Files.isDirectory(path)) throw new WorkspaceFileOpException("Directories do not have revisions.");
     if (!Files.isRegularFile(path)) throw new NoSuchFileException(workspaceId, filePath);
     return WorkspacePaths.key(root, path);
-  }
-
-  private static String sidecarKey(final String key) {
-    final var slash = key.lastIndexOf('/');
-    return key.substring(0, slash + 1) + RenderType.toMetadataFileName(key.substring(slash + 1));
   }
 }

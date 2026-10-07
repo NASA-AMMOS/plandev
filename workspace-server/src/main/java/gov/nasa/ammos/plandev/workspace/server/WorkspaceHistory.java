@@ -111,7 +111,11 @@ public class WorkspaceHistory {
     /** The repository is not in a state this class can vouch for, and was not (or could not be) repaired. */
     REPOSITORY_INCONSISTENT("WORKSPACE_REPOSITORY_INCONSISTENT"),
     /** The revision catalog and the repository disagree (see {@link WorkspaceRevisionService}). */
-    REVISION_CATALOG_INCONSISTENT("WORKSPACE_REVISION_CATALOG_INCONSISTENT");
+    REVISION_CATALOG_INCONSISTENT("WORKSPACE_REVISION_CATALOG_INCONSISTENT"),
+    /** A recognized PlanDev revision tag is malformed or inconsistent (see {@link GitFileRevisions}). */
+    REVISION_TAG_INVALID("WORKSPACE_REVISION_TAG_INVALID"),
+    /** A revision was created (its tag exists) but could not be recorded in the catalog; a reindex repairs it. */
+    REVISION_NOT_INDEXED("WORKSPACE_REVISION_NOT_INDEXED");
 
     public final String errorType;
 

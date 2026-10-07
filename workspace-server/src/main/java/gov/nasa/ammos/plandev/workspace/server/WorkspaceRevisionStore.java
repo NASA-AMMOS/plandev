@@ -6,8 +6,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * The revision catalog: PlanDev's authoritative record of which SeqDev file revisions exist. Rows are immutable;
- * there is deliberately no update or delete. See {@link WorkspaceRevisionService} for how rows relate to Git.
+ * The revision catalog: a queryable projection of the revision tags in each workspace's Git repository
+ * ({@link GitFileRevisions}), which are the authority on which revisions exist. Every row is a copy of a tag, so a
+ * workspace's rows can be thrown away and rebuilt ({@link #replaceWorkspaceRevisions}). Rows are never updated.
  */
 public interface WorkspaceRevisionStore {
   /**
@@ -28,22 +29,11 @@ public interface WorkspaceRevisionStore {
       String createdBy,
       Instant createdAt) {}
 
-  @FunctionalInterface
-  interface BeforeCommit {
-    void accept(Revision revision) throws Exception;
-  }
+  /** Record a revision whose tag already exists, exactly as given. */
+  void insert(Revision revision) throws Exception;
 
-  /**
-   * Insert the file's next revision in a transaction, run {@code beforeCommit} with the inserted row, then commit.
-   * If {@code beforeCommit} throws, the insert is rolled back and the exception propagates.
-   */
-  Revision create(
-      int workspaceId,
-      UUID fileId,
-      String pathAtRevision,
-      String commitSha,
-      String createdBy,
-      BeforeCommit beforeCommit) throws Exception;
+  /** In one transaction, replace all of a workspace's rows with {@code revisions}, exactly as given. */
+  void replaceWorkspaceRevisions(int workspaceId, List<Revision> revisions) throws Exception;
 
   /** A file's revisions, oldest first. */
   List<Revision> list(int workspaceId, UUID fileId) throws Exception;

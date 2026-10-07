@@ -23,8 +23,8 @@ create table sequencing.workspace_file_revision (
 
 comment on table sequencing.workspace_file_revision is e''
   'An explicit, immutable revision of one file in a workspace: a bookmark of the file''s state at a commit of the '
-  'workspace''s Git history, mirrored there by the annotated tag plandev/revisions/<id>. Rows are never updated, and '
-  'outlive the file they belong to; they are removed only with their workspace.';
+  'workspace''s Git history. A projection of the annotated tag plandev/revisions/<id>, which is authoritative: a '
+  'workspace''s rows can be rebuilt from its tags. Rows are never updated, and outlive the file they belong to.';
 comment on column sequencing.workspace_file_revision.id is e''
   'The unique id of the revision.';
 comment on column sequencing.workspace_file_revision.workspace_id is e''

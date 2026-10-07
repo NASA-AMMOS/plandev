@@ -4,25 +4,24 @@ import gov.nasa.ammos.plandev.workspace.server.WorkspaceRevisionStore;
 import org.intellij.lang.annotations.Language;
 
 import javax.sql.DataSource;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 public final class PostgresRevisionStore implements WorkspaceRevisionStore {
-  private static final @Language("SQL") String nextOrdinalSql = """
-    select coalesce(max(ordinal), 0) + 1
-    from sequencing.workspace_file_revision
-    where workspace_id = ? and file_id = ?;
-    """;
   private static final @Language("SQL") String insertSql = """
     insert into sequencing.workspace_file_revision
-      (id, workspace_id, file_id, ordinal, display_name, path_at_revision, git_commit_sha, created_by)
-    values (?, ?, ?, ?, ?, ?, ?, ?)
-    returning *;
+      (id, workspace_id, file_id, ordinal, display_name, path_at_revision, git_commit_sha, created_by, created_at)
+    values (?, ?, ?, ?, ?, ?, ?, ?, ?);
+    """;
+  private static final @Language("SQL") String deleteWorkspaceSql = """
+    delete from sequencing.workspace_file_revision where workspace_id = ?;
     """;
   private static final @Language("SQL") String listSql = """
     select * from sequencing.workspace_file_revision
@@ -41,46 +40,32 @@ public final class PostgresRevisionStore implements WorkspaceRevisionStore {
   }
 
   @Override
-  public Revision create(
-      final int workspaceId,
-      final UUID fileId,
-      final String pathAtRevision,
-      final String commitSha,
-      final String createdBy,
-      final BeforeCommit beforeCommit) throws Exception
-  {
+  public void insert(final Revision revision) throws SQLException {
+    try (final var connection = dataSource.getConnection();
+         final var statement = connection.prepareStatement(insertSql)) {
+      bind(statement, revision);
+      statement.executeUpdate();
+    }
+  }
+
+  @Override
+  public void replaceWorkspaceRevisions(final int workspaceId, final List<Revision> revisions) throws SQLException {
     try (final var connection = dataSource.getConnection()) {
       connection.setAutoCommit(false);
       try {
-        final long ordinal;
-        try (final var statement = connection.prepareStatement(nextOrdinalSql)) {
+        try (final var statement = connection.prepareStatement(deleteWorkspaceSql)) {
           statement.setInt(1, workspaceId);
-          statement.setObject(2, fileId);
-          try (final var res = statement.executeQuery()) {
-            res.next();
-            ordinal = res.getLong(1);
-          }
+          statement.executeUpdate();
         }
-        final Revision revision;
-        // The (workspace_id, file_id, ordinal) unique key rejects a concurrent duplicate if the workspace lock is bypassed
         try (final var statement = connection.prepareStatement(insertSql)) {
-          statement.setObject(1, UUID.randomUUID());
-          statement.setInt(2, workspaceId);
-          statement.setObject(3, fileId);
-          statement.setLong(4, ordinal);
-          statement.setString(5, WorkspaceRevisionStore.revisionName(ordinal));
-          statement.setString(6, pathAtRevision);
-          statement.setString(7, commitSha);
-          statement.setString(8, createdBy);
-          try (final var res = statement.executeQuery()) {
-            res.next();
-            revision = revision(res);
+          for (final var revision : revisions) {
+            bind(statement, revision);
+            statement.addBatch();
           }
+          statement.executeBatch();
         }
-        beforeCommit.accept(revision);
         connection.commit();
-        return revision;
-      } catch (Exception e) {
+      } catch (SQLException e) {
         try {
           connection.rollback();
         } catch (SQLException rollback) {
@@ -115,6 +100,18 @@ public final class PostgresRevisionStore implements WorkspaceRevisionStore {
         return res.next() ? Optional.of(revision(res)) : Optional.empty();
       }
     }
+  }
+
+  private static void bind(final PreparedStatement statement, final Revision revision) throws SQLException {
+    statement.setObject(1, revision.id());
+    statement.setInt(2, revision.workspaceId());
+    statement.setObject(3, revision.fileId());
+    statement.setLong(4, revision.ordinal());
+    statement.setString(5, revision.name());
+    statement.setString(6, revision.pathAtRevision());
+    statement.setString(7, revision.commitSha());
+    statement.setString(8, revision.createdBy());
+    statement.setObject(9, OffsetDateTime.ofInstant(revision.createdAt(), ZoneOffset.UTC));
   }
 
   private static Revision revision(final ResultSet res) throws SQLException {

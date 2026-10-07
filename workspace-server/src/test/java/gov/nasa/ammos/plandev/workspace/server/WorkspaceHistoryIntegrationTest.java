@@ -1288,23 +1288,23 @@ class WorkspaceHistoryIntegrationTest {
     }
   }
 
-  /** The revision catalog in memory: same contract as PostgresRevisionStore, plus an injectable commit failure. */
+  /** The revision catalog in memory: same contract as PostgresRevisionStore, plus injectable failures. */
   static final class MemoryRevisionStore implements WorkspaceRevisionStore {
     final List<Revision> rows = new java.util.concurrent.CopyOnWriteArrayList<>();
-    volatile boolean failCommit;
+    volatile boolean failInsert;
+    volatile boolean failReplace;
 
     @Override
-    public synchronized Revision create(
-        final int workspaceId, final UUID fileId, final String path, final String sha, final String by,
-        final BeforeCommit beforeCommit) throws Exception
-    {
-      final var ordinal = list(workspaceId, fileId).size() + 1L;
-      final var revision = new Revision(UUID.randomUUID(), workspaceId, fileId, ordinal,
-                                        WorkspaceRevisionStore.revisionName(ordinal), path, sha, by, Instant.now());
-      beforeCommit.accept(revision);
-      if (failCommit) throw new java.sql.SQLException("injected commit failure");
+    public synchronized void insert(final Revision revision) throws Exception {
+      if (failInsert) throw new java.sql.SQLException("injected insert failure");
       rows.add(revision);
-      return revision;
+    }
+
+    @Override
+    public synchronized void replaceWorkspaceRevisions(final int workspaceId, final List<Revision> revisions) throws Exception {
+      if (failReplace) throw new java.sql.SQLException("injected replace failure");
+      rows.removeIf(r -> r.workspaceId() == workspaceId);
+      rows.addAll(revisions);
     }
 
     @Override
@@ -1321,10 +1321,9 @@ class WorkspaceHistoryIntegrationTest {
     }
   }
 
-  /** A revision service whose tag creation and deletion can be made to fail. */
+  /** A revision service whose tag creation can be made to fail. */
   static final class FlakyRevisions extends WorkspaceRevisionService {
     volatile boolean failTag;
-    volatile boolean failTagDelete;
 
     FlakyRevisions(final WorkspaceRoots roots, final WorkspaceHistory history, final WorkspaceFileSystemService files,
                    final WorkspaceRevisionStore store) {
@@ -1335,12 +1334,6 @@ class WorkspaceHistoryIntegrationTest {
     protected void createTag(final Git git, final Revision revision, final ObjectId commit) throws Exception {
       if (failTag) throw new IOException("injected tag failure");
       super.createTag(git, revision, commit);
-    }
-
-    @Override
-    protected void deleteTag(final Git git, final String tagName) throws Exception {
-      if (failTagDelete) throw new IOException("injected tag deletion failure");
-      super.deleteTag(git, tagName);
     }
   }
 
@@ -1675,25 +1668,21 @@ class WorkspaceHistoryIntegrationTest {
       }
 
       @Test
-      void aCatalogFailureRemovesTheNewTag() throws Exception {
-        store.failCommit = true;
-        assertThrows(java.sql.SQLException.class, () -> create(WS1, "a.seq"));
-        assertEquals(List.of(), store.rows);
-        assertEquals(Map.of(), tags(WS1));
-        assertClean(WS1);
-      }
-
-      @Test
-      void aFailedCleanupIsReportedAsAnInconsistency() throws Exception {
-        store.failCommit = true;
-        revisions.failTagDelete = true;
-        final var e = assertThrows(WorkspaceHistory.WorkspaceHistoryException.class, () -> create(WS1, "a.seq"));
-        assertEquals(WorkspaceHistory.Kind.REVISION_CATALOG_INCONSISTENT, e.kind);
+      void aProjectionFailureKeepsTheTagAndAReindexMakesTheRevisionVisible() throws Exception {
+        store.failInsert = true;
+        final var e = assertThrows(WorkspaceRevisionService.RevisionNotIndexedException.class, () -> create(WS1, "a.seq"));
+        assertEquals(WorkspaceHistory.Kind.REVISION_NOT_INDEXED, e.kind);
         assertInstanceOf(java.sql.SQLException.class, e.getCause());
-        assertEquals(List.of(), store.rows, "no revision is reported or recorded");
-        assertEquals(1, tags(WS1).size(), "the orphaned tag is left for an administrator, and named in the error");
-        assertTrue(e.getMessage().contains(tags(WS1).keySet().iterator().next()), e.getMessage());
+        assertTrue(e.getMessage().contains(e.revisionId.toString()), e.getMessage());
+        assertEquals(Set.of("plandev/revisions/" + e.revisionId), tags(WS1).keySet(), "the revision exists");
+        assertEquals(List.of(), names(WS1, "a.seq"), "but is not indexed yet");
         assertClean(WS1);
+
+        store.failInsert = false;
+        assertEquals("b", create(WS1, "a.seq").name(), "the unindexed revision still holds its ordinal");
+        revisions.reindexRevisionsFromGit(WS1);
+        assertEquals(List.of("a", "b"), names(WS1, "a.seq"));
+        assertEquals(e.revisionId, revisions.list(WS1, Path.of("a.seq")).revisions().getFirst().id());
       }
     }
 
@@ -1804,6 +1793,175 @@ class WorkspaceHistoryIntegrationTest {
         assertEquals(List.of(), names(WS2, "a.seq"));
         assertEquals(List.of(), names(WS2, "b.seq"));
         assertEquals(List.of("a"), names(WS1, "a.seq"));
+      }
+    }
+
+    /** Git is the authority on revisions; the catalog is a projection that can be rebuilt from it. */
+    @Nested
+    class GitAuthority {
+      private List<Revision> fromGit(final Path repoDir, final int ws) throws Exception {
+        try (final var repo = Git.open(repoDir.toFile()).getRepository()) {
+          return GitFileRevisions.readAll(repo, ws);
+        }
+      }
+
+      /** Tag HEAD (or its tree) directly, bypassing PlanDev. A null message makes a lightweight tag. */
+      private void rawTag(final String name, final String message, final boolean atTree) throws Exception {
+        try (final var git = git(WS1); final var walk = new RevWalk(git.getRepository())) {
+          final var head = walk.parseCommit(git.getRepository().resolve(Constants.HEAD));
+          final var tag = git.tag().setName(name).setObjectId(atTree ? walk.parseTree(head.getTree()) : head).setSigned(false);
+          if (message == null) tag.setAnnotated(false);
+          else tag.setAnnotated(true).setMessage(message);
+          tag.call();
+        }
+      }
+
+      private void deleteTag(final String name) throws Exception {
+        try (final var git = git(WS1)) {
+          git.tagDelete().setTags(name).call();
+        }
+      }
+
+      private static String edited(final Revision revision, final String key, final javax.json.JsonValue value) {
+        try (final var reader = Json.createReader(new java.io.StringReader(GitFileRevisions.annotation(revision)))) {
+          final var json = Json.createObjectBuilder(reader.readObject());
+          return (value == null ? json.remove(key) : json.add(key, value)).build().toString();
+        }
+      }
+
+      private static Revision withId(final Revision r, final UUID id) {
+        return new Revision(id, r.workspaceId(), r.fileId(), r.ordinal(), r.name(), r.pathAtRevision(), r.commitSha(),
+                            r.createdBy(), r.createdAt());
+      }
+
+      @Test
+      void onlyPlanDevRevisionTagsAreRevisions() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        final var a = create(WS1, "a.seq");
+        rawTag("v1.0", "a release", false);
+        rawTag("plandev/other", null, false);
+        assertEquals(List.of(a), fromGit(root(WS1), WS1));
+      }
+
+      @Test
+      void invalidRevisionTagsAreRejectedWithTheirProblem() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        final var a = create(WS1, "a.seq");
+        final var other = withId(a, UUID.randomUUID());
+        final var name = "plandev/revisions/" + other.id();
+        final var fileId = Json.createValue(other.fileId().toString());
+
+        final var cases = new LinkedHashMap<String, String>(); // annotation -> expected problem
+        cases.put("not json", "annotation is not a JSON object");
+        cases.put(edited(other, "type", Json.createValue("something-else")), "type is not plandev-file-revision");
+        cases.put(edited(other, "version", Json.createValue(2)), "unsupported annotation version 2");
+        cases.put(edited(other, "fileId", null), "fileId must be a non-empty string");
+        cases.put(edited(other, "ordinal", Json.createValue(0)), "ordinal must be positive");
+        cases.put(edited(other, "ordinal", Json.createValue("1")), "ordinal must be an integer");
+        cases.put(edited(other, "createdAt", Json.createValue("yesterday")), "createdAt is not an ISO-8601 instant");
+        cases.put(edited(other, "createdBy", Json.createValue(7)), "createdBy must be a string or null");
+        cases.put(edited(other, "revisionId", Json.createValue(a.id().toString())), "does not match its revisionId");
+        cases.put(edited(other, "path", Json.createValue("missing.seq")), "missing.seq is not a file");
+        cases.put(edited(other, "fileId", Json.createValue(UUID.randomUUID().toString())), "does not have fileId");
+        cases.put(edited(other, "fileId", fileId), "both claim ordinal 1 of file " + a.fileId());
+
+        for (final var c : cases.entrySet()) {
+          rawTag(name, c.getKey(), false);
+          final var e = assertThrows(GitFileRevisions.InvalidRevisionTagsException.class, () -> fromGit(root(WS1), WS1));
+          assertEquals(WorkspaceHistory.Kind.REVISION_TAG_INVALID, e.kind);
+          assertEquals(1, e.problems.size(), e.getMessage());
+          assertTrue(e.problems.getFirst().contains(c.getValue()), c.getValue() + " not in " + e.getMessage());
+          deleteTag(name);
+        }
+
+        rawTag(name, null, false);
+        assertTrue(assertThrows(GitFileRevisions.InvalidRevisionTagsException.class, () -> fromGit(root(WS1), WS1))
+                       .getMessage().contains("not an annotated tag"));
+        deleteTag(name);
+        rawTag(name, GitFileRevisions.annotation(withId(other, other.id())), true);
+        assertTrue(assertThrows(GitFileRevisions.InvalidRevisionTagsException.class, () -> fromGit(root(WS1), WS1))
+                       .getMessage().contains("does not point at a commit"));
+        deleteTag(name);
+        assertEquals(List.of(a), fromGit(root(WS1), WS1));
+      }
+
+      @Test
+      void theWholeCatalogIsRebuiltExactlyFromGitAcrossARename() throws Exception {
+        saveOk(WS1, "foo.seq", "first");
+        setUserMetadata(WS1, "foo.seq", "draft");
+        final var a = create(WS1, "foo.seq");
+        saveOk(WS1, "foo.seq", "second");
+        final var b = revisions.create(WS1, Path.of("foo.seq"), "bob");
+        assertSuccess(bindings.handleCreateDirectory(WS1, Path.of("sequences"), USER));
+        assertSuccess(bindings.handleMove(Path.of("foo.seq"), Path.of("sequences/foo.seq"), WS1, WS1, false, USER));
+        saveOk(WS1, "sequences/foo.seq", "third");
+        final var c = revisions.create(WS1, Path.of("sequences/foo.seq"), null);
+        saveOk(WS1, "other.seq", "other");
+        create(WS1, "other.seq");
+        saveOk(WS1, "sequences/foo.seq", "fourth");
+
+        final var expected = Set.copyOf(store.rows);
+        final var before = revisions.list(WS1, Path.of("sequences/foo.seq"));
+        assertEquals(List.of(a, b, c), before.revisions());
+
+        // Lose the catalog, and leave a row no tag backs
+        store.rows.clear();
+        store.rows.add(withId(c, UUID.randomUUID()));
+        assertTrue(revisions.reindexRevisionsFromGit(WS1).containsAll(expected));
+
+        assertEquals(expected, Set.copyOf(store.rows), "ids, files, ordinals, names, paths, commits, creators, times");
+        final var after = revisions.list(WS1, Path.of("sequences/foo.seq"));
+        assertEquals(before, after, "same revisions in the same order, same change state and ETag");
+        assertEquals(List.of("foo.seq", "foo.seq", "sequences/foo.seq"),
+                     after.revisions().stream().map(Revision::pathAtRevision).toList());
+        assertEquals(Arrays.asList(USER, "bob", null), after.revisions().stream().map(Revision::createdBy).toList());
+        assertEquals(Optional.of(true), after.changedSinceLatest());
+
+        final var preview = revisions.read(WS1, a.id());
+        assertEquals("first", new String(preview.content(), StandardCharsets.UTF_8));
+        assertEquals("draft", preview.metadata().getJsonObject("user").getString("status"));
+        revisions.restore(WS1, Path.of("sequences/foo.seq"), a.id(), after.workingCopyETag(), USER);
+        assertEquals("first", read(WS1, "sequences/foo.seq"));
+        assertEquals("d", create(WS1, "sequences/foo.seq").name());
+        assertClean(WS1);
+      }
+
+      @Test
+      void aFailedRebuildLeavesTheCatalogUntouched() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        final var a = create(WS1, "a.seq");
+        final var catalog = List.copyOf(store.rows);
+        rawTag("plandev/revisions/" + UUID.randomUUID(), "not json", false);
+        assertThrows(GitFileRevisions.InvalidRevisionTagsException.class, () -> revisions.reindexRevisionsFromGit(WS1));
+        assertEquals(catalog, store.rows);
+        assertEquals(List.of(a), revisions.list(WS1, Path.of("a.seq")).revisions());
+      }
+
+      @Test
+      void theNextOrdinalComesFromTagsNotTheCatalog() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        create(WS1, "a.seq");
+        create(WS1, "a.seq");
+        store.rows.clear();
+        final var c = create(WS1, "a.seq");
+        assertEquals(3, c.ordinal());
+        assertEquals("c", c.name());
+      }
+
+      @Test
+      void aClonedRepositoryCarriesItsRevisions() throws Exception {
+        saveOk(WS1, "foo.seq", "first");
+        create(WS1, "foo.seq");
+        assertSuccess(bindings.handleMove(Path.of("foo.seq"), Path.of("bar.seq"), WS1, WS1, false, USER));
+        saveOk(WS1, "bar.seq", "second");
+        create(WS1, "bar.seq");
+
+        final var clone = base.resolve("clone");
+        Git.cloneRepository().setURI(root(WS1).toUri().toString()).setDirectory(clone.toFile()).call().close();
+
+        final var original = fromGit(root(WS1), WS1);
+        assertEquals(2, original.size());
+        assertEquals(original, fromGit(clone, WS1));
       }
     }
 

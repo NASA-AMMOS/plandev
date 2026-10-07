@@ -57,7 +57,6 @@ public class PlanMigrationTests {
   }
 
   //region Helper Methods
-
   int duplicatePlan(final int planId, final String newPlanName) throws SQLException {
     try (final var statement = connection.createStatement()) {
       final var res = statement.executeQuery(
@@ -209,6 +208,7 @@ public class PlanMigrationTests {
       return res.getInt(1);
     }
   }
+  //endregion
 
 
   /**
@@ -257,6 +257,19 @@ public class PlanMigrationTests {
     assertTrue(
         sqlEx.getMessage().contains("Cannot migrate plan "+planId+": it has open merge requests"),
         "bad error message, got " + sqlEx.getMessage()
+    );
+  }
+
+  /**
+   * Read Only plans cannot be migrated
+   */
+  @Test
+  void checkFailsReadOnlyPlan() throws SQLException {
+    merlinHelper.setPlanReadOnly(planId, true);
+    final var sqlEx = assertThrows(SQLException.class, () -> migratePlanToModel(planId, modelId));
+    assertTrue(
+        sqlEx.getMessage().contains("Plan %d is marked as Read Only and cannot be edited.".formatted(planId)),
+        sqlEx.getMessage()
     );
   }
 

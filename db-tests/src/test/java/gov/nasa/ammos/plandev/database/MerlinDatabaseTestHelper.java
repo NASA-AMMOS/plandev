@@ -138,6 +138,19 @@ public final class MerlinDatabaseTestHelper {
     }
   }
 
+  void setPlanReadOnly(final int planId, final boolean readOnly) throws SQLException {
+    try (final var statement = connection.createStatement()) {
+      statement.execute(
+          //language=SQL
+          """
+          update merlin.plan
+          set is_read_only = %b
+          where id = %d;
+          """.formatted(readOnly, planId)
+      );
+    }
+  }
+
   int insertActivity(final int planId) throws SQLException {
     return insertActivity(planId, "00:00:00");
   }

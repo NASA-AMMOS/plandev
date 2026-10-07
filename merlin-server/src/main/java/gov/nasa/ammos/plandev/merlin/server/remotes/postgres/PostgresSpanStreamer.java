@@ -81,15 +81,29 @@ public final class PostgresSpanStreamer implements AutoCloseable {
       for(final var span : heldChildrenBuffer.getOrDefault(spanId, List.of())) {
         addToBuffer(span.getKey(), span.getValue());
       }
+      // Once all the held children have been added to the posting buffer, remove the entry from heldChildrenBuffer
+      heldChildrenBuffer.remove(spanId);
     }
   }
 
   @Override
-  public void close() throws SQLException {
+  public void close() throws SQLException, IllegalStateException {
     if (closed) return;
     closed = true;
     while(!spansBuffer.isEmpty()) {
       postSpans();
+    }
+    // If there are still children in the `heldChildrenBuffer`,
+    // that implies that their `parentId`s refer to spans that were never posted
+    if(!heldChildrenBuffer.isEmpty()) {
+      final StringBuilder sb = new StringBuilder("The following spans were unable to be posted (check that their parent span ids are included in the dataset):");
+      heldChildrenBuffer.forEach(
+          (parentId, list) ->
+              list.forEach(pairEntry -> {
+                final var childId = pairEntry.getKey();
+                sb.append("\n\t- %d (waiting on parentId: %d)".formatted(childId, parentId));
+              }));
+      throw new IllegalStateException(sb.toString());
     }
   }
 }

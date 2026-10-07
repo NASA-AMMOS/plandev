@@ -247,13 +247,14 @@ public final class PostgresPlanRepository implements PlanRepository {
         simFileParser.parse(resultsFilePath, datasetId, simulationStart);
         setSimulationDatasetStatus.apply(datasetId, SimulationStateRecord.success());
         setPlanImportRequestStatus.succeed(requestId);
-      } catch (SQLException | InvalidJsonEntityException | IOException ex) {
+      } catch (SQLException | InvalidJsonEntityException | IOException | IllegalStateException | IllegalArgumentException ex) {
         final FormattedError fe;
 
         switch (ex) {
           case SQLException sq -> fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, sq);
           case InvalidJsonEntityException ije -> fe = new MerlinFormattedError(ije);
           case IOException io -> fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, io);
+          case IllegalArgumentException ia -> fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ia);
           default -> fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, "INTERNAL_ERROR", ex);
         }
 

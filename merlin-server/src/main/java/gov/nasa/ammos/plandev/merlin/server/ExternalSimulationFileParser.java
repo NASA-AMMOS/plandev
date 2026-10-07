@@ -47,7 +47,7 @@ public class ExternalSimulationFileParser {
       Path filePath,
       long datasetId,
       Timestamp simulationStart
-  ) throws IOException, InvalidJsonEntityException, SQLException {
+  ) throws IOException, InvalidJsonEntityException, SQLException, IllegalStateException, IllegalArgumentException {
     try(final var fileReader = new FileReader(filePath.toFile());
         final var jsonParser = Json.createParser(fileReader);
         final var spanStreamer = new PostgresSpanStreamer(connection, datasetId, simulationStart);
@@ -80,7 +80,7 @@ public class ExternalSimulationFileParser {
       JsonParser fileStream,
       final PostgresSpanStreamer streamer,
       final Timestamp simulationStart
-  ) throws InvalidJsonEntityException, SQLException {
+  ) throws InvalidJsonEntityException, SQLException, IllegalStateException {
     expectToken(fileStream, START_ARRAY);
 
     while(fileStream.hasNext()) {
@@ -96,7 +96,7 @@ public class ExternalSimulationFileParser {
   private void parseProfilesObject(
       JsonParser fileStream,
       PostgresProfileStreamer profileStreamer
-  ) throws InvalidJsonEntityException, SQLException {
+  ) throws InvalidJsonEntityException, SQLException, IllegalStateException {
     expectToken(fileStream, START_OBJECT);
 
     while(fileStream.hasNext()) {
@@ -119,7 +119,7 @@ public class ExternalSimulationFileParser {
       JsonParser fileStream,
       String profileName,
       PostgresProfileStreamer profileStreamer
-  ) throws InvalidJsonEntityException, SQLException {
+  ) throws InvalidJsonEntityException, SQLException, IllegalStateException {
     expectToken(fileStream, START_OBJECT);
 
     ValueSchema schema = null;

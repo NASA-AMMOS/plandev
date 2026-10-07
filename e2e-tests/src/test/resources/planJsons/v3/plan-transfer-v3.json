@@ -115,7 +115,7 @@
         "name": "/fruit",
         "schema": {
           "type": "struct",
-          "items": { "initial": { "type": "real" }, "rate": { "type": "real" } },
+          "items": { "initial": { "type": "real" }, "rate": { "type": "real" } }
         }
       },
       {

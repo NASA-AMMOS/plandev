@@ -11,6 +11,7 @@ import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.ResetCommand;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
@@ -30,6 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -354,6 +356,18 @@ class WorkspaceGitRemoteIntegrationTest {
   }
 
   @Test
+  void anExternalRenameThatLeavesTheSidecarBehindIsRejected() throws Exception {
+    publishedWorkspace();
+    try (final var ext = external()) {
+      final var wt = ext.getRepository().getWorkTree().toPath();
+      Files.move(wt.resolve("a.seq"), wt.resolve("renamed.seq"));
+      commit(ext, "git mv a.seq renamed.seq, forgetting the sidecar");
+      push(ext, "refs/heads/main");
+    }
+    assertRejected(WS1, sidecar("a.seq") + " (metadata has no corresponding file a.seq)");
+  }
+
+  @Test
   void anExternalCopyThatDuplicatesAFileIdIsRejected() throws Exception {
     publishedWorkspace();
     try (final var ext = external()) {
@@ -379,6 +393,8 @@ class WorkspaceGitRemoteIntegrationTest {
     cases.put(sidecar("a.seq") + " (fileId is not a UUID)", Map.of(sidecar("a.seq"), "{\"fileId\":\"nope\"}"));
     cases.put(sidecar("a.seq") + " (metadata has runtime field readOnly)",
               Map.of(sidecar("a.seq"), Json.createObjectBuilder().add("fileId", fileId).add("readOnly", true).build().toString()));
+    cases.put(sidecar("x.seq") + " (metadata has no corresponding file x.seq)",
+              Map.of(sidecar("x.seq"), Json.createObjectBuilder().add("fileId", fileId).build().toString()));
     cases.put("link.seq (symbolic link)", Map.of());
 
     for (final var c : cases.entrySet()) {
@@ -443,6 +459,7 @@ class WorkspaceGitRemoteIntegrationTest {
       write(ext, "a.seq", "modified");
       write(ext, "dir/sub/added.seq", "added");
       Files.delete(ext.getRepository().getWorkTree().toPath().resolve("c.seq"));
+      Files.delete(ext.getRepository().getWorkTree().toPath().resolve(sidecar("c.seq")));
       commit(ext, "modify, add, delete");
       push(ext, "refs/heads/main");
     }
@@ -525,6 +542,27 @@ class WorkspaceGitRemoteIntegrationTest {
       }
       assertRejected(WS1, "revision " + a.id() + " differs from the existing one");
     }
+  }
+
+  @Test
+  void anExistingRevisionRecreatedAsADifferentTagObjectIsRejected() throws Exception {
+    final var a = publishedWorkspace();
+    final var name = "plandev/revisions/" + a.id();
+    final ObjectId original = remoteRef("refs/tags/" + name);
+    try (final var ext = external(); final var walk = new RevWalk(ext.getRepository())) {
+      final var tag = walk.parseTag(ext.getRepository().resolve("refs/tags/" + name));
+      ext.tagDelete().setTags(name).call();
+      ext.tag().setName(name).setObjectId(tag.getObject()).setAnnotated(true).setSigned(false)
+         .setMessage(tag.getFullMessage())
+         .setTagger(new PersonIdent("bob", "bob@example.com", Instant.parse("2020-01-01T00:00:00Z"), ZoneOffset.UTC))
+         .call();
+      final var recreated = walk.parseTag(ext.getRepository().resolve("refs/tags/" + name));
+      assertEquals(tag.getObject(), recreated.getObject(), "same target");
+      assertEquals(tag.getFullMessage(), recreated.getFullMessage(), "byte-identical annotation");
+      assertNotEquals(original, recreated.getId(), "but a different tag object");
+      push(ext, "+refs/tags/" + name);
+    }
+    assertRejected(WS1, "revision " + a.id() + " differs from the existing one");
   }
 
   @Test

@@ -17,7 +17,6 @@ import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.merge.MergeStrategy;
 import org.eclipse.jgit.merge.ResolveMerger;
 import org.eclipse.jgit.revwalk.RevCommit;
-import org.eclipse.jgit.revwalk.RevTag;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.revwalk.filter.RevFilter;
 import org.eclipse.jgit.transport.ReceiveCommand;
@@ -287,7 +286,7 @@ public class WorkspaceGitRemoteService {
   /**
    * Why a commit's tree is not acceptable as the workspace, if it is not: the rules PlanDev's own mutations keep
    * (plain files only, no reserved names) plus the sidecar rules revisions rely on (JSON objects, a UUID fileId if
-   * any, no runtime fields, no two live files with one fileId).
+   * any, no runtime fields, each beside its content file, no two files with one fileId).
    */
   static List<String> treeProblems(final Repository repo, final RevCommit commit) throws IOException {
     final var problems = new ArrayList<String>();
@@ -315,6 +314,14 @@ public class WorkspaceGitRemoteService {
     final var claims = new TreeMap<UUID, List<String>>();
     for (final var sidecar : sidecars.entrySet()) {
       final var path = sidecar.getKey();
+      final var slash = path.lastIndexOf('/');
+      final var name = path.substring(slash + 1);
+      final var file = path.substring(0, slash + 1)
+                       + name.substring(1, name.length() - RenderType.aerieMetadataExtension.length());
+      if (!files.contains(file)) {
+        problems.add(path + " (metadata has no corresponding file " + file + ")");
+        continue;
+      }
       final JsonObject json;
       try (final var reader = Json.createReader(new StringReader(
           new String(repo.open(sidecar.getValue()).getBytes(), StandardCharsets.UTF_8)))) {
@@ -333,11 +340,7 @@ public class WorkspaceGitRemoteService {
         problems.add(path + " (fileId is not a UUID)");
         continue;
       }
-      final var slash = path.lastIndexOf('/');
-      final var name = path.substring(slash + 1);
-      final var file = path.substring(0, slash + 1)
-                       + name.substring(1, name.length() - RenderType.aerieMetadataExtension.length());
-      if (files.contains(file)) claims.computeIfAbsent(fileId, k -> new ArrayList<>()).add(file);
+      claims.computeIfAbsent(fileId, k -> new ArrayList<>()).add(file);
     }
     claims.forEach((fileId, paths) -> {
       if (paths.size() > 1) problems.add("%s all claim fileId %s (give copies a new identity)".formatted(paths, fileId));
@@ -346,8 +349,10 @@ public class WorkspaceGitRemoteService {
   }
 
   /**
-   * The staged revision tags that are new, after checking that known ones are unchanged and that the new ones are
-   * valid alongside the existing ones and point into {@code target}'s history. All or nothing.
+   * The staged revision tags that are new, after checking that known ones are the exact same tag object and that the
+   * new ones are valid alongside the existing ones and point into {@code target}'s history. All or nothing. A tag
+   * recreated with the same target and message is still a different object, which a later non-forced push could not
+   * reconcile, so it is rejected like any other change.
    */
   private static Map<String, Ref> newRevisions(
       final Repository repo,
@@ -361,7 +366,7 @@ public class WorkspaceGitRemoteService {
     for (final var staged : GitFileRevisions.refs(repo, STAGED_REVISIONS).entrySet()) {
       final var known = canonical.get(staged.getKey());
       if (known == null) incoming.put(staged.getKey(), staged.getValue());
-      else if (!sameTag(walk, known.getObjectId(), staged.getValue().getObjectId())) {
+      else if (!known.getObjectId().equals(staged.getValue().getObjectId())) {
         problems.add("revision " + staged.getKey() + " differs from the existing one, which is immutable");
       }
     }
@@ -382,12 +387,6 @@ public class WorkspaceGitRemoteService {
     return incoming;
   }
 
-  /** Same tag object, or annotated tags with the same target and message (the tagger line may be re-serialized). */
-  private static boolean sameTag(final RevWalk walk, final ObjectId a, final ObjectId b) throws IOException {
-    if (a.equals(b)) return true;
-    if (!(walk.parseAny(a) instanceof RevTag x) || !(walk.parseAny(b) instanceof RevTag y)) return false;
-    return x.getObject().equals(y.getObject()) && x.getFullMessage().equals(y.getFullMessage());
-  }
   //endregion
 
   //region Git

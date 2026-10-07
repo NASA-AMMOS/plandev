@@ -21,7 +21,14 @@ public class HasuraRequestFailure extends RuntimeException {
     return responseObject.getString("message");
   }
 
-  public JsonObject getExtensions() {
+  // For Hasura Action failures, server errors will be contained in the "extensions" object
+  public JsonObject getActionError() {
     return responseObject.getJsonObject("extensions");
+  }
+
+  // For Hasura Mutation and Function failures, database errors will be nested inside
+  // deep inside the "extensions" field
+  public JsonObject getDatabaseError() {
+    return getActionError().getJsonObject("internal").getJsonObject("error");
   }
 }

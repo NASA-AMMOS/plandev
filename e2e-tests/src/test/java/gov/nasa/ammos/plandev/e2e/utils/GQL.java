@@ -534,6 +534,16 @@ public enum GQL {
         revision
       }
     }"""),
+  GET_PLAN_IMPORT_REQUEST("""
+    query PlanImportRequest($id: Int!) {
+      importRequest: plan_import_request_by_pk(id: $id) {
+        id
+        plan_id
+        model_id
+        status
+        reason
+      }
+    }"""),
   GET_PROFILES("""
     query GetProfiles($datasetId: Int!){
       profile(where: {dataset_id: {_eq: $datasetId}}) {
@@ -801,6 +811,26 @@ public enum GQL {
     }
   }
   """),
+  UPDATE_MODEL_EXECUTABLE("""
+     mutation updateModelExecutable($modelId: Int!, $executable: Boolean!) {
+       update_mission_model_by_pk(
+         pk_columns: {id: $modelId},
+         _set: {is_executable: $executable})
+       {
+           id,
+           is_executable
+       }
+     }"""),
+  UPDATE_PLAN_READONLY("""
+     mutation updatePlanReadOnly($planId: Int!, $readOnly: Boolean!) {
+       update_plan_by_pk(
+         pk_columns: {id: $planId},
+         _set: {is_read_only: $readOnly})
+       {
+           id,
+           is_read_only
+       }
+     }"""),
   UPDATE_SCHEDULING_SPEC_GOALS_ENABLED("""
 		mutation updateSchedulingSpecGoalVersion($goal_invocation_id: Int!, $enabled: Boolean!) {
 			update_scheduling_specification_goals_by_pk(

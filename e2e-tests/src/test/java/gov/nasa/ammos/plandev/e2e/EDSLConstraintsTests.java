@@ -56,7 +56,7 @@ public class EDSLConstraintsTests {
   }
 
   @BeforeEach
-  void beforeEach() throws IOException, InterruptedException {
+  void beforeEach() throws IOException {
     // Insert the Mission Model
     try (final var gateway = new GatewayRequests(playwright)) {
       modelId = hasura.createMissionModel(
@@ -104,7 +104,7 @@ public class EDSLConstraintsTests {
     assertEquals(expectedMessage, exception.getMessage());
 
     // Check the attached extensions object
-    final var extensions = exception.getExtensions();
+    final var extensions = exception.getActionError();
     assertEquals("INPUT_MISMATCH_EXCEPTION", extensions.getString("type"));
     assertEquals(expectedMessage, extensions.getString("message"));
     assertEquals("merlin_server", extensions.getString("service"));

@@ -1859,6 +1859,8 @@ class WorkspaceHistoryIntegrationTest {
         cases.put(edited(other, "ordinal", Json.createValue(0)), "ordinal must be positive");
         cases.put(edited(other, "ordinal", Json.createValue("1")), "ordinal must be an integer");
         cases.put(edited(other, "createdAt", Json.createValue("yesterday")), "createdAt is not an ISO-8601 instant");
+        cases.put(edited(other, "createdAt", Json.createValue("2026-01-01T00:00:00.123456789Z")),
+                  "createdAt is finer than microseconds");
         cases.put(edited(other, "createdBy", Json.createValue(7)), "createdBy must be a string or null");
         cases.put(edited(other, "revisionId", Json.createValue(a.id().toString())), "does not match its revisionId");
         cases.put(edited(other, "path", Json.createValue("missing.seq")), "missing.seq is not a file");

@@ -26,6 +26,7 @@ import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -125,6 +126,8 @@ final class GitFileRevisions {
     } catch (DateTimeParseException e) {
       throw new Invalid("createdAt is not an ISO-8601 instant");
     }
+    // The catalog keeps microseconds; anything finer could not be projected exactly
+    if (!createdAt.equals(createdAt.truncatedTo(ChronoUnit.MICROS))) throw new Invalid("createdAt is finer than microseconds");
     final String createdBy;
     final var by = a.getOrDefault("createdBy", JsonValue.NULL);
     if (by == JsonValue.NULL) createdBy = null;

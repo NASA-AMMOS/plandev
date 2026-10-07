@@ -243,13 +243,13 @@ public class BasicSchedulingTests extends ProceduralTestingSetup {
     final var args = Json.createObjectBuilder().add("quantity", 2).add("biteSize", 1).build();
     hasura.updateSchedulingSpecGoalArguments(dumbRecurrenceGoalId.invocationId(), args);
 
-    hasura.awaitScheduling(planId);
+    hasura.awaitScheduling(specId);
 
     final var initialActivities = hasura.getPlan(planId).activityDirectives();
 
     // Rerun scheduling
     hasura.updatePlanRevisionSchedulingSpec(planId);
-    hasura.awaitScheduling(planId);
+    hasura.awaitScheduling(specId);
 
     final var updatedActivities = hasura.getPlan(planId).activityDirectives();
 

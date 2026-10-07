@@ -10,7 +10,7 @@ create table sequencing.workspace_file_revision (
   created_at timestamptz not null default now(),
 
   constraint workspace_file_revision_pkey
-    primary key (id),
+    primary key (workspace_id, id),
   constraint workspace_file_revision_ordinal_key
     unique (workspace_id, file_id, ordinal),
   constraint workspace_file_revision_ordinal_positive
@@ -26,7 +26,8 @@ comment on table sequencing.workspace_file_revision is e''
   'workspace''s Git history. A projection of the annotated tag plandev/revisions/<id>, which is authoritative: a '
   'workspace''s rows can be rebuilt from its tags. Rows are never updated, and outlive the file they belong to.';
 comment on column sequencing.workspace_file_revision.id is e''
-  'The unique id of the revision.';
+  'The id of the revision (its Git tag is plandev/revisions/<id>). Unique within a workspace, not globally: '
+  'workspaces cloned from one repository hold the same revisions under the same ids.';
 comment on column sequencing.workspace_file_revision.workspace_id is e''
   'The workspace the file belongs to.';
 comment on column sequencing.workspace_file_revision.file_id is e''

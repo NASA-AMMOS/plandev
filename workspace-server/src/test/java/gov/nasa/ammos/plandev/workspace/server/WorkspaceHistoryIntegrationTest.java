@@ -1288,7 +1288,10 @@ class WorkspaceHistoryIntegrationTest {
     }
   }
 
-  /** The revision catalog in memory: same contract as PostgresRevisionStore, plus injectable failures. */
+  /**
+   * The revision catalog in memory: same contract as PostgresRevisionStore, including its keys (a revision id is
+   * unique within a workspace, an ordinal within a file), plus injectable failures.
+   */
   static final class MemoryRevisionStore implements WorkspaceRevisionStore {
     final List<Revision> rows = new java.util.concurrent.CopyOnWriteArrayList<>();
     volatile boolean failInsert;
@@ -1297,14 +1300,28 @@ class WorkspaceHistoryIntegrationTest {
     @Override
     public synchronized void insert(final Revision revision) throws Exception {
       if (failInsert) throw new java.sql.SQLException("injected insert failure");
+      requireUnique(rows, List.of(revision));
       rows.add(revision);
     }
 
     @Override
     public synchronized void replaceWorkspaceRevisions(final int workspaceId, final List<Revision> revisions) throws Exception {
       if (failReplace) throw new java.sql.SQLException("injected replace failure");
+      final var others = rows.stream().filter(r -> r.workspaceId() != workspaceId).toList();
+      requireUnique(others, revisions);
       rows.removeIf(r -> r.workspaceId() == workspaceId);
       rows.addAll(revisions);
+    }
+
+    private static void requireUnique(final List<Revision> existing, final List<Revision> added) throws java.sql.SQLException {
+      final var ids = new java.util.HashSet<List<Object>>();
+      final var ordinals = new java.util.HashSet<List<Object>>();
+      for (final var r : java.util.stream.Stream.concat(existing.stream(), added.stream()).toList()) {
+        if (!ids.add(List.of(r.workspaceId(), r.id()))) throw new java.sql.SQLException("duplicate key " + r.id());
+        if (!ordinals.add(List.of(r.workspaceId(), r.fileId(), r.ordinal()))) {
+          throw new java.sql.SQLException("duplicate ordinal " + r.ordinal() + " of " + r.fileId());
+        }
+      }
     }
 
     @Override

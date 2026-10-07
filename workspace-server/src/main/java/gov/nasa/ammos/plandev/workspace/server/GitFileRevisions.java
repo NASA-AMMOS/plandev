@@ -31,6 +31,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 
 /**
@@ -43,7 +45,7 @@ import java.util.UUID;
  */
 final class GitFileRevisions {
   static final String TAG_PREFIX = "plandev/revisions/";
-  private static final String REF_PREFIX = Constants.R_TAGS + TAG_PREFIX;
+  static final String REF_PREFIX = Constants.R_TAGS + TAG_PREFIX;
   private static final String TYPE = "plandev-file-revision";
   private static final int VERSION = 1;
 
@@ -71,14 +73,31 @@ final class GitFileRevisions {
    * (A revision id cannot be claimed twice: the tag name must be the id's canonical form.)
    */
   static List<Revision> readAll(final Repository repo, final int workspaceId) throws IOException {
+    return validate(repo, workspaceId, refs(repo, REF_PREFIX));
+  }
+
+  /** The refs under {@code prefix}, keyed by their name relative to it (for a revision tag, its revision id). */
+  static Map<String, Ref> refs(final Repository repo, final String prefix) throws IOException {
+    final var out = new TreeMap<String, Ref>();
+    for (final var ref : repo.getRefDatabase().getRefsByPrefix(prefix)) out.put(ref.getName().substring(prefix.length()), ref);
+    return out;
+  }
+
+  /**
+   * {@link #readAll}'s rules applied to any set of refs, keyed by revision tag name: each must be a valid revision tag
+   * named by its id, and no two may claim the same ordinal of a file. Used to vet tags before they become canonical.
+   */
+  static List<Revision> validate(final Repository repo, final int workspaceId, final Map<String, Ref> refs)
+  throws IOException
+  {
     final var revisions = new ArrayList<Revision>();
     final var problems = new ArrayList<String>();
     try (final var walk = new RevWalk(repo)) {
-      for (final var ref : repo.getRefDatabase().getRefsByPrefix(REF_PREFIX)) {
+      for (final var ref : refs.entrySet()) {
         try {
-          revisions.add(parse(repo, walk, ref, workspaceId));
+          revisions.add(parse(repo, walk, ref.getKey(), ref.getValue(), workspaceId));
         } catch (Invalid e) {
-          problems.add(ref.getName() + ": " + e.getMessage());
+          problems.add(ref.getValue().getName() + ": " + e.getMessage());
         }
       }
     }
@@ -94,7 +113,12 @@ final class GitFileRevisions {
     return revisions;
   }
 
-  private static Revision parse(final Repository repo, final RevWalk walk, final Ref ref, final int workspaceId)
+  private static Revision parse(
+      final Repository repo,
+      final RevWalk walk,
+      final String name,
+      final Ref ref,
+      final int workspaceId)
   throws IOException, Invalid
   {
     if (!(walk.parseAny(ref.getObjectId()) instanceof RevTag tag)) throw new Invalid("not an annotated tag");
@@ -109,7 +133,7 @@ final class GitFileRevisions {
       throw new Invalid("unsupported annotation version " + a.get("version"));
     }
     final var id = uuid(a, "revisionId");
-    if (!ref.getName().equals(REF_PREFIX + id)) throw new Invalid("its name does not match its revisionId " + id);
+    if (!name.equals(id.toString())) throw new Invalid("its name does not match its revisionId " + id);
     final var fileId = uuid(a, "fileId");
     final long ordinal;
     try {
@@ -118,7 +142,7 @@ final class GitFileRevisions {
       throw new Invalid("ordinal must be an integer");
     }
     if (ordinal <= 0) throw new Invalid("ordinal must be positive");
-    final var name = string(a, "name");
+    final var revisionName = string(a, "name");
     final var path = string(a, "path");
     final Instant createdAt;
     try {
@@ -152,7 +176,7 @@ final class GitFileRevisions {
     if (!fileId.equals(uuid(sidecar, "fileId"))) {
       throw new Invalid("the metadata of %s does not have fileId %s".formatted(path, fileId));
     }
-    return new Revision(id, workspaceId, fileId, ordinal, name, path,
+    return new Revision(id, workspaceId, fileId, ordinal, revisionName, path,
                         commit.name(), createdBy, createdAt);
   }
 

@@ -115,7 +115,9 @@ public class WorkspaceHistory {
     /** A recognized PlanDev revision tag is malformed or inconsistent (see {@link GitFileRevisions}). */
     REVISION_TAG_INVALID("WORKSPACE_REVISION_TAG_INVALID"),
     /** A revision was created (its tag exists) but could not be recorded in the catalog; a reindex repairs it. */
-    REVISION_NOT_INDEXED("WORKSPACE_REVISION_NOT_INDEXED");
+    REVISION_NOT_INDEXED("WORKSPACE_REVISION_NOT_INDEXED"),
+    /** A remote's history or refs were refused (see {@link WorkspaceGitRemoteService}); the workspace is unchanged. */
+    REMOTE_REJECTED("WORKSPACE_REMOTE_REJECTED");
 
     public final String errorType;
 
@@ -291,6 +293,42 @@ public class WorkspaceHistory {
     }
   }
 
+  /**
+   * Move {@code main} forward to {@code target}, a descendant of HEAD already in the repository (such as a fetched or
+   * merged commit), checking it out into the index and working tree; then run {@code then}. Nothing is committed. If
+   * any step fails, the workspace is restored exactly as {@link #mutate} restores a failed mutation (HEAD, tracked
+   * files, created paths, runtime state). The caller holds the lock on a trusted, clean workspace
+   * ({@link #withTrustedWorkspace}); {@code then} must leave the working tree alone.
+   */
+  <T> T advance(final int workspaceId, final ObjectId target, final Mutation<T> then) throws Exception {
+    requireLocked(workspaceId);
+    final var root = roots.workspaceRootPath(workspaceId).normalize();
+    final var before = capture(root);
+    try {
+      try (final var git = open(root); final var walk = new RevWalk(git.getRepository())) {
+        final var repo = git.getRepository();
+        final var head = walk.parseCommit(before.head());
+        final var to = walk.parseCommit(target);
+        if (!walk.isMergedInto(head, to)) throw new IllegalArgumentException(target.name() + " does not descend from HEAD");
+        final var checkout = new DirCacheCheckout(repo, head.getTree(), repo.lockDirCache(), to.getTree());
+        checkout.setFailOnConflict(true);
+        checkout.checkout();
+        final var update = repo.updateRef(Constants.R_HEADS + BRANCH);
+        update.setExpectedOldObjectId(before.head());
+        update.setNewObjectId(target);
+        final var result = update.update(walk);
+        if (result != RefUpdate.Result.FAST_FORWARD) throw new IOException("Could not advance " + BRANCH + ": " + result);
+        requireValidIndex(repo);
+        requireClean(git, root);
+      }
+      return then.apply();
+    } catch (Exception e) {
+      logger.error("Advancing workspace {} to {} failed; restoring", workspaceId, target.name(), e);
+      restoreAll(List.of(workspaceId), Map.of(workspaceId, root), Map.of(workspaceId, before), e);
+      throw e;
+    }
+  }
+
   /** Throw unless the current thread holds every given workspace's mutation lock. */
   public void requireLocked(final int... workspaceIds) {
     for (final var id : workspaceIds) {
@@ -451,7 +489,7 @@ public class WorkspaceHistory {
    * Make every repository behavior that could change file bytes or what is tracked explicit at repository level,
    * rather than inheriting it from the server's $HOME or system Git config. Applied once per process per workspace.
    */
-  private void configure(final Path root, final Repository repo) throws IOException {
+  void configure(final Path root, final Repository repo) throws IOException {
     if (configured.contains(root)) return;
     final var cfg = repo.getConfig();
     cfg.setBoolean("core", null, "autocrlf", false);
@@ -577,7 +615,7 @@ public class WorkspaceHistory {
     return new PersonIdent("PlanDev", "");
   }
 
-  private static PersonIdent userIdent(final String userId) {
+  static PersonIdent userIdent(final String userId) {
     return userId == null || userId.isBlank() ? systemIdent() : new PersonIdent(userId, "");
   }
   //endregion

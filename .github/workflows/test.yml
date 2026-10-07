@@ -2,9 +2,6 @@ name: Test
 
 on:
   pull_request:
-    branches:
-      - develop
-      - dev-[0-9]+.[0-9]+.[0-9]+
     types:
       # defaults + 'edited', to handle changes to flags like ___REQUIRES_GATEWAY_PR___ in the PR body
       [ opened, synchronize, reopened, edited ]

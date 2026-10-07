@@ -16,6 +16,7 @@ import javax.json.JsonObjectBuilder;
 import javax.json.JsonValue;
 import javax.json.JsonObject;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 public class HasuraRequests implements AutoCloseable {
   private static final String hasuraAdminSecret = System.getenv("HASURA_GRAPHQL_ADMIN_SECRET");
   private static final Map<String, String> defaultHeaders = Map.of("x-hasura-role", "aerie_admin", "x-hasura-user-id", "Aerie Legacy");
+  private static final Map<String, String> hasuraAdminHeader = Map.of("x-hasura-role", "admin");
 
   private final APIRequestContext request;
 
@@ -106,10 +108,10 @@ public class HasuraRequests implements AutoCloseable {
 
   //region Mission Model
   public int createMissionModel(int jarId, String name, String mission, String version)
-  throws IOException, InterruptedException
+  throws IOException
   {
     final var insertModelBuilder = Json.createObjectBuilder()
-                                     .add("jar_id", jarId)
+                                     .add("definition_file_id", jarId)
                                      .add("name", name)
                                      .add("mission", mission)
                                      .add("version", version);
@@ -125,6 +127,15 @@ public class HasuraRequests implements AutoCloseable {
 
   public void deleteMissionModel(int id) throws IOException {
     makeRequest(GQL.DELETE_MISSION_MODEL, Json.createObjectBuilder().add("id", id).build());
+  }
+
+  public void setModelExecutability(int modelId, boolean executable) throws IOException {
+   final var variables = Json.createObjectBuilder()
+                             .add("modelId", modelId)
+                             .add("executable", executable)
+                             .build();
+   // Only the Hasura Admin may update this field
+   makeRequest(GQL.UPDATE_MODEL_EXECUTABLE, variables, hasuraAdminHeader);
   }
 
   public EffectiveModelArguments getEffectiveModelArguments(
@@ -209,6 +220,55 @@ public class HasuraRequests implements AutoCloseable {
     return makeRequest(GQL.CREATE_PLAN, variables, headers).getJsonObject("insert_plan_one").getInt("id");
   }
 
+  /**
+   * Upload and extract a simple v3 plan.json using a given plan name
+   * @param name The name to use for the uploaded Plan
+   */
+  public PlanImportRequest importPlan(GatewayRequests gateway, String name) throws IOException {
+    return importPlan(gateway, name, Path.of("v3", "plan-transfer-v3.json"));
+  }
+
+  /**
+   * Upload and extract a plan.json with attached model information.
+   * @param jsonPath Path to JSON file, relative to the "resources/planJsons" folder
+   * @param name The name to use for the uploaded Plan
+   * @return The Request Information for the extraction
+   */
+  public PlanImportRequest importPlan(GatewayRequests gateway, String name, Path jsonPath) throws IOException {
+    final var rq = gateway.uploadJsonModel(jsonPath, name);
+    awaitPlanImport(rq.requestId());
+    return rq;
+  }
+
+  public PlanImportResponse getPlanImportRequest(int requestId) throws IOException {
+    final var variables = Json.createObjectBuilder().add("id", requestId).build();
+    return PlanImportResponse.fromJSON(makeRequest(GQL.GET_PLAN_IMPORT_REQUEST, variables).getJsonObject("importRequest"));
+  }
+
+  public void awaitPlanImport(int requestId) throws IOException {
+    awaitPlanImport(requestId, 30);
+  }
+
+  public void awaitPlanImport(int requestId, int timeout) throws IOException {
+    for(int i = 0; i < timeout; ++i){
+      final var response = getPlanImportRequest(requestId);
+      switch (response.status()) {
+        case "complete" -> {
+          return;
+        }
+        case "failed" -> fail("Plan Import returned bad status " + response.status() + " with reason " + response.reason());
+        default -> {
+          try {
+            Thread.sleep(1000); // 1s
+          } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+          }
+        }
+      }
+    }
+    throw new TimeoutError("Plan Import timed out after " + timeout + " seconds");
+  }
+
   public Plan getPlan(int planId) throws IOException {
     final var variables = Json.createObjectBuilder().add("id", planId).build();
     final var plan = makeRequest(GQL.GET_PLAN, variables).getJsonObject("plan");
@@ -225,6 +285,15 @@ public class HasuraRequests implements AutoCloseable {
     makeRequest(GQL.DELETE_PLAN, variables);
   }
 
+  public void setPlanReadOnly(int planId, boolean readOnly) throws IOException {
+    final var variables = Json.createObjectBuilder()
+                              .add("planId", planId)
+                              .add("readOnly", readOnly)
+                              .build();
+    // Only the Hasura Admin can update this column freely
+    makeRequest(GQL.UPDATE_PLAN_READONLY, variables, hasuraAdminHeader);
+  }
+
   public int insertActivityDirective(int planId, String type, String startOffset, JsonObject arguments, JsonObjectBuilder ...extraArgs) throws IOException {
     final var insertActivityBuilder = Json.createObjectBuilder()
                                           .add("plan_id", planId)
@@ -239,8 +308,6 @@ public class HasuraRequests implements AutoCloseable {
   }
 
   public void insertActivityInstance(int datasetId, int directiveId, String type, String startOffset, String duration, JsonObject arguments) throws IOException {
-    final var hasuraAdminHeader = Map.of("x-hasura-role", "admin");
-
     final var insertActivityBuilder = Json.createObjectBuilder()
         .add("span_id", directiveId)
         .add("dataset_id", datasetId)
@@ -888,14 +955,6 @@ public class HasuraRequests implements AutoCloseable {
     return makeRequest(GQL.UPDATE_GOAL_DEFINITION, variables).getJsonObject("definition").getInt("revision");
   }
 
-  public void updateConstraintArguments(int constraintId, JsonObject arguments) throws IOException {
-    final var variables = Json.createObjectBuilder()
-                              .add("constraint_id", constraintId)
-                              .add("arguments", arguments)
-                              .build();
-    makeRequest(GQL.UPDATE_CONSTRAINT_ARGUMENTS, variables);
-  }
-
   public void updateSchedulingSpecGoalArguments(int invocationId, JsonObject arguments) throws IOException {
     final var variables = Json.createObjectBuilder()
                               .add("goal_invocation_id", invocationId)
@@ -991,7 +1050,7 @@ public class HasuraRequests implements AutoCloseable {
                                           .add("plan_revision", planRevision);
     final var variables = Json.createObjectBuilder().add("simulationDataset", insertSimDatasetBuilder).build();
     // Only the Hasura Admin role may insert into this table
-    return makeRequest(GQL.INSERT_SIMULATION_DATASET, variables, Map.of("x-hasura-role", "admin"))
+    return makeRequest(GQL.INSERT_SIMULATION_DATASET, variables, hasuraAdminHeader)
         .getJsonObject("simulation_dataset")
         .getInt("dataset_id");
   }
@@ -1004,7 +1063,6 @@ public class HasuraRequests implements AutoCloseable {
       List<ProfileSegment> segments
   ) throws IOException
   {
-    final var hasuraAdminHeader = Map.of("x-hasura-role", "admin");
     // Insert Profile
     final var profileVariables = Json.createObjectBuilder()
                                      .add("datasetId", datasetId)
@@ -1340,6 +1398,14 @@ public class HasuraRequests implements AutoCloseable {
     );
   }
 
+  public void updateConstraintArguments(int constraintId, JsonObject arguments) throws IOException {
+    final var variables = Json.createObjectBuilder()
+                              .add("constraint_id", constraintId)
+                              .add("arguments", arguments)
+                              .build();
+    makeRequest(GQL.UPDATE_CONSTRAINT_ARGUMENTS, variables);
+  }
+
   public void updatePlanConstraintSpecVersion(int invocationId, int constraintRevision) throws IOException {
     final var variables = Json.createObjectBuilder()
                               .add("invocation_id", invocationId)
@@ -1430,7 +1496,7 @@ public class HasuraRequests implements AutoCloseable {
 
     final var variables = Json.createObjectBuilder().add("cdict", insertCommandDictionaryBuilder).build();
     // Only the Hasura Admin role may insert into this table
-    return makeRequest(GQL.CREATE_MOCK_COMMAND_DICTIONARY, variables, Map.of("x-hasura-role", "admin"))
+    return makeRequest(GQL.CREATE_MOCK_COMMAND_DICTIONARY, variables, hasuraAdminHeader)
         .getJsonObject("dictionary")
         .getInt("id");
   }

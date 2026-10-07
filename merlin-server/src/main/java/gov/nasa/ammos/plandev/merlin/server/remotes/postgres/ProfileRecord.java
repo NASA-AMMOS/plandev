@@ -10,4 +10,14 @@ public record ProfileRecord(
     String name,
     Pair<String, ValueSchema> type,
     Duration duration
-) {}
+) {
+  public ProfileRecord updateDuration(Duration newDuration) {
+    return new ProfileRecord(
+        id,
+        datasetId,
+        name,
+        type,
+        newDuration
+    );
+  }
+}

@@ -13,7 +13,7 @@ object_relationships:
           schema: merlin
   - name: uploaded_file
     using:
-      foreign_key_constraint_on: jar_id
+      foreign_key_constraint_on: definition_file_id
   - name: view
     using:
       foreign_key_constraint_on: default_view_id
@@ -110,7 +110,7 @@ select_permissions:
 insert_permissions:
   - role: aerie_admin
     permission:
-      columns: [mission, name, version, description, jar_id, default_view_id]
+      columns: [mission, name, version, description, definition_file_id, default_view_id]
       check: {}
       set:
         owner: "x-hasura-user-id"
@@ -131,7 +131,7 @@ event_triggers:
         columns: "*"
       update:
         columns:
-          - jar_id
+          - definition_file_id
     name: refreshActivityTypes
     retry_conf:
       interval_sec: 10
@@ -144,7 +144,7 @@ event_triggers:
         columns: "*"
       update:
         columns:
-        - jar_id
+        - definition_file_id
     name: refreshModelParameters
     retry_conf:
       interval_sec: 10
@@ -157,7 +157,7 @@ event_triggers:
         columns: "*"
       update:
         columns:
-          - jar_id
+          - definition_file_id
     name: refreshResourceTypes
     retry_conf:
       interval_sec: 10

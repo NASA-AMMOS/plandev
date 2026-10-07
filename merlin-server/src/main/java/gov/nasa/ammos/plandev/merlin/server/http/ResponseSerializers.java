@@ -204,6 +204,12 @@ public final class ResponseSerializers {
           Json.createObjectBuilder(serializeInstantiationException(f.ex()).asJsonObject())
               .add("type", "INSTANTIATION_ERRORS")
               .build();
+      case BulkArgumentValidationResponse.Unavailable u ->
+          Json.createObjectBuilder()
+              .add("success", JsonValue.TRUE)
+              .add("type", "UNAVAILABLE")
+              .add("message", "Arguments are not validated for activities on non-executable models.")
+              .build();
       case BulkArgumentValidationResponse.NoSuchMissionModelError m ->
           Json.createObjectBuilder()
               .add("success", JsonValue.FALSE)

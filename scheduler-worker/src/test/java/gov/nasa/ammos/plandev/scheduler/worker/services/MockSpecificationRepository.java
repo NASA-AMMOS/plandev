@@ -10,6 +10,7 @@ import gov.nasa.ammos.plandev.scheduler.server.models.GoalType;
 import gov.nasa.ammos.plandev.scheduler.server.models.Specification;
 import gov.nasa.ammos.plandev.scheduler.server.models.SpecificationId;
 import gov.nasa.ammos.plandev.scheduler.server.remotes.SpecificationRepository;
+import gov.nasa.ammos.plandev.scheduler.server.remotes.postgres.PlanReadOnlyCheckResult;
 import gov.nasa.ammos.plandev.scheduler.server.remotes.postgres.SpecificationRevisionData;
 
 class MockSpecificationRepository implements SpecificationRepository
@@ -39,6 +40,11 @@ class MockSpecificationRepository implements SpecificationRepository
 
   @Override
   public GoalType getGoal(final GoalId goalId) {
+    return null;
+  }
+
+  @Override
+  public PlanReadOnlyCheckResult checkPlanReadOnlyModelExecutable(SpecificationId specificationId) {
     return null;
   }
 

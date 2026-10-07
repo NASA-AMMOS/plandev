@@ -193,3 +193,8 @@ create trigger increment_revision_on_goal_delete
   before delete on scheduler.scheduling_specification_goals
   for each row
   execute function scheduler.increment_spec_revision_on_goal_spec_delete();
+
+create trigger forbid_scheduling_goal_insert_plan_readonly
+  before insert on scheduler.scheduling_specification_goals
+  for each row
+execute function scheduler.check_plan_readonly_insert_update();

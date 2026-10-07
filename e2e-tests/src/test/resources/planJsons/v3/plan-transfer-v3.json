@@ -112,6 +112,13 @@
 
     "resource_types": [
       {
+        "name": "/fruit",
+        "schema": {
+          "type": "struct",
+          "items": { "initial": { "type": "real" }, "rate": { "type": "real" } },
+        }
+      },
+      {
         "name": "/battery/state_of_charge",
         "schema": {
           "type": "struct",
@@ -181,6 +188,14 @@
     ],
 
     "profiles": {
+      "/fruit": {
+        "type": "real",
+        "schema": {
+          "type": "struct",
+          "items": { "rate": { "type": "real" }, "initial": { "type": "real" }}
+        },
+        "segments": [{ "duration":  3600000000, "dynamics":  { "rate": 0, "initial": 4 }}]
+      },
       "/battery/state_of_charge": {
         "type": "real",
         "schema": {

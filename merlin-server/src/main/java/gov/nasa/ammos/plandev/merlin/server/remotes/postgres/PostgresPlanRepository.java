@@ -247,7 +247,7 @@ public final class PostgresPlanRepository implements PlanRepository {
         simFileParser.parse(resultsFilePath, datasetId, simulationStart);
         setSimulationDatasetStatus.apply(datasetId, SimulationStateRecord.success());
         setPlanImportRequestStatus.succeed(requestId);
-      } catch (SQLException | InvalidJsonEntityException | IOException | IllegalStateException | IllegalArgumentException ex) {
+      } catch (Exception ex) {
         final FormattedError fe;
 
         switch (ex) {

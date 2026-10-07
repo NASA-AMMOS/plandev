@@ -10,7 +10,9 @@ import gov.nasa.ammos.plandev.permissions.gql.WorkspaceId;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.FileLockedException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.MalformedRequest;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.NoSuchFileException;
+import gov.nasa.ammos.plandev.workspace.server.exceptions.NoSuchRevisionException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.ReservedPathException;
+import gov.nasa.ammos.plandev.workspace.server.exceptions.StaleFileException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
@@ -36,6 +38,7 @@ import io.javalin.validation.ValidationException;
 import javax.json.Json;
 import javax.json.JsonArray;
 import javax.json.JsonException;
+import javax.json.JsonObject;
 import javax.json.JsonString;
 import java.io.IOException;
 import java.io.StringReader;
@@ -49,6 +52,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -62,6 +66,7 @@ public class WorkspaceBindings implements Plugin {
   private final JWTService jwtService;
   private final WorkspaceService workspaceService;
   private final WorkspaceHistory history;
+  private final WorkspaceRevisionService revisions;
   private final PermissionsService permissionsService;
   private final String hasuraAdminSecret;
 
@@ -69,11 +74,13 @@ public class WorkspaceBindings implements Plugin {
       final JWTService jwtService,
       final WorkspaceService workspaceService,
       final WorkspaceHistory history,
+      final WorkspaceRevisionService revisions,
       final PermissionsService permissionsService,
       final String hasuraAdminSecret) {
     this.jwtService = jwtService;
     this.workspaceService = workspaceService;
     this.history = history;
+    this.revisions = revisions;
     this.permissionsService = permissionsService;
     this.hasuraAdminSecret = hasuraAdminSecret;
   }
@@ -109,6 +116,16 @@ public class WorkspaceBindings implements Plugin {
         }
       });
       before("/metadata/*", ctx -> {
+        if(ctx.method() != HandlerType.OPTIONS) {
+          authorize(ctx);
+        }
+      });
+      before("/revisions/*", ctx -> {
+        if(ctx.method() != HandlerType.OPTIONS) {
+          authorize(ctx);
+        }
+      });
+      before("/revision/*", ctx -> {
         if(ctx.method() != HandlerType.OPTIONS) {
           authorize(ctx);
         }
@@ -149,6 +166,15 @@ public class WorkspaceBindings implements Plugin {
         ApiBuilder.post(this::setMetadataKeys);
         ApiBuilder.delete(this::deleteMetadata);
       });
+
+      // SeqDev file revisions. "restore" is placed before the per-file pattern, as with metadata/unset
+      path("/revisions/restore/{workspaceId}/<path>", () -> ApiBuilder.post(this::restoreRevision));
+      path("/revisions/{workspaceId}/<path>", () -> {
+        ApiBuilder.get(this::listRevisions);
+        ApiBuilder.post(this::createRevision);
+      });
+      path("/revision/{workspaceId}/{revisionId}/content", () -> ApiBuilder.get(this::getRevisionContent));
+      path("/revision/{workspaceId}/{revisionId}", () -> ApiBuilder.get(this::getRevision));
     });
 
     // Default exception handlers for common endpoint exceptions
@@ -157,6 +183,11 @@ public class WorkspaceBindings implements Plugin {
     javalin.exception(NoSuchFileException.class, (ex, ctx) -> ctx.status(404).json(new WorkspaceFormattedError(ex)));
     javalin.exception(MalformedRequest.class, (ex, ctx) -> ctx.status(400).json(new WorkspaceFormattedError(ex)));
     javalin.exception(FileLockedException.class, (ex, ctx) -> ctx.status(423).json(new WorkspaceFormattedError(ex)));
+    javalin.exception(WorkspaceFileOpException.class, (ex, ctx) -> ctx.status(400).json(new WorkspaceFormattedError(ex)));
+    javalin.exception(NoSuchRevisionException.class, (ex, ctx) ->
+        ctx.status(404).json(new FormattedError(AerieService.WORKSPACE_SERVER, "NO_SUCH_REVISION", ex)));
+    javalin.exception(StaleFileException.class, (ex, ctx) ->
+        ctx.status(412).json(WorkspaceFormattedError.saveConflict("conflict", ex.currentETag, ex.lastEditedBy, ex.lastEditedAt)));
     javalin.exception(IOException.class, (ex, ctx) -> {
       final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ex);
       logger.warn("IO Exception: {}", fe);
@@ -1776,6 +1807,109 @@ public class WorkspaceBindings implements Plugin {
         return new HandlerResult.Failure(500, fe);
       }
     }));
+  }
+  //endregion
+
+  //region Revisions
+  /** A revision as clients see it: user concepts only, no Git internals. */
+  private static JsonObject revisionJson(final WorkspaceRevisionStore.Revision revision) {
+    final var json = Json.createObjectBuilder()
+        .add("id", revision.id().toString())
+        .add("name", revision.name())
+        .add("ordinal", revision.ordinal())
+        .add("pathAtRevision", revision.pathAtRevision())
+        .add("createdAt", revision.createdAt().toString());
+    if (revision.createdBy() == null) json.addNull("createdBy");
+    else json.add("createdBy", revision.createdBy());
+    return json.build();
+  }
+
+  private static UUID revisionId(final String id) throws MalformedRequest {
+    try {
+      return UUID.fromString(id);
+    } catch (IllegalArgumentException e) {
+      throw new MalformedRequest("'%s' is not a revision id.".formatted(id));
+    }
+  }
+
+  /**
+   * List a file's revisions, oldest first:
+   * { "fileId": uuid|null, "revisions": [revision...], "latestRevision": revision|null,
+   *   "hasChangesSinceLatestRevision": boolean|null }
+   */
+  private void listRevisions(final Context context) throws Exception {
+    final var pathInfo = PathInformation.of(context);
+    if (!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.read_file_directory)) return;
+
+    final var list = revisions.list(pathInfo.workspaceId, pathInfo.filePath);
+    final var array = Json.createArrayBuilder();
+    list.revisions().forEach(r -> array.add(revisionJson(r)));
+    final var body = Json.createObjectBuilder().add("revisions", array);
+    list.fileId().ifPresentOrElse(id -> body.add("fileId", id.toString()), () -> body.addNull("fileId"));
+    if (list.revisions().isEmpty()) body.addNull("latestRevision");
+    else body.add("latestRevision", revisionJson(list.revisions().getLast()));
+    list.changedSinceLatest().ifPresentOrElse(
+        changed -> body.add("hasChangesSinceLatestRevision", changed),
+        () -> body.addNull("hasChangesSinceLatestRevision"));
+    context.status(200).json(body.build().toString());
+  }
+
+  /** Record the file's current saved state as its next revision. Never happens implicitly on save. */
+  private void createRevision(final Context context) throws Exception {
+    final var pathInfo = PathInformation.of(context);
+    if (!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.write_file_directory)) return;
+
+    final var revision = revisions.create(pathInfo.workspaceId, pathInfo.filePath, authorize(context).userId());
+    context.status(201).json(revisionJson(revision).toString());
+  }
+
+  /** A revision, plus its versioned metadata as it was then under "metadata". */
+  private void getRevision(final Context context) throws Exception {
+    final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
+    if (!checkPermissions(context, workspaceId, WorkspaceAction.read_file_directory)) return;
+
+    final var historical = revisions.read(workspaceId, revisionId(context.pathParam("revisionId")));
+    final var body = Json.createObjectBuilder(revisionJson(historical.revision())).add("metadata", historical.metadata());
+    context.status(200).json(body.build().toString());
+  }
+
+  /** A revision's file content, read-only. */
+  private void getRevisionContent(final Context context) throws Exception {
+    final var workspaceId = Integer.parseInt(context.pathParam("workspaceId"));
+    if (!checkPermissions(context, workspaceId, WorkspaceAction.read_file_directory)) return;
+
+    final var historical = revisions.read(workspaceId, revisionId(context.pathParam("revisionId")));
+    final var fileName = Path.of(historical.revision().pathAtRevision()).getFileName();
+    context.header("x-render-type", workspaceService.getFileType(fileName).name());
+    context.contentType(ContentType.OCTET_STREAM);
+    context.header("Content-Disposition", "attachment; filename=\"" + fileName + "\"");
+    context.status(200).result(historical.content());
+  }
+
+  /**
+   * Replace the file's working copy with one of its revisions. Body: { "revisionId": uuid }. Requires If-Match with
+   * the working copy's ETag ("*" to force), like a save. Returns the restored revision and the file's new ETag.
+   */
+  private void restoreRevision(final Context context) throws Exception {
+    final var pathInfo = PathInformation.of(context);
+    if (!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.write_file_directory)) return;
+
+    final var ifMatch = context.header("If-Match");
+    if (ifMatch == null) {
+      context.status(428).json(new WorkspaceFormattedError(new MalformedRequest(
+          "Restoring a revision replaces the working copy, so it requires an If-Match header with the file's ETag ('*' to force).")));
+      return;
+    }
+    final UUID revisionId;
+    try (final var reader = Json.createReader(new StringReader(context.body()))) {
+      revisionId = revisionId(reader.readObject().getString("revisionId"));
+    } catch (JsonException | ClassCastException | NullPointerException e) {
+      throw new MalformedRequest("Expected a JSON body of the form { \"revisionId\": \"<revision id>\" }.");
+    }
+
+    final var restored = revisions.restore(pathInfo.workspaceId, pathInfo.filePath, revisionId, ifMatch, authorize(context).userId());
+    context.header("ETag", restored.etag());
+    context.status(200).json(revisionJson(restored.revision()).toString());
   }
   //endregion
 }

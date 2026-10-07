@@ -109,7 +109,9 @@ public class WorkspaceHistory {
     /** A cross-workspace mutation was applied to some workspaces only; see {@link PartialMutationException}. */
     PARTIALLY_APPLIED("WORKSPACE_MUTATION_PARTIAL"),
     /** The repository is not in a state this class can vouch for, and was not (or could not be) repaired. */
-    REPOSITORY_INCONSISTENT("WORKSPACE_REPOSITORY_INCONSISTENT");
+    REPOSITORY_INCONSISTENT("WORKSPACE_REPOSITORY_INCONSISTENT"),
+    /** The revision catalog and the repository disagree (see {@link WorkspaceRevisionService}). */
+    REVISION_CATALOG_INCONSISTENT("WORKSPACE_REVISION_CATALOG_INCONSISTENT");
 
     public final String errorType;
 
@@ -245,6 +247,28 @@ public class WorkspaceHistory {
       return result;
     } finally {
       lockOrder.reversed().forEach(ReentrantLock::unlock);
+    }
+  }
+
+  /**
+   * Run an action that may change Git refs (such as creating a tag) but never the working tree, under the workspace's
+   * lock, on a workspace brought to "managed, trusted and clean" exactly as {@link #mutate} does. Nothing is committed,
+   * and the working tree must still be clean afterwards. The lock is reentrant, so the action may itself call
+   * {@link #mutate} on the same workspace; no other mutation can land between that commit and the rest of the action.
+   */
+  public <T> T withTrustedWorkspace(final int workspaceId, final Mutation<T> action) throws Exception {
+    final var lock = lockFor(workspaceId);
+    lock.lock();
+    try {
+      final var root = roots.workspaceRootPath(workspaceId).normalize();
+      ensureReady(root);
+      final var result = action.apply();
+      try (final var git = open(root)) {
+        requireClean(git, root);
+      }
+      return result;
+    } finally {
+      lock.unlock();
     }
   }
 

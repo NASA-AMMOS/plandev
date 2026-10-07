@@ -8,6 +8,7 @@ import gov.nasa.ammos.plandev.workspace.server.config.AppConfiguration;
 import gov.nasa.ammos.plandev.workspace.server.config.PostgresStore;
 import gov.nasa.ammos.plandev.workspace.server.config.Store;
 import gov.nasa.ammos.plandev.workspace.server.config.UnexpectedSubtypeError;
+import gov.nasa.ammos.plandev.workspace.server.postgres.PostgresRevisionStore;
 import gov.nasa.ammos.plandev.workspace.server.postgres.WorkspacePostgresRepository;
 import io.javalin.Javalin;
 import io.javalin.config.SizeUnit;
@@ -37,6 +38,7 @@ public final class WorkspaceAppDriver {
         stores.jwt,
         stores.workspace,
         stores.history,
+        stores.revisions,
         permissionsService,
         configuration.hasuraAdminSecret());
     // Configure an HTTP server.
@@ -83,7 +85,7 @@ public final class WorkspaceAppDriver {
     Runtime.getRuntime().addShutdownHook(new Thread(workspaceServer::close));
   }
 
-  private record Stores (JWTService jwt, WorkspaceService workspace, WorkspaceHistory history) {}
+  private record Stores (JWTService jwt, WorkspaceService workspace, WorkspaceHistory history, WorkspaceRevisionService revisions) {}
 
   private static Stores loadStores(final AppConfiguration config) {
     final var store = config.store();
@@ -106,7 +108,8 @@ public final class WorkspaceAppDriver {
       final var repository = new WorkspacePostgresRepository(config.workspaceFileStore(), hikariDataSource);
       final var history = new WorkspaceHistory(repository);
       final var workspace = new WorkspaceFileSystemService(repository, history);
-      return new Stores(jwt, workspace, history);
+      final var revisions = new WorkspaceRevisionService(repository, history, workspace, new PostgresRevisionStore(hikariDataSource));
+      return new Stores(jwt, workspace, history, revisions);
     } else {
       throw new UnexpectedSubtypeError(Store.class, store);
     }

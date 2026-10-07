@@ -25,8 +25,8 @@ import java.util.TreeMap;
  *
  * <p>File metadata is split three ways:
  * <ul>
- *   <li><b>Versioned</b> ({@code .meta.seqdev} sidecar, committed to Git): {@code version}, {@code createdBy},
- *       {@code createdAt}, {@code user}.</li>
+ *   <li><b>Versioned</b> ({@code .meta.seqdev} sidecar, committed to Git): {@code version}, {@code fileId} (the file's
+ *       stable identity, see {@link WorkspaceRevisionService}), {@code createdBy}, {@code createdAt}, {@code user}.</li>
  *   <li><b>Derived</b> (from Git history, see {@link WorkspaceHistory#lastEdits}): {@code lastEditedBy},
  *       {@code lastEditedAt}.</li>
  *   <li><b>Runtime</b> (this file): {@code readOnly}, which is present-day policy rather than file history, plus the

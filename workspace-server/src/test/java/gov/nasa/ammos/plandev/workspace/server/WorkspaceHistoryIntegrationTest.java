@@ -1,5 +1,6 @@
 package gov.nasa.ammos.plandev.workspace.server;
 
+import gov.nasa.ammos.plandev.workspace.server.WorkspaceRevisionStore.Revision;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.ReservedPathException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.ammos.plandev.workspace.server.types.HandlerResult;
@@ -10,9 +11,13 @@ import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.diff.DiffFormatter;
+import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.FileMode;
+import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.revwalk.RevTag;
+import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.treewalk.TreeWalk;
 import org.eclipse.jgit.util.io.DisabledOutputStream;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,18 +37,23 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -92,7 +102,7 @@ class WorkspaceHistoryIntegrationTest {
     final WorkspaceRoots roots = id -> base.resolve("ws" + id);
     history = new FlakyHistory(roots);
     fs = new WorkspaceFileSystemService(roots, null, history);
-    bindings = new WorkspaceBindings(null, fs, history, null, "");
+    bindings = new WorkspaceBindings(null, fs, history, null, null, "");
   }
 
   //region Helpers
@@ -204,8 +214,9 @@ class WorkspaceHistoryIntegrationTest {
     }
   }
 
+  /** Leave a file without a sidecar, as a pre-metadata file would be (the metadata API keeps an identity's sidecar). */
   private void deleteSidecar(final int ws, final String path) throws Exception {
-    history.mutate(ws, USER, "drop metadata", () -> fs.deleteMetadataFile(ws, Path.of(path)), r -> r);
+    history.mutate(ws, USER, "drop metadata", () -> Files.deleteIfExists(root(ws).resolve(sidecar(path))), r -> r);
   }
 
   private void setUserMetadata(final int ws, final String path, final String status) throws Exception {
@@ -1265,13 +1276,610 @@ class WorkspaceHistoryIntegrationTest {
         assertEquals("final", copy.getJsonObject("user").getString("status"), copy::toString);
         assertFalse(copy.getBoolean("readOnly"), copy::toString);
       }
-      final var ignoringTimes = (java.util.function.Function<JsonObject, JsonObject>) o ->
-          Json.createObjectBuilder(o).remove("createdAt").remove("lastEditedAt").build();
-      assertEquals(ignoringTimes.apply(single), ignoringTimes.apply(inDir));
+      final var ignoringTimesAndIdentity = (java.util.function.Function<JsonObject, JsonObject>) o ->
+          Json.createObjectBuilder(o).remove("createdAt").remove("lastEditedAt").remove("fileId").build();
+      assertEquals(ignoringTimesAndIdentity.apply(single), ignoringTimesAndIdentity.apply(inDir));
+      assertEquals(3, Set.of(metadata("d/x.txt").getString("fileId"), single.getString("fileId"), inDir.getString("fileId")).size(),
+                   "every copy is a new file");
       assertTrue(isReadOnly(WS1, "d/x.txt"), "the source keeps its lock");
       assertFalse(isReadOnly(WS1, "e/x.txt"));
       assertEquals("carol", metadata("d/x.txt").getString("createdBy"));
       assertClean(WS1);
+    }
+  }
+
+  /** The revision catalog in memory: same contract as PostgresRevisionStore, plus an injectable commit failure. */
+  static final class MemoryRevisionStore implements WorkspaceRevisionStore {
+    final List<Revision> rows = new java.util.concurrent.CopyOnWriteArrayList<>();
+    volatile boolean failCommit;
+
+    @Override
+    public synchronized Revision create(
+        final int workspaceId, final UUID fileId, final String path, final String sha, final String by,
+        final BeforeCommit beforeCommit) throws Exception
+    {
+      final var ordinal = list(workspaceId, fileId).size() + 1L;
+      final var revision = new Revision(UUID.randomUUID(), workspaceId, fileId, ordinal,
+                                        WorkspaceRevisionStore.revisionName(ordinal), path, sha, by, Instant.now());
+      beforeCommit.accept(revision);
+      if (failCommit) throw new java.sql.SQLException("injected commit failure");
+      rows.add(revision);
+      return revision;
+    }
+
+    @Override
+    public List<Revision> list(final int workspaceId, final UUID fileId) {
+      return rows.stream()
+                 .filter(r -> r.workspaceId() == workspaceId && r.fileId().equals(fileId))
+                 .sorted(Comparator.comparingLong(Revision::ordinal))
+                 .toList();
+    }
+
+    @Override
+    public Optional<Revision> get(final int workspaceId, final UUID revisionId) {
+      return rows.stream().filter(r -> r.workspaceId() == workspaceId && r.id().equals(revisionId)).findFirst();
+    }
+  }
+
+  /** A revision service whose tag creation and deletion can be made to fail. */
+  static final class FlakyRevisions extends WorkspaceRevisionService {
+    volatile boolean failTag;
+    volatile boolean failTagDelete;
+
+    FlakyRevisions(final WorkspaceRoots roots, final WorkspaceHistory history, final WorkspaceFileSystemService files,
+                   final WorkspaceRevisionStore store) {
+      super(roots, history, files, store);
+    }
+
+    @Override
+    protected void createTag(final Git git, final Revision revision, final ObjectId commit) throws Exception {
+      if (failTag) throw new IOException("injected tag failure");
+      super.createTag(git, revision, commit);
+    }
+
+    @Override
+    protected void deleteTag(final Git git, final String tagName) throws Exception {
+      if (failTagDelete) throw new IOException("injected tag deletion failure");
+      super.deleteTag(git, tagName);
+    }
+  }
+
+  @Test
+  void revisionNamesAreBijectiveBase26() {
+    final var expected = new LinkedHashMap<Long, String>();
+    expected.put(1L, "a");
+    expected.put(2L, "b");
+    expected.put(26L, "z");
+    expected.put(27L, "aa");
+    expected.put(28L, "ab");
+    expected.put(52L, "az");
+    expected.put(53L, "ba");
+    expected.put(702L, "zz");
+    expected.put(703L, "aaa");
+    expected.forEach((ordinal, name) -> assertEquals(name, WorkspaceRevisionStore.revisionName(ordinal), "ordinal " + ordinal));
+    assertThrows(IllegalArgumentException.class, () -> WorkspaceRevisionStore.revisionName(0));
+  }
+
+  @Nested
+  class Revisions {
+    private MemoryRevisionStore store;
+    private FlakyRevisions revisions;
+
+    @BeforeEach
+    void setUpRevisions() {
+      store = new MemoryRevisionStore();
+      revisions = new FlakyRevisions(WorkspaceHistoryIntegrationTest.this::root, history, fs, store);
+    }
+
+    //region Helpers
+    private Revision create(final int ws, final String path) throws Exception {
+      return revisions.create(ws, Path.of(path), USER);
+    }
+
+    private List<String> names(final int ws, final String path) throws Exception {
+      return revisions.list(ws, Path.of(path)).revisions().stream().map(Revision::name).toList();
+    }
+
+    private String fileId(final int ws, final String path) throws Exception {
+      return metadata(ws, path).getString("fileId");
+    }
+
+    private Optional<Boolean> changed(final String path) throws Exception {
+      return revisions.list(WS1, Path.of(path)).changedSinceLatest();
+    }
+
+    private Map<String, RevTag> tags(final int ws) throws Exception {
+      try (final var git = git(ws); final var walk = new RevWalk(git.getRepository())) {
+        final var tags = new java.util.TreeMap<String, RevTag>();
+        for (final var ref : git.getRepository().getRefDatabase().getRefsByPrefix(Constants.R_TAGS)) {
+          tags.put(ref.getName().substring(Constants.R_TAGS.length()), walk.parseTag(ref.getObjectId()));
+        }
+        return tags;
+      }
+    }
+
+    private String etag(final int ws, final String path) throws Exception {
+      return fs.getETag(ws, Path.of(path));
+    }
+
+    /** Give a file a committed sidecar from before file identities existed. */
+    private void makeLegacy(final int ws, final String path) throws Exception {
+      final var legacy = "{\n    \"version\": \"1\",\n    \"createdBy\": \"carol\",\n    \"createdAt\": \"2025-01-01T00:00:00Z\"\n}";
+      history.mutate(ws, USER, "legacy sidecar", () -> {
+        Files.writeString(root(ws).resolve(sidecar(path)), legacy);
+        return true;
+      }, r -> true);
+    }
+
+    /** HEAD, the index file and the working tree's status, for "nothing was touched" assertions. */
+    private List<Object> repositoryState(final int ws) throws Exception {
+      try (final var git = git(ws)) {
+        final var repo = git.getRepository();
+        return List.of(repo.resolve(Constants.HEAD), repo.exactRef(Constants.HEAD).getTarget().getName(),
+                       Arrays.hashCode(Files.readAllBytes(repo.getIndexFile().toPath())),
+                       WorkspaceHistory.dirtyPaths(git.status().call()));
+      }
+    }
+    //endregion
+
+    @Nested
+    class Identity {
+      @Test
+      void aNewFileGetsAStableIdentity() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        final var id = fileId(WS1, "a.seq");
+        assertDoesNotThrow(() -> UUID.fromString(id));
+        saveOk(WS1, "a.seq", "v2");
+        setUserMetadata(WS1, "a.seq", "draft");
+        assertEquals(id, fileId(WS1, "a.seq"));
+      }
+
+      @Test
+      void identityIsNotUserEditable() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        final var id = fileId(WS1, "a.seq");
+        assertThrows(gov.nasa.ammos.plandev.workspace.server.exceptions.MalformedRequest.class,
+                     () -> MetadataUpdates.fromEndpointBodyJson(USER, Json.createObjectBuilder().add("fileId", "x").build()));
+        // Deleting the metadata of a file with an identity clears user metadata but keeps the identity
+        setUserMetadata(WS1, "a.seq", "draft");
+        history.mutate(WS1, USER, "drop", () -> fs.deleteMetadataFile(WS1, Path.of("a.seq")), r -> r);
+        assertEquals(id, fileId(WS1, "a.seq"));
+        assertFalse(metadata(WS1, "a.seq").containsKey("user"));
+        assertClean(WS1);
+      }
+
+      @Test
+      void aRenameKeepsTheIdentityAndACopyGetsANewOne() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        final var id = fileId(WS1, "a.seq");
+        assertSuccess(bindings.handleCreateDirectory(WS1, Path.of("dir"), USER));
+        assertSuccess(bindings.handleMove(Path.of("a.seq"), Path.of("dir/b.seq"), WS1, WS1, false, USER));
+        assertEquals(id, fileId(WS1, "dir/b.seq"));
+        assertSuccess(bindings.handleMove(Path.of("dir"), Path.of("moved"), WS1, WS1, false, USER));
+        assertEquals(id, fileId(WS1, "moved/b.seq"));
+        assertSuccess(bindings.handleCopy(Path.of("moved/b.seq"), Path.of("c.seq"), WS1, WS1, false, USER));
+        assertNotEquals(id, fileId(WS1, "c.seq"));
+      }
+
+      @Test
+      void aRecreatedPathIsANewFile() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        final var id = fileId(WS1, "a.seq");
+        assertSuccess(bindings.handleDelete(WS1, Path.of("a.seq"), USER));
+        saveOk(WS1, "a.seq", "v1");
+        assertNotEquals(id, fileId(WS1, "a.seq"));
+      }
+
+      @Test
+      void filesArrivingFromAnotherWorkspaceAreNewFiles() throws Exception {
+        saveOk(WS1, "a.seq", "a");
+        saveOk(WS1, "b.seq", "b");
+        saveOk(WS1, "d/c.seq", "c");
+        init(WS2);
+        final var a = fileId(WS1, "a.seq");
+        final var b = fileId(WS1, "b.seq");
+        final var c = fileId(WS1, "d/c.seq");
+
+        assertSuccess(bindings.handleCopy(Path.of("a.seq"), Path.of("a.seq"), WS1, WS2, false, USER));
+        assertSuccess(bindings.handleMove(Path.of("b.seq"), Path.of("b.seq"), WS1, WS2, false, USER));
+        assertSuccess(bindings.handleMove(Path.of("d"), Path.of("d"), WS1, WS2, false, USER));
+        assertNotEquals(a, fileId(WS2, "a.seq"));
+        assertNotEquals(b, fileId(WS2, "b.seq"));
+        assertNotEquals(c, fileId(WS2, "d/c.seq"));
+        assertEquals(a, fileId(WS1, "a.seq"), "the source of a copy keeps its identity");
+        assertClean(WS1);
+        assertClean(WS2);
+      }
+
+      @Test
+      void listingALegacyFileWritesNothing() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        makeLegacy(WS1, "a.seq");
+        final var before = repositoryState(WS1);
+        final var list = revisions.list(WS1, Path.of("a.seq"));
+        assertEquals(Optional.empty(), list.fileId());
+        assertEquals(List.of(), list.revisions());
+        assertEquals(Optional.empty(), list.changedSinceLatest());
+        assertEquals(before, repositoryState(WS1));
+      }
+
+      @Test
+      void theFirstRevisionOfALegacyFileAssignsItsIdentityInOneInternalCommit() throws Exception {
+        saveOk(WS1, "a.seq", "content");
+        makeLegacy(WS1, "a.seq");
+        final var commitsBefore = log(WS1).size();
+
+        final var a = create(WS1, "a.seq");
+
+        final var log = log(WS1);
+        assertEquals(commitsBefore + 1, log.size());
+        assertEquals("Assign file identity a.seq", log.getFirst().getFullMessage());
+        assertEquals("PlanDev", log.getFirst().getAuthorIdent().getName());
+        assertEquals(Set.of(".a.seq.meta.seqdev"), headDiff(WS1).stream().map(DiffEntry::getNewPath).collect(Collectors.toSet()));
+        assertEquals(log.getFirst().getName(), a.commitSha());
+        final var meta = metadata(WS1, "a.seq");
+        assertEquals(a.fileId().toString(), meta.getString("fileId"));
+        assertEquals("carol", meta.getString("createdBy"), "assigning an identity changes nothing else");
+        assertEquals("2025-01-01T00:00:00Z", meta.getString("createdAt"));
+        assertEquals("content", read(WS1, "a.seq"));
+
+        create(WS1, "a.seq");
+        assertEquals(commitsBefore + 1, log(WS1).size(), "only the first revision needs an identity");
+        assertClean(WS1);
+      }
+    }
+
+    @Nested
+    class Creation {
+      @Test
+      void aRevisionIsACatalogRowAndAnAnnotatedTagOnHeadWithoutACommit() throws Exception {
+        saveOk(WS1, "dir/a.seq", "v1");
+        final var head = head(WS1);
+        final var commits = log(WS1).size();
+
+        final var a = create(WS1, "dir/a.seq");
+
+        assertEquals(commits, log(WS1).size(), "making a revision makes no commit");
+        assertEquals(head.getName(), head(WS1).getName());
+        assertEquals("a", a.name());
+        assertEquals(1, a.ordinal());
+        assertEquals("dir/a.seq", a.pathAtRevision());
+        assertEquals(head.getName(), a.commitSha());
+        assertEquals(USER, a.createdBy());
+        assertEquals(List.of(a), store.rows);
+
+        final var tags = tags(WS1);
+        assertEquals(Set.of("plandev/revisions/" + a.id()), tags.keySet());
+        final var tag = tags.values().iterator().next();
+        assertEquals(head.getId(), tag.getObject().getId());
+        assertEquals(USER, tag.getTaggerIdent().getName());
+        try (final var reader = Json.createReader(new java.io.StringReader(tag.getFullMessage()))) {
+          final var annotation = reader.readObject();
+          assertEquals("plandev-file-revision", annotation.getString("type"));
+          assertEquals(1, annotation.getInt("version"));
+          assertEquals(a.id().toString(), annotation.getString("revisionId"));
+          assertEquals(a.fileId().toString(), annotation.getString("fileId"));
+          assertEquals("dir/a.seq", annotation.getString("path"));
+          assertEquals("a", annotation.getString("name"));
+          assertEquals(USER, annotation.getString("createdBy"));
+          assertEquals(a.createdAt().toString(), annotation.getString("createdAt"));
+        }
+        assertEquals("v1", read(WS1, "dir/a.seq"));
+        assertClean(WS1);
+      }
+
+      @Test
+      void revisionsAreNumberedPerFileAndMayShareACommit() throws Exception {
+        saveOk(WS1, "a.seq", "a");
+        saveOk(WS1, "b.seq", "b");
+        final var a1 = create(WS1, "a.seq");
+        final var a2 = create(WS1, "a.seq");
+        create(WS1, "b.seq");
+        saveOk(WS1, "a.seq", "a2");
+        create(WS1, "a.seq");
+
+        assertEquals(List.of("a", "b", "c"), names(WS1, "a.seq"));
+        assertEquals(List.of("a"), names(WS1, "b.seq"));
+        assertEquals(a1.commitSha(), a2.commitSha());
+        assertNotEquals(a1.id(), a2.id());
+        assertEquals(4, tags(WS1).size());
+        assertClean(WS1);
+      }
+
+      @Test
+      void savesNeverCreateRevisions() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        saveOk(WS1, "a.seq", "v2");
+        assertSuccess(bindings.handleMove(Path.of("a.seq"), Path.of("b.seq"), WS1, WS1, false, USER));
+        assertEquals(List.of(), store.rows);
+        assertEquals(Map.of(), tags(WS1));
+        assertEquals(List.of(), names(WS1, "b.seq"));
+      }
+
+      @Test
+      void onlyExistingRegularFilesHaveRevisions() throws Exception {
+        saveOk(WS1, "d/a.seq", "v1");
+        assertThrows(gov.nasa.ammos.plandev.workspace.server.exceptions.NoSuchFileException.class, () -> create(WS1, "missing.seq"));
+        assertThrows(WorkspaceFileOpException.class, () -> create(WS1, "d"));
+        assertThrows(WorkspaceFileOpException.class, () -> create(WS1, "d/.a.seq.meta.seqdev"));
+        assertThrows(ReservedPathException.class, () -> create(WS1, ".git/config"));
+        assertEquals(List.of(), store.rows);
+        assertEquals(Map.of(), tags(WS1));
+      }
+
+      @Test
+      void aRevisionCanBeMadeOfAReadOnlyFile() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        setReadOnly(WS1, "a.seq", true);
+        assertEquals("a", create(WS1, "a.seq").name());
+        assertTrue(isReadOnly(WS1, "a.seq"));
+      }
+
+      @Test
+      void anUntrustedWorkspaceIsRejected() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        Files.writeString(root(WS1).resolve("a.seq"), "edited outside PlanDev");
+        final var e = assertThrows(WorkspaceHistory.WorkspaceHistoryException.class, () -> create(WS1, "a.seq"));
+        assertEquals(WorkspaceHistory.Kind.REPOSITORY_INCONSISTENT, e.kind);
+        assertEquals(List.of(), store.rows);
+        assertEquals(Map.of(), tags(WS1));
+      }
+    }
+
+    @Nested
+    class FailureConsistency {
+      @BeforeEach
+      void file() {
+        saveOk(WS1, "a.seq", "v1");
+      }
+
+      @Test
+      void aTagFailureLeavesNoRevision() throws Exception {
+        revisions.failTag = true;
+        assertThrows(IOException.class, () -> create(WS1, "a.seq"));
+        assertEquals(List.of(), store.rows);
+        assertEquals(Map.of(), tags(WS1));
+        assertClean(WS1);
+
+        revisions.failTag = false;
+        assertEquals("a", create(WS1, "a.seq").name(), "the failed attempt used no name");
+      }
+
+      @Test
+      void aCatalogFailureRemovesTheNewTag() throws Exception {
+        store.failCommit = true;
+        assertThrows(java.sql.SQLException.class, () -> create(WS1, "a.seq"));
+        assertEquals(List.of(), store.rows);
+        assertEquals(Map.of(), tags(WS1));
+        assertClean(WS1);
+      }
+
+      @Test
+      void aFailedCleanupIsReportedAsAnInconsistency() throws Exception {
+        store.failCommit = true;
+        revisions.failTagDelete = true;
+        final var e = assertThrows(WorkspaceHistory.WorkspaceHistoryException.class, () -> create(WS1, "a.seq"));
+        assertEquals(WorkspaceHistory.Kind.REVISION_CATALOG_INCONSISTENT, e.kind);
+        assertInstanceOf(java.sql.SQLException.class, e.getCause());
+        assertEquals(List.of(), store.rows, "no revision is reported or recorded");
+        assertEquals(1, tags(WS1).size(), "the orphaned tag is left for an administrator, and named in the error");
+        assertTrue(e.getMessage().contains(tags(WS1).keySet().iterator().next()), e.getMessage());
+        assertClean(WS1);
+      }
+    }
+
+    @Nested
+    class Reading {
+      @Test
+      void aRevisionIsReadFromItsCommitAfterTheFileIsRenamedAndChanged() throws Exception {
+        saveOk(WS1, "foo.seq", "first");
+        setUserMetadata(WS1, "foo.seq", "draft");
+        final var a = create(WS1, "foo.seq");
+        assertSuccess(bindings.handleCreateDirectory(WS1, Path.of("sequences"), USER)); // file moves need the folder
+        assertSuccess(bindings.handleMove(Path.of("foo.seq"), Path.of("sequences/foo.seq"), WS1, WS1, false, USER));
+        saveOk(WS1, "sequences/foo.seq", "second");
+        setUserMetadata(WS1, "sequences/foo.seq", "final");
+        final var b = create(WS1, "sequences/foo.seq");
+
+        assertEquals(List.of("a", "b"), names(WS1, "sequences/foo.seq"));
+        assertEquals("foo.seq", a.pathAtRevision());
+        assertEquals("sequences/foo.seq", b.pathAtRevision());
+
+        final var before = repositoryState(WS1);
+        final var old = revisions.read(WS1, a.id());
+        assertEquals("first", new String(old.content(), StandardCharsets.UTF_8));
+        assertEquals("draft", old.metadata().getJsonObject("user").getString("status"));
+        assertEquals(a.fileId().toString(), old.metadata().getString("fileId"));
+        assertEquals(USER, old.metadata().getString("createdBy"));
+        assertTrue(old.metadata().containsKey("createdAt"));
+        assertFalse(old.metadata().containsKey("readOnly"));
+        assertEquals("second", new String(revisions.read(WS1, b.id()).content(), StandardCharsets.UTF_8));
+        assertEquals(before, repositoryState(WS1), "reading a revision touches neither HEAD, the index nor the working tree");
+        assertEquals("second", read(WS1, "sequences/foo.seq"));
+        assertFalse(Files.exists(root(WS1).resolve("foo.seq")));
+      }
+
+      @Test
+      void unknownRevisionsAndWorkspacesAreNotFound() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        final var a = create(WS1, "a.seq");
+        assertThrows(gov.nasa.ammos.plandev.workspace.server.exceptions.NoSuchRevisionException.class,
+                     () -> revisions.get(WS1, UUID.randomUUID()));
+        init(WS2);
+        assertThrows(gov.nasa.ammos.plandev.workspace.server.exceptions.NoSuchRevisionException.class,
+                     () -> revisions.get(WS2, a.id()), "revisions are scoped to their workspace");
+      }
+
+      @Test
+      void aRevisionWhoseCommitIsMissingIsAnInconsistencyNotAMissingRevision() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        final var a = create(WS1, "a.seq");
+        store.rows.set(0, new Revision(a.id(), WS1, a.fileId(), 1, "a", a.pathAtRevision(),
+                                       "0123456789012345678901234567890123456789", USER, a.createdAt()));
+        final var e = assertThrows(WorkspaceHistory.WorkspaceHistoryException.class, () -> revisions.read(WS1, a.id()));
+        assertEquals(WorkspaceHistory.Kind.REVISION_CATALOG_INCONSISTENT, e.kind);
+      }
+
+      @Test
+      void changesSinceTheLatestRevisionConcernOnlyThisFile() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        saveOk(WS1, "other.seq", "o");
+        assertEquals(Optional.empty(), changed("a.seq"));
+        create(WS1, "a.seq");
+        assertEquals(Optional.of(false), changed("a.seq"));
+
+        saveOk(WS1, "other.seq", "o2");
+        assertEquals(Optional.of(false), changed("a.seq"), "another file's changes do not count");
+        assertSuccess(bindings.handleMove(Path.of("a.seq"), Path.of("renamed.seq"), WS1, WS1, false, USER));
+        assertEquals(Optional.of(false), changed("renamed.seq"), "a rename alone is not a change to the file");
+
+        setUserMetadata(WS1, "renamed.seq", "final");
+        assertEquals(Optional.of(true), changed("renamed.seq"), "versioned metadata is part of the file's state");
+        create(WS1, "renamed.seq");
+        saveOk(WS1, "renamed.seq", "v2");
+        assertEquals(Optional.of(true), changed("renamed.seq"));
+        setReadOnly(WS1, "renamed.seq", true);
+        saveOk(WS1, "other.seq", "o3");
+        assertEquals(Optional.of(true), changed("renamed.seq"));
+      }
+    }
+
+    @Nested
+    class Deletion {
+      @Test
+      void revisionsOutliveTheirFileAndAreNotInheritedByARecreatedOrCopiedOne() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        final var a = create(WS1, "a.seq");
+        assertSuccess(bindings.handleCopy(Path.of("a.seq"), Path.of("copy.seq"), WS1, WS1, false, USER));
+        assertEquals(List.of(), names(WS1, "copy.seq"));
+
+        assertSuccess(bindings.handleDelete(WS1, Path.of("a.seq"), USER));
+        assertEquals(List.of(a), store.rows);
+        assertEquals(Set.of("plandev/revisions/" + a.id()), tags(WS1).keySet());
+        assertEquals("v1", new String(revisions.read(WS1, a.id()).content(), StandardCharsets.UTF_8));
+
+        saveOk(WS1, "a.seq", "new file");
+        assertEquals(List.of(), names(WS1, "a.seq"));
+        assertEquals("a", create(WS1, "a.seq").name());
+      }
+
+      @Test
+      void aFileFromAnotherWorkspaceArrivesWithoutRevisions() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        saveOk(WS1, "b.seq", "v1");
+        create(WS1, "a.seq");
+        create(WS1, "b.seq");
+        init(WS2);
+        assertSuccess(bindings.handleCopy(Path.of("a.seq"), Path.of("a.seq"), WS1, WS2, false, USER));
+        assertSuccess(bindings.handleMove(Path.of("b.seq"), Path.of("b.seq"), WS1, WS2, false, USER));
+        assertEquals(List.of(), names(WS2, "a.seq"));
+        assertEquals(List.of(), names(WS2, "b.seq"));
+        assertEquals(List.of("a"), names(WS1, "a.seq"));
+      }
+    }
+
+    @Nested
+    class Restore {
+      private Revision a;
+
+      @BeforeEach
+      void twoVersions() throws Exception {
+        saveOk(WS1, "foo.seq", "first");
+        setUserMetadata(WS1, "foo.seq", "draft");
+        a = create(WS1, "foo.seq");
+        saveOk(WS1, "foo.seq", "second");
+        setUserMetadata(WS1, "foo.seq", "final");
+      }
+
+      private WorkspaceRevisionService.Restored restore(final String path, final String ifMatch) throws Exception {
+        return revisions.restore(WS1, Path.of(path), a.id(), ifMatch, USER);
+      }
+
+      @Test
+      void restoreIsAnOrdinaryCommitOfContentAndVersionedMetadata() throws Exception {
+        final var id = fileId(WS1, "foo.seq");
+        final var commits = log(WS1).size();
+
+        final var restored = restore("foo.seq", etag(WS1, "foo.seq"));
+
+        assertEquals("first", read(WS1, "foo.seq"));
+        assertEquals(etag(WS1, "foo.seq"), restored.etag());
+        final var meta = metadata(WS1, "foo.seq");
+        assertEquals("draft", meta.getJsonObject("user").getString("status"));
+        assertEquals(id, meta.getString("fileId"));
+        assertEquals(commits + 1, log(WS1).size());
+        assertEquals("Restore foo.seq to revision a", head(WS1).getFullMessage());
+        assertEquals(USER, head(WS1).getAuthorIdent().getName());
+        assertEquals(List.of("a"), names(WS1, "foo.seq"), "a restore is not a revision");
+        assertEquals(1, tags(WS1).size());
+        assertEquals(Optional.of(false), changed("foo.seq"));
+        assertClean(WS1);
+      }
+
+      @Test
+      void restoreWritesToTheFilesCurrentPath() throws Exception {
+        assertSuccess(bindings.handleCreateDirectory(WS1, Path.of("sequences"), USER)); // file moves need the folder
+        assertSuccess(bindings.handleMove(Path.of("foo.seq"), Path.of("sequences/foo.seq"), WS1, WS1, false, USER));
+        restore("sequences/foo.seq", etag(WS1, "sequences/foo.seq"));
+        assertEquals("first", read(WS1, "sequences/foo.seq"));
+        assertFalse(Files.exists(root(WS1).resolve("foo.seq")));
+        assertEquals("Restore sequences/foo.seq to revision a", head(WS1).getFullMessage());
+        assertClean(WS1);
+      }
+
+      @Test
+      void aStaleETagIsRejectedAndStarForces() throws Exception {
+        final var stale = etag(WS1, "foo.seq");
+        saveOk(WS1, "foo.seq", "third");
+        final var before = repositoryState(WS1);
+        final var e = assertThrows(gov.nasa.ammos.plandev.workspace.server.exceptions.StaleFileException.class,
+                                   () -> restore("foo.seq", stale));
+        assertEquals(etag(WS1, "foo.seq"), e.currentETag);
+        assertEquals(USER, e.lastEditedBy);
+        assertEquals(before, repositoryState(WS1));
+        assertEquals("third", read(WS1, "foo.seq"));
+        assertThrows(IllegalArgumentException.class, () -> restore("foo.seq", null));
+
+        restore("foo.seq", "*");
+        assertEquals("first", read(WS1, "foo.seq"));
+      }
+
+      @Test
+      void aReadOnlyFileCannotBeRestoredAndRestoreLeavesTheLockAlone() throws Exception {
+        setReadOnly(WS1, "foo.seq", true);
+        final var before = repositoryState(WS1);
+        assertThrows(gov.nasa.ammos.plandev.workspace.server.exceptions.FileLockedException.class,
+                     () -> restore("foo.seq", "*"));
+        assertEquals(before, repositoryState(WS1));
+        assertEquals("second", read(WS1, "foo.seq"));
+
+        // The lock is runtime policy, not part of a revision: restoring one made while locked does not re-lock
+        final var madeWhileLocked = create(WS1, "foo.seq");
+        setReadOnly(WS1, "foo.seq", false);
+        revisions.restore(WS1, Path.of("foo.seq"), madeWhileLocked.id(), "*", USER);
+        assertFalse(isReadOnly(WS1, "foo.seq"));
+        assertClean(WS1);
+      }
+
+      @Test
+      void onlyTheFilesOwnRevisionsCanBeRestored() throws Exception {
+        saveOk(WS1, "other.seq", "other");
+        final var before = repositoryState(WS1);
+        assertThrows(gov.nasa.ammos.plandev.workspace.server.exceptions.NoSuchRevisionException.class,
+                     () -> restore("other.seq", "*"));
+        assertThrows(gov.nasa.ammos.plandev.workspace.server.exceptions.NoSuchFileException.class,
+                     () -> restore("gone.seq", "*"));
+        assertEquals(before, repositoryState(WS1));
+      }
+
+      @Test
+      void restoringTheCurrentStateMakesNoCommit() throws Exception {
+        restore("foo.seq", "*");
+        final var commits = log(WS1).size();
+        restore("foo.seq", "*");
+        assertEquals(commits, log(WS1).size());
+        assertClean(WS1);
+      }
     }
   }
 

@@ -17,6 +17,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.StringWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
@@ -409,14 +411,22 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
     if(Files.isDirectory(path)) return Optional.empty();
 
-    // Stream to a temp file, hashing as we go so the returned ETag matches what we wrote, then rename it into place
-    // so lock-free readers see the old or the new bytes, never a partial file. Overwriting keeps the file's
-    // permissions (notably the executable bit, which Git versions), so a save changes content only.
+    final var etag = writeContent(repoPath, path, file.content());
+    updateMetadata(repoPath, filePath, metadataUpdates, MetadataMergeBehavior.deepMerge);
+    return Optional.of(etag);
+  }
+
+  /**
+   * Stream content to a temp file, hashing as we go so the returned ETag matches what we wrote, then rename it into
+   * place so lock-free readers see the old or the new bytes, never a partial file. Overwriting keeps the file's
+   * permissions (notably the executable bit, which Git versions), so a write changes content only.
+   */
+  private static String writeContent(final Path root, final Path path, final InputStream content) throws IOException {
     final var md = WorkspaceService.newSHA256Digest();
-    final var tmp = WorkspacePaths.tempFile(repoPath);
+    final var tmp = WorkspacePaths.tempFile(root);
     try {
       Files.createDirectories(path.getParent());
-      try (final var contentStream = new DigestInputStream(file.content(), md)) {
+      try (final var contentStream = new DigestInputStream(content, md)) {
         Files.copy(contentStream, tmp);
       }
       if (Files.exists(path) && path.getFileSystem().supportedFileAttributeViews().contains("posix")) {
@@ -426,8 +436,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     } finally {
       Files.deleteIfExists(tmp);
     }
-    updateMetadata(repoPath, filePath, metadataUpdates, MetadataMergeBehavior.deepMerge);
-    return Optional.of(WorkspaceService.eTagFromDigest(md.digest()));
+    return WorkspaceService.eTagFromDigest(md.digest());
   }
 
   @Override
@@ -454,10 +463,12 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     } else {
       Files.deleteIfExists(newMetadataPath);
     }
-    // Ensure the moved file has a sidecar (lastEdited* itself comes from the move's commit)
+    // Ensure the moved file has a sidecar (lastEdited* itself comes from the move's commit). It keeps its identity
+    // within a workspace; in another workspace's history it is a new file.
     final var metadataUpdates = new MetadataUpdates.Builder(userId)
         .lastEditedAt(Instant.now())
         .lastEditedBy(userId)
+        .fileId(oldWorkspaceId == newWorkspaceId ? null : newFileId())
         .build();
     updateMetadata(newRepoPath, newFilePath, metadataUpdates, MetadataMergeBehavior.deepMerge);
 
@@ -500,8 +511,9 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   /**
    * Copy one content file as a new file in the destination, whether it is copied on its own or inside a directory:
-   * its sidecar's semantic metadata ({@code version}, {@code user}) comes along, {@code createdBy}/{@code createdAt}
-   * are the copier and the copy time, {@code readOnly} does not carry over, and {@code lastEdited*} is derived from
+   * its sidecar's semantic metadata ({@code version}, {@code user}) comes along, it gets a new {@code fileId},
+   * {@code createdBy}/{@code createdAt} are the copier and the copy time, {@code readOnly} does not carry over, and
+   * {@code lastEdited*} is derived from
    * the destination's commit. Nothing is inherited from a file the copy overwrites. The content keeps the source's
    * permissions (a copy of an executable is executable).
    */
@@ -523,6 +535,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var key = WorkspacePaths.key(destRoot, destPath);
     updateState(destRoot, s -> s.remove(key));
     final var metadataUpdates = new MetadataUpdates.Builder(userId)
+        .fileId(newFileId())
         .createdAt(now)
         .createdBy(userId)
         .lastEditedAt(now)
@@ -609,7 +622,19 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
     if (!oldPath.toFile().renameTo(newPath.toFile())) return false;
     moveState(oldRepoPath, oldPath, newRepoPath, newPath);
+    if (oldWorkspaceId != newWorkspaceId) reidentify(newRepoPath, newPath);
     return true;
+  }
+
+  /** Give every file beneath {@code dir} that has an identity a new one (it arrived from another workspace). */
+  private void reidentify(final Path root, final Path dir) throws IOException {
+    for (final var path : WorkspacePaths.walk(dir, Integer.MAX_VALUE)) {
+      if (!Files.isRegularFile(path) || !RenderType.isAerieMetadataFile(path.getFileName().toString())) continue;
+      final var sidecar = readMetadataFile(path.toFile());
+      if (!sidecar.containsKey(MetadataKeys.fileId.name())) continue;
+      final var updated = Json.createObjectBuilder(sidecar).add(MetadataKeys.fileId.name(), newFileId()).build();
+      WorkspacePaths.writeAtomically(root, path, serializeSidecar(updated).getBytes(StandardCharsets.UTF_8));
+    }
   }
 
   @Override
@@ -897,6 +922,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     // Fill in "created" information, using the "metadataLastEdited" information as a fallback
     final var serialized = serializeSidecar(
         contents.version().orElse("1"),
+        contents.fileId().orElseGet(WorkspaceFileSystemService::newFileId), // a file gets its identity on its first sidecar write
         contents.createdBy().orElse(contents.metadataLastEditedBy()),
         contents.createdAt().orElse(contents.metadataLastEditedAt()).toString(),
         contents.user().orElse(null));
@@ -915,11 +941,18 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   /** The on-disk (and committed) form of a sidecar. Null fields are omitted; a missing version defaults to "1". */
-  static String serializeSidecar(final String version, final String createdBy, final String createdAt, final JsonObject user) {
+  static String serializeSidecar(
+      final String version,
+      final String fileId,
+      final String createdBy,
+      final String createdAt,
+      final JsonObject user)
+  {
     final var out = new StringWriter();
     try (final var generator = Json.createGeneratorFactory(config).createGenerator(out)) {
       generator.writeStartObject();
       generator.write("version", version == null ? "1" : version);
+      if (fileId != null) generator.write("fileId", fileId);
       if (createdBy != null) generator.write("createdBy", createdBy);
       if (createdAt != null) generator.write("createdAt", createdAt);
       if (user != null) generator.write("user", user);
@@ -952,6 +985,14 @@ public class WorkspaceFileSystemService implements WorkspaceService {
             mergedBuilder.version(currentContents.getString("version"));
           } else {
             mergedBuilder.version("1"); // Fallback
+          }
+        }
+    );
+    updates.fileId().ifPresentOrElse(
+        mergedBuilder::fileId,
+        () -> {
+          if(currentContents.containsKey("fileId")) {
+            mergedBuilder.fileId(currentContents.getString("fileId")); // No fallback: assigned when the sidecar is written
           }
         }
     );
@@ -1175,6 +1216,60 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
 
+  //region Revisions
+  static String newFileId() {
+    return UUID.randomUUID().toString();
+  }
+
+  /** A file's identity, if its sidecar has one. Lock-free. */
+  Optional<UUID> fileId(final Path root, final Path filePath) throws IOException, WorkspaceFileOpException {
+    final var sidecar = readMetadataFile(resolveMetadataPath(root, filePath).toFile());
+    if (!sidecar.containsKey(MetadataKeys.fileId.name())) return Optional.empty();
+    try {
+      return Optional.of(UUID.fromString(sidecar.getString(MetadataKeys.fileId.name())));
+    } catch (ClassCastException | IllegalArgumentException e) {
+      throw WorkspaceHistory.inconsistent("Metadata of %s in %s has a malformed fileId.".formatted(filePath, root));
+    }
+  }
+
+  /** A file's identity, giving it one (a sidecar write) if it has none yet. Caller holds the workspace lock. */
+  UUID ensureFileId(final int workspaceId, final Path filePath, final String userId)
+  throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException
+  {
+    history.requireLocked(workspaceId);
+    final var root = roots.workspaceRootPath(workspaceId);
+    final var existing = fileId(root, filePath);
+    if (existing.isPresent()) return existing.get();
+    updateMetadata(root, filePath, new MetadataUpdates.Builder(userId).build(), MetadataMergeBehavior.deepMerge);
+    return fileId(root, filePath).orElseThrow();
+  }
+
+  /**
+   * Replace a file's content and versioned metadata ({@code version}, {@code createdBy}, {@code createdAt},
+   * {@code user}) with a revision's. The file keeps its identity, permissions and runtime state (readOnly).
+   * Caller holds the workspace lock and has checked the file exists. Returns the file's new ETag.
+   */
+  String restoreFile(final int workspaceId, final Path filePath, final byte[] content, final JsonObject sidecar)
+  throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException
+  {
+    history.requireLocked(workspaceId);
+    final var root = roots.workspaceRootPath(workspaceId);
+    final var fileId = fileId(root, filePath).orElseThrow(() -> new WorkspaceFileOpException(filePath + " has no identity."));
+    final var etag = writeContent(root, resolveWritingPath(root, filePath), new ByteArrayInputStream(content));
+    final var serialized = serializeSidecar(
+        sidecar.getString(MetadataKeys.version.name(), "1"),
+        fileId.toString(),
+        sidecar.getString(MetadataKeys.createdBy.name(), null),
+        sidecar.getString(MetadataKeys.createdAt.name(), null),
+        sidecar.get(MetadataKeys.user.name()) instanceof JsonObject user ? user : null);
+    final var metadataPath = resolveMetadataPath(root, filePath);
+    if (!(Files.isRegularFile(metadataPath) && Files.readString(metadataPath, StandardCharsets.UTF_8).equals(serialized))) {
+      WorkspacePaths.writeAtomically(root, metadataPath, serialized.getBytes(StandardCharsets.UTF_8));
+    }
+    return etag;
+  }
+  //endregion
+
   @Override
   public boolean deleteMetadataFile(final int workspaceId, final Path filePath)
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException
@@ -1187,6 +1282,18 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     updateState(root, s -> s.remove(key));
     // If the file already doesn't exist, silently succeed
     if(!metadataFilePath.toFile().exists()) {
+      return true;
+    }
+    // A file's identity (and so its revision history) is not user-editable: deleting the metadata of a file that has
+    // one removes only the user-managed fields. Orphaned and identity-less sidecars are deleted outright.
+    final var sidecar = readMetadataFile(metadataFilePath.toFile());
+    if (Files.isRegularFile(resolveReadingPath(root, filePath)) && sidecar.containsKey(MetadataKeys.fileId.name())) {
+      writeMetadataFile(
+          root,
+          generateUpdatedMetadataFile(sidecar, new MetadataUpdates.Builder(null).build(), MetadataMergeBehavior.deepMerge)
+              .user(null)
+              .build(),
+          metadataFilePath.toFile());
       return true;
     }
     return rm(metadataFilePath.toFile());

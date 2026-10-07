@@ -1377,8 +1377,16 @@ class WorkspaceHistoryIntegrationTest {
       return metadata(ws, path).getString("fileId");
     }
 
+    /** Whether the file's state differs from its latest revision; empty when it has none. */
     private Optional<Boolean> changed(final String path) throws Exception {
-      return revisions.list(WS1, Path.of(path)).changedSinceLatest();
+      final var list = revisions.list(WS1, Path.of(path));
+      if (list.revisions().isEmpty()) return Optional.empty();
+      return Optional.of(!list.matching().equals(Optional.of(list.revisions().getLast())));
+    }
+
+    /** The name of the newest revision the file's state matches. */
+    private Optional<String> matching(final String path) throws Exception {
+      return revisions.list(WS1, Path.of(path)).matching().map(Revision::name);
     }
 
     private Map<String, RevTag> tags(final int ws) throws Exception {
@@ -1500,7 +1508,7 @@ class WorkspaceHistoryIntegrationTest {
         final var list = revisions.list(WS1, Path.of("a.seq"));
         assertEquals(Optional.empty(), list.fileId());
         assertEquals(List.of(), list.revisions());
-        assertEquals(Optional.empty(), list.changedSinceLatest());
+        assertEquals(Optional.empty(), list.matching());
         assertEquals(before, repositoryState(WS1));
       }
 
@@ -1524,8 +1532,9 @@ class WorkspaceHistoryIntegrationTest {
         assertEquals("2025-01-01T00:00:00Z", meta.getString("createdAt"));
         assertEquals("content", read(WS1, "a.seq"));
 
+        saveOk(WS1, "a.seq", "content 2");
         create(WS1, "a.seq");
-        assertEquals(commitsBefore + 1, log(WS1).size(), "only the first revision needs an identity");
+        assertEquals(commitsBefore + 2, log(WS1).size(), "only the first revision needs an identity");
         assertClean(WS1);
       }
 
@@ -1594,16 +1603,17 @@ class WorkspaceHistoryIntegrationTest {
       void revisionsAreNumberedPerFileAndMayShareACommit() throws Exception {
         saveOk(WS1, "a.seq", "a");
         saveOk(WS1, "b.seq", "b");
-        final var a1 = create(WS1, "a.seq");
-        final var a2 = create(WS1, "a.seq");
-        create(WS1, "b.seq");
+        final var a = create(WS1, "a.seq");
+        final var b = create(WS1, "b.seq");
         saveOk(WS1, "a.seq", "a2");
+        create(WS1, "a.seq");
+        saveOk(WS1, "a.seq", "a3");
         create(WS1, "a.seq");
 
         assertEquals(List.of("a", "b", "c"), names(WS1, "a.seq"));
         assertEquals(List.of("a"), names(WS1, "b.seq"));
-        assertEquals(a1.commitSha(), a2.commitSha());
-        assertNotEquals(a1.id(), a2.id());
+        assertEquals(a.commitSha(), b.commitSha());
+        assertNotEquals(a.id(), b.id());
         assertEquals(4, tags(WS1).size());
         assertClean(WS1);
       }
@@ -1679,6 +1689,7 @@ class WorkspaceHistoryIntegrationTest {
         assertClean(WS1);
 
         store.failInsert = false;
+        saveOk(WS1, "a.seq", "v2");
         assertEquals("b", create(WS1, "a.seq").name(), "the unindexed revision still holds its ordinal");
         revisions.reindexRevisionsFromGit(WS1);
         assertEquals(List.of("a", "b"), names(WS1, "a.seq"));
@@ -1759,6 +1770,86 @@ class WorkspaceHistoryIntegrationTest {
         setReadOnly(WS1, "renamed.seq", true);
         saveOk(WS1, "other.seq", "o3");
         assertEquals(Optional.of(true), changed("renamed.seq"));
+      }
+    }
+
+    /** Which revision, if any, holds the file's saved state; and no revision may duplicate the latest. */
+    @Nested
+    class Matching {
+      @Test
+      void theSavedStateMatchesTheLatestRevisionOrNone() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        assertEquals(Optional.empty(), matching("a.seq"));
+        create(WS1, "a.seq");
+        assertEquals(Optional.of("a"), matching("a.seq"));
+        saveOk(WS1, "a.seq", "v2");
+        assertEquals(Optional.empty(), matching("a.seq"));
+        saveOk(WS1, "a.seq", "v1");
+        assertEquals(Optional.of("a"), matching("a.seq"), "saving back to a revision's state matches it again");
+      }
+
+      @Test
+      void restoringAnOlderRevisionMatchesIt() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        final var a = create(WS1, "a.seq");
+        for (final var v : List.of("v2", "v3")) {
+          saveOk(WS1, "a.seq", v);
+          create(WS1, "a.seq");
+        }
+        revisions.restore(WS1, Path.of("a.seq"), a.id(), "*", USER);
+        assertEquals(Optional.of("a"), matching("a.seq"));
+        assertEquals(Optional.of(true), changed("a.seq"));
+      }
+
+      @Test
+      void theNewestOfSeveralIdenticalRevisionsMatches() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        create(WS1, "a.seq");                             // a = v1
+        saveOk(WS1, "a.seq", "v2");
+        create(WS1, "a.seq");                             // b = v2
+        saveOk(WS1, "a.seq", "v1");
+        create(WS1, "a.seq");                             // c = v1 again, allowed: it differs from b
+        saveOk(WS1, "a.seq", "v3");
+        create(WS1, "a.seq");                             // d
+        saveOk(WS1, "a.seq", "v1");
+        assertEquals(Optional.of("c"), matching("a.seq"));
+      }
+
+      @Test
+      void readOnlyIsNotPartOfTheStateButVersionedMetadataIs() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        create(WS1, "a.seq");
+        setReadOnly(WS1, "a.seq", true);
+        assertEquals(Optional.of("a"), matching("a.seq"), "readOnly is runtime state");
+        setReadOnly(WS1, "a.seq", false);
+
+        setUserMetadata(WS1, "a.seq", "reviewed");
+        assertEquals(Optional.empty(), matching("a.seq"), "same content, different versioned metadata");
+        assertEquals("b", create(WS1, "a.seq").name(), "a metadata change is worth a revision");
+      }
+
+      @Test
+      void aDuplicateOfTheLatestRevisionIsRejected() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        create(WS1, "a.seq");
+        setReadOnly(WS1, "a.seq", true); // runtime state does not make it different
+        final var before = repositoryState(WS1);
+        assertThrows(gov.nasa.ammos.plandev.workspace.server.exceptions.RevisionUnchangedException.class,
+                     () -> create(WS1, "a.seq"));
+        assertEquals(List.of("a"), names(WS1, "a.seq"));
+        assertEquals(1, tags(WS1).size());
+        assertEquals(before, repositoryState(WS1));
+      }
+
+      @Test
+      void returningToAnOlderRevisionCanBeRecorded() throws Exception {
+        saveOk(WS1, "a.seq", "v1");
+        final var a = create(WS1, "a.seq");
+        saveOk(WS1, "a.seq", "v2");
+        create(WS1, "a.seq");
+        revisions.restore(WS1, Path.of("a.seq"), a.id(), "*", USER);
+        assertEquals("c", create(WS1, "a.seq").name());
+        assertEquals(Optional.of("c"), matching("a.seq"));
       }
     }
 
@@ -1917,7 +2008,7 @@ class WorkspaceHistoryIntegrationTest {
         assertEquals(List.of("foo.seq", "foo.seq", "sequences/foo.seq"),
                      after.revisions().stream().map(Revision::pathAtRevision).toList());
         assertEquals(Arrays.asList(USER, "bob", null), after.revisions().stream().map(Revision::createdBy).toList());
-        assertEquals(Optional.of(true), after.changedSinceLatest());
+        assertEquals(Optional.empty(), after.matching());
 
         final var preview = revisions.read(WS1, a.id());
         assertEquals("first", new String(preview.content(), StandardCharsets.UTF_8));
@@ -1943,8 +2034,10 @@ class WorkspaceHistoryIntegrationTest {
       void theNextOrdinalComesFromTagsNotTheCatalog() throws Exception {
         saveOk(WS1, "a.seq", "v1");
         create(WS1, "a.seq");
+        saveOk(WS1, "a.seq", "v2");
         create(WS1, "a.seq");
         store.rows.clear();
+        saveOk(WS1, "a.seq", "v3");
         final var c = create(WS1, "a.seq");
         assertEquals(3, c.ordinal());
         assertEquals("c", c.name());

@@ -11,6 +11,7 @@ import gov.nasa.ammos.plandev.workspace.server.exceptions.FileLockedException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.MalformedRequest;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.NoSuchFileException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.NoSuchRevisionException;
+import gov.nasa.ammos.plandev.workspace.server.exceptions.RevisionUnchangedException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.ReservedPathException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.StaleFileException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
@@ -186,6 +187,8 @@ public class WorkspaceBindings implements Plugin {
     javalin.exception(WorkspaceFileOpException.class, (ex, ctx) -> ctx.status(400).json(new WorkspaceFormattedError(ex)));
     javalin.exception(NoSuchRevisionException.class, (ex, ctx) ->
         ctx.status(404).json(new FormattedError(AerieService.WORKSPACE_SERVER, "NO_SUCH_REVISION", ex)));
+    javalin.exception(RevisionUnchangedException.class, (ex, ctx) ->
+        ctx.status(409).json(new FormattedError(AerieService.WORKSPACE_SERVER, "WORKSPACE_REVISION_UNCHANGED", ex)));
     javalin.exception(StaleFileException.class, (ex, ctx) ->
         ctx.status(412).json(WorkspaceFormattedError.saveConflict("conflict", ex.currentETag, ex.lastEditedBy, ex.lastEditedAt)));
     javalin.exception(IOException.class, (ex, ctx) -> {
@@ -1835,7 +1838,9 @@ public class WorkspaceBindings implements Plugin {
   /**
    * List a file's revisions, oldest first:
    * { "fileId": uuid|null, "revisions": [revision...], "latestRevision": revision|null,
-   *   "hasChangesSinceLatestRevision": boolean|null, "workingCopyETag": etag }
+   *   "matchingRevision": revision|null, "workingCopyETag": etag }
+   * matchingRevision is the newest revision whose state (content plus versioned metadata, not readOnly) equals the
+   * file's saved state; null when no revision holds it.
    * workingCopyETag covers content plus versioned metadata; it is what a restore's If-Match is checked against.
    */
   private void listRevisions(final Context context) throws Exception {
@@ -1849,14 +1854,15 @@ public class WorkspaceBindings implements Plugin {
     list.fileId().ifPresentOrElse(id -> body.add("fileId", id.toString()), () -> body.addNull("fileId"));
     if (list.revisions().isEmpty()) body.addNull("latestRevision");
     else body.add("latestRevision", revisionJson(list.revisions().getLast()));
-    list.changedSinceLatest().ifPresentOrElse(
-        changed -> body.add("hasChangesSinceLatestRevision", changed),
-        () -> body.addNull("hasChangesSinceLatestRevision"));
+    list.matching().ifPresentOrElse(r -> body.add("matchingRevision", revisionJson(r)), () -> body.addNull("matchingRevision"));
     body.add("workingCopyETag", list.workingCopyETag());
     context.status(200).json(body.build().toString());
   }
 
-  /** Record the file's current saved state as its next revision. Never happens implicitly on save. */
+  /**
+   * Record the file's current saved state as its next revision. Never happens implicitly on save. 409
+   * WORKSPACE_REVISION_UNCHANGED if that state already matches the latest revision.
+   */
   private void createRevision(final Context context) throws Exception {
     final var pathInfo = PathInformation.of(context);
     if (!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.write_file_directory)) return;

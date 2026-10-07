@@ -6,6 +6,7 @@ import gov.nasa.ammos.plandev.workspace.server.WorkspaceRevisionStore.Revision;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.FileLockedException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.NoSuchFileException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.NoSuchRevisionException;
+import gov.nasa.ammos.plandev.workspace.server.exceptions.RevisionUnchangedException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.StaleFileException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.NoSuchWorkspaceException;
@@ -33,6 +34,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -59,6 +61,10 @@ import java.util.UUID;
  * index and the working tree are never touched. A row whose commit or file is missing from the repository is a
  * {@link Kind#REVISION_CATALOG_INCONSISTENT} error, not a missing revision.
  *
+ * <p><b>Revision state</b> is a file's content plus its versioned sidecar metadata; runtime ({@code readOnly}) and
+ * derived ({@code lastEdited*}) fields are not part of it. Two states are equal when both are. A new revision must
+ * differ from the file's latest one; matching an older one is fine (returning to it is worth recording).
+ *
  * <p><b>Restore</b> writes a revision's content and versioned metadata to the file's <i>current</i> path as an
  * ordinary workspace mutation: it respects readOnly and If-Match (against the content-plus-versioned-metadata
  * {@link RevisionList#workingCopyETag}, not the content-only save ETag), keeps the file's identity and runtime
@@ -81,13 +87,14 @@ public class WorkspaceRevisionService {
   }
 
   /**
-   * A file's revisions, oldest first; {@code changedSinceLatest} is empty when it has none. {@code workingCopyETag} is
-   * the token {@link #restore} compares If-Match against (content plus versioned metadata).
+   * A file's revisions, oldest first. {@code matching} is the newest revision whose state equals the file's committed
+   * state, if any. {@code workingCopyETag} is the token {@link #restore} compares If-Match against (content plus
+   * versioned metadata).
    */
   public record RevisionList(
       Optional<UUID> fileId,
       List<Revision> revisions,
-      Optional<Boolean> changedSinceLatest,
+      Optional<Revision> matching,
       String workingCopyETag) {}
 
   /** A revision's content and its versioned sidecar metadata. */
@@ -127,10 +134,13 @@ public class WorkspaceRevisionService {
       try (final var git = Git.open(root.toFile())) {
         final var repo = git.getRepository();
         // ponytail: parses and validates every revision tag on each create; cache an index if workspaces get large
-        final var ordinal = 1 + GitFileRevisions.readAll(repo, workspaceId).stream()
+        final var latest = GitFileRevisions.readAll(repo, workspaceId).stream()
             .filter(r -> r.fileId().equals(fileId))
-            .mapToLong(Revision::ordinal)
-            .max().orElse(0);
+            .max(Comparator.comparingLong(Revision::ordinal));
+        if (latest.isPresent() && matching(repo, key, List.of(latest.get())).isPresent()) {
+          throw new RevisionUnchangedException(key, latest.get().name());
+        }
+        final var ordinal = 1 + latest.map(Revision::ordinal).orElse(0L);
         final var head = repo.resolve(Constants.HEAD);
         // Microseconds: the catalog's timestamp precision, so a row and its tag hold the same instant
         revision = new Revision(UUID.randomUUID(), workspaceId, fileId, ordinal, WorkspaceRevisionStore.revisionName(ordinal),
@@ -163,7 +173,7 @@ public class WorkspaceRevisionService {
     });
   }
 
-  /** The file's revisions, and whether its committed state differs from the latest one. Lock-free. */
+  /** The file's revisions, and the newest one its committed state matches. Lock-free. */
   public RevisionList list(final int workspaceId, final Path filePath) throws Exception {
     final var root = root(workspaceId);
     final var key = requireFile(workspaceId, root, filePath);
@@ -173,16 +183,8 @@ public class WorkspaceRevisionService {
 
     final var revisions = store.list(workspaceId, fileId.get());
     if (revisions.isEmpty()) return new RevisionList(fileId, revisions, Optional.empty(), etag);
-    final var latest = revisions.getLast();
-    try (final var repo = Git.open(root.toFile()).getRepository(); final var walk = new RevWalk(repo)) {
-      final var head = repo.resolve(Constants.HEAD);
-      if (head == null) return new RevisionList(fileId, revisions, Optional.of(true), etag);
-      final var headTree = walk.parseCommit(head).getTree();
-      final var revisionTree = revisionTree(repo, walk, latest);
-      final var changed = !(blobId(repo, headTree, key).equals(requireBlobId(repo, revisionTree, latest, latest.pathAtRevision()))
-                            && blobId(repo, headTree, GitFileRevisions.sidecarKey(key))
-                                .equals(requireBlobId(repo, revisionTree, latest, GitFileRevisions.sidecarKey(latest.pathAtRevision()))));
-      return new RevisionList(fileId, revisions, Optional.of(changed), etag);
+    try (final var repo = Git.open(root.toFile()).getRepository()) {
+      return new RevisionList(fileId, revisions, matching(repo, key, revisions), etag);
     }
   }
 
@@ -254,16 +256,55 @@ public class WorkspaceRevisionService {
     try (final var repo = Git.open(root.toFile()).getRepository(); final var walk = new RevWalk(repo)) {
       final var tree = revisionTree(repo, walk, revision);
       final var content = repo.open(requireBlobId(repo, tree, revision, revision.pathAtRevision())).getBytes();
-      final var sidecar = new String(
-          repo.open(requireBlobId(repo, tree, revision, GitFileRevisions.sidecarKey(revision.pathAtRevision()))).getBytes(),
-          StandardCharsets.UTF_8);
-      final JsonObject metadata;
-      try (final var reader = Json.createReader(new StringReader(sidecar))) {
-        metadata = WorkspaceFileSystemService.versionedSidecar(reader.readObject());
-      } catch (JsonException e) {
-        throw inconsistent(revision, "its metadata is not a JSON object");
+      final var sidecar = requireBlobId(repo, tree, revision, GitFileRevisions.sidecarKey(revision.pathAtRevision()));
+      return new HistoricalFile(revision, content, versionedMetadata(repo, sidecar, revision));
+    }
+  }
+
+  /**
+   * The newest of {@code revisions} (oldest first) whose state equals the file's at HEAD (at {@code key}), if any.
+   * Only this file's state counts, not the rest of the workspace.
+   */
+  private static Optional<Revision> matching(final Repository repo, final String key, final List<Revision> revisions)
+  throws IOException
+  {
+    try (final var walk = new RevWalk(repo)) {
+      final var head = repo.resolve(Constants.HEAD);
+      if (head == null) return Optional.empty();
+      final var tree = walk.parseCommit(head).getTree();
+      final var content = blobId(repo, tree, key);
+      final var sidecar = blobId(repo, tree, GitFileRevisions.sidecarKey(key));
+      if (content.equals(ObjectId.zeroId()) || sidecar.equals(ObjectId.zeroId())) return Optional.empty();
+      final var metadata = canonicalMetadata(repo, sidecar, null);
+      // ponytail: reads revision trees newest first until one matches; index states by hash if histories get long
+      for (final var revision : revisions.reversed()) {
+        final var revisionTree = revisionTree(repo, walk, revision);
+        if (!requireBlobId(repo, revisionTree, revision, revision.pathAtRevision()).equals(content)) continue;
+        final var revisionSidecar = requireBlobId(repo, revisionTree, revision, GitFileRevisions.sidecarKey(revision.pathAtRevision()));
+        if (canonicalMetadata(repo, revisionSidecar, revision).equals(metadata)) {
+          return Optional.of(revision);
+        }
       }
-      return new HistoricalFile(revision, content, metadata);
+      return Optional.empty();
+    }
+  }
+
+  private static String canonicalMetadata(final Repository repo, final ObjectId sidecar, final Revision revision)
+  throws IOException
+  {
+    return WorkspaceFileSystemService.canonicalJson(versionedMetadata(repo, sidecar, revision));
+  }
+
+  /** A sidecar blob's versioned metadata. {@code revision} names the revision it belongs to, if any, for errors. */
+  private static JsonObject versionedMetadata(final Repository repo, final ObjectId sidecar, final Revision revision)
+  throws IOException
+  {
+    final var json = new String(repo.open(sidecar).getBytes(), StandardCharsets.UTF_8);
+    try (final var reader = Json.createReader(new StringReader(json))) {
+      return WorkspaceFileSystemService.versionedSidecar(reader.readObject());
+    } catch (JsonException e) {
+      if (revision == null) throw new IOException("The file's committed metadata is not a JSON object.", e);
+      throw inconsistent(revision, "its metadata is not a JSON object");
     }
   }
 

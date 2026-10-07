@@ -39,7 +39,7 @@ public class HasuraRequests implements AutoCloseable {
   public HasuraRequests(Playwright playwright) {
     request = playwright.request().newContext(
             new APIRequest.NewContextOptions()
-                    .setBaseURL(BaseURL.HASURA.url).setTimeout(0));
+                    .setBaseURL(BaseURL.HASURA.url));
   }
 
   @Override

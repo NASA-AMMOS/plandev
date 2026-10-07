@@ -17,6 +17,7 @@ import gov.nasa.ammos.plandev.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +33,7 @@ public interface PlanService {
   void markPlanReadOnly(PlanId planId) throws NoSuchPlanException;
 
   void addExternalSimulationDataset(InsertExternalSimulationInput request, final Path resultsFilePath)
-  throws FailedUpdateException;
+  throws SQLException;
 
   long addExternalDataset(
       PlanId planId,

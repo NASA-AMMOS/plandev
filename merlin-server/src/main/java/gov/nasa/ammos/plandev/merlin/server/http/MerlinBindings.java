@@ -216,10 +216,10 @@ public final class MerlinBindings implements Plugin {
     new Thread(() -> {
       try {
         planService.addExternalSimulationDataset(body, uploadedFilePath);
-      } catch (FailedUpdateException ex) {
-        final var fe = new MerlinFormattedError(ex);
-        logger.warn("Insert External Simulation Dataset: Database Exception: {}", fe);
-        ctx.status(500).json(fe);
+      } catch (SQLException ex) {
+        // Only SQLException can bubble up to here, and only if updating the plan_import_request table fails
+        final var fe = new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex);
+        logger.warn("Insert External Simulation Dataset: SQL Exception: {}", fe);
       }
     }).start();
   }

@@ -224,7 +224,7 @@ public final class PostgresPlanRepository implements PlanRepository {
       final Map<String, SerializedValue> simulationArguments,
       final Path resultsFilePath,
       final String requestedBy
-  ) throws FailedUpdateException {
+  ) throws SQLException {
     try(final var connection = this.dataSource.getConnection();
         final var getSimulationAction = new GetSimulationAction(connection);
         final var createSimulationDatasetAction = new CreateSimulationDatasetAction(connection);
@@ -275,20 +275,21 @@ public final class PostgresPlanRepository implements PlanRepository {
       }
     } catch (SQLException ex) {
       markPlanImportRequestFailure(requestId, new FormattedError(FormattedError.AerieService.MERLIN_SERVER, ex));
-      throw new DatabaseException("Failed to create external simulation dataset.", ex);
     } catch (NoSuchSimulationDatasetException nsd) {
       markPlanImportRequestFailure(requestId, new MerlinFormattedError(nsd));
-      throw new FailedUpdateException("merlin.simulation_dataset");
+    } catch (Exception ex) {
+      // Catch any generic exception that may be thrown during the extraction process
+      markPlanImportRequestFailure(requestId, new FormattedError(FormattedError.AerieService.MERLIN_SERVER, "INTERNAL_ERROR", ex));
     }
   }
 
-  public void markPlanImportRequestFailure(int requestId, FormattedError error) {
+  public void markPlanImportRequestFailure(int requestId, FormattedError error) throws SQLException {
     try(final var connection = this.dataSource.getConnection();
         final var setPlanImportRequestStatus = new SetPlanImportRequestStatusAction(connection)) {
       final var failureReason = new PlanImportFailure(error.getType(), error.getMessage(), error);
       setPlanImportRequestStatus.fail(requestId, failureReason);
     } catch (SQLException ex) {
-      throw new DatabaseException("Failed to update plan import request.", ex);
+      throw new SQLException("Failed to update plan import request.", ex);
     }
   }
 

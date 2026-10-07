@@ -18,6 +18,7 @@ import gov.nasa.ammos.plandev.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -59,7 +60,7 @@ public final class LocalPlanService implements PlanService {
 
   @Override
   public void addExternalSimulationDataset(final InsertExternalSimulationInput request, final Path resultsFilePath)
-  throws FailedUpdateException
+  throws SQLException
   {
     final Timestamp simEnd = request.simulationStartTime().plusMicros(request.simulationDuration().micros());
 

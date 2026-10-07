@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
@@ -40,6 +41,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.json.Json;
+import javax.json.JsonArray;
 import javax.json.JsonException;
 import javax.json.JsonObject;
 import javax.json.JsonString;
@@ -403,13 +405,15 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var repoPath = roots.workspaceRootPath(workspaceId);
     final var path = resolveWritingPath(repoPath, filePath);
     resolveMetadataPath(repoPath, filePath); // validates the path can carry metadata
+    if(Files.isDirectory(path)) return Optional.empty();
+
     // lastEdited* is derived from history; here it only seeds createdBy/createdAt for a new file.
+    // A genuinely new file gets its identity now; saving an existing (possibly legacy) file never assigns one.
     final var metadataUpdates = new MetadataUpdates.Builder(userId)
         .lastEditedAt(Instant.now())
         .lastEditedBy(userId)
+        .fileId(Files.exists(path) ? null : newFileId())
         .build();
-
-    if(Files.isDirectory(path)) return Optional.empty();
 
     final var etag = writeContent(repoPath, path, file.content());
     updateMetadata(repoPath, filePath, metadataUpdates, MetadataMergeBehavior.deepMerge);
@@ -922,7 +926,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     // Fill in "created" information, using the "metadataLastEdited" information as a fallback
     final var serialized = serializeSidecar(
         contents.version().orElse("1"),
-        contents.fileId().orElseGet(WorkspaceFileSystemService::newFileId), // a file gets its identity on its first sidecar write
+        contents.fileId().orElse(null), // identity is assigned explicitly by callers, never by serialization
         contents.createdBy().orElse(contents.metadataLastEditedBy()),
         contents.createdAt().orElse(contents.metadataLastEditedAt()).toString(),
         contents.user().orElse(null));
@@ -992,7 +996,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         mergedBuilder::fileId,
         () -> {
           if(currentContents.containsKey("fileId")) {
-            mergedBuilder.fileId(currentContents.getString("fileId")); // No fallback: assigned when the sidecar is written
+            mergedBuilder.fileId(currentContents.getString("fileId")); // No fallback: absence is preserved
           }
         }
     );
@@ -1240,14 +1244,49 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var root = roots.workspaceRootPath(workspaceId);
     final var existing = fileId(root, filePath);
     if (existing.isPresent()) return existing.get();
-    updateMetadata(root, filePath, new MetadataUpdates.Builder(userId).build(), MetadataMergeBehavior.deepMerge);
+    updateMetadata(root, filePath, new MetadataUpdates.Builder(userId).fileId(newFileId()).build(), MetadataMergeBehavior.deepMerge);
     return fileId(root, filePath).orElseThrow();
   }
 
+  /** A sidecar without its runtime ({@code readOnly}) and derived ({@code lastEdited*}) fields. */
+  static JsonObject versionedSidecar(final JsonObject sidecar) {
+    return Json.createObjectBuilder(sidecar)
+               .remove(MetadataKeys.readOnly.name())
+               .remove(MetadataKeys.lastEditedBy.name())
+               .remove(MetadataKeys.lastEditedAt.name())
+               .build();
+  }
+
   /**
-   * Replace a file's content and versioned metadata ({@code version}, {@code createdBy}, {@code createdAt},
-   * {@code user}) with a revision's. The file keeps its identity, permissions and runtime state (readOnly).
-   * Caller holds the workspace lock and has checked the file exists. Returns the file's new ETag.
+   * The ETag of everything a revision restore can overwrite: content plus versioned sidecar metadata (including
+   * unknown fields), canonicalized so equivalent metadata hashes the same. Runtime and derived fields are excluded, so
+   * toggling readOnly does not change it. Distinct from the content-only ETag used by saves. Lock-free.
+   */
+  String revisionStateETag(final Path root, final Path filePath) throws IOException, WorkspaceFileOpException {
+    final var sidecar = versionedSidecar(readMetadataFile(resolveMetadataPath(root, filePath).toFile()));
+    final var md = WorkspaceService.newSHA256Digest();
+    md.update(getETag(resolveReadingPath(root, filePath)).getBytes(StandardCharsets.UTF_8));
+    md.update((byte) '\n');
+    md.update(canonicalJson(sidecar).getBytes(StandardCharsets.UTF_8));
+    return WorkspaceService.eTagFromDigest(md.digest());
+  }
+
+  /** Deterministic JSON: object keys sorted recursively, no whitespace. */
+  static String canonicalJson(final JsonValue value) {
+    return switch (value) {
+      case JsonObject o -> o.keySet().stream().sorted()
+                            .map(k -> Json.createValue(k) + ":" + canonicalJson(o.get(k)))
+                            .collect(Collectors.joining(",", "{", "}"));
+      case JsonArray a -> a.stream().map(WorkspaceFileSystemService::canonicalJson).collect(Collectors.joining(",", "[", "]"));
+      default -> value.toString();
+    };
+  }
+
+  /**
+   * Replace a file's content and versioned metadata with a revision's. The historical sidecar is kept as-is (unknown
+   * fields included) apart from its runtime/derived fields, and its fileId is replaced by the file's current one. The
+   * file keeps its identity, permissions and runtime state (readOnly). Caller holds the workspace lock and has checked
+   * the file exists. Returns the file's new (content) ETag.
    */
   String restoreFile(final int workspaceId, final Path filePath, final byte[] content, final JsonObject sidecar)
   throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException
@@ -1257,11 +1296,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var fileId = fileId(root, filePath).orElseThrow(() -> new WorkspaceFileOpException(filePath + " has no identity."));
     final var etag = writeContent(root, resolveWritingPath(root, filePath), new ByteArrayInputStream(content));
     final var serialized = serializeSidecar(
-        sidecar.getString(MetadataKeys.version.name(), "1"),
-        fileId.toString(),
-        sidecar.getString(MetadataKeys.createdBy.name(), null),
-        sidecar.getString(MetadataKeys.createdAt.name(), null),
-        sidecar.get(MetadataKeys.user.name()) instanceof JsonObject user ? user : null);
+        Json.createObjectBuilder(versionedSidecar(sidecar)).add(MetadataKeys.fileId.name(), fileId.toString()).build());
     final var metadataPath = resolveMetadataPath(root, filePath);
     if (!(Files.isRegularFile(metadataPath) && Files.readString(metadataPath, StandardCharsets.UTF_8).equals(serialized))) {
       WorkspacePaths.writeAtomically(root, metadataPath, serialized.getBytes(StandardCharsets.UTF_8));

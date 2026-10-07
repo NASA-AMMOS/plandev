@@ -1398,8 +1398,16 @@ class WorkspaceHistoryIntegrationTest {
       }
     }
 
+    /** The working-copy ETag restore checks If-Match against (content plus versioned metadata). */
     private String etag(final int ws, final String path) throws Exception {
-      return fs.getETag(ws, Path.of(path));
+      return revisions.list(ws, Path.of(path)).workingCopyETag();
+    }
+
+    private void writeSidecar(final int ws, final String path, final String sidecar) throws Exception {
+      history.mutate(ws, USER, "hand-written sidecar", () -> {
+        Files.writeString(root(ws).resolve(sidecar(path)), sidecar);
+        return true;
+      }, r -> true);
     }
 
     /** Give a file a committed sidecar from before file identities existed. */
@@ -1527,6 +1535,26 @@ class WorkspaceHistoryIntegrationTest {
         assertEquals(commitsBefore + 1, log(WS1).size(), "only the first revision needs an identity");
         assertClean(WS1);
       }
+
+      @Test
+      void runtimeOnlyChangesToALegacyFileAssignNoIdentity() throws Exception {
+        saveOk(WS1, "a.seq", "content");
+        makeLegacy(WS1, "a.seq");
+        saveOk(WS1, "a.seq", "edited"); // saving an existing file is not an identity boundary either
+        final var commitsBefore = log(WS1).size();
+
+        setReadOnly(WS1, "a.seq", true);
+        assertTrue(isReadOnly(WS1, "a.seq"), "the lock still works");
+        assertFalse(metadata(WS1, "a.seq").containsKey("fileId"));
+        assertEquals(commitsBefore, log(WS1).size(), "a lock is runtime state, not a commit");
+
+        final var a = create(WS1, "a.seq");
+        assertEquals(commitsBefore + 1, log(WS1).size());
+        assertEquals("Assign file identity a.seq", head(WS1).getFullMessage());
+        assertEquals(a.fileId().toString(), fileId(WS1, "a.seq"));
+        assertTrue(isReadOnly(WS1, "a.seq"));
+        assertClean(WS1);
+      }
     }
 
     @Nested
@@ -1559,6 +1587,7 @@ class WorkspaceHistoryIntegrationTest {
           assertEquals(1, annotation.getInt("version"));
           assertEquals(a.id().toString(), annotation.getString("revisionId"));
           assertEquals(a.fileId().toString(), annotation.getString("fileId"));
+          assertEquals(1, annotation.getInt("ordinal"));
           assertEquals("dir/a.seq", annotation.getString("path"));
           assertEquals("a", annotation.getString("name"));
           assertEquals(USER, annotation.getString("createdBy"));
@@ -1803,7 +1832,7 @@ class WorkspaceHistoryIntegrationTest {
         final var restored = restore("foo.seq", etag(WS1, "foo.seq"));
 
         assertEquals("first", read(WS1, "foo.seq"));
-        assertEquals(etag(WS1, "foo.seq"), restored.etag());
+        assertEquals(fs.getETag(WS1, Path.of("foo.seq")), restored.etag());
         final var meta = metadata(WS1, "foo.seq");
         assertEquals("draft", meta.getJsonObject("user").getString("status"));
         assertEquals(id, meta.getString("fileId"));
@@ -1842,6 +1871,52 @@ class WorkspaceHistoryIntegrationTest {
 
         restore("foo.seq", "*");
         assertEquals("first", read(WS1, "foo.seq"));
+      }
+
+      @Test
+      void aMetadataOnlyChangeMakesTheETagStale() throws Exception {
+        final var stale = etag(WS1, "foo.seq");
+        final var contentETag = fs.getETag(WS1, Path.of("foo.seq"));
+        setUserMetadata(WS1, "foo.seq", "reviewed");
+        assertEquals(contentETag, fs.getETag(WS1, Path.of("foo.seq")), "the save ETag only covers content");
+        assertNotEquals(stale, etag(WS1, "foo.seq"));
+        assertThrows(gov.nasa.ammos.plandev.workspace.server.exceptions.StaleFileException.class,
+                     () -> restore("foo.seq", stale));
+        assertEquals("reviewed", metadata(WS1, "foo.seq").getJsonObject("user").getString("status"));
+      }
+
+      @Test
+      void aReadOnlyChangeLeavesTheETagAlone() throws Exception {
+        final var before = etag(WS1, "foo.seq");
+        setReadOnly(WS1, "foo.seq", true);
+        assertEquals(before, etag(WS1, "foo.seq"));
+        setReadOnly(WS1, "foo.seq", false);
+        restore("foo.seq", before);
+        assertEquals("first", read(WS1, "foo.seq"));
+      }
+
+      @Test
+      void unknownVersionedMetadataSurvivesRestore() throws Exception {
+        saveOk(WS1, "fut.seq", "v1");
+        final var id = fileId(WS1, "fut.seq");
+        writeSidecar(WS1, "fut.seq", """
+            {"version": "1", "fileId": "%s", "createdBy": "carol", "createdAt": "2025-01-01T00:00:00Z",
+             "user": {}, "futureField": {"x": 1}}""".formatted(id));
+        final var revision = create(WS1, "fut.seq");
+        saveOk(WS1, "fut.seq", "v2");
+        writeSidecar(WS1, "fut.seq", "{\"version\": \"1\", \"fileId\": \"%s\"}".formatted(id));
+        setReadOnly(WS1, "fut.seq", true);
+        setReadOnly(WS1, "fut.seq", false);
+
+        revisions.restore(WS1, Path.of("fut.seq"), revision.id(), etag(WS1, "fut.seq"), USER);
+
+        final var meta = metadata(WS1, "fut.seq");
+        assertEquals(1, meta.getJsonObject("futureField").getInt("x"));
+        assertEquals(id, meta.getString("fileId"));
+        assertEquals("carol", meta.getString("createdBy"));
+        assertFalse(isReadOnly(WS1, "fut.seq"), "runtime readOnly stays current");
+        assertEquals("v1", read(WS1, "fut.seq"));
+        assertClean(WS1);
       }
 
       @Test

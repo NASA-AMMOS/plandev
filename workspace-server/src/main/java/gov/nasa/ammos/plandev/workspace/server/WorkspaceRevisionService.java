@@ -10,7 +10,6 @@ import gov.nasa.ammos.plandev.workspace.server.exceptions.StaleFileException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
-import gov.nasa.ammos.plandev.workspace.server.types.MetadataKeys;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.errors.MissingObjectException;
 import org.eclipse.jgit.lib.Constants;
@@ -61,15 +60,23 @@ import java.util.concurrent.atomic.AtomicReference;
  * {@link Kind#REVISION_CATALOG_INCONSISTENT} error, not a missing revision.
  *
  * <p><b>Restore</b> writes a revision's content and versioned metadata to the file's <i>current</i> path as an
- * ordinary workspace mutation: it respects readOnly and the If-Match ETag, keeps the file's identity and runtime
+ * ordinary workspace mutation: it respects readOnly and If-Match (against the content-plus-versioned-metadata
+ * {@link RevisionList#workingCopyETag}, not the content-only save ETag), keeps the file's identity and runtime
  * state, and makes a normal commit, not a revision.
  */
 public class WorkspaceRevisionService {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceRevisionService.class);
   static final String TAG_PREFIX = "plandev/revisions/";
 
-  /** A file's revisions, oldest first; {@code changedSinceLatest} is empty when it has none. */
-  public record RevisionList(Optional<UUID> fileId, List<Revision> revisions, Optional<Boolean> changedSinceLatest) {}
+  /**
+   * A file's revisions, oldest first; {@code changedSinceLatest} is empty when it has none. {@code workingCopyETag} is
+   * the token {@link #restore} compares If-Match against (content plus versioned metadata).
+   */
+  public record RevisionList(
+      Optional<UUID> fileId,
+      List<Revision> revisions,
+      Optional<Boolean> changedSinceLatest,
+      String workingCopyETag) {}
 
   /** A revision's content and its versioned sidecar metadata. */
   public record HistoricalFile(Revision revision, byte[] content, JsonObject metadata) {}
@@ -113,6 +120,8 @@ public class WorkspaceRevisionService {
             tagged.set(revision);
           });
         } catch (Exception e) {
+          // TODO: a production implementation should treat connection.commit() failure as potentially indeterminate
+          //  and reconcile the revision ID before compensating the Git tag.
           if (tagged.get() != null) removeOrphanedTag(git, tagged.get(), e);
           throw e;
         }
@@ -125,20 +134,21 @@ public class WorkspaceRevisionService {
     final var root = root(workspaceId);
     final var key = requireFile(workspaceId, root, filePath);
     final var fileId = files.fileId(root, filePath);
-    if (fileId.isEmpty()) return new RevisionList(fileId, List.of(), Optional.empty());
+    final var etag = files.revisionStateETag(root, filePath);
+    if (fileId.isEmpty()) return new RevisionList(fileId, List.of(), Optional.empty(), etag);
 
     final var revisions = store.list(workspaceId, fileId.get());
-    if (revisions.isEmpty()) return new RevisionList(fileId, revisions, Optional.empty());
+    if (revisions.isEmpty()) return new RevisionList(fileId, revisions, Optional.empty(), etag);
     final var latest = revisions.getLast();
     try (final var repo = Git.open(root.toFile()).getRepository(); final var walk = new RevWalk(repo)) {
       final var head = repo.resolve(Constants.HEAD);
-      if (head == null) return new RevisionList(fileId, revisions, Optional.of(true));
+      if (head == null) return new RevisionList(fileId, revisions, Optional.of(true), etag);
       final var headTree = walk.parseCommit(head).getTree();
       final var revisionTree = revisionTree(repo, walk, latest);
       final var changed = !(blobId(repo, headTree, key).equals(requireBlobId(repo, revisionTree, latest, latest.pathAtRevision()))
                             && blobId(repo, headTree, sidecarKey(key))
                                 .equals(requireBlobId(repo, revisionTree, latest, sidecarKey(latest.pathAtRevision()))));
-      return new RevisionList(fileId, revisions, Optional.of(changed));
+      return new RevisionList(fileId, revisions, Optional.of(changed), etag);
     }
   }
 
@@ -154,7 +164,8 @@ public class WorkspaceRevisionService {
 
   /**
    * Replace the file's working copy (content and versioned metadata) with one of its revisions, as a normal commit.
-   * @param ifMatch the ETag of the working copy the client is replacing, or {@code "*"} to replace whatever is there
+   * @param ifMatch the {@link RevisionList#workingCopyETag} the client is replacing (content plus versioned metadata),
+   *                or {@code "*"} to replace whatever is there
    */
   public Restored restore(
       final int workspaceId,
@@ -176,7 +187,7 @@ public class WorkspaceRevisionService {
       }
       if (files.isReadOnly(workspaceId, filePath)) throw new FileLockedException(filePath);
       if (!ifMatch.equals("*")) {
-        final var current = files.getETag(workspaceId, filePath);
+        final var current = files.revisionStateETag(root, filePath);
         if (!current.equals(ifMatch)) {
           final var lastEdit = files.getLastEditInfo(workspaceId, filePath);
           throw new StaleFileException(current, lastEdit.lastEditedBy(), lastEdit.lastEditedAt());
@@ -216,6 +227,7 @@ public class WorkspaceRevisionService {
         .add("version", 1)
         .add("revisionId", revision.id().toString())
         .add("fileId", revision.fileId().toString())
+        .add("ordinal", revision.ordinal())
         .add("path", revision.pathAtRevision())
         .add("name", revision.name())
         .add("createdAt", revision.createdAt().toString());
@@ -249,11 +261,7 @@ public class WorkspaceRevisionService {
           StandardCharsets.UTF_8);
       final JsonObject metadata;
       try (final var reader = Json.createReader(new StringReader(sidecar))) {
-        metadata = Json.createObjectBuilder(reader.readObject())
-                       .remove(MetadataKeys.readOnly.name())
-                       .remove(MetadataKeys.lastEditedBy.name())
-                       .remove(MetadataKeys.lastEditedAt.name())
-                       .build();
+        metadata = WorkspaceFileSystemService.versionedSidecar(reader.readObject());
       } catch (JsonException e) {
         throw inconsistent(revision, "its metadata is not a JSON object");
       }

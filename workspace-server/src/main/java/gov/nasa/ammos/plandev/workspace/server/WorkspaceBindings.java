@@ -1835,7 +1835,8 @@ public class WorkspaceBindings implements Plugin {
   /**
    * List a file's revisions, oldest first:
    * { "fileId": uuid|null, "revisions": [revision...], "latestRevision": revision|null,
-   *   "hasChangesSinceLatestRevision": boolean|null }
+   *   "hasChangesSinceLatestRevision": boolean|null, "workingCopyETag": etag }
+   * workingCopyETag covers content plus versioned metadata; it is what a restore's If-Match is checked against.
    */
   private void listRevisions(final Context context) throws Exception {
     final var pathInfo = PathInformation.of(context);
@@ -1851,6 +1852,7 @@ public class WorkspaceBindings implements Plugin {
     list.changedSinceLatest().ifPresentOrElse(
         changed -> body.add("hasChangesSinceLatestRevision", changed),
         () -> body.addNull("hasChangesSinceLatestRevision"));
+    body.add("workingCopyETag", list.workingCopyETag());
     context.status(200).json(body.build().toString());
   }
 
@@ -1888,7 +1890,8 @@ public class WorkspaceBindings implements Plugin {
 
   /**
    * Replace the file's working copy with one of its revisions. Body: { "revisionId": uuid }. Requires If-Match with
-   * the working copy's ETag ("*" to force), like a save. Returns the restored revision and the file's new ETag.
+   * the list response's workingCopyETag ("*" to force); unlike a save's content ETag it also covers versioned metadata,
+   * since restore replaces both. Returns the restored revision and the file's new (content) ETag.
    */
   private void restoreRevision(final Context context) throws Exception {
     final var pathInfo = PathInformation.of(context);
@@ -1897,7 +1900,7 @@ public class WorkspaceBindings implements Plugin {
     final var ifMatch = context.header("If-Match");
     if (ifMatch == null) {
       context.status(428).json(new WorkspaceFormattedError(new MalformedRequest(
-          "Restoring a revision replaces the working copy, so it requires an If-Match header with the file's ETag ('*' to force).")));
+          "Restoring a revision replaces the working copy, so it requires an If-Match header with its workingCopyETag ('*' to force).")));
       return;
     }
     final UUID revisionId;

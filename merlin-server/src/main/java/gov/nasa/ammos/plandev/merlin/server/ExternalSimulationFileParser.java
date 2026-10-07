@@ -35,7 +35,11 @@ import static gov.nasa.ammos.plandev.merlin.server.http.ProfileParsers.realProfi
 import static gov.nasa.ammos.plandev.merlin.server.remotes.postgres.PostgresParsers.activityArgumentsP;
 import static javax.json.stream.JsonParser.Event.*;
 
-
+/**
+ * Parser which streams a validated sim results file (from gateway) to avoid loading
+ * the whole file into memory. Parses JSON token-by-token and checks token structure
+ * but relies on gateway for full schema validation.
+ */
 public class ExternalSimulationFileParser {
   private final Connection connection;
 
@@ -145,7 +149,8 @@ public class ExternalSimulationFileParser {
             case "segments" -> {
               // Because we are only reading the file once
               // (as opposed to opening it once for the profiles, then a second time for the segments)
-              // segments MUST be the last key in the object
+              // `segments` MUST come after `type` and `schema` in the JSON
+              // Gateway guarantees this by writing in this order in non-executable-import.ts
               if (type == null || schema == null) {
                 throw new IllegalStateException("segments for profile %s specified before type and schema information".formatted(
                     profileName));

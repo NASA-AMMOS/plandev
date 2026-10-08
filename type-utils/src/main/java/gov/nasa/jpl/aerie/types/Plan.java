@@ -16,6 +16,8 @@ public final class Plan {
   private final String name;
   private final MissionModelId missionModelId;
   private final Timestamp startTimestamp;
+  private final Instant startInstant; // Derived from startTimestamp
+
   private final Timestamp endTimestamp;
   private final Map<ActivityDirectiveId, ActivityDirective<?>> activityDirectives;
   private final Map<String, SerializedValue> configuration;
@@ -73,6 +75,7 @@ public final class Plan {
     this.name = name;
     this.missionModelId = missionModelId;
     this.startTimestamp = startTimestamp;
+    this.startInstant = startTimestamp.toInstant();
     this.endTimestamp = endTimestamp;
     this.activityDirectives = (activityDirectives != null) ? new HashMap<>(activityDirectives) : new HashMap<>();
     this.configuration = (configuration != null) ? new HashMap<>(configuration) : new HashMap<>();
@@ -84,6 +87,7 @@ public final class Plan {
     this.name = other.name;
     this.missionModelId = other.missionModelId;
     this.startTimestamp = other.startTimestamp;
+    this.startInstant = other.startInstant;
     this.endTimestamp = other.endTimestamp;
     this.simulationStartTimestamp = other.simulationStartTimestamp;
     this.simulationEndTimestamp = other.simulationEndTimestamp;
@@ -104,7 +108,7 @@ public final class Plan {
   /**
    * Get the start of the plan as an Instant.
    */
-  public Instant planStartInstant() {return startTimestamp.toInstant();}
+  public Instant planStartInstant() {return startInstant;}
 
   /**
    * Get the duration of the plan.

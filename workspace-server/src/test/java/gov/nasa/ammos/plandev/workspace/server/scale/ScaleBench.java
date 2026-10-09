@@ -109,20 +109,20 @@ public final class ScaleBench {
           Map.entry("year.checkpointEvery", "500"),
           Map.entry("year.restartEvery", "600")),
       "scale", Map.ofEntries(
-          Map.entry("budgetMinutes", "240"),
+          Map.entry("budgetMinutes", "30"),
           Map.entry("tree.files", "100,1000,10000,50000"),
           Map.entry("tree.extraMiB", "8,32,128"),
           Map.entry("history.checkpoints", "0,100,1000,5000,10000,25000,50000"),
-          Map.entry("revisions.one.checkpoints", "0,100,1000,10000"),
+          Map.entry("revisions.one.checkpoints", "0,100,1000,2000"),
           Map.entry("revisions.spread.files", "1000"),
-          Map.entry("revisions.spread.checkpoints", "100,1000,10000"),
+          Map.entry("revisions.spread.checkpoints", "100,1000,2000"),
           Map.entry("storage.kinds", "small-text:text:4096:20000,medium-text:text:1048576:2000,"
                                      + "binary-1MiB:binary:1048576:1000,binary-10MiB:binary:10485760:200"),
           Map.entry("concurrency.writers", "1,4,10,20"),
           Map.entry("concurrency.ops", "200"),
           Map.entry("independent.workspaces", "1,4,10,20"),
           Map.entry("independent.ops", "200"),
-          Map.entry("remote.checkpoints", "1000,10000,50000"),
+          Map.entry("remote.checkpoints", "1000,10000"),
           Map.entry("year.files", "3000"),
           Map.entry("year.hotFiles", "30"),
           Map.entry("year.saves", "50000"),
@@ -166,6 +166,22 @@ public final class ScaleBench {
     final Map<String, Object> driverInfo;
     try (final var driver = new GitRevisionsPrototypeDriver(data, jdbc)) {
       driverInfo = driver.describe();
+      // An interrupted run (Ctrl-C, kill) still writes what it measured, the unfinished scenario marked as such
+      final var onInterrupt = new Thread(() -> {
+        try {
+          for (final var r : runs) {
+            if (r.elapsedNanos == 0) {
+              r.error = "interrupted before completion; partial results";
+              r.elapsedNanos = (long) (r.elapsedSeconds() * 1e9);
+            }
+          }
+          write(out, profile, all, driverInfo, runs);
+          System.out.println("Interrupted; partial results in " + out.resolve("results.json").toAbsolutePath());
+        } catch (Exception e) {
+          System.out.println("Interrupted; could not write partial results: " + e);
+        }
+      });
+      Runtime.getRuntime().addShutdownHook(onInterrupt);
       for (final var entry : selected) {
         final var scenarioParams = new TreeMap<String, Object>();
         all.forEach((k, v) -> {
@@ -196,6 +212,7 @@ public final class ScaleBench {
         System.out.println(summary(run));
         write(out, profile, all, driverInfo, runs); // after every scenario, so a long run leaves partial results
       }
+      Runtime.getRuntime().removeShutdownHook(onInterrupt);
     }
     if (!p.b("keep")) deleteTree(data);
     final var ok = runs.stream().allMatch(r -> r.status().equals("OK"));

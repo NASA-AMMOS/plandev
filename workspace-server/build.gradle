@@ -53,3 +53,14 @@ jacocoTestReport {
     xml.required = true
   }
 }
+
+// Workspace versioning scale harness (measurement only). See docs/workspace-versioning-scale/README.md.
+//   ./gradlew :workspace-server:workspaceScale --args='profile=quick'
+tasks.register('workspaceScale', JavaExec) {
+  group = 'verification'
+  description = 'Runs the workspace versioning scale harness; arguments are key=value pairs via --args.'
+  dependsOn testClasses
+  classpath = sourceSets.test.runtimeClasspath
+  mainClass = 'gov.nasa.ammos.plandev.workspace.server.scale.ScaleBench'
+  jvmArgs = ['-Xmx8g', '-Dorg.slf4j.simpleLogger.defaultLogLevel=warn']
+}

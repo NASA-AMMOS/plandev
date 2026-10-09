@@ -1,0 +1,1231 @@
+
+{
+    "profile": "scale",
+    "environment": {
+        "timestamp": "2026-10-09T17:59:06.082521Z",
+        "gitCommit": "e4af34318cafedcc77131e5e5620f4d19eb11b40",
+        "gitBranch": "perf/workspace-versioning-scale-harness",
+        "gitDirty": true,
+        "java": "21.0.9 (OpenJDK 64-Bit Server VM, Eclipse Adoptium)",
+        "jvmArgs": [
+            "-Dorg.slf4j.simpleLogger.defaultLogLevel=warn",
+            "-Xmx3g",
+            "-Dfile.encoding=UTF-8",
+            "-Duser.country=US",
+            "-Duser.language=en",
+            "-Duser.variant"
+        ],
+        "os": "Mac OS X 26.6.2 aarch64",
+        "cpus": 16,
+        "physicalMemoryBytes": 51539607552,
+        "freeMemoryBytes": 289898496,
+        "maxHeapBytes": 3221225472,
+        "filesystem": "apfs /dev/disk3s5",
+        "filesystemFreeBytes": 1319655731200
+    },
+    "driver": {
+        "adapter": "git-revisions-prototype",
+        "revisionCatalog": "postgres",
+        "postgres": "jdbc:postgresql://localhost:31024/postgres?user=postgres_user&password=***",
+        "jgit": "6.10.0.202406032230-r",
+        "workspaceRoot": "/Users/aplave/code/pd/workspace-file-versioning-backend/workspace-server/build/scale-results/scale-year-text/data"
+    },
+    "params": {
+        "budgetMinutes": "30",
+        "concurrency.ops": "200",
+        "concurrency.writers": "1,4,10,20",
+        "history.checkpoints": "0,100,1000,5000,10000,25000,50000",
+        "history.files": "50",
+        "independent.ops": "200",
+        "independent.workspaces": "1,4,10,20",
+        "jdbc": "jdbc:postgresql://localhost:31024/postgres?user=postgres_user&password=postgres_user",
+        "opCeilingSeconds": "600",
+        "out": "build/scale-results/scale-year-text",
+        "profile": "scale",
+        "remote.checkpoints": "1000,10000",
+        "remote.files": "50",
+        "remote.revisionEvery": "10",
+        "reps": "5",
+        "revisions.one.checkpoints": "0,100,1000,2000",
+        "revisions.spread.checkpoints": "100,1000,2000",
+        "revisions.spread.files": "1000",
+        "scenarios": "year",
+        "seed": "20261009",
+        "storage.kinds": "small-text:text:4096:20000,medium-text:text:1048576:2000,binary-1MiB:binary:1048576:1000,binary-10MiB:binary:10485760:200",
+        "storage.maintenance": "true",
+        "tree.extraMiB": "8,32,128",
+        "tree.files": "100,1000,10000,50000",
+        "verify.revisionSamples": "200",
+        "year.binaryShare": "0",
+        "year.binarySize": "1048576",
+        "year.checkpointEvery": "10000",
+        "year.createRate": "0.01",
+        "year.deleteRate": "0.002",
+        "year.files": "3000",
+        "year.filesPerDir": "50",
+        "year.hotFiles": "30",
+        "year.hotRevisionShare": "0.7",
+        "year.hotSaveShare": "0.5",
+        "year.maintenance": "true",
+        "year.mediumMax": "1048576",
+        "year.mediumMin": "65536",
+        "year.mediumShare": "0",
+        "year.moveRate": "0.003",
+        "year.remote": "true",
+        "year.restartEvery": "10000",
+        "year.revisions": "5000",
+        "year.saves": "50000",
+        "year.verifySamples": "500"
+    },
+    "scenarios": [
+        {
+            "scenario": "year",
+            "status": "OK",
+            "seconds": 1882.987,
+            "params": {
+                "budgetMinutes": "30",
+                "reps": "5",
+                "seed": "20261009",
+                "year.binaryShare": "0",
+                "year.binarySize": "1048576",
+                "year.checkpointEvery": "10000",
+                "year.createRate": "0.01",
+                "year.deleteRate": "0.002",
+                "year.files": "3000",
+                "year.filesPerDir": "50",
+                "year.hotFiles": "30",
+                "year.hotRevisionShare": "0.7",
+                "year.hotSaveShare": "0.5",
+                "year.maintenance": "true",
+                "year.mediumMax": "1048576",
+                "year.mediumMin": "65536",
+                "year.mediumShare": "0",
+                "year.moveRate": "0.003",
+                "year.remote": "true",
+                "year.restartEvery": "10000",
+                "year.revisions": "5000",
+                "year.saves": "50000",
+                "year.verifySamples": "500"
+            },
+            "ops": {
+                "build.create": {
+                    "count": 3012,
+                    "totalMs": 933308.88,
+                    "minMs": 13.726,
+                    "medianMs": 314.359,
+                    "p95Ms": 595.763,
+                    "p99Ms": 628.693,
+                    "maxMs": 671.019,
+                    "opsPerSec": 3.227,
+                    "series": [
+                        {
+                            "from": 0,
+                            "to": 150,
+                            "medianMs": 23.831,
+                            "p95Ms": 34.566,
+                            "maxMs": 308.099
+                        },
+                        {
+                            "from": 150,
+                            "to": 301,
+                            "medianMs": 44.178,
+                            "p95Ms": 59.367,
+                            "maxMs": 68.909
+                        },
+                        {
+                            "from": 301,
+                            "to": 451,
+                            "medianMs": 70.649,
+                            "p95Ms": 82.848,
+                            "maxMs": 100.772
+                        },
+                        {
+                            "from": 451,
+                            "to": 602,
+                            "medianMs": 92.673,
+                            "p95Ms": 113.181,
+                            "maxMs": 125.328
+                        },
+                        {
+                            "from": 602,
+                            "to": 753,
+                            "medianMs": 120.331,
+                            "p95Ms": 134.545,
+                            "maxMs": 158.449
+                        },
+                        {
+                            "from": 753,
+                            "to": 903,
+                            "medianMs": 142.966,
+                            "p95Ms": 157.211,
+                            "maxMs": 162.015
+                        },
+                        {
+                            "from": 903,
+                            "to": 1054,
+                            "medianMs": 176.994,
+                            "p95Ms": 223.111,
+                            "maxMs": 239.222
+                        },
+                        {
+                            "from": 1054,
+                            "to": 1204,
+                            "medianMs": 234.35,
+                            "p95Ms": 249.554,
+                            "maxMs": 252.457
+                        },
+                        {
+                            "from": 1204,
+                            "to": 1355,
+                            "medianMs": 265.794,
+                            "p95Ms": 279.927,
+                            "maxMs": 289.87
+                        },
+                        {
+                            "from": 1355,
+                            "to": 1506,
+                            "medianMs": 297.218,
+                            "p95Ms": 314.359,
+                            "maxMs": 321.868
+                        },
+                        {
+                            "from": 1506,
+                            "to": 1656,
+                            "medianMs": 328.088,
+                            "p95Ms": 344.4,
+                            "maxMs": 347.247
+                        },
+                        {
+                            "from": 1656,
+                            "to": 1807,
+                            "medianMs": 360.073,
+                            "p95Ms": 376.336,
+                            "maxMs": 387.26
+                        },
+                        {
+                            "from": 1807,
+                            "to": 1957,
+                            "medianMs": 391.524,
+                            "p95Ms": 412.204,
+                            "maxMs": 421.876
+                        },
+                        {
+                            "from": 1957,
+                            "to": 2108,
+                            "medianMs": 421.941,
+                            "p95Ms": 445.649,
+                            "maxMs": 475.622
+                        },
+                        {
+                            "from": 2108,
+                            "to": 2259,
+                            "medianMs": 452.712,
+                            "p95Ms": 471.974,
+                            "maxMs": 477.836
+                        },
+                        {
+                            "from": 2259,
+                            "to": 2409,
+                            "medianMs": 483.433,
+                            "p95Ms": 496.677,
+                            "maxMs": 501.754
+                        },
+                        {
+                            "from": 2409,
+                            "to": 2560,
+                            "medianMs": 518.509,
+                            "p95Ms": 529.88,
+                            "maxMs": 556.041
+                        },
+                        {
+                            "from": 2560,
+                            "to": 2710,
+                            "medianMs": 549.29,
+                            "p95Ms": 568.026,
+                            "maxMs": 586.744
+                        },
+                        {
+                            "from": 2710,
+                            "to": 2861,
+                            "medianMs": 578.591,
+                            "p95Ms": 597.205,
+                            "maxMs": 623.365
+                        },
+                        {
+                            "from": 2861,
+                            "to": 3012,
+                            "medianMs": 620.71,
+                            "p95Ms": 650.706,
+                            "maxMs": 671.019
+                        }
+                    ]
+                },
+                "build.delete": {
+                    "count": 2,
+                    "totalMs": 1256.637,
+                    "minMs": 626.404,
+                    "medianMs": 626.404,
+                    "p95Ms": 630.233,
+                    "maxMs": 630.233,
+                    "opsPerSec": 1.592
+                },
+                "build.move": {
+                    "count": 3,
+                    "totalMs": 1890.956,
+                    "minMs": 622.516,
+                    "medianMs": 628.904,
+                    "p95Ms": 639.536,
+                    "maxMs": 639.536,
+                    "opsPerSec": 1.586
+                },
+                "build.revision": {
+                    "count": 430,
+                    "totalMs": 52331.542,
+                    "minMs": 53.939,
+                    "medianMs": 120.537,
+                    "p95Ms": 185.87,
+                    "p99Ms": 199.555,
+                    "maxMs": 214.909,
+                    "opsPerSec": 8.217,
+                    "series": [
+                        {
+                            "from": 0,
+                            "to": 21,
+                            "medianMs": 60.041,
+                            "p95Ms": 64.507,
+                            "maxMs": 70.135
+                        },
+                        {
+                            "from": 21,
+                            "to": 43,
+                            "medianMs": 64.275,
+                            "p95Ms": 69.153,
+                            "maxMs": 71.865
+                        },
+                        {
+                            "from": 43,
+                            "to": 64,
+                            "medianMs": 72.662,
+                            "p95Ms": 75.641,
+                            "maxMs": 83.297
+                        },
+                        {
+                            "from": 64,
+                            "to": 86,
+                            "medianMs": 77.531,
+                            "p95Ms": 81.7,
+                            "maxMs": 81.934
+                        },
+                        {
+                            "from": 86,
+                            "to": 107,
+                            "medianMs": 83.902,
+                            "p95Ms": 86.537,
+                            "maxMs": 88.39
+                        },
+                        {
+                            "from": 107,
+                            "to": 129,
+                            "medianMs": 89.349,
+                            "p95Ms": 97.142,
+                            "maxMs": 99.767
+                        },
+                        {
+                            "from": 129,
+                            "to": 150,
+                            "medianMs": 95.36,
+                            "p95Ms": 101.542,
+                            "maxMs": 103.521
+                        },
+                        {
+                            "from": 150,
+                            "to": 172,
+                            "medianMs": 104.588,
+                            "p95Ms": 109.978,
+                            "maxMs": 112.478
+                        },
+                        {
+                            "from": 172,
+                            "to": 193,
+                            "medianMs": 112.141,
+                            "p95Ms": 116.386,
+                            "maxMs": 117.034
+                        },
+                        {
+                            "from": 193,
+                            "to": 215,
+                            "medianMs": 117.064,
+                            "p95Ms": 126.232,
+                            "maxMs": 129.088
+                        },
+                        {
+                            "from": 215,
+                            "to": 236,
+                            "medianMs": 123.019,
+                            "p95Ms": 128.011,
+                            "maxMs": 133.925
+                        },
+                        {
+                            "from": 236,
+                            "to": 258,
+                            "medianMs": 128.282,
+                            "p95Ms": 134.187,
+                            "maxMs": 136.076
+                        },
+                        {
+                            "from": 258,
+                            "to": 279,
+                            "medianMs": 136.938,
+                            "p95Ms": 139.968,
+                            "maxMs": 141.932
+                        },
+                        {
+                            "from": 279,
+                            "to": 301,
+                            "medianMs": 140.904,
+                            "p95Ms": 145.919,
+                            "maxMs": 146.024
+                        },
+                        {
+                            "from": 301,
+                            "to": 322,
+                            "medianMs": 147.495,
+                            "p95Ms": 155.023,
+                            "maxMs": 170.525
+                        },
+                        {
+                            "from": 322,
+                            "to": 344,
+                            "medianMs": 157.929,
+                            "p95Ms": 169.253,
+                            "maxMs": 170.5
+                        },
+                        {
+                            "from": 344,
+                            "to": 365,
+                            "medianMs": 167.293,
+                            "p95Ms": 173.844,
+                            "maxMs": 182.136
+                        },
+                        {
+                            "from": 365,
+                            "to": 387,
+                            "medianMs": 173.67,
+                            "p95Ms": 184.009,
+                            "maxMs": 184.318
+                        },
+                        {
+                            "from": 387,
+                            "to": 408,
+                            "medianMs": 179.745,
+                            "p95Ms": 190.927,
+                            "maxMs": 191.176
+                        },
+                        {
+                            "from": 408,
+                            "to": 430,
+                            "medianMs": 193.685,
+                            "p95Ms": 214.413,
+                            "maxMs": 214.909
+                        }
+                    ]
+                },
+                "build.save": {
+                    "count": 1297,
+                    "totalMs": 811455.184,
+                    "minMs": 604.506,
+                    "medianMs": 623.199,
+                    "p95Ms": 644.151,
+                    "p99Ms": 668.424,
+                    "maxMs": 845.179,
+                    "opsPerSec": 1.598,
+                    "series": [
+                        {
+                            "from": 0,
+                            "to": 64,
+                            "medianMs": 619.614,
+                            "p95Ms": 640.546,
+                            "maxMs": 644.864
+                        },
+                        {
+                            "from": 64,
+                            "to": 129,
+                            "medianMs": 621.432,
+                            "p95Ms": 631.98,
+                            "maxMs": 637.69
+                        },
+                        {
+                            "from": 129,
+                            "to": 194,
+                            "medianMs": 616.905,
+                            "p95Ms": 631.504,
+                            "maxMs": 643.061
+                        },
+                        {
+                            "from": 194,
+                            "to": 259,
+                            "medianMs": 622.246,
+                            "p95Ms": 646.323,
+                            "maxMs": 664.501
+                        },
+                        {
+                            "from": 259,
+                            "to": 324,
+                            "medianMs": 621.169,
+                            "p95Ms": 629.897,
+                            "maxMs": 644.61
+                        },
+                        {
+                            "from": 324,
+                            "to": 389,
+                            "medianMs": 624.415,
+                            "p95Ms": 637.617,
+                            "maxMs": 647.733
+                        },
+                        {
+                            "from": 389,
+                            "to": 453,
+                            "medianMs": 622.282,
+                            "p95Ms": 641.248,
+                            "maxMs": 662.213
+                        },
+                        {
+                            "from": 453,
+                            "to": 518,
+                            "medianMs": 625.031,
+                            "p95Ms": 652.517,
+                            "maxMs": 691.89
+                        },
+                        {
+                            "from": 518,
+                            "to": 583,
+                            "medianMs": 628.847,
+                            "p95Ms": 666.206,
+                            "maxMs": 698.938
+                        },
+                        {
+                            "from": 583,
+                            "to": 648,
+                            "medianMs": 624.076,
+                            "p95Ms": 632.678,
+                            "maxMs": 650.211
+                        },
+                        {
+                            "from": 648,
+                            "to": 713,
+                            "medianMs": 622.582,
+                            "p95Ms": 641.23,
+                            "maxMs": 655.38
+                        },
+                        {
+                            "from": 713,
+                            "to": 778,
+                            "medianMs": 625.28,
+                            "p95Ms": 638.603,
+                            "maxMs": 663.375
+                        },
+                        {
+                            "from": 778,
+                            "to": 843,
+                            "medianMs": 623.731,
+                            "p95Ms": 633.955,
+                            "maxMs": 656.307
+                        },
+                        {
+                            "from": 843,
+                            "to": 907,
+                            "medianMs": 621.682,
+                            "p95Ms": 640.111,
+                            "maxMs": 656.858
+                        },
+                        {
+                            "from": 907,
+                            "to": 972,
+                            "medianMs": 620.678,
+                            "p95Ms": 635.477,
+                            "maxMs": 645.323
+                        },
+                        {
+                            "from": 972,
+                            "to": 1037,
+                            "medianMs": 620.881,
+                            "p95Ms": 629.112,
+                            "maxMs": 641.654
+                        },
+                        {
+                            "from": 1037,
+                            "to": 1102,
+                            "medianMs": 623.633,
+                            "p95Ms": 635.809,
+                            "maxMs": 641.97
+                        },
+                        {
+                            "from": 1102,
+                            "to": 1167,
+                            "medianMs": 628.316,
+                            "p95Ms": 659.101,
+                            "maxMs": 765.631
+                        },
+                        {
+                            "from": 1167,
+                            "to": 1232,
+                            "medianMs": 629.861,
+                            "p95Ms": 668.424,
+                            "maxMs": 845.179
+                        },
+                        {
+                            "from": 1232,
+                            "to": 1297,
+                            "medianMs": 625.974,
+                            "p95Ms": 649.498,
+                            "maxMs": 684.439
+                        }
+                    ]
+                }
+            },
+            "checkpoints": [
+                {
+                    "label": "final",
+                    "position": {
+                        "files": 3010,
+                        "saves": 4309,
+                        "revisions": 430,
+                        "contentBytes": 14032670
+                    },
+                    "storage": {
+                        "year": {
+                            "diskBytes": 34372644,
+                            "gitBytes": 19960765,
+                            "looseObjects": 25111,
+                            "packs": 0,
+                            "packBytes": 0,
+                            "looseRefs": 436,
+                            "revisionTags": 435,
+                            "commits": 4334,
+                            "contentBytes": 14053150
+                        }
+                    },
+                    "ops": {
+                        "lastEdit": {
+                            "count": 5,
+                            "totalMs": 2395.778,
+                            "minMs": 0.398,
+                            "medianMs": 0.423,
+                            "p95Ms": 2393.969,
+                            "maxMs": 2393.969,
+                            "opsPerSec": 2.087
+                        },
+                        "read": {
+                            "count": 5,
+                            "totalMs": 1.198,
+                            "minMs": 0.12,
+                            "medianMs": 0.135,
+                            "p95Ms": 0.66,
+                            "maxMs": 0.66,
+                            "opsPerSec": 4174.494
+                        },
+                        "rebuild": {
+                            "count": 2,
+                            "totalMs": 433.123,
+                            "minMs": 197.107,
+                            "medianMs": 197.107,
+                            "p95Ms": 236.016,
+                            "maxMs": 236.016,
+                            "opsPerSec": 4.618
+                        },
+                        "revision.create": {
+                            "count": 5,
+                            "totalMs": 1202.84,
+                            "minMs": 196.281,
+                            "medianMs": 205.362,
+                            "p95Ms": 371.276,
+                            "maxMs": 371.276,
+                            "opsPerSec": 4.157
+                        },
+                        "revision.list.matchingLatest": {
+                            "count": 5,
+                            "totalMs": 20.065,
+                            "minMs": 2.291,
+                            "medianMs": 2.692,
+                            "p95Ms": 9.802,
+                            "maxMs": 9.802,
+                            "opsPerSec": 249.192
+                        },
+                        "revision.list.unmatched": {
+                            "count": 5,
+                            "totalMs": 21.999,
+                            "minMs": 3.662,
+                            "medianMs": 4.165,
+                            "p95Ms": 5.664,
+                            "maxMs": 5.664,
+                            "opsPerSec": 227.281
+                        },
+                        "revision.preview.newest": {
+                            "count": 5,
+                            "totalMs": 7.415,
+                            "minMs": 1.251,
+                            "medianMs": 1.453,
+                            "p95Ms": 1.932,
+                            "maxMs": 1.932,
+                            "opsPerSec": 674.301
+                        },
+                        "revision.preview.oldest": {
+                            "count": 5,
+                            "totalMs": 9.141,
+                            "minMs": 1.248,
+                            "medianMs": 1.828,
+                            "p95Ms": 2.74,
+                            "maxMs": 2.74,
+                            "opsPerSec": 546.976
+                        },
+                        "revision.restore.oldest": {
+                            "count": 2,
+                            "totalMs": 1247.966,
+                            "minMs": 621.724,
+                            "medianMs": 621.724,
+                            "p95Ms": 626.243,
+                            "maxMs": 626.243,
+                            "opsPerSec": 1.603
+                        },
+                        "save.existing": {
+                            "count": 5,
+                            "totalMs": 3228.345,
+                            "minMs": 633.094,
+                            "medianMs": 640.182,
+                            "p95Ms": 661.218,
+                            "maxMs": 661.218,
+                            "opsPerSec": 1.549
+                        },
+                        "save.hot": {
+                            "count": 7,
+                            "totalMs": 4480.463,
+                            "minMs": 625.023,
+                            "medianMs": 634.571,
+                            "p95Ms": 668.67,
+                            "maxMs": 668.67,
+                            "opsPerSec": 1.562
+                        },
+                        "save.new": {
+                            "count": 5,
+                            "totalMs": 3256.084,
+                            "minMs": 633.767,
+                            "medianMs": 643.98,
+                            "p95Ms": 696.56,
+                            "maxMs": 696.56,
+                            "opsPerSec": 1.536
+                        }
+                    }
+                },
+                {
+                    "label": "final restart",
+                    "position": {
+                        "files": 3015,
+                        "saves": 4326,
+                        "revisions": 435,
+                        "contentBytes": 14053150
+                    },
+                    "storage": {
+                    },
+                    "ops": {
+                        "restart": {
+                            "count": 1,
+                            "totalMs": 19.069,
+                            "minMs": 19.069,
+                            "medianMs": 19.069,
+                            "p95Ms": 19.069,
+                            "maxMs": 19.069,
+                            "opsPerSec": 52.44
+                        }
+                    }
+                },
+                {
+                    "label": "final after restart (cold)",
+                    "position": {
+                        "files": 3015,
+                        "saves": 4326,
+                        "revisions": 435,
+                        "contentBytes": 14053150
+                    },
+                    "storage": {
+                        "year": {
+                            "diskBytes": 34406675,
+                            "gitBytes": 19990549,
+                            "looseObjects": 25142,
+                            "packs": 0,
+                            "packBytes": 0,
+                            "looseRefs": 438,
+                            "revisionTags": 437,
+                            "commits": 4340,
+                            "contentBytes": 14057246
+                        }
+                    },
+                    "ops": {
+                        "lastEdit": {
+                            "count": 1,
+                            "totalMs": 1501.596,
+                            "minMs": 1501.596,
+                            "medianMs": 1501.596,
+                            "p95Ms": 1501.596,
+                            "maxMs": 1501.596,
+                            "opsPerSec": 0.666
+                        },
+                        "read": {
+                            "count": 1,
+                            "totalMs": 0.178,
+                            "minMs": 0.178,
+                            "medianMs": 0.178,
+                            "p95Ms": 0.178,
+                            "maxMs": 0.178,
+                            "opsPerSec": 5614.035
+                        },
+                        "revision.create": {
+                            "count": 2,
+                            "totalMs": 403.266,
+                            "minMs": 193.667,
+                            "medianMs": 193.667,
+                            "p95Ms": 209.599,
+                            "maxMs": 209.599,
+                            "opsPerSec": 4.96
+                        },
+                        "revision.list.matchingLatest": {
+                            "count": 1,
+                            "totalMs": 3.526,
+                            "minMs": 3.526,
+                            "medianMs": 3.526,
+                            "p95Ms": 3.526,
+                            "maxMs": 3.526,
+                            "opsPerSec": 283.601
+                        },
+                        "revision.list.unmatched": {
+                            "count": 1,
+                            "totalMs": 7.55,
+                            "minMs": 7.55,
+                            "medianMs": 7.55,
+                            "p95Ms": 7.55,
+                            "maxMs": 7.55,
+                            "opsPerSec": 132.455
+                        },
+                        "revision.preview.newest": {
+                            "count": 1,
+                            "totalMs": 1.233,
+                            "minMs": 1.233,
+                            "medianMs": 1.233,
+                            "p95Ms": 1.233,
+                            "maxMs": 1.233,
+                            "opsPerSec": 810.756
+                        },
+                        "revision.preview.oldest": {
+                            "count": 1,
+                            "totalMs": 1.503,
+                            "minMs": 1.503,
+                            "medianMs": 1.503,
+                            "p95Ms": 1.503,
+                            "maxMs": 1.503,
+                            "opsPerSec": 665.484
+                        },
+                        "revision.restore.oldest": {
+                            "count": 1,
+                            "totalMs": 624.873,
+                            "minMs": 624.873,
+                            "medianMs": 624.873,
+                            "p95Ms": 624.873,
+                            "maxMs": 624.873,
+                            "opsPerSec": 1.6
+                        },
+                        "save.existing": {
+                            "count": 1,
+                            "totalMs": 622.91,
+                            "minMs": 622.91,
+                            "medianMs": 622.91,
+                            "p95Ms": 622.91,
+                            "maxMs": 622.91,
+                            "opsPerSec": 1.605
+                        },
+                        "save.hot": {
+                            "count": 3,
+                            "totalMs": 1893.209,
+                            "minMs": 624.712,
+                            "medianMs": 630.444,
+                            "p95Ms": 638.053,
+                            "maxMs": 638.053,
+                            "opsPerSec": 1.585
+                        },
+                        "save.new": {
+                            "count": 1,
+                            "totalMs": 623.703,
+                            "minMs": 623.703,
+                            "medianMs": 623.703,
+                            "p95Ms": 623.703,
+                            "maxMs": 623.703,
+                            "opsPerSec": 1.603
+                        }
+                    }
+                },
+                {
+                    "label": "final after restart (warm)",
+                    "position": {
+                        "files": 3016,
+                        "saves": 4331,
+                        "revisions": 437,
+                        "contentBytes": 14057246
+                    },
+                    "storage": {
+                        "year": {
+                            "diskBytes": 34522509,
+                            "gitBytes": 20085148,
+                            "looseObjects": 25247,
+                            "packs": 0,
+                            "packBytes": 0,
+                            "looseRefs": 444,
+                            "revisionTags": 443,
+                            "commits": 4360,
+                            "contentBytes": 14077726
+                        }
+                    },
+                    "ops": {
+                        "lastEdit": {
+                            "count": 5,
+                            "totalMs": 2.231,
+                            "minMs": 0.408,
+                            "medianMs": 0.417,
+                            "p95Ms": 0.574,
+                            "maxMs": 0.574,
+                            "opsPerSec": 2241.4
+                        },
+                        "read": {
+                            "count": 5,
+                            "totalMs": 0.485,
+                            "minMs": 0.058,
+                            "medianMs": 0.105,
+                            "p95Ms": 0.114,
+                            "maxMs": 0.114,
+                            "opsPerSec": 10300.422
+                        },
+                        "revision.create": {
+                            "count": 6,
+                            "totalMs": 1219.504,
+                            "minMs": 194.092,
+                            "medianMs": 197.388,
+                            "p95Ms": 216.032,
+                            "maxMs": 216.032,
+                            "opsPerSec": 4.92
+                        },
+                        "revision.list.matchingLatest": {
+                            "count": 5,
+                            "totalMs": 13.258,
+                            "minMs": 2.109,
+                            "medianMs": 2.609,
+                            "p95Ms": 3.355,
+                            "maxMs": 3.355,
+                            "opsPerSec": 377.145
+                        },
+                        "revision.list.unmatched": {
+                            "count": 5,
+                            "totalMs": 31.111,
+                            "minMs": 5.185,
+                            "medianMs": 5.609,
+                            "p95Ms": 8.219,
+                            "maxMs": 8.219,
+                            "opsPerSec": 160.714
+                        },
+                        "revision.preview.newest": {
+                            "count": 5,
+                            "totalMs": 6.187,
+                            "minMs": 0.85,
+                            "medianMs": 1.204,
+                            "p95Ms": 1.673,
+                            "maxMs": 1.673,
+                            "opsPerSec": 808.157
+                        },
+                        "revision.preview.oldest": {
+                            "count": 5,
+                            "totalMs": 8.382,
+                            "minMs": 1.459,
+                            "medianMs": 1.631,
+                            "p95Ms": 2.007,
+                            "maxMs": 2.007,
+                            "opsPerSec": 596.487
+                        },
+                        "revision.restore.oldest": {
+                            "count": 2,
+                            "totalMs": 1262.11,
+                            "minMs": 629.199,
+                            "medianMs": 629.199,
+                            "p95Ms": 632.911,
+                            "maxMs": 632.911,
+                            "opsPerSec": 1.585
+                        },
+                        "save.existing": {
+                            "count": 5,
+                            "totalMs": 3133.131,
+                            "minMs": 623.205,
+                            "medianMs": 626.62,
+                            "p95Ms": 630.699,
+                            "maxMs": 630.699,
+                            "opsPerSec": 1.596
+                        },
+                        "save.hot": {
+                            "count": 8,
+                            "totalMs": 5046.018,
+                            "minMs": 622.262,
+                            "medianMs": 630.753,
+                            "p95Ms": 637.819,
+                            "maxMs": 637.819,
+                            "opsPerSec": 1.585
+                        },
+                        "save.new": {
+                            "count": 5,
+                            "totalMs": 3168.146,
+                            "minMs": 623.832,
+                            "medianMs": 628.971,
+                            "p95Ms": 647.69,
+                            "maxMs": 647.69,
+                            "opsPerSec": 1.578
+                        }
+                    }
+                },
+                {
+                    "label": "final remote",
+                    "position": {
+                        "files": 3021,
+                        "saves": 4349,
+                        "revisions": 443,
+                        "contentBytes": 14077726
+                    },
+                    "storage": {
+                        "year-follower": {
+                            "diskBytes": 21268620,
+                            "gitBytes": 6831259,
+                            "looseObjects": 0,
+                            "packs": 1,
+                            "packBytes": 5958899,
+                            "looseRefs": 1,
+                            "revisionTags": 443,
+                            "commits": 4360,
+                            "contentBytes": 14077726
+                        }
+                    },
+                    "ops": {
+                        "clone": {
+                            "count": 1,
+                            "totalMs": 4274.041,
+                            "minMs": 4274.041,
+                            "medianMs": 4274.041,
+                            "p95Ms": 4274.041,
+                            "maxMs": 4274.041,
+                            "opsPerSec": 0.234
+                        },
+                        "publish": {
+                            "count": 1,
+                            "totalMs": 5351.459,
+                            "minMs": 5351.459,
+                            "medianMs": 5351.459,
+                            "p95Ms": 5351.459,
+                            "maxMs": 5351.459,
+                            "opsPerSec": 0.187
+                        }
+                    }
+                },
+                {
+                    "label": "final fresh clone",
+                    "position": {
+                        "files": 3021,
+                        "saves": 4349,
+                        "revisions": 443,
+                        "contentBytes": 14077726
+                    },
+                    "storage": {
+                        "year-clone-final": {
+                            "diskBytes": 21268620,
+                            "gitBytes": 6831259,
+                            "looseObjects": 0,
+                            "packs": 1,
+                            "packBytes": 5958899,
+                            "looseRefs": 1,
+                            "revisionTags": 443,
+                            "commits": 4360,
+                            "contentBytes": 14077726
+                        }
+                    },
+                    "ops": {
+                        "clone": {
+                            "count": 1,
+                            "totalMs": 4148.117,
+                            "minMs": 4148.117,
+                            "medianMs": 4148.117,
+                            "p95Ms": 4148.117,
+                            "maxMs": 4148.117,
+                            "opsPerSec": 0.241
+                        }
+                    }
+                },
+                {
+                    "label": "after maintenance",
+                    "position": {
+                        "files": 3021,
+                        "saves": 4349,
+                        "revisions": 443,
+                        "contentBytes": 14077726
+                    },
+                    "storage": {
+                        "year": {
+                            "diskBytes": 22620770,
+                            "gitBytes": 8162174,
+                            "looseObjects": 105,
+                            "packs": 1,
+                            "packBytes": 5978671,
+                            "looseRefs": 7,
+                            "revisionTags": 449,
+                            "commits": 4380,
+                            "contentBytes": 14098206
+                        }
+                    },
+                    "ops": {
+                        "lastEdit": {
+                            "count": 5,
+                            "totalMs": 4.79,
+                            "minMs": 0.817,
+                            "medianMs": 0.892,
+                            "p95Ms": 1.255,
+                            "maxMs": 1.255,
+                            "opsPerSec": 1043.832
+                        },
+                        "read": {
+                            "count": 5,
+                            "totalMs": 0.959,
+                            "minMs": 0.074,
+                            "medianMs": 0.233,
+                            "p95Ms": 0.291,
+                            "maxMs": 0.291,
+                            "opsPerSec": 5214.895
+                        },
+                        "revision.create": {
+                            "count": 6,
+                            "totalMs": 689.9,
+                            "minMs": 109.617,
+                            "medianMs": 110.972,
+                            "p95Ms": 131.729,
+                            "maxMs": 131.729,
+                            "opsPerSec": 8.697
+                        },
+                        "revision.list.matchingLatest": {
+                            "count": 5,
+                            "totalMs": 12.178,
+                            "minMs": 2.22,
+                            "medianMs": 2.372,
+                            "p95Ms": 2.814,
+                            "maxMs": 2.814,
+                            "opsPerSec": 410.578
+                        },
+                        "revision.list.unmatched": {
+                            "count": 5,
+                            "totalMs": 26.716,
+                            "minMs": 4.073,
+                            "medianMs": 4.898,
+                            "p95Ms": 8.019,
+                            "maxMs": 8.019,
+                            "opsPerSec": 187.157
+                        },
+                        "revision.preview.newest": {
+                            "count": 5,
+                            "totalMs": 7.957,
+                            "minMs": 1.332,
+                            "medianMs": 1.604,
+                            "p95Ms": 1.777,
+                            "maxMs": 1.777,
+                            "opsPerSec": 628.41
+                        },
+                        "revision.preview.oldest": {
+                            "count": 5,
+                            "totalMs": 5.923,
+                            "minMs": 1.154,
+                            "medianMs": 1.174,
+                            "p95Ms": 1.228,
+                            "maxMs": 1.228,
+                            "opsPerSec": 844.096
+                        },
+                        "revision.restore.oldest": {
+                            "count": 2,
+                            "totalMs": 1303.059,
+                            "minMs": 648.227,
+                            "medianMs": 648.227,
+                            "p95Ms": 654.831,
+                            "maxMs": 654.831,
+                            "opsPerSec": 1.535
+                        },
+                        "save.existing": {
+                            "count": 5,
+                            "totalMs": 3315.111,
+                            "minMs": 648.657,
+                            "medianMs": 657.194,
+                            "p95Ms": 689.935,
+                            "maxMs": 689.935,
+                            "opsPerSec": 1.508
+                        },
+                        "save.hot": {
+                            "count": 8,
+                            "totalMs": 5628.621,
+                            "minMs": 625.256,
+                            "medianMs": 649.302,
+                            "p95Ms": 1103.462,
+                            "maxMs": 1103.462,
+                            "opsPerSec": 1.421
+                        },
+                        "save.new": {
+                            "count": 5,
+                            "totalMs": 3292.998,
+                            "minMs": 651.489,
+                            "medianMs": 659.974,
+                            "p95Ms": 666.377,
+                            "maxMs": 666.377,
+                            "opsPerSec": 1.518
+                        }
+                    }
+                }
+            ],
+            "results": {
+                "mix": {
+                    "contentBytes": 14032670,
+                    "moves": 3,
+                    "heaviestFileRevisions": 17,
+                    "creates": 12,
+                    "deletes": 2,
+                    "revisions": 430,
+                    "files": 3010,
+                    "saves": 4309
+                },
+                "maintenance": {
+                    "method": "manual JGit gc (diagnostic only; no production maintenance exists)",
+                    "before": {
+                        "diskBytes": 34522673,
+                        "gitBytes": 20085312,
+                        "looseObjects": 25247,
+                        "packs": 0,
+                        "packBytes": 0,
+                        "looseRefs": 444,
+                        "revisionTags": 443,
+                        "commits": 4360
+                    },
+                    "seconds": 9.47,
+                    "after": {
+                        "diskBytes": 22503245,
+                        "gitBytes": 8065884,
+                        "looseObjects": 0,
+                        "packs": 1,
+                        "packBytes": 5978671,
+                        "looseRefs": 0,
+                        "revisionTags": 443,
+                        "commits": 4360
+                    }
+                }
+            },
+            "notes": [
+                "Stopped year at 4309 of 50000 saves: scenario budget of 30.0 min exceeded after 1800 s"
+            ],
+            "checks": [
+            ],
+            "checksPassed": 80,
+            "checksFailed": 0
+        }
+    ]
+}

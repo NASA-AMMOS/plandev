@@ -117,3 +117,7 @@ current state. Clones are compared by revision position, not id.
 - Postgres in Docker on macOS adds port-forwarding latency to catalog calls.
 - Workloads never re-create a deleted path, so results don't depend on whether a future design gives a re-created
   path the old file's revisions.
+
+## Results
+
+- [2026-10-09 baseline](results-2026-10-09.md): the `prototype/git-authoritative-revisions` backend.

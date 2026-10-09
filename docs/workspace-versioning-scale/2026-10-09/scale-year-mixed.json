@@ -1,0 +1,915 @@
+{
+  "profile": "scale",
+  "environment": {
+    "timestamp": "2026-10-09T18:21:08.707984Z",
+    "gitCommit": "e4af34318 (recorded value was wrong: the checkout was switched to another branch 3 minutes before this run ended; the running JVM was unaffected)",
+    "gitBranch": "perf/workspace-versioning-scale-harness",
+    "gitDirty": true,
+    "java": "21.0.9 (OpenJDK 64-Bit Server VM, Eclipse Adoptium)",
+    "jvmArgs": [
+      "-Dorg.slf4j.simpleLogger.defaultLogLevel=warn",
+      "-Xmx3g",
+      "-Dfile.encoding=UTF-8",
+      "-Duser.country=US",
+      "-Duser.language=en",
+      "-Duser.variant"
+    ],
+    "os": "Mac OS X 26.6.2 aarch64",
+    "cpus": 16,
+    "physicalMemoryBytes": 51539607552,
+    "freeMemoryBytes": 1071513600,
+    "maxHeapBytes": 3221225472,
+    "filesystem": "apfs /dev/disk3s5",
+    "filesystemFreeBytes": 1319385899008
+  },
+  "driver": {
+    "adapter": "git-revisions-prototype",
+    "revisionCatalog": "postgres",
+    "postgres": "jdbc:postgresql://localhost:31024/postgres?user=postgres_user&password=***",
+    "jgit": "6.10.0.202406032230-r",
+    "workspaceRoot": "/Users/aplave/code/pd/workspace-file-versioning-backend/workspace-server/build/scale-results/scale-year-mixed/data"
+  },
+  "params": {
+    "budgetMinutes": "20",
+    "concurrency.ops": "200",
+    "concurrency.writers": "1,4,10,20",
+    "history.checkpoints": "0,100,1000,5000,10000,25000,50000",
+    "history.files": "50",
+    "independent.ops": "200",
+    "independent.workspaces": "1,4,10,20",
+    "jdbc": "jdbc:postgresql://localhost:31024/postgres?user=postgres_user&password=postgres_user",
+    "opCeilingSeconds": "600",
+    "out": "build/scale-results/scale-year-mixed",
+    "profile": "scale",
+    "remote.checkpoints": "1000,10000",
+    "remote.files": "50",
+    "remote.revisionEvery": "10",
+    "reps": "5",
+    "revisions.one.checkpoints": "0,100,1000,2000",
+    "revisions.spread.checkpoints": "100,1000,2000",
+    "revisions.spread.files": "1000",
+    "scenarios": "year",
+    "seed": "20261009",
+    "storage.kinds": "small-text:text:4096:20000,medium-text:text:1048576:2000,binary-1MiB:binary:1048576:1000,binary-10MiB:binary:10485760:200",
+    "storage.maintenance": "true",
+    "tree.extraMiB": "8,32,128",
+    "tree.files": "100,1000,10000,50000",
+    "verify.revisionSamples": "200",
+    "year.binaryShare": "0.003",
+    "year.binarySize": "1048576",
+    "year.checkpointEvery": "10000",
+    "year.createRate": "0.01",
+    "year.deleteRate": "0.002",
+    "year.files": "3000",
+    "year.filesPerDir": "50",
+    "year.hotFiles": "30",
+    "year.hotRevisionShare": "0.7",
+    "year.hotSaveShare": "0.5",
+    "year.maintenance": "true",
+    "year.mediumMax": "1048576",
+    "year.mediumMin": "65536",
+    "year.mediumShare": "0.02",
+    "year.moveRate": "0.003",
+    "year.remote": "true",
+    "year.restartEvery": "10000",
+    "year.revisions": "5000",
+    "year.saves": "50000",
+    "year.verifySamples": "500"
+  },
+  "scenarios": [
+    {
+      "scenario": "year",
+      "status": "OK",
+      "seconds": 1319.437,
+      "params": {
+        "budgetMinutes": "20",
+        "reps": "5",
+        "seed": "20261009",
+        "year.binaryShare": "0.003",
+        "year.binarySize": "1048576",
+        "year.checkpointEvery": "10000",
+        "year.createRate": "0.01",
+        "year.deleteRate": "0.002",
+        "year.files": "3000",
+        "year.filesPerDir": "50",
+        "year.hotFiles": "30",
+        "year.hotRevisionShare": "0.7",
+        "year.hotSaveShare": "0.5",
+        "year.maintenance": "true",
+        "year.mediumMax": "1048576",
+        "year.mediumMin": "65536",
+        "year.mediumShare": "0.02",
+        "year.moveRate": "0.003",
+        "year.remote": "true",
+        "year.restartEvery": "10000",
+        "year.revisions": "5000",
+        "year.saves": "50000",
+        "year.verifySamples": "500"
+      },
+      "ops": {
+        "build.create": {
+          "count": 1565,
+          "totalMs": 1200319.712,
+          "minMs": 14.236,
+          "medianMs": 738.62,
+          "p95Ms": 1373.808,
+          "p99Ms": 1497.502,
+          "maxMs": 1702.372,
+          "opsPerSec": 1.304,
+          "series": [
+            {
+              "from": 0,
+              "to": 78,
+              "medianMs": 24.259,
+              "p95Ms": 34.376,
+              "maxMs": 295.752
+            },
+            {
+              "from": 78,
+              "to": 156,
+              "medianMs": 123.09,
+              "p95Ms": 179.341,
+              "maxMs": 185.291
+            },
+            {
+              "from": 156,
+              "to": 234,
+              "medianMs": 252.222,
+              "p95Ms": 273.979,
+              "maxMs": 318.123
+            },
+            {
+              "from": 234,
+              "to": 313,
+              "medianMs": 307.707,
+              "p95Ms": 411.71,
+              "maxMs": 424.977
+            },
+            {
+              "from": 313,
+              "to": 391,
+              "medianMs": 420.953,
+              "p95Ms": 444.182,
+              "maxMs": 595.011
+            },
+            {
+              "from": 391,
+              "to": 469,
+              "medianMs": 508.454,
+              "p95Ms": 554.988,
+              "maxMs": 574.494
+            },
+            {
+              "from": 469,
+              "to": 547,
+              "medianMs": 635.9,
+              "p95Ms": 664.945,
+              "maxMs": 683.986
+            },
+            {
+              "from": 547,
+              "to": 626,
+              "medianMs": 640.421,
+              "p95Ms": 663.815,
+              "maxMs": 681.868
+            },
+            {
+              "from": 626,
+              "to": 704,
+              "medianMs": 687.186,
+              "p95Ms": 726.4,
+              "maxMs": 755.457
+            },
+            {
+              "from": 704,
+              "to": 782,
+              "medianMs": 729.175,
+              "p95Ms": 758.229,
+              "maxMs": 769.884
+            },
+            {
+              "from": 782,
+              "to": 860,
+              "medianMs": 764.974,
+              "p95Ms": 815.629,
+              "maxMs": 832.542
+            },
+            {
+              "from": 860,
+              "to": 939,
+              "medianMs": 839.047,
+              "p95Ms": 871.726,
+              "maxMs": 887.592
+            },
+            {
+              "from": 939,
+              "to": 1017,
+              "medianMs": 888.367,
+              "p95Ms": 952.388,
+              "maxMs": 992.601
+            },
+            {
+              "from": 1017,
+              "to": 1095,
+              "medianMs": 985.495,
+              "p95Ms": 1025.077,
+              "maxMs": 1042.641
+            },
+            {
+              "from": 1095,
+              "to": 1173,
+              "medianMs": 1068.528,
+              "p95Ms": 1111.578,
+              "maxMs": 1152.194
+            },
+            {
+              "from": 1173,
+              "to": 1252,
+              "medianMs": 1111.446,
+              "p95Ms": 1268.388,
+              "maxMs": 1276.669
+            },
+            {
+              "from": 1252,
+              "to": 1330,
+              "medianMs": 1262.035,
+              "p95Ms": 1321.23,
+              "maxMs": 1348.912
+            },
+            {
+              "from": 1330,
+              "to": 1408,
+              "medianMs": 1307.871,
+              "p95Ms": 1385.586,
+              "maxMs": 1423.835
+            },
+            {
+              "from": 1408,
+              "to": 1486,
+              "medianMs": 1340.188,
+              "p95Ms": 1385.754,
+              "maxMs": 1402.027
+            },
+            {
+              "from": 1486,
+              "to": 1565,
+              "medianMs": 1442.274,
+              "p95Ms": 1552.069,
+              "maxMs": 1702.372
+            }
+          ]
+        }
+      },
+      "checkpoints": [
+        {
+          "label": "final",
+          "position": {
+            "files": 1565,
+            "saves": 1565,
+            "revisions": 0,
+            "contentBytes": 32791045
+          },
+          "storage": {
+            "year": {
+              "diskBytes": 47508791,
+              "gitBytes": 14510682,
+              "looseObjects": 9495,
+              "packs": 0,
+              "packBytes": 0,
+              "looseRefs": 7,
+              "revisionTags": 6,
+              "commits": 1586,
+              "contentBytes": 32811525
+            }
+          },
+          "ops": {
+            "lastEdit": {
+              "count": 5,
+              "totalMs": 1408.243,
+              "minMs": 0.543,
+              "medianMs": 0.685,
+              "p95Ms": 1405.591,
+              "maxMs": 1405.591,
+              "opsPerSec": 3.551
+            },
+            "read": {
+              "count": 5,
+              "totalMs": 1.369,
+              "minMs": 0.131,
+              "medianMs": 0.139,
+              "p95Ms": 0.82,
+              "maxMs": 0.82,
+              "opsPerSec": 3651.41
+            },
+            "rebuild": {
+              "count": 2,
+              "totalMs": 78.111,
+              "minMs": 38.104,
+              "medianMs": 38.104,
+              "p95Ms": 40.007,
+              "maxMs": 40.007,
+              "opsPerSec": 25.605
+            },
+            "revision.create": {
+              "count": 5,
+              "totalMs": 174.198,
+              "minMs": 33.604,
+              "medianMs": 34.719,
+              "p95Ms": 36.223,
+              "maxMs": 36.223,
+              "opsPerSec": 28.703
+            },
+            "revision.create.first": {
+              "count": 1,
+              "totalMs": 49.846,
+              "minMs": 49.846,
+              "medianMs": 49.846,
+              "p95Ms": 49.846,
+              "maxMs": 49.846,
+              "opsPerSec": 20.062
+            },
+            "revision.list.matchingLatest": {
+              "count": 5,
+              "totalMs": 21.29,
+              "minMs": 2.538,
+              "medianMs": 3.087,
+              "p95Ms": 9.807,
+              "maxMs": 9.807,
+              "opsPerSec": 234.847
+            },
+            "revision.list.unmatched": {
+              "count": 5,
+              "totalMs": 10.179,
+              "minMs": 1.424,
+              "medianMs": 1.657,
+              "p95Ms": 3.816,
+              "maxMs": 3.816,
+              "opsPerSec": 491.209
+            },
+            "revision.preview.newest": {
+              "count": 5,
+              "totalMs": 7.32,
+              "minMs": 1.141,
+              "medianMs": 1.335,
+              "p95Ms": 1.894,
+              "maxMs": 1.894,
+              "opsPerSec": 683.107
+            },
+            "revision.preview.oldest": {
+              "count": 5,
+              "totalMs": 8.729,
+              "minMs": 1.463,
+              "medianMs": 1.758,
+              "p95Ms": 1.955,
+              "maxMs": 1.955,
+              "opsPerSec": 572.833
+            },
+            "revision.restore.oldest": {
+              "count": 2,
+              "totalMs": 2920.239,
+              "minMs": 1450.021,
+              "medianMs": 1450.021,
+              "p95Ms": 1470.218,
+              "maxMs": 1470.218,
+              "opsPerSec": 0.685
+            },
+            "save.existing": {
+              "count": 5,
+              "totalMs": 7365.161,
+              "minMs": 1451.822,
+              "medianMs": 1470.495,
+              "p95Ms": 1506.326,
+              "maxMs": 1506.326,
+              "opsPerSec": 0.679
+            },
+            "save.hot": {
+              "count": 8,
+              "totalMs": 11845.434,
+              "minMs": 1443.119,
+              "medianMs": 1464.768,
+              "p95Ms": 1579.503,
+              "maxMs": 1579.503,
+              "opsPerSec": 0.675
+            },
+            "save.new": {
+              "count": 5,
+              "totalMs": 7444.428,
+              "minMs": 1454.129,
+              "medianMs": 1487.035,
+              "p95Ms": 1556.478,
+              "maxMs": 1556.478,
+              "opsPerSec": 0.672
+            }
+          }
+        },
+        {
+          "label": "final restart",
+          "position": {
+            "files": 1570,
+            "saves": 1583,
+            "revisions": 6,
+            "contentBytes": 32811525
+          },
+          "storage": {},
+          "ops": {
+            "restart": {
+              "count": 1,
+              "totalMs": 47.631,
+              "minMs": 47.631,
+              "medianMs": 47.631,
+              "p95Ms": 47.631,
+              "maxMs": 47.631,
+              "opsPerSec": 20.995
+            }
+          }
+        },
+        {
+          "label": "final after restart (cold)",
+          "position": {
+            "files": 1570,
+            "saves": 1583,
+            "revisions": 6,
+            "contentBytes": 32811525
+          },
+          "storage": {
+            "year": {
+              "diskBytes": 47537518,
+              "gitBytes": 14535162,
+              "looseObjects": 9526,
+              "packs": 0,
+              "packBytes": 0,
+              "looseRefs": 9,
+              "revisionTags": 8,
+              "commits": 1592,
+              "contentBytes": 32815621
+            }
+          },
+          "ops": {
+            "lastEdit": {
+              "count": 1,
+              "totalMs": 1097.172,
+              "minMs": 1097.172,
+              "medianMs": 1097.172,
+              "p95Ms": 1097.172,
+              "maxMs": 1097.172,
+              "opsPerSec": 0.911
+            },
+            "read": {
+              "count": 1,
+              "totalMs": 0.185,
+              "minMs": 0.185,
+              "medianMs": 0.185,
+              "p95Ms": 0.185,
+              "maxMs": 0.185,
+              "opsPerSec": 5411.49
+            },
+            "revision.create": {
+              "count": 2,
+              "totalMs": 97.634,
+              "minMs": 43.907,
+              "medianMs": 43.907,
+              "p95Ms": 53.727,
+              "maxMs": 53.727,
+              "opsPerSec": 20.485
+            },
+            "revision.list.matchingLatest": {
+              "count": 1,
+              "totalMs": 4.739,
+              "minMs": 4.739,
+              "medianMs": 4.739,
+              "p95Ms": 4.739,
+              "maxMs": 4.739,
+              "opsPerSec": 211.017
+            },
+            "revision.list.unmatched": {
+              "count": 1,
+              "totalMs": 12.663,
+              "minMs": 12.663,
+              "medianMs": 12.663,
+              "p95Ms": 12.663,
+              "maxMs": 12.663,
+              "opsPerSec": 78.968
+            },
+            "revision.preview.newest": {
+              "count": 1,
+              "totalMs": 1.727,
+              "minMs": 1.727,
+              "medianMs": 1.727,
+              "p95Ms": 1.727,
+              "maxMs": 1.727,
+              "opsPerSec": 578.899
+            },
+            "revision.preview.oldest": {
+              "count": 1,
+              "totalMs": 1.876,
+              "minMs": 1.876,
+              "medianMs": 1.876,
+              "p95Ms": 1.876,
+              "maxMs": 1.876,
+              "opsPerSec": 532.99
+            },
+            "revision.restore.oldest": {
+              "count": 1,
+              "totalMs": 1509.813,
+              "minMs": 1509.813,
+              "medianMs": 1509.813,
+              "p95Ms": 1509.813,
+              "maxMs": 1509.813,
+              "opsPerSec": 0.662
+            },
+            "save.existing": {
+              "count": 1,
+              "totalMs": 1510.227,
+              "minMs": 1510.227,
+              "medianMs": 1510.227,
+              "p95Ms": 1510.227,
+              "maxMs": 1510.227,
+              "opsPerSec": 0.662
+            },
+            "save.hot": {
+              "count": 3,
+              "totalMs": 4562.909,
+              "minMs": 1474.336,
+              "medianMs": 1543.863,
+              "p95Ms": 1544.71,
+              "maxMs": 1544.71,
+              "opsPerSec": 0.657
+            },
+            "save.new": {
+              "count": 1,
+              "totalMs": 1658.019,
+              "minMs": 1658.019,
+              "medianMs": 1658.019,
+              "p95Ms": 1658.019,
+              "maxMs": 1658.019,
+              "opsPerSec": 0.603
+            }
+          }
+        },
+        {
+          "label": "final after restart (warm)",
+          "position": {
+            "files": 1571,
+            "saves": 1588,
+            "revisions": 8,
+            "contentBytes": 32815621
+          },
+          "storage": {
+            "year": {
+              "diskBytes": 47638432,
+              "gitBytes": 14614841,
+              "looseObjects": 9631,
+              "packs": 0,
+              "packBytes": 0,
+              "looseRefs": 15,
+              "revisionTags": 14,
+              "commits": 1612,
+              "contentBytes": 32836101
+            }
+          },
+          "ops": {
+            "lastEdit": {
+              "count": 5,
+              "totalMs": 2.404,
+              "minMs": 0.444,
+              "medianMs": 0.448,
+              "p95Ms": 0.619,
+              "maxMs": 0.619,
+              "opsPerSec": 2079.616
+            },
+            "read": {
+              "count": 5,
+              "totalMs": 0.364,
+              "minMs": 0.055,
+              "medianMs": 0.059,
+              "p95Ms": 0.122,
+              "maxMs": 0.122,
+              "opsPerSec": 13744.118
+            },
+            "revision.create": {
+              "count": 6,
+              "totalMs": 218.049,
+              "minMs": 34.228,
+              "medianMs": 36.374,
+              "p95Ms": 37.978,
+              "maxMs": 37.978,
+              "opsPerSec": 27.517
+            },
+            "revision.list.matchingLatest": {
+              "count": 5,
+              "totalMs": 12.312,
+              "minMs": 2.097,
+              "medianMs": 2.358,
+              "p95Ms": 3.09,
+              "maxMs": 3.09,
+              "opsPerSec": 406.106
+            },
+            "revision.list.unmatched": {
+              "count": 5,
+              "totalMs": 14.505,
+              "minMs": 2.373,
+              "medianMs": 2.532,
+              "p95Ms": 4.509,
+              "maxMs": 4.509,
+              "opsPerSec": 344.72
+            },
+            "revision.preview.newest": {
+              "count": 5,
+              "totalMs": 6.972,
+              "minMs": 1.192,
+              "medianMs": 1.343,
+              "p95Ms": 1.721,
+              "maxMs": 1.721,
+              "opsPerSec": 717.159
+            },
+            "revision.preview.oldest": {
+              "count": 5,
+              "totalMs": 8.227,
+              "minMs": 1.397,
+              "medianMs": 1.51,
+              "p95Ms": 1.996,
+              "maxMs": 1.996,
+              "opsPerSec": 607.73
+            },
+            "revision.restore.oldest": {
+              "count": 2,
+              "totalMs": 2924.255,
+              "minMs": 1443.809,
+              "medianMs": 1443.809,
+              "p95Ms": 1480.446,
+              "maxMs": 1480.446,
+              "opsPerSec": 0.684
+            },
+            "save.existing": {
+              "count": 5,
+              "totalMs": 7500.591,
+              "minMs": 1481.236,
+              "medianMs": 1490.545,
+              "p95Ms": 1525.994,
+              "maxMs": 1525.994,
+              "opsPerSec": 0.667
+            },
+            "save.hot": {
+              "count": 8,
+              "totalMs": 11837.33,
+              "minMs": 1442.127,
+              "medianMs": 1453.206,
+              "p95Ms": 1594.249,
+              "maxMs": 1594.249,
+              "opsPerSec": 0.676
+            },
+            "save.new": {
+              "count": 5,
+              "totalMs": 7329.484,
+              "minMs": 1461.906,
+              "medianMs": 1464.425,
+              "p95Ms": 1471.21,
+              "maxMs": 1471.21,
+              "opsPerSec": 0.682
+            }
+          }
+        },
+        {
+          "label": "final remote",
+          "position": {
+            "files": 1576,
+            "saves": 1606,
+            "revisions": 14,
+            "contentBytes": 32836101
+          },
+          "storage": {
+            "year-follower": {
+              "diskBytes": 42507888,
+              "gitBytes": 9484297,
+              "looseObjects": 0,
+              "packs": 1,
+              "packBytes": 9183273,
+              "looseRefs": 1,
+              "revisionTags": 14,
+              "commits": 1612,
+              "contentBytes": 32836101
+            }
+          },
+          "ops": {
+            "clone": {
+              "count": 1,
+              "totalMs": 3379.323,
+              "minMs": 3379.323,
+              "medianMs": 3379.323,
+              "p95Ms": 3379.323,
+              "maxMs": 3379.323,
+              "opsPerSec": 0.296
+            },
+            "publish": {
+              "count": 1,
+              "totalMs": 3152.606,
+              "minMs": 3152.606,
+              "medianMs": 3152.606,
+              "p95Ms": 3152.606,
+              "maxMs": 3152.606,
+              "opsPerSec": 0.317
+            }
+          }
+        },
+        {
+          "label": "final fresh clone",
+          "position": {
+            "files": 1576,
+            "saves": 1606,
+            "revisions": 14,
+            "contentBytes": 32836101
+          },
+          "storage": {
+            "year-clone-final": {
+              "diskBytes": 42507888,
+              "gitBytes": 9484297,
+              "looseObjects": 0,
+              "packs": 1,
+              "packBytes": 9183273,
+              "looseRefs": 1,
+              "revisionTags": 14,
+              "commits": 1612,
+              "contentBytes": 32836101
+            }
+          },
+          "ops": {
+            "clone": {
+              "count": 1,
+              "totalMs": 3345.289,
+              "minMs": 3345.289,
+              "medianMs": 3345.289,
+              "p95Ms": 3345.289,
+              "maxMs": 3345.289,
+              "opsPerSec": 0.299
+            }
+          }
+        },
+        {
+          "label": "after maintenance",
+          "position": {
+            "files": 1576,
+            "saves": 1606,
+            "revisions": 14,
+            "contentBytes": 32836101
+          },
+          "storage": {
+            "year": {
+              "diskBytes": 43122825,
+              "gitBytes": 10077999,
+              "looseObjects": 105,
+              "packs": 1,
+              "packBytes": 9162572,
+              "looseRefs": 7,
+              "revisionTags": 20,
+              "commits": 1632,
+              "contentBytes": 32856581
+            }
+          },
+          "ops": {
+            "lastEdit": {
+              "count": 5,
+              "totalMs": 5.583,
+              "minMs": 0.878,
+              "medianMs": 1.036,
+              "p95Ms": 1.519,
+              "maxMs": 1.519,
+              "opsPerSec": 895.503
+            },
+            "read": {
+              "count": 5,
+              "totalMs": 0.465,
+              "minMs": 0.066,
+              "medianMs": 0.084,
+              "p95Ms": 0.152,
+              "maxMs": 0.152,
+              "opsPerSec": 10753.659
+            },
+            "revision.create": {
+              "count": 6,
+              "totalMs": 226.476,
+              "minMs": 36.038,
+              "medianMs": 37.154,
+              "p95Ms": 39.81,
+              "maxMs": 39.81,
+              "opsPerSec": 26.493
+            },
+            "revision.list.matchingLatest": {
+              "count": 5,
+              "totalMs": 13.383,
+              "minMs": 2.432,
+              "medianMs": 2.498,
+              "p95Ms": 3.048,
+              "maxMs": 3.048,
+              "opsPerSec": 373.607
+            },
+            "revision.list.unmatched": {
+              "count": 5,
+              "totalMs": 18.036,
+              "minMs": 2.867,
+              "medianMs": 3.085,
+              "p95Ms": 5.517,
+              "maxMs": 5.517,
+              "opsPerSec": 277.225
+            },
+            "revision.preview.newest": {
+              "count": 5,
+              "totalMs": 8.773,
+              "minMs": 1.543,
+              "medianMs": 1.782,
+              "p95Ms": 1.954,
+              "maxMs": 1.954,
+              "opsPerSec": 569.933
+            },
+            "revision.preview.oldest": {
+              "count": 5,
+              "totalMs": 8.419,
+              "minMs": 1.417,
+              "medianMs": 1.598,
+              "p95Ms": 2.254,
+              "maxMs": 2.254,
+              "opsPerSec": 593.868
+            },
+            "revision.restore.oldest": {
+              "count": 2,
+              "totalMs": 2990.745,
+              "minMs": 1490.832,
+              "medianMs": 1490.832,
+              "p95Ms": 1499.912,
+              "maxMs": 1499.912,
+              "opsPerSec": 0.669
+            },
+            "save.existing": {
+              "count": 5,
+              "totalMs": 7654.825,
+              "minMs": 1484.032,
+              "medianMs": 1527.32,
+              "p95Ms": 1574.553,
+              "maxMs": 1574.553,
+              "opsPerSec": 0.653
+            },
+            "save.hot": {
+              "count": 8,
+              "totalMs": 12419.865,
+              "minMs": 1499.116,
+              "medianMs": 1517.586,
+              "p95Ms": 1724.299,
+              "maxMs": 1724.299,
+              "opsPerSec": 0.644
+            },
+            "save.new": {
+              "count": 5,
+              "totalMs": 7483.121,
+              "minMs": 1476.835,
+              "medianMs": 1500.428,
+              "p95Ms": 1526.417,
+              "maxMs": 1526.417,
+              "opsPerSec": 0.668
+            }
+          }
+        }
+      ],
+      "results": {
+        "mix": {
+          "revisions": 0,
+          "deletes": 0,
+          "creates": 0,
+          "heaviestFileRevisions": 0,
+          "moves": 0,
+          "contentBytes": 32791045,
+          "saves": 1565,
+          "files": 1565
+        },
+        "maintenance": {
+          "method": "manual JGit gc (diagnostic only; no production maintenance exists)",
+          "before": {
+            "diskBytes": 47638597,
+            "gitBytes": 14615006,
+            "looseObjects": 9631,
+            "packs": 0,
+            "packBytes": 0,
+            "looseRefs": 15,
+            "revisionTags": 14,
+            "commits": 1612
+          },
+          "seconds": 3.468,
+          "after": {
+            "diskBytes": 43020495,
+            "gitBytes": 9996904,
+            "looseObjects": 0,
+            "packs": 1,
+            "packBytes": 9162572,
+            "looseRefs": 0,
+            "revisionTags": 14,
+            "commits": 1612
+          }
+        }
+      },
+      "notes": [
+        "Stopped year at 1565 of 50000 saves: scenario budget of 20.0 min exceeded after 1200 s"
+      ],
+      "checks": [],
+      "checksPassed": 80,
+      "checksFailed": 0
+    }
+  ]
+}

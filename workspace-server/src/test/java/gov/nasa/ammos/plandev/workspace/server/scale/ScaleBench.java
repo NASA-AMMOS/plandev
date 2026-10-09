@@ -319,10 +319,13 @@ public final class ScaleBench {
     }
   }
 
-  private static void deleteTree(final Path dir) throws IOException {
+  /** Best effort: a background Git gc may still be adding or removing files; leftovers are reported, not fatal. */
+  private static void deleteTree(final Path dir) {
     if (!Files.exists(dir)) return;
     try (final Stream<Path> s = Files.walk(dir)) {
-      for (final var p : s.sorted(Comparator.reverseOrder()).toList()) Files.delete(p);
+      for (final var p : s.sorted(Comparator.reverseOrder()).toList()) Files.deleteIfExists(p);
+    } catch (IOException | java.io.UncheckedIOException e) {
+      System.out.println("Could not fully delete " + dir + " (" + e + "); remove it by hand.");
     }
   }
   //endregion

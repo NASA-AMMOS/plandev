@@ -111,7 +111,7 @@ public final class ScaleBench {
       "scale", Map.ofEntries(
           Map.entry("budgetMinutes", "240"),
           Map.entry("tree.files", "100,1000,10000,50000"),
-          Map.entry("tree.extraMiB", "8,32,128,512"),
+          Map.entry("tree.extraMiB", "8,32,128"),
           Map.entry("history.checkpoints", "0,100,1000,5000,10000,25000,50000"),
           Map.entry("revisions.one.checkpoints", "0,100,1000,10000"),
           Map.entry("revisions.spread.files", "1000"),

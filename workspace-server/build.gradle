@@ -62,5 +62,5 @@ tasks.register('workspaceScale', JavaExec) {
   dependsOn testClasses
   classpath = sourceSets.test.runtimeClasspath
   mainClass = 'gov.nasa.ammos.plandev.workspace.server.scale.ScaleBench'
-  jvmArgs = ['-Xmx8g', '-Dorg.slf4j.simpleLogger.defaultLogLevel=warn']
+  jvmArgs = ['-Xmx3g', '-Dorg.slf4j.simpleLogger.defaultLogLevel=warn']
 }

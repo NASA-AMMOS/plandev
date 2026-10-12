@@ -52,12 +52,10 @@ public final class WorkspacePaths {
     return null;
   }
 
-  /** A workspace-relative path as a '/'-separated Git path key. */
+  /** A workspace-relative Git path key. Git tree paths always use '/', regardless of the host filesystem separator. */
   public static String key(final Path root, final Path absolutePath) {
-    final var rel = root.normalize().relativize(absolutePath.normalize());
-    final var parts = new ArrayList<String>();
-    for (final var segment : rel) parts.add(segment.toString());
-    return String.join("/", parts);
+    final var relative = root.normalize().relativize(absolutePath.normalize());
+    return relative.toString().replace(relative.getFileSystem().getSeparator(), "/");
   }
 
   /**

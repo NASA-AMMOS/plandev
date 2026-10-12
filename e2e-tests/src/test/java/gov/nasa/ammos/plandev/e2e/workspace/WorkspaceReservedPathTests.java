@@ -24,8 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
- * The workspace's Git repository (.git), runtime state (.seqdev) and Git control files are not reachable through any
- * workspace file API.
+ * The workspace's Git repository (.git), internal scratch directory (.seqdev) and Git control files are not reachable
+ * through any workspace file API.
  */
 @Tag("workspace")
 public class WorkspaceReservedPathTests {

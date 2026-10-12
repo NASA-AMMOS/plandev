@@ -31,7 +31,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
-import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
@@ -401,11 +400,8 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var repoPath = roots.workspaceRootPath(workspaceId);
     final var path = resolveWritingPath(repoPath, filePath);
     resolveMetadataPath(repoPath, filePath); // validates the path can carry metadata
-    // lastEdited* is derived from history; here it only seeds createdBy/createdAt for a new file.
-    final var metadataUpdates = new MetadataUpdates.Builder(userId)
-        .lastEditedAt(Instant.now())
-        .lastEditedBy(userId)
-        .build();
+    // lastEdited* is derived from history. The builder's edit attribution seeds createdBy/createdAt for a new file.
+    final var metadataUpdates = new MetadataUpdates.Builder(userId).build();
 
     if(Files.isDirectory(path)) return Optional.empty();
 
@@ -454,15 +450,11 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     } else {
       Files.deleteIfExists(newMetadataPath);
     }
-    // Ensure the moved file has a sidecar (lastEdited* itself comes from the move's commit)
-    final var metadataUpdates = new MetadataUpdates.Builder(userId)
-        .lastEditedAt(Instant.now())
-        .lastEditedBy(userId)
-        .build();
+    // Ensure the moved file has a sidecar; lastEdited* itself comes from the move's commit.
+    final var metadataUpdates = new MetadataUpdates.Builder(userId).build();
     updateMetadata(newRepoPath, newFilePath, metadataUpdates, MetadataMergeBehavior.deepMerge);
 
     Files.move(oldPath, newPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-    moveState(oldRepoPath, oldPath, newRepoPath, newPath);
     return true;
   }
 
@@ -520,13 +512,9 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     } else {
       Files.deleteIfExists(destMetadataPath);
     }
-    final var key = WorkspacePaths.key(destRoot, destPath);
-    updateState(destRoot, s -> s.remove(key));
     final var metadataUpdates = new MetadataUpdates.Builder(userId)
         .createdAt(now)
         .createdBy(userId)
-        .lastEditedAt(now)
-        .lastEditedBy(userId)
         .readOnly(false)
         .build();
     updateMetadata(destRoot, destRoot.normalize().relativize(destPath), metadataUpdates, MetadataMergeBehavior.deepMerge);
@@ -551,10 +539,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       }
     }
 
-    if (!rm(file)) return false;
-    final var key = WorkspacePaths.key(repoPath, path);
-    updateState(repoPath, s -> s.remove(key));
-    return true;
+    return rm(file);
   }
   //endregion
 
@@ -607,9 +592,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       throw new WorkspaceFileOpException("Cannot move a directory into itself.");
     }
 
-    if (!oldPath.toFile().renameTo(newPath.toFile())) return false;
-    moveState(oldRepoPath, oldPath, newRepoPath, newPath);
-    return true;
+    return oldPath.toFile().renameTo(newPath.toFile());
   }
 
   @Override
@@ -627,7 +610,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var destRepoPath = (sourceWorkspaceId == destWorkspaceId) ? sourceRepoPath : roots.workspaceRootPath(destWorkspaceId);
     final var destPath = resolveWritingPath(destRepoPath, destFilePath);
 
-    // The root owns the workspace's history and runtime state; copying "the whole workspace" is not a file operation
+    // The root owns the workspace's history and internal files; copying "the whole workspace" is not a file operation
     if (sourcePath.equals(sourceRepoPath.normalize())) {
       throw new WorkspaceFileOpException("Cannot copy the workspace root directory.");
     }
@@ -673,38 +656,30 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     if (path.equals(repoPath.normalize())) {
       throw new WorkspaceFileOpException("Cannot delete the workspace root directory.");
     }
-    if (!rmDirectory(path.toFile())) return false;
-    final var key = WorkspacePaths.key(repoPath, path);
-    updateState(repoPath, s -> s.remove(key));
-    return true;
+    return rmDirectory(path.toFile());
   }
 
-  /**
-   * Whether a file is read-only. Read-only is runtime state ({@link WorkspaceState}), so this must be called within a
-   * workspace mutation, where the workspace is guaranteed to have been migrated.
-   */
+  /** Whether a file's metadata marks it read-only. */
   @Override
   public boolean isReadOnly(final int workspaceId, final Path filePath)
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException, JsonException
   {
+    history.requireLocked(workspaceId);
     return isReadOnly(roots.workspaceRootPath(workspaceId), filePath);
   }
 
   private boolean isReadOnly(final Path repoPath, final Path filePath)
   throws WorkspaceFileOpException, IOException, JsonException
   {
-    resolveMetadataPath(repoPath, filePath); // rejects directories and metadata files
-    if (!history.isManaged(repoPath)) {
-      throw new IllegalStateException("readOnly was checked outside a workspace mutation for " + repoPath);
-    }
-    final var key = WorkspacePaths.key(repoPath, resolveReadingPath(repoPath, filePath));
-    return WorkspaceState.load(repoPath).readOnly(key).orElse(false);
+    final var metadataPath = resolveMetadataPath(repoPath, filePath); // rejects directories and metadata files
+    return readMetadataFile(metadataPath.toFile()).getBoolean(MetadataKeys.readOnly.name(), false);
   }
 
   @Override
   public List<Path> getReadOnlyFiles(final int workspaceId, final Path dirPath)
   throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException, JsonException, SQLException
   {
+    history.requireLocked(workspaceId);
     final var repoPath = roots.workspaceRootPath(workspaceId);
     final var directoryPath = resolveReadingPath(repoPath, dirPath);
 
@@ -715,30 +690,19 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       return List.of();
     }
 
-    return WorkspaceState.load(repoPath)
-                         .readOnlyAtOrUnder(WorkspacePaths.key(repoPath, directoryPath))
-                         .stream()
-                         .map(repoPath::resolve)
-                         .filter(Files::exists)
-                         .toList();
-  }
+    final var readOnly = new ArrayList<Path>();
+    for (final var path : WorkspacePaths.walk(directoryPath, Integer.MAX_VALUE)) {
+      final var name = path.getFileName().toString();
+      if (!Files.isRegularFile(path) || !RenderType.isAerieMetadataFile(name)) continue;
+      if (!readMetadataFile(path.toFile()).getBoolean(MetadataKeys.readOnly.name(), false)) continue;
 
-  /** Runtime state follows a moved file or directory; pre-history lastEdited values do not (the move is a commit). */
-  private static void moveState(final Path fromRoot, final Path from, final Path toRoot, final Path to) throws IOException {
-    final var fromKey = WorkspacePaths.key(fromRoot, from);
-    final var toKey = WorkspacePaths.key(toRoot, to);
-    final var flags = WorkspaceState.load(fromRoot).readOnlyFlagsAtOrUnder(fromKey);
-    updateState(fromRoot, s -> s.remove(fromKey));
-    updateState(toRoot, s -> {
-      s.remove(toKey);
-      flags.forEach((k, v) -> s.setReadOnly(toKey + k.substring(fromKey.length()), v));
-    });
-  }
-
-  private static void updateState(final Path root, final Consumer<WorkspaceState> change) throws IOException {
-    final var state = WorkspaceState.load(root);
-    change.accept(state);
-    state.save();
+      final var contentNameEnd = name.length() - RenderType.aerieMetadataExtension.length();
+      if (contentNameEnd <= 1) continue;
+      final var contentName = name.substring(1, contentNameEnd);
+      final var contentPath = path.resolveSibling(contentName);
+      if (Files.exists(contentPath)) readOnly.add(contentPath);
+    }
+    return List.copyOf(readOnly);
   }
   //endregion
 
@@ -782,16 +746,15 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   /**
-   * How file metadata is presented by the API: the versioned sidecar fields (version, createdBy, createdAt, user),
-   * plus lastEditedBy/lastEditedAt derived from history and readOnly from runtime state. Workspaces that have not
-   * been put under history yet still carry every field in their sidecars and are presented as-is.
+   * How file metadata is presented by the API: sidecar fields are returned as stored, except lastEditedBy/lastEditedAt
+   * are derived from history after the adoption baseline. Workspaces that have not been put under history yet return
+   * their sidecars as-is.
    * The returned function maps (absolute content path, raw sidecar) to the presented metadata.
    */
   private BiFunction<Path, JsonObject, JsonObject> metadataView(final Path root) throws IOException {
     if (!history.isManaged(root)) return (path, sidecar) -> sidecar;
-    final var state = WorkspaceState.load(root);
     final var edits = history.lastEdits(root);
-    return (path, sidecar) -> effectiveMetadata(sidecar, WorkspacePaths.key(root, path), state, edits);
+    return (path, sidecar) -> effectiveMetadata(sidecar, WorkspacePaths.key(root, path), edits);
   }
 
   private JsonObject effectiveMetadata(final Path root, final Path filePath) throws IOException, WorkspaceFileOpException {
@@ -802,28 +765,25 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   static JsonObject effectiveMetadata(
       final JsonObject sidecar,
       final String key,
-      final WorkspaceState state,
       final Map<String, WorkspaceHistory.LastEdit> edits)
   {
     final var builder = Json.createObjectBuilder(sidecar)
-                            .remove(MetadataKeys.readOnly.name())
                             .remove(MetadataKeys.lastEditedBy.name())
                             .remove(MetadataKeys.lastEditedAt.name());
 
     // Prefer the file's latest commit, unless that is the history baseline and the pre-history value is known.
     final var edit = edits.get(key);
-    final var legacy = state.entry(key).filter(e -> e.legacyLastEditedBy() != null && e.legacyLastEditedAt() != null);
-    if (edit != null && !(edit.baseline() && legacy.isPresent())) {
+    final var legacyBy = sidecar.get(MetadataKeys.lastEditedBy.name()) instanceof JsonString by ? by.getString() : null;
+    final var legacyAt = sidecar.get(MetadataKeys.lastEditedAt.name()) instanceof JsonString at ? at.getString() : null;
+    if (edit != null && !(edit.baseline() && legacyBy != null && legacyAt != null)) {
       builder.add(MetadataKeys.lastEditedBy.name(), edit.by()).add(MetadataKeys.lastEditedAt.name(), edit.at().toString());
-    } else if (legacy.isPresent()) {
-      builder.add(MetadataKeys.lastEditedBy.name(), legacy.get().legacyLastEditedBy())
-             .add(MetadataKeys.lastEditedAt.name(), legacy.get().legacyLastEditedAt());
+    } else if (legacyBy != null && legacyAt != null) {
+      builder.add(MetadataKeys.lastEditedBy.name(), legacyBy).add(MetadataKeys.lastEditedAt.name(), legacyAt);
     } else if (sidecar.get("createdBy") instanceof JsonString by && sidecar.get("createdAt") instanceof JsonString at) {
       // Not committed yet (only observable by a lock-free reader mid-mutation)
       builder.add(MetadataKeys.lastEditedBy.name(), by).add(MetadataKeys.lastEditedAt.name(), at);
     }
 
-    state.readOnly(key).ifPresent(readOnly -> builder.add(MetadataKeys.readOnly.name(), readOnly));
     return builder.build();
   }
 
@@ -866,8 +826,8 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   /**
-   * Apply metadata updates: versioned fields go to the sidecar, readOnly goes to runtime state, and lastEdited* is
-   * ignored (it is derived from history). Caller holds the workspace lock.
+   * Apply metadata updates to the sidecar. lastEdited* remains stored as a baseline fallback but is derived from
+   * history after the first content mutation. Caller holds the workspace lock.
    */
   private void updateMetadata(
       final Path root,
@@ -879,15 +839,10 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var metadataFile = resolveMetadataPath(root, filePath).toFile();
     final var newFileContents = generateUpdatedMetadataFile(readMetadataFile(metadataFile), updates, mergeBehavior).build();
     writeMetadataFile(root, newFileContents, metadataFile);
-    if (updates.readOnly().isPresent()) {
-      final var key = WorkspacePaths.key(root, resolveReadingPath(root, filePath));
-      updateState(root, s -> s.setReadOnly(key, updates.readOnly().get()));
-    }
   }
 
   /**
-   * Write a sidecar's versioned fields (version, createdBy, createdAt, user). Skips the write when the bytes would
-   * not change, so an edit that only touches derived or runtime fields leaves the sidecar, and history, untouched.
+   * Write a sidecar's stored fields. Skips the write when the bytes would not change.
    * @param root The workspace root (for its temp directory; the write is an atomic replace).
    * @param contents The contents of the metadata file to be written.
    * @param metadataFile The File to be written to.
@@ -899,29 +854,34 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         contents.version().orElse("1"),
         contents.createdBy().orElse(contents.metadataLastEditedBy()),
         contents.createdAt().orElse(contents.metadataLastEditedAt()).toString(),
+        contents.lastEditedBy().orElse(null),
+        contents.lastEditedAt().map(Instant::toString).orElse(null),
+        contents.readOnly().orElse(null),
         contents.user().orElse(null));
     final var path = metadataFile.toPath();
     if (Files.isRegularFile(path) && Files.readString(path, StandardCharsets.UTF_8).equals(serialized)) return;
     WorkspacePaths.writeAtomically(root, path, serialized.getBytes(StandardCharsets.UTF_8));
   }
 
-  /** A sidecar object in the same on-disk format, unchanged (used when migration only strips runtime fields). */
-  static String serializeSidecar(final JsonObject sidecar) {
-    final var out = new StringWriter();
-    try (final var writer = Json.createWriterFactory(config).createWriter(out)) {
-      writer.writeObject(sidecar);
-    }
-    return out.toString();
-  }
-
   /** The on-disk (and committed) form of a sidecar. Null fields are omitted; a missing version defaults to "1". */
-  static String serializeSidecar(final String version, final String createdBy, final String createdAt, final JsonObject user) {
+  static String serializeSidecar(
+      final String version,
+      final String createdBy,
+      final String createdAt,
+      final String lastEditedBy,
+      final String lastEditedAt,
+      final Boolean readOnly,
+      final JsonObject user)
+  {
     final var out = new StringWriter();
     try (final var generator = Json.createGeneratorFactory(config).createGenerator(out)) {
       generator.writeStartObject();
       generator.write("version", version == null ? "1" : version);
       if (createdBy != null) generator.write("createdBy", createdBy);
       if (createdAt != null) generator.write("createdAt", createdAt);
+      if (lastEditedBy != null) generator.write("lastEditedBy", lastEditedBy);
+      if (lastEditedAt != null) generator.write("lastEditedAt", lastEditedAt);
+      if (readOnly != null) generator.write("readOnly", readOnly);
       if (user != null) generator.write("user", user);
       generator.writeEnd();
     }
@@ -1134,12 +1094,8 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       }
     }
 
-    // Write out the updated file; readOnly lives in runtime state, lastEdited* is derived and has nothing to unset
+    // Write out the updated sidecar. lastEdited* may remain as a baseline fallback but are ignored after a content edit.
     writeMetadataFile(root, fileContentsBuilder.build(), metadataFile);
-    if (keysToUnset.contains(MetadataKeys.readOnly.name())) {
-      final var key = WorkspacePaths.key(root, resolveReadingPath(root, filePath));
-      updateState(root, s -> s.setReadOnly(key, null));
-    }
     return true;
   }
 
@@ -1182,9 +1138,6 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     history.requireLocked(workspaceId);
     final var root = roots.workspaceRootPath(workspaceId);
     final var metadataFilePath = resolveMetadataPath(root, filePath);
-    // Deleting a file's metadata also clears its runtime state (readOnly), as it did when readOnly lived in the sidecar
-    final var key = WorkspacePaths.key(root, resolveReadingPath(root, filePath));
-    updateState(root, s -> s.remove(key));
     // If the file already doesn't exist, silently succeed
     if(!metadataFilePath.toFile().exists()) {
       return true;

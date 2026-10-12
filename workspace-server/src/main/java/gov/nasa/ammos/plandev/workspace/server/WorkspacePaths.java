@@ -24,8 +24,8 @@ import java.util.regex.Pattern;
  *   <li>{@code .gitignore}, {@code .gitattributes} and {@code .gitmodules} would change what Git tracks or how it
  *       rewrites file bytes, which would let a "clean" repository silently omit or alter user files. They are reserved
  *       in Phase 1; {@code .gitignore} may be relaxed once Git remote interoperability exists.</li>
- *   <li>{@code .seqdev} holds non-versioned runtime state (see {@link WorkspaceState}). It is never committed and is
- *       not part of the versioned workspace.</li>
+ *   <li>{@code .seqdev} holds same-filesystem temporary files used for atomic replacement. It is never committed and
+ *       is not part of the versioned workspace.</li>
  * </ul>
  *
  * Reserved names are rejected at every path segment, case-insensitively, by
@@ -37,9 +37,9 @@ public final class WorkspacePaths {
   private WorkspacePaths() {}
 
   public static final String GIT_DIR = ".git";
-  public static final String STATE_DIR = ".seqdev";
+  public static final String INTERNAL_DIR = ".seqdev";
 
-  private static final Set<String> RESERVED = Set.of(GIT_DIR, ".gitignore", ".gitattributes", ".gitmodules", STATE_DIR);
+  private static final Set<String> RESERVED = Set.of(GIT_DIR, ".gitignore", ".gitattributes", ".gitmodules", INTERNAL_DIR);
   private static final Pattern TEMP_FILE = Pattern.compile("tmp-\\p{XDigit}{8}(-\\p{XDigit}{4}){3}-\\p{XDigit}{12}");
 
   public static boolean isReservedName(final String segment) {
@@ -54,7 +54,7 @@ public final class WorkspacePaths {
     return null;
   }
 
-  /** A workspace-relative path as a '/'-separated key (the form Git and {@link WorkspaceState} use). */
+  /** A workspace-relative path as a '/'-separated Git path key. */
   public static String key(final Path root, final Path absolutePath) {
     final var rel = root.normalize().relativize(absolutePath.normalize());
     final var parts = new ArrayList<String>();
@@ -63,12 +63,12 @@ public final class WorkspacePaths {
   }
 
   /**
-   * A fresh path for a server-owned temp file. It lives in the runtime directory: on the workspace's filesystem, so it
+   * A fresh path for a server-owned temp file. It lives in the internal directory on the workspace's filesystem, so it
    * can be renamed atomically into the tree; ignored by Git, so a crash cannot leave stray content in the tree; and
    * named so {@link #removeStaleTempFiles} can recognize it.
    */
   public static Path tempFile(final Path root) throws IOException {
-    final var dir = root.resolve(STATE_DIR);
+    final var dir = root.resolve(INTERNAL_DIR);
     Files.createDirectories(dir);
     return dir.resolve("tmp-" + UUID.randomUUID());
   }
@@ -86,7 +86,7 @@ public final class WorkspacePaths {
 
   /** Delete temp files a crashed process left behind. Only exact {@link #tempFile} names are touched. */
   public static void removeStaleTempFiles(final Path root) throws IOException {
-    final var dir = root.resolve(STATE_DIR);
+    final var dir = root.resolve(INTERNAL_DIR);
     if (!Files.isDirectory(dir, LinkOption.NOFOLLOW_LINKS)) return;
     try (final var entries = Files.list(dir)) {
       for (final var p : entries.toList()) {
@@ -99,8 +99,8 @@ public final class WorkspacePaths {
 
   /**
    * Like {@code Files.walk(dir, maxDepth)} minus the starting directory, but never descends into (or returns) a
-   * reserved name, so Git internals and runtime state never leak into listings, copies or scans. Symbolic links are
-   * neither followed nor returned: they are not supported workspace content.
+   * reserved name, so Git internals and server scratch files never leak into listings, copies or scans. Symbolic links
+   * are neither followed nor returned: they are not supported workspace content.
    */
   public static List<Path> walk(final Path dir, final int maxDepth) throws IOException {
     final var out = new ArrayList<Path>();

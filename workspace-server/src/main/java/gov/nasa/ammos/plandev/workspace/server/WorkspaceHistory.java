@@ -60,15 +60,15 @@ import java.util.function.Predicate;
  * untracked files, and no ignored file exists outside {@code .seqdev/}. Ignore rules are fully controlled here:
  * {@code core.excludesFile} points at {@code /dev/null}, {@code .git/info/exclude} contains only {@code /.seqdev/},
  * and {@code .gitignore}/{@code .gitattributes} cannot exist in the tree ({@link WorkspacePaths}). Outside the
- * definition by design: {@code .git/} itself, {@code .seqdev/} (runtime state, never committed) and empty
+ * definition by design: {@code .git/} itself, {@code .seqdev/} (temporary files, never committed) and empty
  * directories (not representable in Git; creating or deleting one produces no commit).
  *
  * <p><b>Failure.</b> If the mutation throws, reports failure, or its history cannot be recorded, the workspace is
  * restored to its pre-operation state: tracked files and the index are checked out from the pre-operation HEAD, the
  * paths this operation created (untracked or newly added after it ran; equivalent to "created by this operation"
  * because the repository was verified clean beforehand under the same lock) are removed along with any parent
- * directories that leaves empty, and {@code .seqdev/state.json} is restored. Empty directories are not versioned
- * state, so a pre-existing empty directory the operation removed is not recreated. If restoration itself fails, a
+ * directories that leaves empty. Empty directories are not versioned state, so a pre-existing empty directory the
+ * operation removed is not recreated. If restoration itself fails, a
  * {@link Kind#REPOSITORY_INCONSISTENT} error is raised rather than claiming success; nothing is ever {@code git clean}ed
  * wholesale or reset on the strength of an unverified assumption.
  *
@@ -80,13 +80,13 @@ import java.util.function.Predicate;
  * <p><b>Adoption.</b> A workspace is <i>managed</i> once its repository config carries {@code plandev.managed=true},
  * which is written only after adoption has fully succeeded. An unmanaged workspace (new, pre-history, or a repository
  * PlanDev did not finish adopting) is adopted on its first mutation: its tree must contain no reserved names and no
- * symbolic links; legacy sidecar metadata is migrated (resumably); a repository is created if missing; and the current
+ * symbolic links; a repository is created if missing; and the current
  * state is recorded by a commit authored by {@link #systemIdent()} ("Initialize workspace history" for a new
  * repository, "Adopt workspace into history" for an existing one with uncommitted state).
  *
  * <p><b>Trust.</b> Before every mutation of a managed workspace the repository must be exactly what this class left
  * behind: no in-progress Git operation, HEAD attached to {@code main}, an index of plain files outside reserved names,
- * runtime state present, and a clean working tree. Anything else (an out-of-band edit, residue of a crash
+ * and a clean working tree. Anything else (an out-of-band edit, residue of a crash
  * mid-operation, a manual checkout) is rejected with {@link Kind#REPOSITORY_INCONSISTENT} naming what is wrong. It is
  * never committed, reset or repaired automatically.
  *
@@ -149,7 +149,7 @@ public class WorkspaceHistory {
   /** A file's most recent content change, derived from history. {@code baseline} marks the history's root commit. */
   public record LastEdit(String by, Instant at, boolean baseline) {}
 
-  private record Before(ObjectId head, byte[] state) {}
+  private record Before(ObjectId head) {}
 
   private record LastEditIndex(ObjectId head, Map<String, LastEdit> edits) {}
 
@@ -307,7 +307,6 @@ public class WorkspaceHistory {
 
   /** Fail closed unless a managed workspace is exactly as this class left it. */
   private void requireTrusted(final Path root) throws IOException, GitAPIException {
-    requireValidRuntimeState(root, true);
     try (final var git = open(root)) {
       requireExpectedGitState(git.getRepository(), false);
       configure(root, git.getRepository());
@@ -327,7 +326,6 @@ public class WorkspaceHistory {
    */
   private void adopt(final Path root) throws IOException, GitAPIException {
     // Validate everything before writing anything
-    requireValidRuntimeState(root, false);
     requireAdoptable(root);
     final var hasRepo = Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR));
     if (hasRepo) {
@@ -336,7 +334,6 @@ public class WorkspaceHistory {
       }
     }
     WorkspacePaths.removeStaleTempFiles(root);
-    WorkspaceState.migrateFromSidecars(root); // validates every sidecar before writing anything
     if (!hasRepo) Git.init().setDirectory(root.toFile()).setInitialBranch(BRANCH).call().close();
     configured.remove(root); // a new or newly adopted repository gets its config (re)applied
 
@@ -363,35 +360,6 @@ public class WorkspaceHistory {
     if (!Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR), LinkOption.NOFOLLOW_LINKS)) return false;
     try (final var git = open(root)) {
       return git.getRepository().getConfig().getBoolean(MANAGED_SECTION, null, MANAGED_KEY, false);
-    }
-  }
-
-  /**
-   * {@code .seqdev} must be a real directory holding a regular {@code state.json} in the current schema. Required for
-   * a managed workspace; for one being adopted, whatever already exists must be valid. Never repaired automatically:
-   * runtime state holds locks, so "unreadable" must not turn into "unlocked".
-   */
-  private static void requireValidRuntimeState(final Path root, final boolean required) {
-    final var dir = root.resolve(WorkspacePaths.STATE_DIR);
-    final var file = WorkspaceState.file(root);
-    final String problem;
-    if (!Files.exists(dir, LinkOption.NOFOLLOW_LINKS)) {
-      problem = required ? dir + " is missing" : null;
-    } else if (!Files.isDirectory(dir, LinkOption.NOFOLLOW_LINKS)) {
-      problem = dir + " is not a directory";
-    } else if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
-      problem = required ? file + " is missing" : null;
-    } else {
-      String loadProblem = null;
-      try {
-        WorkspaceState.load(root);
-      } catch (IOException e) {
-        loadProblem = e.getMessage();
-      }
-      problem = loadProblem;
-    }
-    if (problem != null) {
-      throw inconsistent("Workspace at %s has invalid runtime state: %s. It was left untouched.".formatted(root, problem));
     }
   }
 
@@ -433,11 +401,12 @@ public class WorkspaceHistory {
     cfg.setString("core", null, "hooksPath", "/dev/null");
     cfg.setBoolean("commit", null, "gpgSign", false);
     cfg.setBoolean("tag", null, "gpgSign", false);
+    cfg.setString("gpg", null, "format", "openpgp");
     cfg.save();
 
     final var info = repo.getDirectory().toPath().resolve("info");
     Files.createDirectories(info);
-    Files.writeString(info.resolve("exclude"), "/" + WorkspacePaths.STATE_DIR + "/\n", StandardCharsets.UTF_8);
+    Files.writeString(info.resolve("exclude"), "/" + WorkspacePaths.INTERNAL_DIR + "/\n", StandardCharsets.UTF_8);
     Files.deleteIfExists(info.resolve("attributes"));
     configured.add(root);
   }
@@ -454,7 +423,7 @@ public class WorkspaceHistory {
       public FileVisitResult preVisitDirectory(final Path dir, final BasicFileAttributes attrs) {
         if (dir.equals(root)) return FileVisitResult.CONTINUE;
         final var name = dir.getFileName().toString();
-        if (dir.getParent().equals(root) && (name.equals(WorkspacePaths.GIT_DIR) || name.equals(WorkspacePaths.STATE_DIR))) {
+        if (dir.getParent().equals(root) && (name.equals(WorkspacePaths.GIT_DIR) || name.equals(WorkspacePaths.INTERNAL_DIR))) {
           return FileVisitResult.SKIP_SUBTREE;
         }
         if (WorkspacePaths.isReservedName(name)) found.add(WorkspacePaths.key(root, dir));
@@ -533,7 +502,7 @@ public class WorkspaceHistory {
     // directories, which are deliberately outside the definition.
     dirty.addAll(status.getUntracked());
     for (final var ignored : status.getIgnoredNotInIndex()) {
-      if (!ignored.equals(WorkspacePaths.STATE_DIR) && !ignored.startsWith(WorkspacePaths.STATE_DIR + "/")) {
+      if (!ignored.equals(WorkspacePaths.INTERNAL_DIR) && !ignored.startsWith(WorkspacePaths.INTERNAL_DIR + "/")) {
         dirty.add(ignored);
       }
     }
@@ -558,9 +527,7 @@ public class WorkspaceHistory {
   private Before capture(final Path root) throws IOException {
     try (final var git = open(root)) {
       final var head = git.getRepository().resolve(Constants.HEAD);
-      final var stateFile = WorkspaceState.file(root);
-      final var state = Files.isRegularFile(stateFile) ? Files.readAllBytes(stateFile) : null;
-      return new Before(head, state);
+      return new Before(head);
     }
   }
 
@@ -627,13 +594,6 @@ public class WorkspaceHistory {
         var p = root.resolve(path);
         Files.deleteIfExists(p);
         for (p = p.getParent(); !p.equals(root) && isEmptyDirectory(p); p = p.getParent()) Files.delete(p);
-      }
-
-      final var stateFile = WorkspaceState.file(root);
-      if (before.state() == null) {
-        Files.deleteIfExists(stateFile);
-      } else {
-        WorkspacePaths.writeAtomically(root, stateFile, before.state());
       }
 
       requireClean(git, root);

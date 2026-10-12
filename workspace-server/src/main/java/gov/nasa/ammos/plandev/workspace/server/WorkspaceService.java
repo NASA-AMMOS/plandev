@@ -259,7 +259,7 @@ public interface WorkspaceService {
    * @return true if the directory was deleted, false otherwise
    * @throws NoSuchWorkspaceException if the specified workspace does not exist
    * @throws WorkspaceFileOpException if `directoryPath` is the workspace root
-   * @throws IOException if the workspace's runtime state cannot be updated
+   * @throws IOException if the directory cannot be deleted
    */
   boolean deleteDirectory(final int workspaceId, final Path directoryPath)
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException;

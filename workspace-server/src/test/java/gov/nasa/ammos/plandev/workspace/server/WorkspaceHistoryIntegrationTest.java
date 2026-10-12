@@ -28,15 +28,12 @@ import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
@@ -197,13 +194,6 @@ class WorkspaceHistoryIntegrationTest {
 
   private static final boolean POSIX = FileSystems.getDefault().supportedFileAttributeViews().contains("posix");
 
-  private static void deleteRecursively(final Path path) throws IOException {
-    if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) return;
-    try (final var paths = Files.walk(path)) {
-      for (final var p : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(p);
-    }
-  }
-
   private void deleteSidecar(final int ws, final String path) throws Exception {
     history.mutate(ws, USER, "drop metadata", () -> fs.deleteMetadataFile(ws, Path.of(path)), r -> r);
   }
@@ -281,12 +271,13 @@ class WorkspaceHistoryIntegrationTest {
     }
 
     @Test
-    void readOnlyFileIsLockedAndTheLockIsNotVersioned() throws Exception {
+    void readOnlyFileIsLockedAndTheLockIsStoredInItsSidecar() throws Exception {
       saveOk(WS1, "a.txt", "v1");
       final var commits = log(WS1).size();
       setReadOnly(WS1, "a.txt", true);
-      assertEquals(commits, log(WS1).size(), "readOnly is runtime state and must not create a commit");
-      assertFalse(Files.readString(root(WS1).resolve(".a.txt.meta.seqdev")).contains("readOnly"));
+      assertEquals(commits + 1, log(WS1).size());
+      assertEquals(List.of(".a.txt.meta.seqdev"), headDiff(WS1).stream().map(DiffEntry::getNewPath).toList());
+      assertTrue(Files.readString(root(WS1).resolve(".a.txt.meta.seqdev")).contains("readOnly"));
       assertFailure(save(WS1, "a.txt", "v2", "*"), 423, "FILE_LOCKED");
       assertEquals("v1", read(WS1, "a.txt"));
       assertClean(WS1);
@@ -320,7 +311,7 @@ class WorkspaceHistoryIntegrationTest {
       saveOk(WS1, "keep.txt", "original");
       saveOk(WS1, "gone.txt", "will be deleted");
       final var headBefore = head(WS1);
-      final var stateBefore = Files.readAllBytes(WorkspaceState.file(root(WS1)));
+      final var sidecarBefore = Files.readAllBytes(root(WS1).resolve(".keep.txt.meta.seqdev"));
 
       history.failCommitsIn.add(root(WS1));
       final var ex = assertThrows(WorkspaceHistory.WorkspaceHistoryException.class, () ->
@@ -330,9 +321,7 @@ class WorkspaceHistoryIntegrationTest {
             Files.createDirectories(root(WS1).resolve("new/nested"));
             Files.writeString(root(WS1).resolve("new/nested/file.txt"), "new");
             Files.writeString(root(WS1).resolve("untracked.txt"), "new");
-            final var state = WorkspaceState.load(root(WS1));
-            state.setReadOnly("keep.txt", true);
-            state.save();
+            Files.writeString(root(WS1).resolve(".keep.txt.meta.seqdev"), "{\"readOnly\":true}");
             return true;
           }, r -> true));
       assertEquals(WorkspaceHistory.Kind.HISTORY_NOT_RECORDED, ex.kind);
@@ -341,7 +330,7 @@ class WorkspaceHistoryIntegrationTest {
       assertEquals("will be deleted", read(WS1, "gone.txt"));
       assertFalse(Files.exists(root(WS1).resolve("new")), "folders left empty by removing created files are pruned");
       assertFalse(Files.exists(root(WS1).resolve("untracked.txt")));
-      assertArrayEquals(stateBefore, Files.readAllBytes(WorkspaceState.file(root(WS1))));
+      assertArrayEquals(sidecarBefore, Files.readAllBytes(root(WS1).resolve(".keep.txt.meta.seqdev")));
       assertEquals(headBefore, head(WS1));
       assertClean(WS1);
     }
@@ -386,7 +375,7 @@ class WorkspaceHistoryIntegrationTest {
       assertEquals(headBefore, head(WS1));
       assertClean(WS1);
       try (final var internal = Files.list(root(WS1).resolve(".seqdev"))) {
-        assertEquals(List.of("state.json"), internal.map(p -> p.getFileName().toString()).toList(), "no upload temp files left");
+        assertEquals(List.of(), internal.map(p -> p.getFileName().toString()).toList(), "no upload temp files left");
       }
 
       Files.delete(refLock);
@@ -720,7 +709,7 @@ class WorkspaceHistoryIntegrationTest {
   }
 
   @Nested
-  class Migration {
+  class LegacyWorkspaceAdoption {
     private void writeLegacyWorkspace() throws IOException {
       Files.createDirectories(root(WS1).resolve("seq"));
       Files.writeString(root(WS1).resolve("seq/a.txt"), "legacy A");
@@ -747,14 +736,27 @@ class WorkspaceHistoryIntegrationTest {
                      "global gitattributes must not apply to workspaces");
       }
 
-      // Only versioned fields stay in the sidecar; readOnly and the pre-history lastEdited move to runtime state.
+      // Legacy metadata stays with its content file. The baseline commit does not replace its real last-edit data.
       final var sidecarJson = Files.readString(root(WS1).resolve("seq/.a.txt.meta.seqdev"));
-      assertFalse(sidecarJson.contains("readOnly") || sidecarJson.contains("lastEdited"), sidecarJson);
-      assertTrue(sidecarJson.contains("carol") && sidecarJson.contains("final"), sidecarJson);
+      assertTrue(sidecarJson.contains("readOnly") && sidecarJson.contains("lastEdited"), sidecarJson);
+      assertTrue(sidecarJson.contains("carol") && sidecarJson.contains("dave") && sidecarJson.contains("final"), sidecarJson);
       assertTrue(isReadOnly(WS1, "seq/a.txt"));
       final var info = fs.getLastEditInfo(WS1, Path.of("seq/a.txt"));
       assertEquals("dave", info.lastEditedBy());
       assertEquals("2025-02-02T00:00:00Z", info.lastEditedAt());
+    }
+
+    @Test
+    void lockScanIgnoresMetadataSuffixWithoutAContentName() throws Exception {
+      writeLegacyWorkspace();
+      Files.writeString(root(WS1).resolve("seq/.meta.seqdev"), "{\"readOnly\":true}");
+      init(WS1);
+
+      final var readOnly = history.mutate(WS1, USER, "check", () ->
+          fs.getReadOnlyFiles(WS1, Path.of("seq")), ignored -> true);
+
+      assertEquals(List.of(root(WS1).resolve("seq/a.txt")), readOnly);
+      assertClean(WS1);
     }
 
     @Test
@@ -786,118 +788,33 @@ class WorkspaceHistoryIntegrationTest {
       assertFalse(Files.exists(root(WS1).resolve("x")));
     }
 
-    /** Interrupted after the sidecars' runtime fields reached state.json but before every sidecar was rewritten. */
     @Test
-    void anInterruptedMigrationIsFinished() throws Exception {
-      Files.writeString(root(WS1).resolve("a.txt"), "A");
-      Files.writeString(root(WS1).resolve(".a.txt.meta.seqdev"), """
-          {"version":"1","createdBy":"carol","createdAt":"2025-01-01T00:00:00Z"}""");
-      Files.writeString(root(WS1).resolve("b.txt"), "B");
-      Files.writeString(root(WS1).resolve(".b.txt.meta.seqdev"), """
-          {"version":"1","createdBy":"carol","createdAt":"2025-01-01T00:00:00Z",\
-          "lastEditedBy":"erin","lastEditedAt":"2025-03-03T00:00:00Z","readOnly":true}""");
-      Files.createDirectories(root(WS1).resolve(".seqdev"));
-      Files.writeString(WorkspaceState.file(root(WS1)), """
-          {"version":1,"files":{"a.txt":{"readOnly":true,"legacyLastEditedBy":"dave","legacyLastEditedAt":"2025-02-02T00:00:00Z"}}}""");
-
-      init(WS1);
-
-      final var sidecarB = Files.readString(root(WS1).resolve(".b.txt.meta.seqdev"));
-      assertFalse(sidecarB.contains("readOnly") || sidecarB.contains("lastEdited"), sidecarB);
-      assertTrue(isReadOnly(WS1, "a.txt"), "already-migrated state survives");
-      assertTrue(isReadOnly(WS1, "b.txt"), "the remaining legacy sidecar is migrated");
-      assertEquals("dave", fs.getLastEditInfo(WS1, Path.of("a.txt")).lastEditedBy());
-      assertEquals("erin", fs.getLastEditInfo(WS1, Path.of("b.txt")).lastEditedBy());
-      assertClean(WS1);
-    }
-
-    /**
-     * A real I/O failure while replacing one sidecar (its directory is not writable): the sidecar is either fully
-     * legacy or fully migrated, never partial, and the next adoption finishes the job without losing metadata.
-     */
-    @Test
-    void aFailedSidecarReplacementIsAtomicAndResumable() throws Exception {
-      assumeTrue(POSIX && !"root".equals(System.getProperty("user.name")), "needs POSIX permissions enforced");
-      final var legacy = """
-          {"version":"1","createdBy":"carol","createdAt":"2025-01-01T00:00:00Z",\
-          "lastEditedBy":"dave","lastEditedAt":"2025-02-02T00:00:00Z","readOnly":true}""";
-      for (final var dir : List.of("a", "b")) {
-        Files.createDirectories(root(WS1).resolve(dir));
-        Files.writeString(root(WS1).resolve(dir + "/x.txt"), dir);
-        Files.writeString(root(WS1).resolve(dir + "/.x.txt.meta.seqdev"), legacy);
-      }
-      final var locked = root(WS1).resolve("b");
-      Files.setPosixFilePermissions(locked, PosixFilePermissions.fromString("r-xr-xr-x"));
-      try {
-        assertFailure(bindings.handleCreateDirectory(WS1, Path.of("z"), USER), 500, null);
-      } finally {
-        Files.setPosixFilePermissions(locked, PosixFilePermissions.fromString("rwxr-xr-x"));
-      }
-      assertFalse(read(WS1, "a/.x.txt.meta.seqdev").contains("readOnly"), "a was migrated");
-      assertEquals(legacy, read(WS1, "b/.x.txt.meta.seqdev"), "b is untouched, not partially written");
-      assertEquals(Optional.of(true), WorkspaceState.load(root(WS1)).readOnly("b/x.txt"));
-      try (final var internal = Files.list(root(WS1).resolve(".seqdev"))) {
-        assertEquals(List.of("state.json"), internal.map(p -> p.getFileName().toString()).toList());
-      }
-      assertFalse(history.isManaged(root(WS1)));
-
-      init(WS1);
-      assertFalse(read(WS1, "b/.x.txt.meta.seqdev").contains("readOnly"));
-      for (final var file : List.of("a/x.txt", "b/x.txt")) {
-        assertTrue(isReadOnly(WS1, file), file);
-        assertEquals("dave", fs.getLastEditInfo(WS1, Path.of(file)).lastEditedBy(), file);
-      }
-      assertClean(WS1);
-    }
-
-    /** A sidecar whose runtime fields cannot be read might be a lock; adoption refuses rather than unlocking it. */
-    @Test
-    void unmigratableLegacySidecarsFailAdoptionClosed() throws Exception {
+    void metadataOnlyUpdatesPreserveLegacyLastEditAndReadOnly() throws Exception {
       writeLegacyWorkspace();
-      final var goodSidecar = read(WS1, "seq/.a.txt.meta.seqdev");
-      Files.writeString(root(WS1).resolve(".b.txt.meta.seqdev"), "{\"readOnly\": tru");
-      Files.writeString(root(WS1).resolve("c.txt"), "C");
-      Files.writeString(root(WS1).resolve(".c.txt.meta.seqdev"), "{\"version\":\"1\",\"readOnly\":\"true\"}");
-
-      final var result = bindings.handleCreateDirectory(WS1, Path.of("x"), USER);
-      assertFailure(result, 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
-      final var message = result.jsonResponse().asJsonObject().getString("message");
-      assertTrue(message.contains(".b.txt.meta.seqdev") && message.contains(".c.txt.meta.seqdev") && message.contains("readOnly"), message);
-      assertFalse(Files.exists(root(WS1).resolve(".git")), "nothing was changed");
-      assertFalse(Files.exists(WorkspaceState.file(root(WS1))));
-      assertEquals(goodSidecar, read(WS1, "seq/.a.txt.meta.seqdev"));
-
-      // Once repaired explicitly, adoption succeeds and every lock survives
-      Files.writeString(root(WS1).resolve(".b.txt.meta.seqdev"), "{\"readOnly\": true}");
-      Files.writeString(root(WS1).resolve(".c.txt.meta.seqdev"), "{\"version\":\"1\",\"readOnly\":true}");
       init(WS1);
-      for (final var file : List.of("seq/a.txt", "b.txt", "c.txt")) assertTrue(isReadOnly(WS1, file), file);
+
+      setUserMetadata(WS1, "seq/a.txt", "approved");
+
+      final var sidecar = metadata(WS1, "seq/a.txt");
+      assertTrue(sidecar.getBoolean("readOnly"));
+      assertEquals("approved", sidecar.getJsonObject("user").getString("status"));
+      assertEquals("dave", sidecar.getString("lastEditedBy"));
+      assertEquals("2025-02-02T00:00:00Z", sidecar.getString("lastEditedAt"));
       assertClean(WS1);
     }
 
     @Test
-    void migrationKeepsEverythingButTheRuntimeFields() throws Exception {
-      Files.writeString(root(WS1).resolve("a.txt"), "A");
-      Files.writeString(root(WS1).resolve(".a.txt.meta.seqdev"), """
-          {"version":"1","createdBy":"carol","createdAt":"2025-01-01T00:00:00Z","user":{"status":"final"},\
-          "custom":{"x":1},"readOnly":true,"lastEditedBy":"dave","lastEditedAt":"2025-02-02T00:00:00Z"}""");
-      WorkspaceState.migrateFromSidecars(root(WS1));
-      try (final var reader = Json.createReader(Files.newBufferedReader(root(WS1).resolve(".a.txt.meta.seqdev")))) {
-        assertEquals(Json.createReader(new java.io.StringReader("""
-            {"version":"1","createdBy":"carol","createdAt":"2025-01-01T00:00:00Z","user":{"status":"final"},"custom":{"x":1}}"""))
-                         .readObject(), reader.readObject());
-      }
-    }
-
-    @Test
-    void migrationIsIdempotent() throws Exception {
+    void contentMutationMakesGitHistoryAuthoritative() throws Exception {
       writeLegacyWorkspace();
-      WorkspaceState.migrateFromSidecars(root(WS1));
-      final var state = Files.readAllBytes(WorkspaceState.file(root(WS1)));
-      final var sidecarA = Files.readAllBytes(root(WS1).resolve("seq/.a.txt.meta.seqdev"));
-      WorkspaceState.migrateFromSidecars(root(WS1));
-      assertArrayEquals(state, Files.readAllBytes(WorkspaceState.file(root(WS1))));
-      assertArrayEquals(sidecarA, Files.readAllBytes(root(WS1).resolve("seq/.a.txt.meta.seqdev")));
+      init(WS1);
+      setReadOnly(WS1, "seq/a.txt", false);
+      assertEquals("dave", fs.getLastEditInfo(WS1, Path.of("seq/a.txt")).lastEditedBy(),
+                   "changing metadata is not a content edit");
+
+      saveOk(WS1, "seq/a.txt", "changed");
+
+      assertEquals(USER, fs.getLastEditInfo(WS1, Path.of("seq/a.txt")).lastEditedBy());
+      assertClean(WS1);
     }
   }
 
@@ -963,50 +880,13 @@ class WorkspaceHistoryIntegrationTest {
       saveOk(WS1, "b.txt", "v1");
     }
 
-    interface Corruption {
-      void apply(Path seqdev, Path state) throws IOException;
-    }
-
-    /** Everything under .seqdev, so a test can tell the corruption was left exactly as it was. */
-    private static String fingerprint(final Path seqdev) throws IOException {
-      if (!Files.exists(seqdev, LinkOption.NOFOLLOW_LINKS)) return "absent";
-      try (final var paths = Files.walk(seqdev)) {
-        final var out = new StringBuilder();
-        for (final var p : paths.sorted().toList()) {
-          out.append(seqdev.relativize(p)).append(Files.isDirectory(p) ? "/" : "=" + Files.readString(p)).append('\n');
-        }
-        return out.toString();
-      }
-    }
-
     @Test
-    void invalidRuntimeStateIsRejectedAndLeftUntouched() throws Exception {
-      final var seqdev = root(WS1).resolve(".seqdev");
-      final var state = WorkspaceState.file(root(WS1));
-      final var good = Files.readAllBytes(state);
-      final var cases = new LinkedHashMap<String, Corruption>();
-      cases.put("missing .seqdev", (d, f) -> deleteRecursively(d));
-      cases.put(".seqdev is a file", (d, f) -> { deleteRecursively(d); Files.writeString(d, "x"); });
-      cases.put("missing state.json", (d, f) -> Files.delete(f));
-      cases.put("state.json is a directory", (d, f) -> { Files.delete(f); Files.createDirectory(f); });
-      cases.put("malformed JSON", (d, f) -> Files.writeString(f, "{\"version\":1,"));
-      cases.put("unsupported version", (d, f) -> Files.writeString(f, "{\"version\":2,\"files\":{}}"));
-      cases.put("missing version", (d, f) -> Files.writeString(f, "{\"files\":{}}"));
-      cases.put("files is not an object", (d, f) -> Files.writeString(f, "{\"version\":1,\"files\":[]}"));
-      cases.put("readOnly is not a boolean", (d, f) ->
-          Files.writeString(f, "{\"version\":1,\"files\":{\"a.txt\":{\"readOnly\":\"no\"}}}"));
-
-      for (final var c : cases.entrySet()) {
-        c.getValue().apply(seqdev, state);
-        final var corrupted = fingerprint(seqdev);
-        assertTrue(assertRefused().contains("invalid runtime state"), c.getKey());
-        assertEquals(corrupted, fingerprint(seqdev), c.getKey() + ": must not be repaired");
-
-        deleteRecursively(seqdev);
-        Files.createDirectories(seqdev);
-        Files.write(state, good);
-      }
+    void internalDirectoryHasNoRequiredPersistentSchema() throws Exception {
+      final var arbitrary = root(WS1).resolve(".seqdev/state.json");
+      Files.writeString(arbitrary, "no persistent schema");
       saveOk(WS1, "b.txt", "v1");
+      assertEquals("no persistent schema", Files.readString(arbitrary));
+      assertClean(WS1);
     }
 
     @Test
@@ -1040,8 +920,12 @@ class WorkspaceHistoryIntegrationTest {
 
   @Nested
   class Adoption {
-    private Git foreignRepo(final int ws, final String branch) throws GitAPIException {
-      return Git.init().setDirectory(root(ws).toFile()).setInitialBranch(branch).call();
+    private Git foreignRepo(final int ws, final String branch) throws GitAPIException, IOException {
+      final var git = Git.init().setDirectory(root(ws).toFile()).setInitialBranch(branch).call();
+      final var cfg = git.getRepository().getConfig();
+      cfg.setString("gpg", null, "format", "openpgp");
+      cfg.save();
+      return git;
     }
 
     private static void commitAll(final Git git) throws GitAPIException {
@@ -1087,19 +971,17 @@ class WorkspaceHistoryIntegrationTest {
     }
 
     @Test
-    void invalidExistingRuntimeStateBlocksAdoption() throws Exception {
+    void existingInternalScratchFilesDoNotBlockAdoption() throws Exception {
       Files.writeString(root(WS1).resolve("a.txt"), "A");
       Files.createDirectories(root(WS1).resolve(".seqdev"));
-      Files.writeString(WorkspaceState.file(root(WS1)), "{\"version\":7,\"files\":{}}");
-      assertFailure(bindings.handleCreateDirectory(WS1, Path.of("x"), USER), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
-      assertFalse(Files.exists(root(WS1).resolve(".git")));
-      assertEquals("{\"version\":7,\"files\":{}}", Files.readString(WorkspaceState.file(root(WS1))));
+      final var arbitrary = root(WS1).resolve(".seqdev/state.json");
+      Files.writeString(arbitrary, "no schema");
 
-      Files.delete(WorkspaceState.file(root(WS1)));
-      Files.delete(root(WS1).resolve(".seqdev"));
-      Files.writeString(root(WS1).resolve(".seqdev"), "not a directory");
-      assertFailure(bindings.handleCreateDirectory(WS1, Path.of("x"), USER), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
-      assertFalse(Files.exists(root(WS1).resolve(".git")));
+      init(WS1);
+
+      assertTrue(history.isManaged(root(WS1)));
+      assertEquals("no schema", Files.readString(arbitrary));
+      assertClean(WS1);
     }
 
     @Test
@@ -1115,7 +997,6 @@ class WorkspaceHistoryIntegrationTest {
       assertFalse(Files.exists(root(WS1).resolve("b.txt")));
       assertFalse(history.isManaged(root(WS1)));
       assertEquals(legacySidecar, read(WS1, ".a.txt.meta.seqdev"), "nothing is migrated before validation passes");
-      assertFalse(Files.exists(WorkspaceState.file(root(WS1))));
       assertClean(WS1);
     }
   }

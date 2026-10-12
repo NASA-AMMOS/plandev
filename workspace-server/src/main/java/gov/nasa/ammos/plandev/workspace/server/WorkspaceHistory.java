@@ -628,6 +628,7 @@ public class WorkspaceHistory {
   public Map<String, LastEdit> lastEdits(final Path root, final Set<String> paths) throws IOException {
     if (paths.isEmpty() || !Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR))) return Map.of();
 
+    // Sidecars describe content but are not content themselves; their housekeeping commits must not become file edits.
     final var requested = new HashSet<String>();
     for (final var path : paths) {
       final var name = path.substring(path.lastIndexOf('/') + 1);
@@ -635,16 +636,24 @@ public class WorkspaceHistory {
     }
     if (requested.isEmpty()) return Map.of();
 
+    // Use one spelling of the workspace path so all callers share the same cache.
     final var normalizedRoot = root.normalize();
     try (final var git = open(normalizedRoot)) {
       final var repo = git.getRepository();
+      // Work against one immutable history snapshot. If a mutation advances HEAD concurrently, the next read sees it.
       final var head = repo.resolve(Constants.HEAD);
       if (head == null) return Map.of();
       final var cache = lastEditCache.computeIfAbsent(normalizedRoot, unused -> new ConcurrentHashMap<>());
+
+      // Commits are visited newest to oldest. unresolved contains paths whose latest change has not been found; the
+      // first matching commit is therefore the latest edit, so the path is removed before older commits are examined.
       final var edits = new HashMap<String, LastEdit>();
       final var unresolved = new HashSet<>(requested);
-      final var cacheBoundaries = new HashMap<ObjectId, Map<String, CachedLastEdit>>();
+      final var olderCacheByHead = new HashMap<ObjectId, Map<String, CachedLastEdit>>();
 
+      // Each cached result records the HEAD at which it was computed. If that is still the current HEAD, reuse the
+      // result, including "no edit found." Older results are grouped by their HEAD so one walk can check everything
+      // committed since each result was computed.
       for (final var path : requested) {
         final var cached = cache.get(path);
         if (cached == null) continue;
@@ -652,19 +661,20 @@ public class WorkspaceHistory {
           cached.edit().ifPresent(edit -> edits.put(path, edit));
           unresolved.remove(path);
         } else {
-          cacheBoundaries.computeIfAbsent(cached.head(), unused -> new HashMap<>()).put(path, cached);
+          olderCacheByHead.computeIfAbsent(cached.head(), unused -> new HashMap<>()).put(path, cached);
         }
       }
 
       if (!unresolved.isEmpty()) {
+        // A single history walk handles all remaining paths. Resolved paths are removed from later comparisons.
         try (final var walk = new RevWalk(repo)) {
           walk.markStart(walk.parseCommit(head));
           for (final var commit : walk) {
-            // A cached value already includes this commit, so use it before diffing the commit again. Different paths
-            // may have been cached at different HEADs; the walk can satisfy each one when it reaches its own boundary.
-            final var atBoundary = cacheBoundaries.remove(commit);
-            if (atBoundary != null) {
-              for (final var entry : atBoundary.entrySet()) {
+            // Reaching a cached HEAD without finding a newer change proves that cached result is still correct. Reuse
+            // it before comparing this commit because that result already includes this commit and everything older.
+            final var cachedAtCommit = olderCacheByHead.remove(commit);
+            if (cachedAtCommit != null) {
+              for (final var entry : cachedAtCommit.entrySet()) {
                 if (!unresolved.remove(entry.getKey())) continue;
                 entry.getValue().edit().ifPresent(edit -> edits.put(entry.getKey(), edit));
               }
@@ -673,6 +683,8 @@ public class WorkspaceHistory {
 
             try (final var tw = new TreeWalk(repo)) {
               tw.setRecursive(true);
+              // Compare this commit with its parent only for paths still needing an answer. The root commit has no
+              // parent, so comparing it with an empty tree treats every file there as newly added.
               tw.setFilter(AndTreeFilter.create(
                   TreeFilter.ANY_DIFF,
                   PathFilterGroup.createFromStrings(unresolved)));
@@ -682,11 +694,14 @@ public class WorkspaceHistory {
                 tw.addTree(new EmptyTreeIterator());
               }
               tw.addTree(commit.getTree());
+              // Every path found by this comparison was changed by this commit, so they share its author and time.
               final var author = commit.getAuthorIdent();
               final var edit = new LastEdit(author.getName(), author.getWhenAsInstant(), commit.getParentCount() == 0);
               while (tw.next()) {
                 final var path = tw.getPathString();
                 if (!unresolved.remove(path)) continue;
+                // Tree 1 is this commit. Mode zero means the path was deleted: its lookup is finished, but there is no
+                // current file to attribute. Remembering that miss prevents an older creation from being returned.
                 if (tw.getRawMode(1) != 0) edits.put(path, edit);
               }
             }
@@ -694,6 +709,7 @@ public class WorkspaceHistory {
         }
       }
 
+      // Cache every request, not just hits: Optional.empty distinguishes a known absence from an uncached path.
       final var cachedHead = head.copy();
       for (final var path : requested) {
         cache.put(path, new CachedLastEdit(cachedHead, Optional.ofNullable(edits.get(path))));

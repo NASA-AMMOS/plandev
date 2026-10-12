@@ -301,6 +301,46 @@ class WorkspaceHistoryIntegrationTest {
   }
 
   @Nested
+  class LastEdits {
+    @Test
+    void resolvesOnlyRequestedContentPathsAndReusesPerPathCache() throws Exception {
+      saveOk(WS1, "a.txt", "a1");
+      saveOk(WS1, "b.txt", "b1");
+
+      final var onlyA = history.lastEdits(root(WS1), Set.of("a.txt"));
+      assertEquals(Set.of("a.txt"), onlyA.keySet());
+      assertEquals(USER, onlyA.get("a.txt").by());
+      final var originalB = history.lastEdit(root(WS1), "b.txt").orElseThrow();
+
+      history.mutate(WS1, "bob", "Update a.txt", () -> {
+        Files.writeString(root(WS1).resolve("a.txt"), "a2");
+        return true;
+      }, result -> result);
+
+      final var both = history.lastEdits(root(WS1), Set.of("a.txt", "b.txt"));
+      assertEquals("bob", both.get("a.txt").by());
+      assertEquals(originalB, both.get("b.txt"));
+
+      assertSuccess(bindings.handleDelete(WS1, Path.of("b.txt"), USER));
+      assertTrue(history.lastEdit(root(WS1), "b.txt").isEmpty());
+      assertTrue(history.lastEdit(root(WS1), ".a.txt.meta.seqdev").isEmpty());
+      assertClean(WS1);
+    }
+
+    @Test
+    void resolvesWorkspaceRelativePathsBelowTheRoot() throws Exception {
+      saveOk(WS1, "one/a.txt", "A");
+      saveOk(WS1, "two/b.txt", "B");
+
+      final var edits = history.lastEdits(root(WS1), Set.of("one/a.txt"));
+
+      assertEquals(Set.of("one/a.txt"), edits.keySet());
+      assertEquals(USER, edits.get("one/a.txt").by());
+      assertClean(WS1);
+    }
+  }
+
+  @Nested
   class FailureSemantics {
     /**
      * Deterministic injection at the mutation boundary: every kind of file change is rolled back. Empty directories

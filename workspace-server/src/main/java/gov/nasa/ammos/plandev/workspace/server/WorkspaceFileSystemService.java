@@ -26,6 +26,7 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -555,7 +556,9 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     // Convert to our API from the Files API
     final var walkDepth = depth == -1 ? Integer.MAX_VALUE : depth + 1;
     final var walkList = WorkspacePaths.walk(path, walkDepth); // never includes .git or .seqdev
-    final var view = withMetadata ? metadataView(root) : (BiFunction<Path, JsonObject, JsonObject>) (p, m) -> m;
+    final var view = withMetadata
+        ? metadataView(root, walkList)
+        : (BiFunction<Path, JsonObject, JsonObject>) (p, m) -> m;
     return new DirectoryTree(path, walkList, postgresRepository.getExtensionMapping(), withMetadata, view);
   }
 
@@ -751,28 +754,38 @@ public class WorkspaceFileSystemService implements WorkspaceService {
    * their sidecars as-is.
    * The returned function maps (absolute content path, raw sidecar) to the presented metadata.
    */
-  private BiFunction<Path, JsonObject, JsonObject> metadataView(final Path root) throws IOException {
+  private BiFunction<Path, JsonObject, JsonObject> metadataView(final Path root, final List<Path> entries)
+  throws IOException {
     if (!history.isManaged(root)) return (path, sidecar) -> sidecar;
-    final var edits = history.lastEdits(root);
-    return (path, sidecar) -> effectiveMetadata(sidecar, WorkspacePaths.key(root, path), edits);
+
+    final var contentKeys = new HashSet<String>();
+    for (final var path : entries) {
+      final var name = path.getFileName().toString();
+      if (Files.isRegularFile(path) && !RenderType.isAerieMetadataFile(name)) {
+        contentKeys.add(WorkspacePaths.key(root, path));
+      }
+    }
+    final var edits = history.lastEdits(root, contentKeys);
+    return (path, sidecar) -> effectiveMetadata(sidecar, edits.get(WorkspacePaths.key(root, path)));
   }
 
   private JsonObject effectiveMetadata(final Path root, final Path filePath) throws IOException, WorkspaceFileOpException {
     final var sidecar = readMetadataFile(resolveMetadataPath(root, filePath).toFile());
-    return metadataView(root).apply(resolveReadingPath(root, filePath), sidecar);
+    final var path = resolveReadingPath(root, filePath);
+    if (!history.isManaged(root)) return sidecar;
+    final var key = WorkspacePaths.key(root, path);
+    return effectiveMetadata(sidecar, history.lastEdit(root, key).orElse(null));
   }
 
   static JsonObject effectiveMetadata(
       final JsonObject sidecar,
-      final String key,
-      final Map<String, WorkspaceHistory.LastEdit> edits)
+      final WorkspaceHistory.LastEdit edit)
   {
     final var builder = Json.createObjectBuilder(sidecar)
                             .remove(MetadataKeys.lastEditedBy.name())
                             .remove(MetadataKeys.lastEditedAt.name());
 
     // Prefer the file's latest commit, unless that is the history baseline and the pre-history value is known.
-    final var edit = edits.get(key);
     final var legacyBy = sidecar.get(MetadataKeys.lastEditedBy.name()) instanceof JsonString by ? by.getString() : null;
     final var legacyAt = sidecar.get(MetadataKeys.lastEditedAt.name()) instanceof JsonString at ? at.getString() : null;
     if (edit != null && !(edit.baseline() && legacyBy != null && legacyAt != null)) {

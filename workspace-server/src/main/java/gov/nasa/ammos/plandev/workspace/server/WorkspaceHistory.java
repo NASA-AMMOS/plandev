@@ -16,6 +16,8 @@ import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.treewalk.EmptyTreeIterator;
 import org.eclipse.jgit.treewalk.TreeWalk;
+import org.eclipse.jgit.treewalk.filter.AndTreeFilter;
+import org.eclipse.jgit.treewalk.filter.PathFilterGroup;
 import org.eclipse.jgit.treewalk.filter.TreeFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,9 +35,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
@@ -159,12 +163,12 @@ public class WorkspaceHistory {
 
   private record Before(ObjectId head) {}
 
-  private record LastEditIndex(ObjectId head, Map<String, LastEdit> edits) {}
+  private record CachedLastEdit(ObjectId head, Optional<LastEdit> edit) {}
 
   private final WorkspaceRoots roots;
   // ponytail: one lock per workspace id, never evicted; a few bytes per workspace ever touched by this process.
   private final Map<Integer, ReentrantLock> locks = new ConcurrentHashMap<>();
-  private final Map<Path, LastEditIndex> lastEditCache = new ConcurrentHashMap<>();
+  private final Map<Path, Map<String, CachedLastEdit>> lastEditCache = new ConcurrentHashMap<>();
   private final Set<Path> configured = ConcurrentHashMap.newKeySet();
 
   public WorkspaceHistory(final WorkspaceRoots roots) {
@@ -617,51 +621,89 @@ public class WorkspaceHistory {
 
   //region Reads (lock-free)
   /**
-   * The most recent commit that changed each content path (sidecars excluded), keyed by '/'-separated
-   * workspace-relative path. Cached per workspace by HEAD; when HEAD advances only the new commits are walked.
+   * The most recent commit that changed each requested content path, keyed by '/'-separated workspace-relative path.
+   * Results are cached per path and HEAD. A cached result from an older HEAD is reused when the walk reaches that
+   * commit, so an unchanged path normally requires walking only the new commits.
    */
-  public Map<String, LastEdit> lastEdits(final Path root) throws IOException {
-    if (!Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR))) return Map.of();
-    try (final var git = open(root); final var walk = new RevWalk(git.getRepository())) {
+  public Map<String, LastEdit> lastEdits(final Path root, final Set<String> paths) throws IOException {
+    if (paths.isEmpty() || !Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR))) return Map.of();
+
+    final var requested = new HashSet<String>();
+    for (final var path : paths) {
+      final var name = path.substring(path.lastIndexOf('/') + 1);
+      if (!RenderType.isAerieMetadataFile(name)) requested.add(path);
+    }
+    if (requested.isEmpty()) return Map.of();
+
+    final var normalizedRoot = root.normalize();
+    try (final var git = open(normalizedRoot)) {
       final var repo = git.getRepository();
       final var head = repo.resolve(Constants.HEAD);
       if (head == null) return Map.of();
-      final var cached = lastEditCache.get(root);
-      if (cached != null && cached.head().equals(head)) return cached.edits();
-
+      final var cache = lastEditCache.computeIfAbsent(normalizedRoot, unused -> new ConcurrentHashMap<>());
       final var edits = new HashMap<String, LastEdit>();
-      var reachedCache = false;
-      walk.markStart(walk.parseCommit(head));
-      for (final var commit : walk) {
-        if (cached != null && commit.equals(cached.head())) {
-          reachedCache = true;
-          break;
+      final var unresolved = new HashSet<>(requested);
+      final var cacheBoundaries = new HashMap<ObjectId, Map<String, CachedLastEdit>>();
+
+      for (final var path : requested) {
+        final var cached = cache.get(path);
+        if (cached == null) continue;
+        if (cached.head().equals(head)) {
+          cached.edit().ifPresent(edit -> edits.put(path, edit));
+          unresolved.remove(path);
+        } else {
+          cacheBoundaries.computeIfAbsent(cached.head(), unused -> new HashMap<>()).put(path, cached);
         }
-        try (final var tw = new TreeWalk(repo)) {
-          tw.setRecursive(true);
-          tw.setFilter(TreeFilter.ANY_DIFF);
-          if (commit.getParentCount() > 0) {
-            tw.addTree(walk.parseCommit(commit.getParent(0)).getTree());
-          } else {
-            tw.addTree(new EmptyTreeIterator());
-          }
-          tw.addTree(commit.getTree());
-          final var author = commit.getAuthorIdent();
-          final var edit = new LastEdit(author.getName(), author.getWhenAsInstant(), commit.getParentCount() == 0);
-          while (tw.next()) {
-            if (tw.getRawMode(1) == 0) continue; // deleted in this commit
-            final var path = tw.getPathString();
-            if (RenderType.isAerieMetadataFile(path.substring(path.lastIndexOf('/') + 1))) continue;
-            edits.putIfAbsent(path, edit);
+      }
+
+      if (!unresolved.isEmpty()) {
+        try (final var walk = new RevWalk(repo)) {
+          walk.markStart(walk.parseCommit(head));
+          for (final var commit : walk) {
+            // A cached value already includes this commit, so use it before diffing the commit again. Different paths
+            // may have been cached at different HEADs; the walk can satisfy each one when it reaches its own boundary.
+            final var atBoundary = cacheBoundaries.remove(commit);
+            if (atBoundary != null) {
+              for (final var entry : atBoundary.entrySet()) {
+                if (!unresolved.remove(entry.getKey())) continue;
+                entry.getValue().edit().ifPresent(edit -> edits.put(entry.getKey(), edit));
+              }
+            }
+            if (unresolved.isEmpty()) break;
+
+            try (final var tw = new TreeWalk(repo)) {
+              tw.setRecursive(true);
+              tw.setFilter(AndTreeFilter.create(
+                  TreeFilter.ANY_DIFF,
+                  PathFilterGroup.createFromStrings(unresolved)));
+              if (commit.getParentCount() > 0) {
+                tw.addTree(walk.parseCommit(commit.getParent(0)).getTree());
+              } else {
+                tw.addTree(new EmptyTreeIterator());
+              }
+              tw.addTree(commit.getTree());
+              final var author = commit.getAuthorIdent();
+              final var edit = new LastEdit(author.getName(), author.getWhenAsInstant(), commit.getParentCount() == 0);
+              while (tw.next()) {
+                final var path = tw.getPathString();
+                if (!unresolved.remove(path)) continue;
+                if (tw.getRawMode(1) != 0) edits.put(path, edit);
+              }
+            }
           }
         }
       }
-      if (reachedCache) cached.edits().forEach(edits::putIfAbsent);
 
-      final var result = Map.copyOf(edits);
-      lastEditCache.put(root, new LastEditIndex(head.copy(), result));
-      return result;
+      final var cachedHead = head.copy();
+      for (final var path : requested) {
+        cache.put(path, new CachedLastEdit(cachedHead, Optional.ofNullable(edits.get(path))));
+      }
+      return Map.copyOf(edits);
     }
+  }
+
+  public Optional<LastEdit> lastEdit(final Path root, final String path) throws IOException {
+    return Optional.ofNullable(lastEdits(root, Set.of(path)).get(path));
   }
   //endregion
 }

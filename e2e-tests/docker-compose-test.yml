@@ -314,7 +314,7 @@ services:
       SEQUENCING_DB_USER: "${SEQUENCING_USERNAME}"
       SEQUENCING_DB_PASSWORD: "${SEQUENCING_PASSWORD}"
     image: plandev_postgres
-    ports: ['5432:5432']
+    ports: ["${POSTGRES_PORT:-5432}:5432"]
     restart: always
     volumes:
       - postgres_data:/var/lib/postgresql/data

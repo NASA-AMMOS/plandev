@@ -19,18 +19,16 @@ import java.util.regex.Pattern;
 /**
  * The single source of truth for which names inside a workspace are internal to the workspace server.
  *
- * <ul>
- *   <li>{@code .git} holds the workspace's history repository (see {@link WorkspaceHistory}).</li>
- *   <li>{@code .gitignore}, {@code .gitattributes} and {@code .gitmodules} would change what Git tracks or how it
- *       rewrites file bytes, which would let a "clean" repository silently omit or alter user files. They are reserved
- *       in Phase 1; {@code .gitignore} may be relaxed once Git remote interoperability exists.</li>
- *   <li>{@code .seqdev} holds same-filesystem temporary files used for atomic replacement. It is never committed and
- *       is not part of the versioned workspace.</li>
- * </ul>
+ * - .git holds the workspace's history repository (see {@link WorkspaceHistory}).
+ * - .gitignore, .gitattributes and .gitmodules would change what Git tracks or how it rewrites file bytes, which would
+ *   let a "clean" repository silently omit or alter user files. They are reserved in Phase 1; .gitignore may be relaxed
+ *   once Git remote interoperability exists.
+ * - .seqdev holds same-filesystem temporary files used for atomic replacement. It is never committed and is not part
+ *   of the versioned workspace.
  *
  * Reserved names are rejected at every path segment, case-insensitively, by
  * {@link WorkspaceFileSystemService#resolveReadingPath}, so no user-facing file API can read or write them.
- * {@code .meta.seqdev} sidecars are SeqDev-managed but are not reserved here: they are addressed through the
+ * .meta.seqdev sidecars are SeqDev-managed but are not reserved here: they are addressed through the
  * metadata API, and the file API handlers reject them directly.
  */
 public final class WorkspacePaths {
@@ -73,7 +71,7 @@ public final class WorkspacePaths {
     return dir.resolve("tmp-" + UUID.randomUUID());
   }
 
-  /** Replace {@code target} with {@code bytes} so readers, and a crash, see either the old or the new content. */
+  /** Replace target with bytes so readers, and a crash, see either the old or the new content. */
   public static void writeAtomically(final Path root, final Path target, final byte[] bytes) throws IOException {
     final var tmp = tempFile(root);
     try {
@@ -98,7 +96,7 @@ public final class WorkspacePaths {
   }
 
   /**
-   * Like {@code Files.walk(dir, maxDepth)} minus the starting directory, but never descends into (or returns) a
+   * Like Files.walk(dir, maxDepth) minus the starting directory, but never descends into (or returns) a
    * reserved name, so Git internals and server scratch files never leak into listings, copies or scans. Symbolic links
    * are neither followed nor returned: they are not supported workspace content.
    */

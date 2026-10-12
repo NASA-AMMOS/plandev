@@ -669,7 +669,7 @@ public class WorkspaceBindings implements Plugin {
 
   /**
    * As {@link #mutate(int, String, String, WorkspaceHistory.Mutation)}, across workspaces committed in the given
-   * order. {@code partialMessage} describes the outcome if a later workspace's commit fails after an earlier one's
+   * order. partialMessage describes the outcome if a later workspace's commit fails after an earlier one's
    * succeeded (see {@link WorkspaceHistory.PartialMutationException}).
    */
   private HandlerResult mutate(

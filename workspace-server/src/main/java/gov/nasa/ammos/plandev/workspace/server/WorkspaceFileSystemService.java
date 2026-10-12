@@ -93,9 +93,9 @@ public class WorkspaceFileSystemService implements WorkspaceService {
    * Resolves a relative path against a workspace root for reading or otherwise fetching a File while ensuring the
    *   result stays within the root directory.
    * Prevents path traversal attacks by rejecting absolute paths and any resolved path that escape the specified root.
-   * Also rejects any path naming a reserved internal name ({@link WorkspacePaths}, e.g. {@code .git}) at any
+   * Also rejects any path naming a reserved internal name ({@link WorkspacePaths}, e.g. .git) at any
    * segment, and any path through an existing symbolic link (unsupported workspace content: a link could reach
-   * {@code .git} or leave the root while the lexical path looks fine), so every file API (read, write, move, copy,
+   * .git or leave the root while the lexical path looks fine), so every file API (read, write, move, copy,
    * delete, metadata) shares one rule.
    * @param rootPath the workspace root path
    * @param filePath the untrusted path to resolve against the root
@@ -492,8 +492,8 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   /**
    * Copy one content file as a new file in the destination, whether it is copied on its own or inside a directory:
-   * its sidecar's semantic metadata ({@code version}, {@code user}) comes along, {@code createdBy}/{@code createdAt}
-   * are the copier and the copy time, {@code readOnly} does not carry over, and {@code lastEdited*} is derived from
+   * its sidecar's semantic metadata (version and user) comes along, createdBy and createdAt are the copier and the
+   * copy time, readOnly does not carry over, and lastEdited* is derived from
    * the destination's commit. Nothing is inherited from a file the copy overwrites. The content keeps the source's
    * permissions (a copy of an executable is executable).
    */

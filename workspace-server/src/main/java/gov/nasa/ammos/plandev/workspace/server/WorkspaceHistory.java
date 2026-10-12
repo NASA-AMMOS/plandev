@@ -45,52 +45,60 @@ import java.util.function.Predicate;
 /**
  * The single owner of workspace mutations and of the Git history that records them.
  *
- * <p><b>Invariant.</b> After every successful workspace mutation, the workspace working tree is represented by Git
+ * Invariant:
+ * After every successful workspace mutation, the workspace working tree is represented by Git
  * history and the repository is clean. Every mutation of workspace-managed files (file and directory create, save,
  * move, copy, delete, metadata edits, cross-workspace operations) runs inside {@link #mutate}; the mutating methods of
  * {@link WorkspaceFileSystemService} call {@link #requireLocked} so a path that bypasses this class fails loudly.
  *
- * <p><b>Flow.</b> {@link #mutate} takes each involved workspace's lock (in ascending id order, so two cross-workspace
+ * Flow:
+ * {@link #mutate} takes each involved workspace's lock (in ascending id order, so two cross-workspace
  * operations cannot deadlock), brings each repository to a clean, initialized state, records the pre-operation state,
  * runs the mutation (which performs its own validation, e.g. existence, readOnly and ETag checks, under the lock),
- * stages the complete resulting delta ({@code git add -A}), commits it if anything changed, and verifies the
+ * stages the complete resulting delta with git add -A, commits it if anything changed, and verifies the
  * repository is clean before returning. A request never reports success if the history update failed.
  *
- * <p><b>Clean.</b> A repository is clean when {@code git status} reports no staged, modified, missing, conflicting or
- * untracked files, and no ignored file exists outside {@code .seqdev/}. Ignore rules are fully controlled here:
- * {@code core.excludesFile} points at {@code /dev/null}, {@code .git/info/exclude} contains only {@code /.seqdev/},
- * and {@code .gitignore}/{@code .gitattributes} cannot exist in the tree ({@link WorkspacePaths}). Outside the
- * definition by design: {@code .git/} itself, {@code .seqdev/} (temporary files, never committed) and empty
+ * Clean:
+ * A repository is clean when git status reports no staged, modified, missing, conflicting or
+ * untracked files, and no ignored file exists outside .seqdev/. Ignore rules are fully controlled here:
+ * core.excludesFile points at /dev/null, .git/info/exclude contains only /.seqdev/,
+ * and .gitignore or .gitattributes cannot exist in the tree ({@link WorkspacePaths}). Outside the
+ * definition by design: .git/ itself, .seqdev/ (temporary files, never committed) and empty
  * directories (not representable in Git; creating or deleting one produces no commit).
  *
- * <p><b>Failure.</b> If the mutation throws, reports failure, or its history cannot be recorded, the workspace is
+ * Failure:
+ * If the mutation throws, reports failure, or its history cannot be recorded, the workspace is
  * restored to its pre-operation state: tracked files and the index are checked out from the pre-operation HEAD, the
  * paths this operation created (untracked or newly added after it ran; equivalent to "created by this operation"
  * because the repository was verified clean beforehand under the same lock) are removed along with any parent
  * directories that leaves empty. Empty directories are not versioned state, so a pre-existing empty directory the
  * operation removed is not recreated. If restoration itself fails, a
- * {@link Kind#REPOSITORY_INCONSISTENT} error is raised rather than claiming success; nothing is ever {@code git clean}ed
- * wholesale or reset on the strength of an unverified assumption.
+ * {@link Kind#REPOSITORY_INCONSISTENT} error is raised rather than claiming success. git clean is never run wholesale,
+ * nor is the repository reset on the strength of an unverified assumption.
  *
- * <p><b>Cross-workspace.</b> Two repositories cannot share a transaction. Commits are made in the order the caller
+ * Cross-workspace:
+ * Two repositories cannot share a transaction. Commits are made in the order the caller
  * lists the workspaces (destination first for moves). If the first commit fails, every workspace is restored. If a
  * later commit fails, the workspaces already committed keep their change and the remaining ones are restored, raising
  * {@link Kind#PARTIALLY_APPLIED}: for a move this means it degraded to a copy, which is preferable to losing data.
  *
- * <p><b>Adoption.</b> A workspace is <i>managed</i> once its repository config carries {@code plandev.managed=true},
+ * Adoption:
+ * A workspace is managed once its repository config carries plandev.managed=true,
  * which is written only after adoption has fully succeeded. An unmanaged workspace (new, pre-history, or a repository
  * PlanDev did not finish adopting) is adopted on its first mutation: its tree must contain no reserved names and no
  * symbolic links; a repository is created if missing; and the current
  * state is recorded by a commit authored by {@link #systemIdent()} ("Initialize workspace history" for a new
  * repository, "Adopt workspace into history" for an existing one with uncommitted state).
  *
- * <p><b>Trust.</b> Before every mutation of a managed workspace the repository must be exactly what this class left
- * behind: no in-progress Git operation, HEAD attached to {@code main}, an index of plain files outside reserved names,
+ * Trust:
+ * Before every mutation of a managed workspace the repository must be exactly what this class left
+ * behind: no in-progress Git operation, HEAD attached to main, an index of plain files outside reserved names,
  * and a clean working tree. Anything else (an out-of-band edit, residue of a crash
  * mid-operation, a manual checkout) is rejected with {@link Kind#REPOSITORY_INCONSISTENT} naming what is wrong. It is
  * never committed, reset or repaired automatically.
  *
- * <p><b>Deployment assumption.</b> Locks are in-process. This is correct only while a single workspace-server
+ * Deployment assumption:
+ * Locks are in-process. This is correct only while a single workspace-server
  * instance owns the workspace volume (the current deployment: one replica, no other service mounts the volume) and
  * nothing outside this class writes to a workspace's working tree. Reads do not take the lock.
  */
@@ -146,7 +154,7 @@ public class WorkspaceHistory {
     T apply() throws Exception;
   }
 
-  /** A file's most recent content change, derived from history. {@code baseline} marks the history's root commit. */
+  /** A file's most recent content change, derived from history. baseline marks the history's root commit. */
   public record LastEdit(String by, Instant at, boolean baseline) {}
 
   private record Before(ObjectId head) {}
@@ -413,7 +421,7 @@ public class WorkspaceHistory {
 
   /**
    * Fail closed if the tree contains reserved names that would make Git skip or rewrite user files, or symbolic links
-   * (unsupported workspace content: one could point into {@code .git} or outside the workspace). Only possible for
+   * (unsupported workspace content: one could point into .git or outside the workspace). Only possible for
    * workspaces created or edited outside the file API, which rejects both. Links are never followed.
    */
   private static void requireAdoptable(final Path root) throws IOException {
@@ -481,7 +489,7 @@ public class WorkspaceHistory {
     return Git.open(root.toFile());
   }
 
-  /** {@code git add -A}. Returns whether anything is staged relative to HEAD. */
+  /** Runs git add -A. Returns whether anything is staged relative to HEAD. */
   private static boolean stageAll(final Git git) throws GitAPIException {
     git.add().addFilepattern(".").call();
     git.add().addFilepattern(".").setUpdate(true).call();

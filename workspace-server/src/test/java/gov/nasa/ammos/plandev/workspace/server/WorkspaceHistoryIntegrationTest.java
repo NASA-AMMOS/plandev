@@ -682,6 +682,22 @@ class WorkspaceHistoryIntegrationTest {
 
   @Nested
   class Concurrency {
+    @Test
+    void nestedWorkspaceLockAcquisitionIsRejected() throws Exception {
+      init(WS1);
+      init(WS2);
+
+      final var nestedMutation = assertThrows(IllegalStateException.class, () ->
+          history.mutate(WS1, USER, "outer", () ->
+              history.mutate(WS2, USER, "inner", () -> true, result -> result), result -> result));
+      assertTrue(nestedMutation.getMessage().contains("cannot be nested"));
+
+      assertThrows(IllegalStateException.class, () -> history.withLock(WS1, () ->
+          history.mutate(WS2, USER, "inner", () -> true, result -> result)));
+      assertClean(WS1);
+      assertClean(WS2);
+    }
+
     /** A second mutation cannot run between the first one's filesystem write and its commit. */
     @Test
     void mutationsDoNotInterleaveBetweenWriteAndCommit() throws Exception {

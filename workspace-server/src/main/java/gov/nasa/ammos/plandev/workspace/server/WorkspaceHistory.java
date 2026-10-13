@@ -170,6 +170,9 @@ public class WorkspaceHistory {
   private final Map<Integer, ReentrantLock> locks = new ConcurrentHashMap<>();
   private final Map<Path, Map<String, CachedLastEdit>> lastEditCache = new ConcurrentHashMap<>();
   private final Set<Path> configured = ConcurrentHashMap.newKeySet();
+  // Each request thread gets its own flag: nested entry on that thread sees true, while unrelated threads still see
+  // their own initial false. inLockScope removes the thread's value when the outer operation finishes.
+  private final ThreadLocal<Boolean> lockScopeActive = ThreadLocal.withInitial(() -> false);
 
   public WorkspaceHistory(final WorkspaceRoots roots) {
     this.roots = roots;
@@ -202,6 +205,15 @@ public class WorkspaceHistory {
    * @throws Exception anything the mutation throws, after the workspaces have been restored
    */
   public <T> T mutate(
+      final LinkedHashMap<Integer, String> commits,
+      final String userId,
+      final Mutation<T> mutation,
+      final Predicate<T> succeeded) throws Exception
+  {
+    return inLockScope(() -> mutateUnderLocks(commits, userId, mutation, succeeded));
+  }
+
+  private <T> T mutateUnderLocks(
       final LinkedHashMap<Integer, String> commits,
       final String userId,
       final Mutation<T> mutation,
@@ -262,16 +274,33 @@ public class WorkspaceHistory {
 
   /** Run an action under a workspace's lock without recording history (e.g. deleting the whole workspace). */
   public <T> T withLock(final int workspaceId, final Mutation<T> action) throws Exception {
-    final var lock = lockFor(workspaceId);
-    lock.lock();
+    return inLockScope(() -> {
+      final var lock = lockFor(workspaceId);
+      lock.lock();
+      try {
+        final var root = roots.workspaceRootPath(workspaceId).normalize(); // before the action may delete the record
+        final var result = action.apply();
+        lastEditCache.remove(root);
+        configured.remove(root);
+        return result;
+      } finally {
+        lock.unlock();
+      }
+    });
+  }
+
+  private <T> T inLockScope(final Mutation<T> action) throws Exception {
+    // Global ordering prevents deadlock only when every lock is declared up front. A callback that enters mutate or
+    // withLock again would already hold an outer lock and could acquire the next one out of order.
+    if (lockScopeActive.get()) {
+      throw new IllegalStateException(
+          "Workspace lock operations cannot be nested; declare every workspace in one mutation.");
+    }
+    lockScopeActive.set(true);
     try {
-      final var root = roots.workspaceRootPath(workspaceId).normalize(); // before the action may delete the record
-      final var result = action.apply();
-      lastEditCache.remove(root);
-      configured.remove(root);
-      return result;
+      return action.apply();
     } finally {
-      lock.unlock();
+      lockScopeActive.remove();
     }
   }
 

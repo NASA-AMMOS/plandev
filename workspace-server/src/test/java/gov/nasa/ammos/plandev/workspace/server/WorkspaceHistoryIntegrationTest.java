@@ -347,9 +347,10 @@ class WorkspaceHistoryIntegrationTest {
      * are not versioned state, so the layout of empty directories is not part of what rollback guarantees.
      */
     @Test
-    void injectedCommitFailureRestoresThePreOperationState() throws Exception {
+    void injectedCommitFailureRestoresFileStateWithoutPruningEmptyDirectories() throws Exception {
       saveOk(WS1, "keep.txt", "original");
       saveOk(WS1, "gone.txt", "will be deleted");
+      Files.createDirectories(root(WS1).resolve("existing-empty"));
       final var headBefore = head(WS1);
       final var sidecarBefore = Files.readAllBytes(root(WS1).resolve(".keep.txt.meta.seqdev"));
 
@@ -360,6 +361,7 @@ class WorkspaceHistoryIntegrationTest {
             Files.delete(root(WS1).resolve("gone.txt"));
             Files.createDirectories(root(WS1).resolve("new/nested"));
             Files.writeString(root(WS1).resolve("new/nested/file.txt"), "new");
+            Files.writeString(root(WS1).resolve("existing-empty/file.txt"), "new");
             Files.writeString(root(WS1).resolve("untracked.txt"), "new");
             Files.writeString(root(WS1).resolve(".keep.txt.meta.seqdev"), "{\"readOnly\":true}");
             return true;
@@ -368,7 +370,12 @@ class WorkspaceHistoryIntegrationTest {
 
       assertEquals("original", read(WS1, "keep.txt"));
       assertEquals("will be deleted", read(WS1, "gone.txt"));
-      assertFalse(Files.exists(root(WS1).resolve("new")), "folders left empty by removing created files are pruned");
+      assertTrue(Files.isDirectory(root(WS1).resolve("new/nested")),
+                 "rollback leaves directories it cannot prove were created by the failed operation");
+      assertTrue(Files.isDirectory(root(WS1).resolve("existing-empty")),
+                 "rollback preserves a directory that existed before the failed operation");
+      assertFalse(Files.exists(root(WS1).resolve("new/nested/file.txt")));
+      assertFalse(Files.exists(root(WS1).resolve("existing-empty/file.txt")));
       assertFalse(Files.exists(root(WS1).resolve("untracked.txt")));
       assertArrayEquals(sidecarBefore, Files.readAllBytes(root(WS1).resolve(".keep.txt.meta.seqdev")));
       assertEquals(headBefore, head(WS1));

@@ -34,6 +34,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -74,9 +75,10 @@ import java.util.function.Predicate;
  * If the mutation throws, reports failure, or its history cannot be recorded, the workspace is
  * restored to its pre-operation state: tracked files and the index are checked out from the pre-operation HEAD, the
  * paths this operation created (untracked or newly added after it ran; equivalent to "created by this operation"
- * because the repository was verified clean beforehand under the same lock) are removed along with any parent
- * directories that leaves empty. Empty directories are not versioned state, so a pre-existing empty directory the
- * operation removed is not recreated. If restoration itself fails, a
+ * because the repository was verified clean beforehand under the same lock) are removed. Empty directories are not
+ * versioned state and cannot be attributed to one operation after the fact, so rollback leaves them in place rather
+ * than risk deleting a pre-existing directory. It also cannot recreate an empty directory the operation removed.
+ * If restoration itself fails, a
  * {@link Kind#REPOSITORY_INCONSISTENT} error is raised rather than claiming success. git clean is never run wholesale,
  * nor is the repository reset on the strength of an unverified assumption.
  *
@@ -635,6 +637,14 @@ public class WorkspaceHistory {
       created.addAll(status.getUntracked());
       created.addAll(status.getAdded());
 
+      // DirCacheCheckout may remove empty parents while restoring files. Snapshot the directories still present after
+      // the failed operation so checkout cannot make the unsafe guess that they were all created by that operation.
+      // This failure-only walk intentionally preserves both old directories and harmless new empty ones.
+      final var directoriesToKeep = WorkspacePaths.walk(root, Integer.MAX_VALUE).stream()
+          .filter(path -> Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
+          .sorted(Comparator.comparingInt(Path::getNameCount))
+          .toList();
+
       // Move the branch back only if the operation's commit actually landed.
       if (!before.head().equals(repo.resolve(Constants.HEAD))) {
         final var update = repo.updateRef(Constants.HEAD);
@@ -651,21 +661,23 @@ public class WorkspaceHistory {
       checkout.setFailOnConflict(false);
       checkout.checkout();
 
-      // Remove what the operation created, then any parent directory that leaves empty (empty directories are not
-      // versioned state; this only avoids leaving a failed save's new folders behind).
+      // Remove files the operation created. Do not prune empty parents: Git cannot tell whether a directory was created
+      // by this operation or already existed, and rollback must not delete a directory it cannot safely attribute.
       for (final var path : created) {
-        var p = root.resolve(path);
-        Files.deleteIfExists(p);
-        for (p = p.getParent(); !p.equals(root) && isEmptyDirectory(p); p = p.getParent()) Files.delete(p);
+        Files.deleteIfExists(root.resolve(path));
+      }
+
+      // Recreate directories removed by checkout, shallowest first. This may leave directories created by the failed
+      // operation, which is preferable to deleting a pre-existing directory that Git cannot identify or restore.
+      for (final var directory : directoriesToKeep) {
+        if (Files.notExists(directory, LinkOption.NOFOLLOW_LINKS)
+            && Files.isDirectory(directory.getParent(), LinkOption.NOFOLLOW_LINKS))
+        {
+          Files.createDirectory(directory);
+        }
       }
 
       requireClean(git, root);
-    }
-  }
-  private static boolean isEmptyDirectory(final Path dir) throws IOException {
-    if (!Files.isDirectory(dir, LinkOption.NOFOLLOW_LINKS)) return false;
-    try (final var entries = Files.list(dir)) {
-      return entries.findAny().isEmpty();
     }
   }
   //endregion

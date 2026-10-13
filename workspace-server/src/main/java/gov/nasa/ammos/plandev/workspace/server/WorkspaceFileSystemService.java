@@ -9,6 +9,7 @@ import gov.nasa.ammos.plandev.workspace.server.postgres.WorkspacePostgresReposit
 import gov.nasa.ammos.plandev.workspace.server.types.MetadataKeys;
 import gov.nasa.ammos.plandev.workspace.server.types.MetadataMergeBehavior;
 import io.javalin.http.UploadedFile;
+import org.eclipse.jgit.api.errors.GitAPIException;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -306,15 +307,28 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   //region Workspace Operations
   @Override
   public Optional<Integer> createWorkspace(final Path workspaceLocation, final String workspaceName, String username, int parcelId) {
-    final var repoPath = postgresRepository.getBaseRepositoryPath().resolve(workspaceLocation);
-    if(repoPath.toFile().mkdirs()){
-      try {
-        final int workspaceId = postgresRepository.createWorkspace(workspaceLocation.toString(), workspaceName, username, parcelId);
-        return Optional.of(workspaceId);
-      } catch (SQLException ex) {
-        return Optional.empty();
+    final var repoPath = postgresRepository.getBaseRepositoryPath().resolve(workspaceLocation).normalize();
+    if (!repoPath.toFile().mkdirs()) return Optional.empty();
+
+    try {
+      // Initialize history before publishing the database row, so a successfully created workspace is always managed.
+      history.initializeNewWorkspace(repoPath);
+    } catch (IOException | GitAPIException ex) {
+      logger.error("CREATE WORKSPACE: Unable to initialize workspace history at {}", repoPath, ex);
+      // No database insert was attempted, so this request still owns the directory and may safely remove it.
+      if (!rmDirectory(repoPath.toFile())) {
+        logger.error("CREATE WORKSPACE: Unable to remove incomplete workspace at {}", repoPath);
       }
-    } else {
+      return Optional.empty();
+    }
+
+    try {
+      final int workspaceId = postgresRepository.createWorkspace(
+          workspaceLocation.toString(), workspaceName, username, parcelId);
+      return Optional.of(workspaceId);
+    } catch (SQLException ex) {
+      logger.error("CREATE WORKSPACE: Unable to create database entry for {}", repoPath, ex);
+      // A JDBC failure can be reported after the insert committed, so deleting here could leave a live row without files.
       return Optional.empty();
     }
   }

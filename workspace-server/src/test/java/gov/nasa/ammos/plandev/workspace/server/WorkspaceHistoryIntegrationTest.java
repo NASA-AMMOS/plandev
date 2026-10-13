@@ -765,6 +765,49 @@ class WorkspaceHistoryIntegrationTest {
   }
 
   @Nested
+  class WorkspaceInitialization {
+    @Test
+    void newWorkspaceGetsManagedHistoryBeforeItsFirstMutation() throws Exception {
+      final var newRoot = Files.createDirectory(base.resolve("new"));
+
+      history.initializeNewWorkspace(newRoot);
+
+      assertTrue(history.isManaged(newRoot));
+      try (final var git = Git.open(newRoot.toFile())) {
+        final var commits = new ArrayList<RevCommit>();
+        git.log().call().forEach(commits::add);
+        assertEquals(1, commits.size());
+        assertEquals(WorkspaceHistory.INIT_MESSAGE, commits.getFirst().getFullMessage());
+        assertEquals(Set.of(), WorkspaceHistory.dirtyPaths(git.status().call()));
+      }
+    }
+
+    @Test
+    void newWorkspaceInitializationDoesNotAdoptExistingFiles() throws Exception {
+      final var newRoot = Files.createDirectory(base.resolve("not-new"));
+      Files.writeString(newRoot.resolve("existing.txt"), "existing");
+
+      assertThrows(IOException.class, () -> history.initializeNewWorkspace(newRoot));
+
+      assertFalse(Files.exists(newRoot.resolve(WorkspacePaths.GIT_DIR)));
+      assertEquals("existing", Files.readString(newRoot.resolve("existing.txt")));
+    }
+
+    @Test
+    void failedInitializationDoesNotMarkTheWorkspaceManaged() throws Exception {
+      final var newRoot = Files.createDirectory(base.resolve("failed"));
+      history.failCommitsIn.add(newRoot.toRealPath());
+
+      assertThrows(GitAPIException.class, () -> history.initializeNewWorkspace(newRoot));
+
+      assertFalse(history.isManaged(newRoot));
+      try (final var git = Git.open(newRoot.toFile())) {
+        assertNull(git.getRepository().resolve("HEAD"));
+      }
+    }
+  }
+
+  @Nested
   class LegacyWorkspaceAdoption {
     private void writeLegacyWorkspace() throws IOException {
       Files.createDirectories(root(WS1).resolve("seq"));

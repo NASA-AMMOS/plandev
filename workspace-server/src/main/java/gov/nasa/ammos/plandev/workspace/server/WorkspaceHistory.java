@@ -88,11 +88,12 @@ import java.util.function.Predicate;
  *
  * Adoption:
  * A workspace is managed once its repository config carries plandev.managed=true,
- * which is written only after adoption has fully succeeded. An unmanaged workspace (new, pre-history, or a repository
- * PlanDev did not finish adopting) is adopted on its first mutation: its tree must contain no reserved names and no
- * symbolic links; a repository is created if missing; and the current
- * state is recorded by a commit authored by {@link #systemIdent()} ("Initialize workspace history" for a new
- * repository, "Adopt workspace into history" for an existing one with uncommitted state).
+ * which is written only after initialization or adoption has fully succeeded. New workspaces are initialized before
+ * their database row makes them visible. An existing unmanaged workspace (pre-history, or a repository PlanDev did
+ * not finish adopting) is adopted on its first mutation: its tree must contain no reserved names and no symbolic
+ * links; a repository is created if missing; and the current state is recorded by a commit authored by
+ * {@link #systemIdent()} ("Initialize workspace history" for a new repository, "Adopt workspace into history" for an
+ * existing one with uncommitted state).
  *
  * Trust:
  * Before every mutation of a managed workspace the repository must be exactly what this class left
@@ -334,6 +335,24 @@ public class WorkspaceHistory {
   //endregion
 
   //region Adoption and trust
+  /**
+   * Initialize a newly created directory before its database row makes it visible as a workspace. No workspace lock is
+   * needed yet because no other request can resolve the directory; migrated workspaces still use adoption on first
+   * mutation through ensureReady().
+   */
+  void initializeNewWorkspace(final Path root) throws IOException, GitAPIException {
+    final var normalizedRoot = root.normalize();
+    if (!Files.isDirectory(normalizedRoot)) {
+      throw new IOException("New workspace directory " + normalizedRoot + " is missing.");
+    }
+    try (final var entries = Files.list(normalizedRoot)) {
+      if (entries.findAny().isPresent()) {
+        throw new IOException("New workspace directory " + normalizedRoot + " is not empty.");
+      }
+    }
+    adopt(normalizedRoot);
+  }
+
   /** Bring a workspace to "managed, trusted and clean", adopting it first if it is not managed yet. Caller holds the lock. */
   private void ensureReady(final Path root) throws IOException, GitAPIException {
     if (!Files.isDirectory(root)) {
@@ -396,7 +415,10 @@ public class WorkspaceHistory {
     }
   }
 
-  /** Whether a workspace has been fully adopted (see the class Javadoc). Never discovers a parent repository. */
+  /**
+   * Whether a workspace has been fully initialized or adopted (see the class Javadoc). Never discovers a parent
+   * repository.
+   */
   boolean isManaged(final Path root) throws IOException {
     if (!Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR), LinkOption.NOFOLLOW_LINKS)) return false;
     try (final var git = open(root)) {

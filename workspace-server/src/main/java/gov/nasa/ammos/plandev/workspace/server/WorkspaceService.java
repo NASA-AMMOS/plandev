@@ -74,7 +74,7 @@ public interface WorkspaceService {
    * @param workspaceName the name of the workspace in the database
    * @param username the user who is creating the workspace
    * @param parcelId the parcel the workspace should load when reading sequencing files
-   * @return an Optional containing the id of the new workspace if it was created, otherwise an empty Optional
+   * @return an Optional containing the id of the new, history-managed workspace if it was created, otherwise empty
    */
   Optional<Integer> createWorkspace(Path workspaceLocation, String workspaceName, String username, int parcelId);
 

@@ -799,19 +799,32 @@ public class WorkspaceFileSystemService implements WorkspaceService {
                             .remove(MetadataKeys.lastEditedBy.name())
                             .remove(MetadataKeys.lastEditedAt.name());
 
-    // Prefer the file's latest commit, unless that is the history baseline and the pre-history value is known.
-    final var legacyBy = sidecar.get(MetadataKeys.lastEditedBy.name()) instanceof JsonString by ? by.getString() : null;
-    final var legacyAt = sidecar.get(MetadataKeys.lastEditedAt.name()) instanceof JsonString at ? at.getString() : null;
-    if (edit != null && !(edit.baseline() && legacyBy != null && legacyAt != null)) {
-      builder.add(MetadataKeys.lastEditedBy.name(), edit.by()).add(MetadataKeys.lastEditedAt.name(), edit.at().toString());
-    } else if (legacyBy != null && legacyAt != null) {
-      builder.add(MetadataKeys.lastEditedBy.name(), legacyBy).add(MetadataKeys.lastEditedAt.name(), legacyAt);
+    final var sidecarBy = sidecar.get(MetadataKeys.lastEditedBy.name()) instanceof JsonString by ? by.getString() : null;
+    final var sidecarAt = sidecar.get(MetadataKeys.lastEditedAt.name()) instanceof JsonString at ? at.getString() : null;
+    final var hasCompleteSidecarEdit = sidecarBy != null && sidecarAt != null;
+    final var useSidecarEdit = hasCompleteSidecarEdit && (edit == null || edit.baseline());
+
+    final String effectiveBy;
+    final String effectiveAt;
+    if (useSidecarEdit) {
+      // Preserve pre-history attribution until Git records a real content change after the baseline.
+      effectiveBy = sidecarBy;
+      effectiveAt = sidecarAt;
+    } else if (edit != null) {
+      // Git is authoritative after the baseline, and is also the fallback when the sidecar pair is incomplete.
+      effectiveBy = edit.by();
+      effectiveAt = edit.at().toString();
     } else if (sidecar.get("createdBy") instanceof JsonString by && sidecar.get("createdAt") instanceof JsonString at) {
-      // Not committed yet (only observable by a lock-free reader mid-mutation)
-      builder.add(MetadataKeys.lastEditedBy.name(), by).add(MetadataKeys.lastEditedAt.name(), at);
+      // A new file can be visible to a lock-free reader just before its first commit.
+      effectiveBy = by.getString();
+      effectiveAt = at.getString();
+    } else {
+      return builder.build();
     }
 
-    return builder.build();
+    return builder.add(MetadataKeys.lastEditedBy.name(), effectiveBy)
+                  .add(MetadataKeys.lastEditedAt.name(), effectiveAt)
+                  .build();
   }
 
   @Override

@@ -22,17 +22,23 @@ import org.eclipse.jgit.treewalk.filter.TreeFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.json.Json;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -45,9 +51,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 
 /**
  * The single owner of workspace mutations and of the Git history that records them.
@@ -70,7 +78,7 @@ import java.util.function.Predicate;
  * untracked files, and no ignored file exists outside .seqdev/. Ignore rules are fully controlled here:
  * core.excludesFile points at /dev/null, .git/info/exclude contains only /.seqdev/,
  * and .gitignore or .gitattributes cannot exist in the tree ({@link WorkspacePaths}). Outside the
- * definition by design: .git/ itself, .seqdev/ (temporary files, never committed) and empty
+ * definition by design: .git/ itself, .seqdev/ (temporary files and recovery incidents, never committed) and empty
  * directories (not representable in Git; creating or deleting one produces no commit).
  *
  * Failure:
@@ -85,7 +93,8 @@ import java.util.function.Predicate;
  * nor is the repository reset on the strength of an unverified assumption.
  * A small marker in .git distinguishes a mutation interrupted by a process crash from an unexplained external edit.
  * On the next mutation, a marked repository is restored to its current HEAD: this rolls back work whose commit did
- * not land and completes work whose commit did land. The marker is removed only after the repository is clean.
+ * not land and completes work whose commit did land, preserving unfinished bytes in .seqdev/recovery first.
+ * The marker is removed only after the repository is clean.
  *
  * Cross-workspace:
  * Two repositories cannot share a transaction. Commits are made in the order the caller
@@ -107,9 +116,9 @@ import java.util.function.Predicate;
  * Trust:
  * Before every mutation of a managed workspace the repository must be exactly what this class left
  * behind: no in-progress Git operation, HEAD attached to main, an index of plain files outside reserved names,
- * and a clean working tree. A marked interrupted PlanDev mutation is recovered first. Anything else (an out-of-band
- * edit or a manual checkout) is rejected with {@link Kind#REPOSITORY_INCONSISTENT} naming what is wrong. It is never
- * committed, reset or repaired automatically.
+ * and no staged changes. Ordinary filesystem drift is preserved in .seqdev/recovery before restoring the whole
+ * workspace and index to HEAD. A marked interrupted PlanDev mutation also preserves staged residue before recovery.
+ * Structural Git problems and unsupported filesystem entries fail closed with {@link Kind#REPOSITORY_INCONSISTENT}.
  *
  * Deployment assumption:
  * Locks are in-process. This is correct only while a single workspace-server
@@ -126,6 +135,12 @@ public class WorkspaceHistory {
   static final String BRANCH = "main";
   private static final String MANAGED_SECTION = "plandev";
   private static final String MANAGED_KEY = "managed";
+  private static final int INCIDENT_VERSION = 1;
+  /** Recovery incidents kept per workspace; older ones are deleted when a new one is written. */
+  static final int MAX_INCIDENTS = 20;
+  private static final DateTimeFormatter INCIDENT_TIME =
+      DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmssSSS'Z'").withZone(ZoneOffset.UTC);
+
   // Explicit allowlist for the Git files this class may write: config, index, HEAD, main/packed refs, and their logs.
   // JGit generally locks a target by appending ".lock"; the reflog entries are conservative for Git compatibility.
   // Never replace this with a *.lock scan: recovery must not delete an unrelated lock it cannot attribute to PlanDev.
@@ -402,7 +417,7 @@ public class WorkspaceHistory {
     }
   }
 
-  /** Fail closed unless a managed workspace is exactly as this class left it. */
+  /** Validate managed Git state, then preserve and heal all ordinary filesystem drift before any mutation. */
   private void requireTrusted(final Path root) throws IOException, GitAPIException {
     // configure() runs before the mutation marker and saves through .git/config.lock. If the process dies during that
     // FileBasedConfig.save(), normal cleanup never runs and no marker exists to trigger general recovery. Under the
@@ -413,13 +428,176 @@ public class WorkspaceHistory {
       requireExpectedGitState(git.getRepository(), false);
       configure(root, git.getRepository());
       requireValidIndex(git.getRepository());
-      final var dirty = dirtyPaths(git.status().call());
-      if (!dirty.isEmpty()) {
-        throw inconsistent("Workspace at %s has changes that are not in its history: %s. They were left untouched."
-                               .formatted(root, summarize(dirty)));
-      }
+      heal(root, git, false);
     }
     WorkspacePaths.removeStaleTempFiles(root); // only once trusted: a rejected workspace is left exactly as found
+  }
+
+  /** Staged residue is recoverable only with a trusted crash marker; normal requests reject it untouched. */
+  private void heal(final Path root, final Git git, final boolean interrupted) throws IOException, GitAPIException {
+    final var status = git.status().call();
+    final var staged = new TreeSet<String>();
+    staged.addAll(status.getAdded());
+    staged.addAll(status.getChanged());
+    staged.addAll(status.getRemoved());
+    staged.addAll(status.getConflicting());
+    if (!interrupted && !staged.isEmpty()) {
+      throw inconsistent("Workspace at %s has staged changes that are not in its history: %s. They were left untouched."
+                             .formatted(root, summarize(staged)));
+    }
+    final var dirty = dirtyPaths(status);
+    if (dirty.isEmpty()) return;
+    final var head = git.getRepository().resolve(Constants.HEAD);
+    final var reason = interrupted ? "interrupted mutation recovery" : "out-of-band filesystem change";
+    final var incident = preserve(root, head, status, reason);
+    try {
+      restore(root, new Before(head)); // existing whole-tree/index restore, including its clean postcondition
+    } catch (IOException | GitAPIException | RuntimeException e) {
+      throw new WorkspaceHistoryException(Kind.REPOSITORY_INCONSISTENT,
+          "Workspace at %s: %s were preserved in %s but the workspace could not be restored to HEAD."
+              .formatted(root, summarize(dirty), incident), e);
+    }
+    logger.warn("Workspace at {}: preserved {} in {} ({}) and restored HEAD {}",
+                root, summarize(dirty), incident, reason, head.name());
+  }
+
+  /**
+   * Where drifted bytes are kept: one directory per incident, named by time and a UUID, holding {@code incident.json}
+   * and the files under {@code files/} at their workspace-relative paths. Runtime state: ignored by Git and reserved
+   * from the file API.
+   */
+  static Path recoveryDir(final Path root) {
+    return root.resolve(WorkspacePaths.INTERNAL_DIR).resolve("recovery");
+  }
+
+  /**
+   * Move each drifted file into a new incident (a rename within the workspace's filesystem) and record what was found.
+   * A deleted file has no bytes to keep; its absence is recorded. If anything fails, files already moved are moved
+   * back; only if all of them were is the incident removed. Otherwise it is kept, holding what could not be returned.
+   */
+  private Path preserve(
+      final Path root,
+      final ObjectId head,
+      final Status status,
+      final String reason) throws IOException
+  {
+    final var drift = dirtyPaths(status);
+    final var now = Instant.now();
+    final var dir = recoveryDir(root).resolve(INCIDENT_TIME.format(now) + "-" + UUID.randomUUID());
+    final var moved = new LinkedHashMap<Path, Path>();
+    try {
+      // Check ancestors as well as the entry: NOFOLLOW_LINKS alone does not protect intermediate components.
+      for (final var key : drift) {
+        final var file = root.resolve(key);
+        for (var ancestor = file; !ancestor.equals(root); ancestor = ancestor.getParent()) {
+          if (Files.isSymbolicLink(ancestor)) throw new IOException("Unsupported symbolic link: " + ancestor);
+        }
+        if (Files.exists(file, LinkOption.NOFOLLOW_LINKS) && !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+          throw new IOException("Not a regular file: " + file);
+        }
+      }
+      for (final var directory : List.of(root.resolve(WorkspacePaths.INTERNAL_DIR), recoveryDir(root))) {
+        if (Files.exists(directory, LinkOption.NOFOLLOW_LINKS) && !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+          throw new IOException(directory + " is not a directory");
+        }
+      }
+      Files.createDirectories(recoveryDir(root));
+      Files.createDirectory(dir);
+      final var paths = Json.createArrayBuilder();
+      for (final var key : drift) {
+        final var indexChange = status.getConflicting().contains(key) ? "conflicting"
+            : status.getAdded().contains(key) ? "added" : status.getChanged().contains(key) ? "modified"
+            : status.getRemoved().contains(key) ? "deleted" : "unchanged";
+        final var worktreeChange = status.getMissing().contains(key) ? "deleted"
+            : status.getModified().contains(key) ? "modified" : status.getUntracked().contains(key) ? "untracked" : "unchanged";
+        final var file = root.resolve(key);
+        final var present = Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS);
+        final var path = Json.createObjectBuilder().add("path", key)
+            .add("change", worktreeChange.equals("unchanged") ? indexChange : worktreeChange)
+            .add("indexChange", indexChange).add("worktreeChange", worktreeChange).add("present", present);
+        if (present) path.add("executable", Files.isExecutable(file));
+        paths.add(path);
+      }
+      final var json = Json.createObjectBuilder()
+                           .add("version", INCIDENT_VERSION)
+                           .add("timestamp", now.toString())
+                           .add("head", head.name())
+                           .add("reason", reason)
+                           .add("paths", paths);
+      // Write intent before moving bytes so a failed partial rollback still has an incident manifest.
+      WorkspacePaths.writeAtomically(root, dir.resolve("incident.json"), json.build().toString().getBytes(StandardCharsets.UTF_8));
+      for (final var key : drift) {
+        final var file = root.resolve(key);
+        if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) continue; // deletion: metadata only
+        final var target = dir.resolve("files").resolve(key);
+        Files.createDirectories(target.getParent());
+        move(file, target);
+        moved.put(file, target);
+      }
+    } catch (IOException e) {
+      final var stranded = new ArrayList<String>();
+      for (final var m : moved.reversed().entrySet()) {
+        try {
+          move(m.getValue(), m.getKey());
+        } catch (IOException back) {
+          e.addSuppressed(back);
+          stranded.add(WorkspacePaths.key(root, m.getKey()));
+        }
+      }
+      if (stranded.isEmpty()) {
+        try {
+          deleteTree(dir);
+        } catch (IOException cleanup) {
+          e.addSuppressed(cleanup);
+        }
+        throw new WorkspaceHistoryException(Kind.REPOSITORY_INCONSISTENT,
+            "Workspace at %s: %s differ from managed history and could not be preserved, so they were left untouched."
+                .formatted(root, summarize(drift)), e);
+      }
+      logger.error("Workspace at {}: preserving {} failed and {} could not be moved back; they remain in {}",
+                   root, summarize(drift), stranded, dir, e);
+      throw new WorkspaceHistoryException(Kind.REPOSITORY_INCONSISTENT,
+          "Workspace at %s: %s differ from managed history and could not be preserved; %s could not be moved back and "
+              .formatted(root, summarize(drift), summarize(stranded))
+          + "remain in " + dir + ".", e);
+    }
+    pruneIncidents(root, dir);
+    return dir;
+  }
+
+  /**
+   * Rename within the workspace's filesystem, atomically where the filesystem supports it. Overridable only so tests
+   * can inject a failure.
+   */
+  protected void move(final Path from, final Path to) throws IOException {
+    try {
+      Files.move(from, to, StandardCopyOption.ATOMIC_MOVE);
+    } catch (AtomicMoveNotSupportedException e) {
+      Files.move(from, to);
+    }
+  }
+
+  /**
+   * Keep the newest {@link #MAX_INCIDENTS} incidents (names start with their time), never {@code current}, whatever the
+   * clock did. Best effort: the current incident is already written, so a failure here is logged and never fails the
+   * mutation.
+   */
+  private static void pruneIncidents(final Path root, final Path current) {
+    try (final var entries = Files.list(recoveryDir(root))) {
+      final var newestFirst = Stream.concat(Stream.of(current), entries.filter(p -> !p.equals(current))
+                                                                       .sorted(Comparator.reverseOrder())).toList();
+      for (final var old : newestFirst.subList(Math.min(MAX_INCIDENTS, newestFirst.size()), newestFirst.size())) deleteTree(old);
+    } catch (IOException | UncheckedIOException | SecurityException e) {
+      logger.warn("Could not prune old recovery incidents in {}", recoveryDir(root), e);
+    }
+  }
+
+  /** Delete a tree without following symbolic links. */
+  private static void deleteTree(final Path dir) throws IOException {
+    if (!Files.exists(dir, LinkOption.NOFOLLOW_LINKS)) return;
+    try (final var paths = Files.walk(dir)) {
+      for (final var p : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(p);
+    }
   }
 
   /**
@@ -641,8 +819,8 @@ public class WorkspaceHistory {
   /**
    * After a crash, the pre-mutation HEAD captured in memory is gone, so recovery uses the repository's current HEAD as
    * the durable result. If the crash happened before the commit updated HEAD, this is still the old commit and the
-   * mutation is rolled back. If HEAD was updated first, this is the new commit; recovery keeps it and discards only
-   * unfinished index or working-tree changes. In either case, restore makes the index and working tree match HEAD.
+   * mutation is rolled back. If HEAD was updated first, this is the new commit; recovery keeps it and preserves
+   * unfinished index or working-tree residue before restoring the index and working tree to HEAD.
    */
   private void recoverInterruptedMutation(final Path root) throws IOException, GitAPIException {
     removeGitLocks(root);
@@ -651,9 +829,10 @@ public class WorkspaceHistory {
       final var repo = git.getRepository();
       requireExpectedGitState(repo, false);
       configure(root, repo);
+      requireValidIndex(repo);
       head = repo.resolve(Constants.HEAD);
+      heal(root, git, true);
     }
-    restore(root, new Before(head));
     Files.delete(mutationMarker(root));
     logger.warn("Recovered interrupted workspace mutation at {} to HEAD {}", root, head.name());
   }

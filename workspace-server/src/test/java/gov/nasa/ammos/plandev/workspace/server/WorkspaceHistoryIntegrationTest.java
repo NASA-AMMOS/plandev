@@ -566,6 +566,24 @@ class WorkspaceHistoryIntegrationTest {
       assertFalse(Files.exists(adoptionMarker(WS1)));
       assertClean(WS1);
     }
+
+    @Test
+    void anAdoptionInterruptedAfterCreatingTheObjectDatabaseRestartsInitialization() throws Exception {
+      Files.writeString(root(WS1).resolve("legacy.txt"), "legacy");
+      createMarker(adoptionMarker(WS1));
+      final var partialGit = root(WS1).resolve(".git");
+      Files.createDirectories(partialGit.resolve("objects"));
+      Files.writeString(partialGit.resolve("unfinished"), "partial initialization");
+
+      restartServer();
+      init(WS1);
+
+      assertTrue(history.isManaged(root(WS1)));
+      assertTrue(headTree(WS1).contains("legacy.txt"));
+      assertFalse(Files.exists(partialGit.resolve("unfinished")));
+      assertFalse(Files.exists(adoptionMarker(WS1)));
+      assertClean(WS1);
+    }
   }
 
   @Nested

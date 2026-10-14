@@ -126,6 +126,9 @@ public class WorkspaceHistory {
   static final String BRANCH = "main";
   private static final String MANAGED_SECTION = "plandev";
   private static final String MANAGED_KEY = "managed";
+  // Explicit allowlist for the Git files this class may write: config, index, HEAD, main/packed refs, and their logs.
+  // JGit generally locks a target by appending ".lock"; the reflog entries are conservative for Git compatibility.
+  // Never replace this with a *.lock scan: recovery must not delete an unrelated lock it cannot attribute to PlanDev.
   private static final List<String> GIT_LOCKS = List.of(
       "config.lock",
       "index.lock",
@@ -401,8 +404,9 @@ public class WorkspaceHistory {
 
   /** Fail closed unless a managed workspace is exactly as this class left it. */
   private void requireTrusted(final Path root) throws IOException, GitAPIException {
-    // configure() is the only managed-repository operation that can leave config.lock before the mutation marker is
-    // created. Under the single-owner deployment contract, one found while holding this lock is stale.
+    // configure() runs before the mutation marker and saves through .git/config.lock. If the process dies during that
+    // FileBasedConfig.save(), normal cleanup never runs and no marker exists to trigger general recovery. Under the
+    // single-owner deployment contract, a config lock found here is therefore stale and safe to remove before retrying.
     removeStaleConfigLock(root);
     requireNoGitLocks(root);
     try (final var git = open(root)) {
@@ -427,10 +431,19 @@ public class WorkspaceHistory {
     requireAdoptable(root);
     final var marker = adoptionMarker(root);
     final var resuming = hasMarker(marker);
-    final var hasRepo = Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR));
+    final var gitDir = gitDirectory(root);
+    final var config = gitDir.resolve("config");
+    var hasRepo = Files.isDirectory(gitDir, LinkOption.NOFOLLOW_LINKS);
     if (resuming) {
       removeGitLocks(root);
+      // JGit writes config last during init. An existing repository must have passed the config check below before
+      // its marker was created, so a marked repository without config can only be our interrupted initialization.
+      if (hasRepo && Files.notExists(config, LinkOption.NOFOLLOW_LINKS)) {
+        removePartialRepository(gitDir);
+        hasRepo = false;
+      }
     } else if (hasRepo) {
+      requireRepositoryConfig(config);
       requireNoGitLocks(root);
       try (final var git = open(root)) {
         requireExpectedGitState(git.getRepository(), true);
@@ -439,9 +452,8 @@ public class WorkspaceHistory {
     WorkspacePaths.removeStaleTempFiles(root);
     if (!resuming) createMarker(marker);
 
-    // Re-running init repairs an adoption interrupted while .git itself was being created; it does not replace an
-    // existing repository. A normal first attempt initializes only when no repository was present.
-    if (!hasRepo || resuming) Git.init().setDirectory(root.toFile()).setInitialBranch(BRANCH).call().close();
+    if (!hasRepo) Git.init().setDirectory(root.toFile()).setInitialBranch(BRANCH).call().close();
+    requireRepositoryConfig(config);
     configured.remove(root); // a new or newly adopted repository gets its config (re)applied
 
     try (final var git = open(root)) {
@@ -535,6 +547,29 @@ public class WorkspaceHistory {
     return root.resolve(WorkspacePaths.INTERNAL_DIR).resolve(ADOPTION_MARKER);
   }
 
+  private static void requireRepositoryConfig(final Path config) {
+    if (!Files.isRegularFile(config, LinkOption.NOFOLLOW_LINKS)) {
+      throw inconsistent("Git repository at " + config.getParent() + " has no regular config file.");
+    }
+  }
+
+  private static void removePartialRepository(final Path gitDir) throws IOException {
+    Files.walkFileTree(gitDir, new SimpleFileVisitor<>() {
+      @Override
+      public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
+        Files.delete(file);
+        return FileVisitResult.CONTINUE;
+      }
+
+      @Override
+      public FileVisitResult postVisitDirectory(final Path directory, final IOException error) throws IOException {
+        if (error != null) throw error;
+        Files.delete(directory);
+        return FileVisitResult.CONTINUE;
+      }
+    });
+  }
+
   /** A marker is trusted only at its exact server-owned path, and never through a symbolic link. */
   private static boolean hasMarker(final Path marker) {
     if (!Files.exists(marker, LinkOption.NOFOLLOW_LINKS)) return false;
@@ -602,8 +637,10 @@ public class WorkspaceHistory {
   }
 
   /**
-   * Converge a crashed mutation to the commit that atomically won the ref update. If the commit did not land this is
-   * the old HEAD and the mutation is rolled back; if it did land this is the new HEAD and the commit is completed.
+   * After a crash, the pre-mutation HEAD captured in memory is gone, so recovery uses the repository's current HEAD as
+   * the durable result. If the crash happened before the commit updated HEAD, this is still the old commit and the
+   * mutation is rolled back. If HEAD was updated first, this is the new commit; recovery keeps it and discards only
+   * unfinished index or working-tree changes. In either case, restore makes the index and working tree match HEAD.
    */
   private void recoverInterruptedMutation(final Path root) throws IOException, GitAPIException {
     removeGitLocks(root);

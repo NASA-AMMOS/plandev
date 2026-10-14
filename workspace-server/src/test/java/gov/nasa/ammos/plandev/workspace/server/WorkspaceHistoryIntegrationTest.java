@@ -56,6 +56,7 @@ class WorkspaceHistoryIntegrationTest {
 
   @TempDir Path tmp;
   private Path base;
+  private WorkspaceRoots roots;
   private FlakyHistory history;
   private WorkspaceFileSystemService fs;
   private WorkspaceBindings bindings;
@@ -86,7 +87,12 @@ class WorkspaceHistoryIntegrationTest {
     base = tmp.toRealPath();
     Files.createDirectories(base.resolve("ws1"));
     Files.createDirectories(base.resolve("ws2"));
-    final WorkspaceRoots roots = id -> base.resolve("ws" + id);
+    roots = id -> base.resolve("ws" + id);
+    restartServer();
+  }
+
+  /** Recreate all in-memory coordination state while keeping the workspace disks, as a process restart would. */
+  private void restartServer() {
     history = new FlakyHistory(roots);
     fs = new WorkspaceFileSystemService(roots, null, history);
     bindings = new WorkspaceBindings(null, fs, history, null, "");
@@ -95,6 +101,19 @@ class WorkspaceHistoryIntegrationTest {
   //region Helpers
   private Path root(final int ws) {
     return base.resolve("ws" + ws);
+  }
+
+  private Path mutationMarker(final int ws) {
+    return root(ws).resolve(".git").resolve(WorkspaceHistory.MUTATION_MARKER);
+  }
+
+  private Path adoptionMarker(final int ws) {
+    return root(ws).resolve(".seqdev").resolve(WorkspaceHistory.ADOPTION_MARKER);
+  }
+
+  private static void createMarker(final Path marker) throws IOException {
+    Files.createDirectories(marker.getParent());
+    Files.writeString(marker, "interrupted");
   }
 
   private static UploadedFile upload(final String name, final String content) {
@@ -406,19 +425,20 @@ class WorkspaceHistoryIntegrationTest {
       assertClean(WS1);
     }
 
-    /** A real JGit failure (the branch ref is locked) takes the same path through the save handler. */
+    /** An unexplained Git lock is rejected before file bytes change; only a recovery marker authorizes its removal. */
     @Test
-    void realGitFailureDoesNotReportASuccessfulSave() throws Exception {
+    void gitLockWithoutARecoveryMarkerIsLeftUntouched() throws Exception {
       saveOk(WS1, "a.txt", "original");
       final var headBefore = head(WS1);
       final var refLock = root(WS1).resolve(".git/refs/heads/main.lock");
       Files.writeString(refLock, "");
 
-      assertFailure(save(WS1, "a.txt", "changed", "*"), 500, "WORKSPACE_HISTORY_ERROR");
-      assertFailure(save(WS1, "b.txt", "new file", null), 500, "WORKSPACE_HISTORY_ERROR");
+      assertFailure(save(WS1, "a.txt", "changed", "*"), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
+      assertFailure(save(WS1, "b.txt", "new file", null), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
       assertEquals("original", read(WS1, "a.txt"));
       assertFalse(Files.exists(root(WS1).resolve("b.txt")));
       assertFalse(Files.exists(root(WS1).resolve(".b.txt.meta.seqdev")));
+      assertTrue(Files.exists(refLock));
       assertEquals(headBefore, head(WS1));
       assertClean(WS1);
       try (final var internal = Files.list(root(WS1).resolve(".seqdev"))) {
@@ -428,6 +448,122 @@ class WorkspaceHistoryIntegrationTest {
       Files.delete(refLock);
       saveOk(WS1, "a.txt", "changed");
       assertEquals("changed", read(WS1, "a.txt"));
+      assertClean(WS1);
+    }
+  }
+
+  @Nested
+  class CrashRecovery {
+    @Test
+    void aConfigLockLeftBeforeMutationMarkingIsRemoved() throws Exception {
+      saveOk(WS1, "a.txt", "original");
+      final var configLock = root(WS1).resolve(".git/config.lock");
+      Files.writeString(configLock, "stale");
+
+      restartServer();
+      saveOk(WS1, "b.txt", "next request");
+
+      assertFalse(Files.exists(configLock));
+      assertEquals("original", read(WS1, "a.txt"));
+      assertClean(WS1);
+    }
+
+    @Test
+    void anUncommittedMutationIsRolledBackBeforeTheNextWrite() throws Exception {
+      saveOk(WS1, "a.txt", "original");
+      createMarker(mutationMarker(WS1));
+      Files.writeString(root(WS1).resolve("a.txt"), "partial");
+      Files.writeString(root(WS1).resolve("new.txt"), "partial new file");
+      try (final var git = git(WS1)) {
+        git.add().addFilepattern(".").call();
+      }
+      final var indexLock = root(WS1).resolve(".git/index.lock");
+      Files.writeString(indexLock, "stale");
+
+      restartServer();
+      saveOk(WS1, "b.txt", "next request");
+
+      assertEquals("original", read(WS1, "a.txt"));
+      assertFalse(Files.exists(root(WS1).resolve("new.txt")));
+      assertFalse(Files.exists(indexLock));
+      assertFalse(Files.exists(mutationMarker(WS1)));
+      assertClean(WS1);
+    }
+
+    @Test
+    void aLandedCommitIsKeptAndItsUnfinishedWorkingTreeIsCleaned() throws Exception {
+      saveOk(WS1, "a.txt", "original");
+      createMarker(mutationMarker(WS1));
+      Files.writeString(root(WS1).resolve("a.txt"), "committed");
+      try (final var git = git(WS1)) {
+        final var ident = new PersonIdent("bob", "");
+        git.add().addFilepattern(".").call();
+        git.commit().setMessage("landed before crash").setAuthor(ident).setCommitter(ident).setSign(false).call();
+      }
+      Files.writeString(root(WS1).resolve("a.txt"), "unfinished later bytes");
+      Files.writeString(root(WS1).resolve("untracked.txt"), "unfinished");
+      final var landedHead = head(WS1);
+
+      restartServer();
+      saveOk(WS1, "b.txt", "next request");
+
+      assertEquals("committed", read(WS1, "a.txt"));
+      assertFalse(Files.exists(root(WS1).resolve("untracked.txt")));
+      assertEquals(landedHead, log(WS1).get(1));
+      assertFalse(Files.exists(mutationMarker(WS1)));
+      assertClean(WS1);
+    }
+
+    @Test
+    void aCrossWorkspaceCrashAfterTheDestinationCommitRecoversAsACopy() throws Exception {
+      init(WS1);
+      init(WS2);
+      saveOk(WS1, "a.txt", "content");
+      final var sourceHead = head(WS1);
+      createMarker(mutationMarker(WS1));
+      createMarker(mutationMarker(WS2));
+
+      Files.move(root(WS1).resolve("a.txt"), root(WS2).resolve("b.txt"));
+      Files.move(root(WS1).resolve(".a.txt.meta.seqdev"), root(WS2).resolve(".b.txt.meta.seqdev"));
+      try (final var git = git(WS2)) {
+        final var ident = new PersonIdent(USER, "");
+        git.add().addFilepattern(".").call();
+        git.add().addFilepattern(".").setUpdate(true).call();
+        git.commit().setMessage("destination landed").setAuthor(ident).setCommitter(ident).setSign(false).call();
+      }
+      final var destinationHead = head(WS2);
+
+      restartServer();
+      final var both = new LinkedHashMap<Integer, String>();
+      both.put(WS2, "probe destination");
+      both.put(WS1, "probe source");
+      assertFalse(history.mutate(both, USER, () -> false, result -> result));
+
+      assertEquals("content", read(WS1, "a.txt"));
+      assertEquals("content", read(WS2, "b.txt"));
+      assertEquals(sourceHead, head(WS1));
+      assertEquals(destinationHead, head(WS2));
+      assertFalse(Files.exists(mutationMarker(WS1)));
+      assertFalse(Files.exists(mutationMarker(WS2)));
+      assertClean(WS1);
+      assertClean(WS2);
+    }
+
+    @Test
+    void anInterruptedAdoptionRemovesItsLockAndResumes() throws Exception {
+      Files.writeString(root(WS1).resolve("legacy.txt"), "legacy");
+      createMarker(adoptionMarker(WS1));
+      Git.init().setDirectory(root(WS1).toFile()).setInitialBranch(WorkspaceHistory.BRANCH).call().close();
+      final var indexLock = root(WS1).resolve(".git/index.lock");
+      Files.writeString(indexLock, "stale");
+
+      restartServer();
+      init(WS1);
+
+      assertTrue(history.isManaged(root(WS1)));
+      assertTrue(headTree(WS1).contains("legacy.txt"));
+      assertFalse(Files.exists(indexLock));
+      assertFalse(Files.exists(adoptionMarker(WS1)));
       assertClean(WS1);
     }
   }

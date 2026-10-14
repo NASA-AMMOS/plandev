@@ -23,12 +23,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -81,6 +83,9 @@ import java.util.function.Predicate;
  * If restoration itself fails, a
  * {@link Kind#REPOSITORY_INCONSISTENT} error is raised rather than claiming success. git clean is never run wholesale,
  * nor is the repository reset on the strength of an unverified assumption.
+ * A small marker in .git distinguishes a mutation interrupted by a process crash from an unexplained external edit.
+ * On the next mutation, a marked repository is restored to its current HEAD: this rolls back work whose commit did
+ * not land and completes work whose commit did land. The marker is removed only after the repository is clean.
  *
  * Cross-workspace:
  * Two repositories cannot share a transaction. Commits are made in the order the caller
@@ -96,13 +101,15 @@ import java.util.function.Predicate;
  * links; a repository is created if missing; and the current state is recorded by a commit authored by
  * {@link #systemIdent()} ("Initialize workspace history" for a new repository, "Adopt workspace into history" for an
  * existing one with uncommitted state).
+ * An adoption marker in .seqdev makes initialization restartable without treating an arbitrary broken repository as
+ * one PlanDev is allowed to repair.
  *
  * Trust:
  * Before every mutation of a managed workspace the repository must be exactly what this class left
  * behind: no in-progress Git operation, HEAD attached to main, an index of plain files outside reserved names,
- * and a clean working tree. Anything else (an out-of-band edit, residue of a crash
- * mid-operation, a manual checkout) is rejected with {@link Kind#REPOSITORY_INCONSISTENT} naming what is wrong. It is
- * never committed, reset or repaired automatically.
+ * and a clean working tree. A marked interrupted PlanDev mutation is recovered first. Anything else (an out-of-band
+ * edit or a manual checkout) is rejected with {@link Kind#REPOSITORY_INCONSISTENT} naming what is wrong. It is never
+ * committed, reset or repaired automatically.
  *
  * Deployment assumption:
  * Locks are in-process. This is correct only while a single workspace-server
@@ -114,9 +121,19 @@ public class WorkspaceHistory {
 
   static final String INIT_MESSAGE = "Initialize workspace history";
   static final String ADOPT_MESSAGE = "Adopt workspace into history";
+  static final String MUTATION_MARKER = "plandev-mutation-in-progress";
+  static final String ADOPTION_MARKER = "adoption-in-progress";
   static final String BRANCH = "main";
   private static final String MANAGED_SECTION = "plandev";
   private static final String MANAGED_KEY = "managed";
+  private static final List<String> GIT_LOCKS = List.of(
+      "config.lock",
+      "index.lock",
+      "HEAD.lock",
+      "packed-refs.lock",
+      "refs/heads/" + BRANCH + ".lock",
+      "logs/HEAD.lock",
+      "logs/refs/heads/" + BRANCH + ".lock");
 
   public enum Kind {
     /** The history could not be recorded; the workspace was restored to its pre-operation state. */
@@ -234,16 +251,21 @@ public class WorkspaceHistory {
         ensureReady(root);
         before.put(id, capture(root));
       }
+      beginMutation(rootsById.values());
 
       final T result;
+      final boolean successful;
       try {
         result = mutation.apply();
+        successful = succeeded.test(result);
       } catch (Exception e) {
         restoreAll(ids, rootsById, before, e);
+        finishMutation(rootsById.values(), e);
         throw e;
       }
-      if (!succeeded.test(result)) {
+      if (!successful) {
         restoreAll(ids, rootsById, before, null);
+        finishMutation(rootsById.values(), null);
         return result;
       }
 
@@ -260,6 +282,7 @@ public class WorkspaceHistory {
         } catch (Exception e) {
           logger.error("Recording history for workspace {} failed; restoring", id, e);
           restoreAll(ids.subList(committed.size(), ids.size()), rootsById, before, e);
+          finishMutation(rootsById.values(), e);
           if (committed.isEmpty()) {
             throw new WorkspaceHistoryException(
                 Kind.HISTORY_NOT_RECORDED,
@@ -269,6 +292,7 @@ public class WorkspaceHistory {
           throw new PartialMutationException(committed, id, e);
         }
       }
+      finishMutation(rootsById.values(), null);
       return result;
     } finally {
       lockOrder.reversed().forEach(ReentrantLock::unlock);
@@ -360,7 +384,15 @@ public class WorkspaceHistory {
     if (!Files.isDirectory(root)) {
       throw inconsistent("Workspace directory " + root + " is missing.");
     }
-    if (isManaged(root)) {
+    if (hasMarker(mutationMarker(root))) {
+      if (!isManaged(root)) {
+        throw inconsistent("Workspace at " + root + " has an interrupted-mutation marker but is not managed.");
+      }
+      recoverInterruptedMutation(root);
+      requireTrusted(root);
+    } else if (hasMarker(adoptionMarker(root))) {
+      adopt(root);
+    } else if (isManaged(root)) {
       requireTrusted(root);
     } else {
       adopt(root);
@@ -369,6 +401,10 @@ public class WorkspaceHistory {
 
   /** Fail closed unless a managed workspace is exactly as this class left it. */
   private void requireTrusted(final Path root) throws IOException, GitAPIException {
+    // configure() is the only managed-repository operation that can leave config.lock before the mutation marker is
+    // created. Under the single-owner deployment contract, one found while holding this lock is stale.
+    removeStaleConfigLock(root);
+    requireNoGitLocks(root);
     try (final var git = open(root)) {
       requireExpectedGitState(git.getRepository(), false);
       configure(root, git.getRepository());
@@ -383,24 +419,34 @@ public class WorkspaceHistory {
   }
 
   /**
-   * Put a workspace under history. Every step is idempotent and the managed marker is written last, so an adoption
-   * interrupted at any point is simply redone by the next mutation.
+   * Put a workspace under history. The adoption marker is written before any Git change and the managed setting is
+   * written last, so an interrupted adoption can remove its own stale locks and safely rerun these idempotent steps.
    */
   private void adopt(final Path root) throws IOException, GitAPIException {
     // Validate everything before writing anything
     requireAdoptable(root);
+    final var marker = adoptionMarker(root);
+    final var resuming = hasMarker(marker);
     final var hasRepo = Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR));
-    if (hasRepo) {
+    if (resuming) {
+      removeGitLocks(root);
+    } else if (hasRepo) {
+      requireNoGitLocks(root);
       try (final var git = open(root)) {
         requireExpectedGitState(git.getRepository(), true);
       }
     }
     WorkspacePaths.removeStaleTempFiles(root);
-    if (!hasRepo) Git.init().setDirectory(root.toFile()).setInitialBranch(BRANCH).call().close();
+    if (!resuming) createMarker(marker);
+
+    // Re-running init repairs an adoption interrupted while .git itself was being created; it does not replace an
+    // existing repository. A normal first attempt initializes only when no repository was present.
+    if (!hasRepo || resuming) Git.init().setDirectory(root.toFile()).setInitialBranch(BRANCH).call().close();
     configured.remove(root); // a new or newly adopted repository gets its config (re)applied
 
     try (final var git = open(root)) {
       final var repo = git.getRepository();
+      requireExpectedGitState(repo, true);
       configure(root, repo);
       final var unborn = repo.resolve(Constants.HEAD) == null;
       if (stageAll(git) || unborn) {
@@ -413,8 +459,9 @@ public class WorkspaceHistory {
       final var cfg = repo.getConfig();
       cfg.setBoolean(MANAGED_SECTION, null, MANAGED_KEY, true);
       cfg.save();
-      logger.info("Workspace at {} is now under history", root);
     }
+    Files.delete(marker);
+    logger.info("Workspace at {} is now under history", root);
   }
 
   /**
@@ -474,6 +521,139 @@ public class WorkspaceHistory {
     Files.writeString(info.resolve("exclude"), "/" + WorkspacePaths.INTERNAL_DIR + "/\n", StandardCharsets.UTF_8);
     Files.deleteIfExists(info.resolve("attributes"));
     configured.add(root);
+  }
+
+  private static Path gitDirectory(final Path root) {
+    return root.resolve(WorkspacePaths.GIT_DIR);
+  }
+
+  private static Path mutationMarker(final Path root) {
+    return gitDirectory(root).resolve(MUTATION_MARKER);
+  }
+
+  private static Path adoptionMarker(final Path root) {
+    return root.resolve(WorkspacePaths.INTERNAL_DIR).resolve(ADOPTION_MARKER);
+  }
+
+  /** A marker is trusted only at its exact server-owned path, and never through a symbolic link. */
+  private static boolean hasMarker(final Path marker) {
+    if (!Files.exists(marker, LinkOption.NOFOLLOW_LINKS)) return false;
+    if (!Files.isRegularFile(marker, LinkOption.NOFOLLOW_LINKS)) {
+      throw inconsistent("Crash-recovery marker " + marker + " is not a regular file.");
+    }
+    return true;
+  }
+
+  /** Create the marker before workspace bytes change. Forcing this tiny file narrows the host-crash window cheaply. */
+  private static void createMarker(final Path marker) throws IOException {
+    Files.createDirectories(marker.getParent());
+    try (final var channel = FileChannel.open(
+        marker,
+        StandardOpenOption.CREATE_NEW,
+        StandardOpenOption.WRITE))
+    {
+      channel.force(true);
+    }
+  }
+
+  /** Mark every repository before the callback can change any of them. A partial setup is harmless and cleaned up. */
+  private static void beginMutation(final Collection<Path> roots) {
+    final var created = new ArrayList<Path>();
+    try {
+      for (final var root : roots) {
+        final var marker = mutationMarker(root);
+        createMarker(marker);
+        created.add(marker);
+      }
+    } catch (IOException e) {
+      for (final var marker : created) {
+        try {
+          Files.deleteIfExists(marker);
+        } catch (IOException cleanup) {
+          e.addSuppressed(cleanup);
+        }
+      }
+      throw new WorkspaceHistoryException(
+          Kind.REPOSITORY_INCONSISTENT,
+          "Crash recovery could not be established, so the workspace was not changed.",
+          e);
+    }
+  }
+
+  /** Remove markers only after all involved repositories have reached a verified clean state. */
+  private static void finishMutation(final Collection<Path> roots, final Exception cause) {
+    final var failures = new ArrayList<IOException>();
+    for (final var root : roots) {
+      try {
+        Files.deleteIfExists(mutationMarker(root));
+      } catch (IOException e) {
+        failures.add(e);
+      }
+    }
+    if (!failures.isEmpty()) {
+      final var ex = new WorkspaceHistoryException(
+          Kind.REPOSITORY_INCONSISTENT,
+          "The workspace is clean, but its crash-recovery marker could not be removed.",
+          failures.getFirst());
+      failures.stream().skip(1).forEach(ex::addSuppressed);
+      if (cause != null) ex.addSuppressed(cause);
+      throw ex;
+    }
+  }
+
+  /**
+   * Converge a crashed mutation to the commit that atomically won the ref update. If the commit did not land this is
+   * the old HEAD and the mutation is rolled back; if it did land this is the new HEAD and the commit is completed.
+   */
+  private void recoverInterruptedMutation(final Path root) throws IOException, GitAPIException {
+    removeGitLocks(root);
+    final ObjectId head;
+    try (final var git = open(root)) {
+      final var repo = git.getRepository();
+      requireExpectedGitState(repo, false);
+      configure(root, repo);
+      head = repo.resolve(Constants.HEAD);
+    }
+    restore(root, new Before(head));
+    Files.delete(mutationMarker(root));
+    logger.warn("Recovered interrupted workspace mutation at {} to HEAD {}", root, head.name());
+  }
+
+  private static List<Path> existingGitLocks(final Path root) {
+    final var gitDir = gitDirectory(root);
+    return GIT_LOCKS.stream()
+        .map(gitDir::resolve)
+        .filter(path -> Files.exists(path, LinkOption.NOFOLLOW_LINKS))
+        .toList();
+  }
+
+  private static void requireNoGitLocks(final Path root) {
+    final var locks = existingGitLocks(root);
+    if (locks.isEmpty()) return;
+    final var gitDir = gitDirectory(root);
+    final var names = locks.stream().map(path -> WorkspacePaths.GIT_DIR + "/" + WorkspacePaths.key(gitDir, path)).toList();
+    throw inconsistent("Workspace at %s has Git lock files %s without a PlanDev recovery marker; they were left untouched."
+                           .formatted(root, names));
+  }
+
+  private void removeStaleConfigLock(final Path root) throws IOException {
+    final var lock = gitDirectory(root).resolve("config.lock");
+    if (!Files.exists(lock, LinkOption.NOFOLLOW_LINKS)) return;
+    if (!Files.isRegularFile(lock, LinkOption.NOFOLLOW_LINKS)) {
+      throw inconsistent("Git lock " + lock + " is not a regular file and was left untouched.");
+    }
+    Files.delete(lock);
+    configured.remove(root);
+  }
+
+  /** A recovery marker proves these exact locks can only belong to the interrupted operation. */
+  private static void removeGitLocks(final Path root) throws IOException {
+    for (final var lock : existingGitLocks(root)) {
+      if (!Files.isRegularFile(lock, LinkOption.NOFOLLOW_LINKS)) {
+        throw inconsistent("Git lock " + lock + " is not a regular file and was left untouched.");
+      }
+      Files.delete(lock);
+    }
   }
 
   /**

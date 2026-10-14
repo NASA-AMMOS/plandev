@@ -35,11 +35,15 @@ import io.javalin.validation.ValidationException;
 import javax.json.Json;
 import javax.json.JsonArray;
 import javax.json.JsonException;
+import javax.json.JsonObject;
 import javax.json.JsonString;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Path;
 import java.sql.SQLException;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalUnit;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -108,6 +112,12 @@ public class WorkspaceBindings implements Plugin {
           authorize(ctx);
         }
       });
+      before("/versioning/*", ctx -> {
+        if(ctx.method() != HandlerType.OPTIONS) {
+          authorize(ctx);
+        }
+      });
+
       // Health check
       path("/health", () -> ApiBuilder.get(ctx -> ctx.status(200)));
 
@@ -144,6 +154,14 @@ public class WorkspaceBindings implements Plugin {
         ApiBuilder.post(this::setMetadataKeys);
         ApiBuilder.delete(this::deleteMetadata);
       });
+
+      // Versioning Paths
+      path("/versioning/metadata/{workspaceId}/<path>", () -> ApiBuilder.get(this::getRevisionMetadata));
+      path("/versioning/{workspaceId}/<path>", () -> {
+        ApiBuilder.get(this::getFileRevision);
+        ApiBuilder.post(this::createRevision);
+      });
+      path("/versioning/restore/{workspaceId}/<path>", () -> ApiBuilder.post(this::restoreRevision));
     });
 
     // Default exception handlers for common endpoint exceptions
@@ -1634,6 +1652,345 @@ public class WorkspaceBindings implements Plugin {
       logger.warn("DELETE METADATA: WorkspaceFileOpException: {}", fe);
       context.status(500).json(fe);
     }
+  }
+  //endregion
+
+  //region Versioning
+  /**
+   * Create a new revision for the file.
+   *
+   * Returns the new revision id.
+   */
+  private void createRevision(Context context) throws NoSuchWorkspaceException {
+    final var pathInfo = PathInformation.of(context);
+    if(!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.create_file_revision)){
+      return;
+    }
+
+    // If-Match must be provided, as the file must exist to have its revision restored
+    final var ifMatch = context.header("If-Match");
+    if (ifMatch == null) {
+      context
+          .status(400)
+          .json(new WorkspaceFormattedError(new MalformedRequest("Required header is missing: `If-Match`")));
+      return;
+    }
+
+    // Check that the tag matches the file's current ETAG (if provided as more than "*"
+    if (!ifMatch.equals("*")) {
+      try {
+        final var currentETag = workspaceService.getETag(pathInfo.workspaceId(), pathInfo.filePath());
+        if (!currentETag.equals(ifMatch)) {
+          // Who/when is best-effort detail for the modal; don't let a metadata read failure make this a 500.
+          String lastEditedBy = null;
+          String lastEditedAt = null;
+          try {
+            final var editInfo = workspaceService.getLastEditInfo(pathInfo.workspaceId(), pathInfo.filePath());
+            lastEditedBy = editInfo.lastEditedBy();
+            lastEditedAt = editInfo.lastEditedAt();
+          } catch (IOException | NoSuchWorkspaceException | WorkspaceFileOpException | JsonException e) {
+            logger.warn(
+                "CREATE REVISION: could not read last-edit info for conflict on {}: {}",
+                pathInfo.filePath(),
+                e.getMessage());
+          }
+          context.status(412).json(WorkspaceFormattedError.saveConflict(
+              "conflict", // TODO: revisit saveConflict to better support out of date (no updates attempted)?
+              currentETag,
+              lastEditedBy,
+              lastEditedAt));
+          return;
+        }
+      } catch (NoSuchFileException nfe) {
+        context.status(412).json(WorkspaceFormattedError.saveConflict("deleted", null, null, null));
+        return;
+      } catch (WorkspaceFileOpException wfe) {
+        final var fe = new WorkspaceFormattedError(wfe, "Could not create a revision for file %s".formatted(pathInfo.fileName()));
+        context.status(400).json(fe);
+      } catch (IOException ioe) {
+        final var fe = new FormattedError(
+            AerieService.WORKSPACE_SERVER,
+            ioe,
+            "Could not create a revision file %s".formatted(pathInfo.fileName()));
+        logger.warn("CREATE REVISION: IO Exception: {}", fe);
+        context.status(500).json(fe);
+      }
+    }
+
+    // TODO: Create a new revision
+
+
+    // Return the new revision version
+    context.status(200).result("a");
+  }
+
+  /**
+   * Get a specific revision for the file, or a list of all revisions on the file if no revision is specified.
+   *
+   * Returns:
+   *  - If the query param "revision" is present: returns the contents of the file and its corresponding metadata file
+   *      at that revision,
+   *  - If the query param "revision" is absent: returns a JSON array of all file revisions, ordered newest to oldest.
+   */
+  private void getFileRevision(Context context) throws NoSuchWorkspaceException {
+    final var pathInfo = PathInformation.of(context);
+    final var workspaceId = pathInfo.workspaceId;
+    final var filePath = pathInfo.filePath;
+
+    // Permissions Check
+    if(!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.read_file_directory)) {
+      return;
+    }
+
+    // Verify the user isn't attempting to access the revision data for a metadata file
+    if(RenderType.isAerieMetadataFile(filePath.getFileName().toString())) {
+      context.status(405).json(
+          new WorkspaceFormattedError(
+              new MalformedRequest(
+                  "Unable to get revision data",
+                  "Revision data for metadata files may not be directly accessed."
+              )
+          )
+      );
+    }
+
+    // Verify the file exists
+    if (!workspaceService.checkFileExists(workspaceId, filePath)) {
+      context.status(404).json(new WorkspaceFormattedError(new NoSuchFileException(workspaceId, filePath)));
+      return;
+    }
+
+    // Parse the query param, if it's present
+    final var revision = context.queryParam("revision");
+
+    // TODO: If no revision is specified, return an array of all revisions, ordered newest to oldest
+    // For now, returns a dummy array
+    if(revision == null) {
+      context.status(200).json(Json.createArrayBuilder()
+                                   .add(Json.createObjectBuilder()
+                                            .add("name", "b")
+                                            .add("message", "This is an example revision message")
+                                            .add("createdAt", Instant.now().toString())
+                                            .add("createdBy", "Aerie Legacy")
+                                   )
+                                   .add(Json.createObjectBuilder()
+                                            .add("name", "a")
+                                            .add("message", "")
+                                            .add("createdAt", Instant.now().minus(1000000, ChronoUnit.SECONDS).toString())
+                                            .add("createdBy", "Aerie Legacy")));
+      return;
+    }
+
+    // TODO: Otherwise, return the file and its metadata at the specified revision
+    //  For now, returns the file as-is
+    try {
+      // This code will not be duplicated once getting a revision is implemented properly
+      final var fileStream = workspaceService.loadFile(pathInfo.workspaceId, pathInfo.filePath());
+      // Set up headers for file response (skipping ETAG)
+      context.header("x-render-type", workspaceService.getFileType(pathInfo.filePath).name());
+      context.contentType(ContentType.OCTET_STREAM);
+      context.header("Content-Disposition", "attachment; filename=\"" + fileStream.fileName() + "\"");
+      context.status(200).result(fileStream.readingStream()); // Javalin auto-closes InputStreams once it has sent the contents
+    } catch (WorkspaceFileOpException wfe) {
+      final var fe = new WorkspaceFormattedError(wfe, "Could not retrieve metadata file for file " + pathInfo.fileName());
+      context.status(400).json(fe);
+    } catch (IOException ioe) {
+      final var fe = new FormattedError(
+          AerieService.WORKSPACE_SERVER,
+          ioe,
+          "Could not retrieve revision metadata file for file %s at revision %s.".formatted(pathInfo.fileName(), revision));
+      logger.warn("GET REVISION: IO Exception: {}", fe);
+      context.status(500).json(fe);
+    } catch (SQLException sqe) {
+      final var fe = new FormattedError(
+          AerieService.WORKSPACE_SERVER,
+          sqe,
+          "Could not retrieve revision metadata file for file %s at revision %s.".formatted(pathInfo.fileName(), revision));
+      logger.warn("GET REVISION: SQL Exception: {}", fe);
+      context.status(500).json(fe);
+    } catch (NoSuchFileException nfe) {
+      context.status(404).json(new WorkspaceFormattedError(nfe));
+    }
+  }
+
+  /**
+   * Get the metadata for a file at a revision, including any metadata associated with that revision
+   */
+  private void getRevisionMetadata(Context context) throws NoSuchWorkspaceException {
+    final var pathInfo = PathInformation.of(context);
+
+    // Permissions Check
+    if (!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.read_file_directory)) {
+      return;
+    }
+
+    // Verify the user isn't attempting to access the revision data for a metadata file
+    if (RenderType.isAerieMetadataFile(pathInfo.fileName())) {
+      context.status(405).json(
+          new WorkspaceFormattedError(
+              new MalformedRequest(
+                  "Unable to get revision metadata",
+                  "Revision data for metadata files may not be directly accessed."
+              )
+          )
+      );
+    }
+
+    // Verify the file exists
+    if (!workspaceService.checkFileExists(pathInfo.workspaceId(), pathInfo.filePath())) {
+      context.status(404).json(new WorkspaceFormattedError(new NoSuchFileException(pathInfo.workspaceId(), pathInfo.filePath())));
+      return;
+    }
+
+    // Parse the mandatory query param
+    final var revision = context.queryParam("revision");
+
+    // If no revision is specified, return an 400
+    if (revision == null) {
+      context.status(400).json(new WorkspaceFormattedError(new MalformedRequest(
+          "Unable to get revision metadata",
+          "Required query parameter is missing: `revision`")));
+      return;
+    }
+
+    // TODO: Return the file's metadata at the specified revision, as well as any metadata associated with the revision overall
+    //  For now, returns the file's current metadata and an empty "x-revision-metadata" header
+    try {
+      // Get the file's metadata
+      final JsonObject metadataFile;
+      try(final var metadataFileStream = workspaceService.loadMetadataFile(pathInfo.workspaceId, pathInfo.filePath())
+                                                         .readingStream();
+          final var parser = Json.createParser(metadataFileStream)) {
+        metadataFile = parser.getObject();
+      }
+
+      // TODO: Get the revision metadata
+      final var revisionMetadata = Json.createObjectBuilder()
+                                       .add("name", revision)
+                                       .add("message", "This is an example revision message")
+                                       .add("createdAt", metadataFile.getValue("lastEditedAt"))
+                                       .add("createdBy", metadataFile.getValue("lastEditedBy"));
+
+      // TODO: change this to get the response body more cleanly (as a single entity rather than building it here)
+      // Convert into a single body
+      final var respBody = Json.createObjectBuilder()
+                               .add("versionMetadata", revisionMetadata)
+                               .add("fileMetadata", metadataFile);
+      context.status(200).json(respBody);
+    } catch (WorkspaceFileOpException wfe) {
+      final var fe = new WorkspaceFormattedError(wfe, "Could not retrieve metadata file for file " + pathInfo.fileName());
+      context.status(400).json(fe);
+    } catch (IOException ioe) {
+      final var fe = new FormattedError(
+          AerieService.WORKSPACE_SERVER,
+          ioe,
+          "Could not retrieve revision metadata file for file %s at revision %s.".formatted(pathInfo.fileName(), revision));
+      logger.warn("GET REVISION METADATA: IO Exception: {}", fe);
+      context.status(500).json(fe);
+    }
+  }
+
+  /**
+   * Restore a file's contents to a specific revision. Only restores the "user" field of the file's metadata.
+   */
+  private void restoreRevision(Context context) throws NoSuchWorkspaceException {
+    final var pathInfo = PathInformation.of(context);
+
+    // Permissions Check
+    if (!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.write_file_directory)) {
+      return;
+    }
+
+    // Verify the user isn't attempting to restore a metadata file
+    if (RenderType.isAerieMetadataFile(pathInfo.fileName())) {
+      context.status(405).json(
+          new WorkspaceFormattedError(
+              new MalformedRequest(
+                  "Unable to restore revision metadata",
+                  "Metadata files may not be directly restored."
+              )
+          )
+      );
+    }
+
+    // Verify that a revision was provided
+    final var revision = context.queryParam("revision");
+    if (revision == null) {
+      context.status(400).json(new WorkspaceFormattedError(new MalformedRequest(
+          "Required query parameter is missing: `revision`")));
+      return;
+    }
+
+    final var ifMatch = context.header("If-Match");
+    // If-Match must be provided, as the file must exist to have its revision restored
+    if (ifMatch == null) {
+      context
+          .status(400)
+          .json(new WorkspaceFormattedError(new MalformedRequest("Required header is missing: `If-Match`")));
+      return;
+    }
+
+    // Verify the file exists
+    if (!workspaceService.checkFileExists(pathInfo.workspaceId(), pathInfo.filePath())) {
+      context.status(404).json(new WorkspaceFormattedError(new NoSuchFileException(
+          pathInfo.workspaceId(),
+          pathInfo.filePath())));
+      return;
+    }
+
+    // TODO: Verify the revision exists for the file (may be able to be done inside of the restoration code itself)
+
+    try {
+      // Report a "Locked" status if the file is currently marked as "readOnly"
+      if (workspaceService.isReadOnly(pathInfo.workspaceId(), pathInfo.filePath())) {
+        context.status(423).json(new WorkspaceFormattedError(
+            new FileLockedException(pathInfo.filePath),
+            "Cannot update file at " + pathInfo.filePath()));
+        return;
+      }
+
+      // Check that the tag matches the file's current ETAG (if provided as more than "*"
+      if (!ifMatch.equals("*")) {
+        final var currentETag = workspaceService.getETag(pathInfo.workspaceId(), pathInfo.filePath());
+        if (!currentETag.equals(ifMatch)) {
+          // Who/when is best-effort detail for the modal; don't let a metadata read failure make this a 500.
+          String lastEditedBy = null;
+          String lastEditedAt = null;
+          try {
+            final var editInfo = workspaceService.getLastEditInfo(pathInfo.workspaceId(), pathInfo.filePath());
+            lastEditedBy = editInfo.lastEditedBy();
+            lastEditedAt = editInfo.lastEditedAt();
+          } catch (IOException | NoSuchWorkspaceException | WorkspaceFileOpException | JsonException e) {
+            logger.warn(
+                "RESTORE REVISION: could not read last-edit info for conflict on {}: {}",
+                pathInfo.filePath(),
+                e.getMessage());
+          }
+          context.status(412).json(WorkspaceFormattedError.saveConflict(
+              "conflict",
+              currentETag,
+              lastEditedBy,
+              lastEditedAt));
+          return;
+        }
+      }
+    } catch (NoSuchFileException nfe) {
+      context.status(412).json(WorkspaceFormattedError.saveConflict("deleted", null, null, null));
+      return;
+    } catch (WorkspaceFileOpException wfe) {
+      final var fe = new WorkspaceFormattedError(wfe, "Could not restore revision %s for file %s".formatted(revision, pathInfo.fileName()));
+      context.status(400).json(fe);
+    } catch (IOException ioe) {
+      final var fe = new FormattedError(
+          AerieService.WORKSPACE_SERVER,
+          ioe,
+          "Could not restore revision %s for file %s".formatted(revision, pathInfo.fileName()));
+      logger.warn("RESTORE REVISION: IO Exception: {}", fe);
+      context.status(500).json(fe);
+    }
+
+    // TODO: Restore the file
+    context.status(200);
   }
   //endregion
 }

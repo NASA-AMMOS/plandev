@@ -554,6 +554,8 @@ public class WorkspaceHistory {
   }
 
   private static void removePartialRepository(final Path gitDir) throws IOException {
+    // Java has no recursive delete. Walk bottom-up without following symbolic links; JGit's shorter recursive helper
+    // uses File.isDirectory(), which could follow a link in a damaged .git directory and delete outside it.
     Files.walkFileTree(gitDir, new SimpleFileVisitor<>() {
       @Override
       public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {

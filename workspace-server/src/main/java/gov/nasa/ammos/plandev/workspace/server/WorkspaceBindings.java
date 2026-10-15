@@ -392,7 +392,7 @@ public class WorkspaceBindings implements Plugin {
     } catch (RuntimeException e) {
       throw e;
     } catch (Exception e) {
-      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, "UNKNOWN_ERROR", errorMsg, (Throwable) e);
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, "INTERNAL_ERROR", errorMsg, e);
       logger.warn("DELETE WORKSPACE: Exception: {}", fe);
       context.status(500).json(fe);
     }
@@ -548,7 +548,7 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
-  private void post(Context context) throws NoSuchWorkspaceException {
+  private void post(Context context) {
     final String helpText = """
     Expected JSON body with one of the following formats:
 
@@ -686,8 +686,8 @@ public class WorkspaceBindings implements Plugin {
       final var message = whe instanceof WorkspaceGitService.PartialMutationException && partialMessage != null
           ? partialMessage
           : whe.getMessage();
-      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, whe.kind.errorType, message, (Throwable) whe);
-      logger.error("WORKSPACE MUTATION: {}", fe);
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, whe.kind.errorType, message, whe);
+      logger.error("WORKSPACE MUTATION: Workspace History Exception {}", fe);
       return new HandlerResult.Failure(500, fe);
     } catch (NoSuchWorkspaceException nsw) {
       return new HandlerResult.Failure(404, new WorkspaceFormattedError(nsw));
@@ -697,9 +697,9 @@ public class WorkspaceBindings implements Plugin {
     } catch (RuntimeException re) {
       throw re;
     } catch (Exception e) {
-      final var message = e.getMessage() != null ? e.getMessage() : "Unknown error.";
-      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, "UNKNOWN_ERROR", message, (Throwable) e);
-      logger.error("WORKSPACE MUTATION: Unexpected exception: {}", fe);
+      final var message = e.getMessage() != null ? e.getMessage() : "Internal error.";
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, "INTERNAL_ERROR", message, e);
+      logger.error("WORKSPACE MUTATION: Internal exception: {}", fe);
       return new HandlerResult.Failure(500, fe);
     }
   }
@@ -711,7 +711,7 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
-  HandlerResult handleFileUpload(
+  public HandlerResult handleFileUpload(
       int workspaceId,
       Path uploadPath,
       UploadedFile file,
@@ -800,7 +800,7 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
-  HandlerResult handleCreateDirectory(int workspaceId, Path destinationPath, String userId) {
+  public HandlerResult handleCreateDirectory(int workspaceId, Path destinationPath, String userId) {
     // Empty directories are not representable in Git, so this usually records nothing; it still runs under the lock.
     return mutate(workspaceId, userId, "Create directory " + destinationPath,
                   () -> handleCreateDirectoryLocked(workspaceId, destinationPath));
@@ -844,7 +844,7 @@ public class WorkspaceBindings implements Plugin {
     return !normalizedSourcePath.getParent().equals(normalizedDestPath.getParent());
   }
 
-  HandlerResult handleMove(
+  public HandlerResult handleMove(
       Path toMove,
       Path destinationPath,
       int sourceWorkspaceId,
@@ -960,7 +960,7 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
-  HandlerResult handleCopy(
+  public HandlerResult handleCopy(
       Path toCopy,
       Path destinationPath,
       int sourceWorkspaceId,
@@ -1051,7 +1051,7 @@ public class WorkspaceBindings implements Plugin {
     }
   }
 
-  HandlerResult handleDelete(int workspaceId, Path filePath, String userId) {
+  public HandlerResult handleDelete(int workspaceId, Path filePath, String userId) {
     return mutate(workspaceId, userId, "Delete " + filePath, () -> handleDeleteLocked(workspaceId, filePath));
   }
 
@@ -1295,7 +1295,7 @@ public class WorkspaceBindings implements Plugin {
    * If there is an issue with the request or permissions, returns an appropriate 4XX status.
    * Else, returns a 207 Multi-Status with an individual response per-object
    */
-  public void bulkPost(Context context) throws NoSuchWorkspaceException {
+  public void bulkPost(Context context) {
     final var helpText = """
         To Move Items:
         {
@@ -1424,7 +1424,7 @@ public class WorkspaceBindings implements Plugin {
       int destinationWorkspaceId,
       boolean overwrite,
       String userId
-  ) throws NoSuchWorkspaceException {
+  ) {
     final var responseArray = Json.createArrayBuilder();
     for(final var item : toMove){
       final var results = handleMove(
@@ -1450,7 +1450,7 @@ public class WorkspaceBindings implements Plugin {
       int destinationWorkspaceId,
       boolean overwrite,
       String userId
-  ) throws NoSuchWorkspaceException {
+  ) {
     final var responseArray = Json.createArrayBuilder();
     for(final var item : toCopy) {
       final var results = handleCopy(
@@ -1598,7 +1598,7 @@ public class WorkspaceBindings implements Plugin {
    *  - "overwrite": replace the "user" field with the new value, if provided
    * Defaults to "shallow" if "mergeBehavior" is not specified
    */
-  public void setMetadataKeys(final Context context) throws NoSuchWorkspaceException {
+  public void setMetadataKeys(final Context context) {
     // Permissions Check
     final var pathInfo = PathInformation.of(context);
     if (!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.write_file_directory)) {
@@ -1685,7 +1685,7 @@ public class WorkspaceBindings implements Plugin {
    * Example Input Syntax:
    * [ "readOnly", "user.status", "user.info.name" ]
    */
-  public void unsetMetadataKeys(final Context context) throws NoSuchWorkspaceException {
+  public void unsetMetadataKeys(final Context context) {
     // Permissions Check
     final var pathInfo = PathInformation.of(context);
     if (!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.write_file_directory)) {

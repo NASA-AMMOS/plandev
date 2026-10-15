@@ -67,7 +67,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
    * @param postgresRepository used for workspace creation/deletion and extension mappings
    * @param history the workspace mutation boundary; every mutating method here requires its lock to be held
    */
-  WorkspaceFileSystemService(
+  public WorkspaceFileSystemService(
       final WorkspaceRoots roots,
       final WorkspacePostgresRepository postgresRepository,
       final WorkspaceGitService history)
@@ -541,7 +541,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   @Override
   public boolean deleteFile(final int workspaceId, final Path filePath)
-  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException
+  throws NoSuchWorkspaceException, WorkspaceFileOpException
   {
     history.requireLocked(workspaceId);
     final var repoPath = roots.workspaceRootPath(workspaceId);
@@ -667,7 +667,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   @Override
   public boolean deleteDirectory(final int workspaceId, final Path directoryPath)
-  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException
+  throws NoSuchWorkspaceException, WorkspaceFileOpException
   {
     history.requireLocked(workspaceId);
     final var repoPath = roots.workspaceRootPath(workspaceId);
@@ -697,7 +697,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   @Override
   public List<Path> getReadOnlyFiles(final int workspaceId, final Path dirPath)
-  throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException, JsonException, SQLException
+  throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException, JsonException
   {
     history.requireLocked(workspaceId);
     final var repoPath = roots.workspaceRootPath(workspaceId);
@@ -1176,7 +1176,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   @Override
   public boolean deleteMetadataFile(final int workspaceId, final Path filePath)
-  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException
+  throws NoSuchWorkspaceException, WorkspaceFileOpException
   {
     history.requireLocked(workspaceId);
     final var root = roots.workspaceRootPath(workspaceId);

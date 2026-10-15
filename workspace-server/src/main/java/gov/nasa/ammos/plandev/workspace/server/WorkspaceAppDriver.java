@@ -9,6 +9,7 @@ import gov.nasa.ammos.plandev.workspace.server.config.PostgresStore;
 import gov.nasa.ammos.plandev.workspace.server.config.Store;
 import gov.nasa.ammos.plandev.workspace.server.config.UnexpectedSubtypeError;
 import gov.nasa.ammos.plandev.workspace.server.postgres.WorkspacePostgresRepository;
+import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitService;
 import io.javalin.Javalin;
 import io.javalin.config.SizeUnit;
 import org.eclipse.jetty.server.LowResourceMonitor;

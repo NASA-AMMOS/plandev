@@ -8,6 +8,9 @@ import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
 import gov.nasa.ammos.plandev.workspace.server.postgres.WorkspacePostgresRepository;
 import gov.nasa.ammos.plandev.workspace.server.types.MetadataKeys;
 import gov.nasa.ammos.plandev.workspace.server.types.MetadataMergeBehavior;
+import gov.nasa.ammos.plandev.workspace.server.versioning.LastEdit;
+import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitService;
+import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceVersioningService;
 import io.javalin.http.UploadedFile;
 import org.eclipse.jgit.api.errors.GitAPIException;
 
@@ -53,7 +56,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   final WorkspaceRoots roots;
   final WorkspacePostgresRepository postgresRepository;
-  final WorkspaceGitService history;
+  final WorkspaceVersioningService history;
 
   public WorkspaceFileSystemService(final WorkspacePostgresRepository postgresRepository, final WorkspaceGitService history) {
     this(postgresRepository, postgresRepository, history);
@@ -793,7 +796,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   static JsonObject effectiveMetadata(
       final JsonObject sidecar,
-      final WorkspaceGitService.LastEdit edit)
+      final LastEdit edit)
   {
     final var builder = Json.createObjectBuilder(sidecar)
                             .remove(MetadataKeys.lastEditedBy.name())

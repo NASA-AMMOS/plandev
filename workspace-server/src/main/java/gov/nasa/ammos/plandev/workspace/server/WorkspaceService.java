@@ -5,6 +5,7 @@ import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpExcepti
 import gov.nasa.ammos.plandev.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
 import gov.nasa.ammos.plandev.workspace.server.types.MetadataMergeBehavior;
+import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitService;
 import io.javalin.http.UploadedFile;
 
 import javax.json.JsonException;

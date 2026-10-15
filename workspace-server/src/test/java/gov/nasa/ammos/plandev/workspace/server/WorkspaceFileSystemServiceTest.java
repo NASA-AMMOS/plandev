@@ -2,6 +2,7 @@ package gov.nasa.ammos.plandev.workspace.server;
 
 import gov.nasa.ammos.plandev.workspace.server.exceptions.ReservedPathException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
+import gov.nasa.ammos.plandev.workspace.server.versioning.LastEdit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -206,7 +207,7 @@ class WorkspaceFileSystemServiceTest {
 
     @Test
     void contentEditAfterBaselineOverridesStoredAttribution() {
-      final var edit = new WorkspaceGitService.LastEdit("git", EDIT_AT, false);
+      final var edit = new LastEdit("git", EDIT_AT, false);
 
       final var metadata = WorkspaceFileSystemService.effectiveMetadata(sidecarWithStoredEdit(), edit);
 
@@ -215,7 +216,7 @@ class WorkspaceFileSystemServiceTest {
 
     @Test
     void baselinePreservesCompleteStoredAttribution() {
-      final var baseline = new WorkspaceGitService.LastEdit("PlanDev", BASELINE_AT, true);
+      final var baseline = new LastEdit("PlanDev", BASELINE_AT, true);
 
       final var metadata = WorkspaceFileSystemService.effectiveMetadata(sidecarWithStoredEdit(), baseline);
 
@@ -225,7 +226,7 @@ class WorkspaceFileSystemServiceTest {
     @Test
     void baselineIsTheFallbackForIncompleteStoredAttribution() {
       final var incomplete = Json.createObjectBuilder(sidecarWithStoredEdit()).remove("lastEditedAt").build();
-      final var baseline = new WorkspaceGitService.LastEdit("PlanDev", BASELINE_AT, true);
+      final var baseline = new LastEdit("PlanDev", BASELINE_AT, true);
 
       final var metadata = WorkspaceFileSystemService.effectiveMetadata(incomplete, baseline);
 

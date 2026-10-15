@@ -1,5 +1,8 @@
-package gov.nasa.ammos.plandev.workspace.server;
+package gov.nasa.ammos.plandev.workspace.server.versioning;
 
+import gov.nasa.ammos.plandev.workspace.server.WorkspaceFileSystemService;
+import gov.nasa.ammos.plandev.workspace.server.WorkspacePaths;
+import gov.nasa.ammos.plandev.workspace.server.WorkspaceRoots;
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.Status;
@@ -125,7 +128,7 @@ import java.util.stream.Stream;
  * instance owns the workspace volume (the current deployment: one replica, no other service mounts the volume) and
  * nothing outside this class writes to a workspace's working tree. Reads do not take the lock.
  */
-public class WorkspaceGitService {
+public class WorkspaceGitService implements WorkspaceVersioningService {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceGitService.class);
 
   static final String INIT_MESSAGE = "Initialize workspace history";
@@ -195,9 +198,6 @@ public class WorkspaceGitService {
   public interface Mutation<T> {
     T apply() throws Exception;
   }
-
-  /** A file's most recent content change, derived from history. baseline marks the history's root commit. */
-  public record LastEdit(String by, Instant at, boolean baseline) {}
 
   private record Before(ObjectId head) {}
 
@@ -350,7 +350,8 @@ public class WorkspaceGitService {
   }
 
   /** Throw unless the current thread holds every given workspace's mutation lock. */
-  public void requireLocked(final int... workspaceIds) {
+  @Override
+  public void requireLocked(final int... workspaceIds) throws IllegalStateException {
     for (final var id : workspaceIds) {
       final var lock = locks.get(id);
       if (lock == null || !lock.isHeldByCurrentThread()) {
@@ -384,7 +385,8 @@ public class WorkspaceGitService {
    * needed yet because no other request can resolve the directory; migrated workspaces still use adoption on first
    * mutation through ensureReady().
    */
-  void initializeNewWorkspace(final Path root) throws IOException, GitAPIException {
+  @Override
+  public void initializeNewWorkspace(final Path root) throws IOException, GitAPIException {
     final var normalizedRoot = root.normalize();
     if (!Files.isDirectory(normalizedRoot)) {
       throw new IOException("New workspace directory " + normalizedRoot + " is missing.");
@@ -660,7 +662,8 @@ public class WorkspaceGitService {
    * Whether a workspace has been fully initialized or adopted (see the class Javadoc). Never discovers a parent
    * repository.
    */
-  boolean isManaged(final Path root) throws IOException {
+  @Override
+  public boolean isManaged(final Path root) throws IOException {
     if (!Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR), LinkOption.NOFOLLOW_LINKS)) return false;
     try (final var git = open(root)) {
       return git.getRepository().getConfig().getBoolean(MANAGED_SECTION, null, MANAGED_KEY, false);
@@ -1181,6 +1184,7 @@ public class WorkspaceGitService {
     }
   }
 
+  @Override
   public Optional<LastEdit> lastEdit(final Path root, final String path) throws IOException {
     return Optional.ofNullable(lastEdits(root, Set.of(path)).get(path));
   }

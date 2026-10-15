@@ -22,7 +22,7 @@ import java.util.Set;
 /**
  * An interface that defines how the Aerie system can interact with the Workspaces backend.
  *
- * Every method that changes workspace content must be called inside {@link WorkspaceHistory#mutate}, which holds the
+ * Every method that changes workspace content must be called inside {@link WorkspaceGitService#mutate}, which holds the
  * workspace lock and records the change in the workspace's Git history.
  */
 public interface WorkspaceService {

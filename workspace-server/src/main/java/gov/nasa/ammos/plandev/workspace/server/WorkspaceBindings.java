@@ -65,14 +65,14 @@ public class WorkspaceBindings implements Plugin {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceBindings.class);
   private final JWTService jwtService;
   private final WorkspaceService workspaceService;
-  private final WorkspaceHistory history;
+  private final WorkspaceGitService history;
   private final PermissionsService permissionsService;
   private final String hasuraAdminSecret;
 
   public WorkspaceBindings(
       final JWTService jwtService,
       final WorkspaceService workspaceService,
-      final WorkspaceHistory history,
+      final WorkspaceGitService history,
       final PermissionsService permissionsService,
       final String hasuraAdminSecret) {
     this.jwtService = jwtService;
@@ -195,7 +195,8 @@ public class WorkspaceBindings implements Plugin {
     // More specific than SecurityException: a request naming .git, .seqdev etc. is a bad request, not a server error
     javalin.exception(ReservedPathException.class, (ex, ctx) ->
         ctx.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, "RESERVED_PATH", ex)));
-    javalin.exception(WorkspaceHistory.WorkspaceHistoryException.class, (ex, ctx) -> {
+    javalin.exception(
+        WorkspaceGitService.WorkspaceHistoryException.class, (ex, ctx) -> {
       final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ex.kind.errorType, ex);
       logger.error("Workspace history error: {}", fe);
       ctx.status(500).json(fe);
@@ -660,7 +661,7 @@ public class WorkspaceBindings implements Plugin {
       final int workspaceId,
       final String userId,
       final String commitMessage,
-      final WorkspaceHistory.Mutation<HandlerResult> handler)
+      final WorkspaceGitService.Mutation<HandlerResult> handler)
   {
     final var commits = new LinkedHashMap<Integer, String>();
     commits.put(workspaceId, commitMessage);
@@ -668,20 +669,20 @@ public class WorkspaceBindings implements Plugin {
   }
 
   /**
-   * As {@link #mutate(int, String, String, WorkspaceHistory.Mutation)}, across workspaces committed in the given
+   * As {@link #mutate(int, String, String, WorkspaceGitService.Mutation)}, across workspaces committed in the given
    * order. partialMessage describes the outcome if a later workspace's commit fails after an earlier one's
-   * succeeded (see {@link WorkspaceHistory.PartialMutationException}).
+   * succeeded (see {@link WorkspaceGitService.PartialMutationException}).
    */
   private HandlerResult mutate(
       final LinkedHashMap<Integer, String> commits,
       final String userId,
       final String partialMessage,
-      final WorkspaceHistory.Mutation<HandlerResult> handler)
+      final WorkspaceGitService.Mutation<HandlerResult> handler)
   {
     try {
       return history.mutate(commits, userId, handler, result -> result instanceof HandlerResult.Success);
-    } catch (WorkspaceHistory.WorkspaceHistoryException whe) {
-      final var message = whe instanceof WorkspaceHistory.PartialMutationException && partialMessage != null
+    } catch (WorkspaceGitService.WorkspaceHistoryException whe) {
+      final var message = whe instanceof WorkspaceGitService.PartialMutationException && partialMessage != null
           ? partialMessage
           : whe.getMessage();
       final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, whe.kind.errorType, message, (Throwable) whe);

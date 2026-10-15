@@ -83,7 +83,7 @@ public final class WorkspaceAppDriver {
     Runtime.getRuntime().addShutdownHook(new Thread(workspaceServer::close));
   }
 
-  private record Stores (JWTService jwt, WorkspaceService workspace, WorkspaceHistory history) {}
+  private record Stores (JWTService jwt, WorkspaceService workspace, WorkspaceGitService history) {}
 
   private static Stores loadStores(final AppConfiguration config) {
     final var store = config.store();
@@ -104,7 +104,7 @@ public final class WorkspaceAppDriver {
 
       final var jwt = new JWTService(config.jwtSecret());
       final var repository = new WorkspacePostgresRepository(config.workspaceFileStore(), hikariDataSource);
-      final var history = new WorkspaceHistory(repository);
+      final var history = new WorkspaceGitService(repository);
       final var workspace = new WorkspaceFileSystemService(repository, history);
       return new Stores(jwt, workspace, history);
     } else {

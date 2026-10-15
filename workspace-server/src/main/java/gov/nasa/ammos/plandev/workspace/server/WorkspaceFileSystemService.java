@@ -34,7 +34,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,9 +53,9 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   final WorkspaceRoots roots;
   final WorkspacePostgresRepository postgresRepository;
-  final WorkspaceHistory history;
+  final WorkspaceGitService history;
 
-  public WorkspaceFileSystemService(final WorkspacePostgresRepository postgresRepository, final WorkspaceHistory history) {
+  public WorkspaceFileSystemService(final WorkspacePostgresRepository postgresRepository, final WorkspaceGitService history) {
     this(postgresRepository, postgresRepository, history);
   }
 
@@ -67,7 +67,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   WorkspaceFileSystemService(
       final WorkspaceRoots roots,
       final WorkspacePostgresRepository postgresRepository,
-      final WorkspaceHistory history)
+      final WorkspaceGitService history)
   {
     this.roots = roots;
     this.postgresRepository = postgresRepository;
@@ -793,7 +793,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   static JsonObject effectiveMetadata(
       final JsonObject sidecar,
-      final WorkspaceHistory.LastEdit edit)
+      final WorkspaceGitService.LastEdit edit)
   {
     final var builder = Json.createObjectBuilder(sidecar)
                             .remove(MetadataKeys.lastEditedBy.name())

@@ -125,8 +125,8 @@ import java.util.stream.Stream;
  * instance owns the workspace volume (the current deployment: one replica, no other service mounts the volume) and
  * nothing outside this class writes to a workspace's working tree. Reads do not take the lock.
  */
-public class WorkspaceHistory {
-  private static final Logger logger = LoggerFactory.getLogger(WorkspaceHistory.class);
+public class WorkspaceGitService {
+  private static final Logger logger = LoggerFactory.getLogger(WorkspaceGitService.class);
 
   static final String INIT_MESSAGE = "Initialize workspace history";
   static final String ADOPT_MESSAGE = "Adopt workspace into history";
@@ -212,7 +212,7 @@ public class WorkspaceHistory {
   // their own initial false. inLockScope removes the thread's value when the outer operation finishes.
   private final ThreadLocal<Boolean> lockScopeActive = ThreadLocal.withInitial(() -> false);
 
-  public WorkspaceHistory(final WorkspaceRoots roots) {
+  public WorkspaceGitService(final WorkspaceRoots roots) {
     this.roots = roots;
   }
 

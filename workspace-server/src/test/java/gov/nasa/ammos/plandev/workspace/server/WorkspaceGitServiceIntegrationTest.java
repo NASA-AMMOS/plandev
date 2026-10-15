@@ -47,9 +47,9 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Exercises workspace mutations end to end below HTTP: the binding handlers (validation, readOnly, ETag), the
- * {@link WorkspaceHistory} mutation boundary, {@link WorkspaceFileSystemService}, and a real JGit repository on disk.
+ * {@link WorkspaceGitService} mutation boundary, {@link WorkspaceFileSystemService}, and a real JGit repository on disk.
  */
-class WorkspaceHistoryIntegrationTest {
+class WorkspaceGitServiceIntegrationTest {
   private static final String USER = "alice";
   private static final int WS1 = 1;
   private static final int WS2 = 2;
@@ -62,7 +62,7 @@ class WorkspaceHistoryIntegrationTest {
   private WorkspaceBindings bindings;
 
   /** A WorkspaceHistory whose commit step can be made to fail for chosen workspaces (deterministic injection). */
-  static final class FlakyHistory extends WorkspaceHistory {
+  static final class FlakyHistory extends WorkspaceGitService {
     final Set<Path> failCommitsIn = ConcurrentHashMap.newKeySet();
 
     /** Moves during drift healing fail if their destination is listed or ends with this (incident names vary). */
@@ -113,7 +113,7 @@ class WorkspaceHistoryIntegrationTest {
 
   //region Helpers
   private List<Path> incidents(final int ws) throws IOException {
-    final var dir = WorkspaceHistory.recoveryDir(root(ws));
+    final var dir = WorkspaceGitService.recoveryDir(root(ws));
     if (!Files.isDirectory(dir)) return List.of();
     try (final var entries = Files.list(dir)) {
       return entries.sorted().toList();
@@ -149,11 +149,11 @@ class WorkspaceHistoryIntegrationTest {
   }
 
   private Path mutationMarker(final int ws) {
-    return root(ws).resolve(".git").resolve(WorkspaceHistory.MUTATION_MARKER);
+    return root(ws).resolve(".git").resolve(WorkspaceGitService.MUTATION_MARKER);
   }
 
   private Path adoptionMarker(final int ws) {
-    return root(ws).resolve(".seqdev").resolve(WorkspaceHistory.ADOPTION_MARKER);
+    return root(ws).resolve(".seqdev").resolve(WorkspaceGitService.ADOPTION_MARKER);
   }
 
   private static void createMarker(final Path marker) throws IOException {
@@ -201,7 +201,7 @@ class WorkspaceHistoryIntegrationTest {
 
   private void assertClean(final int ws) throws Exception {
     try (final var git = git(ws)) {
-      assertEquals(Set.of(), WorkspaceHistory.dirtyPaths(git.status().call()), "workspace " + ws + " is dirty");
+      assertEquals(Set.of(), WorkspaceGitService.dirtyPaths(git.status().call()), "workspace " + ws + " is dirty");
     }
   }
 
@@ -419,7 +419,7 @@ class WorkspaceHistoryIntegrationTest {
       final var sidecarBefore = Files.readAllBytes(root(WS1).resolve(".keep.txt.meta.seqdev"));
 
       history.failCommitsIn.add(root(WS1));
-      final var ex = assertThrows(WorkspaceHistory.WorkspaceHistoryException.class, () ->
+      final var ex = assertThrows(WorkspaceGitService.WorkspaceHistoryException.class, () ->
           history.mutate(WS1, USER, "doomed", () -> {
             Files.writeString(root(WS1).resolve("keep.txt"), "modified");
             Files.delete(root(WS1).resolve("gone.txt"));
@@ -430,7 +430,7 @@ class WorkspaceHistoryIntegrationTest {
             Files.writeString(root(WS1).resolve(".keep.txt.meta.seqdev"), "{\"readOnly\":true}");
             return true;
           }, r -> true));
-      assertEquals(WorkspaceHistory.Kind.HISTORY_NOT_RECORDED, ex.kind);
+      assertEquals(WorkspaceGitService.Kind.HISTORY_NOT_RECORDED, ex.kind);
 
       assertEquals("original", read(WS1, "keep.txt"));
       assertEquals("will be deleted", read(WS1, "gone.txt"));
@@ -675,7 +675,7 @@ class WorkspaceHistoryIntegrationTest {
     void anInterruptedAdoptionRemovesItsLockAndResumes() throws Exception {
       Files.writeString(root(WS1).resolve("legacy.txt"), "legacy");
       createMarker(adoptionMarker(WS1));
-      Git.init().setDirectory(root(WS1).toFile()).setInitialBranch(WorkspaceHistory.BRANCH).call().close();
+      Git.init().setDirectory(root(WS1).toFile()).setInitialBranch(WorkspaceGitService.BRANCH).call().close();
       final var indexLock = root(WS1).resolve(".git/index.lock");
       Files.writeString(indexLock, "stale");
 
@@ -1060,8 +1060,8 @@ class WorkspaceHistoryIntegrationTest {
         final var commits = new ArrayList<RevCommit>();
         git.log().call().forEach(commits::add);
         assertEquals(1, commits.size());
-        assertEquals(WorkspaceHistory.INIT_MESSAGE, commits.getFirst().getFullMessage());
-        assertEquals(Set.of(), WorkspaceHistory.dirtyPaths(git.status().call()));
+        assertEquals(WorkspaceGitService.INIT_MESSAGE, commits.getFirst().getFullMessage());
+        assertEquals(Set.of(), WorkspaceGitService.dirtyPaths(git.status().call()));
       }
     }
 
@@ -1108,7 +1108,7 @@ class WorkspaceHistoryIntegrationTest {
 
       final var commits = log(WS1);
       assertEquals(1, commits.size(), "creating an empty directory adds nothing beyond the baseline");
-      assertEquals(WorkspaceHistory.INIT_MESSAGE, commits.getFirst().getFullMessage());
+      assertEquals(WorkspaceGitService.INIT_MESSAGE, commits.getFirst().getFullMessage());
       assertEquals("PlanDev", commits.getFirst().getAuthorIdent().getName());
       assertEquals(Set.of("b.txt", "seq/a.txt", "seq/.a.txt.meta.seqdev"), headTree(WS1));
       assertClean(WS1);
@@ -1282,7 +1282,7 @@ class WorkspaceHistoryIntegrationTest {
       }
       Files.writeString(root(WS1).resolve("a.txt"), "written before the crash");
       saveOk(WS1, "b.txt", "v1");
-      assertEquals(WorkspaceHistory.ADOPT_MESSAGE, log(WS1).get(1).getFullMessage());
+      assertEquals(WorkspaceGitService.ADOPT_MESSAGE, log(WS1).get(1).getFullMessage());
       assertTrue(history.isManaged(root(WS1)));
       assertClean(WS1);
     }
@@ -1398,7 +1398,7 @@ class WorkspaceHistoryIntegrationTest {
     @Test
     void aSymlinkedRecoveryDirectoryIsNeverFollowed() throws Exception {
       final var outside = Files.createDirectory(tmp.resolve("outside"));
-      Files.createSymbolicLink(WorkspaceHistory.recoveryDir(root(WS1)), outside);
+      Files.createSymbolicLink(WorkspaceGitService.recoveryDir(root(WS1)), outside);
       Files.writeString(root(WS1).resolve("a.txt"), "external bytes");
       assertFailedWith(save(WS1, "b.txt", "intended bytes", "*"), "could not be preserved");
       assertEquals("external bytes", read(WS1, "a.txt"));
@@ -1458,29 +1458,29 @@ class WorkspaceHistoryIntegrationTest {
       assertFailedWith(save(WS1, "a.txt", "Y", "*"), "staged changes");
       assertFailedWith(save(WS1, "b.txt", "Y", "*"), "staged changes");
       assertEquals("X", read(WS1, "a.txt"));
-      assertFalse(Files.exists(WorkspaceHistory.recoveryDir(root(WS1))));
+      assertFalse(Files.exists(WorkspaceGitService.recoveryDir(root(WS1))));
     }
 
     @Test
     void ifTheBytesCannotBePreservedNothingIsTouched() throws Exception {
       final var commits = log(WS1).size();
       Files.writeString(root(WS1).resolve("a.txt"), "X");
-      Files.writeString(WorkspaceHistory.recoveryDir(root(WS1)), "in the way");
+      Files.writeString(WorkspaceGitService.recoveryDir(root(WS1)), "in the way");
 
       assertFailedWith(save(WS1, "a.txt", "Y", "*"), "could not be preserved");
       assertEquals("X", read(WS1, "a.txt"));
       assertEquals(commits, log(WS1).size());
       assertFalse(Files.exists(mutationMarker(WS1)), "failed preservation must not authorize crash recovery");
 
-      Files.delete(WorkspaceHistory.recoveryDir(root(WS1)));
+      Files.delete(WorkspaceGitService.recoveryDir(root(WS1)));
       saveOk(WS1, "a.txt", "Y");
       assertEquals("X", preserved(onlyIncident(WS1), "a.txt"));
     }
 
-    private WorkspaceHistory.WorkspaceHistoryException healFailingOnB() {
+    private WorkspaceGitService.WorkspaceHistoryException healFailingOnB() {
       history.failMovesEndingWith = "files/b.txt";
       try {
-        return assertThrows(WorkspaceHistory.WorkspaceHistoryException.class, () ->
+        return assertThrows(WorkspaceGitService.WorkspaceHistoryException.class, () ->
             history.mutate(WS1, USER, "x", () -> true, r -> r));
       } finally {
         history.failMovesEndingWith = null;
@@ -1516,8 +1516,8 @@ class WorkspaceHistoryIntegrationTest {
     @Test
     void aPruneFailureDoesNotFailTheMutation() throws Exception {
       assumeTrue(POSIX);
-      final var recovery = Files.createDirectories(WorkspaceHistory.recoveryDir(root(WS1)));
-      for (int i = 0; i < WorkspaceHistory.MAX_INCIDENTS; i++) {
+      final var recovery = Files.createDirectories(WorkspaceGitService.recoveryDir(root(WS1)));
+      for (int i = 0; i < WorkspaceGitService.MAX_INCIDENTS; i++) {
         Files.createDirectories(recovery.resolve("00000000T000000000Z-old-%02d/files".formatted(i)));
         Files.writeString(recovery.resolve("00000000T000000000Z-old-%02d/files/f".formatted(i)), "old");
       }
@@ -1593,27 +1593,27 @@ class WorkspaceHistoryIntegrationTest {
 
     @Test
     void onlyTheNewestIncidentsAreKept() throws Exception {
-      for (int i = 0; i < WorkspaceHistory.MAX_INCIDENTS + 3; i++) {
+      for (int i = 0; i < WorkspaceGitService.MAX_INCIDENTS + 3; i++) {
         Files.writeString(root(WS1).resolve("a.txt"), "drift " + i);
         saveOk(WS1, "a.txt", "v1");
       }
       final var kept = incidents(WS1);
-      assertEquals(WorkspaceHistory.MAX_INCIDENTS, kept.size());
+      assertEquals(WorkspaceGitService.MAX_INCIDENTS, kept.size());
       assertEquals("drift 3", preserved(kept.getFirst(), "a.txt"));
-      assertEquals("drift " + (WorkspaceHistory.MAX_INCIDENTS + 2), preserved(kept.getLast(), "a.txt"));
+      assertEquals("drift " + (WorkspaceGitService.MAX_INCIDENTS + 2), preserved(kept.getLast(), "a.txt"));
     }
 
     @Test
     void theCurrentIncidentIsNeverPruned() throws Exception {
-      final var recovery = Files.createDirectories(WorkspaceHistory.recoveryDir(root(WS1)));
-      for (int i = 0; i < WorkspaceHistory.MAX_INCIDENTS; i++) {
+      final var recovery = Files.createDirectories(WorkspaceGitService.recoveryDir(root(WS1)));
+      for (int i = 0; i < WorkspaceGitService.MAX_INCIDENTS; i++) {
         Files.createDirectories(recovery.resolve("99991231T235959999Z-future-%02d".formatted(i)));
       }
       Files.writeString(root(WS1).resolve("a.txt"), "X");
       saveOk(WS1, "a.txt", "Y");
 
       final var kept = incidents(WS1);
-      assertEquals(WorkspaceHistory.MAX_INCIDENTS, kept.size());
+      assertEquals(WorkspaceGitService.MAX_INCIDENTS, kept.size());
       final var current = kept.stream().filter(p -> !p.getFileName().toString().startsWith("9999")).toList();
       assertEquals(1, current.size(), kept::toString);
       assertEquals("X", preserved(current.getFirst(), "a.txt"));
@@ -1666,7 +1666,7 @@ class WorkspaceHistoryIntegrationTest {
       saveOk(WS1, "b.txt", "B");
 
       final var commits = log(WS1);
-      assertEquals(List.of("Update b.txt", WorkspaceHistory.ADOPT_MESSAGE, "external"),
+      assertEquals(List.of("Update b.txt", WorkspaceGitService.ADOPT_MESSAGE, "external"),
                    commits.stream().map(RevCommit::getFullMessage).toList());
       assertEquals("uncommitted", read(WS1, "a.txt"));
       assertClean(WS1);
@@ -1775,7 +1775,7 @@ class WorkspaceHistoryIntegrationTest {
   @Nested
   class CopySemantics {
     private JsonObject metadata(final String path) throws Exception {
-      return WorkspaceHistoryIntegrationTest.this.metadata(WS1, path);
+      return WorkspaceGitServiceIntegrationTest.this.metadata(WS1, path);
     }
 
     /** Destination has carol's sidecar with user metadata; source has no sidecar at all. */

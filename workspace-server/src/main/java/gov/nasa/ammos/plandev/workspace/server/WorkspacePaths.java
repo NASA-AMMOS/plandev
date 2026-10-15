@@ -19,7 +19,7 @@ import java.util.regex.Pattern;
 /**
  * The single source of truth for which names inside a workspace are internal to the workspace server.
  *
- * - .git holds the workspace's history repository (see {@link WorkspaceHistory}).
+ * - .git holds the workspace's history repository (see {@link WorkspaceGitService}).
  * - .gitignore, .gitattributes and .gitmodules would change what Git tracks or how it rewrites file bytes, which would
  *   let a "clean" repository silently omit or alter user files. They are reserved in Phase 1; .gitignore may be relaxed
  *   once Git remote interoperability exists.

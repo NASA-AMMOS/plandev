@@ -11,7 +11,10 @@ import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevTree;
 import org.eclipse.jgit.revwalk.RevWalk;
+import org.eclipse.jgit.treewalk.EmptyTreeIterator;
 import org.eclipse.jgit.treewalk.TreeWalk;
+import org.eclipse.jgit.treewalk.filter.AndTreeFilter;
+import org.eclipse.jgit.treewalk.filter.PathFilter;
 import org.eclipse.jgit.treewalk.filter.TreeFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -82,7 +85,7 @@ public final class WorkspaceRevisions {
     }
   }
 
-  /** A revision's content and its committed sidecar metadata (empty if the file had no sidecar). */
+  /** A revision's content and its metadata as of that revision (see {@link #read}). */
   public record HistoricalFile(Revision revision, byte[] content, JsonObject metadata) {}
 
   private WorkspaceRevisions() {}
@@ -153,7 +156,11 @@ public final class WorkspaceRevisions {
     }
   }
 
-  /** A revision's content and committed sidecar. Lock-free. */
+  /**
+   * A revision's content and its sidecar metadata as the API presented it at that revision: the committed sidecar with
+   * lastEditedBy/lastEditedAt derived from history up to the revision's commit, exactly as live metadata is derived
+   * from history up to HEAD. Lock-free.
+   */
   static HistoricalFile read(final Path root, final Revision revision) throws IOException {
     try (final var repo = open(root); final var walk = new RevWalk(repo)) {
       final var tree = walk.parseCommit(revision.commit()).getTree();
@@ -167,7 +174,38 @@ public final class WorkspaceRevisions {
           metadata = reader.readObject();
         }
       }
-      return new HistoricalFile(revision, repo.open(content).getBytes(), metadata);
+      final var edit = lastEditAt(repo, walk, revision.commit(), revision.path());
+      return new HistoricalFile(
+          revision,
+          repo.open(content).getBytes(),
+          WorkspaceFileSystemService.effectiveMetadata(metadata, edit));
+    }
+  }
+
+  /**
+   * The newest commit at or before {@code start} that changed {@code path}, with the same rules as
+   * {@link WorkspaceHistory#lastEdits}: a commit is compared with its parent (the root commit with an empty tree, marking
+   * the edit as the baseline), so a move counts as an edit at the new path.
+   */
+  private static WorkspaceHistory.LastEdit lastEditAt(
+      final Repository repo,
+      final RevWalk walk,
+      final ObjectId start,
+      final String path) throws IOException
+  {
+    for (var commit = walk.parseCommit(start); ; commit = walk.parseCommit(commit.getParent(0))) {
+      try (final var tw = new TreeWalk(repo)) {
+        tw.setRecursive(true);
+        tw.setFilter(AndTreeFilter.create(TreeFilter.ANY_DIFF, PathFilter.create(path)));
+        if (commit.getParentCount() > 0) tw.addTree(walk.parseCommit(commit.getParent(0)).getTree());
+        else tw.addTree(new EmptyTreeIterator());
+        tw.addTree(commit.getTree());
+        if (tw.next()) {
+          final var author = commit.getAuthorIdent();
+          return new WorkspaceHistory.LastEdit(author.getName(), author.getWhenAsInstant(), commit.getParentCount() == 0);
+        }
+      }
+      if (commit.getParentCount() == 0) return null;
     }
   }
 

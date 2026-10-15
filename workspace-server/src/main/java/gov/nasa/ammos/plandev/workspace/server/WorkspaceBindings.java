@@ -1914,14 +1914,9 @@ public class WorkspaceBindings implements Plugin {
         context.status(404).json(noSuchRevision(pathInfo.filePath, revision));
         return;
       }
-      // A committed sidecar's lastEdited* is only a stale pre-history baseline (live values are derived from history),
-      // so it is left out rather than shown as the file's state at this revision.
-      final var fileMetadata = Json.createObjectBuilder(historical.get().metadata())
-                                   .remove(MetadataKeys.lastEditedBy.name())
-                                   .remove(MetadataKeys.lastEditedAt.name());
       context.status(200).json(Json.createObjectBuilder()
                                    .add("versionMetadata", historical.get().revision().toJson())
-                                   .add("fileMetadata", fileMetadata)
+                                   .add("fileMetadata", historical.get().metadata())
                                    .build());
     } catch (WorkspaceFileOpException wfe) {
       context.status(400).json(new WorkspaceFormattedError(wfe, "Could not get revision metadata of " + pathInfo.filePath));

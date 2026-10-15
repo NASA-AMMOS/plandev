@@ -1932,6 +1932,23 @@ class WorkspaceHistoryIntegrationTest {
     }
 
     @Test
+    void revisionMetadataDerivesLastEditAsOfTheRevision() throws Exception {
+      saveOk(WS1, "a.txt", "v1");
+      final var aliceEdit = head(WS1).getAuthorIdent().getWhenAsInstant().toString();
+      setUserMetadata(WS1, "a.txt", "draft"); // a metadata-only commit is not a content edit
+      revise("a.txt", "");
+      assertSuccess(bindings.handleFileUpload(WS1, Path.of("a.txt"), upload("a.txt", "v2"), true, null, "bob"));
+      revise("a.txt", "");
+
+      final var atA = fs.readRevision(WS1, Path.of("a.txt"), "a").orElseThrow().metadata();
+      assertEquals(USER, atA.getString("lastEditedBy"));
+      assertEquals(aliceEdit, atA.getString("lastEditedAt"));
+      assertEquals("draft", atA.getJsonObject("user").getString("status"));
+      assertEquals("bob", fs.readRevision(WS1, Path.of("a.txt"), "b").orElseThrow().metadata().getString("lastEditedBy"));
+      assertEquals("bob", metadata(WS1, "a.txt").getString("lastEditedBy"));
+    }
+
+    @Test
     void preconditions() throws Exception {
       final var etag = saveOk(WS1, "a.txt", "v1");
       revise("a.txt", "");

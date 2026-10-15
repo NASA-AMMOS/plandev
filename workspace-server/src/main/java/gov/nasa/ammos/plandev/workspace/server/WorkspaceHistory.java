@@ -451,12 +451,14 @@ public class WorkspaceHistory {
     final var reason = interrupted ? "interrupted mutation recovery" : "out-of-band filesystem change";
     final var incident = preserve(root, head, status, reason);
     try {
+      if (!interrupted) createMarker(mutationMarker(root));
       restore(root, new Before(head)); // existing whole-tree/index restore, including its clean postcondition
     } catch (IOException | GitAPIException | RuntimeException e) {
       throw new WorkspaceHistoryException(Kind.REPOSITORY_INCONSISTENT,
           "Workspace at %s: %s were preserved in %s but the workspace could not be restored to HEAD."
               .formatted(root, summarize(dirty), incident), e);
     }
+    if (!interrupted) finishMutation(List.of(root), null);
     logger.warn("Workspace at {}: preserved {} in {} ({}) and restored HEAD {}",
                 root, summarize(dirty), incident, reason, head.name());
   }
@@ -1028,16 +1030,16 @@ public class WorkspaceHistory {
     try (final var git = open(root); final var walk = new RevWalk(git.getRepository())) {
       final var repo = git.getRepository();
 
-      // Record what this operation created. The repository was clean before it ran (verified under this lock),
-      // so every untracked or newly added path now is one it created.
+      // Collect untracked or newly added paths to remove. For rollback they came from the mutation; healing and
+      // crash recovery preserve dirty bytes before calling restore, so those paths can also be removed safely.
       final var status = git.status().call();
       final var created = new TreeSet<String>();
       created.addAll(status.getUntracked());
       created.addAll(status.getAdded());
 
-      // DirCacheCheckout may remove empty parents while restoring files. Snapshot the directories still present after
-      // the failed operation so checkout cannot make the unsafe guess that they were all created by that operation.
-      // This failure-only walk intentionally preserves both old directories and harmless new empty ones.
+      // DirCacheCheckout may remove empty parents while restoring files. Snapshot the directories still present before
+      // restoration so checkout cannot make the unsafe guess that they were all created by a failed operation.
+      // This restore-only walk intentionally preserves both old directories and harmless new empty ones.
       final var directoriesToKeep = WorkspacePaths.walk(root, Integer.MAX_VALUE).stream()
           .filter(path -> Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
           .sorted(Comparator.comparingInt(Path::getNameCount))
@@ -1053,14 +1055,14 @@ public class WorkspaceHistory {
         }
       }
 
-      // Index and tracked files back to the pre-operation commit.
+      // Index and tracked files back to the target commit (pre-operation HEAD for rollback, current HEAD for recovery).
       final RevCommit commit = walk.parseCommit(before.head());
       final var checkout = new DirCacheCheckout(repo, repo.lockDirCache(), commit.getTree());
       checkout.setFailOnConflict(false);
       checkout.checkout();
 
-      // Remove files the operation created. Do not prune empty parents: Git cannot tell whether a directory was created
-      // by this operation or already existed, and rollback must not delete a directory it cannot safely attribute.
+      // Remove the collected paths. Do not prune empty parents: Git cannot tell whether a directory was created
+      // by an operation or already existed, and restoration must not delete a directory it cannot safely attribute.
       for (final var path : created) {
         Files.deleteIfExists(root.resolve(path));
       }

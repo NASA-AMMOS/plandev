@@ -1470,6 +1470,7 @@ class WorkspaceHistoryIntegrationTest {
       assertFailedWith(save(WS1, "a.txt", "Y", "*"), "could not be preserved");
       assertEquals("X", read(WS1, "a.txt"));
       assertEquals(commits, log(WS1).size());
+      assertFalse(Files.exists(mutationMarker(WS1)), "failed preservation must not authorize crash recovery");
 
       Files.delete(WorkspaceHistory.recoveryDir(root(WS1)));
       saveOk(WS1, "a.txt", "Y");
@@ -1534,7 +1535,7 @@ class WorkspaceHistoryIntegrationTest {
     }
 
     @Test
-    void ifTheWorkspaceCannotBeRestoredTheIncidentIsKeptAndNothingIsCommitted() throws Exception {
+    void failedOobHealRestoreLeavesAMarkerAndTheNextRequestRecovers() throws Exception {
       assumeTrue(POSIX);
       final var commits = log(WS1).size();
       final var dir = root(WS1).resolve("d");
@@ -1547,7 +1548,31 @@ class WorkspaceHistoryIntegrationTest {
       }
       assertEquals(commits, log(WS1).size());
       assertFalse(Files.exists(dir.resolve("x.txt")));
-      assertEquals(java.util.Map.of("d/x.txt", "deleted"), changesIn(onlyIncident(WS1)));
+      final var incident = onlyIncident(WS1);
+      assertEquals(java.util.Map.of("d/x.txt", "deleted"), changesIn(incident));
+      assertTrue(Files.exists(mutationMarker(WS1)), "restore failed after preservation; recovery must remain authorized");
+
+      // Simulate the stale lock and index residue a crash during checkout can leave behind.
+      Files.writeString(root(WS1).resolve("a.txt"), "interrupted restore bytes");
+      try (final var git = git(WS1)) {
+        git.add().addFilepattern("a.txt").call();
+      }
+      final var indexLock = root(WS1).resolve(".git/index.lock");
+      Files.writeString(indexLock, "stale");
+      restartServer();
+      saveOk(WS1, "b.txt", "next request");
+
+      assertEquals("v1", read(WS1, "a.txt"));
+      assertEquals("v1", read(WS1, "d/x.txt"));
+      assertEquals("next request", read(WS1, "b.txt"));
+      assertFalse(Files.exists(indexLock));
+      assertFalse(Files.exists(mutationMarker(WS1)));
+      assertTrue(incidents(WS1).contains(incident));
+      final var recovery = incidents(WS1).stream().filter(p -> !p.equals(incident)).toList();
+      assertEquals(1, recovery.size());
+      assertEquals("interrupted restore bytes", preserved(recovery.getFirst(), "a.txt"));
+      assertEquals("interrupted mutation recovery", incidentJson(recovery.getFirst()).getString("reason"));
+      assertClean(WS1);
     }
 
     @Test

@@ -11,10 +11,7 @@ import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevTree;
 import org.eclipse.jgit.revwalk.RevWalk;
-import org.eclipse.jgit.treewalk.EmptyTreeIterator;
 import org.eclipse.jgit.treewalk.TreeWalk;
-import org.eclipse.jgit.treewalk.filter.AndTreeFilter;
-import org.eclipse.jgit.treewalk.filter.PathFilter;
 import org.eclipse.jgit.treewalk.filter.TreeFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -182,11 +179,7 @@ public final class WorkspaceRevisions {
     }
   }
 
-  /**
-   * The newest commit at or before {@code start} that changed {@code path}, with the same rules as
-   * {@link WorkspaceHistory#lastEdits}: a commit is compared with its parent (the root commit with an empty tree, marking
-   * the edit as the baseline), so a move counts as an edit at the new path.
-   */
+  /** The newest commit at or before {@code start} that edited {@code path} (see {@link WorkspaceHistory#changedPaths}). */
   private static WorkspaceHistory.LastEdit lastEditAt(
       final Repository repo,
       final RevWalk walk,
@@ -194,16 +187,8 @@ public final class WorkspaceRevisions {
       final String path) throws IOException
   {
     for (var commit = walk.parseCommit(start); ; commit = walk.parseCommit(commit.getParent(0))) {
-      try (final var tw = new TreeWalk(repo)) {
-        tw.setRecursive(true);
-        tw.setFilter(AndTreeFilter.create(TreeFilter.ANY_DIFF, PathFilter.create(path)));
-        if (commit.getParentCount() > 0) tw.addTree(walk.parseCommit(commit.getParent(0)).getTree());
-        else tw.addTree(new EmptyTreeIterator());
-        tw.addTree(commit.getTree());
-        if (tw.next()) {
-          final var author = commit.getAuthorIdent();
-          return new WorkspaceHistory.LastEdit(author.getName(), author.getWhenAsInstant(), commit.getParentCount() == 0);
-        }
+      if (!WorkspaceHistory.changedPaths(repo, walk, commit, List.of(path)).isEmpty()) {
+        return WorkspaceHistory.lastEditOf(commit);
       }
       if (commit.getParentCount() == 0) return null;
     }

@@ -10,7 +10,6 @@ import gov.nasa.ammos.plandev.permissions.gql.WorkspaceId;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.FileLockedException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.MalformedRequest;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.NoSuchFileException;
-import gov.nasa.ammos.plandev.workspace.server.exceptions.ReservedPathException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
@@ -193,9 +192,6 @@ public class WorkspaceBindings implements Plugin {
     });
     javalin.exception(NumberFormatException.class, (ex, ctx) ->
         ctx.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, ex)));
-    // More specific than SecurityException: a request naming .git, .seqdev etc. is a bad request, not a server error
-    javalin.exception(ReservedPathException.class, (ex, ctx) ->
-        ctx.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, "RESERVED_PATH", ex)));
     javalin.exception(
         WorkspaceGitService.WorkspaceHistoryException.class, (ex, ctx) -> {
       final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ex.kind.errorType, ex);
@@ -389,8 +385,6 @@ public class WorkspaceBindings implements Plugin {
       final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, e, errorMsg);
       logger.warn("DELETE WORKSPACE: SQL Exception: {}", fe);
       context.status(500).json(fe);
-    } catch (RuntimeException e) {
-      throw e;
     } catch (Exception e) {
       final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, "INTERNAL_ERROR", errorMsg, e);
       logger.warn("DELETE WORKSPACE: Exception: {}", fe);
@@ -691,11 +685,9 @@ public class WorkspaceBindings implements Plugin {
       return new HandlerResult.Failure(500, fe);
     } catch (NoSuchWorkspaceException nsw) {
       return new HandlerResult.Failure(404, new WorkspaceFormattedError(nsw));
-    } catch (ReservedPathException rpe) {
+    } catch (SecurityException se) {
       // Reported per item so one bad path in a bulk request does not hide the other items' results
-      return new HandlerResult.Failure(400, new FormattedError(AerieService.WORKSPACE_SERVER, "RESERVED_PATH", rpe));
-    } catch (RuntimeException re) {
-      throw re;
+      return new HandlerResult.Failure(400, new FormattedError(AerieService.WORKSPACE_SERVER, se));
     } catch (Exception e) {
       final var message = e.getMessage() != null ? e.getMessage() : "Internal error.";
       final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, "INTERNAL_ERROR", message, e);

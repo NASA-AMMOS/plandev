@@ -1,7 +1,6 @@
 package gov.nasa.ammos.plandev.workspace.server.versioning;
 
 import gov.nasa.ammos.plandev.workspace.server.*;
-import gov.nasa.ammos.plandev.workspace.server.exceptions.ReservedPathException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.ammos.plandev.workspace.server.types.HandlerResult;
 import gov.nasa.ammos.plandev.workspace.server.types.MetadataMergeBehavior;
@@ -69,7 +68,6 @@ class WorkspaceGitServiceIntegrationTest {
     /** Moves during drift healing fail if their destination is listed or ends with this (incident names vary). */
     final Set<Path> failMovesTo = ConcurrentHashMap.newKeySet();
     volatile String failMovesEndingWith;
-
 
     FlakyHistory(final WorkspaceRoots roots) {
       super(roots);
@@ -923,8 +921,8 @@ class WorkspaceGitServiceIntegrationTest {
     void readsOfGitInternalsAreRejected() {
       for (final var path : List.of(".git/HEAD", ".git/config", ".git/refs/heads/main", "foo/.git/config",
                                     ".GIT/HEAD", "a/../.git/HEAD", ".seqdev/state.json", ".gitignore")) {
-        assertThrows(ReservedPathException.class, () -> fs.loadFile(WS1, Path.of(path)), path);
-        assertThrows(ReservedPathException.class, () -> fs.checkFileExists(WS1, Path.of(path)), path);
+        assertThrows(SecurityException.class, () -> fs.loadFile(WS1, Path.of(path)), path);
+        assertThrows(SecurityException.class, () -> fs.checkFileExists(WS1, Path.of(path)), path);
       }
     }
 
@@ -1587,7 +1585,7 @@ class WorkspaceGitServiceIntegrationTest {
       assertTrue(WorkspacePaths.walk(root(WS1), Integer.MAX_VALUE).stream()
                                .noneMatch(p -> root(WS1).relativize(p).startsWith(".seqdev")));
       for (final var path : List.of(incident.resolve("incident.json"), incident.resolve("files/a.txt"))) {
-        assertThrows(ReservedPathException.class, () -> fs.loadFile(WS1, path), path::toString);
+        assertThrows(SecurityException.class, () -> fs.loadFile(WS1, path), path::toString);
         assertFailure(save(WS1, path.toString(), "evil", "*"), 400, "RESERVED_PATH");
       }
     }
@@ -1733,8 +1731,8 @@ class WorkspaceGitServiceIntegrationTest {
       Files.createSymbolicLink(root(WS1).resolve("toInside"), Path.of("d"));
 
       for (final var path : List.of("toGit/config", "toOutside/secret.txt", "toInside/x.txt", "toGit", "toInside")) {
-        assertThrows(ReservedPathException.class, () -> fs.loadFile(WS1, Path.of(path)), path);
-        assertThrows(ReservedPathException.class, () -> fs.checkFileExists(WS1, Path.of(path)), path);
+        assertThrows(SecurityException.class, () -> fs.loadFile(WS1, Path.of(path)), path);
+        assertThrows(SecurityException.class, () -> fs.checkFileExists(WS1, Path.of(path)), path);
       }
       // The workspace is no longer as PlanDev left it, so nothing is written anywhere, inside or outside it.
       assertFailure(save(WS1, "toOutside/secret.txt", "overwritten", "*"), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");

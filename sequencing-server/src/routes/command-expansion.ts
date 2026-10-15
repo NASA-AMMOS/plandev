@@ -143,7 +143,6 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
    * }
    */
 
-  // const defaultTemplate = "CMD {{format-as-date startTime}} {{name}} {{duration}}"; //req.body.input.template;
   const context: Context = res.locals['context'];
 
   //  0. Extract stuff from request
@@ -157,7 +156,34 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     simulationDatasetId
   }
 
-  //  0b. [OPTIONAL] Verify that for the given simulationDatasetId, constraints are up to date
+  //  1. State Validation
+  //  1a. Determine that the Simulation status is "success"
+  //    We may not run command expansion against an incomplete (including pending/canceled) or failed simulation
+  const { simulation_dataset  } = await graphqlClient.request<{
+    simulation_dataset: {
+      status: string
+    }
+  }>(
+      gql`
+      query GetSimulationStatus($id: Int!) {
+        simulation_status: simulation_dataset_by_pk(id: $id) {
+          status
+        }
+      }`,
+      { id: simulationDatasetId },
+  );
+
+  if(simulation_dataset === undefined || simulation_dataset.status != "success") {
+    throw new Error(
+        `POST /command-expansion/expand-all-sequence-templates:
+        Expansion for simulation dataset ${simulationDatasetId} failed: Simulation is not in state "success"`,
+    );
+  }
+
+  //  1b. [OPTIONAL] Verify that for the given simulationDatasetId, constraints:
+  //      - are up to date (have been run at least once against the simulation dataset)
+  //      - have no violations
+  //      - have no errors
   if (!force) {
     // We only block on *violations*. We intentionally don't fail on stale sims,
     // unchecked constraints, or constraint errors — only on confirmed violations
@@ -166,7 +192,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       constraint_request: {
         constraints_run: {
           results: {
-            errors: object,
+            errors: object[],
             results: {
               gaps: object[],
               violations: object[]
@@ -184,6 +210,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
           ) {
             constraints_run {
               results {
+                errors
                 results
               }
             }
@@ -193,29 +220,46 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       { simulationDatasetId },
     );
 
+    // Because of the limit 1, there should be at most 1 object in the "constraint_request" array
+    // Regardless, they are ordered by requested time descending, so the first entry is the latest.
     const latestRequest = constraint_request[0];
+
+    // If latestRequest is undefined, there must have been nothing in the "constraint_request" array.
     if (latestRequest === undefined) {
       throw new Error(
-        `POST /command-expansion/expand-all-sequence-templates: Expansion for simulation dataset ${simulationDatasetId} failed, as constraints haven't been checked yet.`,
+          `POST /command-expansion/expand-all-sequence-templates:
+          Expansion for simulation dataset ${simulationDatasetId} failed: Constraints have not yet been checked.`,
       );
     }
 
+    // Verify that no constraints had runtime errors
+    const numErrors = latestRequest.constraints_run.reduce(
+        (total, run) => total + (run.results.errors?.length ?? 0),
+        0
+    );
+    if (numErrors > 0) {
+      throw new Error(
+          `POST /command-expansion/expand-all-sequence-templates:
+          Expansion for simulation dataset ${simulationDatasetId} failed:
+          ${numErrors} constraint${(numErrors > 1) ? 's' : ''} encountered errors when ran.`,
+      );
+    }
+
+    // Verify that no constraints had violations
     const numViolations = latestRequest.constraints_run.reduce(
       (total, run) => total + (run.results?.results?.violations?.length ?? 0),
       0,
     );
-
     if (numViolations > 0) {
       throw new Error(
         `POST /command-expansion/expand-all-sequence-templates: Expansion for simulation dataset ${simulationDatasetId} failed, as there ${
           (numViolations > 1) ? 'are' : 'is'
-        } still ${numViolations} violation${(numViolations > 1) ? 's' : ''}.`,
+        } ${numViolations} violation${(numViolations > 1) ? 's' : ''}.`,
       );
     }
   }
 
-
-  //  1. Load simulated activities and templates
+  //  2. Load simulated activities and templates
   const [sequenceTemplates, filteredSimulatedActivitiesBySeqId] = await Promise.all([
     context.sequenceTemplateDataLoader.load({ modelId }),
     context.simulatedActivityInstanceBySeqIdBatchLoader.loadMany(seqIds.map(seqId => {
@@ -223,7 +267,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }))
   ]);
 
-  //  2. Determine the language being used (SeqN vs. STOL)
+  //  3. Determine the language being used (SeqN vs. STOL)
   //        Presently, we assume based on a database constraint, that all templates pulled for a given model/parcel combo have
   //        the same language. While this constraint will remain true its exact enforcement and therefore implementation in SQL
   //        and here may be subject to change.
@@ -264,7 +308,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     );
   }
 
-  //  3. Pair seqId/SimulatedActivity lists; aggregate all simulated, filtered, activities
+  //  4. Pair seqId/SimulatedActivity lists; aggregate all simulated, filtered, activities
   let seqIdToFilteredActivities: { [seqId: string]: { id: number, startOffset: Temporal.Duration }[] } = {};
   let allFilteredActivities: { [id: number]: SimulatedActivity<Record<string, unknown>, Record<string, unknown>> } = [];
 
@@ -301,7 +345,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }
   }
 
-  //  4. Create a list of all activity types that are being used.
+  //  5. Create a list of all activity types that are being used.
   const allActivityTypes: string[] = []
   for (const entry of Object.entries(allFilteredActivities)) {
     const activityTypeName = entry[1].activityTypeName
@@ -310,7 +354,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }
   }
 
-  //  5. Correlate each activity type in use with the compiled template for the given model.
+  //  6. Correlate each activity type in use with the compiled template for the given model.
   const activityTypeNameToTemplate: { [name: string]: Mustache } = {}
   for (const sequenceTemplate of sequenceTemplates) {
     let activityTypeName = sequenceTemplate.activity_type;
@@ -322,7 +366,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }
   }
 
-  //  6. Build ExpandedActivity for each activity, a.k.a., run the template expansion for all activities
+  //  7. Build ExpandedActivity for each activity, a.k.a., run the template expansion for all activities
   const expandedActivities: {
     [id: number]:
     {
@@ -358,7 +402,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }
   }
 
-  // 7. Having expanded each simulated activity, now iterate through each seqId to collect the expanded activities for that seqId
+  // 8. Having expanded each simulated activity, now iterate through each seqId to collect the expanded activities for that seqId
   let expandedSequencesBySeqId: { [seqId: string]: string } = {};
   for (const seqId of Object.keys(seqIdToFilteredActivities)) {
     let filteredActivities = seqIdToFilteredActivities[seqId];

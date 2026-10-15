@@ -1866,7 +1866,7 @@ public class WorkspaceBindings implements Plugin {
       if (revision == null) {
         final var list = Json.createArrayBuilder();
         workspaceService.listRevisions(pathInfo.workspaceId, pathInfo.filePath).forEach(r -> list.add(r.toJson()));
-        context.status(200).json(list.build());
+        context.status(200).json(list.build().toString()); // javax JSON must be serialized as text, not via Jackson
         return;
       }
 
@@ -1917,7 +1917,8 @@ public class WorkspaceBindings implements Plugin {
       context.status(200).json(Json.createObjectBuilder()
                                    .add("versionMetadata", historical.get().revision().toJson())
                                    .add("fileMetadata", historical.get().metadata())
-                                   .build());
+                                   .build()
+                                   .toString());
     } catch (WorkspaceFileOpException wfe) {
       context.status(400).json(new WorkspaceFormattedError(wfe, "Could not get revision metadata of " + pathInfo.filePath));
     }

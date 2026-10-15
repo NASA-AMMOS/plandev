@@ -1871,4 +1871,115 @@ class WorkspaceHistoryIntegrationTest {
         () -> fs.moveDirectory(WS1, Path.of("a"), WS2, Path.of("b")), r -> true));
     assertFalse(Files.exists(root(WS1).resolve("x")));
   }
+
+  @Nested
+  class Revisions {
+    private String revise(final String path, final String message) {
+      final var result = bindings.handleCreateRevision(WS1, Path.of(path), "*", message, USER);
+      assertSuccess(result);
+      return ((HandlerResult.Success) result).response();
+    }
+
+    private List<String> names(final String path) throws Exception {
+      return fs.listRevisions(WS1, Path.of(path)).stream().map(WorkspaceRevisions.Revision::name).toList();
+    }
+
+    private String contentAt(final String path, final String name) throws Exception {
+      return new String(fs.readRevision(WS1, Path.of(path), name).orElseThrow().content(), StandardCharsets.UTF_8);
+    }
+
+    @Test
+    void namesAreBijectiveBase26() {
+      assertEquals(List.of("a", "z", "aa", "az", "ba", "zz", "aaa"),
+                   java.util.stream.IntStream.of(1, 26, 27, 52, 53, 702, 703).mapToObj(WorkspaceRevisions::name).toList());
+    }
+
+    @Test
+    void createListReadAndRestore() throws Exception {
+      saveOk(WS1, "a.txt", "v1");
+      setUserMetadata(WS1, "a.txt", "draft");
+      final var commits = log(WS1).size();
+      assertEquals("a", revise("a.txt", "first"));
+      assertEquals(commits, log(WS1).size(), "a revision makes no commit");
+      assertClean(WS1);
+
+      final var etag = saveOk(WS1, "a.txt", "v2");
+      setUserMetadata(WS1, "a.txt", "final");
+      assertEquals("b", revise("a.txt", ""));
+
+      final var revisions = fs.listRevisions(WS1, Path.of("a.txt"));
+      assertEquals(List.of("b", "a"), revisions.stream().map(WorkspaceRevisions.Revision::name).toList());
+      assertEquals("first", revisions.getLast().message());
+      assertEquals(USER, revisions.getLast().toJson().getString("createdBy"));
+      assertEquals("v1", contentAt("a.txt", "a"));
+      assertEquals("draft", fs.readRevision(WS1, Path.of("a.txt"), "a").orElseThrow()
+                              .metadata().getJsonObject("user").getString("status"));
+
+      setReadOnly(WS1, "a.txt", true);
+      assertFailure(bindings.handleRestoreRevision(WS1, Path.of("a.txt"), "a", etag, USER), 423, null);
+      setReadOnly(WS1, "a.txt", false);
+
+      final var restored = bindings.handleRestoreRevision(WS1, Path.of("a.txt"), "a", etag, USER);
+      assertSuccess(restored);
+      assertEquals("v1", read(WS1, "a.txt"));
+      assertEquals(WorkspaceService.computeETag("v1".getBytes(StandardCharsets.UTF_8)),
+                   ((HandlerResult.Success) restored).etag().orElseThrow());
+      assertEquals("Restore a.txt to revision a", head(WS1).getFullMessage());
+      assertEquals("draft", metadata(WS1, "a.txt").getJsonObject("user").getString("status"));
+      assertFalse(metadata(WS1, "a.txt").getBoolean("readOnly", false), "readOnly is not restored");
+      assertEquals(List.of("b", "a"), names("a.txt"), "a restore makes no revision");
+      assertClean(WS1);
+    }
+
+    @Test
+    void preconditions() throws Exception {
+      final var etag = saveOk(WS1, "a.txt", "v1");
+      revise("a.txt", "");
+      saveOk(WS1, "a.txt", "v2");
+      final var commits = log(WS1).size();
+
+      assertFailure(bindings.handleCreateRevision(WS1, Path.of("a.txt"), etag, "", USER), 412, null);
+      assertFailure(bindings.handleRestoreRevision(WS1, Path.of("a.txt"), "a", etag, USER), 412, null);
+      assertFailure(bindings.handleRestoreRevision(WS1, Path.of("a.txt"), "zz", "*", USER), 404, "NO_SUCH_REVISION");
+      assertFailure(bindings.handleCreateRevision(WS1, Path.of("gone.txt"), etag, "", USER), 412, null);
+      assertFailure(bindings.handleCreateRevision(WS1, Path.of("gone.txt"), "*", "", USER), 404, null);
+      assertFailure(bindings.handleCreateRevision(WS1, Path.of(sidecar("a.txt")), "*", "", USER), 405, null);
+      assertEquals("v2", read(WS1, "a.txt"));
+      assertEquals(List.of("a"), names("a.txt"));
+      assertEquals(commits, log(WS1).size());
+      assertClean(WS1);
+    }
+
+    @Test
+    void revisionsFollowRenamesButNotCopiesOrRecreation() throws Exception {
+      saveOk(WS1, "a.txt", "v1");
+      revise("a.txt", "");
+      assertSuccess(bindings.handleCreateDirectory(WS1, Path.of("dir"), USER));
+      assertSuccess(bindings.handleMove(Path.of("a.txt"), Path.of("dir/b.txt"), WS1, WS1, false, USER));
+      saveOk(WS1, "dir/b.txt", "v2");
+      assertSuccess(bindings.handleMove(Path.of("dir"), Path.of("moved"), WS1, WS1, false, USER));
+      assertEquals(List.of("a"), names("moved/b.txt"));
+      assertEquals("v1", contentAt("moved/b.txt", "a"));
+      assertEquals("b", revise("moved/b.txt", ""));
+
+      assertSuccess(bindings.handleCopy(Path.of("moved/b.txt"), Path.of("copy.txt"), WS1, WS1, false, USER));
+      assertEquals(List.of(), names("copy.txt"));
+
+      assertSuccess(bindings.handleDelete(WS1, Path.of("moved/b.txt"), USER));
+      saveOk(WS1, "moved/b.txt", "new file");
+      assertEquals(List.of(), names("moved/b.txt"));
+    }
+
+    @Test
+    void aMoveOverAnExistingFileBringsTheMovedFilesRevisions() throws Exception {
+      saveOk(WS1, "x.txt", "x");
+      revise("x.txt", "x1");
+      saveOk(WS1, "y.txt", "y");
+      revise("y.txt", "y1");
+      revise("y.txt", "y2");
+      assertSuccess(bindings.handleMove(Path.of("x.txt"), Path.of("y.txt"), WS1, WS1, true, USER));
+      assertEquals(List.of("x1"), fs.listRevisions(WS1, Path.of("y.txt")).stream()
+                                    .map(WorkspaceRevisions.Revision::message).toList());
+    }
+  }
 }

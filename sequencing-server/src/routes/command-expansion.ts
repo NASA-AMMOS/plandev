@@ -138,7 +138,8 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
    * {
    *    modelId: Int!,
    *    simulationDatasetId: Int!,
-   *    seqIds: [Int!]!
+   *    seqIds: [Int!]!,
+   *    force: Boolean
    * }
    */
 
@@ -147,7 +148,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
 
   //  0. Extract stuff from request
   // needed to uniquely identify sequence templates, along with activity type
-  const bypassConstraints = req.body.input.bypassConstraints !== undefined ? (req.body.input.bypassConstraints as boolean) : true;
+  const force = req.body.input.force !== undefined ? (req.body.input.force as boolean) : false;
   const modelId = req.body.input.modelId as number;
   const simulationDatasetId = req.body.input.simulationDatasetId as number;
   const seqIds = (req.body.input.seqIds as number[]).filter((val, index, arr) => arr.indexOf(val) == index); // remove duplicates, if they're even possible
@@ -157,7 +158,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   }
 
   //  0b. [OPTIONAL] Verify that for the given simulationDatasetId, constraints are up to date
-  if (!bypassConstraints) {
+  if (!force) {
     // We only block on *violations*. We intentionally don't fail on stale sims,
     // unchecked constraints, or constraint errors — only on confirmed violations
     // in the most recent constraint request for this simulation dataset.

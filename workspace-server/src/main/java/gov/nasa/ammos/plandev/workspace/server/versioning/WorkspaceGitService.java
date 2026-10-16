@@ -20,11 +20,6 @@ import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.lib.RepositoryState;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
-import org.eclipse.jgit.treewalk.EmptyTreeIterator;
-import org.eclipse.jgit.treewalk.TreeWalk;
-import org.eclipse.jgit.treewalk.filter.AndTreeFilter;
-import org.eclipse.jgit.treewalk.filter.PathFilterGroup;
-import org.eclipse.jgit.treewalk.filter.TreeFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -62,6 +57,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
+
+import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.toGitPath;
 
 /**
  * The single owner of workspace mutations and of the Git history that records them.
@@ -164,7 +161,12 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     T apply() throws Exception;
   }
 
-  private record CachedLastEdit(ObjectId head, Optional<LastEdit> edit) {}
+  /**
+   * A record representing a cached LastEdit value
+   * @param validAt the last commit this cache entry was validated at
+   * @param edit the edit data for the commit
+   */
+  private record CachedLastEdit(ObjectId validAt, LastEdit edit) {}
 
   private final WorkspacePostgresRepository postgresRepository;
   // ponytail: one lock per workspace id, never evicted; a few bytes per workspace ever touched by this process.
@@ -1057,104 +1059,86 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    * Results are cached per path and HEAD. A cached result from an older HEAD is reused when the walk reaches that
    * commit, so an unchanged path normally requires walking only the new commits.
    */
-  public Map<String, LastEdit> lastEdits(final int workspaceId, final Set<String> paths)
-  throws IOException, NoSuchWorkspaceException
+  public Map<Path, LastEdit> lastEdits(final int workspaceId, final Set<Path> paths)
+  throws IOException, NoSuchWorkspaceException, WorkspaceHistoryException
   {
-    if (paths.isEmpty() || !Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR))) return Map.of();
-
-    // Sidecars describe content but are not content themselves; their housekeeping commits must not become file edits.
-    final var requested = new HashSet<String>();
-    for (final var path : paths) {
-      final var name = path.substring(path.lastIndexOf('/') + 1);
-      if (!RenderType.isAerieMetadataFile(name)) requested.add(path);
+    if (paths.isEmpty() || !isManaged(workspaceId)) {
+      return Map.of();
     }
-    if (requested.isEmpty()) return Map.of();
+
+    final var edits = new HashMap<Path, LastEdit>();
 
     try (final var git = open(workspaceId)) {
       final var repo = git.getRepository();
-      // Work against one immutable history snapshot. If a mutation advances HEAD concurrently, the next read sees it.
+
+      // Grab the current ObjectId for HEAD. Otherwise, a mutation in another request can update this value underfoot.
       final var head = repo.resolve(Constants.HEAD);
-      if (head == null) return Map.of();
-      final var cache = lastEditCache.computeIfAbsent(normalizedRoot, unused -> new ConcurrentHashMap<>());
-
-      // Commits are visited newest to oldest. unresolved contains paths whose latest change has not been found; the
-      // first matching commit is therefore the latest edit, so the path is removed before older commits are examined.
-      final var edits = new HashMap<String, LastEdit>();
-      final var unresolved = new HashSet<>(requested);
-      final var olderCacheByHead = new HashMap<ObjectId, Map<String, CachedLastEdit>>();
-
-      // Each cached result records the HEAD at which it was computed. If that is still the current HEAD, reuse the
-      // result, including "no edit found." Older results are grouped by their HEAD so one walk can check everything
-      // committed since each result was computed.
-      for (final var path : requested) {
-        final var cached = cache.get(path);
-        if (cached == null) continue;
-        if (cached.head().equals(head)) {
-          cached.edit().ifPresent(edit -> edits.put(path, edit));
-          unresolved.remove(path);
-        } else {
-          olderCacheByHead.computeIfAbsent(cached.head(), unused -> new HashMap<>()).put(path, cached);
-        }
+      if (head == null) {
+        throw new WorkspaceHistoryException(
+            WorkspaceHistoryException.Kind.OTHER,
+            "Git-tracked workspace %d has no head.".formatted(workspaceId));
       }
 
-      if (!unresolved.isEmpty()) {
-        // A single history walk handles all remaining paths. Resolved paths are removed from later comparisons.
-        try (final var walk = new RevWalk(repo)) {
-          walk.markStart(walk.parseCommit(head));
-          for (final var commit : walk) {
-            // Reaching a cached HEAD without finding a newer change proves that cached result is still correct. Reuse
-            // it before comparing this commit because that result already includes this commit and everything older.
-            final var cachedAtCommit = olderCacheByHead.remove(commit);
-            if (cachedAtCommit != null) {
-              for (final var entry : cachedAtCommit.entrySet()) {
-                if (!unresolved.remove(entry.getKey())) continue;
-                entry.getValue().edit().ifPresent(edit -> edits.put(entry.getKey(), edit));
-              }
-            }
-            if (unresolved.isEmpty()) break;
+      final var cache = lastEditCache.computeIfAbsent(workspaceId, wId -> new ConcurrentHashMap<>());
 
-            try (final var tw = new TreeWalk(repo)) {
-              tw.setRecursive(true);
-              // Compare this commit with its parent only for paths still needing an answer. The root commit has no
-              // parent, so comparing it with an empty tree treats every file there as newly added.
-              tw.setFilter(AndTreeFilter.create(
-                  TreeFilter.ANY_DIFF,
-                  PathFilterGroup.createFromStrings(unresolved)));
-              if (commit.getParentCount() > 0) {
-                tw.addTree(walk.parseCommit(commit.getParent(0)).getTree());
-              } else {
-                tw.addTree(new EmptyTreeIterator());
-              }
-              tw.addTree(commit.getTree());
-              // Every path found by this comparison was changed by this commit, so they share its author and time.
-              final var author = commit.getAuthorIdent();
-              final var edit = new LastEdit(author.getName(), author.getWhenAsInstant(), commit.getParentCount() == 0);
-              while (tw.next()) {
-                final var path = tw.getPathString();
-                if (!unresolved.remove(path)) continue;
-                // Tree 1 is this commit. Mode zero means the path was deleted: its lookup is finished, but there is no
-                // current file to attribute. Remembering that miss prevents an older creation from being returned.
-                if (tw.getRawMode(1) != 0) edits.put(path, edit);
-              }
-            }
+      for (final var path : paths) {
+        final var cachedEdit = cache.get(path);
+        // Cache entries record the HEAD at which they were last validated.
+        // If that is the current HEAD, reuse the result.
+        if(cachedEdit != null && cachedEdit.validAt().equals(head)) {
+          edits.put(path, cachedEdit.edit());
+        } else {
+          // Get the last commit that edited the file and add it to the return map
+          final Iterator<RevCommit> pathLog;
+          try {
+            pathLog = git.log()
+                         .add(head)                 // Specify that we're starting the traversal at the current commit
+                         .addPath(toGitPath(path))  // Only get commits that edit this file
+                         .setMaxCount(1)            // Only get one commit
+                         .call()
+                         .iterator();               // Get the iterator for this response
+          } catch (GitAPIException gae) {
+            throw new WorkspaceHistoryException(
+                WorkspaceHistoryException.Kind.OTHER,
+                "Unable to get commit history for path %s".formatted(path),
+                gae);
+          }
+
+          // If this occurs, then the file has never been edited by git
+          if (!pathLog.hasNext()) {
+            throw new WorkspaceHistoryException(
+                WorkspaceHistoryException.Kind.OTHER,
+                "File %s int Workspace %d has no revision history".formatted(path, workspaceId));
+          }
+
+          final var commit = pathLog.next();
+          // If this commit equals the commit hash in the LastEdit, then the cached value is still valid
+          // and can be kept in the cache with a refreshed validAt
+          if (cachedEdit != null && commit.equals(cachedEdit.edit.commitHash())) {
+            cache.put(path, new CachedLastEdit(head, cachedEdit.edit));
+            edits.put(path, cachedEdit.edit);
+          } else {
+            // Generate and cache the most recent change to the path
+            final var author = commit.getAuthorIdent();
+            final var edit = new LastEdit(author, author.getWhenAsInstant(), commit, commit.getParentCount() == 0);
+            cache.put(path, new CachedLastEdit(head, edit));
+            edits.put(path, edit);
           }
         }
       }
 
-      // Cache every request, not just hits: Optional.empty distinguishes a known absence from an uncached path.
-      final var cachedHead = head.copy();
-      for (final var path : requested) {
-        cache.put(path, new CachedLastEdit(cachedHead, Optional.ofNullable(edits.get(path))));
-      }
-      return Map.copyOf(edits);
+      return edits;
     }
   }
 
+  /**
+   * Get the most recent commit that edited the file, or null if the workspace is not managed by Git.
+   */
   @Override
   public LastEdit lastEdit(final int workspaceId, final Path filePath)
-  throws IOException, NoSuchWorkspaceException
+  throws IOException, NoSuchWorkspaceException, WorkspaceHistoryException
   {
-    return lastEdits(workspaceId, Set.of(filePath.toString())).get(filePath.toString());
+    return lastEdits(workspaceId, Set.of(filePath)).get(filePath);
   }
   //endregion
 }

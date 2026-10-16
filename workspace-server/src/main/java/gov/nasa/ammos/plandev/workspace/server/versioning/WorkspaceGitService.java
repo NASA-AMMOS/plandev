@@ -163,8 +163,6 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     T apply() throws Exception;
   }
 
-  private record Before(ObjectId head) {}
-
   private record CachedLastEdit(ObjectId head, Optional<LastEdit> edit) {}
 
   private final WorkspaceRoots roots;
@@ -226,7 +224,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     lockOrder.forEach(ReentrantLock::lock);
     try {
       final var rootsById = new LinkedHashMap<Integer, Path>();
-      final var before = new HashMap<Integer, Before>();
+      final var before = new HashMap<Integer, ObjectId>();
       for (final var id : ids) {
         final var root = roots.workspaceRootPath(id).normalize();
         rootsById.put(id, root);
@@ -418,7 +416,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     final var incident = preserve(root, head, status, reason);
     try {
       if (!interrupted) createMarker(mutationMarker(root));
-      restore(root, new Before(head)); // existing whole-tree/index restore, including its clean postcondition
+      restore(root, head); // existing whole-tree/index restore, including its clean postcondition
     } catch (IOException | GitAPIException | RuntimeException e) {
       throw new WorkspaceHistoryException(WorkspaceHistoryException.Kind.REPOSITORY_INCONSISTENT,
           "Workspace at %s: %s were preserved in %s but the workspace could not be restored to HEAD."
@@ -447,7 +445,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       final Path root,
       final ObjectId head,
       final Status status,
-      final String reason) throws IOException
+      final String reason)
   {
     final var drift = dirtyPaths(status);
     final var now = Instant.now();
@@ -958,10 +956,9 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   //endregion
 
   //region Rollback
-  private Before capture(final Path root) throws IOException {
+  private ObjectId capture(final Path root) throws IOException {
     try (final var git = open(root)) {
-      final var head = git.getRepository().resolve(Constants.HEAD);
-      return new Before(head);
+      return git.getRepository().resolve(Constants.HEAD);
     }
   }
 
@@ -969,7 +966,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   private void restoreAll(
       final List<Integer> ids,
       final Map<Integer, Path> rootsById,
-      final Map<Integer, Before> before,
+      final Map<Integer, ObjectId> before,
       final Exception cause)
   {
     final var failed = new ArrayList<Integer>();
@@ -995,7 +992,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     }
   }
 
-  private void restore(final Path root, final Before before) throws IOException, GitAPIException {
+  private void restore(final Path root, final ObjectId before) throws IOException, GitAPIException {
     try (final var git = open(root); final var walk = new RevWalk(git.getRepository())) {
       final var repo = git.getRepository();
 
@@ -1015,17 +1012,17 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
           .toList();
 
       // Move the branch back only if the operation's commit actually landed.
-      if (!before.head().equals(repo.resolve(Constants.HEAD))) {
+      if (!before.equals(repo.resolve(Constants.HEAD))) {
         final var update = repo.updateRef(Constants.HEAD);
-        update.setNewObjectId(before.head());
+        update.setNewObjectId(before);
         final var result = update.forceUpdate();
         if (result != RefUpdate.Result.FORCED && result != RefUpdate.Result.NO_CHANGE) {
-          throw new IOException("Could not move HEAD back to " + before.head().name() + ": " + result);
+          throw new IOException("Could not move HEAD back to " + before.name() + ": " + result);
         }
       }
 
       // Index and tracked files back to the target commit (pre-operation HEAD for rollback, current HEAD for recovery).
-      final RevCommit commit = walk.parseCommit(before.head());
+      final RevCommit commit = walk.parseCommit(before);
       final var checkout = new DirCacheCheckout(repo, repo.lockDirCache(), commit.getTree());
       checkout.setFailOnConflict(false);
       checkout.checkout();

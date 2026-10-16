@@ -2,6 +2,7 @@ package gov.nasa.ammos.plandev.workspace.server.versioning;
 
 import gov.nasa.ammos.plandev.workspace.server.*;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
+import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistoryException;
 import gov.nasa.ammos.plandev.workspace.server.types.HandlerResult;
 import gov.nasa.ammos.plandev.workspace.server.types.MetadataMergeBehavior;
 import io.javalin.http.UploadedFile;
@@ -418,7 +419,7 @@ class WorkspaceGitServiceIntegrationTest {
       final var sidecarBefore = Files.readAllBytes(root(WS1).resolve(".keep.txt.meta.seqdev"));
 
       history.failCommitsIn.add(root(WS1));
-      final var ex = assertThrows(WorkspaceGitService.WorkspaceHistoryException.class, () ->
+      final var ex = assertThrows(WorkspaceHistoryException.class, () ->
           history.mutate(WS1, USER, "doomed", () -> {
             Files.writeString(root(WS1).resolve("keep.txt"), "modified");
             Files.delete(root(WS1).resolve("gone.txt"));
@@ -429,7 +430,7 @@ class WorkspaceGitServiceIntegrationTest {
             Files.writeString(root(WS1).resolve(".keep.txt.meta.seqdev"), "{\"readOnly\":true}");
             return true;
           }, r -> true));
-      assertEquals(WorkspaceGitService.Kind.HISTORY_NOT_RECORDED, ex.kind);
+      assertEquals(WorkspaceHistoryException.Kind.HISTORY_NOT_RECORDED, ex.kind);
 
       assertEquals("original", read(WS1, "keep.txt"));
       assertEquals("will be deleted", read(WS1, "gone.txt"));
@@ -1476,10 +1477,10 @@ class WorkspaceGitServiceIntegrationTest {
       assertEquals("X", preserved(onlyIncident(WS1), "a.txt"));
     }
 
-    private WorkspaceGitService.WorkspaceHistoryException healFailingOnB() {
+    private WorkspaceHistoryException healFailingOnB() {
       history.failMovesEndingWith = "files/b.txt";
       try {
-        return assertThrows(WorkspaceGitService.WorkspaceHistoryException.class, () ->
+        return assertThrows(WorkspaceHistoryException.class, () ->
             history.mutate(WS1, USER, "x", () -> true, r -> r));
       } finally {
         history.failMovesEndingWith = null;

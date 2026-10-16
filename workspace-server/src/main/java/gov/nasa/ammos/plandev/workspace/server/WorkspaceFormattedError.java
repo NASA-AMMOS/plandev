@@ -5,7 +5,9 @@ import gov.nasa.ammos.plandev.json.FormattedError;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.FileLockedException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.MalformedRequest;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.NoSuchFileException;
+import gov.nasa.ammos.plandev.workspace.server.exceptions.PartialMutationException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
+import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistoryException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.NoSuchWorkspaceException;
 
 import javax.json.Json;
@@ -69,6 +71,15 @@ final class WorkspaceFormattedError extends FormattedError {
 
   public WorkspaceFormattedError(FileLockedException fle, String message) {
     super(AerieService.WORKSPACE_SERVER, "FILE_LOCKED", message, fle);
+  }
+
+  // Git Errors
+  public WorkspaceFormattedError(PartialMutationException pme, String message) {
+    super(AerieService.WORKSPACE_SERVER, pme.kind.errorType, message, pme);
+  }
+
+  public WorkspaceFormattedError(WorkspaceHistoryException whe) {
+    super(AerieService.WORKSPACE_SERVER, whe.kind.errorType, whe);
   }
 
   /**

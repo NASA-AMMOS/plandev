@@ -10,7 +10,9 @@ import gov.nasa.ammos.plandev.permissions.gql.WorkspaceId;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.FileLockedException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.MalformedRequest;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.NoSuchFileException;
+import gov.nasa.ammos.plandev.workspace.server.exceptions.PartialMutationException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
+import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistoryException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
 import gov.nasa.ammos.plandev.workspace.server.types.BulkPutItem;
@@ -193,7 +195,7 @@ public class WorkspaceBindings implements Plugin {
     javalin.exception(NumberFormatException.class, (ex, ctx) ->
         ctx.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, ex)));
     javalin.exception(
-        WorkspaceGitService.WorkspaceHistoryException.class, (ex, ctx) -> {
+        WorkspaceHistoryException.class, (ex, ctx) -> {
       final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ex.kind.errorType, ex);
       logger.error("Workspace history error: {}", fe);
       ctx.status(500).json(fe);
@@ -666,7 +668,7 @@ public class WorkspaceBindings implements Plugin {
   /**
    * As {@link #mutate(int, String, String, WorkspaceGitService.Mutation)}, across workspaces committed in the given
    * order. partialMessage describes the outcome if a later workspace's commit fails after an earlier one's
-   * succeeded (see {@link WorkspaceGitService.PartialMutationException}).
+   * succeeded (see {@link PartialMutationException}).
    */
   private HandlerResult mutate(
       final LinkedHashMap<Integer, String> commits,
@@ -676,11 +678,10 @@ public class WorkspaceBindings implements Plugin {
   {
     try {
       return history.mutate(commits, userId, handler, result -> result instanceof HandlerResult.Success);
-    } catch (WorkspaceGitService.WorkspaceHistoryException whe) {
-      final var message = whe instanceof WorkspaceGitService.PartialMutationException && partialMessage != null
-          ? partialMessage
-          : whe.getMessage();
-      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, whe.kind.errorType, message, whe);
+    } catch (WorkspaceHistoryException whe) {
+      final var fe = whe instanceof PartialMutationException pme ?
+          new WorkspaceFormattedError(pme, partialMessage)
+          : new WorkspaceFormattedError(whe);
       logger.error("WORKSPACE MUTATION: Workspace History Exception {}", fe);
       return new HandlerResult.Failure(500, fe);
     } catch (NoSuchWorkspaceException nsw) {

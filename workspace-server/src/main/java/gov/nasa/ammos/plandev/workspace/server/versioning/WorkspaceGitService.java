@@ -3,6 +3,8 @@ package gov.nasa.ammos.plandev.workspace.server.versioning;
 import gov.nasa.ammos.plandev.workspace.server.WorkspaceFileSystemService;
 import gov.nasa.ammos.plandev.workspace.server.WorkspacePaths;
 import gov.nasa.ammos.plandev.workspace.server.WorkspaceRoots;
+import gov.nasa.ammos.plandev.workspace.server.exceptions.PartialMutationException;
+import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistoryException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.Status;
@@ -92,7 +94,7 @@ import java.util.stream.Stream;
  * versioned state and cannot be attributed to one operation after the fact, so rollback leaves them in place rather
  * than risk deleting a pre-existing directory. It also cannot recreate an empty directory the operation removed.
  * If restoration itself fails, a
- * {@link Kind#REPOSITORY_INCONSISTENT} error is raised rather than claiming success. git clean is never run wholesale,
+ * {@link WorkspaceHistoryException.Kind#REPOSITORY_INCONSISTENT} error is raised rather than claiming success. git clean is never run wholesale,
  * nor is the repository reset on the strength of an unverified assumption.
  * A small marker in .git distinguishes a mutation interrupted by a process crash from an unexplained external edit.
  * On the next mutation, a marked repository is restored to its current HEAD: this rolls back work whose commit did
@@ -103,7 +105,7 @@ import java.util.stream.Stream;
  * Two repositories cannot share a transaction. Commits are made in the order the caller
  * lists the workspaces (destination first for moves). If the first commit fails, every workspace is restored. If a
  * later commit fails, the workspaces already committed keep their change and the remaining ones are restored, raising
- * {@link Kind#PARTIALLY_APPLIED}: for a move this means it degraded to a copy, which is preferable to losing data.
+ * {@link WorkspaceHistoryException.Kind#PARTIALLY_APPLIED}: for a move this means it degraded to a copy, which is preferable to losing data.
  *
  * Adoption:
  * A workspace is managed once its repository config carries plandev.managed=true,
@@ -121,7 +123,7 @@ import java.util.stream.Stream;
  * behind: no in-progress Git operation, HEAD attached to main, an index of plain files outside reserved names,
  * and no staged changes. Ordinary filesystem drift is preserved in .seqdev/recovery before restoring the whole
  * workspace and index to HEAD. A marked interrupted PlanDev mutation also preserves staged residue before recovery.
- * Structural Git problems and unsupported filesystem entries fail closed with {@link Kind#REPOSITORY_INCONSISTENT}.
+ * Structural Git problems and unsupported filesystem entries fail closed with {@link WorkspaceHistoryException.Kind#REPOSITORY_INCONSISTENT}.
  *
  * Deployment assumption:
  * Locks are in-process. This is correct only while a single workspace-server
@@ -133,10 +135,10 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
 
   static final String INIT_MESSAGE = "Initialize workspace history";
   static final String ADOPT_MESSAGE = "Adopt workspace into history";
-  static final String MUTATION_MARKER = "plandev-mutation-in-progress";
+  static final String MUTATION_MARKER = "seqdev-mutation-in-progress";
   static final String ADOPTION_MARKER = "adoption-in-progress";
   static final String BRANCH = "main";
-  private static final String MANAGED_SECTION = "plandev";
+  private static final String MANAGED_SECTION = "SeqDev";
   private static final String MANAGED_KEY = "managed";
   private static final int INCIDENT_VERSION = 1;
   /** Recovery incidents kept per workspace; older ones are deleted when a new one is written. */
@@ -155,44 +157,6 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       "refs/heads/" + BRANCH + ".lock",
       "logs/HEAD.lock",
       "logs/refs/heads/" + BRANCH + ".lock");
-
-  public enum Kind {
-    /** The history could not be recorded; the workspace was restored to its pre-operation state. */
-    HISTORY_NOT_RECORDED("WORKSPACE_HISTORY_ERROR"),
-    /** A cross-workspace mutation was applied to some workspaces only; see {@link PartialMutationException}. */
-    PARTIALLY_APPLIED("WORKSPACE_MUTATION_PARTIAL"),
-    /** The repository is not in a state this class can vouch for, and was not (or could not be) repaired. */
-    REPOSITORY_INCONSISTENT("WORKSPACE_REPOSITORY_INCONSISTENT");
-
-    public final String errorType;
-
-    Kind(final String errorType) {
-      this.errorType = errorType;
-    }
-  }
-
-  public static class WorkspaceHistoryException extends RuntimeException {
-    public final Kind kind;
-
-    WorkspaceHistoryException(final Kind kind, final String message, final Throwable cause) {
-      super(message, cause);
-      this.kind = kind;
-    }
-  }
-
-  /** A later commit of a cross-workspace mutation failed after earlier workspaces were committed. */
-  public static final class PartialMutationException extends WorkspaceHistoryException {
-    public final List<Integer> committedWorkspaceIds;
-    public final int restoredWorkspaceId;
-
-    PartialMutationException(final List<Integer> committed, final int restored, final Throwable cause) {
-      super(Kind.PARTIALLY_APPLIED,
-            "Workspace(s) %s were updated but workspace %d could not be and was restored".formatted(committed, restored),
-            cause);
-      this.committedWorkspaceIds = List.copyOf(committed);
-      this.restoredWorkspaceId = restored;
-    }
-  }
 
   @FunctionalInterface
   public interface Mutation<T> {
@@ -303,7 +267,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
           finishMutation(rootsById.values(), e);
           if (committed.isEmpty()) {
             throw new WorkspaceHistoryException(
-                Kind.HISTORY_NOT_RECORDED,
+                WorkspaceHistoryException.Kind.HISTORY_NOT_RECORDED,
                 "The change could not be recorded in workspace history and was rolled back.",
                 e);
           }
@@ -456,7 +420,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       if (!interrupted) createMarker(mutationMarker(root));
       restore(root, new Before(head)); // existing whole-tree/index restore, including its clean postcondition
     } catch (IOException | GitAPIException | RuntimeException e) {
-      throw new WorkspaceHistoryException(Kind.REPOSITORY_INCONSISTENT,
+      throw new WorkspaceHistoryException(WorkspaceHistoryException.Kind.REPOSITORY_INCONSISTENT,
           "Workspace at %s: %s were preserved in %s but the workspace could not be restored to HEAD."
               .formatted(root, summarize(dirty), incident), e);
     }
@@ -554,13 +518,15 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
         } catch (IOException cleanup) {
           e.addSuppressed(cleanup);
         }
-        throw new WorkspaceHistoryException(Kind.REPOSITORY_INCONSISTENT,
+        throw new WorkspaceHistoryException(
+            WorkspaceHistoryException.Kind.REPOSITORY_INCONSISTENT,
             "Workspace at %s: %s differ from managed history and could not be preserved, so they were left untouched."
                 .formatted(root, summarize(drift)), e);
       }
       logger.error("Workspace at {}: preserving {} failed and {} could not be moved back; they remain in {}",
                    root, summarize(drift), stranded, dir, e);
-      throw new WorkspaceHistoryException(Kind.REPOSITORY_INCONSISTENT,
+      throw new WorkspaceHistoryException(
+          WorkspaceHistoryException.Kind.REPOSITORY_INCONSISTENT,
           "Workspace at %s: %s differ from managed history and could not be preserved; %s could not be moved back and "
               .formatted(root, summarize(drift), summarize(stranded))
           + "remain in " + dir + ".", e);
@@ -794,7 +760,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
         }
       }
       throw new WorkspaceHistoryException(
-          Kind.REPOSITORY_INCONSISTENT,
+          WorkspaceHistoryException.Kind.REPOSITORY_INCONSISTENT,
           "Crash recovery could not be established, so the workspace was not changed.",
           e);
     }
@@ -812,7 +778,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     }
     if (!failures.isEmpty()) {
       final var ex = new WorkspaceHistoryException(
-          Kind.REPOSITORY_INCONSISTENT,
+          WorkspaceHistoryException.Kind.REPOSITORY_INCONSISTENT,
           "The workspace is clean, but its crash-recovery marker could not be removed.",
           failures.getFirst());
       failures.stream().skip(1).forEach(ex::addSuppressed);
@@ -934,7 +900,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   }
 
   static WorkspaceHistoryException inconsistent(final String message) {
-    return new WorkspaceHistoryException(Kind.REPOSITORY_INCONSISTENT, message, null);
+    return new WorkspaceHistoryException(WorkspaceHistoryException.Kind.REPOSITORY_INCONSISTENT, message, null);
   }
 
   static String summarize(final Collection<String> paths) {
@@ -1019,7 +985,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     }
     if (!errors.isEmpty()) {
       final var ex = new WorkspaceHistoryException(
-          Kind.REPOSITORY_INCONSISTENT,
+          WorkspaceHistoryException.Kind.REPOSITORY_INCONSISTENT,
           "A failed change could not be fully rolled back in workspace(s) %s; the workspace may not match its history."
               .formatted(failed),
           errors.getFirst());

@@ -2,10 +2,11 @@ package gov.nasa.ammos.plandev.workspace.server.versioning;
 
 import gov.nasa.ammos.plandev.workspace.server.WorkspaceFileSystemService;
 import gov.nasa.ammos.plandev.workspace.server.WorkspacePaths;
-import gov.nasa.ammos.plandev.workspace.server.WorkspaceRoots;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.PartialMutationException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistoryException;
+import gov.nasa.ammos.plandev.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
+import gov.nasa.ammos.plandev.workspace.server.postgres.WorkspacePostgresRepository;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.Status;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -165,17 +166,17 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
 
   private record CachedLastEdit(ObjectId head, Optional<LastEdit> edit) {}
 
-  private final WorkspaceRoots roots;
+  private final WorkspacePostgresRepository postgresRepository;
   // ponytail: one lock per workspace id, never evicted; a few bytes per workspace ever touched by this process.
   private final Map<Integer, ReentrantLock> locks = new ConcurrentHashMap<>();
-  private final Map<Path, Map<String, CachedLastEdit>> lastEditCache = new ConcurrentHashMap<>();
-  private final Set<Path> configured = ConcurrentHashMap.newKeySet();
+  private final Map<Integer, Map<Path, CachedLastEdit>> lastEditCache = new ConcurrentHashMap<>();
+  private final Set<Integer> configured = ConcurrentHashMap.newKeySet();
   // Each request thread gets its own flag: nested entry on that thread sees true, while unrelated threads still see
   // their own initial false. inLockScope removes the thread's value when the outer operation finishes.
   private final ThreadLocal<Boolean> lockScopeActive = ThreadLocal.withInitial(() -> false);
 
-  public WorkspaceGitService(final WorkspaceRoots roots) {
-    this.roots = roots;
+  public WorkspaceGitService(final WorkspacePostgresRepository postgresRepository) {
+    this.postgresRepository = postgresRepository;
   }
 
   //region Mutation boundary
@@ -219,14 +220,14 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       final Mutation<T> mutation,
       final Predicate<T> succeeded) throws Exception
   {
-    final var ids = List.copyOf(commits.keySet());
-    final var lockOrder = ids.stream().sorted().map(this::lockFor).toList();
+    final var workspaceIds = List.copyOf(commits.keySet());
+    final var lockOrder = workspaceIds.stream().sorted().map(this::lockFor).toList();
     lockOrder.forEach(ReentrantLock::lock);
     try {
       final var rootsById = new LinkedHashMap<Integer, Path>();
       final var before = new HashMap<Integer, ObjectId>();
-      for (final var id : ids) {
-        final var root = roots.workspaceRootPath(id).normalize();
+      for (final var id : workspaceIds) {
+        final var root = postgresRepository.workspaceRootPath(id).normalize();
         rootsById.put(id, root);
         ensureReady(root);
         before.put(id, capture(root));
@@ -239,18 +240,18 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
         result = mutation.apply();
         successful = succeeded.test(result);
       } catch (Exception e) {
-        restoreAll(ids, rootsById, before, e);
+        restoreAll(workspaceIds, rootsById, before, e);
         finishMutation(rootsById.values(), e);
         throw e;
       }
       if (!successful) {
-        restoreAll(ids, rootsById, before, null);
+        restoreAll(workspaceIds, rootsById, before, null);
         finishMutation(rootsById.values(), null);
         return result;
       }
 
       final var committed = new ArrayList<Integer>();
-      for (final var id : ids) {
+      for (final var id : workspaceIds) {
         final var root = rootsById.get(id);
         try (final var git = open(root)) {
           if (stageAll(git)) {
@@ -261,7 +262,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
           committed.add(id);
         } catch (Exception e) {
           logger.error("Recording history for workspace {} failed; restoring", id, e);
-          restoreAll(ids.subList(committed.size(), ids.size()), rootsById, before, e);
+          restoreAll(workspaceIds.subList(committed.size(), workspaceIds.size()), rootsById, before, e);
           finishMutation(rootsById.values(), e);
           if (committed.isEmpty()) {
             throw new WorkspaceHistoryException(
@@ -285,10 +286,9 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       final var lock = lockFor(workspaceId);
       lock.lock();
       try {
-        final var root = roots.workspaceRootPath(workspaceId).normalize(); // before the action may delete the record
         final var result = action.apply();
-        lastEditCache.remove(root);
-        configured.remove(root);
+        lastEditCache.remove(workspaceId);
+        configured.remove(workspaceId);
         return result;
       } finally {
         lock.unlock();
@@ -333,7 +333,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     git.commit()
        .setMessage(message)
        .setAuthor(author)
-       .setCommitter(systemIdent())
+       .setCommitter(systemIdentifier)
        .setAllowEmpty(true)
        .setSign(false)
        .setNoVerify(true)
@@ -609,7 +609,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       final var unborn = repo.resolve(Constants.HEAD) == null;
       if (stageAll(git) || unborn) {
         requireValidIndex(repo);
-        commit(git, unborn ? INIT_MESSAGE : ADOPT_MESSAGE, systemIdent());
+        commit(git, unborn ? INIT_MESSAGE : ADOPT_MESSAGE, systemIdentifier);
       }
       requireValidIndex(repo);
       requireClean(git, root);
@@ -908,6 +908,11 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   //endregion
 
   //region Git helpers
+  private Git open(final int workspaceId) throws IOException, NoSuchWorkspaceException {
+    // Opens <root>/.git only; never discovers a repository in a parent directory. Closing the Git closes the repo.
+    return open(postgresRepository.workspaceRootPath(workspaceId));
+  }
+
   private static Git open(final Path root) throws IOException {
     // Opens <root>/.git only; never discovers a repository in a parent directory. Closing the Git closes the repo.
     return Git.open(root.toFile());
@@ -946,12 +951,10 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     if (!dirty.isEmpty()) throw inconsistent("Workspace at %s is not clean: %s".formatted(root, summarize(dirty)));
   }
 
-  static PersonIdent systemIdent() {
-    return new PersonIdent("PlanDev", "");
-  }
+  private static final PersonIdent systemIdentifier = new PersonIdent("SeqDev", "Workspaces@SeqDev");
 
   private static PersonIdent userIdent(final String userId) {
-    return userId == null || userId.isBlank() ? systemIdent() : new PersonIdent(userId, "");
+    return new PersonIdent(userId, userId+"@SeqDev");
   }
   //endregion
 
@@ -1054,7 +1057,9 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    * Results are cached per path and HEAD. A cached result from an older HEAD is reused when the walk reaches that
    * commit, so an unchanged path normally requires walking only the new commits.
    */
-  public Map<String, LastEdit> lastEdits(final Path root, final Set<String> paths) throws IOException {
+  public Map<String, LastEdit> lastEdits(final int workspaceId, final Set<String> paths)
+  throws IOException, NoSuchWorkspaceException
+  {
     if (paths.isEmpty() || !Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR))) return Map.of();
 
     // Sidecars describe content but are not content themselves; their housekeeping commits must not become file edits.
@@ -1065,9 +1070,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     }
     if (requested.isEmpty()) return Map.of();
 
-    // Use one spelling of the workspace path so all callers share the same cache.
-    final var normalizedRoot = root.normalize();
-    try (final var git = open(normalizedRoot)) {
+    try (final var git = open(workspaceId)) {
       final var repo = git.getRepository();
       // Work against one immutable history snapshot. If a mutation advances HEAD concurrently, the next read sees it.
       final var head = repo.resolve(Constants.HEAD);
@@ -1148,8 +1151,10 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   }
 
   @Override
-  public Optional<LastEdit> lastEdit(final Path root, final String path) throws IOException {
-    return Optional.ofNullable(lastEdits(root, Set.of(path)).get(path));
+  public LastEdit lastEdit(final int workspaceId, final Path filePath)
+  throws IOException, NoSuchWorkspaceException
+  {
+    return lastEdits(workspaceId, Set.of(filePath.toString())).get(filePath.toString());
   }
   //endregion
 }

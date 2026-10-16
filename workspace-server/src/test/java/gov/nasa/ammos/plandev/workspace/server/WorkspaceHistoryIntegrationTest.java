@@ -1880,8 +1880,11 @@ class WorkspaceHistoryIntegrationTest {
       return ((HandlerResult.Success) result).response();
     }
 
+    /** Also checks the cached listing against one computed from scratch. */
     private List<String> names(final String path) throws Exception {
-      return fs.listRevisions(WS1, Path.of(path)).stream().map(WorkspaceRevisions.Revision::name).toList();
+      final var warm = fs.listRevisions(WS1, Path.of(path));
+      assertEquals(new WorkspaceFileSystemService(roots, null, history).listRevisions(WS1, Path.of(path)), warm);
+      return warm.stream().map(WorkspaceRevisions.Revision::name).toList();
     }
 
     private String contentAt(final String path, final String name) throws Exception {
@@ -1971,6 +1974,7 @@ class WorkspaceHistoryIntegrationTest {
     void revisionsFollowRenamesButNotCopiesOrRecreation() throws Exception {
       saveOk(WS1, "a.txt", "v1");
       revise("a.txt", "");
+      assertEquals(List.of("a"), names("a.txt")); // cached at the old path; the walk below reuses it after the moves
       assertSuccess(bindings.handleCreateDirectory(WS1, Path.of("dir"), USER));
       assertSuccess(bindings.handleMove(Path.of("a.txt"), Path.of("dir/b.txt"), WS1, WS1, false, USER));
       saveOk(WS1, "dir/b.txt", "v2");
@@ -1978,6 +1982,7 @@ class WorkspaceHistoryIntegrationTest {
       assertEquals(List.of("a"), names("moved/b.txt"));
       assertEquals("v1", contentAt("moved/b.txt", "a"));
       assertEquals("b", revise("moved/b.txt", ""));
+      assertEquals(List.of("b", "a"), names("moved/b.txt"), "a tag made on an already-cached HEAD");
 
       assertSuccess(bindings.handleCopy(Path.of("moved/b.txt"), Path.of("copy.txt"), WS1, WS1, false, USER));
       assertEquals(List.of(), names("copy.txt"));

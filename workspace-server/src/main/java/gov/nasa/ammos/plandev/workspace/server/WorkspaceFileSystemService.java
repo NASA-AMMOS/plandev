@@ -55,6 +55,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   final WorkspaceRoots roots;
   final WorkspacePostgresRepository postgresRepository;
   final WorkspaceHistory history;
+  private final WorkspaceRevisions revisions = new WorkspaceRevisions();
 
   public WorkspaceFileSystemService(final WorkspacePostgresRepository postgresRepository, final WorkspaceHistory history) {
     this(postgresRepository, postgresRepository, history);
@@ -1205,7 +1206,8 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   {
     history.requireLocked(workspaceId);
     final var root = roots.workspaceRootPath(workspaceId);
-    return WorkspaceRevisions.create(root, revisionKey(workspaceId, root, filePath), message, userId);
+    final var key = revisionKey(workspaceId, root, filePath);
+    return revisions.create(root, key, message, userId, history.lastEdit(root, key).orElse(null));
   }
 
   @Override
@@ -1213,7 +1215,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws NoSuchWorkspaceException, NoSuchFileException, WorkspaceFileOpException, IOException
   {
     final var root = roots.workspaceRootPath(workspaceId);
-    return WorkspaceRevisions.list(root, revisionKey(workspaceId, root, filePath));
+    return revisions.list(root, revisionKey(workspaceId, root, filePath));
   }
 
   @Override
@@ -1221,7 +1223,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws NoSuchWorkspaceException, NoSuchFileException, WorkspaceFileOpException, IOException
   {
     final var root = roots.workspaceRootPath(workspaceId);
-    final var revision = WorkspaceRevisions.find(root, revisionKey(workspaceId, root, filePath), name);
+    final var revision = revisions.find(root, revisionKey(workspaceId, root, filePath), name);
     return revision.isEmpty() ? Optional.empty() : Optional.of(WorkspaceRevisions.read(root, revision.get()));
   }
 

@@ -1144,14 +1144,29 @@ public class WorkspaceHistory {
             }
             if (unresolved.isEmpty()) break;
 
-            // Compare only paths still needing an answer. Every path found was changed by this commit, so they share
-            // its edit.
-            final var edit = lastEditOf(commit);
-            for (final var changed : changedPaths(repo, walk, commit, unresolved).entrySet()) {
-              unresolved.remove(changed.getKey());
-              // A deleted path's lookup is finished, but there is no current file to attribute. Remembering that miss
-              // prevents an older creation from being returned.
-              if (changed.getValue()) edits.put(changed.getKey(), edit);
+            try (final var tw = new TreeWalk(repo)) {
+              tw.setRecursive(true);
+              // Compare this commit with its parent only for paths still needing an answer. The root commit has no
+              // parent, so comparing it with an empty tree treats every file there as newly added.
+              tw.setFilter(AndTreeFilter.create(
+                  TreeFilter.ANY_DIFF,
+                  PathFilterGroup.createFromStrings(unresolved)));
+              if (commit.getParentCount() > 0) {
+                tw.addTree(walk.parseCommit(commit.getParent(0)).getTree());
+              } else {
+                tw.addTree(new EmptyTreeIterator());
+              }
+              tw.addTree(commit.getTree());
+              // Every path found by this comparison was changed by this commit, so they share its author and time.
+              final var author = commit.getAuthorIdent();
+              final var edit = new LastEdit(author.getName(), author.getWhenAsInstant(), commit.getParentCount() == 0);
+              while (tw.next()) {
+                final var path = tw.getPathString();
+                if (!unresolved.remove(path)) continue;
+                // Tree 1 is this commit. Mode zero means the path was deleted: its lookup is finished, but there is no
+                // current file to attribute. Remembering that miss prevents an older creation from being returned.
+                if (tw.getRawMode(1) != 0) edits.put(path, edit);
+              }
             }
           }
         }
@@ -1168,39 +1183,6 @@ public class WorkspaceHistory {
 
   public Optional<LastEdit> lastEdit(final Path root, final String path) throws IOException {
     return Optional.ofNullable(lastEdits(root, Set.of(path)).get(path));
-  }
-
-  /**
-   * The single definition of a content edit, shared with {@link WorkspaceRevisions}: the requested paths this commit
-   * changed compared with its first parent, each mapped to whether it still exists after the commit. The root commit
-   * has no parent, so comparing it with an empty tree treats every file there as newly added.
-   */
-  static Map<String, Boolean> changedPaths(
-      final Repository repo,
-      final RevWalk walk,
-      final RevCommit commit,
-      final Collection<String> paths) throws IOException
-  {
-    final var changed = new HashMap<String, Boolean>();
-    try (final var tw = new TreeWalk(repo)) {
-      tw.setRecursive(true);
-      tw.setFilter(AndTreeFilter.create(TreeFilter.ANY_DIFF, PathFilterGroup.createFromStrings(paths)));
-      if (commit.getParentCount() > 0) {
-        tw.addTree(walk.parseCommit(commit.getParent(0)).getTree());
-      } else {
-        tw.addTree(new EmptyTreeIterator());
-      }
-      tw.addTree(commit.getTree());
-      // Tree 1 is this commit; mode zero means the path was deleted.
-      while (tw.next()) changed.put(tw.getPathString(), tw.getRawMode(1) != 0);
-    }
-    return changed;
-  }
-
-  /** An edit made by this commit; one made by the root commit is the baseline. */
-  static LastEdit lastEditOf(final RevCommit commit) {
-    final var author = commit.getAuthorIdent();
-    return new LastEdit(author.getName(), author.getWhenAsInstant(), commit.getParentCount() == 0);
   }
   //endregion
 }

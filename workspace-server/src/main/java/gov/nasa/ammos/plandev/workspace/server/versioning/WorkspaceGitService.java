@@ -173,7 +173,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   // ponytail: one lock per workspace id, never evicted; a few bytes per workspace ever touched by this process.
   private final Map<Integer, ReentrantLock> locks = new ConcurrentHashMap<>();
   private final Map<Integer, Map<Path, CachedLastEdit>> lastEditCache = new ConcurrentHashMap<>();
-  private final Set<Integer> configured = ConcurrentHashMap.newKeySet();
+  private final Set<Path> configured = ConcurrentHashMap.newKeySet();
   // Each request thread gets its own flag: nested entry on that thread sees true, while unrelated threads still see
   // their own initial false. inLockScope removes the thread's value when the outer operation finishes.
   private final ThreadLocal<Boolean> lockScopeActive = ThreadLocal.withInitial(() -> false);
@@ -861,7 +861,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
         if (dir.getParent().equals(root) && (name.equals(WorkspacePaths.GIT_DIR) || name.equals(WorkspacePaths.INTERNAL_DIR))) {
           return FileVisitResult.SKIP_SUBTREE;
         }
-        if (WorkspacePaths.isReservedName(name)) found.add(WorkspacePaths.key(root, dir));
+        if (WorkspacePaths.filenameIsReserved(Path.of(name))) found.add(WorkspacePaths.key(root, dir));
         return FileVisitResult.CONTINUE;
       }
 
@@ -869,7 +869,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) {
         if (attrs.isSymbolicLink()) {
           found.add(WorkspacePaths.key(root, file) + " (symbolic link)");
-        } else if (WorkspacePaths.isReservedName(file.getFileName().toString())) {
+        } else if (WorkspacePaths.filenameIsReserved(file)) {
           found.add(WorkspacePaths.key(root, file));
         }
         return FileVisitResult.CONTINUE;
@@ -891,7 +891,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       final var mode = entry.getRawMode();
       if (!FileMode.REGULAR_FILE.equals(mode) && !FileMode.EXECUTABLE_FILE.equals(mode)) {
         bad.add(path + " (" + entry.getFileMode() + ")");
-      } else if (Arrays.stream(path.split("/")).anyMatch(WorkspacePaths::isReservedName)) {
+      } else if (Arrays.stream(path.split("/")).anyMatch(p -> WorkspacePaths.filenameIsReserved(Path.of(p)))) {
         bad.add(path);
       }
     }

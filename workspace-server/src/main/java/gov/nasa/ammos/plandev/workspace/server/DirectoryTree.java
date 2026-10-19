@@ -2,6 +2,8 @@ package gov.nasa.ammos.plandev.workspace.server;
 
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
 import gov.nasa.ammos.plandev.workspace.server.types.MetadataKeys;
+import gov.nasa.ammos.plandev.workspace.server.versioning.LastEdit;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.json.Json;
 import javax.json.JsonArray;
@@ -13,11 +15,13 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
-import java.util.function.BiFunction;
+
+import static gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitService.applyLastEdit;
 
 /**
  * A tree representing the contents of a directory on the file system.
@@ -37,14 +41,13 @@ public class DirectoryTree {
    * @param inputList a list of Paths contained within the root directory
    * @param extensionMappings a map of file extensions to RenderTypes.
    *    Used to determine the RenderType of file paths
-   * @param metadataView maps (file path, raw sidecar JSON) to the metadata presented for the file
+   * @param metadataMap A map from the files in the inputList to their metadata
    */
   public DirectoryTree(
       Path root,
       List<Path> inputList,
       Map<String, RenderType> extensionMappings,
-      boolean withMetadata,
-      BiFunction<Path, JsonObject, JsonObject> metadataView) {
+      Map<Path, Pair<Path, LastEdit>> metadataMap) {
     if(!root.toFile().isDirectory()) {
       throw new IllegalArgumentException("Cannot create a DirectoryTree from a file.");
     }
@@ -55,7 +58,7 @@ public class DirectoryTree {
         this.root.addChild(new DirectoryNode(path));
       } else {
         final var rType = RenderType.getRenderType(path.getFileName().toString(), extensionMappings);
-        this.root.addChild(new FileNode(path, rType, withMetadata, metadataView));
+        this.root.addChild(new FileNode(path, rType, metadataMap));
       }
     }
   }
@@ -67,6 +70,8 @@ public class DirectoryTree {
 
     final Optional<JsonObject> metadata;
     final Optional<MetadataStatus> metadataStatus;
+
+    final boolean readOnly;
 
     private enum MetadataStatus {
       ok, // Metadata file exists and is valid
@@ -80,51 +85,62 @@ public class DirectoryTree {
       this.name = path.getFileName().toString();
       this.metadata = Optional.empty();
       this.metadataStatus = Optional.empty();
+      this.readOnly = false;
     }
 
-    FileNode(Path path, RenderType renderType, boolean getMetadata, BiFunction<Path, JsonObject, JsonObject> metadataView) {
+    FileNode(Path path, RenderType renderType, Map<Path, Pair<Path, LastEdit>> metadataView) {
       this.path = path;
       this.renderType = renderType;
       this.name = path.getFileName().toString();
 
       // Check if we even need to get the file's metadata
-      if (!getMetadata || renderType == RenderType.METADATA) {
+      if (metadataView.isEmpty() || renderType == RenderType.METADATA) {
         this.metadata = Optional.empty();
         this.metadataStatus = Optional.empty();
+        this.readOnly = false;
         return;
       }
 
       // Check if the metadata file exists
-      final var metadataFile = this.path.resolveSibling(RenderType.toMetadataFileName(name)).toFile();
+      final var metadataInformation = metadataView.get(path);
+      final var metadataFile = metadataInformation.getKey().toFile();
+      final var lastEdited = metadataInformation.getValue();
       if (!metadataFile.exists() || metadataFile.isDirectory()) {
         this.metadata = Optional.empty();
         this.metadataStatus = Optional.of(MetadataStatus.missing);
+        this.readOnly = false;
         return;
       }
 
       // Attempt to read the metadata file
-      final JsonObject fileContents;
+      final JsonObject metadata;
       try(final var reader = Json.createReader(new FileReader(metadataFile))){
-        fileContents = metadataView.apply(path, reader.readObject());
+        metadata = applyLastEdit(reader.readObject(), lastEdited);
       } catch (FileNotFoundException fnf) {
         this.metadata = Optional.empty();
         this.metadataStatus = Optional.of(MetadataStatus.missing);
+        this.readOnly = false;
         return;
       } catch (JsonException je) {
         this.metadata = Optional.empty();
         this.metadataStatus = Optional.of(MetadataStatus.malformed);
+        this.readOnly = false;
         return;
       }
 
       // Validate metadata file
-      if(!validateMetadataFile(fileContents)) {
+      if(!validateMetadataFile(metadata)) {
         this.metadata = Optional.empty();
         this.metadataStatus = Optional.of(MetadataStatus.malformed);
+        this.readOnly = false;
         return;
       }
 
-      this.metadata = Optional.of(fileContents);
+      this.metadata = Optional.of(metadata);
       this.metadataStatus = Optional.of(MetadataStatus.ok);
+
+      // Set "readOnly", if it's present in the metadata
+      readOnly = metadata.getBoolean("readOnly", false);
     }
 
     private boolean validateMetadataFile(JsonObject metadata) throws JsonException {
@@ -167,6 +183,10 @@ public class DirectoryTree {
         return false;
       }
       return true;
+    }
+
+    boolean isReadOnly() {
+      return readOnly;
     }
 
     JsonObjectBuilder toJsonBuilder() {
@@ -215,6 +235,25 @@ public class DirectoryTree {
       }
     }
 
+    private List<Path> readOnlyNodes() {
+      final var nodeList = new ArrayList<Path>();
+      children.forEach((key, child) -> {
+        if(child instanceof DirectoryNode subDir) {
+          for(final Path subPath : subDir.readOnlyNodes()) {
+            nodeList.add(this.path.resolve(subPath));
+          }
+        } else {
+          // Skip Metadata files
+          if(!RenderType.isAerieMetadataFile(child.name)) {
+            if(child.isReadOnly()) {
+              nodeList.add(path.resolve(child.path));
+            }
+          }
+        }
+      });
+      return nodeList;
+    }
+
     @Override
     JsonObjectBuilder toJsonBuilder() {
       final var contentsArray = Json.createArrayBuilder();
@@ -229,6 +268,10 @@ public class DirectoryTree {
                  .add("type", renderType.name())
                  .add("contents", contentsArray);
     }
+  }
+
+  public List<Path> readOnlyNodes() {
+    return root.readOnlyNodes();
   }
 
   /**

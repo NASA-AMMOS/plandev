@@ -1145,5 +1145,20 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   {
     return lastEdits(workspaceId, Set.of(filePath)).get(filePath);
   }
+
+  /**
+   * Apply the by/at information from a LastEdit to a metadata object.
+   * @param originalMetadata The original metadata file contents
+   * @param edit the last edited information from the versioning service to be applied
+   * @return If edit is null, returns originalMetadata. Otherwise, returns originalMetadata with its
+   *    "lastEditedBy" and "lastEditedAt" fields overwritten to the values of "by" and "at" from edit
+   */
+  public static JsonObject applyLastEdit(final JsonObject originalMetadata, final LastEdit edit) {
+    if(edit == null) { return originalMetadata; }
+    return Json.createObjectBuilder(originalMetadata)
+               .add("lastEditedBy", edit.by())
+               .add("lastEditedAt", edit.at().toString())
+               .build();
+  }
   //endregion
 }

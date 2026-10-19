@@ -2,6 +2,7 @@ package gov.nasa.ammos.plandev.workspace.server;
 
 import gov.nasa.ammos.plandev.workspace.server.exceptions.NoSuchFileException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
+import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistoryException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
 import gov.nasa.ammos.plandev.workspace.server.postgres.WorkspacePostgresRepository;
@@ -10,6 +11,7 @@ import gov.nasa.ammos.plandev.workspace.server.types.MetadataMergeBehavior;
 import gov.nasa.ammos.plandev.workspace.server.versioning.LastEdit;
 import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitService;
 import io.javalin.http.UploadedFile;
+import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.jgit.api.errors.GitAPIException;
 
 import java.io.ByteArrayInputStream;
@@ -28,12 +30,14 @@ import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -250,7 +254,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   @Override
   public LastEditInfo getLastEditInfo(final int workspaceId, final Path filePath)
   throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException {
-    final var metadata = effectiveMetadata(postgresRepository.workspaceRootPath(workspaceId), filePath);
+    final var metadata = effectiveMetadata(workspaceId, filePath);
     return new LastEditInfo(
         metadata.getString(MetadataKeys.lastEditedBy.name(), null),
         metadata.getString(MetadataKeys.lastEditedAt.name(), null));
@@ -410,7 +414,8 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   //region Directory Operations
   @Override
   public DirectoryTree listFiles(final int workspaceId, final Path directoryPath, final int depth, final boolean withMetadata)
-  throws SQLException, NoSuchWorkspaceException, IOException {
+  throws SQLException, NoSuchWorkspaceException, IOException, WorkspaceFileOpException
+  {
     final var root = postgresRepository.workspaceRootPath(workspaceId);
     final var path = WorkspacePaths.resolveReadingPath(root, directoryPath);
     if(!Files.isDirectory(path)) {
@@ -419,10 +424,10 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     // Convert to our API from the Files API
     final var walkDepth = depth == -1 ? Integer.MAX_VALUE : depth + 1;
     final var walkList = WorkspacePaths.walk(path, walkDepth); // never includes .git or .seqdev
-    final var view = withMetadata
-        ? metadataView(root, walkList)
-        : (BiFunction<Path, JsonObject, JsonObject>) (p, m) -> m;
-    return new DirectoryTree(path, walkList, postgresRepository.getExtensionMapping(), withMetadata, view);
+    final var map = withMetadata
+        ? metadataMap(workspaceId, walkList)
+        : new HashMap<Path, Pair<Path, LastEdit>>();
+    return new DirectoryTree(path, walkList, postgresRepository.getExtensionMapping(), map);
   }
 
   @Override
@@ -543,7 +548,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   @Override
   public List<Path> getReadOnlyFiles(final int workspaceId, final Path dirPath)
-  throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException, JsonException
+  throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException, JsonException, SQLException
   {
     gitService.requireLocked(workspaceId);
     final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
@@ -556,19 +561,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       return List.of();
     }
 
-    final var readOnly = new ArrayList<Path>();
-    for (final var path : WorkspacePaths.walk(directoryPath, Integer.MAX_VALUE)) {
-      final var name = path.getFileName().toString();
-      if (!Files.isRegularFile(path) || !RenderType.isAerieMetadataFile(name)) continue;
-      if (!readMetadataFile(path.toFile()).getBoolean(MetadataKeys.readOnly.name(), false)) continue;
-
-      final var contentNameEnd = name.length() - RenderType.aerieMetadataExtension.length();
-      if (contentNameEnd <= 1) continue;
-      final var contentName = name.substring(1, contentNameEnd);
-      final var contentPath = path.resolveSibling(contentName);
-      if (Files.exists(contentPath)) readOnly.add(contentPath);
-    }
-    return List.copyOf(readOnly);
+    return listFiles(workspaceId, directoryPath, -1, true).readOnlyNodes();
   }
   //endregion
 
@@ -612,68 +605,43 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   /**
-   * How file metadata is presented by the API: sidecar fields are returned as stored, except lastEditedBy/lastEditedAt
-   * are derived from history after the adoption baseline. Workspaces that have not been put under history yet return
-   * their sidecars as-is.
-   * The returned function maps (absolute content path, raw sidecar) to the presented metadata.
+   * Map each Path in resolvedPaths to a pair containing the Path to its metadata file and the last git edit
    */
-  private BiFunction<Path, JsonObject, JsonObject> metadataView(final Path root, final List<Path> entries)
-  throws IOException {
-    if (!gitService.isManaged(root)) return (path, sidecar) -> sidecar;
-
-    final var contentKeys = new HashSet<String>();
-    for (final var path : entries) {
-      final var name = path.getFileName().toString();
-      if (Files.isRegularFile(path) && !RenderType.isAerieMetadataFile(name)) {
-        contentKeys.add(WorkspacePaths.key(root, path));
-      }
-    }
-    final var edits = gitService.lastEdits(root, contentKeys);
-    return (path, sidecar) -> effectiveMetadata(sidecar, edits.get(WorkspacePaths.key(root, path)));
-  }
-
-  private JsonObject effectiveMetadata(final Path root, final Path filePath) throws IOException, WorkspaceFileOpException {
-    final var sidecar = readMetadataFile(WorkspacePaths.resolveMetadataPath(root, filePath).toFile());
-    final var path = WorkspacePaths.resolveReadingPath(root, filePath);
-    if (!gitService.isManaged(root)) return sidecar;
-    final var key = WorkspacePaths.key(root, path);
-    return effectiveMetadata(sidecar, gitService.lastEdit(root, key).orElse(null));
-  }
-
-  static JsonObject effectiveMetadata(
-      final JsonObject sidecar,
-      final LastEdit edit)
+  private Map<Path, Pair<Path, LastEdit>> metadataMap(final int workspaceId, final List<Path> resolvedPaths)
+  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException, WorkspaceHistoryException
   {
-    final var builder = Json.createObjectBuilder(sidecar)
-                            .remove(MetadataKeys.lastEditedBy.name())
-                            .remove(MetadataKeys.lastEditedAt.name());
+    final var map = new HashMap<Path, Pair<Path, LastEdit>>();
+    final var workspaceRoot = postgresRepository.workspaceRootPath(workspaceId);
 
-    final var sidecarBy = sidecar.get(MetadataKeys.lastEditedBy.name()) instanceof JsonString by ? by.getString() : null;
-    final var sidecarAt = sidecar.get(MetadataKeys.lastEditedAt.name()) instanceof JsonString at ? at.getString() : null;
-    final var hasCompleteSidecarEdit = sidecarBy != null && sidecarAt != null;
-    final var useSidecarEdit = hasCompleteSidecarEdit && (edit == null || edit.baseline());
+    // Filter out folders and metadata files from the input set, as neither of them have metadata
+    final var filteredInputs = resolvedPaths
+        .stream()
+        .filter(p -> !Files.isDirectory(p) && !RenderType.isAerieMetadataFile(p.getFileName().toString()))
+        .collect(Collectors.toSet());
+    final var lastEditsMap = gitService.lastEdits(workspaceId, filteredInputs);
 
-    final String effectiveBy;
-    final String effectiveAt;
-    if (useSidecarEdit) {
-      // Preserve pre-history attribution until Git records a real content change after the baseline.
-      effectiveBy = sidecarBy;
-      effectiveAt = sidecarAt;
-    } else if (edit != null) {
-      // Git is authoritative after the baseline, and is also the fallback when the sidecar pair is incomplete.
-      effectiveBy = edit.by();
-      effectiveAt = edit.at().toString();
-    } else if (sidecar.get("createdBy") instanceof JsonString by && sidecar.get("createdAt") instanceof JsonString at) {
-      // A new file can be visible to a lock-free reader just before its first commit.
-      effectiveBy = by.getString();
-      effectiveAt = at.getString();
-    } else {
-      return builder.build();
+    for (final var path : resolvedPaths) {
+      if(Files.isDirectory(path) || RenderType.isAerieMetadataFile(path.getFileName().toString())) {
+        continue;
+      }
+      final var metadataPath = WorkspacePaths.resolveMetadataPath(workspaceRoot, path);
+      final var edit = lastEditsMap.get(path);
+      map.put(path, Pair.of(metadataPath, edit));
     }
 
-    return builder.add(MetadataKeys.lastEditedBy.name(), effectiveBy)
-                  .add(MetadataKeys.lastEditedAt.name(), effectiveAt)
-                  .build();
+    return map;
+  }
+
+  private JsonObject effectiveMetadata(final int workspaceId, final Path filePath)
+  throws IOException, WorkspaceFileOpException, NoSuchWorkspaceException
+  {
+    final var path = resolveReadingPath(workspaceId, filePath);
+    final var metadataPath = resolveMetadataPath(workspaceId, filePath);
+
+    final var metadataFile = readMetadataFile(metadataPath.toFile());
+
+    final var lastEditInfo = gitService.lastEdit(workspaceId, path);
+    return WorkspaceGitService.applyLastEdit(metadataFile, lastEditInfo);
   }
 
   @Override
@@ -691,7 +659,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     try {
       final var out = new StringWriter();
       try (final var writer = Json.createWriterFactory(config).createWriter(out)) {
-        writer.writeObject(effectiveMetadata(root, filePath));
+        writer.writeObject(effectiveMetadata(workspaceId, filePath));
       }
       final var bytes = out.toString().getBytes(StandardCharsets.UTF_8);
       return new FileStream(

@@ -435,6 +435,11 @@ public class WorkspaceBindings implements Plugin {
       context.status(500).json(fe);
     } catch (NoSuchWorkspaceException ex) {
       context.status(404).json(new WorkspaceFormattedError(ex));
+    } catch (WorkspaceFileOpException wfe) {
+      // TODO: Cleanup when I'm done messing w listFiles
+      final var fe = new WorkspaceFormattedError(wfe, "Could not save file.");
+      logger.warn("LIST FILES: WorkspaceFileOpException: {}", fe);
+      context.status(500).json(fe);
     }
   }
 

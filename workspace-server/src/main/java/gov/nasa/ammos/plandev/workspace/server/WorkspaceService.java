@@ -216,7 +216,7 @@ public interface WorkspaceService {
    * @throws IOException if an I/O error occurs while opening 'directoryPath'
    */
   DirectoryTree listFiles(final int workspaceId, final Path directoryPath, final int depth, final boolean withMetadata)
-  throws SQLException, NoSuchWorkspaceException, IOException;
+  throws SQLException, NoSuchWorkspaceException, IOException, WorkspaceFileOpException;
 
   /**
    * Create a new directory within a workspace

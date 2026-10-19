@@ -96,9 +96,7 @@ public final class WorkspacePaths {
    *    or if the resolved path contains invalid characters or goes through a symbolic link
    */
   public static Path resolveWritingPath(final Path rootPath, final Path filePath) throws SecurityException {
-    final var resolvedPath = resolveReadingPath(rootPath, filePath);
-    validatePath(resolvedPath);
-    return resolvedPath;
+    return resolveReadingPath(rootPath, filePath);
   }
 
   /**
@@ -122,7 +120,7 @@ public final class WorkspacePaths {
       throw new SecurityException("Path traversal attempt detected");
     }
 
-    validatePath(filePath);
+    validatePath(rootPath, resolvedPath);
     return resolvedPath;
   }
 
@@ -163,8 +161,8 @@ public final class WorkspacePaths {
    * @param path the Path to validate
    * @throws SecurityException if the path is invalid
    */
-  public static void validatePath(final Path path) throws SecurityException {
-    for (var p = path; p.getParent() != null; p = p.getParent()) {
+  public static void validatePath(final Path rootPath, final Path path) throws SecurityException {
+    for (var p = path; p != null && !rootPath.equals(p); p = p.getParent()) {
       // Check that this section of the path is not a symlink
       if (Files.isSymbolicLink(p)) {
         throw new SecurityException(
@@ -193,9 +191,9 @@ public final class WorkspacePaths {
         throw new SecurityException("Path segment '"+ segment+ "' has illegal characters: "+forbiddenMatcher.group());
       }
 
-      // Check that the segment is not a reserved filenames:
-      final var name = segment.split("\\.")[0];
-      if(RESERVED_FILENAMES.contains(name)){
+      // Check that the segment is not a reserved filename:
+      final var name = segment.startsWith(".") ? segment.split("(?=\\.)")[0] : segment.split("\\.")[0];
+      if(RESERVED_FILENAMES.stream().anyMatch(r -> r.equalsIgnoreCase(name))){
         throw new SecurityException("Path segment '"+ segment+ "' contains reserved name: "+name);
       }
     }

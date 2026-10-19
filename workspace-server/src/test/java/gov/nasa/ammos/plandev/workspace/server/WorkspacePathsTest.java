@@ -1,6 +1,5 @@
 package gov.nasa.ammos.plandev.workspace.server;
 
-import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -17,6 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class WorkspacePathsTest {
+  private final Path emptyPath = Path.of("/");
+
   @Test
   void createsNormalizedGitPathKey() {
     final var root = Path.of("workspace").toAbsolutePath().normalize();
@@ -86,7 +87,7 @@ class WorkspacePathsTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {".github/workflow.yml", "my.git", ".git.meta.seqdev", "git", "a/.gitkeep", ".seqdev2"})
+    @ValueSource(strings = {".github/workflow.yml", "my.git", "git", "a/.gitkeep", ".seqdev2"})
     void similarNamesAreAllowed(String path) {
       assertDoesNotThrow(() -> resolveWritingPath(root, Path.of(path)));
     }
@@ -97,7 +98,8 @@ class WorkspacePathsTest {
     final static String[] reservedFileNames = {
         "CON", "PRN", "AUX", "NUL",
         "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"
+        "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+        ".git", ".gitignore", ".gitattributes", ".gitmodules", ".seqdev"
     };
     final static String[] forbiddenChars = {
         // Normal forbidden characters
@@ -120,45 +122,45 @@ class WorkspacePathsTest {
     @FieldSource("forbiddenChars")
     void validatePathForbiddenChars(String forbidden) {
       // These characters are not allowed on their own
-      assertThrows(WorkspaceFileOpException.class, () -> validatePath(Path.of(forbidden)));
+      assertThrows(SecurityException.class, () -> validatePath(emptyPath, Path.of(forbidden)));
       // These characters are not allowed as part of a longer file name
-      assertThrows(WorkspaceFileOpException.class, () -> validatePath(Path.of("foobar" + forbidden)));
-      assertThrows(WorkspaceFileOpException.class, () -> validatePath(Path.of("file"+forbidden+".txt")));
+      assertThrows(SecurityException.class, () -> validatePath(emptyPath, Path.of("foobar" + forbidden)));
+      assertThrows(SecurityException.class, () -> validatePath(emptyPath, Path.of("file"+forbidden+".txt")));
       // There characters are not allowed as the last part of the path
-      assertThrows(WorkspaceFileOpException.class, () -> validatePath(Path.of("folder", forbidden)));
+      assertThrows(SecurityException.class, () -> validatePath(emptyPath, Path.of("folder", forbidden)));
       // There characters are not allowed as part of a folder name
-      assertThrows(WorkspaceFileOpException.class, () -> validatePath(Path.of(forbidden, "file")));
+      assertThrows(SecurityException.class, () -> validatePath(emptyPath, Path.of(forbidden, "file")));
     }
 
     @ParameterizedTest
     @FieldSource("trailingChars")
     void validatePathTrailingChars(String forbidden) {
       // Trailing characters are not permitted at the end of a file
-      assertThrows(WorkspaceFileOpException.class, () -> validatePath(Path.of(forbidden)));
-      assertThrows(WorkspaceFileOpException.class, () -> validatePath(Path.of("foobar" + forbidden)));
-      assertThrows(WorkspaceFileOpException.class, () -> validatePath(Path.of("folder", forbidden)));
+      assertThrows(SecurityException.class, () -> validatePath(emptyPath, Path.of(forbidden)));
+      assertThrows(SecurityException.class, () -> validatePath(emptyPath, Path.of("foobar" + forbidden)));
+      assertThrows(SecurityException.class, () -> validatePath(emptyPath, Path.of("folder", forbidden)));
 
       // Trailing characters are permitted before an extension (as the extension makes them non-trailing)
-      assertDoesNotThrow(() -> validatePath(Path.of("file"+forbidden+".txt")));
+      assertDoesNotThrow(() -> validatePath(emptyPath, Path.of("file"+forbidden+".txt")));
 
       // Trailing characters are not permitted in folder names
-      assertThrows(WorkspaceFileOpException.class, () -> validatePath(Path.of(forbidden, "file")));
-      assertThrows(WorkspaceFileOpException.class, () -> validatePath(Path.of("folder"+forbidden, "file")));
+      assertThrows(SecurityException.class, () -> validatePath(emptyPath, Path.of(forbidden, "file")));
+      assertThrows(SecurityException.class, () -> validatePath(emptyPath, Path.of("folder"+forbidden, "file")));
     }
 
     @ParameterizedTest
     @FieldSource("reservedFileNames")
     void validatePathReservedFilenames(String reserved) {
-      assertThrows(WorkspaceFileOpException.class, () -> validatePath(Path.of(reserved)));
-      assertThrows(WorkspaceFileOpException.class, () -> validatePath(Path.of(reserved+".txt")));
-      assertThrows(WorkspaceFileOpException.class, () -> validatePath(Path.of("folder/"+reserved)));
-      assertThrows(WorkspaceFileOpException.class, () -> validatePath(Path.of("folder/"+reserved+".txt")));
-      assertThrows(WorkspaceFileOpException.class, () -> validatePath(Path.of(reserved, "file.txt")));
+      assertThrows(SecurityException.class, () -> validatePath(emptyPath, Path.of(reserved)));
+      assertThrows(SecurityException.class, () -> validatePath(emptyPath, Path.of(reserved+".txt")));
+      assertThrows(SecurityException.class, () -> validatePath(emptyPath, Path.of("folder/"+reserved)));
+      assertThrows(SecurityException.class, () -> validatePath(emptyPath, Path.of("folder/"+reserved+".txt")));
+      assertThrows(SecurityException.class, () -> validatePath(emptyPath, Path.of(reserved, "file.txt")));
 
       // They are allowed to be PART of the file name
-      assertDoesNotThrow(() -> validatePath(Path.of("myFile_"+reserved)));
-      assertDoesNotThrow(() -> validatePath(Path.of("myFile_"+reserved+".txt")));
-      assertDoesNotThrow(() -> validatePath(Path.of("myFolder_"+reserved, "myFile.txt")));
+      assertDoesNotThrow(() -> validatePath(emptyPath, Path.of("myFile_"+reserved)));
+      assertDoesNotThrow(() -> validatePath(emptyPath, Path.of("myFile_"+reserved+".txt")));
+      assertDoesNotThrow(() -> validatePath(emptyPath, Path.of("myFolder_"+reserved, "myFile.txt")));
     }
 
     /**
@@ -166,12 +168,12 @@ class WorkspacePathsTest {
      */
     @Test
     void forwardSlash() {
-      assertDoesNotThrow(() -> validatePath(Path.of("/")));
-      assertDoesNotThrow(() -> validatePath(Path.of("foobar/")));
-      assertDoesNotThrow(() -> validatePath(Path.of("file/.txt")));
-      assertDoesNotThrow(() -> validatePath(Path.of("folder", "/")));
-      assertDoesNotThrow(() -> validatePath(Path.of("folder/")));
-      assertDoesNotThrow(() -> validatePath(Path.of("/", "file.txt")));
+      assertDoesNotThrow(() -> validatePath(emptyPath, Path.of("/")));
+      assertDoesNotThrow(() -> validatePath(emptyPath, Path.of("foobar/")));
+      assertDoesNotThrow(() -> validatePath(emptyPath, Path.of("file/.txt")));
+      assertDoesNotThrow(() -> validatePath(emptyPath, Path.of("folder", "/")));
+      assertDoesNotThrow(() -> validatePath(emptyPath, Path.of("folder/")));
+      assertDoesNotThrow(() -> validatePath(emptyPath, Path.of("/", "file.txt")));
     }
 
     /**
@@ -179,12 +181,12 @@ class WorkspacePathsTest {
      */
     @Test
     void validatePathPermitsSpacePeriod() {
-      assertDoesNotThrow(() -> validatePath(Path.of("my file")));
-      assertDoesNotThrow(() -> validatePath(Path.of("my folder","my file")));
-      assertDoesNotThrow(() -> validatePath(Path.of("my folder", " my file")));
-      assertDoesNotThrow(() -> validatePath(Path.of("my.file")));
-      assertDoesNotThrow(() -> validatePath(Path.of("my.folder","my.file")));
-      assertDoesNotThrow(() -> validatePath(Path.of("my.folder",".my.file")));
+      assertDoesNotThrow(() -> validatePath(emptyPath, Path.of("my file")));
+      assertDoesNotThrow(() -> validatePath(emptyPath, Path.of("my folder","my file")));
+      assertDoesNotThrow(() -> validatePath(emptyPath, Path.of("my folder", " my file")));
+      assertDoesNotThrow(() -> validatePath(emptyPath, Path.of("my.file")));
+      assertDoesNotThrow(() -> validatePath(emptyPath, Path.of("my.folder","my.file")));
+      assertDoesNotThrow(() -> validatePath(emptyPath, Path.of("my.folder",".my.file")));
     }
   }
 

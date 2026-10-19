@@ -625,6 +625,10 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     logger.info("Workspace at {} is now under history", root);
   }
 
+  public boolean isManaged(final int workspaceId) throws IOException, NoSuchWorkspaceException {
+    return isManaged(postgresRepository.workspaceRootPath(workspaceId));
+  }
+
   /**
    * Whether a workspace has been fully initialized or adopted (see the class Javadoc). Never discovers a parent
    * repository.

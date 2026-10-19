@@ -270,7 +270,7 @@ public final class WorkspaceRevisions {
     return key.substring(0, slash + 1) + RenderType.toMetadataFileName(key.substring(slash + 1));
   }
 
-  private static String annotation(final Revision revision) {
+  static String annotation(final Revision revision) {
     final var json = Json.createObjectBuilder()
                          .add("type", TYPE)
                          .add("version", VERSION)

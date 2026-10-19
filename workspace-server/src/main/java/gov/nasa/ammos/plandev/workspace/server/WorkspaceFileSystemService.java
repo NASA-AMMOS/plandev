@@ -19,6 +19,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.InputStream;
 import java.io.StringWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -61,6 +62,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   final WorkspaceRepository workspaceRepository;
   final WorkspaceGitService gitService;
+  private final WorkspaceRevisions revisions = new WorkspaceRevisions();
 
   public WorkspaceFileSystemService(final WorkspaceRepository workspaceRepository, final WorkspaceGitService gitService) {
     this.workspaceRepository = workspaceRepository;
@@ -243,14 +245,22 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
     if(Files.isDirectory(path)) return Optional.empty();
 
-    // Stream to a temp file, hashing as we go so the returned ETag matches what we wrote, then rename it into place
-    // so lock-free readers see the old or the new bytes, never a partial file. Overwriting keeps the file's
-    // permissions (notably the executable bit, which Git versions), so a save changes content only.
+    final var etag = writeContent(workspace, path, file.content());
+    updateMetadata(workspace, filePath, metadataUpdates, MetadataMergeBehavior.deepMerge);
+    return Optional.of(etag);
+  }
+
+  /**
+   * Stream to a temp file, hashing as we go so the returned ETag matches what we wrote, then rename it into place
+   * so lock-free readers see the old or the new bytes, never a partial file. Overwriting keeps the file's
+   * permissions (notably the executable bit, which Git versions), so a write changes content only.
+   */
+  private static String writeContent(final Workspace workspace, final Path path, final InputStream content) throws IOException {
     final var md = WorkspaceService.newSHA256Digest();
     final var tmp = tempFile(workspace);
     try {
       Files.createDirectories(path.getParent());
-      try (final var contentStream = new DigestInputStream(file.content(), md)) {
+      try (final var contentStream = new DigestInputStream(content, md)) {
         Files.copy(contentStream, tmp);
       }
       if (Files.exists(path) && path.getFileSystem().supportedFileAttributeViews().contains("posix")) {
@@ -260,8 +270,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     } finally {
       Files.deleteIfExists(tmp);
     }
-    updateMetadata(workspace, filePath, metadataUpdates, MetadataMergeBehavior.deepMerge);
-    return Optional.of(WorkspaceService.eTagFromDigest(md.digest()));
+    return WorkspaceService.eTagFromDigest(md.digest());
   }
 
   @Override
@@ -964,6 +973,74 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       return true;
     }
     return rm(metadataFilePath.toFile());
+  }
+  //endregion
+
+  //region Revisions
+  @Override
+  public WorkspaceRevisions.Revision createRevision(
+      final Workspace workspace,
+      final Path filePath,
+      final String message,
+      final String userId)
+  throws NoSuchFileException, WorkspaceFileOpException, IOException, GitAPIException
+  {
+    gitService.requireLocked(workspace);
+    final var root = workspace.rootPath();
+    final var key = revisionKey(workspace, filePath);
+    return revisions.create(root, key, message, userId, gitService.lastEdit(workspace, root.resolve(key)));
+  }
+
+  @Override
+  public List<WorkspaceRevisions.Revision> listRevisions(final Workspace workspace, final Path filePath)
+  throws NoSuchFileException, WorkspaceFileOpException, IOException
+  {
+    final var root = workspace.rootPath();
+    return revisions.list(root, revisionKey(workspace, filePath));
+  }
+
+  @Override
+  public Optional<WorkspaceRevisions.HistoricalFile> readRevision(final Workspace workspace, final Path filePath, final String name)
+  throws NoSuchFileException, WorkspaceFileOpException, IOException
+  {
+    final var root = workspace.rootPath();
+    final var revision = revisions.find(root, revisionKey(workspace, filePath), name);
+    return revision.isEmpty() ? Optional.empty() : Optional.of(WorkspaceRevisions.read(root, revision.get()));
+  }
+
+  @Override
+  public Optional<String> restoreRevision(final Workspace workspace, final Path filePath, final String name, final String userId)
+  throws NoSuchFileException, WorkspaceFileOpException, IOException, JsonException
+  {
+    gitService.requireLocked(workspace);
+    final var historical = readRevision(workspace, filePath, name);
+    if (historical.isEmpty()) return Optional.empty();
+    final var root = workspace.rootPath();
+    final var etag = writeContent(workspace, resolveWritingPath(workspace, filePath), new ByteArrayInputStream(historical.get().content()));
+
+    // Only the user-managed "user" field comes back; readOnly and the system fields stay as they are now.
+    final var metadataFile = WorkspacePaths.resolveMetadataPath(workspace, filePath).toFile();
+    final var restored = generateUpdatedMetadataFile(
+        readMetadataFile(metadataFile),
+        new MetadataUpdates.Builder(userId).build(),
+        MetadataMergeBehavior.overwrite);
+    restored.user(historical.get().metadata().get(MetadataKeys.user.name()) instanceof JsonObject user ? user : null);
+    writeMetadataFile(workspace, metadataFile, restored.build());
+    return Optional.of(etag);
+  }
+
+  /** The workspace key of an existing content file; directories and sidecars have no revisions. */
+  private String revisionKey(final Workspace workspace, final Path filePath)
+  throws NoSuchFileException, WorkspaceFileOpException
+  {
+    final var root = workspace.rootPath();
+    final var path = WorkspacePaths.resolveReadingPath(workspace, filePath);
+    if (RenderType.isAerieMetadataFile(path.getFileName().toString())) {
+      throw new WorkspaceFileOpException("Metadata files do not have revisions.");
+    }
+    if (Files.isDirectory(path)) throw new WorkspaceFileOpException("Directories do not have revisions.");
+    if (!Files.isRegularFile(path)) throw new NoSuchFileException(workspace, filePath);
+    return WorkspacePaths.key(root, path);
   }
   //endregion
 }

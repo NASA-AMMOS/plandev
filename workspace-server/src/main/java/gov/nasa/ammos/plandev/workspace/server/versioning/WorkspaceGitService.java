@@ -984,6 +984,10 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
 
   private static final PersonIdent systemIdentifier = new PersonIdent("SeqDev", "Workspaces@SeqDev");
 
+  public static PersonIdent systemIdent() {
+    return systemIdentifier;
+  }
+
   private static PersonIdent userIdent(final String userId) {
     return new PersonIdent(userId, userId+"@SeqDev");
   }

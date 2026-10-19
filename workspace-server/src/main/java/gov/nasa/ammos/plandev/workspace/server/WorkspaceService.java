@@ -8,6 +8,7 @@ import gov.nasa.ammos.plandev.workspace.server.types.MetadataMergeBehavior;
 import gov.nasa.ammos.plandev.workspace.server.types.Workspace;
 import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitService;
 import io.javalin.http.UploadedFile;
+import org.eclipse.jgit.api.errors.GitAPIException;
 
 import javax.json.JsonException;
 import java.io.IOException;
@@ -355,4 +356,39 @@ public interface WorkspaceService {
    */
   boolean deleteMetadataFile(final Workspace workspace, final Path filePath)
   throws WorkspaceFileOpException, IOException;
+
+  /**
+   * Record the file's committed state as its next revision. Makes no commit. Caller holds the workspace lock.
+   * @return the new revision
+   * @throws NoSuchFileException If the file does not exist
+   * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory
+   */
+  WorkspaceRevisions.Revision createRevision(final Workspace workspace, final Path filePath, final String message, final String userId)
+  throws NoSuchFileException, WorkspaceFileOpException, IOException, GitAPIException;
+
+  /**
+   * The file's revisions, newest first, following same-workspace renames (see {@link WorkspaceRevisions}).
+   * @throws NoSuchFileException If the file does not exist
+   * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory
+   */
+  List<WorkspaceRevisions.Revision> listRevisions(final Workspace workspace, final Path filePath)
+  throws NoSuchFileException, WorkspaceFileOpException, IOException;
+
+  /**
+   * The content and committed metadata of one of the file's revisions, or empty if it has no revision by that name.
+   * @throws NoSuchFileException If the file does not exist
+   * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory
+   */
+  Optional<WorkspaceRevisions.HistoricalFile> readRevision(final Workspace workspace, final Path filePath, final String name)
+  throws NoSuchFileException, WorkspaceFileOpException, IOException;
+
+  /**
+   * Replace the file's content and the "user" field of its metadata with one of its revisions'. Caller holds the
+   * workspace lock and has checked readOnly and If-Match.
+   * @return the file's new ETag, or empty if it has no revision by that name
+   * @throws NoSuchFileException If the file does not exist
+   * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory
+   */
+  Optional<String> restoreRevision(final Workspace workspace, final Path filePath, final String name, final String userId)
+  throws NoSuchFileException, WorkspaceFileOpException, IOException, JsonException;
 }

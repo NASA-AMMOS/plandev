@@ -1068,6 +1068,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     if (paths.isEmpty() || !isManaged(workspaceId)) {
       return Map.of();
     }
+    final var workspaceRootPath = workspaceRepository.workspaceRootPath(workspaceId);
 
     final var edits = new HashMap<Path, LastEdit>();
 
@@ -1094,12 +1095,20 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
           // Get the last commit that edited the file and add it to the return map
           final Iterator<RevCommit> pathLog;
           try {
-            pathLog = git.log()
-                         .add(head)                 // Specify that we're starting the traversal at the current commit
-                         .addPath(toGitPath(path))  // Only get commits that edit this file
-                         .setMaxCount(1)            // Only get one commit
-                         .call()
-                         .iterator();               // Get the iterator for this response
+            final var logCommand = git
+                .log()
+                .addPath(toGitPath(workspaceRootPath.relativize(path))) // Only get commits that edit this file
+                .setMaxCount(1);                                        // Only get one commit
+
+            // If this was a proper cache miss, search the whole history starting at HEAD
+            if(cachedEdit == null) {
+              logCommand.add(head);
+            } else {
+              // Otherwise, search just between HEAD and the last time the cache was validated
+              logCommand.addRange(cachedEdit.validAt, head);
+            }
+            // Get the iterator for these results
+            pathLog = logCommand.call().iterator();
           } catch (GitAPIException gae) {
             throw new WorkspaceHistoryException(
                 WorkspaceHistoryException.Kind.OTHER,
@@ -1107,20 +1116,20 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
                 gae);
           }
 
-          // If this occurs, then the file has never been edited by git
           if (!pathLog.hasNext()) {
-            throw new WorkspaceHistoryException(
-                WorkspaceHistoryException.Kind.OTHER,
-                "File %s int Workspace %d has no revision history".formatted(path, workspaceId));
-          }
-
-          final var commit = pathLog.next();
-          // If this commit equals the commit hash in the LastEdit, then the cached value is still valid
-          // and can be kept in the cache with a refreshed validAt
-          if (cachedEdit != null && commit.equals(cachedEdit.edit.commitHash())) {
-            cache.put(path, new CachedLastEdit(head, cachedEdit.edit));
-            edits.put(path, cachedEdit.edit);
+            if(cachedEdit == null) {
+              // If this was a cache miss, then the file has never been edited by git (not even a baseline commit)
+              throw new WorkspaceHistoryException(
+                  WorkspaceHistoryException.Kind.OTHER,
+                  "File %s int Workspace %d has no revision history".formatted(path, workspaceId));
+            } else {
+              // If this was a cache hit, then the file has not been edited since the last time the cache entry was validated
+              // Therefore, we can put the entry back in the cache with an updated validation
+              cache.put(path, new CachedLastEdit(head, cachedEdit.edit));
+              edits.put(path, cachedEdit.edit);
+            }
           } else {
+            final var commit = pathLog.next();
             // Generate and cache the most recent change to the path
             final var author = commit.getAuthorIdent();
             final var edit = new LastEdit(author, author.getWhenAsInstant(), commit, commit.getParentCount() == 0);

@@ -381,6 +381,8 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         .createdAt(now)
         .createdBy(userId)
         .readOnly(false)
+        .lastEditedAt(now)
+        .lastEditedBy(userId)
         .build();
     updateMetadata(destRoot, destRoot.normalize().relativize(destPath), metadataUpdates, MetadataMergeBehavior.deepMerge);
     Files.copy(sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
@@ -548,7 +550,6 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   public List<Path> getReadOnlyFiles(final int workspaceId, final Path dirPath)
   throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException, JsonException, SQLException
   {
-    gitService.requireLocked(workspaceId);
     final var repoPath = workspaceRepository.workspaceRootPath(workspaceId);
     final var directoryPath = WorkspacePaths.resolveReadingPath(repoPath, dirPath);
 
@@ -559,7 +560,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       return List.of();
     }
 
-    return listFiles(workspaceId, directoryPath, -1, true).readOnlyNodes();
+    return listFiles(workspaceId, dirPath, -1, true).readOnlyNodes();
   }
   //endregion
 
@@ -606,7 +607,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
    * Map each Path in resolvedPaths to a pair containing the Path to its metadata file and the last git edit
    */
   private Map<Path, Pair<Path, LastEdit>> metadataMap(final int workspaceId, final List<Path> resolvedPaths)
-  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException, WorkspaceHistoryException
+  throws NoSuchWorkspaceException, IOException, WorkspaceHistoryException, WorkspaceFileOpException
   {
     final var map = new HashMap<Path, Pair<Path, LastEdit>>();
     final var workspaceRoot = workspaceRepository.workspaceRootPath(workspaceId);
@@ -622,7 +623,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       if(Files.isDirectory(path) || RenderType.isAerieMetadataFile(path.getFileName().toString())) {
         continue;
       }
-      final var metadataPath = WorkspacePaths.resolveMetadataPath(workspaceRoot, path);
+      final var metadataPath = WorkspacePaths.resolveMetadataPath(workspaceRoot, workspaceRoot.relativize(path));
       final var edit = lastEditsMap.get(path);
       map.put(path, Pair.of(metadataPath, edit));
     }

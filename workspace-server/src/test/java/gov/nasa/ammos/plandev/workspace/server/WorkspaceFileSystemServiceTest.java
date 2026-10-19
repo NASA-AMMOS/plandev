@@ -1,6 +1,8 @@
 package gov.nasa.ammos.plandev.workspace.server;
 
 import gov.nasa.ammos.plandev.workspace.server.versioning.LastEdit;
+import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitService;
+import org.eclipse.jgit.lib.PersonIdent;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -12,6 +14,10 @@ import java.time.Instant;
 import static org.junit.jupiter.api.Assertions.*;
 
 class WorkspaceFileSystemServiceTest {
+  private static LastEdit lastEdit(String authorName, Instant timeStamp, boolean baseline) {
+    return new LastEdit(new PersonIdent(authorName, ""), timeStamp, null, baseline);
+  }
+
   @Nested
   class EffectiveMetadataTests {
     private static final String CREATED_AT = "2025-01-01T00:00:00Z";
@@ -29,49 +35,45 @@ class WorkspaceFileSystemServiceTest {
     }
 
     private static void assertLastEdit(final JsonObject metadata, final String by, final String at) {
-      assertEquals(by, metadata.getString("lastEditedBy"));
+      assertEquals(by+" <>", metadata.getString("lastEditedBy"));
       assertEquals(at, metadata.getString("lastEditedAt"));
     }
 
     @Test
     void contentEditAfterBaselineOverridesStoredAttribution() {
-      final var edit = new LastEdit("git", EDIT_AT, false);
+      final var edit = lastEdit("git", EDIT_AT, false);
 
-      final var metadata = WorkspaceFileSystemService.effectiveMetadata(sidecarWithStoredEdit(), edit);
+      final var metadata = WorkspaceGitService.applyLastEdit(sidecarWithStoredEdit(), edit);
 
       assertLastEdit(metadata, "git", EDIT_AT.toString());
     }
 
     @Test
     void baselinePreservesCompleteStoredAttribution() {
-      final var baseline = new LastEdit("PlanDev", BASELINE_AT, true);
+      final var baseline = lastEdit("PlanDev", BASELINE_AT, true);
 
-      final var metadata = WorkspaceFileSystemService.effectiveMetadata(sidecarWithStoredEdit(), baseline);
+      final var metadata = WorkspaceGitService.applyLastEdit(sidecarWithStoredEdit(), baseline);
 
-      assertLastEdit(metadata, "sidecar", SIDECAR_AT);
+      assertEquals("sidecar", metadata.getString("lastEditedBy"));
+      assertEquals(SIDECAR_AT, metadata.getString("lastEditedAt"));
     }
 
     @Test
     void baselineIsTheFallbackForIncompleteStoredAttribution() {
       final var incomplete = Json.createObjectBuilder(sidecarWithStoredEdit()).remove("lastEditedAt").build();
-      final var baseline = new LastEdit("PlanDev", BASELINE_AT, true);
+      final var baseline = lastEdit("PlanDev", BASELINE_AT, true);
 
-      final var metadata = WorkspaceFileSystemService.effectiveMetadata(incomplete, baseline);
+      final var metadata = WorkspaceGitService.applyLastEdit(incomplete, baseline);
 
       assertLastEdit(metadata, "PlanDev", BASELINE_AT.toString());
     }
 
     @Test
-    void creationAttributionIsTheFallbackBeforeTheFirstCommit() {
-      final var incomplete = Json.createObjectBuilder()
-                                 .add("createdBy", "creator")
-                                 .add("createdAt", CREATED_AT)
-                                 .add("lastEditedBy", "orphaned")
-                                 .build();
+    void metadataFileIsFallbackBeforeFirstCommit() {
+      final var metadata = WorkspaceGitService.applyLastEdit(sidecarWithStoredEdit(), null);
 
-      final var metadata = WorkspaceFileSystemService.effectiveMetadata(incomplete, null);
-
-      assertLastEdit(metadata, "creator", CREATED_AT);
+      assertEquals("sidecar", metadata.getString("lastEditedBy"));
+      assertEquals(SIDECAR_AT, metadata.getString("lastEditedAt"));
     }
   }
 

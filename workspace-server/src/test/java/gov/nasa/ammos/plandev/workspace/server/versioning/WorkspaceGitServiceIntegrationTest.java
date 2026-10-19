@@ -5,6 +5,7 @@ import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpExcepti
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistoryException;
 import gov.nasa.ammos.plandev.workspace.server.types.HandlerResult;
 import gov.nasa.ammos.plandev.workspace.server.types.MetadataMergeBehavior;
+import gov.nasa.ammos.plandev.workspace.server.utils.WorkspaceTestRepository;
 import io.javalin.http.UploadedFile;
 import jakarta.servlet.http.Part;
 import org.eclipse.jgit.api.Git;
@@ -26,22 +27,33 @@ import javax.json.JsonObject;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.lang.reflect.Proxy;
+import java.net.StandardProtocolFamily;
+import java.net.URI;
+import java.net.UnixDomainSocketAddress;
+import java.nio.channels.ServerSocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -52,12 +64,17 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  */
 class WorkspaceGitServiceIntegrationTest {
   private static final String USER = "alice";
+  private static final String USER_IDENT = "alice <alice@SeqDev>";
   private static final int WS1 = 1;
   private static final int WS2 = 2;
 
+  private static final Path fileA = Path.of("a.txt");
+  private static final Path fileB = Path.of("b.txt");
+  private static final Path goneFile = Path.of("gone.txt");
+  private static final Path fileX = Path.of("d/x.txt");
+
   @TempDir Path tmp;
-  private Path base;
-  private WorkspaceRoots roots;
+  private WorkspaceTestRepository wsRepo;
   private FlakyHistory history;
   private WorkspaceFileSystemService fs;
   private WorkspaceBindings bindings;
@@ -70,7 +87,7 @@ class WorkspaceGitServiceIntegrationTest {
     final Set<Path> failMovesTo = ConcurrentHashMap.newKeySet();
     volatile String failMovesEndingWith;
 
-    FlakyHistory(final WorkspaceRoots roots) {
+    FlakyHistory(final WorkspaceRepository roots) {
       super(roots);
     }
 
@@ -97,23 +114,22 @@ class WorkspaceGitServiceIntegrationTest {
 
   @BeforeEach
   void setUp() throws IOException {
-    base = tmp.toRealPath();
-    Files.createDirectories(base.resolve("ws1"));
-    Files.createDirectories(base.resolve("ws2"));
-    roots = id -> base.resolve("ws" + id);
+    wsRepo = new WorkspaceTestRepository(tmp.toRealPath());
+    wsRepo.createWorkspace("ws1");
+    wsRepo.createWorkspace("ws2");
     restartServer();
   }
 
   /** Recreate all in-memory coordination state while keeping the workspace disks, as a process restart would. */
   private void restartServer() {
-    history = new FlakyHistory(roots);
-    fs = new WorkspaceFileSystemService(roots, null, history);
+    history = new FlakyHistory(wsRepo);
+    fs = new WorkspaceFileSystemService(wsRepo, history);
     bindings = new WorkspaceBindings(null, fs, history, null, "");
   }
 
   //region Helpers
   private List<Path> incidents(final int ws) throws IOException {
-    final var dir = WorkspaceGitService.recoveryDir(root(ws));
+    final var dir = WorkspaceGitService.recoveryDir(wsRepo.workspaceRootPath(ws));
     if (!Files.isDirectory(dir)) return List.of();
     try (final var entries = Files.list(dir)) {
       return entries.sorted().toList();
@@ -132,28 +148,24 @@ class WorkspaceGitServiceIntegrationTest {
     }
   }
 
-  private static java.util.Map<String, String> changesIn(final Path incident) throws IOException {
-    final var changes = new java.util.TreeMap<String, String>();
+  private static Map<String, String> changesIn(final Path incident) throws IOException {
+    final var changes = new TreeMap<String, String>();
     for (final var p : incidentJson(incident).getJsonArray("paths").getValuesAs(JsonObject.class)) {
       changes.put(p.getString("path"), p.getString("change"));
     }
     return changes;
   }
 
-  private static String preserved(final Path incident, final String path) throws IOException {
+  private static String preserved(final Path incident, final Path path) throws IOException {
     return Files.readString(incident.resolve("files").resolve(path));
   }
 
-  private Path root(final int ws) {
-    return base.resolve("ws" + ws);
-  }
-
   private Path mutationMarker(final int ws) {
-    return root(ws).resolve(".git").resolve(WorkspaceGitService.MUTATION_MARKER);
+    return wsRepo.workspaceRootPath(ws).resolve(".git").resolve(WorkspaceGitService.MUTATION_MARKER);
   }
 
   private Path adoptionMarker(final int ws) {
-    return root(ws).resolve(".seqdev").resolve(WorkspaceGitService.ADOPTION_MARKER);
+    return wsRepo.workspaceRootPath(ws).resolve(".seqdev").resolve(WorkspaceGitService.ADOPTION_MARKER);
   }
 
   private static void createMarker(final Path marker) throws IOException {
@@ -163,23 +175,82 @@ class WorkspaceGitServiceIntegrationTest {
 
   private static UploadedFile upload(final String name, final String content) {
     final var bytes = content.getBytes(StandardCharsets.UTF_8);
-    final var part = (Part) Proxy.newProxyInstance(Part.class.getClassLoader(), new Class<?>[]{Part.class}, (p, m, a) ->
+
+    /*
+    final var part = new Part() {
+      private final InputStream inputStream = new ByteArrayInputStream(bytes);
+
+      @Override
+      public InputStream getInputStream() {
+        return inputStream;
+      }
+
+      @Override
+      public String getContentType() {
+        return "application/octet-stream";
+      }
+
+      @Override
+      public String getName() {
+        return name;
+      }
+
+      @Override
+      public String getSubmittedFileName() {
+        return name;
+      }
+
+      @Override
+      public long getSize() {
+        return bytes.length;
+      }
+
+      @Override
+      public void write(final String s) throws IOException {
+        inputStream.read();
+      }
+
+      @Override
+      public void delete() throws IOException {}
+
+      @Override
+      public String getHeader(final String s) {
+        return "";
+      }
+
+      @Override
+      public Collection<String> getHeaders(final String s) {
+        return List.of("");
+      }
+
+      @Override
+      public Collection<String> getHeaderNames() {
+        return List.of();
+      }
+    };
+     */
+
+    final var pa = (Part) Proxy.newProxyInstance(Part.class.getClassLoader(), new Class<?>[]{Part.class}, (p, m, a) ->
         switch (m.getName()) {
           case "getInputStream" -> new ByteArrayInputStream(bytes);
           case "getSubmittedFileName", "getName" -> name;
           case "getSize" -> (long) bytes.length;
           case "getContentType" -> "application/octet-stream";
-          default -> null;
+          //default -> null;
+          default -> throw new IllegalStateException("Unexpected value: " + m.getName());
         });
-    return new UploadedFile(part);
+    return new UploadedFile(pa);
   }
 
-  private HandlerResult save(final int ws, final String path, final String content, final String ifMatch) {
-    final var p = Path.of(path);
-    return bindings.handleFileUpload(ws, p, upload(p.getFileName().toString(), content), ifMatch == null, ifMatch, USER);
+  private HandlerResult save(final int ws, final Path path, final String content, final String ifMatch) {
+    return bindings.handleFileUpload(ws, path, upload(path.getFileName().toString(), content), ifMatch == null, ifMatch, USER);
   }
 
   private String saveOk(final int ws, final String path, final String content) {
+    return saveOk(ws, Path.of(path), content);
+  }
+
+  private String saveOk(final int ws, final Path path, final String content) {
     final var result = save(ws, path, content, null);
     assertInstanceOf(HandlerResult.Success.class, result, () -> result.jsonResponse().toString());
     return ((HandlerResult.Success) result).etag().orElseThrow();
@@ -196,7 +267,7 @@ class WorkspaceGitServiceIntegrationTest {
   }
 
   private Git git(final int ws) throws IOException {
-    return Git.open(root(ws).toFile());
+    return Git.open(wsRepo.workspaceRootPath(ws).toFile());
   }
 
   private void assertClean(final int ws) throws Exception {
@@ -237,18 +308,16 @@ class WorkspaceGitServiceIntegrationTest {
   }
 
   private String read(final int ws, final String path) throws IOException {
-    return Files.readString(root(ws).resolve(path));
+    return read(ws, Path.of(path));
   }
 
-  private static String sidecar(final String path) {
-    final var p = Path.of(path);
-    final var name = "." + p.getFileName() + ".meta.seqdev";
-    return p.getParent() == null ? name : p.getParent().resolve(name).toString();
+  private String read(final int ws, final Path path) throws IOException {
+    return Files.readString(wsRepo.workspaceRootPath(ws).resolve(path));
   }
 
-  private void setReadOnly(final int ws, final String path, final boolean readOnly) throws Exception {
+  private void setReadOnly(final int ws, final Path path, final boolean readOnly) throws Exception {
     history.mutate(ws, USER, "lock", () -> fs.updateMetadataKeys(
-        ws, Path.of(path), new MetadataUpdates.Builder(USER).readOnly(readOnly).build(), MetadataMergeBehavior.deepMerge),
+        ws, path, new MetadataUpdates.Builder(USER).readOnly(readOnly).build(), MetadataMergeBehavior.deepMerge),
         r -> true);
   }
 
@@ -269,7 +338,7 @@ class WorkspaceGitServiceIntegrationTest {
         MetadataMergeBehavior.deepMerge), r -> true);
   }
 
-  private JsonObject metadata(final int ws, final String path) throws Exception {
+  protected JsonObject metadata(final int ws, final String path) throws Exception {
     try (final var in = fs.loadMetadataFile(ws, Path.of(path)).readingStream();
          final var reader = Json.createReader(in)) {
       return reader.readObject();
@@ -298,68 +367,72 @@ class WorkspaceGitServiceIntegrationTest {
 
     @Test
     void reSavingOnlyCommitsTheContentNotTheSidecar() throws Exception {
-      saveOk(WS1, "a.txt", "one");
-      saveOk(WS1, "a.txt", "two");
-      assertEquals(List.of("a.txt"), headDiff(WS1).stream().map(DiffEntry::getNewPath).toList());
+      saveOk(WS1, fileA, "one");
+      saveOk(WS1, fileA, "two");
+      assertEquals(
+          List.of(fileA.toString()),
+          headDiff(WS1).stream().map(DiffEntry::getNewPath).toList());
       assertClean(WS1);
     }
 
     @Test
     void identicalSaveCreatesNoCommit() throws Exception {
-      saveOk(WS1, "a.txt", "same");
+      saveOk(WS1, fileA, "same");
       final var before = log(WS1).size();
-      saveOk(WS1, "a.txt", "same");
+      saveOk(WS1, fileA, "same");
       assertEquals(before, log(WS1).size());
       assertClean(WS1);
     }
 
     @Test
     void etagChangesAndAStaleEtagIsRejectedBeforeAnyMutation() throws Exception {
-      final var etag1 = saveOk(WS1, "a.txt", "v1");
-      final var result2 = save(WS1, "a.txt", "v2", etag1);
+      final var etag1 = saveOk(WS1, fileA, "v1");
+      final var result2 = save(WS1, fileA, "v2", etag1);
       assertSuccess(result2);
       final var etag2 = ((HandlerResult.Success) result2).etag().orElseThrow();
       assertNotEquals(etag1, etag2);
       final var commits = log(WS1).size();
 
-      final var stale = save(WS1, "a.txt", "v3", etag1);
+      final var stale = save(WS1, fileA, "v3", etag1);
       assertFailure(stale, 412, null);
       assertEquals(etag2, stale.jsonResponse().asJsonObject().getJsonObject("data").getString("currentETag"));
-      assertEquals(USER, stale.jsonResponse().asJsonObject().getJsonObject("data").getString("lastEditedBy"));
-      assertEquals("v2", read(WS1, "a.txt"));
+      assertEquals(USER_IDENT, stale.jsonResponse().asJsonObject().getJsonObject("data").getString("lastEditedBy"));
+      assertEquals("v2", read(WS1, fileA));
       assertEquals(commits, log(WS1).size());
       assertClean(WS1);
 
-      assertSuccess(save(WS1, "a.txt", "v4", "*")); // explicit overwrite still allowed
-      assertEquals("v4", read(WS1, "a.txt"));
+      assertSuccess(save(WS1, fileA, "v4", "*")); // explicit overwrite still allowed
+      assertEquals("v4", read(WS1, fileA));
     }
 
     @Test
     void readOnlyFileIsLockedAndTheLockIsStoredInItsSidecar() throws Exception {
-      saveOk(WS1, "a.txt", "v1");
+      saveOk(WS1, fileA, "v1");
       final var commits = log(WS1).size();
-      setReadOnly(WS1, "a.txt", true);
+      setReadOnly(WS1, fileA, true);
       assertEquals(commits + 1, log(WS1).size());
       assertEquals(List.of(".a.txt.meta.seqdev"), headDiff(WS1).stream().map(DiffEntry::getNewPath).toList());
-      assertTrue(Files.readString(root(WS1).resolve(".a.txt.meta.seqdev")).contains("readOnly"));
-      assertFailure(save(WS1, "a.txt", "v2", "*"), 423, "FILE_LOCKED");
-      assertEquals("v1", read(WS1, "a.txt"));
+      assertTrue(Files.readString(wsRepo.workspaceRootPath(WS1).resolve(".a.txt.meta.seqdev")).contains("readOnly"));
+      assertFailure(save(WS1, fileA, "v2", "*"), 423, "FILE_LOCKED");
+      assertEquals("v1", read(WS1, fileA));
       assertClean(WS1);
     }
 
     @Test
     void userMetadataIsVersionedAndLastEditedIsDerivedFromHistory() throws Exception {
-      saveOk(WS1, "a.txt", "v1");
+      saveOk(WS1, fileA, "v1");
       final var savedAt = head(WS1).getAuthorIdent().getWhenAsInstant();
       history.mutate(WS1, "bob", "Update metadata for a.txt", () -> fs.updateMetadataKeys(
-          WS1, Path.of("a.txt"),
+          WS1, fileA,
           new MetadataUpdates.Builder("bob").user(Json.createObjectBuilder().add("status", "draft").build()).build(),
           MetadataMergeBehavior.deepMerge), r -> true);
 
       assertEquals(List.of(".a.txt.meta.seqdev"), headDiff(WS1).stream().map(DiffEntry::getNewPath).toList());
-      final var info = fs.getLastEditInfo(WS1, Path.of("a.txt"));
+      final var info = fs.getLastEditInfo(WS1, fileA);
       assertEquals(USER, info.lastEditedBy(), "a metadata-only change is not a content edit");
-      assertEquals(savedAt.toString(), info.lastEditedAt());
+
+      // LastEditedAt saves at a higher fidelity than author ident
+      assertEquals(savedAt, Instant.parse(info.lastEditedAt()).truncatedTo(ChronoUnit.SECONDS));
       assertClean(WS1);
     }
   }
@@ -368,26 +441,31 @@ class WorkspaceGitServiceIntegrationTest {
   class LastEdits {
     @Test
     void resolvesOnlyRequestedContentPathsAndReusesPerPathCache() throws Exception {
-      saveOk(WS1, "a.txt", "a1");
-      saveOk(WS1, "b.txt", "b1");
+      saveOk(WS1, fileA, "a1");
+      saveOk(WS1, fileB, "b1");
 
-      final var onlyA = history.lastEdits(root(WS1), Set.of("a.txt"));
-      assertEquals(Set.of("a.txt"), onlyA.keySet());
-      assertEquals(USER, onlyA.get("a.txt").by());
-      final var originalB = history.lastEdit(root(WS1), "b.txt").orElseThrow();
+      final var ws1Root = wsRepo.workspaceRootPath(WS1);
+      final var aPath = ws1Root.resolve(fileA);
+      final var bPath = ws1Root.resolve(fileB);
+
+      final var onlyA = history.lastEdits(WS1, Set.of(aPath));
+      assertEquals(Set.of(aPath), onlyA.keySet());
+      assertEquals(USER_IDENT, onlyA.get(aPath).by());
+
+      final var originalB = history.lastEdit(WS1, bPath);
 
       history.mutate(WS1, "bob", "Update a.txt", () -> {
-        Files.writeString(root(WS1).resolve("a.txt"), "a2");
+        Files.writeString(aPath, "a2");
         return true;
       }, result -> result);
 
-      final var both = history.lastEdits(root(WS1), Set.of("a.txt", "b.txt"));
-      assertEquals("bob", both.get("a.txt").by());
-      assertEquals(originalB, both.get("b.txt"));
+      final var both = history.lastEdits(WS1, Set.of(aPath, bPath));
+      assertEquals("bob <bob@SeqDev>", both.get(aPath).by());
+      assertEquals(originalB, both.get(bPath));
 
-      assertSuccess(bindings.handleDelete(WS1, Path.of("b.txt"), USER));
-      assertTrue(history.lastEdit(root(WS1), "b.txt").isEmpty());
-      assertTrue(history.lastEdit(root(WS1), ".a.txt.meta.seqdev").isEmpty());
+      assertSuccess(bindings.handleDelete(WS1, fileB, USER));
+      assertNotNull(history.lastEdit(WS1, bPath));
+      assertNotNull(history.lastEdit(WS1, ws1Root.resolve(".a.txt.meta.seqdev")));
       assertClean(WS1);
     }
 
@@ -396,10 +474,13 @@ class WorkspaceGitServiceIntegrationTest {
       saveOk(WS1, "one/a.txt", "A");
       saveOk(WS1, "two/b.txt", "B");
 
-      final var edits = history.lastEdits(root(WS1), Set.of("one/a.txt"));
+      final var ws1Root = wsRepo.workspaceRootPath(WS1);
+      final var path = ws1Root.resolve("one/a.txt");
 
-      assertEquals(Set.of("one/a.txt"), edits.keySet());
-      assertEquals(USER, edits.get("one/a.txt").by());
+      final var edits = history.lastEdits(WS1, Set.of(path));
+
+      assertEquals(Set.of(path), edits.keySet());
+      assertEquals(USER_IDENT, edits.get(path).by());
       assertClean(WS1);
     }
   }
@@ -413,86 +494,86 @@ class WorkspaceGitServiceIntegrationTest {
     @Test
     void injectedCommitFailureRestoresFileStateWithoutPruningEmptyDirectories() throws Exception {
       saveOk(WS1, "keep.txt", "original");
-      saveOk(WS1, "gone.txt", "will be deleted");
-      Files.createDirectories(root(WS1).resolve("existing-empty"));
+      saveOk(WS1, goneFile, "will be deleted");
+      Files.createDirectories(wsRepo.workspaceRootPath(WS1).resolve("existing-empty"));
       final var headBefore = head(WS1);
-      final var sidecarBefore = Files.readAllBytes(root(WS1).resolve(".keep.txt.meta.seqdev"));
+      final var sidecarBefore = Files.readAllBytes(wsRepo.workspaceRootPath(WS1).resolve(".keep.txt.meta.seqdev"));
 
-      history.failCommitsIn.add(root(WS1));
+      history.failCommitsIn.add(wsRepo.workspaceRootPath(WS1));
       final var ex = assertThrows(WorkspaceHistoryException.class, () ->
           history.mutate(WS1, USER, "doomed", () -> {
-            Files.writeString(root(WS1).resolve("keep.txt"), "modified");
-            Files.delete(root(WS1).resolve("gone.txt"));
-            Files.createDirectories(root(WS1).resolve("new/nested"));
-            Files.writeString(root(WS1).resolve("new/nested/file.txt"), "new");
-            Files.writeString(root(WS1).resolve("existing-empty/file.txt"), "new");
-            Files.writeString(root(WS1).resolve("untracked.txt"), "new");
-            Files.writeString(root(WS1).resolve(".keep.txt.meta.seqdev"), "{\"readOnly\":true}");
+            Files.writeString(wsRepo.workspaceRootPath(WS1).resolve("keep.txt"), "modified");
+            Files.delete(wsRepo.workspaceRootPath(WS1).resolve(goneFile));
+            Files.createDirectories(wsRepo.workspaceRootPath(WS1).resolve("new/nested"));
+            Files.writeString(wsRepo.workspaceRootPath(WS1).resolve("new/nested/file.txt"), "new");
+            Files.writeString(wsRepo.workspaceRootPath(WS1).resolve("existing-empty/file.txt"), "new");
+            Files.writeString(wsRepo.workspaceRootPath(WS1).resolve("untracked.txt"), "new");
+            Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(".keep.txt.meta.seqdev"), "{\"readOnly\":true}");
             return true;
           }, r -> true));
       assertEquals(WorkspaceHistoryException.Kind.HISTORY_NOT_RECORDED, ex.kind);
 
       assertEquals("original", read(WS1, "keep.txt"));
-      assertEquals("will be deleted", read(WS1, "gone.txt"));
-      assertTrue(Files.isDirectory(root(WS1).resolve("new/nested")),
+      assertEquals("will be deleted", read(WS1, goneFile));
+      assertTrue(Files.isDirectory(wsRepo.workspaceRootPath(WS1).resolve("new/nested")),
                  "rollback leaves directories it cannot prove were created by the failed operation");
-      assertTrue(Files.isDirectory(root(WS1).resolve("existing-empty")),
+      assertTrue(Files.isDirectory(wsRepo.workspaceRootPath(WS1).resolve("existing-empty")),
                  "rollback preserves a directory that existed before the failed operation");
-      assertFalse(Files.exists(root(WS1).resolve("new/nested/file.txt")));
-      assertFalse(Files.exists(root(WS1).resolve("existing-empty/file.txt")));
-      assertFalse(Files.exists(root(WS1).resolve("untracked.txt")));
-      assertArrayEquals(sidecarBefore, Files.readAllBytes(root(WS1).resolve(".keep.txt.meta.seqdev")));
+      assertFalse(Files.exists(wsRepo.workspaceRootPath(WS1).resolve("new/nested/file.txt")));
+      assertFalse(Files.exists(wsRepo.workspaceRootPath(WS1).resolve("existing-empty/file.txt")));
+      assertFalse(Files.exists(wsRepo.workspaceRootPath(WS1).resolve("untracked.txt")));
+      assertArrayEquals(sidecarBefore, Files.readAllBytes(wsRepo.workspaceRootPath(WS1).resolve(".keep.txt.meta.seqdev")));
       assertEquals(headBefore, head(WS1));
       assertClean(WS1);
     }
 
     @Test
     void aMutationThatThrowsIsRolledBackAndTheExceptionPropagates() throws Exception {
-      saveOk(WS1, "a.txt", "original");
+      saveOk(WS1, fileA, "original");
       final var thrown = assertThrows(IOException.class, () -> history.mutate(WS1, USER, "x", () -> {
-        Files.writeString(root(WS1).resolve("a.txt"), "half-written");
+        Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "half-written");
         throw new IOException("disk full");
       }, r -> true));
       assertEquals("disk full", thrown.getMessage());
-      assertEquals("original", read(WS1, "a.txt"));
+      assertEquals("original", read(WS1, fileA));
       assertClean(WS1);
     }
 
     @Test
     void aFailureResultIsRolledBack() throws Exception {
-      saveOk(WS1, "a.txt", "original");
+      saveOk(WS1, fileA, "original");
       final var result = history.mutate(WS1, USER, "x", () -> {
-        Files.writeString(root(WS1).resolve("a.txt"), "partial");
+        Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "partial");
         return false;
       }, r -> r);
       assertFalse(result);
-      assertEquals("original", read(WS1, "a.txt"));
+      assertEquals("original", read(WS1, fileA));
       assertClean(WS1);
     }
 
     /** An unexplained Git lock is rejected before file bytes change; only a recovery marker authorizes its removal. */
     @Test
     void gitLockWithoutARecoveryMarkerIsLeftUntouched() throws Exception {
-      saveOk(WS1, "a.txt", "original");
+      saveOk(WS1, fileA, "original");
       final var headBefore = head(WS1);
-      final var refLock = root(WS1).resolve(".git/refs/heads/main.lock");
+      final var refLock = wsRepo.workspaceRootPath(WS1).resolve(".git/refs/heads/main.lock");
       Files.writeString(refLock, "");
 
-      assertFailure(save(WS1, "a.txt", "changed", "*"), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
-      assertFailure(save(WS1, "b.txt", "new file", null), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
-      assertEquals("original", read(WS1, "a.txt"));
-      assertFalse(Files.exists(root(WS1).resolve("b.txt")));
-      assertFalse(Files.exists(root(WS1).resolve(".b.txt.meta.seqdev")));
+      assertFailure(save(WS1, fileA, "changed", "*"), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
+      assertFailure(save(WS1, fileB, "new file", null), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
+      assertEquals("original", read(WS1, fileA));
+      assertFalse(Files.exists(wsRepo.workspaceRootPath(WS1).resolve(fileB)));
+      assertFalse(Files.exists(wsRepo.workspaceRootPath(WS1).resolve(".b.txt.meta.seqdev")));
       assertTrue(Files.exists(refLock));
       assertEquals(headBefore, head(WS1));
       assertClean(WS1);
-      try (final var internal = Files.list(root(WS1).resolve(".seqdev"))) {
+      try (final var internal = Files.list(wsRepo.workspaceRootPath(WS1).resolve(".seqdev"))) {
         assertEquals(List.of(), internal.map(p -> p.getFileName().toString()).toList(), "no upload temp files left");
       }
 
       Files.delete(refLock);
-      saveOk(WS1, "a.txt", "changed");
-      assertEquals("changed", read(WS1, "a.txt"));
+      saveOk(WS1, fileA, "changed");
+      assertEquals("changed", read(WS1, fileA));
       assertClean(WS1);
     }
   }
@@ -501,43 +582,43 @@ class WorkspaceGitServiceIntegrationTest {
   class CrashRecovery {
     @Test
     void stagedAndWorktreeResiduePreservesCurrentBytesAndBothStates() throws Exception {
-      saveOk(WS1, "a.txt", "original");
-      saveOk(WS1, "gone.txt", "original gone");
+      saveOk(WS1, fileA, "original");
+      saveOk(WS1, goneFile, "original gone");
       final var before = head(WS1);
       createMarker(mutationMarker(WS1));
-      Files.writeString(root(WS1).resolve("a.txt"), "staged version");
-      Files.writeString(root(WS1).resolve("new.txt"), "staged new");
-      Files.delete(root(WS1).resolve("gone.txt"));
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "staged version");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve("new.txt"), "staged new");
+      Files.delete(wsRepo.workspaceRootPath(WS1).resolve(goneFile));
       try (final var git = git(WS1)) {
         git.add().addFilepattern(".").call();
         git.add().addFilepattern(".").setUpdate(true).call();
       }
-      Files.writeString(root(WS1).resolve("a.txt"), "current worktree bytes");
-      Files.delete(root(WS1).resolve("new.txt"));
-      Files.writeString(root(WS1).resolve("gone.txt"), "recreated after staged deletion");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "current worktree bytes");
+      Files.delete(wsRepo.workspaceRootPath(WS1).resolve("new.txt"));
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(goneFile), "recreated after staged deletion");
       restartServer();
 
       assertTrue(history.mutate(WS1, USER, "probe", () -> {
         assertClean(WS1);
         assertEquals(before, head(WS1));
-        assertEquals("original", read(WS1, "a.txt"));
-        assertEquals("original gone", read(WS1, "gone.txt"));
-        assertFalse(Files.exists(root(WS1).resolve("new.txt")));
+        assertEquals("original", read(WS1, fileA));
+        assertEquals("original gone", read(WS1, goneFile));
+        assertFalse(Files.exists(wsRepo.workspaceRootPath(WS1).resolve("new.txt")));
         return true;
       }, r -> r));
       final var incident = onlyIncident(WS1);
-      assertEquals("current worktree bytes", preserved(incident, "a.txt"));
-      assertEquals("recreated after staged deletion", preserved(incident, "gone.txt"));
+      assertEquals("current worktree bytes", preserved(incident, fileA));
+      assertEquals("recreated after staged deletion", preserved(incident, goneFile));
       assertFalse(Files.exists(incident.resolve("files/new.txt")));
       final var paths = incidentJson(incident).getJsonArray("paths").getValuesAs(JsonObject.class);
-      final var changed = paths.stream().filter(p -> p.getString("path").equals("a.txt")).findFirst().orElseThrow();
+      final var changed = paths.stream().filter(p -> p.getString("path").equals(fileA.toString())).findFirst().orElseThrow();
       assertEquals("modified", changed.getString("indexChange"));
       assertEquals("modified", changed.getString("worktreeChange"));
       final var missing = paths.stream().filter(p -> p.getString("path").equals("new.txt")).findFirst().orElseThrow();
       assertEquals("added", missing.getString("indexChange"));
       assertEquals("deleted", missing.getString("worktreeChange"));
       assertFalse(missing.getBoolean("present"));
-      final var removed = paths.stream().filter(p -> p.getString("path").equals("gone.txt")).findFirst().orElseThrow();
+      final var removed = paths.stream().filter(p -> p.getString("path").equals(goneFile.toString())).findFirst().orElseThrow();
       assertEquals("deleted", removed.getString("indexChange"));
       assertTrue(removed.getBoolean("present"));
       assertFalse(Files.exists(mutationMarker(WS1)));
@@ -546,91 +627,91 @@ class WorkspaceGitServiceIntegrationTest {
 
     @Test
     void preservationFailureKeepsTheCrashMarkerAndDirtyBytesForRetry() throws Exception {
-      saveOk(WS1, "a.txt", "original");
+      saveOk(WS1, fileA, "original");
       createMarker(mutationMarker(WS1));
-      Files.writeString(root(WS1).resolve("a.txt"), "unfinished bytes");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "unfinished bytes");
       try (final var git = git(WS1)) {
-        git.add().addFilepattern("a.txt").call();
+        git.add().addFilepattern(WorkspacePaths.toGitPath(fileA)).call();
       }
       restartServer();
       history.failMovesEndingWith = "files/a.txt";
-      assertFailure(save(WS1, "b.txt", "next request", null), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
+      assertFailure(save(WS1, fileB, "next request", null), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
       assertTrue(Files.exists(mutationMarker(WS1)));
-      assertEquals("unfinished bytes", read(WS1, "a.txt"));
+      assertEquals("unfinished bytes", read(WS1, fileA));
       try (final var git = git(WS1)) {
-        assertEquals(Set.of("a.txt"), git.status().call().getChanged());
+        assertEquals(Set.of(WorkspacePaths.toGitPath(fileA)), git.status().call().getChanged());
       }
       assertEquals(List.of(), incidents(WS1));
       history.failMovesEndingWith = null;
-      saveOk(WS1, "b.txt", "next request");
-      assertEquals("unfinished bytes", preserved(onlyIncident(WS1), "a.txt"));
+      saveOk(WS1, fileB, "next request");
+      assertEquals("unfinished bytes", preserved(onlyIncident(WS1), fileA));
       assertFalse(Files.exists(mutationMarker(WS1)));
       assertClean(WS1);
     }
 
     @Test
     void aConfigLockLeftBeforeMutationMarkingIsRemoved() throws Exception {
-      saveOk(WS1, "a.txt", "original");
-      final var configLock = root(WS1).resolve(".git/config.lock");
+      saveOk(WS1, fileA, "original");
+      final var configLock = wsRepo.workspaceRootPath(WS1).resolve(".git/config.lock");
       Files.writeString(configLock, "stale");
 
       restartServer();
-      saveOk(WS1, "b.txt", "next request");
+      saveOk(WS1, fileB, "next request");
 
       assertFalse(Files.exists(configLock));
-      assertEquals("original", read(WS1, "a.txt"));
+      assertEquals("original", read(WS1, fileA));
       assertClean(WS1);
     }
 
     @Test
     void anUncommittedMutationIsRolledBackBeforeTheNextWrite() throws Exception {
-      saveOk(WS1, "a.txt", "original");
+      saveOk(WS1, fileA, "original");
       createMarker(mutationMarker(WS1));
-      Files.writeString(root(WS1).resolve("a.txt"), "partial");
-      Files.writeString(root(WS1).resolve("new.txt"), "partial new file");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "partial");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve("new.txt"), "partial new file");
       try (final var git = git(WS1)) {
         git.add().addFilepattern(".").call();
       }
-      final var indexLock = root(WS1).resolve(".git/index.lock");
+      final var indexLock = wsRepo.workspaceRootPath(WS1).resolve(".git/index.lock");
       Files.writeString(indexLock, "stale");
 
       restartServer();
-      saveOk(WS1, "b.txt", "next request");
+      saveOk(WS1, fileB, "next request");
 
-      assertEquals("original", read(WS1, "a.txt"));
-      assertFalse(Files.exists(root(WS1).resolve("new.txt")));
+      assertEquals("original", read(WS1, fileA));
+      assertFalse(Files.exists(wsRepo.workspaceRootPath(WS1).resolve("new.txt")));
       assertFalse(Files.exists(indexLock));
       assertFalse(Files.exists(mutationMarker(WS1)));
       final var incident = onlyIncident(WS1);
-      assertEquals("partial", preserved(incident, "a.txt"));
-      assertEquals("partial new file", preserved(incident, "new.txt"));
+      assertEquals("partial", preserved(incident, fileA));
+      assertEquals("partial new file", preserved(incident, Path.of("new.txt")));
       assertEquals("interrupted mutation recovery", incidentJson(incident).getString("reason"));
       assertClean(WS1);
     }
 
     @Test
     void aLandedCommitIsKeptAndItsUnfinishedWorkingTreeIsCleaned() throws Exception {
-      saveOk(WS1, "a.txt", "original");
+      saveOk(WS1, fileA, "original");
       createMarker(mutationMarker(WS1));
-      Files.writeString(root(WS1).resolve("a.txt"), "committed");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "committed");
       try (final var git = git(WS1)) {
         final var ident = new PersonIdent("bob", "");
         git.add().addFilepattern(".").call();
         git.commit().setMessage("landed before crash").setAuthor(ident).setCommitter(ident).setSign(false).call();
       }
-      Files.writeString(root(WS1).resolve("a.txt"), "unfinished later bytes");
-      Files.writeString(root(WS1).resolve("untracked.txt"), "unfinished");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "unfinished later bytes");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve("untracked.txt"), "unfinished");
       final var landedHead = head(WS1);
 
       restartServer();
-      saveOk(WS1, "b.txt", "next request");
+      saveOk(WS1, fileB, "next request");
 
-      assertEquals("committed", read(WS1, "a.txt"));
-      assertFalse(Files.exists(root(WS1).resolve("untracked.txt")));
+      assertEquals("committed", read(WS1, fileA));
+      assertFalse(Files.exists(wsRepo.workspaceRootPath(WS1).resolve("untracked.txt")));
       assertEquals(landedHead, log(WS1).get(1));
       final var incident = onlyIncident(WS1);
-      assertEquals("unfinished later bytes", preserved(incident, "a.txt"));
-      assertEquals("unfinished", preserved(incident, "untracked.txt"));
+      assertEquals("unfinished later bytes", preserved(incident, fileA));
+      assertEquals("unfinished", preserved(incident, Path.of("untracked.txt")));
       assertEquals(landedHead.name(), incidentJson(incident).getString("head"));
       assertFalse(Files.exists(mutationMarker(WS1)));
       assertClean(WS1);
@@ -640,13 +721,13 @@ class WorkspaceGitServiceIntegrationTest {
     void aCrossWorkspaceCrashAfterTheDestinationCommitRecoversAsACopy() throws Exception {
       init(WS1);
       init(WS2);
-      saveOk(WS1, "a.txt", "content");
+      saveOk(WS1, fileA, "content");
       final var sourceHead = head(WS1);
       createMarker(mutationMarker(WS1));
       createMarker(mutationMarker(WS2));
 
-      Files.move(root(WS1).resolve("a.txt"), root(WS2).resolve("b.txt"));
-      Files.move(root(WS1).resolve(".a.txt.meta.seqdev"), root(WS2).resolve(".b.txt.meta.seqdev"));
+      Files.move(wsRepo.workspaceRootPath(WS1).resolve(fileA), wsRepo.workspaceRootPath(WS2).resolve(fileB));
+      Files.move(wsRepo.workspaceRootPath(WS1).resolve(".a.txt.meta.seqdev"), wsRepo.workspaceRootPath(WS2).resolve(".b.txt.meta.seqdev"));
       try (final var git = git(WS2)) {
         final var ident = new PersonIdent(USER, "");
         git.add().addFilepattern(".").call();
@@ -661,8 +742,8 @@ class WorkspaceGitServiceIntegrationTest {
       both.put(WS1, "probe source");
       assertFalse(history.mutate(both, USER, () -> false, result -> result));
 
-      assertEquals("content", read(WS1, "a.txt"));
-      assertEquals("content", read(WS2, "b.txt"));
+      assertEquals("content", read(WS1, fileA));
+      assertEquals("content", read(WS2, fileB));
       assertEquals(sourceHead, head(WS1));
       assertEquals(destinationHead, head(WS2));
       assertFalse(Files.exists(mutationMarker(WS1)));
@@ -673,16 +754,16 @@ class WorkspaceGitServiceIntegrationTest {
 
     @Test
     void anInterruptedAdoptionRemovesItsLockAndResumes() throws Exception {
-      Files.writeString(root(WS1).resolve("legacy.txt"), "legacy");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve("legacy.txt"), "legacy");
       createMarker(adoptionMarker(WS1));
-      Git.init().setDirectory(root(WS1).toFile()).setInitialBranch(WorkspaceGitService.BRANCH).call().close();
-      final var indexLock = root(WS1).resolve(".git/index.lock");
+      Git.init().setDirectory(wsRepo.workspaceRootPath(WS1).toFile()).setInitialBranch(WorkspaceGitService.BRANCH).call().close();
+      final var indexLock = wsRepo.workspaceRootPath(WS1).resolve(".git/index.lock");
       Files.writeString(indexLock, "stale");
 
       restartServer();
       init(WS1);
 
-      assertTrue(history.isManaged(root(WS1)));
+      assertTrue(history.isManaged(wsRepo.workspaceRootPath(WS1)));
       assertTrue(headTree(WS1).contains("legacy.txt"));
       assertFalse(Files.exists(indexLock));
       assertFalse(Files.exists(adoptionMarker(WS1)));
@@ -691,16 +772,16 @@ class WorkspaceGitServiceIntegrationTest {
 
     @Test
     void anAdoptionInterruptedAfterCreatingTheObjectDatabaseRestartsInitialization() throws Exception {
-      Files.writeString(root(WS1).resolve("legacy.txt"), "legacy");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve("legacy.txt"), "legacy");
       createMarker(adoptionMarker(WS1));
-      final var partialGit = root(WS1).resolve(".git");
+      final var partialGit = wsRepo.workspaceRootPath(WS1).resolve(".git");
       Files.createDirectories(partialGit.resolve("objects"));
       Files.writeString(partialGit.resolve("unfinished"), "partial initialization");
 
       restartServer();
       init(WS1);
 
-      assertTrue(history.isManaged(root(WS1)));
+      assertTrue(history.isManaged(wsRepo.workspaceRootPath(WS1)));
       assertTrue(headTree(WS1).contains("legacy.txt"));
       assertFalse(Files.exists(partialGit.resolve("unfinished")));
       assertFalse(Files.exists(adoptionMarker(WS1)));
@@ -712,19 +793,23 @@ class WorkspaceGitServiceIntegrationTest {
   class FileOperations {
     @Test
     void renameIsRecordedAsARename() throws Exception {
-      saveOk(WS1, "a.txt", "content");
-      assertSuccess(bindings.handleMove(Path.of("a.txt"), Path.of("b.txt"), WS1, WS1, false, USER));
+      saveOk(WS1, fileA, "content");
+      assertSuccess(bindings.handleMove(fileA, fileB, WS1, WS1, false, USER));
 
       final var renames = headDiff(WS1).stream().filter(d -> d.getChangeType() == DiffEntry.ChangeType.RENAME).toList();
-      assertTrue(renames.stream().anyMatch(d -> d.getOldPath().equals("a.txt") && d.getNewPath().equals("b.txt")), renames::toString);
-      assertEquals(Set.of("b.txt", ".b.txt.meta.seqdev"), headTree(WS1));
+      assertTrue(renames.stream().anyMatch(d -> d.getOldPath().equals(fileA.toString()) && d.getNewPath().equals(fileB.toString())), renames::toString);
+
+      final var head = headTree(WS1);
+      assertTrue(Set.of(fileB.toString(), ".b.txt.meta.seqdev").containsAll(head));
+      assertEquals(2, headTree(WS1).size());
+
       assertClean(WS1);
     }
 
     @Test
     void renameCarriesTheLock() throws Exception {
       saveOk(WS1, "dir/a.txt", "content");
-      setReadOnly(WS1, "dir/a.txt", true);
+      setReadOnly(WS1, Path.of("dir/a.txt"), true);
       assertSuccess(bindings.handleMove(Path.of("dir"), Path.of("renamed"), WS1, WS1, false, USER));
       assertTrue(isReadOnly(WS1, "renamed/a.txt"));
       assertClean(WS1);
@@ -732,19 +817,25 @@ class WorkspaceGitServiceIntegrationTest {
 
     @Test
     void copyLeavesTheRepoClean() throws Exception {
-      saveOk(WS1, "a.txt", "content");
-      assertSuccess(bindings.handleCopy(Path.of("a.txt"), Path.of("copies/c.txt"), WS1, WS1, false, USER));
-      assertEquals(Set.of("a.txt", ".a.txt.meta.seqdev", "copies/c.txt", "copies/.c.txt.meta.seqdev"), headTree(WS1));
+      saveOk(WS1, fileA, "content");
+      assertSuccess(bindings.handleCopy(fileA, Path.of("copies/c.txt"), WS1, WS1, false, USER));
+      final var expectedSet = Set.of(fileA.toString(), ".a.txt.meta.seqdev", "copies/c.txt", "copies/.c.txt.meta.seqdev");
+      final var actual = headTree(WS1);
+      assertTrue(expectedSet.containsAll(actual));
+      assertEquals(expectedSet.size(), actual.size());
       assertEquals("Copy a.txt -> copies/c.txt", head(WS1).getFullMessage());
       assertClean(WS1);
     }
 
     @Test
     void deleteLeavesTheRepoClean() throws Exception {
-      saveOk(WS1, "a.txt", "content");
-      saveOk(WS1, "b.txt", "content");
-      assertSuccess(bindings.handleDelete(WS1, Path.of("a.txt"), USER));
-      assertEquals(Set.of("b.txt", ".b.txt.meta.seqdev"), headTree(WS1));
+      saveOk(WS1, fileA, "content");
+      saveOk(WS1, fileB, "content");
+      assertSuccess(bindings.handleDelete(WS1, fileA, USER));
+
+      final var head = headTree(WS1);
+      assertTrue(Set.of(fileB.toString(), ".b.txt.meta.seqdev").containsAll(head));
+      assertEquals(2, headTree(WS1).size());
       assertClean(WS1);
     }
   }
@@ -753,7 +844,7 @@ class WorkspaceGitServiceIntegrationTest {
   class DirectoryOperations {
     @BeforeEach
     void populate() {
-      saveOk(WS1, "d/x.txt", "x");
+      saveOk(WS1, fileX, "x");
       saveOk(WS1, "d/sub/y.txt", "y");
     }
 
@@ -772,7 +863,7 @@ class WorkspaceGitServiceIntegrationTest {
     @Test
     void directoryCopyLeavesTheRepoClean() throws Exception {
       assertSuccess(bindings.handleCopy(Path.of("d"), Path.of("e"), WS1, WS1, false, USER));
-      assertTrue(headTree(WS1).containsAll(Set.of("d/x.txt", "d/sub/y.txt", "e/x.txt", "e/sub/y.txt", "e/sub/.y.txt.meta.seqdev")));
+      assertTrue(headTree(WS1).containsAll(Set.of(fileX.toString(), "d/sub/y.txt", "e/x.txt", "e/sub/y.txt", "e/sub/.y.txt.meta.seqdev")));
       assertEquals(4, headDiff(WS1).size());
       assertClean(WS1);
     }
@@ -797,8 +888,8 @@ class WorkspaceGitServiceIntegrationTest {
         assertThrows(WorkspaceFileOpException.class, () -> history.mutate(commits, USER,
             () -> fs.copyDirectory(WS1, rootPath, WS2, Path.of("x"), USER), r -> r));
       }
-      assertTrue(Files.isDirectory(root(WS1).resolve(".git")));
-      assertFalse(Files.exists(root(WS2).resolve("x")));
+      assertTrue(Files.isDirectory(wsRepo.workspaceRootPath(WS1).resolve(".git")));
+      assertFalse(Files.exists(wsRepo.workspaceRootPath(WS2).resolve("x")));
       assertClean(WS1);
     }
   }
@@ -813,9 +904,9 @@ class WorkspaceGitServiceIntegrationTest {
 
     @Test
     void copyUpdatesOnlyTheDestinationHistory() throws Exception {
-      saveOk(WS1, "a.txt", "content");
+      saveOk(WS1, fileA, "content");
       final var sourceHead = head(WS1);
-      assertSuccess(bindings.handleCopy(Path.of("a.txt"), Path.of("in/a.txt"), WS1, WS2, false, USER));
+      assertSuccess(bindings.handleCopy(fileA, Path.of("in/a.txt"), WS1, WS2, false, USER));
       assertEquals(Set.of("in/a.txt", "in/.a.txt.meta.seqdev"), headTree(WS2));
       assertEquals(sourceHead, head(WS1));
       assertClean(WS1);
@@ -824,9 +915,12 @@ class WorkspaceGitServiceIntegrationTest {
 
     @Test
     void moveUpdatesBothHistories() throws Exception {
-      saveOk(WS1, "a.txt", "content");
-      assertSuccess(bindings.handleMove(Path.of("a.txt"), Path.of("a.txt"), WS1, WS2, false, USER));
-      assertEquals(Set.of("a.txt", ".a.txt.meta.seqdev"), headTree(WS2));
+      saveOk(WS1, fileA, "content");
+      assertSuccess(bindings.handleMove(fileA, fileA, WS1, WS2, false, USER));
+
+      final var head = headTree(WS2);
+      assertTrue(Set.of(fileA.toString(), ".a.txt.meta.seqdev").containsAll(head));
+      assertEquals(2, head.size());
       assertEquals(Set.of(), headTree(WS1));
       assertEquals("Move a.txt -> workspace 2:a.txt", head(WS1).getFullMessage());
       assertEquals("Move workspace 1:a.txt -> a.txt", head(WS2).getFullMessage());
@@ -836,9 +930,9 @@ class WorkspaceGitServiceIntegrationTest {
 
     @Test
     void directoryMoveUpdatesBothHistories() throws Exception {
-      saveOk(WS1, "d/x.txt", "x");
+      saveOk(WS1, fileX, "x");
       assertSuccess(bindings.handleMove(Path.of("d"), Path.of("d"), WS1, WS2, false, USER));
-      assertEquals(Set.of("d/x.txt", "d/.x.txt.meta.seqdev"), headTree(WS2));
+      assertTrue(Set.of(fileX.toString(), "d/.x.txt.meta.seqdev").containsAll(headTree(WS2)));
       assertEquals(Set.of(), headTree(WS1));
       assertClean(WS1);
       assertClean(WS2);
@@ -846,20 +940,22 @@ class WorkspaceGitServiceIntegrationTest {
 
     @Test
     void sourceCommitFailureDegradesTheMoveToACopy() throws Exception {
-      saveOk(WS1, "a.txt", "content");
+      saveOk(WS1, fileA, "content");
       final var sourceHead = head(WS1);
-      history.failCommitsIn.add(root(WS1));
+      history.failCommitsIn.add(wsRepo.workspaceRootPath(WS1));
 
-      final var result = bindings.handleMove(Path.of("a.txt"), Path.of("b.txt"), WS1, WS2, false, USER);
+      final var result = bindings.handleMove(fileA, fileB, WS1, WS2, false, USER);
       assertFailure(result, 500, "WORKSPACE_MUTATION_PARTIAL");
       final var message = result.jsonResponse().asJsonObject().getString("message");
-      assertTrue(message.contains("degraded to a copy") && message.contains("a.txt") && message.contains("b.txt"), message);
+      assertTrue(message.contains("degraded to a copy") && message.contains(fileA.toString()) && message.contains(fileB.toString()));
 
       // Destination keeps the committed copy, with its metadata; the source is restored, with its metadata.
-      assertEquals(Set.of("b.txt", ".b.txt.meta.seqdev"), headTree(WS2));
-      assertEquals("content", read(WS2, "b.txt"));
-      assertEquals("content", read(WS1, "a.txt"));
-      assertTrue(Files.exists(root(WS1).resolve(".a.txt.meta.seqdev")));
+      final var head = headTree(WS2);
+      assertTrue(Set.of(fileB.toString(), ".b.txt.meta.seqdev").containsAll(head));
+      assertEquals(2, head.size());
+      assertEquals("content", read(WS2, fileB));
+      assertEquals("content", read(WS1, fileA));
+      assertTrue(Files.exists(wsRepo.workspaceRootPath(WS1).resolve(".a.txt.meta.seqdev")));
       assertEquals(sourceHead, head(WS1));
       assertClean(WS1);
       assertClean(WS2);
@@ -867,15 +963,15 @@ class WorkspaceGitServiceIntegrationTest {
 
     @Test
     void destinationCommitFailureRestoresBothWorkspaces() throws Exception {
-      saveOk(WS1, "a.txt", "content");
+      saveOk(WS1, fileA, "content");
       final var sourceHead = head(WS1);
       final var destHead = head(WS2);
-      history.failCommitsIn.add(root(WS2));
+      history.failCommitsIn.add(wsRepo.workspaceRootPath(WS2));
 
-      assertFailure(bindings.handleMove(Path.of("a.txt"), Path.of("b.txt"), WS1, WS2, false, USER), 500, "WORKSPACE_HISTORY_ERROR");
-      assertEquals("content", read(WS1, "a.txt"));
-      assertFalse(Files.exists(root(WS2).resolve("b.txt")));
-      assertFalse(Files.exists(root(WS2).resolve(".b.txt.meta.seqdev")));
+      assertFailure(bindings.handleMove(fileA, fileB, WS1, WS2, false, USER), 500, "HISTORY_NOT_RECORDED");
+      assertEquals("content", read(WS1, fileA));
+      assertFalse(Files.exists(wsRepo.workspaceRootPath(WS2).resolve(fileB)));
+      assertFalse(Files.exists(wsRepo.workspaceRootPath(WS2).resolve(".b.txt.meta.seqdev")));
       assertEquals(sourceHead, head(WS1));
       assertEquals(destHead, head(WS2));
       assertClean(WS1);
@@ -889,8 +985,7 @@ class WorkspaceGitServiceIntegrationTest {
         saveOk(WS1, "one" + i + ".txt", "1");
         saveOk(WS2, "two" + i + ".txt", "2");
       }
-      final var pool = Executors.newFixedThreadPool(2);
-      try {
+      try(final var pool = Executors.newFixedThreadPool(2)) {
         assertTimeoutPreemptively(Duration.ofSeconds(60), () -> {
           final var a = pool.submit(() -> {
             for (int i = 0; i < 20; i++) assertSuccess(bindings.handleMove(Path.of("one" + i + ".txt"), Path.of("one" + i + ".txt"), WS1, WS2, false, USER));
@@ -901,8 +996,6 @@ class WorkspaceGitServiceIntegrationTest {
           a.get();
           b.get();
         });
-      } finally {
-        pool.shutdownNow();
       }
       assertEquals(20, headTree(WS1).stream().filter(p -> p.startsWith("two")).count());
       assertEquals(20, headTree(WS2).stream().filter(p -> p.startsWith("one")).count());
@@ -915,7 +1008,7 @@ class WorkspaceGitServiceIntegrationTest {
   class InternalPaths {
     @BeforeEach
     void initWs() {
-      saveOk(WS1, "a.txt", "content");
+      saveOk(WS1, fileA, "content");
     }
 
     @Test
@@ -929,36 +1022,36 @@ class WorkspaceGitServiceIntegrationTest {
 
     @Test
     void writesOfGitInternalsAreRejected() throws Exception {
-      final var config = Files.readString(root(WS1).resolve(".git/config"));
+      final var config = Files.readString(wsRepo.workspaceRootPath(WS1).resolve(".git/config"));
       for (final var path : List.of(".git/config", ".git/hooks/post-commit", "foo/.git/HEAD", ".gitattributes", ".gitignore", ".seqdev/state.json")) {
-        assertFailure(save(WS1, path, "evil", "*"), 400, "RESERVED_PATH");
+        assertFailure(save(WS1, Path.of(path), "evil", "*"), 400, "SECURITY_EXCEPTION");
       }
-      assertFailure(bindings.handleCreateDirectory(WS1, Path.of("x/.git"), USER), 400, "RESERVED_PATH");
-      assertEquals(config, Files.readString(root(WS1).resolve(".git/config")));
-      assertFalse(Files.exists(root(WS1).resolve(".gitignore")));
+      assertFailure(bindings.handleCreateDirectory(WS1, Path.of("x/.git"), USER), 400, "SECURITY_EXCEPTION");
+      assertEquals(config, Files.readString(wsRepo.workspaceRootPath(WS1).resolve(".git/config")));
+      assertFalse(Files.exists(wsRepo.workspaceRootPath(WS1).resolve(".gitignore")));
       assertClean(WS1);
     }
 
     @Test
     void moveCopyAndDeleteInvolvingGitInternalsAreRejected() throws Exception {
       final var head = head(WS1);
-      assertFailure(bindings.handleMove(Path.of(".git/HEAD"), Path.of("HEAD"), WS1, WS1, false, USER), 400, "RESERVED_PATH");
-      assertFailure(bindings.handleMove(Path.of("a.txt"), Path.of(".git/a.txt"), WS1, WS1, true, USER), 400, "RESERVED_PATH");
-      assertFailure(bindings.handleCopy(Path.of(".git"), Path.of("leak"), WS1, WS2, false, USER), 400, "RESERVED_PATH");
-      assertFailure(bindings.handleCopy(Path.of("a.txt"), Path.of(".git/objects/x"), WS1, WS1, true, USER), 400, "RESERVED_PATH");
-      assertFailure(bindings.handleDelete(WS1, Path.of(".git"), USER), 400, "RESERVED_PATH");
-      assertFailure(bindings.handleDelete(WS1, Path.of(".seqdev/state.json"), USER), 400, "RESERVED_PATH");
+      assertFailure(bindings.handleMove(Path.of(".git/HEAD"), Path.of("HEAD"), WS1, WS1, false, USER), 400, "SECURITY_EXCEPTION");
+      assertFailure(bindings.handleMove(fileA, Path.of(".git/a.txt"), WS1, WS1, true, USER), 400, "SECURITY_EXCEPTION");
+      assertFailure(bindings.handleCopy(Path.of(".git"), Path.of("leak"), WS1, WS2, false, USER), 400, "SECURITY_EXCEPTION");
+      assertFailure(bindings.handleCopy(fileA, Path.of(".git/objects/x"), WS1, WS1, true, USER), 400, "SECURITY_EXCEPTION");
+      assertFailure(bindings.handleDelete(WS1, Path.of(".git"), USER), 400, "SECURITY_EXCEPTION");
+      assertFailure(bindings.handleDelete(WS1, Path.of(".seqdev/state.json"), USER), 400, "SECURITY_EXCEPTION");
       assertEquals(head, head(WS1));
-      assertTrue(Files.isRegularFile(root(WS1).resolve(".git/HEAD")));
-      assertFalse(Files.exists(root(WS2).resolve("leak")));
+      assertTrue(Files.isRegularFile(wsRepo.workspaceRootPath(WS1).resolve(".git/HEAD")));
+      assertFalse(Files.exists(wsRepo.workspaceRootPath(WS2).resolve("leak")));
       assertClean(WS1);
     }
 
     @Test
     void listingsNeverIncludeInternalDirectories() throws IOException {
-      final var listed = WorkspacePaths.walk(root(WS1), Integer.MAX_VALUE).stream()
-                                       .map(p -> root(WS1).relativize(p).toString()).toList();
-      assertTrue(listed.contains("a.txt"));
+      final var listed = WorkspacePaths.walk(wsRepo.workspaceRootPath(WS1), Integer.MAX_VALUE).stream()
+                                       .map(p -> wsRepo.workspaceRootPath(WS1).relativize(p).toString()).toList();
+      assertTrue(listed.contains(fileA.toString()));
       assertTrue(listed.stream().noneMatch(p -> p.startsWith(".git") || p.startsWith(".seqdev")), listed::toString);
     }
   }
@@ -988,10 +1081,9 @@ class WorkspaceGitServiceIntegrationTest {
       final var firstWrote = new CountDownLatch(1);
       final var releaseFirst = new CountDownLatch(1);
       final var secondEntered = new AtomicBoolean(false);
-      final var pool = Executors.newFixedThreadPool(2);
-      try {
+      try(final var pool = Executors.newFixedThreadPool(2)) {
         final var first = pool.submit(() -> history.mutate(WS1, "first", "first", () -> {
-          Files.writeString(root(WS1).resolve("a.txt"), "first");
+          Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "first");
           firstWrote.countDown();
           assertTrue(releaseFirst.await(10, TimeUnit.SECONDS));
           return true;
@@ -999,7 +1091,7 @@ class WorkspaceGitServiceIntegrationTest {
         assertTrue(firstWrote.await(10, TimeUnit.SECONDS));
         final var second = pool.submit(() -> history.mutate(WS1, "second", "second", () -> {
           secondEntered.set(true);
-          Files.writeString(root(WS1).resolve("a.txt"), "second");
+          Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "second");
           return true;
         }, r -> true));
 
@@ -1008,15 +1100,13 @@ class WorkspaceGitServiceIntegrationTest {
         releaseFirst.countDown();
         first.get(10, TimeUnit.SECONDS);
         second.get(10, TimeUnit.SECONDS);
-      } finally {
-        pool.shutdownNow();
       }
 
       // A valid serial order: first's commit, then second's on top of it.
       final var commits = log(WS1);
       assertEquals("second", commits.get(0).getFullMessage());
       assertEquals("first", commits.get(1).getFullMessage());
-      assertEquals("second", read(WS1, "a.txt"));
+      assertEquals("second", read(WS1, fileA));
       assertClean(WS1);
     }
 
@@ -1024,16 +1114,18 @@ class WorkspaceGitServiceIntegrationTest {
     void concurrentSavesAllLandInHistory() throws Exception {
       init(WS1);
       final var commitsBefore = log(WS1).size();
-      final var pool = Executors.newFixedThreadPool(4);
-      final var tasks = new ArrayList<java.util.concurrent.Future<?>>();
-      for (int t = 0; t < 4; t++) {
-        final var thread = t;
-        tasks.add(pool.submit(() -> {
-          for (int i = 0; i < 10; i++) saveOk(WS1, "shared.txt", "t" + thread + "-" + i);
-        }));
+      try(final var pool = Executors.newFixedThreadPool(4)) {
+        final var tasks = new ArrayList<Future<?>>();
+        for (int t = 0; t < 4; t++) {
+          final var thread = t;
+          tasks.add(pool.submit(() -> {
+            for (int i = 0; i < 10; i++) saveOk(WS1, "shared.txt", "t" + thread + "-" + i);
+          }));
+        }
+        for (final var task : tasks) {
+          task.get(60, TimeUnit.SECONDS);
+        }
       }
-      for (final var task : tasks) task.get(60, TimeUnit.SECONDS);
-      pool.shutdown();
 
       // Every save had distinct content, so every save is one commit (the first also adds the sidecar).
       assertEquals(commitsBefore + 40, log(WS1).size());
@@ -1051,7 +1143,7 @@ class WorkspaceGitServiceIntegrationTest {
   class WorkspaceInitialization {
     @Test
     void newWorkspaceGetsManagedHistoryBeforeItsFirstMutation() throws Exception {
-      final var newRoot = Files.createDirectory(base.resolve("new"));
+      final var newRoot = wsRepo.createWorkspace("new");
 
       history.initializeNewWorkspace(newRoot);
 
@@ -1067,7 +1159,7 @@ class WorkspaceGitServiceIntegrationTest {
 
     @Test
     void newWorkspaceInitializationDoesNotAdoptExistingFiles() throws Exception {
-      final var newRoot = Files.createDirectory(base.resolve("not-new"));
+      final var newRoot = wsRepo.createWorkspace("not-new");
       Files.writeString(newRoot.resolve("existing.txt"), "existing");
 
       assertThrows(IOException.class, () -> history.initializeNewWorkspace(newRoot));
@@ -1078,7 +1170,7 @@ class WorkspaceGitServiceIntegrationTest {
 
     @Test
     void failedInitializationDoesNotMarkTheWorkspaceManaged() throws Exception {
-      final var newRoot = Files.createDirectory(base.resolve("failed"));
+      final var newRoot = wsRepo.createWorkspace("failed");
       history.failCommitsIn.add(newRoot.toRealPath());
 
       assertThrows(GitAPIException.class, () -> history.initializeNewWorkspace(newRoot));
@@ -1093,12 +1185,12 @@ class WorkspaceGitServiceIntegrationTest {
   @Nested
   class LegacyWorkspaceAdoption {
     private void writeLegacyWorkspace() throws IOException {
-      Files.createDirectories(root(WS1).resolve("seq"));
-      Files.writeString(root(WS1).resolve("seq/a.txt"), "legacy A");
-      Files.writeString(root(WS1).resolve("seq/.a.txt.meta.seqdev"), """
+      Files.createDirectories(wsRepo.workspaceRootPath(WS1).resolve("seq"));
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve("seq/a.txt"), "legacy A");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve("seq/.a.txt.meta.seqdev"), """
           {"version":"1","createdBy":"carol","createdAt":"2025-01-01T00:00:00Z",\
           "lastEditedBy":"dave","lastEditedAt":"2025-02-02T00:00:00Z","readOnly":true,"user":{"status":"final"}}""");
-      Files.writeString(root(WS1).resolve("b.txt"), "legacy B");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileB), "legacy B");
     }
 
     @Test
@@ -1109,17 +1201,21 @@ class WorkspaceGitServiceIntegrationTest {
       final var commits = log(WS1);
       assertEquals(1, commits.size(), "creating an empty directory adds nothing beyond the baseline");
       assertEquals(WorkspaceGitService.INIT_MESSAGE, commits.getFirst().getFullMessage());
-      assertEquals("PlanDev", commits.getFirst().getAuthorIdent().getName());
-      assertEquals(Set.of("b.txt", "seq/a.txt", "seq/.a.txt.meta.seqdev"), headTree(WS1));
+      assertEquals("SeqDev", commits.getFirst().getAuthorIdent().getName());
+
+      final var expectedSet = Set.of(fileB.toString(), "seq/a.txt", "seq/.a.txt.meta.seqdev");
+      final var head = headTree(WS1);
+      assertTrue(expectedSet.containsAll(head));
+      assertEquals(expectedSet.size(), head.size());
       assertClean(WS1);
-      assertTrue(history.isManaged(root(WS1)));
+      assertTrue(history.isManaged(wsRepo.workspaceRootPath(WS1)));
       try (final var git = git(WS1)) {
         assertEquals("/dev/null", git.getRepository().getConfig().getString("core", null, "attributesFile"),
                      "global gitattributes must not apply to workspaces");
       }
 
       // Legacy metadata stays with its content file. The baseline commit does not replace its real last-edit data.
-      final var sidecarJson = Files.readString(root(WS1).resolve("seq/.a.txt.meta.seqdev"));
+      final var sidecarJson = Files.readString(wsRepo.workspaceRootPath(WS1).resolve("seq/.a.txt.meta.seqdev"));
       assertTrue(sidecarJson.contains("readOnly") && sidecarJson.contains("lastEdited"), sidecarJson);
       assertTrue(sidecarJson.contains("carol") && sidecarJson.contains("dave") && sidecarJson.contains("final"), sidecarJson);
       assertTrue(isReadOnly(WS1, "seq/a.txt"));
@@ -1131,13 +1227,12 @@ class WorkspaceGitServiceIntegrationTest {
     @Test
     void lockScanIgnoresMetadataSuffixWithoutAContentName() throws Exception {
       writeLegacyWorkspace();
-      Files.writeString(root(WS1).resolve("seq/.meta.seqdev"), "{\"readOnly\":true}");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve("seq/.meta.seqdev"), "{\"readOnly\":true}");
       init(WS1);
 
-      final var readOnly = history.mutate(WS1, USER, "check", () ->
-          fs.getReadOnlyFiles(WS1, Path.of("seq")), ignored -> true);
+      final var readOnly = fs.getReadOnlyFiles(WS1, Path.of("seq"));
 
-      assertEquals(List.of(root(WS1).resolve("seq/a.txt")), readOnly);
+      assertEquals(List.of(wsRepo.workspaceRootPath(WS1).resolve("seq/a.txt")), readOnly);
       assertClean(WS1);
     }
 
@@ -1164,10 +1259,10 @@ class WorkspaceGitServiceIntegrationTest {
     @Test
     void reservedFilesInALegacyWorkspaceFailClosed() throws Exception {
       writeLegacyWorkspace();
-      Files.writeString(root(WS1).resolve("seq/.gitignore"), "*.txt\n");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve("seq/.gitignore"), "*.txt\n");
       assertFailure(bindings.handleCreateDirectory(WS1, Path.of("x"), USER), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
-      assertFalse(Files.exists(root(WS1).resolve(".git")));
-      assertFalse(Files.exists(root(WS1).resolve("x")));
+      assertFalse(Files.exists(wsRepo.workspaceRootPath(WS1).resolve(".git")));
+      assertFalse(Files.exists(wsRepo.workspaceRootPath(WS1).resolve("x")));
     }
 
     @Test
@@ -1189,13 +1284,13 @@ class WorkspaceGitServiceIntegrationTest {
     void contentMutationMakesGitHistoryAuthoritative() throws Exception {
       writeLegacyWorkspace();
       init(WS1);
-      setReadOnly(WS1, "seq/a.txt", false);
+      setReadOnly(WS1, Path.of("seq/a.txt"), false);
       assertEquals("dave", fs.getLastEditInfo(WS1, Path.of("seq/a.txt")).lastEditedBy(),
                    "changing metadata is not a content edit");
 
       saveOk(WS1, "seq/a.txt", "changed");
 
-      assertEquals(USER, fs.getLastEditInfo(WS1, Path.of("seq/a.txt")).lastEditedBy());
+      assertEquals(USER_IDENT, fs.getLastEditInfo(WS1, Path.of("seq/a.txt")).lastEditedBy());
       assertClean(WS1);
     }
   }
@@ -1207,15 +1302,15 @@ class WorkspaceGitServiceIntegrationTest {
 
     @BeforeEach
     void initWs() {
-      saveOk(WS1, "a.txt", "v1");
+      saveOk(WS1, fileA, "v1");
     }
 
     /** Asserts a save is refused and changes nothing: no file, no commit. */
     private String assertRefused() throws Exception {
       final var commits = log(WS1).size();
-      final var result = save(WS1, "b.txt", "v1", null);
+      final var result = save(WS1, fileB, "v1", null);
       assertFailure(result, 500, INCONSISTENT);
-      assertFalse(Files.exists(root(WS1).resolve("b.txt")));
+      assertFalse(Files.exists(wsRepo.workspaceRootPath(WS1).resolve(fileB)));
       assertEquals(commits, log(WS1).size());
       return result.jsonResponse().asJsonObject().getString("message");
     }
@@ -1240,34 +1335,34 @@ class WorkspaceGitServiceIntegrationTest {
     void inProgressGitOperationsAreRejected() throws Exception {
       final var head = head(WS1).name() + "\n";
       for (final var marker : List.of("MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "BISECT_LOG", "rebase-merge/head-name")) {
-        final var file = root(WS1).resolve(".git").resolve(marker);
+        final var file = wsRepo.workspaceRootPath(WS1).resolve(".git").resolve(marker);
         Files.createDirectories(file.getParent());
         Files.writeString(file, head);
         assertTrue(assertRefused().contains("in progress"), marker);
         Files.delete(file);
       }
-      Files.delete(root(WS1).resolve(".git/rebase-merge"));
-      saveOk(WS1, "b.txt", "v1");
+      Files.delete(wsRepo.workspaceRootPath(WS1).resolve(".git/rebase-merge"));
+      saveOk(WS1, fileB, "v1");
     }
 
     @Test
     void internalDirectoryHasNoRequiredPersistentSchema() throws Exception {
-      final var arbitrary = root(WS1).resolve(".seqdev/state.json");
+      final var arbitrary = wsRepo.workspaceRootPath(WS1).resolve(".seqdev/state.json");
       Files.writeString(arbitrary, "no persistent schema");
-      saveOk(WS1, "b.txt", "v1");
+      saveOk(WS1, fileB, "v1");
       assertEquals("no persistent schema", Files.readString(arbitrary));
       assertClean(WS1);
     }
 
     @Test
     void staleTempFilesAreRemovedAndNothingElseIs() throws Exception {
-      final var seqdev = root(WS1).resolve(".seqdev");
-      final var stale = seqdev.resolve("tmp-" + java.util.UUID.randomUUID());
+      final var seqdev = wsRepo.workspaceRootPath(WS1).resolve(".seqdev");
+      final var stale = seqdev.resolve("tmp-" + UUID.randomUUID());
       Files.writeString(stale, "left by a crash");
       final var others = List.of(seqdev.resolve("tmp-notauuid"), seqdev.resolve("notes.tmp"));
       for (final var other : others) Files.writeString(other, "not ours");
 
-      saveOk(WS1, "b.txt", "v1");
+      saveOk(WS1, fileB, "v1");
       assertFalse(Files.exists(stale));
       others.forEach(o -> assertTrue(Files.exists(o), o::toString));
       assertClean(WS1);
@@ -1277,13 +1372,13 @@ class WorkspaceGitServiceIntegrationTest {
     void anAdoptionThatDidNotFinishIsRedoneNotRejected() throws Exception {
       try (final var git = git(WS1)) {
         final var cfg = git.getRepository().getConfig();
-        cfg.unset("plandev", null, "managed");
+        cfg.unset("seqdev", null, "managed");
         cfg.save();
       }
-      Files.writeString(root(WS1).resolve("a.txt"), "written before the crash");
-      saveOk(WS1, "b.txt", "v1");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "written before the crash");
+      saveOk(WS1, fileB, "v1");
       assertEquals(WorkspaceGitService.ADOPT_MESSAGE, log(WS1).get(1).getFullMessage());
-      assertTrue(history.isManaged(root(WS1)));
+      assertTrue(history.isManaged(wsRepo.workspaceRootPath(WS1)));
       assertClean(WS1);
     }
   }
@@ -1293,7 +1388,9 @@ class WorkspaceGitServiceIntegrationTest {
   class Drift {
     @BeforeEach
     void initWs() {
-      for (final var path : List.of("a.txt", "b.txt", "gone.txt", "d/x.txt")) saveOk(WS1, path, "v1");
+      for (final var path : List.of(fileA, fileB, goneFile, fileX)) {
+        saveOk(WS1, path, "v1");
+      }
     }
 
     private void assertFailedWith(final HandlerResult result, final String message) {
@@ -1305,34 +1402,37 @@ class WorkspaceGitServiceIntegrationTest {
     @Test
     void allDriftIsPreservedAndCleanBeforeTheMutationStarts() throws Exception {
       final var before = head(WS1);
-      Files.writeString(root(WS1).resolve("a.txt"), "external modified bytes");
-      Files.createDirectories(root(WS1).resolve("unrelated/nested"));
-      Files.writeString(root(WS1).resolve("unrelated/nested/new.txt"), "external untracked bytes");
-      Files.delete(root(WS1).resolve("gone.txt"));
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "external modified bytes");
+      Files.createDirectories(wsRepo.workspaceRootPath(WS1).resolve("unrelated/nested"));
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve("unrelated/nested/new.txt"), "external untracked bytes");
+      Files.delete(wsRepo.workspaceRootPath(WS1).resolve(goneFile));
 
       assertTrue(history.mutate(WS1, USER, "save b", () -> {
         assertClean(WS1);
         assertEquals(before, head(WS1));
-        assertEquals("v1", read(WS1, "a.txt"));
-        assertEquals("v1", read(WS1, "gone.txt"));
-        assertFalse(Files.exists(root(WS1).resolve("unrelated/nested/new.txt")));
-        Files.writeString(root(WS1).resolve("b.txt"), "intended mutation");
+        assertEquals("v1", read(WS1, fileA));
+        assertEquals("v1", read(WS1, goneFile));
+        assertFalse(Files.exists(wsRepo.workspaceRootPath(WS1).resolve("unrelated/nested/new.txt")));
+        Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileB), "intended mutation");
         return true;
       }, r -> r));
 
       final var incident = onlyIncident(WS1);
       final var json = incidentJson(incident);
       assertEquals(1, json.getInt("version"));
-      java.time.Instant.parse(json.getString("timestamp"));
+      assertDoesNotThrow(() -> Instant.parse(json.getString("timestamp")));
       assertEquals(before.name(), json.getString("head"));
       assertEquals("out-of-band filesystem change", json.getString("reason"));
       assertTrue(incident.getFileName().toString().matches("[0-9]{8}T[0-9]{9}Z-[0-9a-f-]{36}"));
-      assertEquals(java.util.Map.of("a.txt", "modified", "gone.txt", "deleted", "unrelated/nested/new.txt", "untracked"),
-                   changesIn(incident));
-      assertEquals("external modified bytes", preserved(incident, "a.txt"));
-      assertEquals("external untracked bytes", preserved(incident, "unrelated/nested/new.txt"));
+
+      final Map<String, String> expectedReturn = Map.of(fileA.toString(), "modified", goneFile.toString(), "deleted", "unrelated/nested/new.txt", "untracked");
+      final var changes = changesIn(incident);
+      assertTrue(expectedReturn.entrySet().containsAll(changes.entrySet()));
+      assertEquals(expectedReturn.size(), changes.size());
+      assertEquals("external modified bytes", preserved(incident, fileA));
+      assertEquals("external untracked bytes", preserved(incident, Path.of("unrelated/nested/new.txt")));
       assertFalse(Files.exists(incident.resolve("files/gone.txt")));
-      assertEquals(List.of("b.txt"), headDiff(WS1).stream().map(DiffEntry::getNewPath).toList());
+      assertEquals(List.of(fileB.toString()), headDiff(WS1).stream().map(DiffEntry::getNewPath).toList());
       assertClean(WS1);
 
       // Check every reachable commit, not just HEAD: preserved bytes must never be staged by git add -A.
@@ -1353,26 +1453,26 @@ class WorkspaceGitServiceIntegrationTest {
 
     @Test
     void modifiedTargetIsPreservedBeforeAnOrdinarySave() throws Exception {
-      Files.writeString(root(WS1).resolve("a.txt"), "external bytes");
-      saveOk(WS1, "a.txt", "intended bytes");
-      assertEquals("intended bytes", read(WS1, "a.txt"));
-      assertEquals("external bytes", preserved(onlyIncident(WS1), "a.txt"));
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "external bytes");
+      saveOk(WS1, fileA, "intended bytes");
+      assertEquals("intended bytes", read(WS1, fileA));
+      assertEquals("external bytes", preserved(onlyIncident(WS1), fileA));
       assertClean(WS1);
     }
 
     @Test
     void healingDoesNotChangeWholeWorkspaceRollback() throws Exception {
-      Files.writeString(root(WS1).resolve("a.txt"), "external bytes");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "external bytes");
       assertFalse(history.mutate(WS1, USER, "failing mutation", () -> {
         assertClean(WS1);
-        Files.writeString(root(WS1).resolve("b.txt"), "partial mutation");
-        Files.writeString(root(WS1).resolve("created.txt"), "partial new file");
+        Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileB), "partial mutation");
+        Files.writeString(wsRepo.workspaceRootPath(WS1).resolve("created.txt"), "partial new file");
         return false;
       }, r -> r));
-      assertEquals("v1", read(WS1, "a.txt"));
-      assertEquals("v1", read(WS1, "b.txt"));
-      assertFalse(Files.exists(root(WS1).resolve("created.txt")));
-      assertEquals("external bytes", preserved(onlyIncident(WS1), "a.txt"));
+      assertEquals("v1", read(WS1, fileA));
+      assertEquals("v1", read(WS1, fileB));
+      assertFalse(Files.exists(wsRepo.workspaceRootPath(WS1).resolve("created.txt")));
+      assertEquals("external bytes", preserved(onlyIncident(WS1), fileA));
       assertClean(WS1);
     }
 
@@ -1380,28 +1480,28 @@ class WorkspaceGitServiceIntegrationTest {
     void symlinksFailClosedBeforeAnyBytesAreMoved() throws Exception {
       final var outside = tmp.resolve("outside.txt");
       Files.writeString(outside, "outside bytes");
-      Files.writeString(root(WS1).resolve("a.txt"), "external bytes");
-      Files.delete(root(WS1).resolve("d/x.txt"));
-      Files.delete(root(WS1).resolve("d/.x.txt.meta.seqdev"));
-      Files.delete(root(WS1).resolve("d"));
-      Files.createSymbolicLink(root(WS1).resolve("d"), tmp);
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "external bytes");
+      Files.delete(wsRepo.workspaceRootPath(WS1).resolve(fileX));
+      Files.delete(wsRepo.workspaceRootPath(WS1).resolve("d/.x.txt.meta.seqdev"));
+      Files.delete(wsRepo.workspaceRootPath(WS1).resolve("d"));
+      Files.createSymbolicLink(wsRepo.workspaceRootPath(WS1).resolve("d"), tmp);
       final var before = head(WS1);
 
-      assertFailedWith(save(WS1, "b.txt", "intended bytes", "*"), "could not be preserved");
+      assertFailedWith(save(WS1, fileB, "intended bytes", "*"), "could not be preserved");
       assertEquals(before, head(WS1));
-      assertEquals("external bytes", read(WS1, "a.txt"));
+      assertEquals("external bytes", read(WS1, fileA));
       assertEquals("outside bytes", Files.readString(outside));
-      assertTrue(Files.isSymbolicLink(root(WS1).resolve("d")));
+      assertTrue(Files.isSymbolicLink(wsRepo.workspaceRootPath(WS1).resolve("d")));
       assertEquals(List.of(), incidents(WS1));
     }
 
     @Test
     void aSymlinkedRecoveryDirectoryIsNeverFollowed() throws Exception {
       final var outside = Files.createDirectory(tmp.resolve("outside"));
-      Files.createSymbolicLink(WorkspaceGitService.recoveryDir(root(WS1)), outside);
-      Files.writeString(root(WS1).resolve("a.txt"), "external bytes");
-      assertFailedWith(save(WS1, "b.txt", "intended bytes", "*"), "could not be preserved");
-      assertEquals("external bytes", read(WS1, "a.txt"));
+      Files.createSymbolicLink(WorkspaceGitService.recoveryDir(wsRepo.workspaceRootPath(WS1)), outside);
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "external bytes");
+      assertFailedWith(save(WS1, fileB, "intended bytes", "*"), "could not be preserved");
+      assertEquals("external bytes", read(WS1, fileA));
       try (final var entries = Files.list(outside)) {
         assertEquals(0, entries.count());
       }
@@ -1410,12 +1510,12 @@ class WorkspaceGitServiceIntegrationTest {
     @Test
     void aSpecialFileIsRejectedWithoutMovingOtherDrift() throws Exception {
       assumeTrue(POSIX);
-      Files.writeString(root(WS1).resolve("a.txt"), "external bytes");
-      final var socket = root(WS1).resolve("special.sock");
-      try (final var server = java.nio.channels.ServerSocketChannel.open(java.net.StandardProtocolFamily.UNIX)) {
-        server.bind(java.net.UnixDomainSocketAddress.of(socket));
-        assertFailure(save(WS1, "b.txt", "intended bytes", "*"), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
-        assertEquals("external bytes", read(WS1, "a.txt"));
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "external bytes");
+      final var socket = wsRepo.workspaceRootPath(WS1).resolve("special.sock");
+      try (final var server = ServerSocketChannel.open(StandardProtocolFamily.UNIX)) {
+        server.bind(UnixDomainSocketAddress.of(socket));
+        assertFailure(save(WS1, fileB, "intended bytes", "*"), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
+        assertEquals("external bytes", read(WS1, fileA));
         assertTrue(Files.exists(socket));
         assertEquals(List.of(), incidents(WS1));
       }
@@ -1425,8 +1525,8 @@ class WorkspaceGitServiceIntegrationTest {
     void movesFallBackWhenAtomicMoveIsUnsupported() throws Exception {
       final var source = tmp.resolve("source.txt");
       Files.writeString(source, "preserved bytes");
-      final var uri = java.net.URI.create("jar:" + tmp.resolve("archive.zip").toUri());
-      try (final var zip = java.nio.file.FileSystems.newFileSystem(uri, java.util.Map.of("create", "true"))) {
+      final var uri = URI.create("jar:" + tmp.resolve("archive.zip").toUri());
+      try (final var zip = FileSystems.newFileSystem(uri, Map.of("create", "true"))) {
         final var target = zip.getPath("/preserved.txt");
         // Different filesystem providers reject ATOMIC_MOVE deterministically, exercising the fallback.
         history.move(source, target);
@@ -1438,11 +1538,11 @@ class WorkspaceGitServiceIntegrationTest {
     @Test
     void modeOnlyDriftPreservesTheExecutableFile() throws Exception {
       assumeTrue(POSIX);
-      final var file = root(WS1).resolve("a.txt");
+      final var file = wsRepo.workspaceRootPath(WS1).resolve(fileA);
       Files.setPosixFilePermissions(file, PosixFilePermissions.fromString("rwxr-xr-x"));
-      saveOk(WS1, "b.txt", "intended bytes");
+      saveOk(WS1, fileB, "intended bytes");
       final var incident = onlyIncident(WS1);
-      assertEquals("v1", preserved(incident, "a.txt"));
+      assertEquals("v1", preserved(incident, fileA));
       assertTrue(Files.isExecutable(incident.resolve("files/a.txt")));
       assertTrue(incidentJson(incident).getJsonArray("paths").getJsonObject(0).getBoolean("executable"));
       assertFalse(Files.isExecutable(file));
@@ -1451,30 +1551,30 @@ class WorkspaceGitServiceIntegrationTest {
 
     @Test
     void stagedChangesStillBlockTheWholeWorkspaceWithoutAnIncident() throws Exception {
-      Files.writeString(root(WS1).resolve("a.txt"), "X");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "X");
       try (final var git = git(WS1)) {
-        git.add().addFilepattern("a.txt").call();
+        git.add().addFilepattern(WorkspacePaths.toGitPath(fileA)).call();
       }
-      assertFailedWith(save(WS1, "a.txt", "Y", "*"), "staged changes");
-      assertFailedWith(save(WS1, "b.txt", "Y", "*"), "staged changes");
-      assertEquals("X", read(WS1, "a.txt"));
-      assertFalse(Files.exists(WorkspaceGitService.recoveryDir(root(WS1))));
+      assertFailedWith(save(WS1, fileA, "Y", "*"), "staged changes");
+      assertFailedWith(save(WS1, fileB, "Y", "*"), "staged changes");
+      assertEquals("X", read(WS1, fileA));
+      assertFalse(Files.exists(WorkspaceGitService.recoveryDir(wsRepo.workspaceRootPath(WS1))));
     }
 
     @Test
     void ifTheBytesCannotBePreservedNothingIsTouched() throws Exception {
       final var commits = log(WS1).size();
-      Files.writeString(root(WS1).resolve("a.txt"), "X");
-      Files.writeString(WorkspaceGitService.recoveryDir(root(WS1)), "in the way");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "X");
+      Files.writeString(WorkspaceGitService.recoveryDir(wsRepo.workspaceRootPath(WS1)), "in the way");
 
-      assertFailedWith(save(WS1, "a.txt", "Y", "*"), "could not be preserved");
-      assertEquals("X", read(WS1, "a.txt"));
+      assertFailedWith(save(WS1, fileA, "Y", "*"), "could not be preserved");
+      assertEquals("X", read(WS1, fileA));
       assertEquals(commits, log(WS1).size());
       assertFalse(Files.exists(mutationMarker(WS1)), "failed preservation must not authorize crash recovery");
 
-      Files.delete(WorkspaceGitService.recoveryDir(root(WS1)));
-      saveOk(WS1, "a.txt", "Y");
-      assertEquals("X", preserved(onlyIncident(WS1), "a.txt"));
+      Files.delete(WorkspaceGitService.recoveryDir(wsRepo.workspaceRootPath(WS1)));
+      saveOk(WS1, fileA, "Y");
+      assertEquals("X", preserved(onlyIncident(WS1), fileA));
     }
 
     private WorkspaceHistoryException healFailingOnB() {
@@ -1490,33 +1590,33 @@ class WorkspaceGitServiceIntegrationTest {
 
     @Test
     void aPartlyPreservedWorkspaceIsPutBack() throws Exception {
-      Files.writeString(root(WS1).resolve("a.txt"), "X");
-      Files.writeString(root(WS1).resolve("b.txt"), "Y");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "X");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileB), "Y");
 
       assertTrue(healFailingOnB().getMessage().contains("left untouched"));
-      assertEquals("X", read(WS1, "a.txt"));
-      assertEquals("Y", read(WS1, "b.txt"));
+      assertEquals("X", read(WS1, fileA));
+      assertEquals("Y", read(WS1, fileB));
       assertEquals(List.of(), incidents(WS1));
     }
 
     @Test
     void aFileThatCannotBeMovedBackStaysInTheIncident() throws Exception {
-      Files.writeString(root(WS1).resolve("a.txt"), "X");
-      Files.writeString(root(WS1).resolve("b.txt"), "Y");
-      history.failMovesTo.add(root(WS1).resolve("a.txt"));
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "X");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileB), "Y");
+      history.failMovesTo.add(wsRepo.workspaceRootPath(WS1).resolve(fileA));
 
       final var message = healFailingOnB().getMessage();
-      assertTrue(message.contains("could not be moved back") && message.contains("a.txt"), message);
-      assertFalse(Files.exists(root(WS1).resolve("a.txt")));
-      assertEquals("X", preserved(onlyIncident(WS1), "a.txt"));
-      assertEquals("Y", read(WS1, "b.txt"));
-      assertEquals(java.util.Map.of("a.txt", "modified", "b.txt", "modified"), changesIn(onlyIncident(WS1)));
+      assertTrue(message.contains("could not be moved back") && message.contains(fileA.toString()));
+      assertFalse(Files.exists(wsRepo.workspaceRootPath(WS1).resolve(fileA)));
+      assertEquals("X", preserved(onlyIncident(WS1), fileA));
+      assertEquals("Y", read(WS1, fileB));
+      assertEquals(Map.of(fileA.toString(), "modified", fileB.toString(), "modified"), changesIn(onlyIncident(WS1)));
     }
 
     @Test
     void aPruneFailureDoesNotFailTheMutation() throws Exception {
       assumeTrue(POSIX);
-      final var recovery = Files.createDirectories(WorkspaceGitService.recoveryDir(root(WS1)));
+      final var recovery = Files.createDirectories(WorkspaceGitService.recoveryDir(wsRepo.workspaceRootPath(WS1)));
       for (int i = 0; i < WorkspaceGitService.MAX_INCIDENTS; i++) {
         Files.createDirectories(recovery.resolve("00000000T000000000Z-old-%02d/files".formatted(i)));
         Files.writeString(recovery.resolve("00000000T000000000Z-old-%02d/files/f".formatted(i)), "old");
@@ -1524,13 +1624,13 @@ class WorkspaceGitServiceIntegrationTest {
       final var locked = recovery.resolve("00000000T000000000Z-old-00/files");
       Files.setPosixFilePermissions(locked, PosixFilePermissions.fromString("r-xr-xr-x"));
       try {
-        Files.writeString(root(WS1).resolve("a.txt"), "X");
-        saveOk(WS1, "a.txt", "Y");
+        Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "X");
+        saveOk(WS1, fileA, "Y");
       } finally {
         Files.setPosixFilePermissions(locked, PosixFilePermissions.fromString("rwxr-xr-x"));
       }
-      assertEquals("Y", read(WS1, "a.txt"));
-      assertEquals("X", preserved(incidents(WS1).getLast(), "a.txt"));
+      assertEquals("Y", read(WS1, fileA));
+      assertEquals("X", preserved(incidents(WS1).getLast(), fileA));
       assertTrue(Files.exists(locked.resolve("f")), "the old incident could not be pruned; that was only logged");
     }
 
@@ -1538,92 +1638,92 @@ class WorkspaceGitServiceIntegrationTest {
     void failedOobHealRestoreLeavesAMarkerAndTheNextRequestRecovers() throws Exception {
       assumeTrue(POSIX);
       final var commits = log(WS1).size();
-      final var dir = root(WS1).resolve("d");
+      final var dir = wsRepo.workspaceRootPath(WS1).resolve("d");
       Files.delete(dir.resolve("x.txt"));
       Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("r-xr-xr-x")); // x.txt cannot be rewritten
       try {
-        assertFailedWith(save(WS1, "d/x.txt", "Y", "*"), "could not be restored");
+        assertFailedWith(save(WS1, fileX, "Y", "*"), "could not be restored");
       } finally {
         Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("rwxr-xr-x"));
       }
       assertEquals(commits, log(WS1).size());
       assertFalse(Files.exists(dir.resolve("x.txt")));
       final var incident = onlyIncident(WS1);
-      assertEquals(java.util.Map.of("d/x.txt", "deleted"), changesIn(incident));
+      assertEquals(Map.of(fileX.toString(), "deleted"), changesIn(incident));
       assertTrue(Files.exists(mutationMarker(WS1)), "restore failed after preservation; recovery must remain authorized");
 
       // Simulate the stale lock and index residue a crash during checkout can leave behind.
-      Files.writeString(root(WS1).resolve("a.txt"), "interrupted restore bytes");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "interrupted restore bytes");
       try (final var git = git(WS1)) {
-        git.add().addFilepattern("a.txt").call();
+        git.add().addFilepattern(WorkspacePaths.toGitPath(fileA)).call();
       }
-      final var indexLock = root(WS1).resolve(".git/index.lock");
+      final var indexLock = wsRepo.workspaceRootPath(WS1).resolve(".git/index.lock");
       Files.writeString(indexLock, "stale");
       restartServer();
-      saveOk(WS1, "b.txt", "next request");
+      saveOk(WS1, fileB, "next request");
 
-      assertEquals("v1", read(WS1, "a.txt"));
-      assertEquals("v1", read(WS1, "d/x.txt"));
-      assertEquals("next request", read(WS1, "b.txt"));
+      assertEquals("v1", read(WS1, fileA));
+      assertEquals("v1", read(WS1, fileX));
+      assertEquals("next request", read(WS1, fileB));
       assertFalse(Files.exists(indexLock));
       assertFalse(Files.exists(mutationMarker(WS1)));
       assertTrue(incidents(WS1).contains(incident));
       final var recovery = incidents(WS1).stream().filter(p -> !p.equals(incident)).toList();
       assertEquals(1, recovery.size());
-      assertEquals("interrupted restore bytes", preserved(recovery.getFirst(), "a.txt"));
+      assertEquals("interrupted restore bytes", preserved(recovery.getFirst(), fileA));
       assertEquals("interrupted mutation recovery", incidentJson(recovery.getFirst()).getString("reason"));
       assertClean(WS1);
     }
 
     @Test
     void recoveryArtifactsAreInvisibleToGitAndTheFileApi() throws Exception {
-      Files.writeString(root(WS1).resolve("a.txt"), "X");
-      saveOk(WS1, "a.txt", "Y");
-      final var incident = root(WS1).relativize(onlyIncident(WS1));
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "X");
+      saveOk(WS1, fileA, "Y");
+      final var incident = wsRepo.workspaceRootPath(WS1).relativize(onlyIncident(WS1));
 
       assertClean(WS1);
       assertTrue(headTree(WS1).stream().noneMatch(p -> p.startsWith(".seqdev")));
-      assertTrue(WorkspacePaths.walk(root(WS1), Integer.MAX_VALUE).stream()
-                               .noneMatch(p -> root(WS1).relativize(p).startsWith(".seqdev")));
+      assertTrue(WorkspacePaths.walk(wsRepo.workspaceRootPath(WS1), Integer.MAX_VALUE).stream()
+                               .noneMatch(p -> wsRepo.workspaceRootPath(WS1).relativize(p).startsWith(".seqdev")));
       for (final var path : List.of(incident.resolve("incident.json"), incident.resolve("files/a.txt"))) {
         assertThrows(SecurityException.class, () -> fs.loadFile(WS1, path), path::toString);
-        assertFailure(save(WS1, path.toString(), "evil", "*"), 400, "RESERVED_PATH");
+        assertFailure(save(WS1, path, "evil", "*"), 400, "SECURITY_EXCEPTION");
       }
     }
 
     @Test
     void onlyTheNewestIncidentsAreKept() throws Exception {
       for (int i = 0; i < WorkspaceGitService.MAX_INCIDENTS + 3; i++) {
-        Files.writeString(root(WS1).resolve("a.txt"), "drift " + i);
-        saveOk(WS1, "a.txt", "v1");
+        Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "drift " + i);
+        saveOk(WS1, fileA, "v1");
       }
       final var kept = incidents(WS1);
       assertEquals(WorkspaceGitService.MAX_INCIDENTS, kept.size());
-      assertEquals("drift 3", preserved(kept.getFirst(), "a.txt"));
-      assertEquals("drift " + (WorkspaceGitService.MAX_INCIDENTS + 2), preserved(kept.getLast(), "a.txt"));
+      assertEquals("drift 3", preserved(kept.getFirst(), fileA));
+      assertEquals("drift " + (WorkspaceGitService.MAX_INCIDENTS + 2), preserved(kept.getLast(), fileA));
     }
 
     @Test
     void theCurrentIncidentIsNeverPruned() throws Exception {
-      final var recovery = Files.createDirectories(WorkspaceGitService.recoveryDir(root(WS1)));
+      final var recovery = Files.createDirectories(WorkspaceGitService.recoveryDir(wsRepo.workspaceRootPath(WS1)));
       for (int i = 0; i < WorkspaceGitService.MAX_INCIDENTS; i++) {
         Files.createDirectories(recovery.resolve("99991231T235959999Z-future-%02d".formatted(i)));
       }
-      Files.writeString(root(WS1).resolve("a.txt"), "X");
-      saveOk(WS1, "a.txt", "Y");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "X");
+      saveOk(WS1, fileA, "Y");
 
       final var kept = incidents(WS1);
       assertEquals(WorkspaceGitService.MAX_INCIDENTS, kept.size());
       final var current = kept.stream().filter(p -> !p.getFileName().toString().startsWith("9999")).toList();
       assertEquals(1, current.size(), kept::toString);
-      assertEquals("X", preserved(current.getFirst(), "a.txt"));
+      assertEquals("X", preserved(current.getFirst(), fileA));
     }
   }
 
   @Nested
   class Adoption {
     private Git foreignRepo(final int ws, final String branch) throws GitAPIException, IOException {
-      final var git = Git.init().setDirectory(root(ws).toFile()).setInitialBranch(branch).call();
+      final var git = Git.init().setDirectory(wsRepo.workspaceRootPath(ws).toFile()).setInitialBranch(branch).call();
       final var cfg = git.getRepository().getConfig();
       cfg.setString("gpg", null, "format", "openpgp");
       cfg.save();
@@ -1641,10 +1741,10 @@ class WorkspaceGitServiceIntegrationTest {
       var ws = 10;
       for (final var name : List.of(".gitignore", ".gitattributes", ".gitmodules", "sub/.gitignore")) {
         ws++;
-        Files.createDirectories(root(ws).resolve(name).getParent());
+        Files.createDirectories(wsRepo.workspaceRootPath(ws).resolve(name).getParent());
         try (final var git = foreignRepo(ws, "main")) {
-          Files.writeString(root(ws).resolve("a.txt"), "A");
-          Files.writeString(root(ws).resolve(name), "x\n");
+          Files.writeString(wsRepo.workspaceRootPath(ws).resolve(fileA), "A");
+          Files.writeString(wsRepo.workspaceRootPath(ws).resolve(name), "x\n");
           commitAll(git);
         }
         assertClean(ws);
@@ -1652,36 +1752,36 @@ class WorkspaceGitServiceIntegrationTest {
 
         assertFailure(bindings.handleCreateDirectory(ws, Path.of("x"), USER), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
         assertEquals(commits, log(ws).size(), name);
-        assertFalse(history.isManaged(root(ws)), name);
+        assertFalse(history.isManaged(wsRepo.workspaceRootPath(ws)), name);
       }
     }
 
     @Test
     void anExistingRepoIsAdoptedWithItsUncommittedState() throws Exception {
       try (final var git = foreignRepo(WS1, "main")) {
-        Files.writeString(root(WS1).resolve("a.txt"), "committed");
+        Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "committed");
         commitAll(git);
       }
-      Files.writeString(root(WS1).resolve("a.txt"), "uncommitted");
-      saveOk(WS1, "b.txt", "B");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "uncommitted");
+      saveOk(WS1, fileB, "B");
 
       final var commits = log(WS1);
       assertEquals(List.of("Update b.txt", WorkspaceGitService.ADOPT_MESSAGE, "external"),
                    commits.stream().map(RevCommit::getFullMessage).toList());
-      assertEquals("uncommitted", read(WS1, "a.txt"));
+      assertEquals("uncommitted", read(WS1, fileA));
       assertClean(WS1);
     }
 
     @Test
     void existingInternalScratchFilesDoNotBlockAdoption() throws Exception {
-      Files.writeString(root(WS1).resolve("a.txt"), "A");
-      Files.createDirectories(root(WS1).resolve(".seqdev"));
-      final var arbitrary = root(WS1).resolve(".seqdev/state.json");
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "A");
+      Files.createDirectories(wsRepo.workspaceRootPath(WS1).resolve(".seqdev"));
+      final var arbitrary = wsRepo.workspaceRootPath(WS1).resolve(".seqdev/state.json");
       Files.writeString(arbitrary, "no schema");
 
       init(WS1);
 
-      assertTrue(history.isManaged(root(WS1)));
+      assertTrue(history.isManaged(wsRepo.workspaceRootPath(WS1)));
       assertEquals("no schema", Files.readString(arbitrary));
       assertClean(WS1);
     }
@@ -1691,13 +1791,13 @@ class WorkspaceGitServiceIntegrationTest {
       final var legacySidecar = """
           {"version":"1","createdBy":"carol","createdAt":"2025-01-01T00:00:00Z","readOnly":true}""";
       try (final var git = foreignRepo(WS1, "master")) {
-        Files.writeString(root(WS1).resolve("a.txt"), "A");
-        Files.writeString(root(WS1).resolve(".a.txt.meta.seqdev"), legacySidecar);
+        Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "A");
+        Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(".a.txt.meta.seqdev"), legacySidecar);
         commitAll(git);
       }
-      assertFailure(save(WS1, "b.txt", "B", null), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
-      assertFalse(Files.exists(root(WS1).resolve("b.txt")));
-      assertFalse(history.isManaged(root(WS1)));
+      assertFailure(save(WS1, fileB, "B", null), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
+      assertFalse(Files.exists(wsRepo.workspaceRootPath(WS1).resolve(fileB)));
+      assertFalse(history.isManaged(wsRepo.workspaceRootPath(WS1)));
       assertEquals(legacySidecar, read(WS1, ".a.txt.meta.seqdev"), "nothing is migrated before validation passes");
       assertClean(WS1);
     }
@@ -1709,62 +1809,62 @@ class WorkspaceGitServiceIntegrationTest {
 
     @BeforeEach
     void setUpLinks() throws IOException {
-      outside = Files.createDirectories(base.resolve("outside"));
+      outside = wsRepo.createWorkspace("outside");
       Files.writeString(outside.resolve("secret.txt"), "secret");
     }
 
     @Test
     void anUnmanagedWorkspaceWithASymlinkIsNotAdopted() throws Exception {
-      Files.writeString(root(WS1).resolve("a.txt"), "A");
-      Files.createSymbolicLink(root(WS1).resolve("link"), outside);
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileA), "A");
+      Files.createSymbolicLink(wsRepo.workspaceRootPath(WS1).resolve("link"), outside);
       final var result = bindings.handleCreateDirectory(WS1, Path.of("x"), USER);
       assertFailure(result, 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
       assertTrue(result.jsonResponse().asJsonObject().getString("message").contains("link (symbolic link)"));
-      assertFalse(Files.exists(root(WS1).resolve(".git")));
+      assertFalse(Files.exists(wsRepo.workspaceRootPath(WS1).resolve(".git")));
     }
 
     @Test
     void pathsThroughASymlinkCannotBeReadOrWritten() throws Exception {
-      saveOk(WS1, "d/x.txt", "x");
+      saveOk(WS1, fileX, "x");
       final var head = head(WS1);
-      Files.createSymbolicLink(root(WS1).resolve("toGit"), Path.of(".git"));
-      Files.createSymbolicLink(root(WS1).resolve("toOutside"), outside);
-      Files.createSymbolicLink(root(WS1).resolve("toInside"), Path.of("d"));
+      Files.createSymbolicLink(wsRepo.workspaceRootPath(WS1).resolve("toGit"), Path.of(".git"));
+      Files.createSymbolicLink(wsRepo.workspaceRootPath(WS1).resolve("toOutside"), outside);
+      Files.createSymbolicLink(wsRepo.workspaceRootPath(WS1).resolve("toInside"), Path.of("d"));
 
       for (final var path : List.of("toGit/config", "toOutside/secret.txt", "toInside/x.txt", "toGit", "toInside")) {
         assertThrows(SecurityException.class, () -> fs.loadFile(WS1, Path.of(path)), path);
         assertThrows(SecurityException.class, () -> fs.checkFileExists(WS1, Path.of(path)), path);
       }
       // The workspace is no longer as PlanDev left it, so nothing is written anywhere, inside or outside it.
-      assertFailure(save(WS1, "toOutside/secret.txt", "overwritten", "*"), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
-      assertFailure(save(WS1, "toGit/config", "overwritten", "*"), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
+      assertFailure(save(WS1, Path.of("toOutside/secret.txt"), "overwritten", "*"), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
+      assertFailure(save(WS1, Path.of("toGit/config"), "overwritten", "*"), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
       assertEquals("secret", Files.readString(outside.resolve("secret.txt")));
       assertEquals(head, head(WS1));
     }
 
     @Test
     void aSymlinkCommittedOutOfBandIsRejected() throws Exception {
-      saveOk(WS1, "a.txt", "A");
-      Files.createSymbolicLink(root(WS1).resolve("link"), outside);
+      saveOk(WS1, fileA, "A");
+      Files.createSymbolicLink(wsRepo.workspaceRootPath(WS1).resolve("link"), outside);
       try (final var git = git(WS1)) {
         git.add().addFilepattern("link").call();
         git.commit().setMessage("sneak").setSign(false).call();
       }
       assertClean(WS1);
-      final var result = save(WS1, "b.txt", "B", null);
+      final var result = save(WS1, fileB, "B", null);
       assertFailure(result, 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
       assertTrue(result.jsonResponse().asJsonObject().getString("message").contains("link"));
     }
 
     @Test
     void scansDoNotFollowOrReturnSymlinks() throws IOException {
-      Files.createDirectories(root(WS1).resolve("d"));
-      Files.writeString(root(WS1).resolve("d/x.txt"), "x");
-      Files.createSymbolicLink(root(WS1).resolve("toOutside"), outside);
-      Files.createSymbolicLink(root(WS1).resolve("toInside"), Path.of("d"));
-      final var listed = WorkspacePaths.walk(root(WS1), Integer.MAX_VALUE).stream()
-                                       .map(p -> WorkspacePaths.key(root(WS1), p)).toList();
-      assertEquals(List.of("d", "d/x.txt"), listed.stream().sorted().toList());
+      Files.createDirectories(wsRepo.workspaceRootPath(WS1).resolve("d"));
+      Files.writeString(wsRepo.workspaceRootPath(WS1).resolve(fileX), "x");
+      Files.createSymbolicLink(wsRepo.workspaceRootPath(WS1).resolve("toOutside"), outside);
+      Files.createSymbolicLink(wsRepo.workspaceRootPath(WS1).resolve("toInside"), Path.of("d"));
+      final var listed = WorkspacePaths.walk(wsRepo.workspaceRootPath(WS1), Integer.MAX_VALUE).stream()
+                                       .map(p -> WorkspacePaths.key(wsRepo.workspaceRootPath(WS1), p)).toList();
+      assertEquals(List.of("d", fileX.toString()), listed.stream().sorted().toList());
     }
   }
 
@@ -1774,24 +1874,20 @@ class WorkspaceGitServiceIntegrationTest {
    */
   @Nested
   class CopySemantics {
-    private JsonObject metadata(final String path) throws Exception {
-      return WorkspaceGitServiceIntegrationTest.this.metadata(WS1, path);
-    }
-
     /** Destination has carol's sidecar with user metadata; source has no sidecar at all. */
     private void sourceWithoutSidecarAndDestinationWithOne() throws Exception {
       assertSuccess(bindings.handleFileUpload(WS1, Path.of("dest.txt"), upload("dest.txt", "old"), true, null, "carol"));
       setUserMetadata(WS1, "dest.txt", "final");
       saveOk(WS1, "src.txt", "new");
       deleteSidecar(WS1, "src.txt");
-      assertFalse(Files.exists(root(WS1).resolve(".src.txt.meta.seqdev")));
+      assertFalse(Files.exists(wsRepo.workspaceRootPath(WS1).resolve(".src.txt.meta.seqdev")));
     }
 
     @Test
     void aCopyDoesNotInheritTheOverwrittenFilesMetadata() throws Exception {
       sourceWithoutSidecarAndDestinationWithOne();
       assertSuccess(bindings.handleCopy(Path.of("src.txt"), Path.of("dest.txt"), WS1, WS1, true, USER));
-      final var meta = metadata("dest.txt");
+      final var meta = metadata(WS1, "dest.txt");
       assertFalse(meta.containsKey("user"), meta::toString);
       assertEquals(USER, meta.getString("createdBy"));
       assertEquals("new", read(WS1, "dest.txt"));
@@ -1802,7 +1898,7 @@ class WorkspaceGitServiceIntegrationTest {
     void aMoveDoesNotInheritTheOverwrittenFilesMetadata() throws Exception {
       sourceWithoutSidecarAndDestinationWithOne();
       assertSuccess(bindings.handleMove(Path.of("src.txt"), Path.of("dest.txt"), WS1, WS1, true, USER));
-      final var meta = metadata("dest.txt");
+      final var meta = metadata(WS1, "dest.txt");
       assertFalse(meta.containsKey("user"), meta::toString);
       assertEquals(USER, meta.getString("createdBy"));
       assertEquals("new", read(WS1, "dest.txt"));
@@ -1813,47 +1909,47 @@ class WorkspaceGitServiceIntegrationTest {
     void theExecutableBitSurvivesSavesAndCopies() throws Exception {
       assumeTrue(POSIX, "needs POSIX permissions");
       saveOk(WS1, "run.sh", "v1");
-      Files.setPosixFilePermissions(root(WS1).resolve("run.sh"), PosixFilePermissions.fromString("rwxr-xr-x"));
+      Files.setPosixFilePermissions(wsRepo.workspaceRootPath(WS1).resolve("run.sh"), PosixFilePermissions.fromString("rwxr-xr-x"));
       try (final var git = git(WS1)) { // record the mode as PlanDev would find it in a managed workspace
         git.add().addFilepattern("run.sh").call();
         git.commit().setMessage("chmod").setSign(false).call();
       }
 
       saveOk(WS1, "run.sh", "v2");
-      assertTrue(Files.isExecutable(root(WS1).resolve("run.sh")));
+      assertTrue(Files.isExecutable(wsRepo.workspaceRootPath(WS1).resolve("run.sh")));
       final var diff = headDiff(WS1);
       assertEquals(1, diff.size(), diff::toString);
       assertEquals(FileMode.EXECUTABLE_FILE, diff.getFirst().getOldMode());
       assertEquals(FileMode.EXECUTABLE_FILE, diff.getFirst().getNewMode(), "a save changes content, not mode");
 
       assertSuccess(bindings.handleCopy(Path.of("run.sh"), Path.of("copy.sh"), WS1, WS1, false, USER));
-      assertTrue(Files.isExecutable(root(WS1).resolve("copy.sh")));
+      assertTrue(Files.isExecutable(wsRepo.workspaceRootPath(WS1).resolve("copy.sh")));
       assertClean(WS1);
     }
 
     @Test
     void fileAndDirectoryCopiesProduceTheSameMetadata() throws Exception {
-      assertSuccess(bindings.handleFileUpload(WS1, Path.of("d/x.txt"), upload("x.txt", "x"), true, null, "carol"));
-      setUserMetadata(WS1, "d/x.txt", "final");
-      setReadOnly(WS1, "d/x.txt", true);
+      assertSuccess(bindings.handleFileUpload(WS1, fileX, upload("x.txt", "x"), true, null, "carol"));
+      setUserMetadata(WS1, fileX.toString(), "final");
+      setReadOnly(WS1, fileX, true);
 
-      assertSuccess(bindings.handleCopy(Path.of("d/x.txt"), Path.of("single.txt"), WS1, WS1, false, USER));
+      assertSuccess(bindings.handleCopy(fileX, Path.of("single.txt"), WS1, WS1, false, USER));
       assertSuccess(bindings.handleCopy(Path.of("d"), Path.of("e"), WS1, WS1, false, USER));
 
-      final var single = metadata("single.txt");
-      final var inDir = metadata("e/x.txt");
+      final var single = metadata(WS1, "single.txt");
+      final var inDir = metadata(WS1, "e/x.txt");
       for (final var copy : List.of(single, inDir)) {
         assertEquals(USER, copy.getString("createdBy"), copy::toString);
         assertEquals(USER, copy.getString("lastEditedBy"), copy::toString);
         assertEquals("final", copy.getJsonObject("user").getString("status"), copy::toString);
         assertFalse(copy.getBoolean("readOnly"), copy::toString);
       }
-      final var ignoringTimes = (java.util.function.Function<JsonObject, JsonObject>) o ->
+      final var ignoringTimes = (Function<JsonObject, JsonObject>) o ->
           Json.createObjectBuilder(o).remove("createdAt").remove("lastEditedAt").build();
       assertEquals(ignoringTimes.apply(single), ignoringTimes.apply(inDir));
-      assertTrue(isReadOnly(WS1, "d/x.txt"), "the source keeps its lock");
+      assertTrue(isReadOnly(WS1, fileX.toString()), "the source keeps its lock");
       assertFalse(isReadOnly(WS1, "e/x.txt"));
-      assertEquals("carol", metadata("d/x.txt").getString("createdBy"));
+      assertEquals("carol", metadata(WS1, fileX.toString()).getString("createdBy"));
       assertClean(WS1);
     }
   }
@@ -1869,6 +1965,6 @@ class WorkspaceGitServiceIntegrationTest {
     // Holding one workspace's lock does not authorize mutating another
     assertThrows(IllegalStateException.class, () -> history.mutate(commits, USER,
         () -> fs.moveDirectory(WS1, Path.of("a"), WS2, Path.of("b")), r -> true));
-    assertFalse(Files.exists(root(WS1).resolve("x")));
+    assertFalse(Files.exists(wsRepo.workspaceRootPath(WS1).resolve("x")));
   }
 }

@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 public class WorkspaceTestRepository implements WorkspaceRepository {
-  private static int workspaceIdCounter = 0;
+  private int workspaceIdCounter = 0;
   private final Path basePath;
 
   public WorkspaceTestRepository(final Path basePath) {

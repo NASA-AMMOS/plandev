@@ -1162,10 +1162,14 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    */
   public static JsonObject applyLastEdit(final JsonObject originalMetadata, final LastEdit edit) {
     if(edit == null) { return originalMetadata; }
-    return Json.createObjectBuilder(originalMetadata)
-               .add("lastEditedBy", edit.by())
-               .add("lastEditedAt", edit.at().toString())
-               .build();
+    // If the edit is not the baseline, or if the edit is the baseline but one of the "lastEdited" fields are missing, overwrite the original metadata
+    if(!edit.baseline() || !originalMetadata.containsKey("lastEditedBy") || !originalMetadata.containsKey("lastEditedAt")) {
+      return Json.createObjectBuilder(originalMetadata)
+                 .add("lastEditedBy", edit.by())
+                 .add("lastEditedAt", edit.at().toString())
+                 .build();
+    }
+    return originalMetadata;
   }
   //endregion
 }

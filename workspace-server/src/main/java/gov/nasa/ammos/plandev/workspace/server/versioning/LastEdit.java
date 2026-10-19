@@ -15,6 +15,8 @@ import java.time.Instant;
  */
 public record LastEdit(PersonIdent author, Instant at, ObjectId commitHash, boolean baseline) {
   public String by() {
-    return author.toExternalString();
+    // toExternalString() sanitizes the author's name and email, but adds a timestamp after the email <>
+    // as a result, we need to split right after the ">" that closes the email
+    return author.toExternalString().split("(?<=>)")[0];
   }
 }

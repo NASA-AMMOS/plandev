@@ -1876,6 +1876,22 @@ class WorkspaceGitServiceIntegrationTest {
     }
 
     @Test
+    void aRevisionTagsTheCommitThatLastChangedTheFile() throws Exception {
+      saveOk(WS1, "a.txt", "v1");
+      final var changed = head(WS1).copy();
+      saveOk(WS1, "b.txt", "unrelated");
+      assertEquals(List.of(), names("a.txt")); // cached at the current HEAD, before the tag below exists
+
+      revise("a.txt", "");
+      assertEquals(List.of("a"), names("a.txt"), "a tag on an older, already-cached commit is still found");
+      assertEquals(changed, fs.listRevisions(WS1, Path.of("a.txt")).getFirst().commit());
+
+      revise("a.txt", "");
+      final var both = fs.listRevisions(WS1, Path.of("a.txt"));
+      assertEquals(both.get(0).commit(), both.get(1).commit(), "nothing changed between them");
+    }
+
+    @Test
     void revisionsFollowRenamesButNotCopiesOrRecreation() throws Exception {
       bindings.saveAndGetEtag(WS1, "a.txt", "v1");
       revise("a.txt", "");

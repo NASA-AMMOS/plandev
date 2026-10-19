@@ -2,11 +2,10 @@ package gov.nasa.ammos.plandev.workspace.server.versioning;
 
 import gov.nasa.ammos.plandev.workspace.server.WorkspaceFileSystemService;
 import gov.nasa.ammos.plandev.workspace.server.WorkspacePaths;
+import gov.nasa.ammos.plandev.workspace.server.WorkspaceRepository;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.PartialMutationException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistoryException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.NoSuchWorkspaceException;
-import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
-import gov.nasa.ammos.plandev.workspace.server.postgres.WorkspacePostgresRepository;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.Status;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -46,7 +45,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -169,7 +167,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    */
   private record CachedLastEdit(ObjectId validAt, LastEdit edit) {}
 
-  private final WorkspacePostgresRepository postgresRepository;
+  private final WorkspaceRepository workspaceRepository;
   // ponytail: one lock per workspace id, never evicted; a few bytes per workspace ever touched by this process.
   private final Map<Integer, ReentrantLock> locks = new ConcurrentHashMap<>();
   private final Map<Integer, Map<Path, CachedLastEdit>> lastEditCache = new ConcurrentHashMap<>();
@@ -178,8 +176,8 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   // their own initial false. inLockScope removes the thread's value when the outer operation finishes.
   private final ThreadLocal<Boolean> lockScopeActive = ThreadLocal.withInitial(() -> false);
 
-  public WorkspaceGitService(final WorkspacePostgresRepository postgresRepository) {
-    this.postgresRepository = postgresRepository;
+  public WorkspaceGitService(final WorkspaceRepository workspaceRepository) {
+    this.workspaceRepository = workspaceRepository;
   }
 
   //region Mutation boundary
@@ -230,7 +228,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       final var rootsById = new LinkedHashMap<Integer, Path>();
       final var before = new HashMap<Integer, ObjectId>();
       for (final var id : workspaceIds) {
-        final var root = postgresRepository.workspaceRootPath(id).normalize();
+        final var root = workspaceRepository.workspaceRootPath(id).normalize();
         rootsById.put(id, root);
         ensureReady(root);
         before.put(id, capture(root));
@@ -291,7 +289,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       try {
         final var result = action.apply();
         lastEditCache.remove(workspaceId);
-        configured.remove(workspaceId);
+        configured.remove(workspaceRepository.workspaceRootPath(workspaceId));
         return result;
       } finally {
         lock.unlock();
@@ -626,7 +624,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   }
 
   public boolean isManaged(final int workspaceId) throws IOException, NoSuchWorkspaceException {
-    return isManaged(postgresRepository.workspaceRootPath(workspaceId));
+    return isManaged(workspaceRepository.workspaceRootPath(workspaceId));
   }
 
   /**
@@ -917,7 +915,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   //region Git helpers
   private Git open(final int workspaceId) throws IOException, NoSuchWorkspaceException {
     // Opens <root>/.git only; never discovers a repository in a parent directory. Closing the Git closes the repo.
-    return open(postgresRepository.workspaceRootPath(workspaceId));
+    return open(workspaceRepository.workspaceRootPath(workspaceId));
   }
 
   private static Git open(final Path root) throws IOException {

@@ -5,7 +5,6 @@ import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpExcepti
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistoryException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.NoSuchWorkspaceException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
-import gov.nasa.ammos.plandev.workspace.server.postgres.WorkspacePostgresRepository;
 import gov.nasa.ammos.plandev.workspace.server.types.MetadataKeys;
 import gov.nasa.ammos.plandev.workspace.server.types.MetadataMergeBehavior;
 import gov.nasa.ammos.plandev.workspace.server.versioning.LastEdit;
@@ -31,12 +30,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -45,7 +42,6 @@ import org.slf4j.LoggerFactory;
 import javax.json.Json;
 import javax.json.JsonException;
 import javax.json.JsonObject;
-import javax.json.JsonString;
 import javax.json.JsonValue;
 import javax.json.stream.JsonGenerator;
 
@@ -57,11 +53,11 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   // Configure how the Metadata JSONs are written
   private static final Map<String,String> config = Map.of(JsonGenerator.PRETTY_PRINTING, "");
 
-  final WorkspacePostgresRepository postgresRepository;
+  final WorkspaceRepository workspaceRepository;
   final WorkspaceGitService gitService;
 
-  public WorkspaceFileSystemService(final WorkspacePostgresRepository postgresRepository, final WorkspaceGitService gitService) {
-    this.postgresRepository = postgresRepository;
+  public WorkspaceFileSystemService(final WorkspaceRepository workspaceRepository, final WorkspaceGitService gitService) {
+    this.workspaceRepository = workspaceRepository;
     this.gitService = gitService;
   }
 
@@ -79,7 +75,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
    */
   private Path resolveReadingPath(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException
   {
-    return WorkspacePaths.resolveReadingPath(postgresRepository.workspaceRootPath(workspaceId), filePath);
+    return WorkspacePaths.resolveReadingPath(workspaceRepository.workspaceRootPath(workspaceId), filePath);
   }
 
   /**
@@ -92,7 +88,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   private Path resolveMetadataPath(final int workspaceId, final Path filePath)
   throws WorkspaceFileOpException, NoSuchWorkspaceException
   {
-    return WorkspacePaths.resolveMetadataPath(postgresRepository.workspaceRootPath(workspaceId), filePath);
+    return WorkspacePaths.resolveMetadataPath(workspaceRepository.workspaceRootPath(workspaceId), filePath);
   }
   //endregion
 
@@ -154,13 +150,13 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   @Override
   public RenderType getFileType(final Path filePath) throws SQLException {
     final var fileName = filePath.getFileName().toString();
-    return RenderType.getRenderType(fileName, postgresRepository.getExtensionMapping());
+    return RenderType.getRenderType(fileName, workspaceRepository.getExtensionMapping());
   }
 
   //region Workspace Operations
   @Override
   public Optional<Integer> createWorkspace(final Path workspaceLocation, final String workspaceName, String username, int parcelId) {
-    final var repoPath = postgresRepository.getBaseRepositoryPath().resolve(workspaceLocation).normalize();
+    final var repoPath = workspaceRepository.getBaseRepositoryPath().resolve(workspaceLocation).normalize();
     if (!repoPath.toFile().mkdirs()) return Optional.empty();
 
     try {
@@ -176,7 +172,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     }
 
     try {
-      final int workspaceId = postgresRepository.createWorkspace(
+      final int workspaceId = workspaceRepository.createWorkspace(
           workspaceLocation.toString(), workspaceName, username, parcelId);
       return Optional.of(workspaceId);
     } catch (SQLException ex) {
@@ -188,11 +184,11 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   @Override
   public boolean deleteWorkspace(final int workspaceId) throws NoSuchWorkspaceException, SQLException {
-    final var repoDir = postgresRepository.workspaceRootPath(workspaceId).toFile();
+    final var repoDir = workspaceRepository.workspaceRootPath(workspaceId).toFile();
     // Only remove DB entry if the files were successfully deleted
     // This allows the user to attempt deleting via this endpoint again
     if(rmDirectory(repoDir)) {
-      return postgresRepository.deleteWorkspace(workspaceId);
+      return workspaceRepository.deleteWorkspace(workspaceId);
     }
     return false;
   }
@@ -253,7 +249,8 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   @Override
   public LastEditInfo getLastEditInfo(final int workspaceId, final Path filePath)
-  throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException {
+  throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException
+  {
     final var metadata = effectiveMetadata(workspaceId, filePath);
     return new LastEditInfo(
         metadata.getString(MetadataKeys.lastEditedBy.name(), null),
@@ -265,7 +262,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException
   {
     gitService.requireLocked(workspaceId);
-    final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
+    final var repoPath = workspaceRepository.workspaceRootPath(workspaceId);
     final var path = resolveWritingPath(repoPath, filePath);
     WorkspacePaths.resolveMetadataPath(repoPath, filePath); // validates the path can carry metadata
     // lastEdited* is derived from history. The builder's edit attribution seeds createdBy/createdAt for a new file.
@@ -304,11 +301,11 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException
   {
     gitService.requireLocked(oldWorkspaceId, newWorkspaceId);
-    final var oldRepoPath = postgresRepository.workspaceRootPath(oldWorkspaceId);
+    final var oldRepoPath = workspaceRepository.workspaceRootPath(oldWorkspaceId);
     final var oldPath = WorkspacePaths.resolveReadingPath(oldRepoPath, oldFilePath);
     final var oldMetadataPath = WorkspacePaths.resolveMetadataPath(oldRepoPath, oldFilePath);
 
-    final var newRepoPath = (oldWorkspaceId == newWorkspaceId) ? oldRepoPath : postgresRepository.workspaceRootPath(newWorkspaceId);
+    final var newRepoPath = (oldWorkspaceId == newWorkspaceId) ? oldRepoPath : workspaceRepository.workspaceRootPath(newWorkspaceId);
     final var newPath = resolveWritingPath(newRepoPath, newFilePath);
     final var newMetadataPath = WorkspacePaths.resolveMetadataPath(newRepoPath, newFilePath);
 
@@ -336,13 +333,13 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException
   {
     gitService.requireLocked(sourceWorkspaceId, destWorkspaceId);
-    final var sourceRepoPath = postgresRepository.workspaceRootPath(sourceWorkspaceId);
+    final var sourceRepoPath = workspaceRepository.workspaceRootPath(sourceWorkspaceId);
     final var sourcePath = WorkspacePaths.resolveReadingPath(sourceRepoPath, sourceFilePath);
     final var sourceMetadataPath = WorkspacePaths.resolveMetadataPath(sourceRepoPath, sourceFilePath);
 
     final var destRepoPath = (sourceWorkspaceId == destWorkspaceId)
         ? sourceRepoPath
-        : postgresRepository.workspaceRootPath(destWorkspaceId);
+        : workspaceRepository.workspaceRootPath(destWorkspaceId);
     final var destPath = resolveWritingPath(destRepoPath, destFilePath);
     final var destMetadataPath = resolveMetadataPath(destWorkspaceId, destFilePath);
 
@@ -394,7 +391,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws NoSuchWorkspaceException, WorkspaceFileOpException
   {
     gitService.requireLocked(workspaceId);
-    final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
+    final var repoPath = workspaceRepository.workspaceRootPath(workspaceId);
     final var path = WorkspacePaths.resolveReadingPath(repoPath, filePath);
     final var file = path.toFile();
     final var metadataFile = WorkspacePaths.resolveMetadataPath(repoPath, filePath).toFile();
@@ -416,7 +413,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   public DirectoryTree listFiles(final int workspaceId, final Path directoryPath, final int depth, final boolean withMetadata)
   throws SQLException, NoSuchWorkspaceException, IOException, WorkspaceFileOpException
   {
-    final var root = postgresRepository.workspaceRootPath(workspaceId);
+    final var root = workspaceRepository.workspaceRootPath(workspaceId);
     final var path = WorkspacePaths.resolveReadingPath(root, directoryPath);
     if(!Files.isDirectory(path)) {
       return null;
@@ -427,14 +424,14 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     final var map = withMetadata
         ? metadataMap(workspaceId, walkList)
         : new HashMap<Path, Pair<Path, LastEdit>>();
-    return new DirectoryTree(path, walkList, postgresRepository.getExtensionMapping(), map);
+    return new DirectoryTree(path, walkList, workspaceRepository.getExtensionMapping(), map);
   }
 
   @Override
   public boolean createDirectory(final int workspaceId, final Path directoryPath)
   throws IOException, NoSuchWorkspaceException {
     gitService.requireLocked(workspaceId);
-    final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
+    final var repoPath = workspaceRepository.workspaceRootPath(workspaceId);
     final var path = resolveWritingPath(repoPath, directoryPath);
     Files.createDirectories(path);
     return true;
@@ -445,9 +442,10 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException
   {
     gitService.requireLocked(oldWorkspaceId, newWorkspaceId);
-    final var oldRepoPath = postgresRepository.workspaceRootPath(oldWorkspaceId).normalize();
+    final var oldRepoPath = workspaceRepository.workspaceRootPath(oldWorkspaceId).normalize();
     final var oldPath = WorkspacePaths.resolveReadingPath(oldRepoPath, oldDirectoryPath);
-    final var newRepoPath = (oldWorkspaceId == newWorkspaceId) ? oldRepoPath : postgresRepository.workspaceRootPath(newWorkspaceId).normalize();
+    final var newRepoPath = (oldWorkspaceId == newWorkspaceId) ? oldRepoPath : workspaceRepository
+        .workspaceRootPath(newWorkspaceId).normalize();
     final var newPath = resolveWritingPath(newRepoPath, newDirectoryPath);
 
     // Do not permit the source workspace's root directory to be moved
@@ -476,9 +474,9 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws NoSuchWorkspaceException, WorkspaceFileOpException
   {
     gitService.requireLocked(sourceWorkspaceId, destWorkspaceId);
-    final var sourceRepoPath = postgresRepository.workspaceRootPath(sourceWorkspaceId);
+    final var sourceRepoPath = workspaceRepository.workspaceRootPath(sourceWorkspaceId);
     final var sourcePath = WorkspacePaths.resolveReadingPath(sourceRepoPath, sourceFilePath);
-    final var destRepoPath = (sourceWorkspaceId == destWorkspaceId) ? sourceRepoPath : postgresRepository.workspaceRootPath(destWorkspaceId);
+    final var destRepoPath = (sourceWorkspaceId == destWorkspaceId) ? sourceRepoPath : workspaceRepository.workspaceRootPath(destWorkspaceId);
     final var destPath = resolveWritingPath(destRepoPath, destFilePath);
 
     // The root owns the workspace's history and internal files; copying "the whole workspace" is not a file operation
@@ -521,7 +519,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws NoSuchWorkspaceException, WorkspaceFileOpException
   {
     gitService.requireLocked(workspaceId);
-    final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
+    final var repoPath = workspaceRepository.workspaceRootPath(workspaceId);
     final var path = WorkspacePaths.resolveReadingPath(repoPath, directoryPath);
     // Deleting the root would delete the workspace's history; that is deleteWorkspace's job
     if (path.equals(repoPath.normalize())) {
@@ -536,7 +534,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException, JsonException
   {
     gitService.requireLocked(workspaceId);
-    return isReadOnly(postgresRepository.workspaceRootPath(workspaceId), filePath);
+    return isReadOnly(workspaceRepository.workspaceRootPath(workspaceId), filePath);
   }
 
   private boolean isReadOnly(final Path repoPath, final Path filePath)
@@ -551,7 +549,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException, JsonException, SQLException
   {
     gitService.requireLocked(workspaceId);
-    final var repoPath = postgresRepository.workspaceRootPath(workspaceId);
+    final var repoPath = workspaceRepository.workspaceRootPath(workspaceId);
     final var directoryPath = WorkspacePaths.resolveReadingPath(repoPath, dirPath);
 
     if(!Files.isDirectory(directoryPath)) {
@@ -611,7 +609,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException, WorkspaceHistoryException
   {
     final var map = new HashMap<Path, Pair<Path, LastEdit>>();
-    final var workspaceRoot = postgresRepository.workspaceRootPath(workspaceId);
+    final var workspaceRoot = workspaceRepository.workspaceRootPath(workspaceId);
 
     // Filter out folders and metadata files from the input set, as neither of them have metadata
     final var filteredInputs = resolvedPaths
@@ -648,7 +646,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   public FileStream loadMetadataFile(final int workspaceId, final Path filePath)
   throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException
   {
-    final var root = postgresRepository.workspaceRootPath(workspaceId);
+    final var root = workspaceRepository.workspaceRootPath(workspaceId);
     final var metadataFile = WorkspacePaths.resolveMetadataPath(root, filePath).toFile();
 
     // If the file doesn't exist, return a file containing just the current metadata file version
@@ -678,7 +676,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException, JsonException
   {
     gitService.requireLocked(workspaceId);
-    updateMetadata(postgresRepository.workspaceRootPath(workspaceId), filePath, updates, mergeBehavior);
+    updateMetadata(workspaceRepository.workspaceRootPath(workspaceId), filePath, updates, mergeBehavior);
     return true;
   }
 
@@ -916,7 +914,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException, JsonException
   {
     gitService.requireLocked(workspaceId);
-    final var root = postgresRepository.workspaceRootPath(workspaceId);
+    final var root = workspaceRepository.workspaceRootPath(workspaceId);
     final var metadataFile = WorkspacePaths.resolveMetadataPath(root, filePath).toFile();
 
     // Get the contents of the current metadata file, or the default template if it doesn't exist
@@ -993,7 +991,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws NoSuchWorkspaceException, WorkspaceFileOpException
   {
     gitService.requireLocked(workspaceId);
-    final var root = postgresRepository.workspaceRootPath(workspaceId);
+    final var root = workspaceRepository.workspaceRootPath(workspaceId);
     final var metadataFilePath = WorkspacePaths.resolveMetadataPath(root, filePath);
     // If the file already doesn't exist, silently succeed
     if(!metadataFilePath.toFile().exists()) {

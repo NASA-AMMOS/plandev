@@ -1,6 +1,6 @@
 package gov.nasa.ammos.plandev.workspace.server.postgres;
 
-import gov.nasa.ammos.plandev.workspace.server.WorkspaceRoots;
+import gov.nasa.ammos.plandev.workspace.server.WorkspaceRepository;
 
 import javax.sql.DataSource;
 import java.nio.file.Path;
@@ -8,7 +8,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 
-public final class WorkspacePostgresRepository implements WorkspaceRoots {
+public final class WorkspacePostgresRepository implements WorkspaceRepository {
   private final Path baseRepositoryPath;
   private final DataSource dataSource;
 
@@ -17,14 +17,12 @@ public final class WorkspacePostgresRepository implements WorkspaceRoots {
     this.dataSource = dataSource;
   }
 
-  public WorkspacePostgresRepository(final String baseRepositoryPath, final DataSource dataSource){
-    this(Path.of(baseRepositoryPath), dataSource);
-  }
-
+  @Override
   public Path getBaseRepositoryPath() {
     return baseRepositoryPath;
   }
 
+  @Override
   public int createWorkspace(String workspaceLocation, String workspaceName, String username, int parcelId)
   throws SQLException {
     try(final var connection = dataSource.getConnection();
@@ -33,6 +31,7 @@ public final class WorkspacePostgresRepository implements WorkspaceRoots {
     }
   }
 
+  @Override
   public boolean deleteWorkspace(int workspaceId) throws SQLException {
     try(final var connection = dataSource.getConnection();
         final var deleteWorkspace = new DeleteWorkspaceAction(connection)) {
@@ -50,6 +49,7 @@ public final class WorkspacePostgresRepository implements WorkspaceRoots {
     }
   }
 
+  @Override
   public Map<String, RenderType> getExtensionMapping() throws SQLException {
     try(final var connection = dataSource.getConnection();
         final var getMappingAction = new GetExtensionMappingsAction(connection)) {
@@ -57,6 +57,7 @@ public final class WorkspacePostgresRepository implements WorkspaceRoots {
     }
   }
 
+  @Override
   public List<String> getMetadataExtensions() throws SQLException {
     try(final var connection = dataSource.getConnection();
         final var getMappingAction = new GetExtensionMappingsAction(connection)) {

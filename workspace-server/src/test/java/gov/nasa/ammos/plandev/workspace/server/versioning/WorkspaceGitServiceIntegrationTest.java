@@ -1868,7 +1868,7 @@ class WorkspaceGitServiceIntegrationTest {
       assertFailure(bindings.handleRestoreRevision(WS1.id(), Path.of("a.txt"), "zz", "*", DEFAULT_USER), 404, "NO_SUCH_REVISION");
       assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of("gone.txt"), etag, "", DEFAULT_USER), 412, null);
       assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of("gone.txt"), "*", "", DEFAULT_USER), 404, null);
-      assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of(".a.txt.meta.seqdev"), "*", "", DEFAULT_USER), 405, null);
+      assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of(".a.txt.meta.seqdev"), "*", "", DEFAULT_USER), 400, null);
       assertEquals("v2", bindings.readFile(WS1, "a.txt"));
       assertEquals(List.of("a"), names("a.txt"));
       assertEquals(commits, log(WS1).size());
@@ -1877,9 +1877,9 @@ class WorkspaceGitServiceIntegrationTest {
 
     @Test
     void aRevisionTagsTheCommitThatLastChangedTheFile() throws Exception {
-      saveOk(WS1, "a.txt", "v1");
+      bindings.saveAndGetEtag(WS1, "a.txt", "v1");
       final var changed = head(WS1).copy();
-      saveOk(WS1, "b.txt", "unrelated");
+      bindings.saveAndGetEtag(WS1, "b.txt", "unrelated");
       assertEquals(List.of(), names("a.txt")); // cached at the current HEAD, before the tag below exists
 
       revise("a.txt", "");

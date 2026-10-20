@@ -23,7 +23,6 @@ import org.slf4j.LoggerFactory;
 import javax.json.Json;
 import javax.json.JsonException;
 import javax.json.JsonObject;
-import javax.json.JsonString;
 import javax.json.JsonValue;
 import java.io.IOException;
 import java.io.StringReader;
@@ -52,8 +51,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * A save makes a commit, never a revision. A revision is an annotated tag {@code plandev/revisions/<uuid>} on the
  * newest commit that changed the file or its sidecar when it was made (so its tree holds exactly the recorded state,
  * and revisions with nothing changed between them share a commit), whose message is a small JSON record (path,
- * ordinal, name, message, createdBy, createdAt, lastEdit). Git is the only store. Historical content and sidecar metadata are read from the tagged commit's tree;
- * nothing is checked out, so HEAD, the index and the working tree are never touched by a read.
+ * ordinal, message, createdBy, createdAt, lastEdit). Git is the only store. Historical content and sidecar metadata
+ * are read from the tagged commit's tree; nothing is checked out, so HEAD, the index and the working tree are never
+ * touched by a read.
  *
  * Identity:
  * A file's revisions are those whose commit and recorded path lie on the file's lineage. Walking first parents back
@@ -62,10 +62,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * including a move over an existing file), the walk continues at the old path. Otherwise it continues at the same path,
  * or stops if the path did not exist before. So revisions follow renames, and copies, re-created paths and files
  * arriving from another workspace start with none.
- *
- * Creating a revision changes no file and makes no commit; callers run it inside {@link WorkspaceGitService#mutate} so the
- * workspace is trusted, clean and locked, which also serializes ordinal assignment. The file's last edit as of the
- * revision is recorded in the tag then, so reading a revision never searches history for it.
  */
 public final class WorkspaceRevisions {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceRevisions.class);
@@ -74,7 +70,6 @@ public final class WorkspaceRevisions {
   private static final int VERSION = 1;
 
   public record Revision(
-      String name,
       int ordinal,
       String path,
       String message,
@@ -83,12 +78,16 @@ public final class WorkspaceRevisions {
       ObjectId commit,
       LastEdit lastEdit)
   {
+    public String name() {
+      return WorkspaceRevisions.name(ordinal);
+    }
+
     public JsonObject toJson() {
       return Json.createObjectBuilder()
-                 .add("name", name)
+                 .add("name", name())
                  .add("message", message)
                  .add("createdAt", createdAt.toString())
-                 .add("createdBy", createdBy == null ? WorkspaceGitService.systemIdent().getName() : createdBy)
+                 .add("createdBy", createdBy)
                  .build();
     }
   }
@@ -178,8 +177,8 @@ public final class WorkspaceRevisions {
   }
 
   /**
-   * Record the file's committed state at HEAD as its next revision. Caller holds the workspace lock and passes the
-   * file's last edit at HEAD, which becomes the revision's. The tag goes on the newest commit that changed the file or
+   * Record the file's committed state at HEAD as its next revision. Makes no commit. Caller holds the workspace lock,
+   * which serializes ordinal assignment, and passes the file's last edit at HEAD, which becomes the revision's. The tag goes on the newest commit that changed the file or
    * its sidecar ({@code git log -1 -- <file> <sidecar>}), whose tree holds that same state.
    */
   Revision create(
@@ -198,16 +197,14 @@ public final class WorkspaceRevisions {
       // edited files in long histories get slow.
       final var changed = walk.parseCommit(
           git.log().add(head).addPath(key).addPath(sidecarKey(key)).setMaxCount(1).call().iterator().next());
-      final var createdBy = userId == null || userId.isBlank() ? null : userId;
-      final var revision = new Revision(
-          name(ordinal), ordinal, key, message, createdBy, Instant.now(), changed.copy(), lastEdit);
-      final var tagger = createdBy == null ? WorkspaceGitService.systemIdent().getName() : createdBy;
+      final var createdBy = userId == null || userId.isBlank() ? WorkspaceGitService.systemIdent().getName() : userId;
+      final var revision = new Revision(ordinal, key, message, createdBy, Instant.now(), changed.copy(), lastEdit);
       git.tag()
          .setName(TAG_PREFIX + UUID.randomUUID())
          .setObjectId(changed)
          .setAnnotated(true)
          .setSigned(false)
-         .setTagger(new PersonIdent(tagger, "", revision.createdAt(), ZoneOffset.UTC))
+         .setTagger(new PersonIdent(createdBy, "", revision.createdAt(), ZoneOffset.UTC))
          .setMessage(annotation(revision))
          .call();
       remember(root, key, revision);
@@ -216,9 +213,10 @@ public final class WorkspaceRevisions {
   }
 
   /**
-   * Add a revision this process just made to the cached lists, so the next list need not walk back to its (possibly
-   * old) commit. It is the file's own: the list above just cached the file's revisions at this HEAD. To every other
-   * cached list it is a known tag that is not theirs.
+   * Add a revision this process just made to every cached list in the workspace. Without this, the new tag would be
+   * unknown to all of them, so the next list of every file would ignore its cache and walk the file's whole lineage
+   * once. It is the file's own revision (the list in create just cached the file's revisions at this HEAD) and a known,
+   * unrelated tag to every other cached list.
    */
   private void remember(final Path root, final String key, final Revision revision) {
     final var cache = lists.get(root.normalize());
@@ -276,11 +274,9 @@ public final class WorkspaceRevisions {
                          .add("version", VERSION)
                          .add("path", revision.path())
                          .add("ordinal", revision.ordinal())
-                         .add("name", revision.name())
                          .add("message", revision.message())
-                         .add("createdAt", revision.createdAt().toString());
-    if (revision.createdBy() == null) json.addNull("createdBy");
-    else json.add("createdBy", revision.createdBy());
+                         .add("createdAt", revision.createdAt().toString())
+                         .add("createdBy", revision.createdBy());
     final var edit = revision.lastEdit();
     if (edit == null) json.addNull("lastEdit");
     else json.add("lastEdit", Json.createObjectBuilder()
@@ -316,16 +312,20 @@ public final class WorkspaceRevisions {
         json = reader.readObject();
       }
       if (!TYPE.equals(json.getString("type", null))) return Optional.empty();
-      final var edit = json.get("lastEdit") instanceof JsonObject e
-          ? lastEdit(e.getString("by"), e.getString("email", ""), Instant.parse(e.getString("at")), ObjectId.fromString(e.getString("commit")),
-                     e.getBoolean("baseline"))
-          : null;
+      final LastEdit edit;
+      if (json.get("lastEdit") instanceof JsonObject e) {
+        // The ident's time is the edit time so a parsed LastEdit equals the one it was written from.
+        final var at = Instant.parse(e.getString("at"));
+        final var author = new PersonIdent(e.getString("by"), e.getString("email", ""), at, ZoneOffset.UTC);
+        edit = new LastEdit(author, at, ObjectId.fromString(e.getString("commit")), e.getBoolean("baseline"));
+      } else {
+        edit = null;
+      }
       return Optional.of(new Revision(
-          json.getString("name"),
           json.getInt("ordinal"),
           json.getString("path"),
           json.getString("message", ""),
-          json.get("createdBy") instanceof JsonString by ? by.getString() : null,
+          json.getString("createdBy"),
           Instant.parse(json.getString("createdAt")),
           commit.copy(),
           edit));
@@ -334,11 +334,6 @@ public final class WorkspaceRevisions {
       logger.debug("Malformed revision tag {} in {}", id.name(), repo.getWorkTree(), e);
       return Optional.empty();
     }
-  }
-
-  private static LastEdit lastEdit(final String by, final String email, final Instant at, final ObjectId commit, final boolean baseline) {
-    // The ident's time is the edit time so a parsed LastEdit equals the one it was written from.
-    return new LastEdit(new PersonIdent(by, email, at, ZoneOffset.UTC), at, commit, baseline);
   }
 
   /**

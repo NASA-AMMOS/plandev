@@ -1,6 +1,7 @@
 package gov.nasa.ammos.plandev.workspace.server;
 
 import gov.nasa.ammos.plandev.workspace.server.types.HandlerResult;
+import gov.nasa.ammos.plandev.workspace.server.types.Workspace;
 import gov.nasa.ammos.plandev.workspace.server.utils.WorkspaceTestRepository;
 import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitService;
 import org.eclipse.jgit.api.Git;
@@ -13,6 +14,7 @@ import org.eclipse.jgit.lib.ObjectInserter;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.TreeFormatter;
 import org.eclipse.jgit.revwalk.RevWalk;
+import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -42,7 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * and only reports.
  */
 class WorkspaceRevisionsScaleTest {
-  private static final int WS = 1;
+  private static Workspace WS;
   private static final int SCALE = Integer.parseInt(System.getenv().getOrDefault("SCALE", "1"));
   private static final Path TARGET = Path.of("seq/target.seq");
   private static final Path OTHER = Path.of("d01/f001.seq");
@@ -62,13 +64,14 @@ class WorkspaceRevisionsScaleTest {
       // "many-files,     1000,    1000,  20,          10,        20",
       "many-tags,      1000,    100,   20,          100,       1000",
   })
-  void scenario(String name, int commits, int files, int targetEvery, int revisions, int otherTags) throws Exception {
+  void scenario(String name, int commits, int files, int targetEvery, int revisions, int otherTags) throws Throwable {
     commits *= SCALE;
     final var repository = new WorkspaceTestRepository(tmp.toRealPath());
-    final var root = repository.workspaceRootPath(WS);
+    WS = repository.createWorkspace("ws1");
+    final var root = WS.rootPath();
     final var start = System.nanoTime();
     generate(root, commits, files, targetEvery, revisions, otherTags);
-    final var git = new WorkspaceGitService(repository);
+    final var git = new WorkspaceGitService();
     final var fs = new WorkspaceFileSystemService(repository, git);
     final var bindings = new WorkspaceBindings(null, fs, git, null, "");
     save(git, root, OTHER); // adopts the generated repository, as a legacy workspace's first mutation would
@@ -86,37 +89,34 @@ class WorkspaceRevisionsScaleTest {
     time("list warm", 300, () -> fs.listRevisions(WS, TARGET));
     time("save other + list", 1500, () -> { save(git, root, OTHER); fs.listRevisions(WS, TARGET); });
     time("read oldest cold", 2000, () -> new WorkspaceFileSystemService(repository, git).readRevision(WS, TARGET, oldest));
-    time("lastEdits all cold", 10000, () -> new WorkspaceGitService(repository).lastEdits(WS, all));
+    time("lastEdits all cold", 10000, () -> new WorkspaceGitService().lastEdits(WS, all));
     time("save other + lastEdits all", 10000, () -> { save(git, root, OTHER); git.lastEdits(WS, all); });
     time("create", 1000, () -> assertInstanceOf(HandlerResult.Success.class,
-        bindings.handleCreateRevision(WS, TARGET, "*", "", "bench")));
+        bindings.handleCreateRevision(WS.id(), TARGET, "*", "", "bench")));
     time("restore oldest", 1000, () -> assertInstanceOf(HandlerResult.Success.class,
-        bindings.handleRestoreRevision(WS, TARGET, oldest, "*", "bench")));
+        bindings.handleRestoreRevision(WS.id(), TARGET, oldest, "*", "bench")));
   }
 
-  interface Op { void run() throws Exception; }
-
-  /** Median of 3 runs after a warm-up. Fails after the warm-up alone if that is already over budget. */
-  private static void time(String op, int budgetMs, Op action) throws Exception {
-    final var warmUp = System.nanoTime();
-    action.run();
-    final var warmUpMs = (System.nanoTime() - warmUp) / 1e6;
-    if (SCALE == 1) assertTrue(warmUpMs < budgetMs, "%s took %.1f ms, budget %d ms".formatted(op, warmUpMs, budgetMs));
-    final var ms = new double[3];
+  /**
+   * Median of 3 runs after a warm-up. Every run, the warm-up included, must be under budget, so a regression fails after
+   * one slow call rather than four.
+   */
+  private static void time(String op, int budgetMs, Executable action) throws Throwable {
+    final var ms = new double[4]; // ms[0] is the warm-up
     for (var i = 0; i < ms.length; i++) {
       final var start = System.nanoTime();
-      action.run();
+      action.execute();
       ms[i] = (System.nanoTime() - start) / 1e6;
+      if (SCALE == 1) assertTrue(ms[i] < budgetMs, "%s took %.1f ms, budget %d ms".formatted(op, ms[i], budgetMs));
     }
-    Arrays.sort(ms);
-    System.out.printf("  %-28s %9.1f ms%n", op, ms[1]);
-    if (SCALE == 1) assertTrue(ms[1] < budgetMs, "%s took %.1f ms, budget %d ms".formatted(op, ms[1], budgetMs));
+    Arrays.sort(ms, 1, ms.length);
+    System.out.printf("  %-28s %9.1f ms%n", op, ms[2]);
   }
 
   private static int saves = 0;
 
   private static void save(WorkspaceGitService git, Path root, Path path) throws Exception {
-    git.mutate(WS, "bench", "Update " + path, () -> {
+    git.mutate(WS, "Update " + path, "bench", () -> {
       Files.writeString(root.resolve(path), "save " + saves++ + "\n");
       return true;
     }, result -> result);
@@ -178,7 +178,7 @@ class WorkspaceRevisionsScaleTest {
     try (final var walk = new RevWalk(git.getRepository())) {
       for (var i = 0; i < commits.size(); i++) {
         final var revision = new WorkspaceRevisions.Revision(
-            WorkspaceRevisions.name(i + 1), i + 1, path, "", "bench", Instant.now(), commits.get(i), null);
+            i + 1, path, "", "bench", Instant.now(), commits.get(i), null);
         git.tag()
            .setName(WorkspaceRevisions.TAG_PREFIX + UUID.randomUUID())
            .setObjectId(walk.parseCommit(commits.get(i)))

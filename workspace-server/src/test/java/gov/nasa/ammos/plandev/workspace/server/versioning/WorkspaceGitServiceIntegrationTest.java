@@ -429,7 +429,7 @@ class WorkspaceGitServiceIntegrationTest {
 
       assertEquals(List.of(".a.txt.meta.seqdev"), headDiff(WS1).stream().map(DiffEntry::getNewPath).toList());
       final var info = fs.getLastEditInfo(WS1, fileA);
-      assertEquals(USER, info.lastEditedBy(), "a metadata-only change is not a content edit");
+      assertEquals(USER_IDENT, info.lastEditedBy(), "a metadata-only change is not a content edit");
 
       // LastEditedAt saves at a higher fidelity than author ident
       assertEquals(savedAt, Instant.parse(info.lastEditedAt()).truncatedTo(ChronoUnit.SECONDS));
@@ -1940,7 +1940,7 @@ class WorkspaceGitServiceIntegrationTest {
       final var inDir = metadata(WS1, "e/x.txt");
       for (final var copy : List.of(single, inDir)) {
         assertEquals(USER, copy.getString("createdBy"), copy::toString);
-        assertEquals(USER, copy.getString("lastEditedBy"), copy::toString);
+        assertEquals(USER_IDENT, copy.getString("lastEditedBy"), copy::toString);
         assertEquals("final", copy.getJsonObject("user").getString("status"), copy::toString);
         assertFalse(copy.getBoolean("readOnly"), copy::toString);
       }

@@ -9,16 +9,23 @@ import gov.nasa.ammos.plandev.workspace.server.postgres.NoSuchWorkspaceException
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.Status;
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.dircache.DirCacheCheckout;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.FileMode;
 import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.lib.ObjectReader;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.RefUpdate;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.lib.RepositoryState;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
+import org.eclipse.jgit.treewalk.CanonicalTreeParser;
+import org.eclipse.jgit.treewalk.EmptyTreeIterator;
+import org.eclipse.jgit.treewalk.filter.AndTreeFilter;
+import org.eclipse.jgit.treewalk.filter.PathFilterGroup;
+import org.eclipse.jgit.treewalk.filter.TreeFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -45,7 +52,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -1085,6 +1091,9 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
 
       final var cache = lastEditCache.computeIfAbsent(workspaceId, wId -> new ConcurrentHashMap<>());
 
+      // Paths not cached at HEAD, keyed by git path, and the commits their stale cache entries were validated at
+      final var pending = new HashMap<String, Path>();
+      final var validatedAt = new HashMap<ObjectId, List<String>>();
       for (final var path : paths) {
         final var cachedEdit = cache.get(path);
         // Cache entries record the HEAD at which they were last validated.
@@ -1092,51 +1101,107 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
         if(cachedEdit != null && cachedEdit.validAt().equals(head)) {
           edits.put(path, cachedEdit.edit());
         } else {
-          // Get the last commit that edited the file and add it to the return map
-          final Iterator<RevCommit> pathLog;
-          try {
-            final var logCommand = git
-                .log()
-                .addPath(toGitPath(workspaceRootPath.relativize(path))) // Only get commits that edit this file
-                .setMaxCount(1);                                        // Only get one commit
-
-            // If this was a proper cache miss, search the whole history starting at HEAD
-            if(cachedEdit == null) {
-              logCommand.add(head);
-            } else {
-              // Otherwise, search just between HEAD and the last time the cache was validated
-              logCommand.addRange(cachedEdit.validAt, head);
-            }
-            // Get the iterator for these results
-            pathLog = logCommand.call().iterator();
-          } catch (GitAPIException gae) {
-            throw new WorkspaceHistoryException(
-                WorkspaceHistoryException.Kind.OTHER,
-                "Unable to get commit history for path %s".formatted(path),
-                gae);
-          }
-
-          if (!pathLog.hasNext()) {
-            if(cachedEdit == null) {
-              // If this was a cache miss, then the file has never been edited by git (not even a baseline commit)
-              throw new WorkspaceHistoryException(
-                  WorkspaceHistoryException.Kind.OTHER,
-                  "File %s int Workspace %d has no revision history".formatted(path, workspaceId));
-            } else {
-              // If this was a cache hit, then the file has not been edited since the last time the cache entry was validated
-              // Therefore, we can put the entry back in the cache with an updated validation
-              cache.put(path, new CachedLastEdit(head, cachedEdit.edit));
-              edits.put(path, cachedEdit.edit);
-            }
-          } else {
-            final var commit = pathLog.next();
-            // Generate and cache the most recent change to the path
-            final var author = commit.getAuthorIdent();
-            final var edit = new LastEdit(author, author.getWhenAsInstant(), commit, commit.getParentCount() == 0);
-            cache.put(path, new CachedLastEdit(head, edit));
-            edits.put(path, edit);
+          final var gitPath = toGitPath(workspaceRootPath.relativize(path));
+          pending.put(gitPath, path);
+          if (cachedEdit != null) {
+            validatedAt.computeIfAbsent(cachedEdit.validAt(), c -> new ArrayList<>()).add(gitPath);
           }
         }
+      }
+
+      // One walk back from HEAD resolves every pending path: each commit is diffed against its parent once for all of
+      // them, rather than once per path by a log per path. The walk stops when every path has been resolved.
+      final var walk = new RevWalk(repo);
+      walk.markStart(walk.parseCommit(head));
+      try {
+        // The diff command's path filter should list only the paths still pending.
+        // Rebuilding the filter sorts every pending path, so we should only rebuild it when we've removed paths from pending
+        var filterStale = false;
+        var currentFilter = AndTreeFilter.create(PathFilterGroup.createFromStrings(pending.keySet()), TreeFilter.ANY_DIFF);
+
+        for (RevCommit commit = walk.next(); !pending.isEmpty() && commit != null; commit = walk.next() ) {
+          // Top of the loop: rebuild the filter if needed
+          if(filterStale) {
+            currentFilter = AndTreeFilter.create(PathFilterGroup.createFromStrings(pending.keySet()), TreeFilter.ANY_DIFF);
+            filterStale = false;
+          }
+
+          // If we reach the commit that the cache entry was last validated at without getting a new value, then the
+          // old cache entry is still valid and can be put back in the cache with an updated validation
+          if(validatedAt.containsKey(commit)) {
+            final int oldPendingSize = pending.size();
+            validatedAt.get(commit).forEach(gitPath -> {
+              final var path = pending.remove(gitPath);
+              if(path == null) return;
+              final var cachedEdit = cache.get(path);
+              cache.put(path, new CachedLastEdit(head, cachedEdit.edit()));
+              edits.put(path, cachedEdit.edit());
+            });
+            // The filter is only stale if we actually removed elements from pending
+            // (If all files in a specific validateAt list were edited in a later commit, pending would not be edited by the above loop)
+            filterStale = oldPendingSize == pending.size();
+
+            if (pending.isEmpty()){
+              break;
+            }
+          }
+
+          // Generate the diff for this commit using the
+          final var diffCommand = git.diff().setPathFilter(currentFilter);
+
+          // Get a tree iterator for this commit
+          final var newTree = new CanonicalTreeParser();
+          try (ObjectReader reader = repo.newObjectReader()) {
+            newTree.reset(reader, walk.parseTree(commit.getTree().getId()));
+          }
+          diffCommand.setNewTree(newTree);
+
+          // Get a tree iterator for this commit's parent, or use the empty tree iterator if this is the first commit
+          if(commit.getParentCount() == 0) {
+            diffCommand.setOldTree(new EmptyTreeIterator());
+          } else {
+            final var oldTreeParser = new CanonicalTreeParser();
+            final var parent = commit.getParent(0);
+            try (ObjectReader reader = repo.newObjectReader()) {
+              oldTreeParser.reset(reader, walk.parseTree(parent.getTree().getId()));
+            }
+            diffCommand.setOldTree(oldTreeParser);
+          }
+
+          final var diffs = diffCommand.call();
+          if(!diffs.isEmpty()){
+            filterStale = true;
+
+            final var author = commit.getAuthorIdent();
+            final var edit = new LastEdit(author, author.getWhenAsInstant(), commit, commit.getParentCount() == 0);
+            commit.disposeBody(); // We don't need the commit body anymore, so we can save the memory
+
+            for(final var diffEntry : diffs) {
+              // Since this method just getting the last commit, we only care about the NEW path
+              final var editedPath = diffEntry.getPath(DiffEntry.Side.NEW);
+
+              final var path = pending.remove(editedPath);
+              if (path == null) continue;
+
+              cache.put(path, new CachedLastEdit(head, edit));
+              edits.put(path, edit);
+            }
+          }
+        }
+      } catch (GitAPIException gapi) {
+        throw new WorkspaceHistoryException(WorkspaceHistoryException.Kind.OTHER, "Unable to determine last edits", gapi);
+      } finally {
+        // RevWalk does not dispose itself on close for some reason,
+        // so it must be manually disposed in order to close its ObjectReader
+        walk.dispose();
+        walk.close();
+      }
+
+      // Anything left was never changed in history reachable from HEAD, not even by a baseline commit
+      if (!pending.isEmpty()) {
+        final var errorMsg = "The following file(s) in Workspace %d have no revision history:".formatted(workspaceId)
+                             + String.join("\n\t- ", pending.keySet());
+        throw new WorkspaceHistoryException(WorkspaceHistoryException.Kind.OTHER, errorMsg);
       }
 
       return edits;

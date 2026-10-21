@@ -87,6 +87,9 @@ class WorkspaceRevisionsScaleTest {
     // Budgets (ms, SCALE=1) are ~10x a laptop run, to absorb slow CI runners.
     time("list cold", 2000, () -> new WorkspaceFileSystemService(repository, git).listRevisions(WS, TARGET));
     time("list warm", 300, () -> fs.listRevisions(WS, TARGET));
+    final var listed = fs.listRevisions(WS, TARGET);
+    // Matches no revision unless the target is unchanged since the latest one, so this is usually a scan of all of them.
+    time("matchingRevision", 300, () -> fs.matchingRevision(WS, TARGET, listed));
     time("save other + list", 1500, () -> { save(git, root, OTHER); fs.listRevisions(WS, TARGET); });
     time("read oldest cold", 2000, () -> new WorkspaceFileSystemService(repository, git).readRevision(WS, TARGET, oldest));
     time("lastEdits all cold", 10000, () -> new WorkspaceGitService().lastEdits(WS, all));

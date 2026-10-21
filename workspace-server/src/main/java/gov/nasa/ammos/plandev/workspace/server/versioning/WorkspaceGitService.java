@@ -8,7 +8,6 @@ import gov.nasa.ammos.plandev.workspace.server.types.Workspace;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.Status;
 import org.eclipse.jgit.api.errors.GitAPIException;
-import org.eclipse.jgit.diff.DiffEntry;
 import org.eclipse.jgit.dircache.DirCacheCheckout;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.FileMode;
@@ -1103,6 +1102,11 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
         }
       }
 
+      // Quick return if everything was cached
+      if(pending.isEmpty()) {
+        return edits;
+      }
+
       // One walk back from HEAD resolves every pending path: each commit is diffed against its parent once for all of
       // them, rather than once per path by a log per path. The walk stops when every path has been resolved.
       final var walk = new RevWalk(repo);
@@ -1133,7 +1137,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
             });
             // The filter is only stale if we actually removed elements from pending
             // (If all files in a specific validateAt list were edited in a later commit, pending would not be edited by the above loop)
-            filterStale = oldPendingSize == pending.size();
+            filterStale = oldPendingSize != pending.size();
 
             if (pending.isEmpty()){
               break;
@@ -1141,7 +1145,9 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
           }
 
           // Generate the diff for this commit using the
-          final var diffCommand = git.diff().setPathFilter(currentFilter);
+          final var diffCommand = git.diff()
+                                     .setShowNameAndStatusOnly(true)
+                                     .setPathFilter(currentFilter);
 
           // Get a tree iterator for this commit
           final var newTree = new CanonicalTreeParser();
@@ -1171,8 +1177,11 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
             commit.disposeBody(); // We don't need the commit body anymore, so we can save the memory
 
             for(final var diffEntry : diffs) {
-              // Since this method just getting the last commit, we only care about the NEW path
-              final var editedPath = diffEntry.getPath(DiffEntry.Side.NEW);
+              // Since this method just getting the last commit, we only care about one of the paths
+              // By default, that's the NEW path, but if the file was deleted in this commit, we will use the OLD path
+              final var editedPath = diffEntry.getNewPath().equals("/dev/null")
+                  ? diffEntry.getOldPath()
+                  : diffEntry.getNewPath();
 
               final var path = pending.remove(editedPath);
               if (path == null) continue;

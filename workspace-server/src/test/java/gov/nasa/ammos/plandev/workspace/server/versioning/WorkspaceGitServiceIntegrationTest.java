@@ -1818,6 +1818,9 @@ class WorkspaceGitServiceIntegrationTest {
       assertEquals(List.of("b", "a"), revisions.stream().map(WorkspaceRevisions.Revision::name).toList());
       assertEquals("first", revisions.getLast().message());
       assertEquals(DEFAULT_USER, revisions.getLast().toJson().getString("createdBy"));
+      assertEquals("a.txt", revisions.getLast().toJson().getString("pathAtRevision"));
+      assertEquals(DEFAULT_USER_IDENT, revisions.getLast().toJson().getString("lastEditedBy"));
+      assertFalse(revisions.getLast().toJson().isNull("lastEditedAt"));
       assertEquals("v1", contentAt("a.txt", "a"));
       assertEquals("draft", fs.readRevision(WS1, Path.of("a.txt"), "a").orElseThrow()
                               .metadata().getJsonObject("user").getString("status"));

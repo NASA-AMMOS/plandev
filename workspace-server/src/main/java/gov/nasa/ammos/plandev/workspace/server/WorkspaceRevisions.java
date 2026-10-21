@@ -82,13 +82,23 @@ public final class WorkspaceRevisions {
       return WorkspaceRevisions.name(ordinal);
     }
 
+    /**
+     * The API form. lastEditedBy/At are the file's last edit when the revision was made, null for a baseline edit,
+     * whose attribution lives in the sidecar (see {@link #read}).
+     */
     public JsonObject toJson() {
-      return Json.createObjectBuilder()
-                 .add("name", name())
-                 .add("message", message)
-                 .add("createdAt", createdAt.toString())
-                 .add("createdBy", createdBy)
-                 .build();
+      final var json = Json.createObjectBuilder()
+                           .add("name", name())
+                           .add("pathAtRevision", path)
+                           .add("message", message)
+                           .add("createdAt", createdAt.toString())
+                           .add("createdBy", createdBy);
+      if (lastEdit == null || lastEdit.baseline()) {
+        json.addNull("lastEditedBy").addNull("lastEditedAt");
+      } else {
+        json.add("lastEditedBy", lastEdit.by()).add("lastEditedAt", lastEdit.at().toString());
+      }
+      return json.build();
     }
   }
 

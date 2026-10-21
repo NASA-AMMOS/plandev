@@ -1000,6 +1000,14 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
+  public Optional<WorkspaceRevisions.Revision> matchingRevision(
+      final Workspace workspace, final Path filePath, final List<WorkspaceRevisions.Revision> revisionList)
+  throws NoSuchFileException, WorkspaceFileOpException, IOException
+  {
+    return revisions.matching(workspace.rootPath(), revisionKey(workspace, filePath), revisionList);
+  }
+
+  @Override
   public Optional<WorkspaceRevisions.HistoricalFile> readRevision(final Workspace workspace, final Path filePath, final String name)
   throws NoSuchFileException, WorkspaceFileOpException, IOException
   {

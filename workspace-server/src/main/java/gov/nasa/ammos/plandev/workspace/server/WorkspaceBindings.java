@@ -1965,7 +1965,8 @@ public class WorkspaceBindings implements Plugin {
    *
    * Returns:
    *  - If the query param "revision" is present: returns the contents of the file at that revision,
-   *  - If the query param "revision" is absent: returns a JSON array of all file revisions, ordered newest to oldest.
+   *  - If the query param "revision" is absent: returns {"revisions": [all file revisions, newest to oldest], "matchingRevision": name of the newest revision whose
+   *    content and metadata equal the file's saved state, or null}.
    */
   private void getFileRevision(Context context) throws NoSuchWorkspaceException, NoSuchFileException, IOException, SQLException {
     final var pathInfo = PathInformation.of(context);
@@ -1978,9 +1979,14 @@ public class WorkspaceBindings implements Plugin {
     final var revision = context.queryParam("revision");
     try {
       if (revision == null) {
+        final var workspace = workspaceService.getWorkspace(pathInfo.workspaceId);
+        final var revisions = workspaceService.listRevisions(workspace, pathInfo.filePath);
         final var list = Json.createArrayBuilder();
-        workspaceService.listRevisions(workspaceService.getWorkspace(pathInfo.workspaceId), pathInfo.filePath).forEach(r -> list.add(r.toJson()));
-        context.status(200).json(list.build().toString()); // javax JSON must be serialized as text, not via Jackson
+        revisions.forEach(r -> list.add(r.toJson()));
+        final var matching = workspaceService.matchingRevision(workspace, pathInfo.filePath, revisions);
+        final var body = Json.createObjectBuilder().add("revisions", list);
+        matching.ifPresentOrElse(r -> body.add("matchingRevision", r.name()), () -> body.addNull("matchingRevision"));
+        context.status(200).json(body.build().toString()); // javax JSON must be serialized as text, not via Jackson
         return;
       }
 

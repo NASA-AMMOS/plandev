@@ -216,6 +216,26 @@ public final class WorkspaceRevisions {
   }
 
   /**
+   * The newest of {@code revisions} (the file's at {@code key}, newest first) whose content and sidecar are byte-identical to the
+   * file's at HEAD, or empty if none is. A save that reverts the file to an older revision matches that revision.
+   */
+  Optional<Revision> matching(final Path root, final String key, final List<Revision> revisions) throws IOException {
+    if (revisions.isEmpty()) return Optional.empty();
+    try (final var repo = open(root); final var walk = new RevWalk(repo)) {
+      final var head = repo.resolve(Constants.HEAD);
+      if (head == null) return Optional.empty();
+      final var reader = walk.getObjectReader();
+      final var current = fileBlobIds(reader, walk.parseCommit(head).getTree(), key);
+      if (current == null) return Optional.empty();
+      for (final var revision : revisions) {
+        final var atRevision = fileBlobIds(reader, walk.parseCommit(revision.commit()).getTree(), revision.path());
+        if (current.equals(atRevision)) return Optional.of(revision);
+      }
+      return Optional.empty();
+    }
+  }
+
+  /**
    * Whether a cached list can stand in for the rest of the walk: true if every revision the walk has not visited
    * yet already existed when the list was computed. A revision tag created since then on an older, unvisited commit
    * could be this file's, and the cached list would not include it.

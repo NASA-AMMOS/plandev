@@ -375,6 +375,15 @@ public interface WorkspaceService {
   throws NoSuchFileException, WorkspaceFileOpException, IOException;
 
   /**
+   * The newest of the file's revisions whose content and metadata equal the file's saved state, or empty if none does.
+   *
+   * @param revisions the file's revisions, as returned by {@link #listRevisions}
+   */
+  Optional<WorkspaceRevisions.Revision> matchingRevision(
+      final Workspace workspace, final Path filePath, final List<WorkspaceRevisions.Revision> revisions)
+  throws NoSuchFileException, WorkspaceFileOpException, IOException;
+
+  /**
    * The content and committed metadata of one of the file's revisions, or empty if it has no revision by that name.
    * @throws NoSuchFileException If the file does not exist
    * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory

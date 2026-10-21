@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -51,6 +52,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.resolveReadingPath;
 import static gov.nasa.ammos.plandev.workspace.server.utils.FlakyHistory.assertClean;
@@ -1873,6 +1875,27 @@ class WorkspaceGitServiceIntegrationTest {
       assertEquals(List.of("a"), names("a.txt"));
       assertEquals(commits, log(WS1).size());
       assertClean(WS1);
+    }
+
+    @Test
+    void theSavedStateMatchesTheNewestRevisionWithTheSameContentOrNone() throws Exception {
+      final Supplier<Optional<String>> matching = () -> {
+        try {
+          final var revisions = fs.listRevisions(WS1, Path.of("a.txt"));
+          return fs.matchingRevision(WS1, Path.of("a.txt"), revisions).map(WorkspaceRevisions.Revision::name);
+        } catch (Exception e) { throw new RuntimeException(e); }
+      };
+      bindings.saveAndGetEtag(WS1, "a.txt", "v1");
+      assertEquals(Optional.empty(), matching.get(), "no revisions yet");
+      revise("a.txt", "");
+      assertEquals(Optional.of("a"), matching.get());
+      revise("a.txt", "");
+      assertEquals(Optional.of("b"), matching.get(), "the newest of identical revisions");
+
+      bindings.saveAndGetEtag(WS1, "a.txt", "v2");
+      assertEquals(Optional.empty(), matching.get(), "changed since the latest revision");
+      bindings.saveAndGetEtag(WS1, "a.txt", "v1");
+      assertEquals(Optional.of("b"), matching.get(), "reverting the content matches again");
     }
 
     @Test

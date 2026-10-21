@@ -7,6 +7,7 @@ import gov.nasa.ammos.plandev.workspace.server.postgres.NoSuchWorkspaceException
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
 import gov.nasa.ammos.plandev.workspace.server.types.MetadataKeys;
 import gov.nasa.ammos.plandev.workspace.server.types.MetadataMergeBehavior;
+import gov.nasa.ammos.plandev.workspace.server.types.Workspace;
 import gov.nasa.ammos.plandev.workspace.server.versioning.LastEdit;
 import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitService;
 import io.javalin.http.UploadedFile;
@@ -46,6 +47,11 @@ import javax.json.JsonValue;
 import javax.json.stream.JsonGenerator;
 
 import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.resolveWritingPath;
+import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.resolveReadingPath;
+import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.resolveMetadataPath;
+import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.tempFile;
+import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.walk;
+import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.writeAtomically;
 
 public class WorkspaceFileSystemService implements WorkspaceService {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceFileSystemService.class);
@@ -60,37 +66,6 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     this.workspaceRepository = workspaceRepository;
     this.gitService = gitService;
   }
-
-  //region Path Resolution
-  /**
-   * Fetches and then resolves a relative path against a workspace root for reading or otherwise fetching a File while
-   *    ensuring the result stays within the root directory.
-   * Prevents path traversal attacks by rejecting absolute paths and any resolved path that escape the specified root.
-   * @param workspaceId the workspace the path lives in
-   * @param filePath the untrusted path to resolve against the workspace root
-   * @return the resolved and normalized path, guaranteed to be within the root
-   * @throws NoSuchWorkspaceException if the workspace to resolve within does not exist
-   * @throws SecurityException if the input is absolute, if the resolved path escapes the root,
-   *    or if the resolved path contains invalid characters or goes through a symbolic link
-   */
-  private Path resolveReadingPath(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException
-  {
-    return WorkspacePaths.resolveReadingPath(workspaceRepository.workspaceRootPath(workspaceId), filePath);
-  }
-
-  /**
-   * Fetches, resolves, and validates a relative path against a workspace root, then resolves and validates the path to
-   *  that file's metadata file.
-   * @param workspaceId the workspace the file lives in
-   * @param filePath the untrusted path to the file
-   * @return the path to the metadata file for the specified file
-   */
-  private Path resolveMetadataPath(final int workspaceId, final Path filePath)
-  throws WorkspaceFileOpException, NoSuchWorkspaceException
-  {
-    return WorkspacePaths.resolveMetadataPath(workspaceRepository.workspaceRootPath(workspaceId), filePath);
-  }
-  //endregion
 
   /**
    * Helper method that behaves like "rm -r <DIRECTORY>".
@@ -136,15 +111,13 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
-  public boolean checkFileExists(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException {
-    final var path = resolveReadingPath(workspaceId, filePath);
-    return path.toFile().exists();
+  public boolean checkFileExists(final Workspace workspace, final Path filePath) {
+    return resolveReadingPath(workspace, filePath).toFile().exists();
   }
 
   @Override
-  public boolean isDirectory(final int workspaceId, final Path filePath) throws NoSuchWorkspaceException {
-    final var path = resolveReadingPath(workspaceId, filePath);
-    return Files.isDirectory(path);
+  public boolean isDirectory(final Workspace workspace, final Path filePath) {
+    return Files.isDirectory(resolveReadingPath(workspace, filePath));
   }
 
   @Override
@@ -157,38 +130,39 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   @Override
   public Optional<Integer> createWorkspace(final Path workspaceLocation, final String workspaceName, String username, int parcelId) {
     final var repoPath = workspaceRepository.getBaseRepositoryPath().resolve(workspaceLocation).normalize();
-    if (!repoPath.toFile().mkdirs()) return Optional.empty();
+    final Workspace workspace;
 
-    try {
-      // Initialize history before publishing the database row, so a successfully created workspace is always managed.
-      gitService.initializeNewWorkspace(repoPath);
-    } catch (IOException | GitAPIException ex) {
-      logger.error("CREATE WORKSPACE: Unable to initialize workspace history at {}", repoPath, ex);
-      // No database insert was attempted, so this request still owns the directory and may safely remove it.
-      if (!rmDirectory(repoPath.toFile())) {
-        logger.error("CREATE WORKSPACE: Unable to remove incomplete workspace at {}", repoPath);
-      }
-      return Optional.empty();
-    }
+    if (!repoPath.toFile().mkdirs()) return Optional.empty();
 
     try {
       final int workspaceId = workspaceRepository.createWorkspace(
           workspaceLocation.toString(), workspaceName, username, parcelId);
-      return Optional.of(workspaceId);
+      workspace = new Workspace(workspaceId, workspaceLocation);
     } catch (SQLException ex) {
       logger.error("CREATE WORKSPACE: Unable to create database entry for {}", repoPath, ex);
-      // A JDBC failure can be reported after the insert committed, so deleting here could leave a live row without files.
       return Optional.empty();
     }
+
+    try {
+      gitService.initializeNewWorkspace(workspace);
+    } catch (IOException | GitAPIException ex) {
+      logger.error("CREATE WORKSPACE: Unable to initialize workspace history at {}", repoPath, ex);
+      return Optional.empty();
+    }
+    return Optional.of(workspace.id());
   }
 
   @Override
-  public boolean deleteWorkspace(final int workspaceId) throws NoSuchWorkspaceException, SQLException {
-    final var repoDir = workspaceRepository.workspaceRootPath(workspaceId).toFile();
+  public Workspace getWorkspace(final int workspaceId) throws SQLException, NoSuchWorkspaceException {
+    return workspaceRepository.getWorkspace(workspaceId);
+  }
+
+  @Override
+  public boolean deleteWorkspace(final Workspace workspace) throws SQLException {
     // Only remove DB entry if the files were successfully deleted
     // This allows the user to attempt deleting via this endpoint again
-    if(rmDirectory(repoDir)) {
-      return workspaceRepository.deleteWorkspace(workspaceId);
+    if(rmDirectory(workspace.rootPath().toFile())) {
+      return workspaceRepository.deleteWorkspace(workspace);
     }
     return false;
   }
@@ -196,10 +170,10 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   //region File Operations
   @Override
-  public FileStream loadFile(final int workspaceId, final Path filePath)
-  throws IOException, NoSuchWorkspaceException, NoSuchFileException, WorkspaceFileOpException
+  public FileStream loadFile(final Workspace workspace, final Path filePath)
+  throws IOException, NoSuchFileException, WorkspaceFileOpException
   {
-    final var path = resolveReadingPath(workspaceId, filePath);
+    final var path = resolveReadingPath(workspace, filePath);
     final var file = path.toFile();
 
     if(Files.isDirectory(path)) {
@@ -209,21 +183,21 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       throw new WorkspaceFileOpException("Cannot load a metadata file directly.");
     }
     if(!Files.exists(path)) {
-      throw new NoSuchFileException(workspaceId, filePath);
+      throw new NoSuchFileException(workspace, filePath);
     }
 
     return new FileStream(new FileInputStream(file), file.getName(), Files.size(file.toPath()), getETag(path));
   }
 
   @Override
-  public String getETag(final int workspaceId, final Path filePath)
-  throws IOException, NoSuchWorkspaceException, NoSuchFileException, WorkspaceFileOpException {
-    final var path = resolveReadingPath(workspaceId, filePath);
+  public String getETag(final Workspace workspace, final Path filePath)
+  throws IOException, NoSuchFileException, WorkspaceFileOpException {
+    final var path = resolveReadingPath(workspace, filePath);
     if(Files.isDirectory(path)) {
       throw new WorkspaceFileOpException("Cannot compute the Entity Tag for a directory.");
     }
     if(!Files.exists(path)) {
-      throw new NoSuchFileException(workspaceId, filePath);
+      throw new NoSuchFileException(workspace, filePath);
     }
     return getETag(path);
   }
@@ -248,23 +222,22 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
-  public LastEditInfo getLastEditInfo(final int workspaceId, final Path filePath)
-  throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException
+  public LastEditInfo getLastEditInfo(final Workspace workspace, final Path filePath)
+  throws IOException, WorkspaceFileOpException
   {
-    final var metadata = effectiveMetadata(workspaceId, filePath);
+    final var metadata = effectiveMetadata(workspace, filePath);
     return new LastEditInfo(
         metadata.getString(MetadataKeys.lastEditedBy.name(), null),
         metadata.getString(MetadataKeys.lastEditedAt.name(), null));
   }
 
   @Override
-  public Optional<String> saveFile(final int workspaceId, final Path filePath, final UploadedFile file, final String userId)
-  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException
+  public Optional<String> saveFile(final Workspace workspace, final Path filePath, final UploadedFile file, final String userId)
+  throws WorkspaceFileOpException, IOException
   {
-    gitService.requireLocked(workspaceId);
-    final var repoPath = workspaceRepository.workspaceRootPath(workspaceId);
-    final var path = resolveWritingPath(repoPath, filePath);
-    WorkspacePaths.resolveMetadataPath(repoPath, filePath); // validates the path can carry metadata
+    gitService.requireLocked(workspace);
+    final var path = resolveWritingPath(workspace, filePath);
+    resolveMetadataPath(workspace, filePath); // validates the path can carry metadata
     // lastEdited* is derived from history. The builder's edit attribution seeds createdBy/createdAt for a new file.
     final var metadataUpdates = new MetadataUpdates.Builder(userId).build();
 
@@ -274,7 +247,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     // so lock-free readers see the old or the new bytes, never a partial file. Overwriting keeps the file's
     // permissions (notably the executable bit, which Git versions), so a save changes content only.
     final var md = WorkspaceService.newSHA256Digest();
-    final var tmp = WorkspacePaths.tempFile(repoPath);
+    final var tmp = tempFile(workspace);
     try {
       Files.createDirectories(path.getParent());
       try (final var contentStream = new DigestInputStream(file.content(), md)) {
@@ -287,27 +260,25 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     } finally {
       Files.deleteIfExists(tmp);
     }
-    updateMetadata(repoPath, filePath, metadataUpdates, MetadataMergeBehavior.deepMerge);
+    updateMetadata(workspace, filePath, metadataUpdates, MetadataMergeBehavior.deepMerge);
     return Optional.of(WorkspaceService.eTagFromDigest(md.digest()));
   }
 
   @Override
   public boolean moveFile(
-      final int oldWorkspaceId,
-      final Path oldFilePath,
-      final int newWorkspaceId,
-      final Path newFilePath,
+      final Workspace sourceWorkspace,
+      final Path sourceFilePath,
+      final Workspace destWorkspace,
+      final Path destFilePath,
       final String userId)
-  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException
+  throws WorkspaceFileOpException, IOException
   {
-    gitService.requireLocked(oldWorkspaceId, newWorkspaceId);
-    final var oldRepoPath = workspaceRepository.workspaceRootPath(oldWorkspaceId);
-    final var oldPath = WorkspacePaths.resolveReadingPath(oldRepoPath, oldFilePath);
-    final var oldMetadataPath = WorkspacePaths.resolveMetadataPath(oldRepoPath, oldFilePath);
+    gitService.requireLocked(sourceWorkspace, destWorkspace);
+    final var oldPath = resolveReadingPath(sourceWorkspace, sourceFilePath);
+    final var oldMetadataPath = resolveMetadataPath(sourceWorkspace, sourceFilePath);
 
-    final var newRepoPath = (oldWorkspaceId == newWorkspaceId) ? oldRepoPath : workspaceRepository.workspaceRootPath(newWorkspaceId);
-    final var newPath = resolveWritingPath(newRepoPath, newFilePath);
-    final var newMetadataPath = WorkspacePaths.resolveMetadataPath(newRepoPath, newFilePath);
+    final var newPath = resolveWritingPath(destWorkspace, destFilePath);
+    final var newMetadataPath = resolveMetadataPath(destWorkspace, destFilePath);
 
     // The moved file keeps its own metadata, never that of a file it overwrites
     if(Files.exists(oldMetadataPath)) {
@@ -317,7 +288,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     }
     // Ensure the moved file has a sidecar; lastEdited* itself comes from the move's commit.
     final var metadataUpdates = new MetadataUpdates.Builder(userId).build();
-    updateMetadata(newRepoPath, newFilePath, metadataUpdates, MetadataMergeBehavior.deepMerge);
+    updateMetadata(destWorkspace, destFilePath, metadataUpdates, MetadataMergeBehavior.deepMerge);
 
     Files.move(oldPath, newPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     return true;
@@ -325,33 +296,29 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   @Override
   public boolean copyFile(
-      final int sourceWorkspaceId,
+      final Workspace sourceWorkspace,
       final Path sourceFilePath,
-      final int destWorkspaceId,
+      final Workspace destWorkspace,
       final Path destFilePath,
       final String userId)
-  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException
+  throws WorkspaceFileOpException, IOException
   {
-    gitService.requireLocked(sourceWorkspaceId, destWorkspaceId);
-    final var sourceRepoPath = workspaceRepository.workspaceRootPath(sourceWorkspaceId);
-    final var sourcePath = WorkspacePaths.resolveReadingPath(sourceRepoPath, sourceFilePath);
-    final var sourceMetadataPath = WorkspacePaths.resolveMetadataPath(sourceRepoPath, sourceFilePath);
+    gitService.requireLocked(destWorkspace);
+    final var sourcePath = resolveReadingPath(sourceWorkspace, sourceFilePath);
+    final var sourceMetadataPath = resolveMetadataPath(sourceWorkspace, sourceFilePath);
 
-    final var destRepoPath = (sourceWorkspaceId == destWorkspaceId)
-        ? sourceRepoPath
-        : workspaceRepository.workspaceRootPath(destWorkspaceId);
-    final var destPath = resolveWritingPath(destRepoPath, destFilePath);
-    final var destMetadataPath = resolveMetadataPath(destWorkspaceId, destFilePath);
+    final var destPath = resolveWritingPath(destWorkspace, destFilePath);
+    final var destMetadataPath = resolveMetadataPath(destWorkspace, destFilePath);
 
     // Do not copy the file if the source file does not exist
     if (!Files.exists(sourcePath)) {
       throw new WorkspaceFileOpException("Source file \"%s\" in workspace %d does not exist.".formatted(
           sourceFilePath,
-          sourceWorkspaceId));
+          sourceWorkspace.id()));
     }
     // Create any parent directories that don't already exist
     Files.createDirectories(destPath.getParent());
-    copyAsNewFile(sourcePath, sourceMetadataPath, destRepoPath, destPath, destMetadataPath, userId, Instant.now());
+    copyAsNewFile(sourcePath, sourceMetadataPath, destWorkspace, destPath, destMetadataPath, userId, Instant.now());
     return true;
   }
 
@@ -365,7 +332,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   private void copyAsNewFile(
       final Path sourcePath,
       final Path sourceMetadataPath,
-      final Path destRoot,
+      final Workspace destWorkspace,
       final Path destPath,
       final Path destMetadataPath,
       final String userId,
@@ -384,19 +351,18 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         .lastEditedAt(now)
         .lastEditedBy(userId)
         .build();
-    updateMetadata(destRoot, destRoot.normalize().relativize(destPath), metadataUpdates, MetadataMergeBehavior.deepMerge);
+    updateMetadata(destWorkspace, destWorkspace.rootPath().normalize().relativize(destPath), metadataUpdates, MetadataMergeBehavior.deepMerge);
     Files.copy(sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
   }
 
   @Override
-  public boolean deleteFile(final int workspaceId, final Path filePath)
-  throws NoSuchWorkspaceException, WorkspaceFileOpException
+  public boolean deleteFile(final Workspace workspace, final Path filePath)
+  throws WorkspaceFileOpException
   {
-    gitService.requireLocked(workspaceId);
-    final var repoPath = workspaceRepository.workspaceRootPath(workspaceId);
-    final var path = WorkspacePaths.resolveReadingPath(repoPath, filePath);
+    gitService.requireLocked(workspace);
+    final var path = resolveReadingPath(workspace, filePath);
     final var file = path.toFile();
-    final var metadataFile = WorkspacePaths.resolveMetadataPath(repoPath, filePath).toFile();
+    final var metadataFile = resolveMetadataPath(workspace, filePath).toFile();
 
     // Delete the metadata file if it exists
     if(metadataFile.exists()) {
@@ -412,87 +378,96 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   //region Directory Operations
   @Override
-  public DirectoryTree listFiles(final int workspaceId, final Path directoryPath, final int depth, final boolean withMetadata)
-  throws SQLException, NoSuchWorkspaceException, IOException, WorkspaceFileOpException
+  public DirectoryTree listFiles(final Workspace workspace, final Path directoryPath, final int depth, final boolean withMetadata)
+  throws SQLException, IOException, WorkspaceFileOpException
   {
-    final var root = workspaceRepository.workspaceRootPath(workspaceId);
-    final var path = WorkspacePaths.resolveReadingPath(root, directoryPath);
+    final var path = resolveReadingPath(workspace, directoryPath);
     if(!Files.isDirectory(path)) {
       return null;
     }
     // Convert to our API from the Files API
     final var walkDepth = depth == -1 ? Integer.MAX_VALUE : depth + 1;
-    final var walkList = WorkspacePaths.walk(path, walkDepth); // never includes .git or .seqdev
+    // Walk the tree
+    final var walkList = walk(path, walkDepth); // never includes .git or .seqdev
     final var map = withMetadata
-        ? metadataMap(workspaceId, walkList)
+        ? metadataMap(workspace, walkList)
         : new HashMap<Path, Pair<Path, LastEdit>>();
     return new DirectoryTree(path, walkList, workspaceRepository.getExtensionMapping(), map);
   }
 
   @Override
-  public boolean createDirectory(final int workspaceId, final Path directoryPath)
-  throws IOException, NoSuchWorkspaceException {
-    gitService.requireLocked(workspaceId);
-    final var repoPath = workspaceRepository.workspaceRootPath(workspaceId);
-    final var path = resolveWritingPath(repoPath, directoryPath);
-    Files.createDirectories(path);
+  public boolean createDirectory(final Workspace workspace, final Path directoryPath)
+  throws IOException {
+    gitService.requireLocked(workspace);
+    Files.createDirectories(resolveWritingPath(workspace, directoryPath));
     return true;
   }
 
   @Override
-  public boolean moveDirectory(final int oldWorkspaceId, final Path oldDirectoryPath, final int newWorkspaceId, final Path newDirectoryPath)
-  throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException
-  {
-    gitService.requireLocked(oldWorkspaceId, newWorkspaceId);
-    final var oldRepoPath = workspaceRepository.workspaceRootPath(oldWorkspaceId).normalize();
-    final var oldPath = WorkspacePaths.resolveReadingPath(oldRepoPath, oldDirectoryPath);
-    final var newRepoPath = (oldWorkspaceId == newWorkspaceId) ? oldRepoPath : workspaceRepository
-        .workspaceRootPath(newWorkspaceId).normalize();
-    final var newPath = resolveWritingPath(newRepoPath, newDirectoryPath);
+  public boolean moveDirectory(
+      final Workspace sourceWorkspace,
+      final Path sourceDirectoryPath,
+      final Workspace destWorkspace,
+      final Path destDirectoryPath
+  ) throws IOException, WorkspaceFileOpException {
+    gitService.requireLocked(sourceWorkspace, destWorkspace);
+    final var sourcePath = resolveReadingPath(sourceWorkspace, sourceDirectoryPath);
+    final var destPath = resolveWritingPath(destWorkspace, destDirectoryPath);
 
     // Do not permit the source workspace's root directory to be moved
-    if(Files.isSameFile(oldPath, oldRepoPath)) throw new WorkspaceFileOpException("Cannot move the workspace root directory.");
+    if(Files.isSameFile(sourcePath, sourceWorkspace.rootPath())) {
+      throw new WorkspaceFileOpException("Cannot move the workspace root directory.");
+    }
 
     // Do not permit a moved directory to replace the target workspace's root directory
-    if (Files.exists(newPath) && Files.isSameFile(newPath, newRepoPath)) {
+    if (Files.exists(destPath) && Files.isSameFile(destPath, destWorkspace.rootPath())) {
       throw new WorkspaceFileOpException("Cannot replace the workspace root directory.");
     }
 
     // Do not try to move a directory into itself
-    if(oldWorkspaceId == newWorkspaceId && newPath.startsWith(oldPath)){
+    if(sourceWorkspace == destWorkspace && destPath.startsWith(sourcePath)){
       throw new WorkspaceFileOpException("Cannot move a directory into itself.");
     }
 
-    return oldPath.toFile().renameTo(newPath.toFile());
+    return sourcePath.toFile().renameTo(destPath.toFile());
   }
 
   @Override
   public boolean copyDirectory(
-      final int sourceWorkspaceId,
+      final Workspace sourceWorkspace,
       final Path sourceFilePath,
-      final int destWorkspaceId,
+      final Workspace destWorkspace,
       final Path destFilePath,
       final String userId)
-  throws NoSuchWorkspaceException, WorkspaceFileOpException
+  throws WorkspaceFileOpException
   {
-    gitService.requireLocked(sourceWorkspaceId, destWorkspaceId);
-    final var sourceRepoPath = workspaceRepository.workspaceRootPath(sourceWorkspaceId);
-    final var sourcePath = WorkspacePaths.resolveReadingPath(sourceRepoPath, sourceFilePath);
-    final var destRepoPath = (sourceWorkspaceId == destWorkspaceId) ? sourceRepoPath : workspaceRepository.workspaceRootPath(destWorkspaceId);
-    final var destPath = resolveWritingPath(destRepoPath, destFilePath);
+    gitService.requireLocked(destWorkspace);
+    final var sourcePath = resolveReadingPath(sourceWorkspace, sourceFilePath);
+    final var destPath = resolveWritingPath(destWorkspace, destFilePath);
 
     // The root owns the workspace's history and internal files; copying "the whole workspace" is not a file operation
-    if (sourcePath.equals(sourceRepoPath.normalize())) {
+    if (sourcePath.equals(sourceWorkspace.rootPath())) {
       throw new WorkspaceFileOpException("Cannot copy the workspace root directory.");
     }
 
     try {
       // Validate source exists and is a directory
-      if (!Files.exists(sourcePath)) throw new WorkspaceFileOpException("Source directory \"%s\" in workspace %d does not exist.".formatted(sourceFilePath, sourceWorkspaceId));
-      if (!Files.isDirectory(sourcePath)) throw new WorkspaceFileOpException("Source directory \"%s\" in workspace %d is not a directory.".formatted(sourceFilePath, sourceWorkspaceId));
+      if (!Files.exists(sourcePath)) {
+        throw new WorkspaceFileOpException("Source directory \"%s\" in workspace %d does not exist."
+                                               .formatted(sourceFilePath, sourceWorkspace.id()));
+      }
+      if (!Files.isDirectory(sourcePath)) {
+        throw new WorkspaceFileOpException("Source directory \"%s\" in workspace %d is not a directory."
+                                               .formatted(sourceFilePath, sourceWorkspace.id()));
+      }
+
+      // Do not permit a copied directory to replace the target workspace's root directory
+      if (Files.exists(destPath) && Files.isSameFile(destPath, destWorkspace.rootPath())) {
+        throw new WorkspaceFileOpException("Cannot replace the workspace root directory.");
+      }
 
       // Do not try to copy a directory into itself
-      if(sourceWorkspaceId == destWorkspaceId && destPath.startsWith(sourcePath)){
+      if(sourceWorkspace == destWorkspace && destPath.startsWith(sourcePath)){
         throw new WorkspaceFileOpException("Cannot copy a directory into itself.");
       }
 
@@ -500,13 +475,13 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       // sidecar whose content file is gone is metadata of nothing and is not copied.
       final var now = Instant.now();
       Files.createDirectories(destPath);
-      for (final var source : WorkspacePaths.walk(sourcePath, Integer.MAX_VALUE)) {
+      for (final var source : walk(sourcePath, Integer.MAX_VALUE)) {
         final Path target = destPath.resolve(sourcePath.relativize(source));
         if (Files.isDirectory(source)) {
           Files.createDirectories(target);
         } else if (!RenderType.isAerieMetadataFile(source.getFileName().toString())) {
           final var sidecarName = RenderType.toMetadataFileName(source.getFileName().toString());
-          copyAsNewFile(source, source.resolveSibling(sidecarName), destRepoPath, target, target.resolveSibling(sidecarName), userId, now);
+          copyAsNewFile(source, source.resolveSibling(sidecarName), destWorkspace, target, target.resolveSibling(sidecarName), userId, now);
         }
       }
       return true;
@@ -517,14 +492,13 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
-  public boolean deleteDirectory(final int workspaceId, final Path directoryPath)
-  throws NoSuchWorkspaceException, WorkspaceFileOpException
+  public boolean deleteDirectory(final Workspace workspace, final Path directoryPath)
+  throws WorkspaceFileOpException
   {
-    gitService.requireLocked(workspaceId);
-    final var repoPath = workspaceRepository.workspaceRootPath(workspaceId);
-    final var path = WorkspacePaths.resolveReadingPath(repoPath, directoryPath);
+    gitService.requireLocked(workspace);
+    final var path = resolveReadingPath(workspace, directoryPath);
     // Deleting the root would delete the workspace's history; that is deleteWorkspace's job
-    if (path.equals(repoPath.normalize())) {
+    if (path.equals(workspace.rootPath())) {
       throw new WorkspaceFileOpException("Cannot delete the workspace root directory.");
     }
     return rmDirectory(path.toFile());
@@ -532,35 +506,27 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   /** Whether a file's metadata marks it read-only. */
   @Override
-  public boolean isReadOnly(final int workspaceId, final Path filePath)
-  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException, JsonException
-  {
-    gitService.requireLocked(workspaceId);
-    return isReadOnly(workspaceRepository.workspaceRootPath(workspaceId), filePath);
-  }
-
-  private boolean isReadOnly(final Path repoPath, final Path filePath)
+  public boolean isReadOnly(final Workspace workspace, final Path filePath)
   throws WorkspaceFileOpException, IOException, JsonException
   {
-    final var metadataPath = WorkspacePaths.resolveMetadataPath(repoPath, filePath); // rejects directories and metadata files
+    final var metadataPath = resolveMetadataPath(workspace, filePath); // rejects directories and metadata files
     return readMetadataFile(metadataPath.toFile()).getBoolean(MetadataKeys.readOnly.name(), false);
   }
 
   @Override
-  public List<Path> getReadOnlyFiles(final int workspaceId, final Path dirPath)
-  throws NoSuchWorkspaceException, IOException, WorkspaceFileOpException, JsonException, SQLException
+  public List<Path> getReadOnlyFiles(final Workspace workspace, final Path dirPath)
+  throws IOException, WorkspaceFileOpException, JsonException, SQLException
   {
-    final var repoPath = workspaceRepository.workspaceRootPath(workspaceId);
-    final var directoryPath = WorkspacePaths.resolveReadingPath(repoPath, dirPath);
+    final var directoryPath = resolveReadingPath(workspace, dirPath);
 
     if(!Files.isDirectory(directoryPath)) {
-      if(isReadOnly(repoPath, dirPath)) {
+      if(isReadOnly(workspace, dirPath)) {
         return List.of(directoryPath);
       }
       return List.of();
     }
 
-    return listFiles(workspaceId, dirPath, -1, true).readOnlyNodes();
+    return listFiles(workspace, dirPath, -1, true).readOnlyNodes();
   }
   //endregion
 
@@ -606,24 +572,23 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   /**
    * Map each Path in resolvedPaths to a pair containing the Path to its metadata file and the last git edit
    */
-  private Map<Path, Pair<Path, LastEdit>> metadataMap(final int workspaceId, final List<Path> resolvedPaths)
-  throws NoSuchWorkspaceException, IOException, WorkspaceHistoryException, WorkspaceFileOpException
+  private Map<Path, Pair<Path, LastEdit>> metadataMap(final Workspace workspace, final List<Path> resolvedPaths)
+  throws IOException, WorkspaceHistoryException, WorkspaceFileOpException
   {
     final var map = new HashMap<Path, Pair<Path, LastEdit>>();
-    final var workspaceRoot = workspaceRepository.workspaceRootPath(workspaceId);
 
     // Filter out folders and metadata files from the input set, as neither of them have metadata
     final var filteredInputs = resolvedPaths
         .stream()
         .filter(p -> !Files.isDirectory(p) && !RenderType.isAerieMetadataFile(p.getFileName().toString()))
         .collect(Collectors.toSet());
-    final var lastEditsMap = gitService.lastEdits(workspaceId, filteredInputs);
+    final var lastEditsMap = gitService.lastEdits(workspace, filteredInputs);
 
     for (final var path : resolvedPaths) {
       if(Files.isDirectory(path) || RenderType.isAerieMetadataFile(path.getFileName().toString())) {
         continue;
       }
-      final var metadataPath = WorkspacePaths.resolveMetadataPath(workspaceRoot, workspaceRoot.relativize(path));
+      final var metadataPath = resolveMetadataPath(workspace, workspace.rootPath().relativize(path));
       final var edit = lastEditsMap.get(path);
       map.put(path, Pair.of(metadataPath, edit));
     }
@@ -631,26 +596,25 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     return map;
   }
 
-  private JsonObject effectiveMetadata(final int workspaceId, final Path filePath)
-  throws IOException, WorkspaceFileOpException, NoSuchWorkspaceException
+  private JsonObject effectiveMetadata(final Workspace workspace, final Path filePath)
+  throws IOException, WorkspaceFileOpException
   {
-    final var path = resolveReadingPath(workspaceId, filePath);
-    final var metadataPath = resolveMetadataPath(workspaceId, filePath);
+    final var path = resolveReadingPath(workspace, filePath);
+    final var metadataPath = resolveMetadataPath(workspace, filePath);
 
     final var metadataFile = readMetadataFile(metadataPath.toFile());
 
-    final var lastEditInfo = gitService.lastEdit(workspaceId, path);
+    final var lastEditInfo = gitService.lastEdit(workspace, path);
     return WorkspaceGitService.applyLastEdit(metadataFile, lastEditInfo);
   }
 
   @Override
-  public FileStream loadMetadataFile(final int workspaceId, final Path filePath)
-  throws IOException, NoSuchWorkspaceException, WorkspaceFileOpException
+  public FileStream loadMetadataFile(final Workspace workspace, final Path filePath)
+  throws IOException, WorkspaceFileOpException
   {
-    final var root = workspaceRepository.workspaceRootPath(workspaceId);
-    final var metadataFile = WorkspacePaths.resolveMetadataPath(root, filePath).toFile();
+    final var metadataFile = resolveMetadataPath(workspace, filePath).toFile();
 
-    // If the file doesn't exist, return a file containing just the current metadata file version
+    // If the file's metadata file doesn't exist, return a file containing just the current metadata file version
     if(!metadataFile.exists()) {
       return generateFallbackMetadataResponse(metadataFile.getName());
     }
@@ -658,14 +622,14 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     try {
       final var out = new StringWriter();
       try (final var writer = Json.createWriterFactory(config).createWriter(out)) {
-        writer.writeObject(effectiveMetadata(workspaceId, filePath));
+        writer.writeObject(effectiveMetadata(workspace, filePath));
       }
       final var bytes = out.toString().getBytes(StandardCharsets.UTF_8);
       return new FileStream(
           new ByteArrayInputStream(bytes),
           metadataFile.getName(),
           bytes.length,
-          getETag(workspaceId, filePath));
+          getETag(workspace, filePath));
     } catch (NoSuchFileException nfe) {
       logger.error("Metadata file deleted mid-read.");
       return generateFallbackMetadataResponse(metadataFile.getName());
@@ -673,11 +637,11 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
-  public boolean updateMetadataKeys(final int workspaceId, final Path filePath, MetadataUpdates updates, MetadataMergeBehavior mergeBehavior)
-  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException, JsonException
+  public boolean updateMetadataKeys(final Workspace workspace, final Path filePath, MetadataUpdates updates, MetadataMergeBehavior mergeBehavior)
+  throws WorkspaceFileOpException, IOException, JsonException
   {
-    gitService.requireLocked(workspaceId);
-    updateMetadata(workspaceRepository.workspaceRootPath(workspaceId), filePath, updates, mergeBehavior);
+    gitService.requireLocked(workspace);
+    updateMetadata(workspace, filePath, updates, mergeBehavior);
     return true;
   }
 
@@ -686,25 +650,26 @@ public class WorkspaceFileSystemService implements WorkspaceService {
    * history after the first content mutation. Caller holds the workspace lock.
    */
   private void updateMetadata(
-      final Path root,
+      final Workspace workspace,
       final Path filePath,
       final MetadataUpdates updates,
       final MetadataMergeBehavior mergeBehavior)
   throws IOException, JsonException, WorkspaceFileOpException
   {
-    final var metadataFile = WorkspacePaths.resolveMetadataPath(root, filePath).toFile();
+    final var metadataFile = resolveMetadataPath(workspace, filePath).toFile();
     final var newFileContents = generateUpdatedMetadataFile(readMetadataFile(metadataFile), updates, mergeBehavior).build();
-    writeMetadataFile(root, newFileContents, metadataFile);
+    writeMetadataFile(workspace, metadataFile, newFileContents);
   }
 
   /**
    * Write a sidecar's stored fields. Skips the write when the bytes would not change.
-   * @param root The workspace root (for its temp directory; the write is an atomic replace).
-   * @param contents The contents of the metadata file to be written.
+   *
+   * @param workspace The workspace root (for its temp directory; the write is an atomic replace).
    * @param metadataFile The File to be written to.
+   * @param contents The contents of the metadata file to be written.
    * @throws IOException If the File cannot be written to for any reason
    */
-  private void writeMetadataFile(final Path root, final MetadataUpdates contents, final File metadataFile) throws IOException {
+  private void writeMetadataFile(final Workspace workspace, final File metadataFile, final MetadataUpdates contents) throws IOException {
     // Fill in "created" information, using the "metadataLastEdited" information as a fallback
     final var serialized = serializeSidecar(
         contents.version().orElse("1"),
@@ -716,7 +681,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         contents.user().orElse(null));
     final var path = metadataFile.toPath();
     if (Files.isRegularFile(path) && Files.readString(path, StandardCharsets.UTF_8).equals(serialized)) return;
-    WorkspacePaths.writeAtomically(root, path, serialized.getBytes(StandardCharsets.UTF_8));
+    writeAtomically(workspace, path, serialized.getBytes(StandardCharsets.UTF_8));
   }
 
   /** The on-disk (and committed) form of a sidecar. Null fields are omitted; a missing version defaults to "1". */
@@ -908,15 +873,14 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   @Override
   public boolean unsetMetadataKeys(
-      final int workspaceId,
+      final Workspace workspace,
       final Path filePath,
       final Set<String> keysToUnset,
       final String userId)
-  throws NoSuchWorkspaceException, WorkspaceFileOpException, IOException, JsonException
+  throws WorkspaceFileOpException, IOException, JsonException
   {
-    gitService.requireLocked(workspaceId);
-    final var root = workspaceRepository.workspaceRootPath(workspaceId);
-    final var metadataFile = WorkspacePaths.resolveMetadataPath(root, filePath).toFile();
+    gitService.requireLocked(workspace);
+    final var metadataFile = resolveMetadataPath(workspace, filePath).toFile();
 
     // Get the contents of the current metadata file, or the default template if it doesn't exist
     final var fileContentsBuilder = generateUpdatedMetadataFile(
@@ -951,7 +915,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     }
 
     // Write out the updated sidecar. lastEdited* may remain as a baseline fallback but are ignored after a content edit.
-    writeMetadataFile(root, fileContentsBuilder.build(), metadataFile);
+    writeMetadataFile(workspace, metadataFile, fileContentsBuilder.build());
     return true;
   }
 
@@ -988,12 +952,11 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
 
   @Override
-  public boolean deleteMetadataFile(final int workspaceId, final Path filePath)
-  throws NoSuchWorkspaceException, WorkspaceFileOpException
+  public boolean deleteMetadataFile(final Workspace workspace, final Path filePath)
+  throws WorkspaceFileOpException
   {
-    gitService.requireLocked(workspaceId);
-    final var root = workspaceRepository.workspaceRootPath(workspaceId);
-    final var metadataFilePath = WorkspacePaths.resolveMetadataPath(root, filePath);
+    gitService.requireLocked(workspace);
+    final var metadataFilePath = resolveMetadataPath(workspace, filePath);
     // If the file already doesn't exist, silently succeed
     if(!metadataFilePath.toFile().exists()) {
       return true;

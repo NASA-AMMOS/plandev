@@ -1,6 +1,7 @@
 package gov.nasa.ammos.plandev.workspace.server.postgres;
 
 import gov.nasa.ammos.plandev.workspace.server.WorkspaceRepository;
+import gov.nasa.ammos.plandev.workspace.server.types.Workspace;
 
 import javax.sql.DataSource;
 import java.nio.file.Path;
@@ -31,21 +32,25 @@ public final class WorkspacePostgresRepository implements WorkspaceRepository {
     }
   }
 
+  /**
+   * Get the root path for a given workspace, returning an object with the id and root path combined
+   * @param workspaceId the DB id for the workspace
+   * @return A {@link Workspace} containing the DB id and the file system path to the root of the workspace
+   * @throws NoSuchWorkspaceException if there is no workspace under with that id
+   */
   @Override
-  public boolean deleteWorkspace(int workspaceId) throws SQLException {
+  public Workspace getWorkspace(final int workspaceId) throws SQLException, NoSuchWorkspaceException {
     try(final var connection = dataSource.getConnection();
-        final var deleteWorkspace = new DeleteWorkspaceAction(connection)) {
-      return deleteWorkspace.delete(workspaceId);
+        final var getRootPath = new GetWorkspaceRootPathAction(connection)) {
+      return new Workspace(workspaceId, baseRepositoryPath.resolve(getRootPath.get(workspaceId)));
     }
   }
 
   @Override
-  public Path workspaceRootPath(int workspaceId) throws NoSuchWorkspaceException {
+  public boolean deleteWorkspace(Workspace workspace) throws SQLException {
     try(final var connection = dataSource.getConnection();
-        final var getRootPath = new GetWorkspaceRootPathAction(connection)) {
-      return baseRepositoryPath.resolve(getRootPath.get(workspaceId));
-    } catch (SQLException e) {
-      throw new RuntimeException(e);
+        final var deleteWorkspace = new DeleteWorkspaceAction(connection)) {
+      return deleteWorkspace.delete(workspace.id());
     }
   }
 

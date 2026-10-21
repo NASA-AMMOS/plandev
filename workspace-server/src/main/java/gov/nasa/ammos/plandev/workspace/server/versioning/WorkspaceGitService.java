@@ -2,10 +2,9 @@ package gov.nasa.ammos.plandev.workspace.server.versioning;
 
 import gov.nasa.ammos.plandev.workspace.server.WorkspaceFileSystemService;
 import gov.nasa.ammos.plandev.workspace.server.WorkspacePaths;
-import gov.nasa.ammos.plandev.workspace.server.WorkspaceRepository;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.PartialMutationException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistoryException;
-import gov.nasa.ammos.plandev.workspace.server.postgres.NoSuchWorkspaceException;
+import gov.nasa.ammos.plandev.workspace.server.types.Workspace;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.Status;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -52,6 +51,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,6 +63,8 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
+import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.gitDirectory;
+import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.internalDirectory;
 import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.toGitPath;
 
 /**
@@ -116,7 +118,7 @@ import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.toGitPath;
  * their database row makes them visible. An existing unmanaged workspace (pre-history, or a repository PlanDev did
  * not finish adopting) is adopted on its first mutation: its tree must contain no reserved names and no symbolic
  * links; a repository is created if missing; and the current state is recorded by a commit authored by
- * {@link #systemIdent()} ("Initialize workspace history" for a new repository, "Adopt workspace into history" for an
+ * {@link #systemIdentifier} ("Initialize workspace history" for a new repository, "Adopt workspace into history" for an
  * existing one with uncommitted state).
  * An adoption marker in .seqdev makes initialization restartable without treating an arbitrary broken repository as
  * one PlanDev is allowed to repair.
@@ -173,47 +175,28 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    */
   private record CachedLastEdit(ObjectId validAt, LastEdit edit) {}
 
-  private final WorkspaceRepository workspaceRepository;
   // ponytail: one lock per workspace id, never evicted; a few bytes per workspace ever touched by this process.
-  private final Map<Integer, ReentrantLock> locks = new ConcurrentHashMap<>();
-  private final Map<Integer, Map<Path, CachedLastEdit>> lastEditCache = new ConcurrentHashMap<>();
-  private final Set<Path> configured = ConcurrentHashMap.newKeySet();
+  private final Map<Workspace, ReentrantLock> locks = new ConcurrentHashMap<>();
+  private final Map<Workspace, Map<Path, CachedLastEdit>> lastEditCache = new ConcurrentHashMap<>();
+  private final Set<Workspace> configured = ConcurrentHashMap.newKeySet();
   // Each request thread gets its own flag: nested entry on that thread sees true, while unrelated threads still see
   // their own initial false. inLockScope removes the thread's value when the outer operation finishes.
   private final ThreadLocal<Boolean> lockScopeActive = ThreadLocal.withInitial(() -> false);
 
-  public WorkspaceGitService(final WorkspaceRepository workspaceRepository) {
-    this.workspaceRepository = workspaceRepository;
-  }
-
   //region Mutation boundary
-  /** Run a single-workspace mutation. See {@link #mutate(LinkedHashMap, String, Mutation, Predicate)}. */
   public <T> T mutate(
-      final int workspaceId,
-      final String userId,
-      final String message,
+      final Workspace workspaceId,
+      final String message, final String userId,
       final Mutation<T> mutation,
       final Predicate<T> succeeded) throws Exception
   {
-    final var commits = new LinkedHashMap<Integer, String>();
+    final var commits = new LinkedHashMap<Workspace, String>();
     commits.put(workspaceId, message);
     return mutate(commits, userId, mutation, succeeded);
   }
 
-  /**
-   * Run a mutation across one or more workspaces under their locks, then record it in each workspace's history.
-   *
-   * @param commits the involved workspaces, in commit order, each with its commit message
-   * @param userId the PlanDev user the commits are authored by
-   * @param mutation performs validation and the filesystem change; may return a failure result instead of throwing
-   * @param succeeded whether a returned result is a success; a failure result is rolled back and returned as-is
-   * @return the mutation's result
-   * @throws WorkspaceHistoryException if history could not be recorded (the change was rolled back), was recorded in
-   *     only some workspaces, or the repository could not be restored
-   * @throws Exception anything the mutation throws, after the workspaces have been restored
-   */
   public <T> T mutate(
-      final LinkedHashMap<Integer, String> commits,
+      final LinkedHashMap<Workspace, String> commits,
       final String userId,
       final Mutation<T> mutation,
       final Predicate<T> succeeded) throws Exception
@@ -222,24 +205,28 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   }
 
   private <T> T mutateUnderLocks(
-      final LinkedHashMap<Integer, String> commits,
+      final LinkedHashMap<Workspace, String> commits,
       final String userId,
       final Mutation<T> mutation,
       final Predicate<T> succeeded) throws Exception
   {
-    final var workspaceIds = List.copyOf(commits.keySet());
-    final var lockOrder = workspaceIds.stream().sorted().map(this::lockFor).toList();
-    lockOrder.forEach(ReentrantLock::lock);
+    final var workspaces = commits.keySet();
+    // Get a reentrant lock for each unique workspace in the commits map
+    final var wsLocks = workspaces
+        .stream()
+        .sorted(Comparator.comparingInt(Workspace::id))
+        .map(this::lockFor)
+        .toList();
+    wsLocks.forEach(ReentrantLock::lock);
+
     try {
-      final var rootsById = new LinkedHashMap<Integer, Path>();
-      final var before = new HashMap<Integer, ObjectId>();
-      for (final var id : workspaceIds) {
-        final var root = workspaceRepository.workspaceRootPath(id).normalize();
-        rootsById.put(id, root);
-        ensureReady(root);
-        before.put(id, capture(root));
+      final var before = new HashMap<Workspace, ObjectId>();
+      for(final var ws : workspaces) {
+        ensureReady(ws);
+        before.put(ws, capture(ws));
       }
-      beginMutation(rootsById.values());
+
+      beginMutation(workspaces);
 
       final T result;
       final boolean successful;
@@ -247,55 +234,57 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
         result = mutation.apply();
         successful = succeeded.test(result);
       } catch (Exception e) {
-        restoreAll(workspaceIds, rootsById, before, e);
-        finishMutation(rootsById.values(), e);
+        restoreAll(workspaces, before, e);
+        finishMutation(workspaces, e);
         throw e;
       }
       if (!successful) {
-        restoreAll(workspaceIds, rootsById, before, null);
-        finishMutation(rootsById.values(), null);
+        restoreAll(workspaces, before, null);
+        finishMutation(workspaces, null);
         return result;
       }
 
-      final var committed = new ArrayList<Integer>();
-      for (final var id : workspaceIds) {
-        final var root = rootsById.get(id);
-        try (final var git = open(root)) {
+      final var committed = new ArrayList<Workspace>();
+      for (final var ws : workspaces) {
+        try (final var git = open(ws)) {
           if (stageAll(git)) {
             requireValidIndex(git.getRepository());
-            commit(git, commits.get(id), userIdent(userId));
+            commit(git, commits.get(ws), userIdent(userId));
           }
-          requireClean(git, root);
-          committed.add(id);
+          requireClean(git, ws);
+          committed.add(ws);
         } catch (Exception e) {
-          logger.error("Recording history for workspace {} failed; restoring", id, e);
-          restoreAll(workspaceIds.subList(committed.size(), workspaceIds.size()), rootsById, before, e);
-          finishMutation(rootsById.values(), e);
+          logger.error("Recording history for workspace {} failed; restoring", ws.id(), e);
+          // Revert changes to any workspaces that have not yet been committed
+          final var toRestore = new HashSet<>(workspaces);
+          committed.forEach(toRestore::remove);
+          restoreAll(toRestore, before, e);
+          finishMutation(workspaces, e);
           if (committed.isEmpty()) {
             throw new WorkspaceHistoryException(
                 WorkspaceHistoryException.Kind.HISTORY_NOT_RECORDED,
                 "The change could not be recorded in workspace history and was rolled back.",
                 e);
           }
-          throw new PartialMutationException(committed, id, e);
+          throw new PartialMutationException(committed, ws, e);
         }
       }
-      finishMutation(rootsById.values(), null);
+      finishMutation(workspaces, null);
       return result;
     } finally {
-      lockOrder.reversed().forEach(ReentrantLock::unlock);
+      wsLocks.reversed().forEach(ReentrantLock::unlock);
     }
   }
 
   /** Run an action under a workspace's lock without recording history (e.g. deleting the whole workspace). */
-  public <T> T withLock(final int workspaceId, final Mutation<T> action) throws Exception {
+  public <T> T withLock(final Workspace workspace, final Mutation<T> action) throws Exception {
     return inLockScope(() -> {
-      final var lock = lockFor(workspaceId);
+      final var lock = lockFor(workspace);
       lock.lock();
       try {
         final var result = action.apply();
-        lastEditCache.remove(workspaceId);
-        configured.remove(workspaceRepository.workspaceRootPath(workspaceId));
+        lastEditCache.remove(workspace);
+        configured.remove(workspace);
         return result;
       } finally {
         lock.unlock();
@@ -320,19 +309,19 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
 
   /** Throw unless the current thread holds every given workspace's mutation lock. */
   @Override
-  public void requireLocked(final int... workspaceIds) throws IllegalStateException {
-    for (final var id : workspaceIds) {
-      final var lock = locks.get(id);
+  public void requireLocked(final Workspace... workspaces) throws IllegalStateException {
+    for (final var ws : workspaces) {
+      final var lock = locks.get(ws);
       if (lock == null || !lock.isHeldByCurrentThread()) {
         throw new IllegalStateException(
             "Workspace %d was mutated outside WorkspaceHistory.mutate; every workspace mutation must go through it."
-                .formatted(id));
+                .formatted(ws.id()));
       }
     }
   }
 
-  private ReentrantLock lockFor(final int workspaceId) {
-    return locks.computeIfAbsent(workspaceId, k -> new ReentrantLock());
+  private ReentrantLock lockFor(final Workspace workspace) {
+    return locks.computeIfAbsent(workspace, k -> new ReentrantLock());
   }
 
   /** The Git commit step. Overridable only so tests can inject a deterministic failure. */
@@ -350,13 +339,11 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
 
   //region Adoption and trust
   /**
-   * Initialize a newly created directory before its database row makes it visible as a workspace. No workspace lock is
-   * needed yet because no other request can resolve the directory; migrated workspaces still use adoption on first
-   * mutation through ensureReady().
+   * Initialize a newly created workspace.
    */
   @Override
-  public void initializeNewWorkspace(final Path root) throws IOException, GitAPIException {
-    final var normalizedRoot = root.normalize();
+  public void initializeNewWorkspace(final Workspace workspace) throws IOException, GitAPIException {
+    final var normalizedRoot = workspace.rootPath().normalize();
     if (!Files.isDirectory(normalizedRoot)) {
       throw new IOException("New workspace directory " + normalizedRoot + " is missing.");
     }
@@ -365,47 +352,64 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
         throw new IOException("New workspace directory " + normalizedRoot + " is not empty.");
       }
     }
-    adopt(normalizedRoot);
+
+    try {
+      inLockScope(() -> {
+        final var lock = lockFor(workspace);
+        lock.lock();
+        try {
+          adopt(workspace);
+          return null;
+        } finally {
+          lock.unlock();
+        }
+      });
+    } catch (IOException | GitAPIException e) {
+      throw e;
+    } catch (Exception e) {
+      // Adopt only throws IO and GitAPI, so this branch should be unhit
+      throw new RuntimeException(e);
+    }
   }
 
   /** Bring a workspace to "managed, trusted and clean", adopting it first if it is not managed yet. Caller holds the lock. */
-  private void ensureReady(final Path root) throws IOException, GitAPIException {
-    if (!Files.isDirectory(root)) {
-      throw inconsistent("Workspace directory " + root + " is missing.");
+  private void ensureReady(final Workspace workspace) throws IOException, GitAPIException {
+    if (!Files.isDirectory(workspace.rootPath())) {
+      throw inconsistent("Workspace directory " + workspace.rootPath() + " is missing.");
     }
-    if (hasMarker(mutationMarker(root))) {
-      if (!isManaged(root)) {
-        throw inconsistent("Workspace at " + root + " has an interrupted-mutation marker but is not managed.");
+    if (hasMarker(mutationMarker(workspace))) {
+      if (!isManaged(workspace)) {
+        throw inconsistent("Workspace at " + workspace.rootPath() + " has an interrupted-mutation marker but is not managed.");
       }
-      recoverInterruptedMutation(root);
-      requireTrusted(root);
-    } else if (hasMarker(adoptionMarker(root))) {
-      adopt(root);
-    } else if (isManaged(root)) {
-      requireTrusted(root);
+      recoverInterruptedMutation(workspace);
+      requireTrusted(workspace);
+    } else if (hasMarker(adoptionMarker(workspace))) {
+      adopt(workspace);
+    } else if (isManaged(workspace)) {
+      requireTrusted(workspace);
     } else {
-      adopt(root);
+      adopt(workspace);
     }
   }
 
   /** Validate managed Git state, then preserve and heal all ordinary filesystem drift before any mutation. */
-  private void requireTrusted(final Path root) throws IOException, GitAPIException {
+  private void requireTrusted(final Workspace workspace) throws IOException, GitAPIException {
     // configure() runs before the mutation marker and saves through .git/config.lock. If the process dies during that
     // FileBasedConfig.save(), normal cleanup never runs and no marker exists to trigger general recovery. Under the
     // single-owner deployment contract, a config lock found here is therefore stale and safe to remove before retrying.
-    removeStaleConfigLock(root);
-    requireNoGitLocks(root);
-    try (final var git = open(root)) {
+    removeStaleConfigLock(workspace);
+    requireNoGitLocks(workspace);
+    try (final var git = open(workspace)) {
       requireExpectedGitState(git.getRepository(), false);
-      configure(root, git.getRepository());
+      configure(workspace, git.getRepository());
       requireValidIndex(git.getRepository());
-      heal(root, git, false);
+      heal(workspace, git, false);
     }
-    WorkspacePaths.removeStaleTempFiles(root); // only once trusted: a rejected workspace is left exactly as found
+    WorkspacePaths.removeStaleTempFiles(workspace); // only once trusted: a rejected workspace is left exactly as found
   }
 
   /** Staged residue is recoverable only with a trusted crash marker; normal requests reject it untouched. */
-  private void heal(final Path root, final Git git, final boolean interrupted) throws IOException, GitAPIException {
+  private void heal(final Workspace workspace, final Git git, final boolean interrupted) throws IOException, GitAPIException {
     final var status = git.status().call();
     final var staged = new TreeSet<String>();
     staged.addAll(status.getAdded());
@@ -413,25 +417,25 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     staged.addAll(status.getRemoved());
     staged.addAll(status.getConflicting());
     if (!interrupted && !staged.isEmpty()) {
-      throw inconsistent("Workspace at %s has staged changes that are not in its history: %s. They were left untouched."
-                             .formatted(root, summarize(staged)));
+      throw inconsistent("Workspace %d has staged changes that are not in its history: %s. They were left untouched."
+                             .formatted(workspace.id(), summarize(staged)));
     }
     final var dirty = dirtyPaths(status);
     if (dirty.isEmpty()) return;
     final var head = git.getRepository().resolve(Constants.HEAD);
     final var reason = interrupted ? "interrupted mutation recovery" : "out-of-band filesystem change";
-    final var incident = preserve(root, head, status, reason);
+    final var incident = preserve(workspace, head, status, reason);
     try {
-      if (!interrupted) createMarker(mutationMarker(root));
-      restore(root, head); // existing whole-tree/index restore, including its clean postcondition
+      if (!interrupted) createMarker(mutationMarker(workspace));
+      restore(workspace, head); // existing whole-tree/index restore, including its clean postcondition
     } catch (IOException | GitAPIException | RuntimeException e) {
       throw new WorkspaceHistoryException(WorkspaceHistoryException.Kind.REPOSITORY_INCONSISTENT,
-          "Workspace at %s: %s were preserved in %s but the workspace could not be restored to HEAD."
-              .formatted(root, summarize(dirty), incident), e);
+          "Workspace %d: %s were preserved in %s but the workspace could not be restored to HEAD."
+              .formatted(workspace.id(), summarize(dirty), incident), e);
     }
-    if (!interrupted) finishMutation(List.of(root), null);
-    logger.warn("Workspace at {}: preserved {} in {} ({}) and restored HEAD {}",
-                root, summarize(dirty), incident, reason, head.name());
+    if (!interrupted) finishMutation(Set.of(workspace), null);
+    logger.warn("Workspace {}: preserved {} in {} ({}) and restored HEAD {}",
+                workspace.id(), summarize(dirty), incident, reason, head.name());
   }
 
   /**
@@ -439,8 +443,8 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    * and the files under {@code files/} at their workspace-relative paths. Runtime state: ignored by Git and reserved
    * from the file API.
    */
-  static Path recoveryDir(final Path root) {
-    return root.resolve(WorkspacePaths.INTERNAL_DIR).resolve("recovery");
+  static Path recoveryDir(final Workspace workspace) {
+    return internalDirectory(workspace).resolve("recovery");
   }
 
   /**
@@ -449,14 +453,15 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    * back; only if all of them were is the incident removed. Otherwise it is kept, holding what could not be returned.
    */
   private Path preserve(
-      final Path root,
+      final Workspace workspace,
       final ObjectId head,
       final Status status,
       final String reason)
   {
     final var drift = dirtyPaths(status);
     final var now = Instant.now();
-    final var dir = recoveryDir(root).resolve(INCIDENT_TIME.format(now) + "-" + UUID.randomUUID());
+    final var dir = recoveryDir(workspace).resolve(INCIDENT_TIME.format(now) + "-" + UUID.randomUUID());
+    final var root = workspace.rootPath();
     final var moved = new LinkedHashMap<Path, Path>();
     try {
       // Check ancestors as well as the entry: NOFOLLOW_LINKS alone does not protect intermediate components.
@@ -469,12 +474,12 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
           throw new IOException("Not a regular file: " + file);
         }
       }
-      for (final var directory : List.of(root.resolve(WorkspacePaths.INTERNAL_DIR), recoveryDir(root))) {
+      for (final var directory : List.of(internalDirectory(workspace), recoveryDir(workspace))) {
         if (Files.exists(directory, LinkOption.NOFOLLOW_LINKS) && !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
           throw new IOException(directory + " is not a directory");
         }
       }
-      Files.createDirectories(recoveryDir(root));
+      Files.createDirectories(recoveryDir(workspace));
       Files.createDirectory(dir);
       final var paths = Json.createArrayBuilder();
       for (final var key : drift) {
@@ -498,7 +503,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
                            .add("reason", reason)
                            .add("paths", paths);
       // Write intent before moving bytes so a failed partial rollback still has an incident manifest.
-      WorkspacePaths.writeAtomically(root, dir.resolve("incident.json"), json.build().toString().getBytes(StandardCharsets.UTF_8));
+      WorkspacePaths.writeAtomically(workspace, dir.resolve("incident.json"), json.build().toString().getBytes(StandardCharsets.UTF_8));
       for (final var key : drift) {
         final var file = root.resolve(key);
         if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) continue; // deletion: metadata only
@@ -536,7 +541,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
               .formatted(root, summarize(drift), summarize(stranded))
           + "remain in " + dir + ".", e);
     }
-    pruneIncidents(root, dir);
+    pruneIncidents(workspace, dir);
     return dir;
   }
 
@@ -557,13 +562,13 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    * clock did. Best effort: the current incident is already written, so a failure here is logged and never fails the
    * mutation.
    */
-  private static void pruneIncidents(final Path root, final Path current) {
-    try (final var entries = Files.list(recoveryDir(root))) {
+  private static void pruneIncidents(final Workspace workspace, final Path current) {
+    try (final var entries = Files.list(recoveryDir(workspace))) {
       final var newestFirst = Stream.concat(Stream.of(current), entries.filter(p -> !p.equals(current))
                                                                        .sorted(Comparator.reverseOrder())).toList();
       for (final var old : newestFirst.subList(Math.min(MAX_INCIDENTS, newestFirst.size()), newestFirst.size())) deleteTree(old);
     } catch (IOException | UncheckedIOException | SecurityException e) {
-      logger.warn("Could not prune old recovery incidents in {}", recoveryDir(root), e);
+      logger.warn("Could not prune old recovery incidents in {}", recoveryDir(workspace), e);
     }
   }
 
@@ -579,16 +584,16 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    * Put a workspace under history. The adoption marker is written before any Git change and the managed setting is
    * written last, so an interrupted adoption can remove its own stale locks and safely rerun these idempotent steps.
    */
-  private void adopt(final Path root) throws IOException, GitAPIException {
+  private void adopt(final Workspace workspace) throws IOException, GitAPIException {
     // Validate everything before writing anything
-    requireAdoptable(root);
-    final var marker = adoptionMarker(root);
+    requireAdoptable(workspace);
+    final var marker = adoptionMarker(workspace);
     final var resuming = hasMarker(marker);
-    final var gitDir = gitDirectory(root);
+    final var gitDir = gitDirectory(workspace);
     final var config = gitDir.resolve("config");
     var hasRepo = Files.isDirectory(gitDir, LinkOption.NOFOLLOW_LINKS);
     if (resuming) {
-      removeGitLocks(root);
+      removeGitLocks(workspace);
       // JGit writes config last during init. An existing repository must have passed the config check below before
       // its marker was created, so a marked repository without config can only be our interrupted initialization.
       if (hasRepo && Files.notExists(config, LinkOption.NOFOLLOW_LINKS)) {
@@ -597,40 +602,36 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       }
     } else if (hasRepo) {
       requireRepositoryConfig(config);
-      requireNoGitLocks(root);
-      try (final var git = open(root)) {
+      requireNoGitLocks(workspace);
+      try (final var git = open(workspace)) {
         requireExpectedGitState(git.getRepository(), true);
       }
     }
-    WorkspacePaths.removeStaleTempFiles(root);
+    WorkspacePaths.removeStaleTempFiles(workspace);
     if (!resuming) createMarker(marker);
 
-    if (!hasRepo) Git.init().setDirectory(root.toFile()).setInitialBranch(BRANCH).call().close();
+    if (!hasRepo) Git.init().setDirectory(workspace.rootPath().toFile()).setInitialBranch(BRANCH).call().close();
     requireRepositoryConfig(config);
-    configured.remove(root); // a new or newly adopted repository gets its config (re)applied
+    configured.remove(workspace); // a new or newly adopted repository gets its config (re)applied
 
-    try (final var git = open(root)) {
+    try (final var git = open(workspace)) {
       final var repo = git.getRepository();
       requireExpectedGitState(repo, true);
-      configure(root, repo);
+      configure(workspace, repo);
       final var unborn = repo.resolve(Constants.HEAD) == null;
       if (stageAll(git) || unborn) {
         requireValidIndex(repo);
         commit(git, unborn ? INIT_MESSAGE : ADOPT_MESSAGE, systemIdentifier);
       }
       requireValidIndex(repo);
-      requireClean(git, root);
+      requireClean(git, workspace);
 
       final var cfg = repo.getConfig();
       cfg.setBoolean(MANAGED_SECTION, null, MANAGED_KEY, true);
       cfg.save();
     }
     Files.delete(marker);
-    logger.info("Workspace at {} is now under history", root);
-  }
-
-  public boolean isManaged(final int workspaceId) throws IOException, NoSuchWorkspaceException {
-    return isManaged(workspaceRepository.workspaceRootPath(workspaceId));
+    logger.info("Workspace {} is now under history", workspace.id());
   }
 
   /**
@@ -638,9 +639,11 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    * repository.
    */
   @Override
-  public boolean isManaged(final Path root) throws IOException {
-    if (!Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR), LinkOption.NOFOLLOW_LINKS)) return false;
-    try (final var git = open(root)) {
+  public boolean isManaged(final Workspace workspace) throws IOException {
+    if (!Files.isDirectory(gitDirectory(workspace))) {
+      return false;
+    }
+    try (final var git = open(workspace)) {
       return git.getRepository().getConfig().getBoolean(MANAGED_SECTION, null, MANAGED_KEY, false);
     }
   }
@@ -673,8 +676,8 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    * Make every repository behavior that could change file bytes or what is tracked explicit at repository level,
    * rather than inheriting it from the server's $HOME or system Git config. Applied once per process per workspace.
    */
-  private void configure(final Path root, final Repository repo) throws IOException {
-    if (configured.contains(root)) return;
+  private void configure(final Workspace workspace, final Repository repo) throws IOException {
+    if (configured.contains(workspace)) return;
     final var cfg = repo.getConfig();
     cfg.setBoolean("core", null, "autocrlf", false);
     cfg.setBoolean("core", null, "safecrlf", false);
@@ -690,19 +693,15 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     Files.createDirectories(info);
     Files.writeString(info.resolve("exclude"), "/" + WorkspacePaths.INTERNAL_DIR + "/\n", StandardCharsets.UTF_8);
     Files.deleteIfExists(info.resolve("attributes"));
-    configured.add(root);
+    configured.add(workspace);
   }
 
-  private static Path gitDirectory(final Path root) {
-    return root.resolve(WorkspacePaths.GIT_DIR);
+  private static Path mutationMarker(final Workspace workspace) {
+    return gitDirectory(workspace).resolve(MUTATION_MARKER);
   }
 
-  private static Path mutationMarker(final Path root) {
-    return gitDirectory(root).resolve(MUTATION_MARKER);
-  }
-
-  private static Path adoptionMarker(final Path root) {
-    return root.resolve(WorkspacePaths.INTERNAL_DIR).resolve(ADOPTION_MARKER);
+  private static Path adoptionMarker(final Workspace workspace) {
+    return internalDirectory(workspace).resolve(ADOPTION_MARKER);
   }
 
   private static void requireRepositoryConfig(final Path config) {
@@ -752,11 +751,11 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   }
 
   /** Mark every repository before the callback can change any of them. A partial setup is harmless and cleaned up. */
-  private static void beginMutation(final Collection<Path> roots) {
+  private static void beginMutation(final Set<Workspace> workspaces) {
     final var created = new ArrayList<Path>();
     try {
-      for (final var root : roots) {
-        final var marker = mutationMarker(root);
+      for (final var ws : workspaces) {
+        final var marker = mutationMarker(ws);
         createMarker(marker);
         created.add(marker);
       }
@@ -776,11 +775,11 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   }
 
   /** Remove markers only after all involved repositories have reached a verified clean state. */
-  private static void finishMutation(final Collection<Path> roots, final Exception cause) {
+  private static void finishMutation(final Set<Workspace> workspaces, final Exception cause) {
     final var failures = new ArrayList<IOException>();
-    for (final var root : roots) {
+    for (final var ws : workspaces) {
       try {
-        Files.deleteIfExists(mutationMarker(root));
+        Files.deleteIfExists(mutationMarker(ws));
       } catch (IOException e) {
         failures.add(e);
       }
@@ -802,51 +801,51 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    * mutation is rolled back. If HEAD was updated first, this is the new commit; recovery keeps it and preserves
    * unfinished index or working-tree residue before restoring the index and working tree to HEAD.
    */
-  private void recoverInterruptedMutation(final Path root) throws IOException, GitAPIException {
-    removeGitLocks(root);
+  private void recoverInterruptedMutation(final Workspace workspace) throws IOException, GitAPIException {
+    removeGitLocks(workspace);
     final ObjectId head;
-    try (final var git = open(root)) {
+    try (final var git = open(workspace)) {
       final var repo = git.getRepository();
       requireExpectedGitState(repo, false);
-      configure(root, repo);
+      configure(workspace, repo);
       requireValidIndex(repo);
       head = repo.resolve(Constants.HEAD);
-      heal(root, git, true);
+      heal(workspace, git, true);
     }
-    Files.delete(mutationMarker(root));
-    logger.warn("Recovered interrupted workspace mutation at {} to HEAD {}", root, head.name());
+    Files.delete(mutationMarker(workspace));
+    logger.warn("Recovered interrupted workspace mutation at {} to HEAD {}", workspace.rootPath(), head.name());
   }
 
-  private static List<Path> existingGitLocks(final Path root) {
-    final var gitDir = gitDirectory(root);
+  private static List<Path> existingGitLocks(final Workspace workspace) {
+    final var gitDir = gitDirectory(workspace);
     return GIT_LOCKS.stream()
         .map(gitDir::resolve)
         .filter(path -> Files.exists(path, LinkOption.NOFOLLOW_LINKS))
         .toList();
   }
 
-  private static void requireNoGitLocks(final Path root) {
-    final var locks = existingGitLocks(root);
+  private static void requireNoGitLocks(final Workspace workspace) {
+    final var locks = existingGitLocks(workspace);
     if (locks.isEmpty()) return;
-    final var gitDir = gitDirectory(root);
+    final var gitDir = gitDirectory(workspace);
     final var names = locks.stream().map(path -> WorkspacePaths.GIT_DIR + "/" + WorkspacePaths.key(gitDir, path)).toList();
-    throw inconsistent("Workspace at %s has Git lock files %s without a PlanDev recovery marker; they were left untouched."
-                           .formatted(root, names));
+    throw inconsistent("Workspace %d has Git lock files %s without a PlanDev recovery marker; they were left untouched."
+                           .formatted(workspace.id(), names));
   }
 
-  private void removeStaleConfigLock(final Path root) throws IOException {
-    final var lock = gitDirectory(root).resolve("config.lock");
+  private void removeStaleConfigLock(final Workspace workspace) throws IOException {
+    final var lock = gitDirectory(workspace).resolve("config.lock");
     if (!Files.exists(lock, LinkOption.NOFOLLOW_LINKS)) return;
     if (!Files.isRegularFile(lock, LinkOption.NOFOLLOW_LINKS)) {
       throw inconsistent("Git lock " + lock + " is not a regular file and was left untouched.");
     }
     Files.delete(lock);
-    configured.remove(root);
+    configured.remove(workspace);
   }
 
   /** A recovery marker proves these exact locks can only belong to the interrupted operation. */
-  private static void removeGitLocks(final Path root) throws IOException {
-    for (final var lock : existingGitLocks(root)) {
+  private static void removeGitLocks(final Workspace workspace) throws IOException {
+    for (final var lock : existingGitLocks(workspace)) {
       if (!Files.isRegularFile(lock, LinkOption.NOFOLLOW_LINKS)) {
         throw inconsistent("Git lock " + lock + " is not a regular file and was left untouched.");
       }
@@ -859,8 +858,9 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    * (unsupported workspace content: one could point into .git or outside the workspace). Only possible for
    * workspaces created or edited outside the file API, which rejects both. Links are never followed.
    */
-  private static void requireAdoptable(final Path root) throws IOException {
+  private static void requireAdoptable(final Workspace workspace) throws IOException {
     final var found = new ArrayList<String>();
+    final var root = workspace.rootPath();
     Files.walkFileTree(root, new SimpleFileVisitor<>() {
       @Override
       public FileVisitResult preVisitDirectory(final Path dir, final BasicFileAttributes attrs) {
@@ -919,14 +919,9 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   //endregion
 
   //region Git helpers
-  private Git open(final int workspaceId) throws IOException, NoSuchWorkspaceException {
+  private static Git open(final Workspace workspace) throws IOException {
     // Opens <root>/.git only; never discovers a repository in a parent directory. Closing the Git closes the repo.
-    return open(workspaceRepository.workspaceRootPath(workspaceId));
-  }
-
-  private static Git open(final Path root) throws IOException {
-    // Opens <root>/.git only; never discovers a repository in a parent directory. Closing the Git closes the repo.
-    return Git.open(root.toFile());
+    return Git.open(workspace.rootPath().toFile());
   }
 
   /** Runs git add -A. Returns whether anything is staged relative to HEAD. */
@@ -957,9 +952,9 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     return dirty;
   }
 
-  private static void requireClean(final Git git, final Path root) throws GitAPIException {
+  private static void requireClean(final Git git, final Workspace workspace) throws GitAPIException {
     final var dirty = dirtyPaths(git.status().call());
-    if (!dirty.isEmpty()) throw inconsistent("Workspace at %s is not clean: %s".formatted(root, summarize(dirty)));
+    if (!dirty.isEmpty()) throw inconsistent("Workspace %d is not clean: %s".formatted(workspace.id(), summarize(dirty)));
   }
 
   private static final PersonIdent systemIdentifier = new PersonIdent("SeqDev", "Workspaces@SeqDev");
@@ -970,27 +965,26 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   //endregion
 
   //region Rollback
-  private ObjectId capture(final Path root) throws IOException {
-    try (final var git = open(root)) {
+  private ObjectId capture(final Workspace workspace) throws IOException {
+    try (final var git = open(workspace)) {
       return git.getRepository().resolve(Constants.HEAD);
     }
   }
 
   /** Restore each workspace; if any cannot be restored, fail with REPOSITORY_INCONSISTENT. */
   private void restoreAll(
-      final List<Integer> ids,
-      final Map<Integer, Path> rootsById,
-      final Map<Integer, ObjectId> before,
+      final Set<Workspace> workspaces,
+      final Map<Workspace, ObjectId> before,
       final Exception cause)
   {
     final var failed = new ArrayList<Integer>();
     final var errors = new ArrayList<Exception>();
-    for (final var id : ids) {
+    for (final var ws : workspaces) {
       try {
-        restore(rootsById.get(id), before.get(id));
+        restore(ws, before.get(ws));
       } catch (Exception e) {
-        logger.error("Could not restore workspace {} after a failed mutation", id, e);
-        failed.add(id);
+        logger.error("Could not restore workspace {} after a failed mutation", ws.id(), e);
+        failed.add(ws.id());
         errors.add(e);
       }
     }
@@ -1006,8 +1000,8 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     }
   }
 
-  private void restore(final Path root, final ObjectId before) throws IOException, GitAPIException {
-    try (final var git = open(root); final var walk = new RevWalk(git.getRepository())) {
+  private void restore(final Workspace workspace, final ObjectId before) throws IOException, GitAPIException {
+    try (final var git = open(workspace); final var walk = new RevWalk(git.getRepository())) {
       final var repo = git.getRepository();
 
       // Collect untracked or newly added paths to remove. For rollback they came from the mutation; healing and
@@ -1020,7 +1014,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       // DirCacheCheckout may remove empty parents while restoring files. Snapshot the directories still present before
       // restoration so checkout cannot make the unsafe guess that they were all created by a failed operation.
       // This restore-only walk intentionally preserves both old directories and harmless new empty ones.
-      final var directoriesToKeep = WorkspacePaths.walk(root, Integer.MAX_VALUE).stream()
+      final var directoriesToKeep = WorkspacePaths.walk(workspace.rootPath(), Integer.MAX_VALUE).stream()
           .filter(path -> Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
           .sorted(Comparator.comparingInt(Path::getNameCount))
           .toList();
@@ -1044,7 +1038,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       // Remove the collected paths. Do not prune empty parents: Git cannot tell whether a directory was created
       // by an operation or already existed, and restoration must not delete a directory it cannot safely attribute.
       for (final var path : created) {
-        Files.deleteIfExists(root.resolve(path));
+        Files.deleteIfExists(workspace.rootPath().resolve(path));
       }
 
       // Recreate directories removed by checkout, shallowest first. This may leave directories created by the failed
@@ -1057,7 +1051,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
         }
       }
 
-      requireClean(git, root);
+      requireClean(git, workspace);
     }
   }
   //endregion
@@ -1068,17 +1062,17 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    * Results are cached per path and HEAD. A cached result from an older HEAD is reused when the walk reaches that
    * commit, so an unchanged path normally requires walking only the new commits.
    */
-  public Map<Path, LastEdit> lastEdits(final int workspaceId, final Set<Path> paths)
-  throws IOException, NoSuchWorkspaceException, WorkspaceHistoryException
+  @Override
+  public Map<Path, LastEdit> lastEdits(final Workspace workspace, final Set<Path> paths)
+  throws IOException, WorkspaceHistoryException
   {
-    if (paths.isEmpty() || !isManaged(workspaceId)) {
+    if (paths.isEmpty() || !isManaged(workspace)) {
       return Map.of();
     }
-    final var workspaceRootPath = workspaceRepository.workspaceRootPath(workspaceId);
 
     final var edits = new HashMap<Path, LastEdit>();
 
-    try (final var git = open(workspaceId)) {
+    try (final var git = open(workspace)) {
       final var repo = git.getRepository();
 
       // Grab the current ObjectId for HEAD. Otherwise, a mutation in another request can update this value underfoot.
@@ -1086,10 +1080,10 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       if (head == null) {
         throw new WorkspaceHistoryException(
             WorkspaceHistoryException.Kind.OTHER,
-            "Git-tracked workspace %d has no head.".formatted(workspaceId));
+            "Git-tracked workspace %d has no head.".formatted(workspace.id()));
       }
 
-      final var cache = lastEditCache.computeIfAbsent(workspaceId, wId -> new ConcurrentHashMap<>());
+      final var cache = lastEditCache.computeIfAbsent(workspace, wId -> new ConcurrentHashMap<>());
 
       // Paths not cached at HEAD, keyed by git path, and the commits their stale cache entries were validated at
       final var pending = new HashMap<String, Path>();
@@ -1101,7 +1095,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
         if(cachedEdit != null && cachedEdit.validAt().equals(head)) {
           edits.put(path, cachedEdit.edit());
         } else {
-          final var gitPath = toGitPath(workspaceRootPath.relativize(path));
+          final var gitPath = toGitPath(workspace.rootPath().relativize(path));
           pending.put(gitPath, path);
           if (cachedEdit != null) {
             validatedAt.computeIfAbsent(cachedEdit.validAt(), c -> new ArrayList<>()).add(gitPath);
@@ -1199,7 +1193,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
 
       // Anything left was never changed in history reachable from HEAD, not even by a baseline commit
       if (!pending.isEmpty()) {
-        final var errorMsg = "The following file(s) in Workspace %d have no revision history:".formatted(workspaceId)
+        final var errorMsg = "The following file(s) in Workspace %d have no revision history:".formatted(workspace.id())
                              + String.join("\n\t- ", pending.keySet());
         throw new WorkspaceHistoryException(WorkspaceHistoryException.Kind.OTHER, errorMsg);
       }
@@ -1212,10 +1206,10 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    * Get the most recent commit that edited the file, or null if the workspace is not managed by Git.
    */
   @Override
-  public LastEdit lastEdit(final int workspaceId, final Path filePath)
-  throws IOException, NoSuchWorkspaceException, WorkspaceHistoryException
+  public LastEdit lastEdit(final Workspace workspace, final Path filePath)
+  throws IOException, WorkspaceHistoryException
   {
-    return lastEdits(workspaceId, Set.of(filePath)).get(filePath);
+    return lastEdits(workspace, Set.of(filePath)).get(filePath);
   }
 
   /**

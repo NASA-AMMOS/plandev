@@ -2,6 +2,7 @@ package gov.nasa.ammos.plandev.workspace.server;
 
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
+import gov.nasa.ammos.plandev.workspace.server.types.Workspace;
 import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitService;
 import org.jetbrains.annotations.NotNull;
 
@@ -89,50 +90,50 @@ public final class WorkspacePaths {
    * Resolve and validate a relative path against a workspace root for the purpose of writing while ensuring the
    * result stays within the root directory.
    * Prevents path traversal attacks by rejecting absolute paths and any resolved path that escape the specified root.
-   * @param rootPath the workspace root path
+   * @param workspace the workspace's identifier, containing its root path
    * @param filePath the untrusted path to resolve against the root
    * @return the resolved and normalized path, guaranteed to be within the root
    * @throws SecurityException if the input is absolute, if the resolved path escapes the root,
    *    or if the resolved path contains invalid characters or goes through a symbolic link
    */
-  public static Path resolveWritingPath(final Path rootPath, final Path filePath) throws SecurityException {
-    return resolveReadingPath(rootPath, filePath);
+  public static Path resolveWritingPath(final Workspace workspace, final Path filePath) throws SecurityException {
+    return resolveReadingPath(workspace, filePath);
   }
 
   /**
    * Resolve and validate a relative path against a workspace root for reading or otherwise fetching a File while ensuring the
    *   result stays within the root directory.
    * Prevents path traversal attacks by rejecting absolute paths and any resolved path that escape the specified root.
-   * @param rootPath the workspace root path
+   * @param workspace the workspace's identifier, containing its root path
    * @param filePath the untrusted path to resolve against the root
    * @return the resolved and normalized path, guaranteed to be within the root
    * @throws SecurityException if the input is absolute, if the resolved path escapes the root,
    *    or if the resolved path contains invalid characters or goes through a symbolic link
    */
-  public static Path resolveReadingPath(final Path rootPath, final Path filePath) throws SecurityException {
+  public static Path resolveReadingPath(final Workspace workspace, final Path filePath) throws SecurityException {
     // disallow absolute file paths, since Path.of("/foo").resolve(Path.of("/etc/passwd")) -> "/etc/passwd"
     if (filePath.isAbsolute()) {
       throw new SecurityException("Absolute file paths not allowed");
     }
-    final var normalizedRootPath = rootPath.normalize();
+    final var normalizedRootPath = workspace.rootPath().normalize();
     final var resolvedPath = normalizedRootPath.resolve(filePath).normalize();
     if (!resolvedPath.startsWith(normalizedRootPath)) {
       throw new SecurityException("Path traversal attempt detected");
     }
 
-    validatePath(rootPath, resolvedPath);
+    validatePath(normalizedRootPath, resolvedPath);
     return resolvedPath;
   }
 
   /**
    * Fetches, resolves, and validates a relative path against a workspace root, then resolves and validates the path to
    *  that file's metadata file.
-   * @param rootPath the workspace's root path
+   * @param workspace the workspace's identifier, containing its root path
    * @param filePath the untrusted path to the file
    * @return the path to the metadata file for the specified file
    */
-  public static Path resolveMetadataPath(final Path rootPath, final Path filePath) throws WorkspaceFileOpException {
-    final var baseFilePath = resolveWritingPath(rootPath, filePath);
+  public static Path resolveMetadataPath(final Workspace workspace, final Path filePath) throws WorkspaceFileOpException {
+    final var baseFilePath = resolveReadingPath(workspace, filePath);
 
     // Check that the given filepath is not a directory or a metadata file, both of which are not allowed to have associated metadata files
     if(Files.isDirectory(baseFilePath)) {
@@ -200,6 +201,7 @@ public final class WorkspacePaths {
   }
   //endregion
 
+  // region Git Helpers
   /** A workspace-relative Git path key.  */
   public static String key(final Path root, final Path absolutePath) {
     return toGitPath(root.normalize().relativize(absolutePath.normalize()));
@@ -217,20 +219,31 @@ public final class WorkspacePaths {
     return fileSystemPath.toString().replace(oldSeparator, "/");
   }
 
+  /** Get the path to the workspace's git directory */
+  public static Path gitDirectory(final Workspace workspace) {
+    return workspace.rootPath().resolve(WorkspacePaths.GIT_DIR);
+  }
+
+  /** Get the path to the workspace's internal SeqDev directory */
+  public static Path internalDirectory(final Workspace workspace) {
+    return workspace.rootPath().resolve(WorkspacePaths.INTERNAL_DIR);
+  }
+  // endregion
+
   /**
    * A fresh path for a server-owned temp file. It lives in the internal directory on the workspace's filesystem, so it
    * can be renamed atomically into the tree; ignored by Git, so a crash cannot leave stray content in the tree; and
    * named so {@link #removeStaleTempFiles} can recognize it.
    */
-  public static Path tempFile(final Path root) throws IOException {
-    final var dir = root.resolve(INTERNAL_DIR);
+  public static Path tempFile(final Workspace workspace) throws IOException {
+    final var dir = internalDirectory(workspace);
     Files.createDirectories(dir);
     return dir.resolve("tmp-" + UUID.randomUUID());
   }
 
   /** Replace target with bytes so readers, and a crash, see either the old or the new content. */
-  public static void writeAtomically(final Path root, final Path target, final byte[] bytes) throws IOException {
-    final var tmp = tempFile(root);
+  public static void writeAtomically(final Workspace workspace, final Path target, final byte[] bytes) throws IOException {
+    final var tmp = tempFile(workspace);
     try {
       Files.write(tmp, bytes);
       Files.move(tmp, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
@@ -240,8 +253,8 @@ public final class WorkspacePaths {
   }
 
   /** Delete temp files a crashed process left behind. Only exact {@link #tempFile} names are touched. */
-  public static void removeStaleTempFiles(final Path root) throws IOException {
-    final var dir = root.resolve(INTERNAL_DIR);
+  public static void removeStaleTempFiles(final Workspace workspace) throws IOException {
+    final var dir = internalDirectory(workspace);
     if (!Files.isDirectory(dir, LinkOption.NOFOLLOW_LINKS)) return;
     try (final var entries = Files.list(dir)) {
       for (final var p : entries.toList()) {

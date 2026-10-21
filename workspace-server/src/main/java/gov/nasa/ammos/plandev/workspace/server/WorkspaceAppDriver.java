@@ -105,7 +105,7 @@ public final class WorkspaceAppDriver {
 
       final var jwt = new JWTService(config.jwtSecret());
       final var repository = new WorkspacePostgresRepository(config.workspaceFileStore(), hikariDataSource);
-      final var history = new WorkspaceGitService(repository);
+      final var history = new WorkspaceGitService();
       final var workspace = new WorkspaceFileSystemService(repository, history);
       return new Stores(jwt, workspace, history);
     } else {

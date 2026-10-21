@@ -140,7 +140,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
 
   static final String INIT_MESSAGE = "Initialize workspace history";
   static final String ADOPT_MESSAGE = "Adopt workspace into history";
-  static final String MUTATION_MARKER = "seqdev-mutation-in-progress";
+  protected static final String MUTATION_MARKER = "seqdev-mutation-in-progress";
   static final String ADOPTION_MARKER = "adoption-in-progress";
   static final String BRANCH = "main";
   private static final String MANAGED_SECTION = "SeqDev";
@@ -696,11 +696,11 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     configured.add(workspace);
   }
 
-  private static Path mutationMarker(final Workspace workspace) {
+  protected static Path mutationMarker(final Workspace workspace) {
     return gitDirectory(workspace).resolve(MUTATION_MARKER);
   }
 
-  private static Path adoptionMarker(final Workspace workspace) {
+  protected static Path adoptionMarker(final Workspace workspace) {
     return internalDirectory(workspace).resolve(ADOPTION_MARKER);
   }
 
@@ -919,7 +919,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   //endregion
 
   //region Git helpers
-  private static Git open(final Workspace workspace) throws IOException {
+  protected static Git open(final Workspace workspace) throws IOException {
     // Opens <root>/.git only; never discovers a repository in a parent directory. Closing the Git closes the repo.
     return Git.open(workspace.rootPath().toFile());
   }
@@ -933,7 +933,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   }
 
   /** Every path that makes the repository not clean, per the definition in the class Javadoc. */
-  static Set<String> dirtyPaths(final Status status) {
+  protected static Set<String> dirtyPaths(final Status status) {
     final var dirty = new TreeSet<String>();
     dirty.addAll(status.getAdded());
     dirty.addAll(status.getChanged());

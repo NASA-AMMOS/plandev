@@ -2,6 +2,7 @@ package gov.nasa.ammos.plandev.workspace.server.utils;
 
 import gov.nasa.ammos.plandev.workspace.server.WorkspaceRepository;
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
+import gov.nasa.ammos.plandev.workspace.server.types.Workspace;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -22,9 +23,8 @@ public class WorkspaceTestRepository implements WorkspaceRepository {
     return basePath;
   }
 
-  public Path createWorkspace(final String workspaceLocation) throws IOException {
-    ++workspaceIdCounter;
-    return Files.createDirectories(basePath.resolve(workspaceLocation));
+  public Workspace createWorkspace(final String workspaceLocation) throws IOException {
+    return new Workspace(++workspaceIdCounter, Files.createDirectories(basePath.resolve(workspaceLocation)));
   }
 
   @Override
@@ -34,13 +34,18 @@ public class WorkspaceTestRepository implements WorkspaceRepository {
   }
 
   @Override
-  public boolean deleteWorkspace(final int workspaceId) {
-    return false;
+  public Workspace getWorkspace(final int workspaceId) {
+    return new Workspace(workspaceId, basePath.resolve("ws%d".formatted(workspaceId)));
   }
 
   @Override
-  public Path workspaceRootPath(final int workspaceId) {
-    return basePath.resolve("ws%d".formatted(workspaceId));
+  public boolean deleteWorkspace(final Workspace workspace) {
+    try{
+      Files.delete(workspace.rootPath());
+    } catch (IOException e) {
+      return false;
+    }
+    return true;
   }
 
   @Override

@@ -1,5 +1,6 @@
 package gov.nasa.ammos.plandev.workspace.server;
 
+import gov.nasa.ammos.plandev.workspace.server.types.Workspace;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -17,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class WorkspacePathsTest {
   private final Path emptyPath = Path.of("/");
+  final Workspace root = new Workspace(0, Path.of("/workspace/123"));
 
   @Test
   void createsNormalizedGitPathKey() {
@@ -37,8 +39,6 @@ class WorkspacePathsTest {
   class ResolveSubPathTests {
     @Test
     void validPaths() {
-      var root = Path.of("/workspace/123");
-
       assertEquals(Path.of("/workspace/123"),
                    resolveReadingPath(root, Path.of("")));
       assertEquals(Path.of("/workspace/123"),
@@ -58,25 +58,23 @@ class WorkspacePathsTest {
     void absolutePathThrowsSecurityException() {
       // disallow resolving absolute subpath
       assertThrows(SecurityException.class, () ->
-          resolveReadingPath(Path.of("/workspace/123"), Path.of("/etc/passwd")));
+          resolveReadingPath(root, Path.of("/etc/passwd")));
     }
 
     @Test
     void pathTraversalThrowsSecurityException() {
       // disallow resolving subpaths outside of root
       assertThrows(SecurityException.class, () ->
-          resolveReadingPath(Path.of("/workspace/123"), Path.of("../../../etc/passwd")));
+          resolveReadingPath(root, Path.of("../../../etc/passwd")));
       assertThrows(SecurityException.class, () ->
-          resolveReadingPath(Path.of("/workspace/123"), Path.of("folder/../..//../etc/passwd")));
+          resolveReadingPath(root, Path.of("folder/../..//../etc/passwd")));
       assertThrows(SecurityException.class, () ->
-          resolveReadingPath(Path.of("/workspace/123"), Path.of("folder/../../workspace/123/../456/file.txt")));
+          resolveReadingPath(root, Path.of("folder/../../workspace/123/../456/file.txt")));
     }
   }
 
   @Nested
   class ReservedPathTests {
-    final Path root = Path.of("/workspace/123");
-
     @ParameterizedTest
     @ValueSource(strings = {
         ".git", ".git/HEAD", ".git/config", ".git/refs/heads/main", "foo/.git", "foo/.git/config", ".GIT/HEAD",

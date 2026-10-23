@@ -144,7 +144,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     }
 
     try {
-      gitService.initializeNewWorkspace(workspace);
+      gitService.initializeWorkspace(workspace);
     } catch (IOException | GitAPIException ex) {
       logger.error("CREATE WORKSPACE: Unable to initialize workspace history at {}", repoPath, ex);
       return Optional.empty();

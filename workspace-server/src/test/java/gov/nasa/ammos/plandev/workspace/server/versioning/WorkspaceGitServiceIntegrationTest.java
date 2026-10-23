@@ -872,8 +872,6 @@ class WorkspaceGitServiceIntegrationTest {
               history.mutate(WS2, "inner", DEFAULT_USER, () -> true, result -> result), result -> result));
       assertTrue(nestedMutation.getMessage().contains("cannot be nested"));
 
-      assertThrows(IllegalStateException.class, () -> history.withLock(WS1, () ->
-          history.mutate(WS2, "inner", DEFAULT_USER, () -> true, result -> result)));
       assertClean(WS1);
       assertClean(WS2);
     }
@@ -949,7 +947,7 @@ class WorkspaceGitServiceIntegrationTest {
     void newWorkspaceGetsManagedHistoryBeforeItsFirstMutation() throws Exception {
       final var newWS = wsRepo.createWorkspace("new");
 
-      history.initializeNewWorkspace(newWS);
+      history.initializeWorkspace(newWS);
 
       assertTrue(history.isManaged(newWS));
       try (final var git = open(newWS)) {
@@ -966,7 +964,7 @@ class WorkspaceGitServiceIntegrationTest {
       final var otherWS = wsRepo.createWorkspace("not-new");
       Files.writeString(otherWS.rootPath().resolve("existing.txt"), "existing");
 
-      assertThrows(IOException.class, () -> history.initializeNewWorkspace(otherWS));
+      assertThrows(IOException.class, () -> history.initializeWorkspace(otherWS));
 
       assertFalse(Files.exists(otherWS.rootPath().resolve(WorkspacePaths.GIT_DIR)));
       assertEquals("existing", Files.readString(otherWS.rootPath().resolve("existing.txt")));
@@ -977,7 +975,7 @@ class WorkspaceGitServiceIntegrationTest {
       final var failingWorkspace = wsRepo.createWorkspace("failed");
       history.failCommitsIn.add(failingWorkspace.rootPath().toRealPath());
 
-      assertThrows(GitAPIException.class, () -> history.initializeNewWorkspace(failingWorkspace));
+      assertThrows(GitAPIException.class, () -> history.initializeWorkspace(failingWorkspace));
 
       assertFalse(history.isManaged(failingWorkspace));
       try (final var git = open(failingWorkspace)) {

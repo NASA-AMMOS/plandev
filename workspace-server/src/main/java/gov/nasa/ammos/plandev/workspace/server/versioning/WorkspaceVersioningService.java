@@ -1,5 +1,6 @@
 package gov.nasa.ammos.plandev.workspace.server.versioning;
 
+import gov.nasa.ammos.plandev.workspace.server.WorkspaceService;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistoryException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.NoSuchWorkspaceException;
@@ -15,7 +16,14 @@ import java.util.function.Predicate;
 
 public interface WorkspaceVersioningService {
   // Workspace-level methods
-  void initializeNewWorkspace(Workspace workspace) throws IOException, GitAPIException;
+  void initializeWorkspace(Workspace workspace) throws IOException, GitAPIException;
+  /**
+   * Lock and delete the workspace and its history.
+   *
+   * @param workspace the workspace to be deleted
+   * @param service the WorkspaceService to perform the deletion
+   * */
+  boolean deleteWorkspace(final Workspace workspace, final WorkspaceService service) throws Exception;
   void requireLocked(final Workspace... workspaces);
   boolean isManaged(final Workspace workspace) throws IOException, NoSuchWorkspaceException;
 
@@ -63,14 +71,4 @@ public interface WorkspaceVersioningService {
       final WorkspaceGitService.Mutation<T> mutation,
       final Predicate<T> succeeded
   ) throws Exception;
-
-  /**
-   * Lock the workspace and run a mutation, but do not log it in the workspace's history.
-   * Used for deleting the whole workspace.
-   *
-   * @param workspace the workspace to be locked
-   * @param action the mutation to be run
-   * @param <T> the return type of the mutation
-   * */
-  <T> T withLock(final Workspace workspace, final WorkspaceGitService.Mutation<T> action) throws Exception;
 }

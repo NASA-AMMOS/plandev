@@ -377,7 +377,7 @@ public class WorkspaceBindings implements Plugin {
     final var errorMsg = "Unable to delete Workspace %d.".formatted(workspaceId);
     try {
       final var workspace = workspaceService.getWorkspace(workspaceId);
-      if (versioningService.withLock(workspace, () -> workspaceService.deleteWorkspace(workspace))) {
+      if (versioningService.deleteWorkspace(workspace, workspaceService)) {
         context.status(200).result("Workspace deleted.");
       } else {
         logger.warn(errorMsg);

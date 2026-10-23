@@ -828,9 +828,9 @@ class WorkspaceGitServiceIntegrationTest {
     void writesOfGitInternalsAreRejected() throws Exception {
       final var config = Files.readString(WS1.rootPath().resolve(".git/config"));
       for (final var path : List.of(".git/config", ".git/hooks/post-commit", "foo/.git/HEAD", ".gitattributes", ".gitignore", ".seqdev/state.json")) {
-        assertFailure(bindings.saveFile(WS1, Path.of(path), "evil", "*"), 400, "SECURITY_EXCEPTION");
+        assertFailure(bindings.saveFile(WS1, Path.of(path), "evil", "*"), 500, "SECURITY_EXCEPTION");
       }
-      assertFailure(bindings.handleCreateDirectory(WS1, Path.of("x/.git")), 400, "SECURITY_EXCEPTION");
+      assertFailure(bindings.handleCreateDirectory(WS1, Path.of("x/.git")), 500, "SECURITY_EXCEPTION");
       assertEquals(config, Files.readString(WS1.rootPath().resolve(".git/config")));
       assertFalse(Files.exists(WS1.rootPath().resolve(".gitignore")));
       assertClean(WS1);
@@ -839,12 +839,12 @@ class WorkspaceGitServiceIntegrationTest {
     @Test
     void moveCopyAndDeleteInvolvingGitInternalsAreRejected() throws Exception {
       final var head = head(WS1);
-      assertFailure(bindings.handleMove(Path.of(".git/HEAD"), Path.of("HEAD"), WS1, WS1, false), 400, "SECURITY_EXCEPTION");
-      assertFailure(bindings.handleMove(fileA, Path.of(".git/a.txt"), WS1, WS1, true), 400, "SECURITY_EXCEPTION");
-      assertFailure(bindings.handleCopy(Path.of(".git"), Path.of("leak"), WS1, WS2, false), 400, "SECURITY_EXCEPTION");
-      assertFailure(bindings.handleCopy(fileA, Path.of(".git/objects/x"), WS1, WS1, true), 400, "SECURITY_EXCEPTION");
-      assertFailure(bindings.handleDelete(WS1, Path.of(".git")), 400, "SECURITY_EXCEPTION");
-      assertFailure(bindings.handleDelete(WS1, Path.of(".seqdev/state.json")), 400, "SECURITY_EXCEPTION");
+      assertFailure(bindings.handleMove(Path.of(".git/HEAD"), Path.of("HEAD"), WS1, WS1, false), 500, "SECURITY_EXCEPTION");
+      assertFailure(bindings.handleMove(fileA, Path.of(".git/a.txt"), WS1, WS1, true), 500, "SECURITY_EXCEPTION");
+      assertFailure(bindings.handleCopy(Path.of(".git"), Path.of("leak"), WS1, WS2, false), 500, "SECURITY_EXCEPTION");
+      assertFailure(bindings.handleCopy(fileA, Path.of(".git/objects/x"), WS1, WS1, true), 500, "SECURITY_EXCEPTION");
+      assertFailure(bindings.handleDelete(WS1, Path.of(".git")), 500, "SECURITY_EXCEPTION");
+      assertFailure(bindings.handleDelete(WS1, Path.of(".seqdev/state.json")), 500, "SECURITY_EXCEPTION");
       assertEquals(head, head(WS1));
       assertTrue(Files.isRegularFile(WS1.rootPath().resolve(".git/HEAD")));
       assertFalse(Files.exists(WS2.rootPath().resolve("leak")));
@@ -1489,7 +1489,7 @@ class WorkspaceGitServiceIntegrationTest {
                                .noneMatch(p -> WS1.rootPath().relativize(p).startsWith(".seqdev")));
       for (final var path : List.of(incident.resolve("incident.json"), incident.resolve("files/a.txt"))) {
         assertThrows(SecurityException.class, () -> fs.loadFile(WS1, path), path::toString);
-        assertFailure(bindings.saveFile(WS1, path, "evil", "*"), 400, "SECURITY_EXCEPTION");
+        assertFailure(bindings.saveFile(WS1, path, "evil", "*"), 500, "SECURITY_EXCEPTION");
       }
     }
 

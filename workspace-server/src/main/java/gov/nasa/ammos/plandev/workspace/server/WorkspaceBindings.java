@@ -697,8 +697,10 @@ public class WorkspaceBindings implements Plugin {
       logger.error("WORKSPACE MUTATION: Workspace History Exception {}", fe);
       return new HandlerResult.Failure(500, fe);
     } catch (SecurityException se) {
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, se);
+      logger.warn("WORKSPACE MUTATION: Security Exception: {}", fe);
       // Reported per item so one bad path in a bulk request does not hide the other items' results
-      return new HandlerResult.Failure(400, new FormattedError(AerieService.WORKSPACE_SERVER, se));
+      return new HandlerResult.Failure(500, fe);
     } catch (Exception e) {
       final var message = e.getMessage() != null ? e.getMessage() : "Internal error.";
       final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, "INTERNAL_ERROR", message, e);

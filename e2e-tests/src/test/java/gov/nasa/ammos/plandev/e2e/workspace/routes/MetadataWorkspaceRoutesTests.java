@@ -182,7 +182,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals(5, metadataFile.size());
       assertEquals("1", metadataFile.getString("version"));
       assertEquals(test_owner.name(), metadataFile.getString("createdBy"));
-      assertEquals(test_owner.name(), metadataFile.getString("lastEditedBy"));
+      assertEquals(test_owner.workspaceName(), metadataFile.getString("lastEditedBy"));
       assertDoesNotThrow(() -> Instant.parse(metadataFile.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(metadataFile.getString("lastEditedAt")));
     }
@@ -297,7 +297,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals(6, updatedMetadataFile.size());
       assertEquals("1", updatedMetadataFile.getString("version"));
       assertEquals(test_owner.name(), updatedMetadataFile.getString("createdBy"));
-      assertEquals(test_owner.name(), updatedMetadataFile.getString("lastEditedBy"));
+      assertEquals(test_owner.workspaceName(), updatedMetadataFile.getString("lastEditedBy"));
       assertFalse(updatedMetadataFile.getBoolean("readOnly"));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("lastEditedAt")));
@@ -786,7 +786,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals(5, updatedMetadataFile.size());
       assertEquals("1", updatedMetadataFile.getString("version"));
       assertEquals(test_owner.name(), updatedMetadataFile.getString("createdBy"));
-      assertEquals(test_owner.name(), updatedMetadataFile.getString("lastEditedBy"));
+      assertEquals(test_owner.workspaceName(), updatedMetadataFile.getString("lastEditedBy"));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("lastEditedAt")));
     }
@@ -1218,7 +1218,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals(5, originalMetadata.size());
       assertEquals("1", originalMetadata.getString("version"));
       assertEquals(test_owner.name(), originalMetadata.getString("createdBy"));
-      assertEquals(test_owner.name(), originalMetadata.getString("lastEditedBy"));
+      assertEquals(test_owner.workspaceName(), originalMetadata.getString("lastEditedBy"));
       assertDoesNotThrow(() -> Instant.parse(originalMetadata.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(originalMetadata.getString("lastEditedAt")));
 
@@ -1241,7 +1241,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals(5, updatedMetadataFile.size());
       assertEquals("1", updatedMetadataFile.getString("version"));
       assertEquals(test_nonOwner.name(), updatedMetadataFile.getString("createdBy"));
-      assertEquals(test_nonOwner.name(), updatedMetadataFile.getString("lastEditedBy"));
+      assertEquals(test_nonOwner.workspaceName(), updatedMetadataFile.getString("lastEditedBy"));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("lastEditedAt")));
 
@@ -1271,7 +1271,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals(5, originalMetadata.size());
       assertEquals("1", originalMetadata.getString("version"));
       assertEquals(test_owner.name(), originalMetadata.getString("createdBy"));
-      assertEquals(test_owner.name(), originalMetadata.getString("lastEditedBy"));
+      assertEquals(test_owner.workspaceName(), originalMetadata.getString("lastEditedBy"));
       assertDoesNotThrow(() -> Instant.parse(originalMetadata.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(originalMetadata.getString("lastEditedAt")));
 
@@ -1294,7 +1294,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals(6, updatedMetadataFile.size());
       assertEquals("1", updatedMetadataFile.getString("version"));
       assertEquals(test_nonOwner.name(), updatedMetadataFile.getString("createdBy"));
-      assertEquals(test_owner.name(), updatedMetadataFile.getString("lastEditedBy"));
+      assertEquals(test_owner.workspaceName(), updatedMetadataFile.getString("lastEditedBy"));
       assertFalse(updatedMetadataFile.getBoolean("readOnly"));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("lastEditedAt")));

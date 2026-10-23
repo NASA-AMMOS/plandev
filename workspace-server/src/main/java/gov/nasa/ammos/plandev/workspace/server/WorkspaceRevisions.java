@@ -10,6 +10,7 @@ import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.ObjectReader;
 import org.eclipse.jgit.lib.PersonIdent;
+import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevTree;
@@ -35,10 +36,10 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -76,7 +77,8 @@ public final class WorkspaceRevisions {
       String createdBy,
       Instant createdAt,
       ObjectId commit,
-      LastEdit lastEdit)
+      LastEdit lastEdit,
+      UUID fileId)
   {
     public String name() {
       return WorkspaceRevisions.name(ordinal);
@@ -92,7 +94,8 @@ public final class WorkspaceRevisions {
                            .add("pathAtRevision", path)
                            .add("message", message)
                            .add("createdAt", createdAt.toString())
-                           .add("createdBy", createdBy);
+                           .add("createdBy", createdBy)
+                           .add("fileId", fileId.toString());
       if (lastEdit == null || lastEdit.baseline()) {
         json.addNull("lastEditedBy").addNull("lastEditedAt");
       } else {
@@ -106,14 +109,12 @@ public final class WorkspaceRevisions {
   public record HistoricalFile(Revision revision, byte[] content, JsonObject metadata) {}
 
   /**
-   * The result of one {@link #list} call, kept so the next call can stop early.
+   * The result of one {@link #getFileId} call, kept so the next call can stop early.
    *
    * @param computedAtHead the HEAD commit the list was computed at; it covers that commit and everything older
-   * @param revisions the file's revisions as of that HEAD, newest first
-   * @param knownRevisions every revision tag in the repository when the list was computed (or added since by
-   *     {@link #remember}). A tag outside this set is new, and may sit on an old commit this list never saw.
+   * @param fileId the file's fileID as of that HEAD, or empty if none was found
    */
-  private record CachedRevisionList(ObjectId computedAtHead, List<Revision> revisions, Set<Revision> knownRevisions) {}
+  private record CachedFileId(ObjectId computedAtHead, Optional<UUID> fileId) {}
 
   /**
    * The ids of a file's two Git blobs in one tree: its content and its sidecar (zero id when it has no sidecar). A
@@ -123,106 +124,141 @@ public final class WorkspaceRevisions {
   private record FileBlobIds(ObjectId contentBlobId, ObjectId sidecarBlobId) {}
 
   // ponytail: both caches grow with the paths listed and the tags parsed and are never evicted; entries are small.
-  /** Workspace root -> file key -> that file's last computed revision list. */
-  private final Map<Path, Map<String, CachedRevisionList>> revisionListCache = new ConcurrentHashMap<>();
+  /** Workspace root -> file key -> that file's last computed file id. */
+  private final Map<Path, Map<String, CachedFileId>> fileIdCache = new ConcurrentHashMap<>();
   /**
    * Tag object id -> the revision parsed from its message, or empty if the tag is malformed. Tag objects are
    * immutable, so a parse is valid forever and each tag is parsed once per process.
    */
-  private final Map<ObjectId, Optional<Revision>> parsedTagCache = new ConcurrentHashMap<>();
+  private final Map<ObjectId, Optional<Revision>> parsedTagCacheByCommit = new ConcurrentHashMap<>();
+
+  /**
+   * Tag file id -> the revision parsed from its message, or empty if the tag is malformed. Tag objects are
+   * immutable, so a parse is valid forever and each tag is parsed once per process.
+   */
+  private final Map<UUID, Set<Revision>> parsedTagCacheByFileId = new ConcurrentHashMap<>();
 
   /**
    * A file's revisions, newest first. Lock-free.
+   */
+  List<Revision> list(final Path root, final String key) throws IOException {
+    if (!Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR), LinkOption.NOFOLLOW_LINKS)) return List.of();
+    try (final var repo = open(root); final var walk = new RevWalk(repo)) {
+      // Resolve HEAD before listing tags, so every listed tag is on a commit at or before it.
+      final var headCommitId = repo.resolve(Constants.HEAD);
+      if (headCommitId == null) return List.of();
+
+      var fileId = getFileId(repo, walk, key);
+      if (fileId.isEmpty()) return List.of();
+
+      // Every revision tag in the repository, for any file, by its file id
+      final var revisionsByFileId = revisionsByFileId(repo, walk);
+      var fileRevisions = revisionsByFileId.get(fileId.get());
+      if (fileRevisions == null) return List.of();
+      return fileRevisions.stream().sorted(Comparator.comparingInt(Revision::ordinal).reversed()).toList();
+    }
+  }
+
+  /**
+   * Get the UUID that corresponds with the given file path by finding its most recent revision
    *
    * How it works:
    * 1. Load every revision tag in the repository, grouped by the commit each one points at.
    * 2. Walk the file's lineage back from HEAD, one first-parent commit at a time, tracking the path the file had at
    *    each commit (it changes when the walk crosses an exact rename). Any revision tagged on a visited commit for the
-   *    path the file had there is one of this file's revisions.
+   *    path the file had there is one of this file's revisions. The revision's metadata contains the UUID for this file.
    * 3. Stop when the walk passes the file's creation, when no unvisited commit has a tag, or when it reaches the
-   *    commit a cached list was computed at. That cached list already covers that commit and everything older, so its
-   *    revisions are added and the walk ends. Normally only the commits since the last call are walked.
+   *    commit a cached file id was computed at.
    * 4. Cache the result at this HEAD for the next call.
-   *
-   * The cache can only be trusted if no tag appeared on an older commit since it was computed: revisions are tagged on
-   * the commit that last changed the file, which can be far behind HEAD. See {@link #cacheKnowsAllUnvisitedRevisions}.
    *
    * @param key the file's workspace-relative path at HEAD, '/'-separated
    */
-  List<Revision> list(final Path root, final String key) throws IOException {
-    if (!Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR), LinkOption.NOFOLLOW_LINKS)) return List.of();
-    // The slice of the list cache belonging to this workspace
-    final var workspaceListCache =
-        revisionListCache.computeIfAbsent(root.normalize(), unused -> new ConcurrentHashMap<>());
-    try (final var repo = open(root); final var walk = new RevWalk(repo)) {
-      final var reader = walk.getObjectReader();
-      // Resolve HEAD before listing tags, so every listed tag is on a commit at or before it.
-      final var headCommitId = repo.resolve(Constants.HEAD);
-      if (headCommitId == null) return List.of();
+  private Optional<UUID> getFileId(Repository repo, RevWalk walk, String key) throws IOException {
+    final var workspaceFileIdCache =
+        fileIdCache.computeIfAbsent(repo.getDirectory().toPath().getParent().toAbsolutePath(), unused -> new ConcurrentHashMap<>());
 
-      // 1. Every revision tag in the repository, for any file, by the commit it points at.
-      final var revisionsByTaggedCommit = revisionsByCommit(repo, walk);
-      final var allCurrentRevisions = new HashSet<Revision>();
-      revisionsByTaggedCommit.values().forEach(allCurrentRevisions::addAll);
+    CachedFileId initialCacheEntry = workspaceFileIdCache.get(key); // Used for a Compare-and-swap operation later
 
-      // 2. Walk state.
-      final var fileRevisions = new LinkedHashSet<Revision>(); // the result: this file's revisions found so far
-      final var visitedRevisions = new HashSet<Revision>();     // every revision tagged on a commit walked so far
-      var unvisitedTaggedCommits = revisionsByTaggedCommit.size(); // once zero, no older commit can add a revision
-      var pathAtCommit = key;                                    // the file's path at the commit being walked
-      var commit = walk.parseCommit(headCommitId);
-      // Blob ids of file and metadata file. null once the walk passes the creation of the file
-      var blobIdsAtCommit = fileBlobIds(reader, commit.getTree(), pathAtCommit);
+    final var reader = walk.getObjectReader();
+    // Resolve HEAD before listing tags, so every listed tag is on a commit at or before it.
+    final var headCommitId = Objects.requireNonNull(repo.resolve(Constants.HEAD), "No HEAD ref found");
 
-      while (blobIdsAtCommit != null && unvisitedTaggedCommits > 0) {
-        // Revisions tagged on this commit belong to this file if they were made at the path it had here.
-        final var revisionsTaggedAtThisCommit = revisionsByTaggedCommit.get(commit);
-        if (revisionsTaggedAtThisCommit != null) {
-          unvisitedTaggedCommits--;
-          visitedRevisions.addAll(revisionsTaggedAtThisCommit);
-          for (final var revision : revisionsTaggedAtThisCommit) {
-            if (revision.path().equals(pathAtCommit)) fileRevisions.add(revision);
+    final var revisionsByTaggedCommit = revisionsByCommit(repo, walk);
+
+    var numUnvisitedTaggedCommits = revisionsByTaggedCommit.size(); // once zero, no older commit can add a revision
+    var pathAtCommit = key;                                      // the file's path at the commit being walked
+
+    var commit = walk.parseCommit(headCommitId);
+
+    // Blob ids of file and metadata file. null once the walk passes the creation of the file
+    var blobIdsAtCommit = fileBlobIds(reader, commit.getTree(), pathAtCommit);
+
+    while (blobIdsAtCommit != null && numUnvisitedTaggedCommits > 0) {
+      // Revisions tagged on this commit belong to this file if they were made at the path it had here.
+      final var revisionsTaggedAtThisCommit = revisionsByTaggedCommit.get(commit);
+
+      if (revisionsTaggedAtThisCommit != null) {
+        numUnvisitedTaggedCommits--;
+
+        for (final var revision : revisionsTaggedAtThisCommit) {
+          if (revision.path().equals(pathAtCommit)) {
+            // Found it! Update cache and return
+            var fileId = Optional.of(revision.fileId());
+            workspaceFileIdCache.put(key, new CachedFileId(headCommitId, fileId));
+            return fileId;
           }
         }
-
-        // 3. A list cached at this commit for this path covers everything older: use it and stop.
-        final var cachedList = workspaceListCache.get(pathAtCommit);
-        if (cachedList != null
-            && cachedList.computedAtHead().equals(commit)
-            && cacheKnowsAllUnvisitedRevisions(cachedList, allCurrentRevisions, visitedRevisions))
-        {
-          for (final var revision : cachedList.revisions()) {
-            if (allCurrentRevisions.contains(revision)) fileRevisions.add(revision); // skip tags deleted since
-          }
-          break;
-        }
-
-        // Step to the first parent. If this commit changed the file's content or sidecar and was an exact rename,
-        // follow the file to its old path; otherwise keep the path (and stop once the file did not exist yet).
-        if (commit.getParentCount() == 0) break;
-        final var parent = walk.parseCommit(commit.getParent(0));
-        var blobIdsAtParent = fileBlobIds(reader, parent.getTree(), pathAtCommit);
-        if (!blobIdsAtCommit.equals(blobIdsAtParent)) {
-          final var renamedFrom =
-              renameSource(reader, parent.getTree(), commit.getTree(), pathAtCommit, blobIdsAtCommit);
-          if (renamedFrom != null) {
-            pathAtCommit = renamedFrom;
-            // TODO does this mean that this commit could have only been a rename or could there have potentially been other changes?
-            // right now we don't allow this within plandev but external git operations could break this?
-            blobIdsAtParent = blobIdsAtCommit; // a rename source has the same blob ids by definition -- TODO why?
-          }
-        }
-        // TODO need to understand this blob id tracking better..
-        blobIdsAtCommit = blobIdsAtParent;
-        commit = parent;
       }
 
-      // 4. Cache the result at this HEAD, with every tag that existed now.
-      final var newestFirst =
-          fileRevisions.stream().sorted(Comparator.comparingInt(Revision::ordinal).reversed()).toList();
-      workspaceListCache.put(key, new CachedRevisionList(headCommitId.copy(), newestFirst, allCurrentRevisions));
-      return newestFirst;
+      // We didn't find the file id at this commit, but maybe it's in the cache:
+      var cacheEntry = workspaceFileIdCache.get(pathAtCommit);
+      if (cacheEntry != null && cacheEntry.computedAtHead.equals(commit)) {
+        // Update the cache with the current head commit so we don't have to search as far next time
+        workspaceFileIdCache.put(key, new CachedFileId(headCommitId, cacheEntry.fileId()));
+        return cacheEntry.fileId();
+      }
+
+      // It's not in the cache. We must search previous commits.
+
+      // If this is the very first commit, we're done.
+      if (commit.getParentCount() == 0) break;
+
+      // --- Prepare to move on to parent commit --- //
+
+      final var parent = walk.parseCommit(commit.getParent(0)); // TODO consider branching history
+
+      // Get the contents of this file and its sidecar at the previous commit
+      var blobIdsAtParent = fileBlobIds(reader, parent.getTree(), pathAtCommit);
+
+      if (
+          blobIdsAtParent == null // File was created or renamed
+          || !blobIdsAtParent.equals(blobIdsAtCommit) // It's possible that another file was moved over pathAtCommit. That, too, is considered a rename.
+      ) {
+        final var renamedFrom = renameSource(reader, parent.getTree(), commit.getTree(), pathAtCommit, blobIdsAtCommit);
+        if (renamedFrom != null) {
+          // It was indeed a rename. Update pathAtCommit to track the name of the file at the time.
+          pathAtCommit = renamedFrom;
+          // a rename source has the same blob ids -- this is an invariant of renameSource
+          blobIdsAtParent = blobIdsAtCommit;
+        }
+      }
+
+      // Move on to the parent commit
+      blobIdsAtCommit = blobIdsAtParent;
+      commit = parent;
     }
+
+    // We haven't found a revision for this file. Let's cache the empty result.
+    workspaceFileIdCache.compute(
+        key, (k, cachedFileId) -> {
+          // Compare-and-swap. If anyone has updated the cache since this method started, we leave it alone. This avoids clobbering the cache update made by a concurrent `create` revision
+          if (cachedFileId == initialCacheEntry) { // Using object equality under the assumption that any cache update creates a new CachedFileId
+            return new CachedFileId(headCommitId, Optional.empty());
+          } else {
+            return cachedFileId; // no change
+          }
+        });
+    return Optional.empty();
   }
 
   /**
@@ -245,22 +281,6 @@ public final class WorkspaceRevisions {
     }
   }
 
-  /**
-   * Whether a cached list can stand in for the rest of the walk: true if every revision the walk has not visited
-   * yet already existed when the list was computed. A revision tag created since then on an older, unvisited commit
-   * could be this file's, and the cached list would not include it.
-   */
-  private static boolean cacheKnowsAllUnvisitedRevisions(
-      final CachedRevisionList cachedList,
-      final Set<Revision> allCurrentRevisions,
-      final Set<Revision> visitedRevisions)
-  {
-    for (final var revision : allCurrentRevisions) {
-      if (!visitedRevisions.contains(revision) && !cachedList.knownRevisions().contains(revision)) return false;
-    }
-    return true;
-  }
-
   Optional<Revision> find(final Path root, final String key, final String name) throws IOException {
     return list(root, key).stream().filter(r -> r.name().equals(name)).findFirst();
   }
@@ -279,16 +299,19 @@ public final class WorkspaceRevisions {
       final LastEdit lastEdit)
   throws IOException, GitAPIException
   {
-    final var existing = list(root, key);
-    final var ordinal = existing.isEmpty() ? 1 : existing.getFirst().ordinal() + 1;
+    var mostRecentRevision = getMostRecentRevision(root, key);
+    final var ordinal = mostRecentRevision.map(value -> value.ordinal() + 1).orElse(1);
+    final var fileId = mostRecentRevision.map(Revision::fileId).orElseGet(UUID::randomUUID);
     try (final var git = Git.open(root.toFile()); final var walk = new RevWalk(git.getRepository())) {
       final var head = git.getRepository().resolve(Constants.HEAD);
       // ponytail: an uncached walk back to the file's last change, under the lock; cache it if creates on rarely
       // edited files in long histories get slow.
       final var changed = walk.parseCommit(
           git.log().add(head).addPath(key).addPath(sidecarKey(key)).setMaxCount(1).call().iterator().next());
-      final var createdBy = userId == null || userId.isBlank() ? WorkspaceGitService.systemIdent().getName() : userId;
-      final var revision = new Revision(ordinal, key, message, createdBy, Instant.now(), changed.copy(), lastEdit);
+      final var createdBy = (userId == null || userId.isBlank()) ? WorkspaceGitService.systemIdent().getName() : userId;
+      final var revision = new Revision(ordinal, key, message, createdBy, Instant.now(), changed.copy(), lastEdit, fileId);
+
+      // Create the git tag
       git.tag()
          .setName(TAG_PREFIX + UUID.randomUUID())
          .setObjectId(changed)
@@ -297,32 +320,21 @@ public final class WorkspaceRevisions {
          .setTagger(new PersonIdent(createdBy, "", revision.createdAt(), ZoneOffset.UTC))
          .setMessage(annotation(revision))
          .call();
-      remember(root, key, revision);
+
+      // Update the file id cache
+      final var workspaceFileIdCache = fileIdCache.get(root.normalize().resolve(WorkspacePaths.GIT_DIR).getParent());
+      if (workspaceFileIdCache != null) {
+        workspaceFileIdCache.put(key, new CachedFileId(head, Optional.of(revision.fileId())));
+      }
       return revision;
     }
   }
 
-  /**
-   * Add a revision this process just made to every cached list in the workspace. Without this, the new tag would be
-   * unknown to all of them, so the next list of every file would ignore its cache and walk the file's whole lineage
-   * once. It is the file's own revision (the list in create just cached the file's revisions at this HEAD) and a known,
-   * unrelated tag to every other cached list.
-   */
-  private void remember(final Path root, final String key, final Revision newRevision) {
-    final var workspaceListCache = revisionListCache.get(root.normalize());
-    if (workspaceListCache == null) return;
-    workspaceListCache.replaceAll((listedKey, cachedList) -> {
-      final var knownRevisions = new HashSet<>(cachedList.knownRevisions());
-      knownRevisions.add(newRevision);
-      if (!listedKey.equals(key)) {
-        return new CachedRevisionList(cachedList.computedAtHead(), cachedList.revisions(), knownRevisions);
-      }
-      final var revisions = new ArrayList<Revision>();
-      revisions.add(newRevision); // the newest ordinal
-      revisions.addAll(cachedList.revisions());
-      return new CachedRevisionList(cachedList.computedAtHead(), List.copyOf(revisions), knownRevisions);
-    });
+  private Optional<Revision> getMostRecentRevision(Path root, String key) throws IOException {
+    final var existing = list(root, key);
+    return existing.isEmpty() ? Optional.empty() : Optional.of(existing.getFirst());
   }
+
 
   /**
    * A revision's content and its sidecar metadata as the API presented it at that revision: the committed sidecar with
@@ -368,7 +380,8 @@ public final class WorkspaceRevisions {
                          .add("ordinal", revision.ordinal())
                          .add("message", revision.message())
                          .add("createdAt", revision.createdAt().toString())
-                         .add("createdBy", revision.createdBy());
+                         .add("createdBy", revision.createdBy())
+                         .add("fileId", revision.fileId().toString());
     final var edit = revision.lastEdit();
     if (edit == null) json.addNull("lastEdit");
     else json.add("lastEdit", Json.createObjectBuilder()
@@ -384,15 +397,31 @@ public final class WorkspaceRevisions {
   private Map<ObjectId, List<Revision>> revisionsByCommit(final Repository repo, final RevWalk walk) throws IOException {
     final var byCommit = new HashMap<ObjectId, List<Revision>>();
     for (final var ref : repo.getRefDatabase().getRefsByPrefix(Constants.R_TAGS + TAG_PREFIX)) {
-      var revision = parsedTagCache.get(ref.getObjectId());
-      if (revision == null) {
-        revision = parseTag(repo, walk, ref.getObjectId());
-        if (revision.isEmpty()) logger.warn("Ignoring malformed revision tag {} in {}", ref.getName(), repo.getWorkTree());
-        parsedTagCache.put(ref.getObjectId().copy(), revision);
-      }
+      var revision = updateParsedTagCache(repo, walk, ref);
       revision.ifPresent(r -> byCommit.computeIfAbsent(r.commit(), k -> new ArrayList<>()).add(r));
     }
     return byCommit;
+  }
+
+  /** Every well-formed revision tag, grouped by its file id. Anything else under the prefix is ignored. */
+  private Map<UUID, List<Revision>> revisionsByFileId(final Repository repo, final RevWalk walk) throws IOException {
+    final var byFileId = new HashMap<UUID, List<Revision>>();
+    for (final var ref : repo.getRefDatabase().getRefsByPrefix(Constants.R_TAGS + TAG_PREFIX)) {
+      var revision = updateParsedTagCache(repo, walk, ref);
+      revision.ifPresent(r -> byFileId.computeIfAbsent(r.fileId(), k -> new ArrayList<>()).add(r));
+    }
+    return byFileId;
+  }
+
+  private Optional<Revision> updateParsedTagCache(Repository repo, RevWalk walk, Ref ref) throws IOException {
+    var revision = parsedTagCacheByCommit.get(ref.getObjectId());
+    if (revision == null) {
+      revision = parseTag(repo, walk, ref.getObjectId());
+      if (revision.isEmpty()) logger.warn("Ignoring malformed revision tag {} in {}", ref.getName(), repo.getWorkTree());
+      parsedTagCacheByCommit.put(ref.getObjectId().copy(), revision);
+      revision.ifPresent(r -> parsedTagCacheByFileId.computeIfAbsent(r.fileId(), $ -> new LinkedHashSet<>()).add(r));
+    }
+    return revision;
   }
 
   private static Optional<Revision> parseTag(final Repository repo, final RevWalk walk, final ObjectId id) throws IOException {
@@ -420,7 +449,8 @@ public final class WorkspaceRevisions {
           json.getString("createdBy"),
           Instant.parse(json.getString("createdAt")),
           commit.copy(),
-          edit));
+          edit,
+          UUID.fromString(json.getString("fileId"))));
     } catch (IncorrectObjectTypeException | JsonException | ClassCastException | NullPointerException
              | java.time.format.DateTimeParseException e) {
       logger.debug("Malformed revision tag {} in {}", id.name(), repo.getWorkTree(), e);

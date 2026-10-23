@@ -1017,7 +1017,7 @@ public class WorkspaceBindings implements Plugin {
     commits.put(destWorkspace, sourceWorkspaceId == destinationWorkspaceId
         ? "Copy %s -> %s".formatted(toCopy, destinationPath)
         : "Copy workspace %d:%s -> %s".formatted(sourceWorkspaceId, toCopy, destinationPath));
-    commits.putIfAbsent(destWorkspace, "Copy %s -> workspace %d:%s".formatted(toCopy, destinationWorkspaceId, destinationPath));
+    commits.putIfAbsent(sourceWorkspace, "Copy %s -> workspace %d:%s".formatted(toCopy, destinationWorkspaceId, destinationPath));
     return mutate(commits, userId, null, () -> handleCopyLocked(
         toCopy, destinationPath, sourceWorkspace, destWorkspace, overwrite, userId));
   }

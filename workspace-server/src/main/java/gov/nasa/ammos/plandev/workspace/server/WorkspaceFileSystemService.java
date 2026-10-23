@@ -303,7 +303,8 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       final String userId)
   throws WorkspaceFileOpException, IOException
   {
-    gitService.requireLocked(destWorkspace);
+    // Source workspace lock is required to prevent the item being copied from changing mid-transaction
+    gitService.requireLocked(sourceWorkspace, destWorkspace);
     final var sourcePath = resolveReadingPath(sourceWorkspace, sourceFilePath);
     final var sourceMetadataPath = resolveMetadataPath(sourceWorkspace, sourceFilePath);
 
@@ -441,7 +442,8 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       final String userId)
   throws WorkspaceFileOpException
   {
-    gitService.requireLocked(destWorkspace);
+    // Source workspace lock is required to prevent the item being copied from changing mid-transaction
+    gitService.requireLocked(sourceWorkspace, destWorkspace);
     final var sourcePath = resolveReadingPath(sourceWorkspace, sourceFilePath);
     final var destPath = resolveWritingPath(destWorkspace, destFilePath);
 

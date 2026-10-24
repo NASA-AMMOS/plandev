@@ -249,7 +249,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       final var committed = new ArrayList<Workspace>();
       for (final var ws : workspaces) {
         try (final var git = open(ws)) {
-          if (stageAll(git)) {
+          if (stageAll(git, false)) {
             requireValidIndex(git.getRepository());
             commit(git, commits.get(ws), userIdent(userId));
           }
@@ -648,7 +648,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       requireExpectedGitState(repo, true);
       configure(workspace, repo);
       final var unborn = repo.resolve(Constants.HEAD) == null;
-      if (stageAll(git) || unborn) {
+      if (stageAll(git, true) || unborn) {
         requireValidIndex(repo);
         commit(git, unborn ? INIT_MESSAGE : ADOPT_MESSAGE, systemIdentifier);
       }
@@ -970,12 +970,18 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     return Git.open(workspace.rootPath().toFile());
   }
 
-  /** Runs git add -A. Returns whether anything is staged relative to HEAD. */
-  private static boolean stageAll(final Git git) throws GitAPIException {
+  /**
+   * Runs git add -A. Returns whether anything is staged relative to HEAD. Without renormalize, add visits only the
+   * files that differ from the index, by the same stat-then-content comparison as status, instead of re-hashing every
+   * tracked file. That is exact once PlanDev has written the index ({@link #configure} and the reserved names rule out
+   * filters and autocrlf), but adoption renormalizes: an index written by native Git under autocrlf or a clean filter
+   * can match a file's size and time while its blob holds different bytes.
+   */
+  private static boolean stageAll(final Git git, final boolean renormalize) throws GitAPIException {
     // Stage all files in the repo including new files, excluding deleted files
-    git.add().addFilepattern(".").call();
+    git.add().addFilepattern(".").setRenormalize(renormalize).call();
     // Stage all changed files, including deleted files, excluding new files
-    git.add().addFilepattern(".").setUpdate(true).call();
+    git.add().addFilepattern(".").setUpdate(true).setRenormalize(renormalize).call();
     final var status = git.status().call();
     return !(status.getAdded().isEmpty() && status.getChanged().isEmpty() && status.getRemoved().isEmpty());
   }

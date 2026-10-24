@@ -1,5 +1,6 @@
 package gov.nasa.ammos.plandev.workspace.server;
 
+import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistoryException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
 import gov.nasa.ammos.plandev.workspace.server.versioning.LastEdit;
 import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitService;
@@ -8,6 +9,7 @@ import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.errors.IncorrectObjectTypeException;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
+import org.eclipse.jgit.lib.ObjectInserter;
 import org.eclipse.jgit.lib.ObjectReader;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.Ref;
@@ -304,6 +306,7 @@ public final class WorkspaceRevisions {
     final var fileId = mostRecentRevision.map(Revision::fileId).orElseGet(UUID::randomUUID);
     try (final var git = Git.open(root.toFile()); final var walk = new RevWalk(git.getRepository())) {
       final var head = git.getRepository().resolve(Constants.HEAD);
+      requireOnDiskAsRecorded(root, key, fileBlobIds(walk.getObjectReader(), walk.parseCommit(head).getTree(), key));
       // ponytail: an uncached walk back to the file's last change, under the lock; cache it if creates on rarely
       // edited files in long histories get slow.
       final var changed = walk.parseCommit(
@@ -327,6 +330,27 @@ public final class WorkspaceRevisions {
         workspaceFileIdCache.put(key, new CachedFileId(head, Optional.of(revision.fileId())));
       }
       return revision;
+    }
+  }
+
+  /**
+   * Git trusts a file whose size, mode and time match the index, so an out-of-band rewrite that keeps all three is
+   * invisible to status and staging, and history keeps the old bytes. A revision records history, so it must not be
+   * made while the file on disk differs: hash the two files it covers and refuse. Saving the file records it.
+   */
+  private static void requireOnDiskAsRecorded(final Path root, final String key, final FileBlobIds recorded)
+  throws IOException
+  {
+    final var hasher = new ObjectInserter.Formatter();
+    final var sidecar = root.resolve(sidecarKey(key));
+    final var onDisk = new FileBlobIds(
+        hasher.idFor(Constants.OBJ_BLOB, Files.readAllBytes(root.resolve(key))),
+        Files.exists(sidecar, LinkOption.NOFOLLOW_LINKS)
+            ? hasher.idFor(Constants.OBJ_BLOB, Files.readAllBytes(sidecar))
+            : ObjectId.zeroId());
+    if (!onDisk.equals(recorded)) {
+      throw new WorkspaceHistoryException(WorkspaceHistoryException.Kind.REPOSITORY_INCONSISTENT,
+          "%s was changed outside PlanDev and differs from its history; save it before creating a revision.".formatted(key));
     }
   }
 

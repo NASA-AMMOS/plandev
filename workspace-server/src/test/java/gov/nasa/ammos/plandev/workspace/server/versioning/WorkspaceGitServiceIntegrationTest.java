@@ -35,6 +35,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -53,6 +54,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.resolveReadingPath;
 import static gov.nasa.ammos.plandev.workspace.server.utils.FlakyHistory.assertClean;
@@ -997,6 +999,35 @@ class WorkspaceGitServiceIntegrationTest {
       Files.writeString(WS1.rootPath().resolve(fileB), "legacy B");
     }
 
+    /**
+     * A repository native Git committed under autocrlf stores LF blobs for CRLF files, and its index matches the files'
+     * size and time. Adoption must record the bytes on disk, which only re-hashing (renormalizing) every file finds.
+     */
+    @Test
+    void adoptionRecordsTheBytesOnDiskWhenTheIndexWasWrittenUnderAutocrlf() throws Exception {
+      final var crlf = "line one\r\nline two\r\n";
+      try (final var git = Git.init().setDirectory(WS1.rootPath().toFile()).setInitialBranch("main").call()) {
+        git.getRepository().getConfig().setBoolean("core", null, "autocrlf", true);
+        git.getRepository().getConfig().save();
+        Files.writeString(WS1.rootPath().resolve(fileA), crlf);
+        git.add().addFilepattern(".").call();
+        git.commit().setMessage("native").setSign(false).call();
+        assertTrue(git.status().call().isClean());
+      }
+      try (final var git = open(WS1)) {
+        final var blob = git.getRepository().resolve("HEAD:" + fileA);
+        assertEquals("line one\nline two\n", new String(git.getRepository().open(blob).getBytes(), StandardCharsets.UTF_8));
+      }
+
+      bindings.saveAndGetEtag(WS1, fileB, "adopts the repository");
+
+      try (final var git = open(WS1)) {
+        final var blob = git.getRepository().resolve("HEAD:" + fileA);
+        assertEquals(crlf, new String(git.getRepository().open(blob).getBytes(), StandardCharsets.UTF_8));
+      }
+      assertClean(WS1);
+    }
+
     @Test
     void aWorkspaceWithoutGitIsInitializedOnItsFirstMutation() throws Exception {
       writeLegacyWorkspace();
@@ -1194,6 +1225,81 @@ class WorkspaceGitServiceIntegrationTest {
     void initWs() {
       for (final var path : List.of(fileA, fileB, goneFile, fileX)) {
         bindings.saveAndGetEtag(WS1, path, "v1");
+      }
+    }
+
+    /**
+     * An out-of-band rewrite that keeps the size, mode and the time the index recorded (cp -p, rsync -t, an extracted
+     * archive) is invisible to Git's stat-based status and to staging, as in native Git: history keeps the old bytes
+     * until the file is next saved. A revision must not record those old bytes as what the user sees, so it is refused.
+     */
+    @Test
+    void aRewriteThatKeepsSizeAndTimeIsNotRecordedAndBlocksRevisionsUntilSaved() throws Exception {
+      final var file = WS1.rootPath().resolve(fileA);
+      bindings.saveAndGetEtag(WS1, fileA, "AAAA");
+      final var saved = FileTime.from(Instant.now().minus(Duration.ofHours(1)));
+      Files.setLastModifiedTime(file, saved);
+      try (final var git = open(WS1)) {
+        git.add().addFilepattern(fileA.toString()).call(); // the index records that time, as after an older save
+      }
+      Files.writeString(file, "BBBB");
+      Files.setLastModifiedTime(file, saved);
+      try (final var git = open(WS1)) {
+        assertTrue(git.status().call().isClean(), "Git's stat check cannot see it");
+      }
+
+      bindings.saveAndGetEtag(WS1, fileB, "unrelated");
+      assertEquals("BBBB", Files.readString(file));
+      assertEquals("AAAA", headBlob(WS1, "a.txt"), "not swept into an unrelated user's commit");
+      assertEquals(Set.of("b.txt"), headDiff(WS1).stream().map(DiffEntry::getNewPath).collect(Collectors.toSet()));
+
+      final var refused = bindings.handleCreateRevision(WS1.id(), fileA, "*", "", DEFAULT_USER);
+      assertFailure(refused, 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
+      assertTrue(refused.jsonResponse().toString().contains("a.txt was changed outside PlanDev"), refused.jsonResponse()::toString);
+      assertEquals("BBBB", Files.readString(file), "the refused mutation's rollback leaves the file as found");
+      assertEquals(List.of(), fs.listRevisions(WS1, fileA));
+
+      bindings.saveAndGetEtag(WS1, fileA, Files.readString(file)); // saving what the user sees records it
+      assertEquals("BBBB", headBlob(WS1, "a.txt"));
+      assertInstanceOf(HandlerResult.Success.class, bindings.handleCreateRevision(WS1.id(), fileA, "*", "", DEFAULT_USER));
+      assertEquals("BBBB", new String(fs.readRevision(WS1, fileA, "a").orElseThrow().content(), StandardCharsets.UTF_8));
+      assertClean(WS1);
+    }
+
+    /**
+     * Copy keeps the source's time (COPY_ATTRIBUTES, for the executable bit) and move keeps it too, so an overwrite can
+     * leave the destination with the size and time the index recorded for its old bytes. The change must still be
+     * committed.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void anOverwriteWithTheSameSizeAndTimeIsCommitted(final boolean move) throws Exception {
+      bindings.saveAndGetEtag(WS1, fileA, "AAAA");
+      bindings.saveAndGetEtag(WS1, fileB, "BBBB");
+      final var time = FileTime.from(Instant.now().minus(Duration.ofHours(1)));
+      for (final var path : List.of("a.txt", "b.txt", ".a.txt.meta.seqdev", ".b.txt.meta.seqdev")) {
+        Files.setLastModifiedTime(WS1.rootPath().resolve(path), time);
+      }
+      try (final var git = open(WS1)) {
+        git.add().addFilepattern(".").call(); // the index records both at that time, as after saves on a coarse clock
+      }
+
+      final var result = move
+          ? bindings.handleMove(fileA, fileB, WS1, WS1, true)
+          : bindings.handleCopy(fileA, fileB, WS1, WS1, true);
+      assertInstanceOf(HandlerResult.Success.class, result, () -> result.jsonResponse().toString());
+
+      assertEquals("AAAA", Files.readString(WS1.rootPath().resolve(fileB)));
+      assertEquals("AAAA", headBlob(WS1, fileB.toString()));
+      final var sidecar = ".b.txt.meta.seqdev";
+      assertEquals(Files.readString(WS1.rootPath().resolve(sidecar)), headBlob(WS1, sidecar));
+      assertClean(WS1);
+    }
+
+    private static String headBlob(final Workspace ws, final String path) throws Exception {
+      try (final var git = open(ws)) {
+        final var repo = git.getRepository();
+        return new String(repo.open(repo.resolve("HEAD:" + path)).getBytes(), StandardCharsets.UTF_8);
       }
     }
 

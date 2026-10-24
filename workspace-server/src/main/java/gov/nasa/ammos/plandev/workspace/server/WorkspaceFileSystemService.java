@@ -26,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.FileTime;
 import java.security.DigestInputStream;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -292,6 +293,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     // The moved file keeps its own metadata, never that of a file it overwrites
     if(Files.exists(oldMetadataPath)) {
       Files.move(oldMetadataPath, newMetadataPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+      markWritten(newMetadataPath); // updateMetadata below skips the write when nothing changes
     } else {
       Files.deleteIfExists(newMetadataPath);
     }
@@ -300,6 +302,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     updateMetadata(destWorkspace, destFilePath, metadataUpdates, MetadataMergeBehavior.deepMerge);
 
     Files.move(oldPath, newPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+    markWritten(newPath);
     return true;
   }
 
@@ -363,6 +366,16 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         .build();
     updateMetadata(destWorkspace, destWorkspace.rootPath().normalize().relativize(destPath), metadataUpdates, MetadataMergeBehavior.deepMerge);
     Files.copy(sourcePath, destPath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+    markWritten(destPath);
+  }
+
+  /**
+   * Give a file moved or copied into place the current time. Both keep the source's time, so a file overwriting
+   * another of the same size could match the index's record of the old bytes, and staging, which trusts size and time,
+   * would not commit it.
+   */
+  private static void markWritten(final Path path) throws IOException {
+    Files.setLastModifiedTime(path, FileTime.from(Instant.now()));
   }
 
   @Override

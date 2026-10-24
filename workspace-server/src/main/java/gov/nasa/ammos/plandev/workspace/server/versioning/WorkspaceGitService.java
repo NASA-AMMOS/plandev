@@ -106,7 +106,7 @@ import static gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistor
  * A small marker in .git distinguishes a mutation interrupted by a process crash from an unexplained external edit.
  * On the next mutation, a marked repository is restored to its current HEAD: this rolls back work whose commit did
  * not land and completes work whose commit did land, preserving unfinished bytes in .seqdev/recovery first.
- * The marker is removed only after the repository is clean.
+ * The marker is removed only after the repository is clean. An interrupted Git GC is recovered first ({@link WorkspaceGc}).
  *
  * Cross-workspace:
  * Two repositories cannot share a transaction. Commits are made in the order the caller
@@ -294,6 +294,24 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     });
   }
 
+  /** Run an action under a workspace's lock only if it is free now; null if it is busy. Records no history. */
+  <T> T tryWithLock(final Workspace workspace, final Mutation<T> action) throws Exception {
+    return inLockScope(() -> {
+      final var lock = lockFor(workspace);
+      if (!lock.tryLock()) return null;
+      try {
+        return action.apply();
+      } finally {
+        lock.unlock();
+      }
+    });
+  }
+
+  /** Every workspace this process has locked, so every workspace whose repository it has written to. */
+  Set<Workspace> knownWorkspaces() {
+    return Set.copyOf(locks.keySet());
+  }
+
   private <T> T inLockScope(final Mutation<T> action) throws Exception {
     // Global ordering prevents deadlock only when every lock is declared up front. A callback that enters mutate or
     // withLock again would already hold an outer lock and could acquire the next one out of order.
@@ -379,6 +397,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     if (!Files.isDirectory(workspace.rootPath())) {
       throw inconsistent("Workspace directory " + workspace.rootPath() + " is missing.");
     }
+    WorkspaceGc.recoverInterrupted(workspace);
     if (hasMarker(mutationMarker(workspace))) {
       if (!isManaged(workspace)) {
         throw inconsistent("Workspace at " + workspace.rootPath() + " has an interrupted-mutation marker but is not managed.");
@@ -755,7 +774,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   }
 
   /** Create the marker before workspace bytes change. Forcing this tiny file narrows the host-crash window cheaply. */
-  private static void createMarker(final Path marker) throws IOException {
+  static void createMarker(final Path marker) throws IOException {
     Files.createDirectories(marker.getParent());
     try (final var channel = FileChannel.open(
         marker,
@@ -832,7 +851,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     logger.warn("Recovered interrupted workspace mutation at {} to HEAD {}", workspace.rootPath(), head.name());
   }
 
-  private static List<Path> existingGitLocks(final Workspace workspace) {
+  static List<Path> existingGitLocks(final Workspace workspace) {
     final var gitDir = gitDirectory(workspace);
     return GIT_LOCKS.stream()
         .map(gitDir::resolve)

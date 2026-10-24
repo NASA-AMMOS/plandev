@@ -22,21 +22,28 @@ import org.junit.jupiter.params.provider.CsvSource;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Revision and last-edit timings over generated workspace histories of small files. Each scenario prints a table.
+ * Revision and last-edit timings over generated workspace histories of mostly small files, before and after a Git GC
+ * that must keep every revision and commit. Each scenario prints a table.
  *
  * In CI (no SCALE set) the histories are small and every timing must stay under a generous budget, so only an
  * order-of-magnitude regression (say, a cache that stopped working, or a walk that became per-path) fails it.
@@ -62,8 +69,7 @@ class WorkspaceRevisionsScaleTest {
       // name,         commits, files, targetEvery, revisions, otherTags
       "typical,        1000,    100,   20,          10,        20",
       "rarely-edited,  1000,    100,   500,         2,         0",
-      // Disabled until lastEdits stops walking history once per path: its cold call takes ~90 s at 1000 files.
-      // "many-files,     1000,    1000,  20,          10,        20",
+      "many-files,     1000,    1000,  20,          10,        20",
       "many-tags,      1000,    100,   20,          100,       1000",
   })
   void scenario(String name, int commits, int files, int targetEvery, int revisions, int otherTags) throws Throwable {
@@ -72,7 +78,7 @@ class WorkspaceRevisionsScaleTest {
     WS = repository.createWorkspace("ws1");
     final var root = WS.rootPath();
     final var start = System.nanoTime();
-    generate(root, commits, files, targetEvery, revisions, otherTags);
+    generate(root, commits, files, targetEvery, revisions, otherTags, 16 * 1024);
     final var git = new WorkspaceGitService();
     final var fs = new WorkspaceFileSystemService(repository, git);
     final var bindings = new WorkspaceBindings(null, fs, git, null, "");
@@ -100,6 +106,55 @@ class WorkspaceRevisionsScaleTest {
         bindings.handleCreateRevision(WS.id(), TARGET, "*", "", "bench")));
     time("restore oldest", 1000, () -> assertInstanceOf(HandlerResult.Success.class,
         bindings.handleRestoreRevision(WS.id(), TARGET, oldest, "*", "bench")));
+
+    // GC, pruning everything unreachable now rather than after two weeks: every revision and commit survives, warm
+    // caches stay right, and the history reads are timed again on the packed repository.
+    final var revisionsBefore = everyRevision(root);
+    final var commitsBefore = mainCommits(root);
+    final var bytesBefore = bytes(root.resolve(".git"));
+    final var gcStart = System.nanoTime();
+    try (final var g = Git.open(root.toFile())) {
+      g.gc().setExpire(new Date()).call();
+    }
+    System.out.printf("  %-28s %9.1f ms (.git %.1f -> %.1f MB)%n", "gc",
+                      (System.nanoTime() - gcStart) / 1e6, bytesBefore / 1e6, bytes(root.resolve(".git")) / 1e6);
+    assertEquals(revisionsBefore, everyRevision(root));
+    assertEquals(commitsBefore, mainCommits(root));
+    assertEquals(new WorkspaceFileSystemService(repository, git).listRevisions(WS, TARGET), fs.listRevisions(WS, TARGET));
+    time("list cold after gc", 2000, () -> new WorkspaceFileSystemService(repository, git).listRevisions(WS, TARGET));
+    time("read oldest cold after gc", 2000, () -> new WorkspaceFileSystemService(repository, git).readRevision(WS, TARGET, oldest));
+    final var count = fs.listRevisions(WS, TARGET).size();
+    time("create after gc", 1000, () -> assertInstanceOf(HandlerResult.Success.class, // a loose tag among packed ones
+        bindings.handleCreateRevision(WS.id(), TARGET, "*", "", "bench")));
+    assertEquals(count + 4, new WorkspaceFileSystemService(repository, git).listRevisions(WS, TARGET).size()); // time runs 4
+  }
+
+  /** Revision name -> its JSON, commit, content hash and metadata, for every file with revisions, read cold. */
+  private static Map<String, String> everyRevision(Path root) throws Exception {
+    final var revisions = new WorkspaceRevisions();
+    final var all = new TreeMap<String, String>();
+    for (final var path : List.of(TARGET, OTHER)) {
+      for (final var revision : revisions.list(root, path.toString())) {
+        final var file = WorkspaceRevisions.read(root, revision);
+        final var hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(file.content()));
+        all.put(path + "@" + revision.name(), revision.toJson() + " " + revision.commit().name() + " " + hash + " " + file.metadata());
+      }
+    }
+    return all;
+  }
+
+  private static List<ObjectId> mainCommits(Path root) throws Exception {
+    try (final var g = Git.open(root.toFile())) {
+      final var ids = new ArrayList<ObjectId>();
+      g.log().call().forEach(c -> ids.add(c.copy()));
+      return ids;
+    }
+  }
+
+  private static long bytes(Path dir) throws Exception {
+    try (final var files = Files.walk(dir)) {
+      return files.filter(Files::isRegularFile).mapToLong(f -> f.toFile().length()).sum();
+    }
   }
 
   /**
@@ -127,13 +182,20 @@ class WorkspaceRevisionsScaleTest {
     }, result -> result);
   }
 
-  /** Writes the history directly as Git objects (a save through the API takes ~25 ms) and checks out its tip. */
-  private static void generate(Path root, int commits, int files, int targetEvery, int revisions, int otherTags)
+  /**
+   * Writes the history directly as Git objects (a save through the API takes ~25 ms) and checks out its tip. Files in
+   * d00 get the same largeBytes of random text appended, so versions of them differ by a few bytes, as edits to a large
+   * sequence would.
+   */
+  static void generate(Path root, int commits, int files, int targetEvery, int revisions, int otherTags, int largeBytes)
   throws Exception
   {
     final var blobs = new TreeMap<String, ObjectId>(); // workspace-relative path -> blob
     final var revisionAt = new ArrayList<ObjectId>();
     final var otherTagAt = new ArrayList<ObjectId>();
+    final var random = new Random(42);
+    final var padding = new StringBuilder();
+    while (padding.length() < largeBytes) padding.append(Long.toHexString(random.nextLong()));
     try (final var git = Git.init().setDirectory(root.toFile()).setInitialBranch("main").call();
          final var inserter = git.getRepository().newObjectInserter()) {
       final var sidecar = blob(inserter, "{}");
@@ -141,7 +203,8 @@ class WorkspaceRevisionsScaleTest {
       var other = 0;
       for (var c = 0; c < commits; c++) {
         final var path = c % targetEvery == 0 ? TARGET.toString() : "d%02d/f%03d.seq".formatted(other % 20, other++ % files);
-        blobs.put(path, blob(inserter, "%s @ %d%n".formatted(path, c)));
+        final var content = "%s @ %d%n".formatted(path, c);
+        blobs.put(path, blob(inserter, path.startsWith("d00/") ? content + padding : content));
         blobs.putIfAbsent(WorkspaceRevisions.sidecarKey(path), sidecar);
         final var commit = new CommitBuilder();
         commit.setTreeId(tree(inserter, blobs));
@@ -152,7 +215,9 @@ class WorkspaceRevisionsScaleTest {
         commit.setMessage("c" + c);
         parent = inserter.insert(commit);
         if (revisions > 0 && (c + 1) % Math.max(1, commits / revisions) == 0 && revisionAt.size() < revisions) revisionAt.add(parent);
-        if (otherTags > 0 && c % Math.max(1, commits / otherTags) == 0 && otherTagAt.size() < otherTags) otherTagAt.add(parent);
+        // Only on commits that hold the file, as create would tag (the other file is created partway through).
+        if (otherTags > 0 && c % Math.max(1, commits / otherTags) == 0 && otherTagAt.size() < otherTags
+            && blobs.containsKey(OTHER.toString())) otherTagAt.add(parent);
       }
       inserter.flush();
       final var update = git.getRepository().updateRef(Constants.R_HEADS + "main");

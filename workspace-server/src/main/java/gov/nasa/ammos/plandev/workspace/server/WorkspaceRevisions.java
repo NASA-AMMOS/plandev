@@ -128,40 +128,39 @@ public final class WorkspaceRevisions {
   // ponytail: both caches grow with the paths listed and the tags parsed and are never evicted; entries are small.
   /**
    * File ID Cache:
-   * <p>
-   *   Workspace root -> file path -> that file's last computed file id. A {@link CachedFileId} says "at {@code
-   *   computedAtHead}, the file at this key had this file id (or none)".
-   * </p><p>
-   *   A non-empty cached file id cannot be invalidated by the addition of new revisions alone; new revisions for the same
-   *   file will have the same id. The only way a given path's file id can change is if that file is deleted (making its
-   *   file id `empty`), and then recreated, giving it a new, different file id. Deleting and creating files moves the HEAD
-   *   commit: this means that the commit an entry was computed at is sufficient to determine the validity of a non-empty
-   *   cache entry.
-   * </p><p>
-   *   On the other hand, an `empty` entry, i.e. one that says that this file has no revisions and therefore no file id,
-   *   can be invalidated by a new revision. When a new revision is created for a given path, we unconditionally update
-   *   this cache to have a non-empty cache entry.
-   * </p><p>
-   *   On concurrency: the "create revision" operation is expected to be mutually exclusive with itself; however, it can
-   *   be concurrent with any number of getFileId operations. Both operations write to the cache. Non-empty cache entries
-   *   are always correct because they indicate the commit for which they are valid, so it is valid to overwrite a newer
-   *   non-empty cache entry with an older one. This means that race conditions between multiple non-empty writes are safe.
-   *   An `empty` cache entry, however, can be invalidated by a new revision at or before that commit. This makes race
-   *   conditions between getFileId and "create revision" potentially dangerous: "create revision" could write a non-empty
-   *   cache entry that immediately gets overwritten with an `empty` one by a concurrent getFileId operation. To avoid this
-   *   race condition, getFileId performs a compare-and-swap using reference equality of cache entries: if any writes to the
-   *   cache have occurred concurrently with getFileId, it will not write an `empty` cache entry.
-   * </p><p>
-   *   Assumptions. Commits, tags and a file's id are immutable; revisions are well ordered by commit; a tag sits only
-   *   on a commit where the file existed.
-   * </p>
+   *
+   * Workspace root -> file path -> that file's last computed file id. A {@link CachedFileId} says "at commit {@code
+   * computedAtHead}, the file at this key had this file id (or none)".
+   * 
+   * A non-empty cached file id cannot be invalidated by the addition of new revisions alone; new revisions for the same
+   * file will have the same id. The only way a given path's file id can change is if new commit(s) have been added which 
+   * delete or replace the given file, which would give it a new id. Deleting and creating files moves the HEAD
+   * commit: this means that the commit an entry was computed at is sufficient to determine the validity of a non-empty
+   * cache entry.
+   * 
+   * On the other hand, an `empty` entry, i.e. one that says that this file has no revisions and therefore no file id,
+   * can be invalidated by a new revision. When a new revision is created for a given path, we unconditionally update
+   * this cache to have a non-empty cache entry.
+   * 
+   * On concurrency: the "create revision" operation is expected to be mutually exclusive with itself; however, it can
+   * be concurrent with any number of getFileId operations. Both operations write to the cache. Non-empty cache entries
+   * are always correct because they indicate the commit for which they are valid, so it is valid to overwrite a newer
+   * non-empty cache entry with an older one. This means that race conditions between multiple non-empty writes are safe.
+   * An `empty` cache entry, however, can be invalidated by a new revision at or before that commit. This makes race
+   * conditions between getFileId and "create revision" potentially dangerous: "create revision" could write a non-empty
+   * cache entry that immediately gets overwritten with an `empty` one by a concurrent getFileId operation. To avoid this
+   * race condition, getFileId performs a compare-and-swap using reference equality of cache entries: if any writes to the
+   * cache have occurred concurrently with getFileId, it will not write an `empty` cache entry.
+   * 
+   * Assumptions. Commits, tags and a file's id are immutable; revisions are well ordered by commit; a tag sits only
+   * on a commit where the file existed.
    */
   private final Map<Path, Map<String, CachedFileId>> fileIdCache = new ConcurrentHashMap<>();
   /**
    * Tag object id -> the revision parsed from its message, or empty if the tag is malformed. Tag objects are
    * immutable, so a parse is valid forever and each tag is parsed once per process.
    */
-  private final Map<ObjectId, Optional<Revision>> parsedTagCacheByCommit = new ConcurrentHashMap<>();
+  private final Map<ObjectId, Optional<Revision>> parsedTagCacheByRefId = new ConcurrentHashMap<>();
 
   /**
    * Tag file id -> the revision parsed from its message, or empty if the tag is malformed. Tag objects are
@@ -180,6 +179,7 @@ public final class WorkspaceRevisions {
       if (headCommitId == null) return List.of();
 
       var fileId = getFileId(repo, walk, key);
+      // fileId will be empty if the file doesn't have any revisions yet
       if (fileId.isEmpty()) return List.of();
 
       // Every revision tag in the repository, for any file, by its file id
@@ -192,14 +192,15 @@ public final class WorkspaceRevisions {
 
   /**
    * Get the UUID that corresponds with the given file path by finding its most recent revision
+   * The ID will remain the same across revisions even if the file path changes due to renames/moves
    *
    * How it works:
    * 1. Load every revision tag in the repository, grouped by the commit each one points at.
    * 2. Walk the file's lineage back from HEAD, one first-parent commit at a time, tracking the path the file had at
    *    each commit (it changes when the walk crosses an exact rename). Any revision tagged on a visited commit for the
-   *    path the file had there is one of this file's revisions. The revision's metadata contains the UUID for this file.
+   *    path the file had there is one of this file's revisions. The revision tag's metadata contains the UUID for this file.
    * 3. Stop when the walk passes the file's creation, when no unvisited commit has a tag, or when it reaches the
-   *    commit a cached file id was computed at.
+   *    latest commit for which we have cached the file ID
    * 4. Cache the result at this HEAD for the next call.
    *
    * @param key the file's workspace-relative path at HEAD, '/'-separated
@@ -275,6 +276,7 @@ public final class WorkspaceRevisions {
           // It was indeed a rename. Update pathAtCommit to track the name of the file at the time.
           pathAtCommit = renamedFrom;
           // a rename source has the same blob ids -- this is an invariant of renameSource
+          // future todo: determine how this works with external git commits that may contain a rename + modification in same commit
           blobIdsAtParent = blobIdsAtCommit;
         }
       }
@@ -455,7 +457,7 @@ public final class WorkspaceRevisions {
   private Map<ObjectId, List<Revision>> revisionsByCommit(final Repository repo, final RevWalk walk) throws IOException {
     final var byCommit = new HashMap<ObjectId, List<Revision>>();
     for (final var ref : repo.getRefDatabase().getRefsByPrefix(Constants.R_TAGS + TAG_PREFIX)) {
-      var revision = updateParsedTagCache(repo, walk, ref);
+      var revision = getParsedTagAndUpdateCache(repo, walk, ref);
       revision.ifPresent(r -> byCommit.computeIfAbsent(r.commit(), k -> new ArrayList<>()).add(r));
     }
     return byCommit;
@@ -465,18 +467,19 @@ public final class WorkspaceRevisions {
   private Map<UUID, List<Revision>> revisionsByFileId(final Repository repo, final RevWalk walk) throws IOException {
     final var byFileId = new HashMap<UUID, List<Revision>>();
     for (final var ref : repo.getRefDatabase().getRefsByPrefix(Constants.R_TAGS + TAG_PREFIX)) {
-      var revision = updateParsedTagCache(repo, walk, ref);
+      var revision = getParsedTagAndUpdateCache(repo, walk, ref);
       revision.ifPresent(r -> byFileId.computeIfAbsent(r.fileId(), k -> new ArrayList<>()).add(r));
     }
     return byFileId;
   }
 
-  private Optional<Revision> updateParsedTagCache(Repository repo, RevWalk walk, Ref ref) throws IOException {
-    var revision = parsedTagCacheByCommit.get(ref.getObjectId());
+  /** Given a ref (tag), get the parsed version of the tag + metadata, updating the cache if necessary */
+  private Optional<Revision> getParsedTagAndUpdateCache(Repository repo, RevWalk walk, Ref ref) throws IOException {
+    var revision = parsedTagCacheByRefId.get(ref.getObjectId());
     if (revision == null) {
       revision = parseTag(repo, walk, ref.getObjectId());
       if (revision.isEmpty()) logger.warn("Ignoring malformed revision tag {} in {}", ref.getName(), repo.getWorkTree());
-      parsedTagCacheByCommit.put(ref.getObjectId().copy(), revision);
+      parsedTagCacheByRefId.put(ref.getObjectId().copy(), revision);
       revision.ifPresent(r -> parsedTagCacheByFileId.computeIfAbsent(r.fileId(), $ -> new LinkedHashSet<>()).add(r));
     }
     return revision;

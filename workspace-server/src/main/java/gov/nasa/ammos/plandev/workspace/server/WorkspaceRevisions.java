@@ -126,7 +126,36 @@ public final class WorkspaceRevisions {
   private record FileBlobIds(ObjectId contentBlobId, ObjectId sidecarBlobId) {}
 
   // ponytail: both caches grow with the paths listed and the tags parsed and are never evicted; entries are small.
-  /** Workspace root -> file key -> that file's last computed file id. */
+  /**
+   * File ID Cache:
+   * <p>
+   *   Workspace root -> file path -> that file's last computed file id. A {@link CachedFileId} says "at {@code
+   *   computedAtHead}, the file at this key had this file id (or none)".
+   * </p><p>
+   *   A non-empty cached file id cannot be invalidated by the addition of new revisions alone; new revisions for the same
+   *   file will have the same id. The only way a given path's file id can change is if that file is deleted (making its
+   *   file id `empty`), and then recreated, giving it a new, different file id. Deleting and creating files moves the HEAD
+   *   commit: this means that the commit an entry was computed at is sufficient to determine the validity of a non-empty
+   *   cache entry.
+   * </p><p>
+   *   On the other hand, an `empty` entry, i.e. one that says that this file has no revisions and therefore no file id,
+   *   can be invalidated by a new revision. When a new revision is created for a given path, we unconditionally update
+   *   this cache to have a non-empty cache entry.
+   * </p><p>
+   *   On concurrency: the "create revision" operation is expected to be mutually exclusive with itself; however, it can
+   *   be concurrent with any number of getFileId operations. Both operations write to the cache. Non-empty cache entries
+   *   are always correct because they indicate the commit for which they are valid, so it is valid to overwrite a newer
+   *   non-empty cache entry with an older one. This means that race conditions between multiple non-empty writes are safe.
+   *   An `empty` cache entry, however, can be invalidated by a new revision at or before that commit. This makes race
+   *   conditions between getFileId and "create revision" potentially dangerous: "create revision" could write a non-empty
+   *   cache entry that immediately gets overwritten with an `empty` one by a concurrent getFileId operation. To avoid this
+   *   race condition, getFileId performs a compare-and-swap using reference equality of cache entries: if any writes to the
+   *   cache have occurred concurrently with getFileId, it will not write an `empty` cache entry.
+   * </p><p>
+   *   Assumptions. Commits, tags and a file's id are immutable; revisions are well ordered by commit; a tag sits only
+   *   on a commit where the file existed.
+   * </p>
+   */
   private final Map<Path, Map<String, CachedFileId>> fileIdCache = new ConcurrentHashMap<>();
   /**
    * Tag object id -> the revision parsed from its message, or empty if the tag is malformed. Tag objects are

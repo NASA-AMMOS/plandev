@@ -3,6 +3,8 @@ package gov.nasa.ammos.plandev.workspace.server.versioning;
 import gov.nasa.ammos.plandev.workspace.server.types.Workspace;
 import org.eclipse.jgit.internal.storage.file.FileRepository;
 import org.eclipse.jgit.internal.storage.file.GC;
+import org.eclipse.jgit.internal.storage.file.LockFile;
+import org.eclipse.jgit.lib.Constants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,8 +27,8 @@ import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.gitDirector
  *
  * Crash safety:
  * GC replaces objects only after their new pack is in place, and replaces packed-refs by an atomic rename, so an
- * interruption leaves a valid repository. What it can leave behind that blocks mutations is the lock files of
- * {@code RefDirectory.pack}, which the mutation trust checks reject. A marker in .git, created under the workspace lock
+ * interruption leaves a valid repository. What it can leave behind that blocks mutations is the lock files it and
+ * {@link #gcLocked} take, which the mutation trust checks reject. A marker in .git, created under the workspace lock
  * before GC starts, attributes those exact locks to GC; {@link #removeInterruptedGcLocks} removes them and the
  * marker before the next mutation, which then validates the repository as usual. JGit's own gc.pid goes stale after
  * 12 hours.
@@ -34,8 +36,8 @@ import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.gitDirector
 public final class WorkspaceGc {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceGc.class);
   static final String GC_MARKER = "seqdev-gc-in-progress";
-  // The locks GC takes that WorkspaceGitService rejects: RefDirectory.pack locks packed-refs, then each loose ref it
-  // deletes. Revision tag locks are never checked and are ignored by ref reads, so they are left alone.
+  // The locks a GC holds that WorkspaceGitService rejects: RefDirectory.pack locks packed-refs (and each loose tag it
+  // deletes, which nothing checks or reads), and gcLocked locks main.
   private static final List<String> GC_LOCKS = List.of("packed-refs.lock", "refs/heads/" + WorkspaceGitService.BRANCH + ".lock");
 
   private final WorkspaceGitService history;
@@ -85,9 +87,15 @@ public final class WorkspaceGc {
       final var before = gc.getStatistics();
       final var start = System.nanoTime();
       WorkspaceGitService.createMarker(marker(workspace));
+      // Keep main loose. A lock-free read resolves it from packed-refs and then from its loose file, so one that straddled
+      // GC packing main and deleting the loose file would find no HEAD, or a stale one. RefDirectory.pack leaves a ref
+      // it cannot lock loose. Under the marker, so an interrupted GC's lock is recovered with the others.
+      final var mainLock = new LockFile(gitDirectory(workspace).resolve(Constants.R_HEADS + WorkspaceGitService.BRANCH).toFile());
       try {
+        if (!mainLock.lock()) return false;
         if (gc.gc().get().isEmpty()) return false; // not eligible (or gc.pid held)
       } finally {
+        mainLock.unlock();
         removeInterruptedGcLocks(workspace);
       }
       logger.info("Git GC of workspace {} took {} ms. Before: {}. After: {}",

@@ -25,6 +25,7 @@ import java.util.Set;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
@@ -201,7 +202,7 @@ class WorkspaceGcTest {
     assertFalse(Files.exists(mutationMarker(WS1)));
   }
 
-  /** Lock-free reads, cold and warm, racing repeated GCs that replace the pack and pack the main ref and new tags. */
+  /** Lock-free reads, cold and warm, racing repeated GCs that replace the pack and pack new tags, but never main. */
   @Test
   void readsDuringGcSeeTheSameHistory() throws Exception {
     makeEligible(WS1);
@@ -242,14 +243,20 @@ class WorkspaceGcTest {
       final var repo = git.getRepository();
       for (var i = 0; i < 20; i++) {
         // A new reachable object makes a new pack (so the old one is deleted), and rewriting main's loose ref, as every
-        // commit does, makes GC pack it again. History stays the same, so every read has one right answer.
+        // commit does, would let GC pack it again. History stays the same, so every read has one right answer.
         try (final var inserter = repo.newObjectInserter(); final var walk = new RevWalk(repo)) {
           final var blob = inserter.insert(Constants.OBJ_BLOB, ("churn " + i).getBytes(StandardCharsets.UTF_8));
+          // Unreachable loose objects, enough to make this GC eligible
+          for (var j = 0; looseIn17(WS1) < 2; j++) inserter.insert(Constants.OBJ_BLOB, ("unreachable " + i + " " + j).getBytes(StandardCharsets.UTF_8));
           inserter.flush();
           git.tag().setName("churn-" + i).setObjectId(walk.parseAny(blob)).setAnnotated(false).call();
         }
-        Files.writeString(git(WS1, "refs/heads/main"), repo.resolve(Constants.HEAD).name() + "\n");
-        git.gc().call();
+        // Atomically, as a commit does: a reader must never see a partly written ref.
+        final var temp = git(WS1, "main.tmp");
+        Files.writeString(temp, repo.resolve(Constants.HEAD).name() + "\n");
+        Files.move(temp, git(WS1, "refs/heads/main"), StandardCopyOption.ATOMIC_MOVE);
+        assertTrue(gc.gcIfIdle(WS1));
+        assertTrue(Files.exists(git(WS1, "refs/heads/main")), "main stays loose, so a read never straddles its packing");
       }
     } finally {
       stop.set(true);

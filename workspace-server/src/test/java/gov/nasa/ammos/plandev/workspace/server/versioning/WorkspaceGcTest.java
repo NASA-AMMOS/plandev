@@ -130,7 +130,7 @@ class WorkspaceGcTest {
   @Test
   void aRepositoryBelowTheThresholdIsLeftAlone() throws Exception {
     addFiles(WS1, 20);
-    assertFalse(gc.collect(WS1));
+    assertFalse(gc.gcIfIdle(WS1));
     assertEquals(0, packs(WS1));
     assertFalse(Files.exists(WorkspaceGc.marker(WS1)));
   }
@@ -142,8 +142,8 @@ class WorkspaceGcTest {
     assertInstanceOf(HandlerResult.Success.class, bindings.handleCreateRevision(WS1.id(), fileA, "*", "", DEFAULT_USER));
     final var before = log(WS1);
 
-    assertTrue(gc.collect(WS1));
-    assertFalse(gc.collect(WS1), "packed, so no longer eligible");
+    assertTrue(gc.gcIfIdle(WS1));
+    assertFalse(gc.gcIfIdle(WS1), "packed, so no longer eligible");
     assertCollectedAndUsable(WS1, before);
     assertInstanceOf(HandlerResult.Success.class, bindings.handleCreateRevision(WS1.id(), fileA, "*", "", DEFAULT_USER));
     assertEquals(List.of("b", "a"), fs.listRevisions(WS1, fileA).stream().map(r -> r.name()).toList());
@@ -163,13 +163,13 @@ class WorkspaceGcTest {
       }, r -> r));
       entered.await();
       final var start = Instant.now();
-      assertFalse(gc.collect(WS1));
+      assertFalse(gc.gcIfIdle(WS1));
       assertTrue(Duration.between(start, Instant.now()).toMillis() < 1000);
       assertEquals(0, packs(WS1));
       release.countDown();
       assertTrue(mutation.get());
     }
-    assertTrue(gc.collect(WS1));
+    assertTrue(gc.gcIfIdle(WS1));
     assertEquals("slow", bindings.readFile(WS1, fileA));
   }
 
@@ -182,11 +182,11 @@ class WorkspaceGcTest {
   void aForeignGitLockBlocksGcAndIsLeftAlone(final String lock) throws Exception {
     makeEligible(WS1);
     Files.writeString(git(WS1, lock), "");
-    assertFalse(gc.collect(WS1));
+    assertFalse(gc.gcIfIdle(WS1));
     assertTrue(Files.exists(git(WS1, lock)));
     assertEquals(0, packs(WS1));
     Files.delete(git(WS1, lock));
-    assertTrue(gc.collect(WS1));
+    assertTrue(gc.gcIfIdle(WS1));
   }
 
   /** GC repairs nothing itself: an interrupted mutation's marker is left for the next mutation to recover. */
@@ -195,7 +195,7 @@ class WorkspaceGcTest {
     makeEligible(WS1);
     createMarker(mutationMarker(WS1));
     final var before = log(WS1);
-    assertTrue(gc.collect(WS1));
+    assertTrue(gc.gcIfIdle(WS1));
     assertTrue(Files.exists(mutationMarker(WS1)));
     assertCollectedAndUsable(WS1, before);
     assertFalse(Files.exists(mutationMarker(WS1)));
@@ -272,7 +272,7 @@ class WorkspaceGcTest {
   @Test
   void anInterruptedGcIsRecoveredByTheNextMutation() throws Exception {
     makeEligible(WS1);
-    assertTrue(gc.collect(WS1)); // so packed-refs and a pack exist, as they would before a later GC
+    assertTrue(gc.gcIfIdle(WS1)); // so packed-refs and a pack exist, as they would before a later GC
     makeEligible(WS1);
     final var before = log(WS1);
     simulateInterruptedGc(WS1);
@@ -284,12 +284,12 @@ class WorkspaceGcTest {
     assertFalse(Files.exists(git(WS1, "refs/heads/main.lock")));
     assertEquals(before, log(WS1).subList(1, before.size() + 1));
 
-    assertFalse(gc.collect(WS1), "JGit treats a gc.pid under 12 hours old as a running GC");
+    assertFalse(gc.gcIfIdle(WS1), "JGit treats a gc.pid under 12 hours old as a running GC");
     // By the next daily cycle, JGit ignores a gc.pid over 12 hours old and deletes temporary packs over a day old.
     final var dayAgo = FileTime.from(Instant.now().minus(Duration.ofHours(25)));
     Files.setLastModifiedTime(git(WS1, "gc.pid"), dayAgo);
     Files.setLastModifiedTime(git(WS1, "objects/pack/gc_1.pack_tmp"), dayAgo);
-    assertTrue(gc.collect(WS1));
+    assertTrue(gc.gcIfIdle(WS1));
     assertFalse(Files.exists(git(WS1, "gc.pid")));
     assertFalse(Files.exists(git(WS1, "objects/pack/gc_1.pack_tmp")));
     assertCollectedAndUsable(WS1, log(WS1));
@@ -302,7 +302,7 @@ class WorkspaceGcTest {
     Files.delete(git(WS1, "gc.pid"));
     restartServer();
     final var before = log(WS1);
-    assertTrue(gc.collect(WS1));
+    assertTrue(gc.gcIfIdle(WS1));
     assertCollectedAndUsable(WS1, before);
   }
 
@@ -331,7 +331,7 @@ class WorkspaceGcTest {
     setWritable(packDir, false);
     assumeTrue(!Files.isWritable(packDir), "permissions are not enforced for this user");
     try {
-      assertThrows(IOException.class, () -> gc.collect(WS1));
+      assertThrows(IOException.class, () -> gc.gcIfIdle(WS1));
       assertFalse(Files.exists(WorkspaceGc.marker(WS1)));
       assertEquals(List.of(), WorkspaceGitService.existingGitLocks(WS1));
       bindings.saveAndGetEtag(WS1, fileA, "after failed gc");
@@ -340,24 +340,24 @@ class WorkspaceGcTest {
       setWritable(packDir, true);
     }
     final var before = log(WS1);
-    assertTrue(gc.collect(WS1), "retried on a later cycle");
+    assertTrue(gc.gcIfIdle(WS1), "retried on a later cycle");
     assertCollectedAndUsable(WS1, before);
   }
 
   @Test
-  void aCycleCollectsEveryKnownWorkspaceAndSurvivesAFailure() throws Exception {
+  void gcAllCollectsEveryMutatedWorkspaceAndSurvivesAFailure() throws Exception {
     makeEligible(WS1);
     makeEligible(WS2);
     final var packDir = git(WS2, "objects/pack");
     Files.createDirectories(packDir);
     setWritable(packDir, false);
     try {
-      gc.runCycle();
+      gc.gcAll();
       assertTrue(packs(WS1) > 0);
     } finally {
       setWritable(packDir, true);
     }
-    gc.runCycle();
+    gc.gcAll();
     assertTrue(packs(WS2) > 0);
 
   }

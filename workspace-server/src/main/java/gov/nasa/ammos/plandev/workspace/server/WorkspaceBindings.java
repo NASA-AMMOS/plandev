@@ -523,16 +523,18 @@ public class WorkspaceBindings implements Plugin {
         return;
       }
 
+      logger.info("Attempting to create/update file: {} in workspace {} (overwrite: {})", pathInfo.filePath(), pathInfo.workspaceId(), overwrite.orElse(false));
       final var ifMatch = context.header("If-Match");
       uploadResults = handleFileUpload(
-          pathInfo.workspaceId,
-          pathInfo.filePath,
+          pathInfo.workspaceId(),
+          pathInfo.filePath(),
           file,
           overwrite.orElse(false),
           ifMatch,
           authorize(context).userId());
 
     } else if (type == ItemType.directory) {
+      logger.info("Attempting to create directory: {} in workspace {} (overwrite: {})", pathInfo.filePath(), pathInfo.workspaceId(), overwrite.orElse(false));
       // Reject the request if the "overwrite" flag is supplied
       if(overwrite.isPresent()) {
         context.status(400).json(new FormattedError(AerieService.WORKSPACE_SERVER, "Query parameter 'overwrite' is not permitted when creating a directory."));
@@ -597,6 +599,17 @@ public class WorkspaceBindings implements Plugin {
     }
 
     // Permissions Check and Action Handling
+    var userId = authorize(context).userId();
+    logger.info(
+      "Attempting to {}: {} to {} (from WS: {}, to WS: {}, overwrite: {}, user: {})",
+      body.action(),
+      pathInfo.filePath(), 
+      body.destinationPath(),
+      sourceWorkspace,
+      body.destinationWorkspaceId(),
+      body.overwrite(),
+      userId
+    );
     switch (body.action()) {
       case PostActions.MOVE -> {
         // Moving between workspaces requires "readFile", "deleteFile" on Workspace 1 and "writeFile" on Workspace 2
@@ -612,7 +625,7 @@ public class WorkspaceBindings implements Plugin {
             sourceWorkspace,
             body.destinationWorkspaceId(),
             body.overwrite(),
-            authorize(context).userId()
+            userId
         );
         switch (moveResults){
           case HandlerResult.Success success -> {
@@ -634,7 +647,7 @@ public class WorkspaceBindings implements Plugin {
             sourceWorkspace,
             body.destinationWorkspaceId(),
             body.overwrite(),
-            authorize(context).userId()
+            userId
         );
         switch (copyResults) {
           case HandlerResult.Success success -> {
@@ -1492,6 +1505,15 @@ public class WorkspaceBindings implements Plugin {
   ) {
     final var responseArray = Json.createArrayBuilder();
     for(final var item : toMove){
+      logger.info(
+        "Attempting to move: {} to {} (from WS: {}, to WS: {}, overwrite: {}, user: {})",
+        item.currentLocation(),
+        item.newPath(),
+        sourceWorkspaceId,
+        destinationWorkspaceId,
+        overwrite,
+        userId
+      );
       final var results = handleMove(
           item.currentLocation(),
           item.newPath(),
@@ -1518,6 +1540,15 @@ public class WorkspaceBindings implements Plugin {
   ) {
     final var responseArray = Json.createArrayBuilder();
     for(final var item : toCopy) {
+      logger.info(
+        "Attempting to copy: {} to {} (from WS: {}, to WS: {}, overwrite: {}, user: {})",
+        item.currentLocation(),
+        item.newPath(),
+        sourceWorkspaceId,
+        destinationWorkspaceId,
+        overwrite,
+        userId
+      );
       final var results = handleCopy(
           item.currentLocation(),
           item.newPath(),

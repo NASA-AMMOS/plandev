@@ -347,7 +347,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
 
   /** The Git commit step. Overridable only so tests can inject a deterministic failure. */
   protected void commit(final Git git, final String message, final PersonIdent author) throws GitAPIException {
-    git.commit()
+    var commit = git.commit()
        .setMessage(message)
        .setAuthor(author)
        .setCommitter(systemIdentifier)
@@ -355,6 +355,13 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
        .setSign(false)
        .setNoVerify(true)
        .call();
+    logger.info(
+      "committed {} (message: {}, author: {} <{}>)",
+      commit.getId().abbreviate(12).name(),
+      commit.getShortMessage(),
+      commit.getAuthorIdent().getName(),
+      commit.getAuthorIdent().getEmailAddress()
+    );
   }
   //endregion
 

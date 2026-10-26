@@ -292,7 +292,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   }
 
   /** Run an action under a workspace's lock only if it is free now; null if it is busy. Records no history. */
-  <T> T tryWithLock(final Workspace workspace, final Mutation<T> action) throws Exception {
+  <T> T withLockIfIdle(final Workspace workspace, final Mutation<T> action) throws Exception {
     return inLockScope(() -> {
       final var lock = lockFor(workspace);
       if (!lock.tryLock()) return null;
@@ -304,8 +304,11 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     });
   }
 
-  /** Every workspace this process has locked, so every workspace whose repository it has written to. */
-  Set<Workspace> knownWorkspaces() {
+  /**
+   * Every workspace this process has taken the lock of since it started, which includes every workspace it has mutated
+   * (and may include deleted ones). Only mutations create Git objects, so these are the only workspaces GC can help.
+   */
+  Set<Workspace> workspacesMutatedSinceStartup() {
     return Set.copyOf(locks.keySet());
   }
 
@@ -394,7 +397,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     if (!Files.isDirectory(workspace.rootPath())) {
       throw inconsistent("Workspace directory " + workspace.rootPath() + " is missing.");
     }
-    WorkspaceGc.recoverInterrupted(workspace);
+    WorkspaceGc.removeInterruptedGcLocks(workspace);
     if (hasMarker(mutationMarker(workspace))) {
       if (!isManaged(workspace)) {
         throw inconsistent("Workspace at " + workspace.rootPath() + " has an interrupted-mutation marker but is not managed.");

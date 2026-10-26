@@ -27,12 +27,13 @@ import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.gitDirector
  * GC replaces objects only after their new pack is in place, and replaces packed-refs by an atomic rename, so an
  * interruption leaves a valid repository. What it can leave behind that blocks mutations is the lock files of
  * {@code RefDirectory.pack}, which the mutation trust checks reject. A marker in .git, created under the workspace lock
- * before GC starts, attributes those exact locks to GC; {@link #recoverInterrupted} removes them and the marker before
- * the next mutation, which then validates the repository as usual. JGit's own gc.pid goes stale after 12 hours.
+ * before GC starts, attributes those exact locks to GC; {@link #removeInterruptedGcLocks} removes them and the
+ * marker before the next mutation, which then validates the repository as usual. JGit's own gc.pid goes stale after
+ * 12 hours.
  */
 public final class WorkspaceGc {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceGc.class);
-  static final String MARKER = "seqdev-gc-in-progress";
+  static final String GC_MARKER = "seqdev-gc-in-progress";
   // The locks GC takes that WorkspaceGitService rejects: RefDirectory.pack locks packed-refs, then each loose ref it
   // deletes. Revision tag locks are never checked and are ignored by ref reads, so they are left alone.
   private static final List<String> GC_LOCKS = List.of("packed-refs.lock", "refs/heads/" + WorkspaceGitService.BRANCH + ".lock");
@@ -50,13 +51,13 @@ public final class WorkspaceGc {
       thread.setDaemon(true);
       return thread;
     });
-    executor.scheduleWithFixedDelay(this::runCycle, 1, 24, TimeUnit.HOURS);
+    executor.scheduleWithFixedDelay(this::gcAll, 1, 24, TimeUnit.HOURS);
   }
 
-  void runCycle() {
-    for (final var workspace : history.knownWorkspaces()) {
+  void gcAll() {
+    for (final var workspace : history.workspacesMutatedSinceStartup()) {
       try {
-        collect(workspace);
+        gcIfIdle(workspace);
       } catch (Throwable t) { // a throw out of a scheduled task cancels every later run
         logger.error("Git GC of workspace {} failed; retrying next cycle", workspace.id(), t);
       }
@@ -64,15 +65,15 @@ public final class WorkspaceGc {
   }
 
   /** GC one workspace if it is idle, trusted and eligible. */
-  boolean collect(final Workspace workspace) throws Exception {
-    final var ran = history.tryWithLock(workspace, () -> collectLocked(workspace));
+  boolean gcIfIdle(final Workspace workspace) throws Exception {
+    final var ran = history.withLockIfIdle(workspace, () -> gcLocked(workspace));
     if (ran == null) logger.info("Skipped Git GC of workspace {}: busy", workspace.id());
     return Boolean.TRUE.equals(ran);
   }
 
-  private boolean collectLocked(final Workspace workspace) throws Exception {
+  private boolean gcLocked(final Workspace workspace) throws Exception {
     if (!history.isManaged(workspace)) return false;
-    recoverInterrupted(workspace);
+    removeInterruptedGcLocks(workspace);
     // Load-bearing: GC's finally removes packed-refs and main ref locks, so it must not start while anyone else's exist.
     if (!WorkspaceGitService.existingGitLocks(workspace).isEmpty()) {
       logger.warn("Skipped Git GC of workspace {}: it has Git locks", workspace.id());
@@ -87,7 +88,7 @@ public final class WorkspaceGc {
       try {
         if (gc.gc().get().isEmpty()) return false; // not eligible (or gc.pid held)
       } finally {
-        recoverInterrupted(workspace);
+        removeInterruptedGcLocks(workspace);
       }
       logger.info("Git GC of workspace {} took {} ms. Before: {}. After: {}",
                   workspace.id(), (System.nanoTime() - start) / 1_000_000, before, gc.getStatistics());
@@ -96,14 +97,14 @@ public final class WorkspaceGc {
   }
 
   static Path marker(final Workspace workspace) {
-    return gitDirectory(workspace).resolve(MARKER);
+    return gitDirectory(workspace).resolve(GC_MARKER);
   }
 
   /**
    * If a GC of this workspace was interrupted, remove the locks it can leave and then its marker. Caller holds the
    * workspace lock, so no GC of this workspace is running: the marker proves these exact locks were GC's.
    */
-  static void recoverInterrupted(final Workspace workspace) throws IOException {
+  static void removeInterruptedGcLocks(final Workspace workspace) throws IOException {
     final var marker = marker(workspace);
     if (!Files.exists(marker, LinkOption.NOFOLLOW_LINKS)) return;
     for (final var name : GC_LOCKS) {

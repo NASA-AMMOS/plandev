@@ -832,9 +832,9 @@ class WorkspaceGitServiceIntegrationTest {
     void writesOfGitInternalsAreRejected() throws Exception {
       final var config = Files.readString(WS1.rootPath().resolve(".git/config"));
       for (final var path : List.of(".git/config", ".git/hooks/post-commit", "foo/.git/HEAD", ".gitattributes", ".gitignore", ".seqdev/state.json")) {
-        assertFailure(bindings.saveFile(WS1, Path.of(path), "evil", "*"), 400, "SECURITY_EXCEPTION");
+        assertFailure(bindings.saveFile(WS1, Path.of(path), "evil", "*"), 500, "SECURITY_EXCEPTION");
       }
-      assertFailure(bindings.handleCreateDirectory(WS1, Path.of("x/.git")), 400, "SECURITY_EXCEPTION");
+      assertFailure(bindings.handleCreateDirectory(WS1, Path.of("x/.git")), 500, "SECURITY_EXCEPTION");
       assertEquals(config, Files.readString(WS1.rootPath().resolve(".git/config")));
       assertFalse(Files.exists(WS1.rootPath().resolve(".gitignore")));
       assertClean(WS1);
@@ -843,12 +843,12 @@ class WorkspaceGitServiceIntegrationTest {
     @Test
     void moveCopyAndDeleteInvolvingGitInternalsAreRejected() throws Exception {
       final var head = head(WS1);
-      assertFailure(bindings.handleMove(Path.of(".git/HEAD"), Path.of("HEAD"), WS1, WS1, false), 400, "SECURITY_EXCEPTION");
-      assertFailure(bindings.handleMove(fileA, Path.of(".git/a.txt"), WS1, WS1, true), 400, "SECURITY_EXCEPTION");
-      assertFailure(bindings.handleCopy(Path.of(".git"), Path.of("leak"), WS1, WS2, false), 400, "SECURITY_EXCEPTION");
-      assertFailure(bindings.handleCopy(fileA, Path.of(".git/objects/x"), WS1, WS1, true), 400, "SECURITY_EXCEPTION");
-      assertFailure(bindings.handleDelete(WS1, Path.of(".git")), 400, "SECURITY_EXCEPTION");
-      assertFailure(bindings.handleDelete(WS1, Path.of(".seqdev/state.json")), 400, "SECURITY_EXCEPTION");
+      assertFailure(bindings.handleMove(Path.of(".git/HEAD"), Path.of("HEAD"), WS1, WS1, false), 500, "SECURITY_EXCEPTION");
+      assertFailure(bindings.handleMove(fileA, Path.of(".git/a.txt"), WS1, WS1, true), 500, "SECURITY_EXCEPTION");
+      assertFailure(bindings.handleCopy(Path.of(".git"), Path.of("leak"), WS1, WS2, false), 500, "SECURITY_EXCEPTION");
+      assertFailure(bindings.handleCopy(fileA, Path.of(".git/objects/x"), WS1, WS1, true), 500, "SECURITY_EXCEPTION");
+      assertFailure(bindings.handleDelete(WS1, Path.of(".git")), 500, "SECURITY_EXCEPTION");
+      assertFailure(bindings.handleDelete(WS1, Path.of(".seqdev/state.json")), 500, "SECURITY_EXCEPTION");
       assertEquals(head, head(WS1));
       assertTrue(Files.isRegularFile(WS1.rootPath().resolve(".git/HEAD")));
       assertFalse(Files.exists(WS2.rootPath().resolve("leak")));
@@ -876,8 +876,6 @@ class WorkspaceGitServiceIntegrationTest {
               history.mutate(WS2, "inner", DEFAULT_USER, () -> true, result -> result), result -> result));
       assertTrue(nestedMutation.getMessage().contains("cannot be nested"));
 
-      assertThrows(IllegalStateException.class, () -> history.withLock(WS1, () ->
-          history.mutate(WS2, "inner", DEFAULT_USER, () -> true, result -> result)));
       assertClean(WS1);
       assertClean(WS2);
     }
@@ -953,7 +951,7 @@ class WorkspaceGitServiceIntegrationTest {
     void newWorkspaceGetsManagedHistoryBeforeItsFirstMutation() throws Exception {
       final var newWS = wsRepo.createWorkspace("new");
 
-      history.initializeNewWorkspace(newWS);
+      history.initializeWorkspace(newWS);
 
       assertTrue(history.isManaged(newWS));
       try (final var git = open(newWS)) {
@@ -970,7 +968,7 @@ class WorkspaceGitServiceIntegrationTest {
       final var otherWS = wsRepo.createWorkspace("not-new");
       Files.writeString(otherWS.rootPath().resolve("existing.txt"), "existing");
 
-      assertThrows(IOException.class, () -> history.initializeNewWorkspace(otherWS));
+      assertThrows(IOException.class, () -> history.initializeWorkspace(otherWS));
 
       assertFalse(Files.exists(otherWS.rootPath().resolve(WorkspacePaths.GIT_DIR)));
       assertEquals("existing", Files.readString(otherWS.rootPath().resolve("existing.txt")));
@@ -981,7 +979,7 @@ class WorkspaceGitServiceIntegrationTest {
       final var failingWorkspace = wsRepo.createWorkspace("failed");
       history.failCommitsIn.add(failingWorkspace.rootPath().toRealPath());
 
-      assertThrows(GitAPIException.class, () -> history.initializeNewWorkspace(failingWorkspace));
+      assertThrows(GitAPIException.class, () -> history.initializeWorkspace(failingWorkspace));
 
       assertFalse(history.isManaged(failingWorkspace));
       try (final var git = open(failingWorkspace)) {
@@ -1599,7 +1597,7 @@ class WorkspaceGitServiceIntegrationTest {
                                .noneMatch(p -> WS1.rootPath().relativize(p).startsWith(".seqdev")));
       for (final var path : List.of(incident.resolve("incident.json"), incident.resolve("files/a.txt"))) {
         assertThrows(SecurityException.class, () -> fs.loadFile(WS1, path), path::toString);
-        assertFailure(bindings.saveFile(WS1, path, "evil", "*"), 400, "SECURITY_EXCEPTION");
+        assertFailure(bindings.saveFile(WS1, path, "evil", "*"), 500, "SECURITY_EXCEPTION");
       }
     }
 

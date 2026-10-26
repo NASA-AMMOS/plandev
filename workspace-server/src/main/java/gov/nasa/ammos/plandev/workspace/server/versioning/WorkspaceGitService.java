@@ -2,6 +2,7 @@ package gov.nasa.ammos.plandev.workspace.server.versioning;
 
 import gov.nasa.ammos.plandev.workspace.server.WorkspaceFileSystemService;
 import gov.nasa.ammos.plandev.workspace.server.WorkspacePaths;
+import gov.nasa.ammos.plandev.workspace.server.WorkspaceService;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.PartialMutationException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistoryException;
 import gov.nasa.ammos.plandev.workspace.server.types.Workspace;
@@ -275,18 +276,18 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     }
   }
 
-  /** Run an action under a workspace's lock without recording history (e.g. deleting the whole workspace). */
-  public <T> T withLock(final Workspace workspace, final Mutation<T> action) throws Exception {
+  public boolean deleteWorkspace(final Workspace workspace, final WorkspaceService service) throws Exception {
     return inLockScope(() -> {
       final var lock = lockFor(workspace);
       lock.lock();
       try {
-        final var result = action.apply();
+        final var result = service.deleteWorkspace(workspace);
         lastEditCache.remove(workspace);
         configured.remove(workspace);
         return result;
       } finally {
         lock.unlock();
+        locks.remove(workspace); // We no longer need the entry if this is workspace delete
       }
     });
   }
@@ -305,8 +306,8 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   }
 
   /**
-   * Every workspace this process has taken the lock of since it started, which includes every workspace it has mutated
-   * (and may include deleted ones). Only mutations create Git objects, so these are the only workspaces GC can help.
+   * Every workspace this process has taken the lock of since it started and not deleted, which includes every workspace
+   * it has mutated. Only mutations create Git objects, so these are the only workspaces GC can help.
    */
   Set<Workspace> workspacesMutatedSinceStartup() {
     return Set.copyOf(locks.keySet());
@@ -362,7 +363,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    * Initialize a newly created workspace.
    */
   @Override
-  public void initializeNewWorkspace(final Workspace workspace) throws IOException, GitAPIException {
+  public void initializeWorkspace(final Workspace workspace) throws IOException, GitAPIException {
     final var normalizedRoot = workspace.rootPath().normalize();
     if (!Files.isDirectory(normalizedRoot)) {
       throw new IOException("New workspace directory " + normalizedRoot + " is missing.");
@@ -618,7 +619,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       // JGit writes config last during init. An existing repository must have passed the config check below before
       // its marker was created, so a marked repository without config can only be our interrupted initialization.
       if (hasRepo && Files.notExists(config, LinkOption.NOFOLLOW_LINKS)) {
-        removePartialRepository(gitDir);
+        removePartialRepository(workspace);
         hasRepo = false;
       }
     } else if (hasRepo) {
@@ -731,7 +732,8 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     }
   }
 
-  private static void removePartialRepository(final Path gitDir) throws IOException {
+  private static void removePartialRepository(final Workspace workspace) throws IOException {
+    final var gitDir = gitDirectory(workspace);
     // Java has no recursive delete. Walk bottom-up without following symbolic links; JGit's shorter recursive helper
     // uses File.isDirectory(), which could follow a link in a damaged .git directory and delete outside it.
     Files.walkFileTree(gitDir, new SimpleFileVisitor<>() {
@@ -880,7 +882,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    * workspaces created or edited outside the file API, which rejects both. Links are never followed.
    */
   private static void requireAdoptable(final Workspace workspace) throws IOException {
-    final var found = new ArrayList<String>();
+    final var issuesFound = new ArrayList<String>();
     final var root = workspace.rootPath();
     Files.walkFileTree(root, new SimpleFileVisitor<>() {
       @Override
@@ -890,23 +892,23 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
         if (dir.getParent().equals(root) && (name.equals(WorkspacePaths.GIT_DIR) || name.equals(WorkspacePaths.INTERNAL_DIR))) {
           return FileVisitResult.SKIP_SUBTREE;
         }
-        if (WorkspacePaths.filenameIsReserved(Path.of(name))) found.add(WorkspacePaths.key(root, dir));
+        if (WorkspacePaths.filenameIsReserved(Path.of(name))) issuesFound.add(WorkspacePaths.key(root, dir));
         return FileVisitResult.CONTINUE;
       }
 
       @Override
       public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) {
         if (attrs.isSymbolicLink()) {
-          found.add(WorkspacePaths.key(root, file) + " (symbolic link)");
+          issuesFound.add(WorkspacePaths.key(root, file) + " (symbolic link)");
         } else if (WorkspacePaths.filenameIsReserved(file)) {
-          found.add(WorkspacePaths.key(root, file));
+          issuesFound.add(WorkspacePaths.key(root, file));
         }
         return FileVisitResult.CONTINUE;
       }
     });
-    if (!found.isEmpty()) {
+    if (!issuesFound.isEmpty()) {
       throw inconsistent("Workspace at %s contains unsupported paths %s; remove them before it can be modified."
-                             .formatted(root, summarize(found)));
+                             .formatted(root, summarize(issuesFound)));
     }
   }
 

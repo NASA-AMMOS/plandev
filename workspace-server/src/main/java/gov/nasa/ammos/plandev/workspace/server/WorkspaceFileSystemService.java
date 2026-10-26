@@ -131,25 +131,25 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   //region Workspace Operations
   @Override
-  public Optional<Integer> createWorkspace(final Path workspaceRelativePath, final String workspaceName, String username, int parcelId) {
-    final var workspaceAbsolutePath = workspaceRepository.getBaseRepositoryPath().resolve(workspaceRelativePath).normalize();
+  public Optional<Integer> createWorkspace(final Path workspaceLocation, final String workspaceName, String username, int parcelId) {
+    final var wsRootPath = workspaceRepository.getBaseRepositoryPath().resolve(workspaceLocation).normalize();
     final Workspace workspace;
 
-    if (!workspaceAbsolutePath.toFile().mkdirs()) return Optional.empty();
+    if (!wsRootPath.toFile().mkdirs()) return Optional.empty();
 
     try {
       final int workspaceId = workspaceRepository.createWorkspace(
-          workspaceRelativePath.toString(), workspaceName, username, parcelId);
-      workspace = new Workspace(workspaceId, workspaceAbsolutePath);
+          workspaceLocation.toString(), workspaceName, username, parcelId);
+      workspace = new Workspace(workspaceId, wsRootPath);
     } catch (SQLException ex) {
-      logger.error("CREATE WORKSPACE: Unable to create database entry for {}", workspaceAbsolutePath, ex);
+      logger.error("CREATE WORKSPACE: Unable to create database entry for {}", wsRootPath, ex);
       return Optional.empty();
     }
 
     try {
-      gitService.initializeNewWorkspace(workspace);
+      gitService.initializeWorkspace(workspace);
     } catch (IOException | GitAPIException ex) {
-      logger.error("CREATE WORKSPACE: Unable to initialize workspace history at {}", workspaceAbsolutePath, ex);
+      logger.error("CREATE WORKSPACE: Unable to initialize workspace history at {}", wsRootPath, ex);
       return Optional.empty();
     }
     return Optional.of(workspace.id());
@@ -315,7 +315,8 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       final String userId)
   throws WorkspaceFileOpException, IOException
   {
-    gitService.requireLocked(destWorkspace);
+    // Source workspace lock is required to prevent the item being copied from changing mid-transaction
+    gitService.requireLocked(sourceWorkspace, destWorkspace);
     final var sourcePath = resolveReadingPath(sourceWorkspace, sourceFilePath);
     final var sourceMetadataPath = resolveMetadataPath(sourceWorkspace, sourceFilePath);
 
@@ -463,7 +464,8 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       final String userId)
   throws WorkspaceFileOpException
   {
-    gitService.requireLocked(destWorkspace);
+    // Source workspace lock is required to prevent the item being copied from changing mid-transaction
+    gitService.requireLocked(sourceWorkspace, destWorkspace);
     final var sourcePath = resolveReadingPath(sourceWorkspace, sourceFilePath);
     final var destPath = resolveWritingPath(destWorkspace, destFilePath);
 

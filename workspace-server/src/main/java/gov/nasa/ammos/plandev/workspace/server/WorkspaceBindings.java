@@ -375,7 +375,7 @@ public class WorkspaceBindings implements Plugin {
     final var errorMsg = "Unable to delete Workspace %d.".formatted(workspaceId);
     try {
       final var workspace = workspaceService.getWorkspace(workspaceId);
-      if (versioningService.withLock(workspace, () -> workspaceService.deleteWorkspace(workspace))) {
+      if (versioningService.deleteWorkspace(workspace, workspaceService)) {
         context.status(200).result("Workspace deleted.");
       } else {
         logger.warn(errorMsg);
@@ -704,8 +704,10 @@ public class WorkspaceBindings implements Plugin {
       logger.error("WORKSPACE MUTATION: Workspace History Exception {}", fe);
       return new HandlerResult.Failure(500, fe);
     } catch (SecurityException se) {
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, se);
+      logger.warn("WORKSPACE MUTATION: Security Exception: {}", fe);
       // Reported per item so one bad path in a bulk request does not hide the other items' results
-      return new HandlerResult.Failure(400, new FormattedError(AerieService.WORKSPACE_SERVER, se));
+      return new HandlerResult.Failure(500, fe);
     } catch (Exception e) {
       final var message = e.getMessage() != null ? e.getMessage() : "Internal error.";
       final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, "INTERNAL_ERROR", message, e);
@@ -1028,7 +1030,7 @@ public class WorkspaceBindings implements Plugin {
     commits.put(destWorkspace, sourceWorkspaceId == destinationWorkspaceId
         ? "Copy %s -> %s".formatted(toCopy, destinationPath)
         : "Copy workspace %d:%s -> %s".formatted(sourceWorkspaceId, toCopy, destinationPath));
-    commits.putIfAbsent(destWorkspace, "Copy %s -> workspace %d:%s".formatted(toCopy, destinationWorkspaceId, destinationPath));
+    commits.putIfAbsent(sourceWorkspace, "Copy %s -> workspace %d:%s".formatted(toCopy, destinationWorkspaceId, destinationPath));
     return mutate(commits, userId, null, () -> handleCopyLocked(
         toCopy, destinationPath, sourceWorkspace, destWorkspace, overwrite, userId));
   }

@@ -163,12 +163,6 @@ public final class WorkspaceRevisions {
   private final Map<ObjectId, Optional<Revision>> parsedTagCacheByRefId = new ConcurrentHashMap<>();
 
   /**
-   * Tag file id -> the revision parsed from its message, or empty if the tag is malformed. Tag objects are
-   * immutable, so a parse is valid forever and each tag is parsed once per process.
-   */
-  private final Map<UUID, Set<Revision>> parsedTagCacheByFileId = new ConcurrentHashMap<>();
-
-  /**
    * A file's revisions, newest first. Lock-free.
    */
   List<Revision> list(final Path root, final String key) throws IOException {
@@ -480,7 +474,6 @@ public final class WorkspaceRevisions {
       revision = parseTag(repo, walk, ref.getObjectId());
       if (revision.isEmpty()) logger.warn("Ignoring malformed revision tag {} in {}", ref.getName(), repo.getWorkTree());
       parsedTagCacheByRefId.put(ref.getObjectId().copy(), revision);
-      revision.ifPresent(r -> parsedTagCacheByFileId.computeIfAbsent(r.fileId(), $ -> new LinkedHashSet<>()).add(r));
     }
     return revision;
   }

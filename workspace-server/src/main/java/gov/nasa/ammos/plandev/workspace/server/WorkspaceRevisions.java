@@ -179,11 +179,15 @@ public final class WorkspaceRevisions {
     final var workspaceFileIdCache =
         fileIdCache.computeIfAbsent(repo.getDirectory().toPath().getParent().toAbsolutePath(), unused -> new ConcurrentHashMap<>());
 
-    CachedFileId initialCacheEntry = workspaceFileIdCache.get(key); // Used for a Compare-and-swap operation later
+    CachedFileId initialCacheEntry = workspaceFileIdCache.get(key);
 
-    final var reader = walk.getObjectReader();
     // Resolve HEAD before listing tags, so every listed tag is on a commit at or before it.
     final var headCommitId = Objects.requireNonNull(repo.resolve(Constants.HEAD), "No HEAD ref found");
+
+    if (initialCacheEntry.computedAtHead.equals(headCommitId)) {
+      // No need to traverse commit history if we already have the answer at HEAD
+      return initialCacheEntry.fileId;
+    }
 
     final var revisionsByTaggedCommit = revisionsByCommit(repo, walk);
 
@@ -192,6 +196,7 @@ public final class WorkspaceRevisions {
 
     var commit = walk.parseCommit(headCommitId);
 
+    final var reader = walk.getObjectReader();
     // Blob ids of file and metadata file. null once the walk passes the creation of the file
     var blobIdsAtCommit = fileBlobIds(reader, commit.getTree(), pathAtCommit);
 

@@ -19,25 +19,29 @@ import java.util.concurrent.TimeUnit;
 import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.gitDirectory;
 
 /**
- * Periodic Git garbage collection of workspace repositories, off the request path.
+ * Daily Git garbage collection (GC) of workspace repositories.
  *
- * Policy:
- * Daily, for workspaces mutated since startup (only mutations create objects). JGit auto GC: a no-op under gc.auto
- * (6700) loose objects and gc.autoPackLimit (50) packs; default two-week prune.
+ * Why: Git writes every new version of a file, folder listing, commit and tag as its own small file under .git/objects,
+ * and every branch and tag pointer as its own small file under .git/refs. These one-file-each entries are called
+ * "loose". Over thousands of saves they pile up and slow reads. GC compresses the objects into a single "pack" file
+ * and gathers the tag pointers into a single packed-refs file.
  *
- * Crash safety:
- * GC replaces objects only after their new pack is in place, and replaces packed-refs by an atomic rename, so an
- * interruption leaves a valid repository. What it can leave behind that blocks mutations is the lock files it and
- * {@link #gcLocked} take, which the mutation trust checks reject. A marker in .git, created under the workspace lock
- * before GC starts, attributes those exact locks to GC; {@link #removeInterruptedGcLocks} removes them and the
- * marker before the next mutation, which then validates the repository as usual. JGit's own gc.pid goes stale after
- * 12 hours.
+ * When: once a day, for every workspace changed since the server started (only changes create Git objects). JGit's
+ * automatic mode does nothing until a workspace has about 6,700 loose objects (gc.auto) or more than 50 pack files
+ * (gc.autoPackLimit), so most daily runs are a quick check. Objects nothing refers to are deleted only once they are
+ * two weeks old. A workspace that is busy saving is skipped until the next day.
+ *
+ * Interruptions: GC deletes old files only after their replacements are fully written, so a crash or restart mid-GC
+ * leaves a valid repository. What it can leave behind is lock files (packed-refs.lock and the main branch's lock),
+ * which make later saves refuse to run. GC writes a marker file in .git before it starts; a marker still there later
+ * proves those locks were GC's, so {@link #removeInterruptedGcLocks} deletes them and the marker before the next save
+ * or GC. JGit's own "GC running" file, gc.pid, is ignored once it is 12 hours old.
  */
 public final class WorkspaceGc {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceGc.class);
   static final String GC_MARKER = "seqdev-gc-in-progress";
-  // The locks a GC holds that WorkspaceGitService rejects: RefDirectory.pack locks packed-refs (and each loose tag it
-  // deletes, which nothing checks or reads), and gcLocked locks main.
+  // The locks a GC holds that WorkspaceGitService rejects: JGit locks packed-refs while rewriting it (and each loose
+  // tag file it deletes, which nothing checks or reads), and gcLocked locks main.
   private static final List<String> GC_LOCKS = List.of("packed-refs.lock", "refs/heads/" + WorkspaceGitService.BRANCH + ".lock");
 
   private final WorkspaceGitService history;
@@ -87,9 +91,10 @@ public final class WorkspaceGc {
       final var before = gc.getStatistics();
       final var start = System.nanoTime();
       WorkspaceGitService.createMarker(marker(workspace));
-      // Keep main loose. A lock-free read resolves it from packed-refs and then from its loose file, so one that straddled
-      // GC packing main and deleting the loose file would find no HEAD, or a stale one. RefDirectory.pack leaves a ref
-      // it cannot lock loose. Under the marker, so an interrupted GC's lock is recovered with the others.
+      // Keep main's pointer in its own loose file. A read looks for it in packed-refs and then in that file, so a read
+      // that fell between GC copying main into packed-refs and deleting the loose file would find no current commit,
+      // or a stale one. JGit leaves a pointer it cannot lock where it is. Taken after the marker, so an interrupted
+      // GC's lock is recovered with the others.
       final var mainLock = new LockFile(gitDirectory(workspace).resolve(Constants.R_HEADS + WorkspaceGitService.BRANCH).toFile());
       try {
         if (!mainLock.lock()) return false;

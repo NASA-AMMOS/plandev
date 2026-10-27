@@ -125,7 +125,8 @@ public final class WorkspaceRevisions {
    */
   private record FileBlobIds(ObjectId contentBlobId, ObjectId sidecarBlobId) {}
 
-  // ponytail: both caches grow with the paths listed and the tags parsed and are never evicted; entries are small.
+  // TODO: Evict from both caches if their memory ever matters. They grow with the paths listed and the tags parsed and
+  // are never evicted; entries are small.
   /**
    * File ID Cache:
    *
@@ -344,8 +345,8 @@ public final class WorkspaceRevisions {
     try (final var git = Git.open(root.toFile()); final var walk = new RevWalk(git.getRepository())) {
       final var head = git.getRepository().resolve(Constants.HEAD);
       requireOnDiskAsRecorded(root, key, fileBlobIds(walk.getObjectReader(), walk.parseCommit(head).getTree(), key));
-      // ponytail: an uncached walk back to the file's last change, under the lock; cache it if creates on rarely
-      // edited files in long histories get slow.
+      // TODO: Cache this if creating revisions of rarely edited files in long histories gets slow. It walks back,
+      // uncached and under the lock, to the file's last change.
       final var changed = walk.parseCommit(
           git.log().add(head).addPath(key).addPath(sidecarKey(key)).setMaxCount(1).call().iterator().next());
       final var createdBy = (userId == null || userId.isBlank()) ? WorkspaceGitService.systemIdent().getName() : userId;

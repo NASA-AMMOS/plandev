@@ -60,6 +60,7 @@ import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.gitDirectory;
@@ -177,10 +178,12 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    */
   private record CachedLastEdit(ObjectId validAt, LastEdit edit) {}
 
-  // ponytail: one lock per workspace id, never evicted; a few bytes per workspace ever touched by this process.
+  // TODO: Evict idle workspaces' locks if their memory ever matters. There is one per workspace this process has
+  // touched, removed only when the workspace is deleted; a few bytes each.
   private final Map<Workspace, ReentrantLock> locks = new ConcurrentHashMap<>();
   private final Map<Workspace, Map<Path, CachedLastEdit>> lastEditCache = new ConcurrentHashMap<>();
   private final Set<Workspace> configured = ConcurrentHashMap.newKeySet();
+  private volatile Consumer<Workspace> afterMutation = workspace -> {};
   // Each request thread gets its own flag: nested entry on that thread sees true, while unrelated threads still see
   // their own initial false. inLockScope removes the thread's value when the outer operation finishes.
   private final ThreadLocal<Boolean> lockScopeActive = ThreadLocal.withInitial(() -> false);
@@ -272,6 +275,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
         }
       }
       finishMutation(workspaces, null);
+      workspaces.forEach(afterMutation);
       return result;
     } finally {
       wsLocks.reversed().forEach(ReentrantLock::unlock);

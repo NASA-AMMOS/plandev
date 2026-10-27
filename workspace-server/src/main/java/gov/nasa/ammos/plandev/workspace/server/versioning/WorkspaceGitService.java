@@ -714,6 +714,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     cfg.setString("core", null, "excludesFile", "/dev/null");
     cfg.setString("core", null, "attributesFile", "/dev/null");
     cfg.setString("core", null, "hooksPath", "/dev/null");
+    cfg.setString("core", null, "checkstat", "default"); // full-precision file times, whatever a user config says
     cfg.setBoolean("commit", null, "gpgSign", false);
     cfg.setBoolean("tag", null, "gpgSign", false);
     cfg.setString("gpg", null, "format", "openpgp");

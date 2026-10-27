@@ -16,6 +16,7 @@ returns table (
   event_type_name text,
   duration interval,
   start_time timestamp with time zone,
+  end_time timestamp with time zone,
   source_range tstzmultirange,
   valid_at timestamp with time zone,
   attributes jsonb
@@ -32,6 +33,7 @@ as $$
       output.event_type_name,
       output.duration,
       output.start_time,
+      output.end_time,
       output.source_range,
       output.valid_at,
       output.attributes
@@ -44,6 +46,7 @@ as $$
       ee.duration,
       s.derivation_group_name,
       ee.start_time,
+      ee.start_time + ee.duration as end_time,
       s.source_range,
       s.valid_at,
       ee.attributes
@@ -107,6 +110,7 @@ create table merlin.derived_events_next (
   event_type_name text not null,
   duration interval not null,
   start_time timestamp with time zone not null,
+  end_time timestamp with time zone not null,
   source_range tstzmultirange not null,
   valid_at timestamp with time zone not null,
   attributes jsonb not null,
@@ -134,11 +138,22 @@ insert into merlin.derived_events_next (
   event_type_name,
   duration,
   start_time,
+  end_time,
   source_range,
   valid_at,
   attributes
 )
-select computed.*
+select
+  computed.event_key,
+  computed.source_key,
+  computed.derivation_group_name,
+  computed.event_type_name,
+  computed.duration,
+  computed.start_time,
+  computed.end_time,
+  computed.source_range,
+  computed.valid_at,
+  computed.attributes
 from merlin.derivation_group dg
 cross join lateral merlin.compute_derived_events(dg.name) computed;
 
@@ -150,6 +165,9 @@ create index derived_events_event_type_name_index
 
 comment on table merlin.derived_events is e''
   'Caches the final event set for each derivation group. Do not modify directly.';
+
+comment on column merlin.derived_events.end_time is e''
+  'The end of this event, computed as start_time + duration each time the table is refreshed.';
 
 comment on function merlin.compute_derived_events(text) is e''
   'Computes the current derived event set for one derivation group.';
@@ -169,6 +187,7 @@ begin
     event_type_name,
     duration,
     start_time,
+    end_time,
     source_range,
     valid_at,
     attributes
@@ -180,6 +199,7 @@ begin
     d.event_type_name,
     d.duration,
     d.start_time,
+    d.end_time,
     d.source_range,
     d.valid_at,
     d.attributes

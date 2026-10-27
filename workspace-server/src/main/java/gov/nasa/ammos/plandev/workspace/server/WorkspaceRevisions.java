@@ -245,7 +245,14 @@ public final class WorkspaceRevisions {
       var cacheEntry = workspaceFileIdCache.get(pathAtCommit);
       if (cacheEntry != null && cacheEntry.computedAtHead.equals(commit)) {
         // Update the cache with the current head commit so we don't have to search as far next time
-        workspaceFileIdCache.put(key, new CachedFileId(headCommitId, cacheEntry.fileId()));
+        CachedFileId newCacheEntry = new CachedFileId(headCommitId, cacheEntry.fileId());
+        if (cacheEntry.fileId().isPresent()) {
+          // Unconditional put
+          workspaceFileIdCache.put(key, newCacheEntry);
+        } else {
+          // Compare-and-swap
+          workspaceFileIdCache.compute(key, (k, oldCacheEntry) -> oldCacheEntry == initialCacheEntry ? newCacheEntry : oldCacheEntry);
+        }
         return cacheEntry.fileId();
       }
 

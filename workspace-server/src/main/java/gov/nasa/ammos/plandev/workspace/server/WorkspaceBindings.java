@@ -40,7 +40,9 @@ import io.javalin.validation.ValidationException;
 import javax.json.Json;
 import javax.json.JsonArray;
 import javax.json.JsonException;
+import javax.json.JsonObject;
 import javax.json.JsonString;
+import javax.json.JsonValue;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Path;
@@ -1946,7 +1948,8 @@ public class WorkspaceBindings implements Plugin {
   //region Versioning
   /**
    * Create a new revision of the file's current state. Requires If-Match: the file's current ETag, or "*".
-   * An optional JSON body {"message": "..."} describes the revision.
+   * An optional JSON body {"message": "...", "startAtRevision": "..."} describes the revision. "startAtRevision" names the file's first
+   * revision (e.g. "c" to start at c instead of a) and is rejected once the file has revisions.
    *
    * Returns the new revision's name.
    */
@@ -1964,19 +1967,20 @@ public class WorkspaceBindings implements Plugin {
       return;
     }
 
-    final String message;
+    final JsonObject body;
     try {
-      message = context.body().isBlank() ? "" : Json.createReader(new StringReader(context.body())).readObject().getString("message", "");
+      body = context.body().isBlank() ? JsonValue.EMPTY_JSON_OBJECT : Json.createReader(new StringReader(context.body())).readObject();
     } catch (JsonException | ClassCastException e) {
       context.status(400).json(new WorkspaceFormattedError(new MalformedRequest(
-          "Invalid body format. Expected an optional JSON object of the form {\"message\": \"...\"}.")));
+          "Invalid body format. Expected an optional JSON object of the form {\"message\": \"...\", \"startAtRevision\": \"...\"}.")));
       return;
     }
 
-    respond(context, handleCreateRevision(pathInfo.workspaceId, pathInfo.filePath, ifMatch, message, authorize(context).userId()));
+    respond(context, handleCreateRevision(pathInfo.workspaceId, pathInfo.filePath, ifMatch,
+        body.getString("message", ""), body.getString("startAtRevision", null), authorize(context).userId()));
   }
 
-  public HandlerResult handleCreateRevision(int workspaceId, Path filePath, String ifMatch, String message, String userId) {
+  public HandlerResult handleCreateRevision(int workspaceId, Path filePath, String ifMatch, String message, String startAtRevision, String userId) {
     // Runs as a mutation for its lock and trust checks; a revision changes no file, so no commit is made.
     final var workspace = workspaceOrFailure(workspaceId);
     if (workspace.failure() != null) return workspace.failure();
@@ -1984,7 +1988,7 @@ public class WorkspaceBindings implements Plugin {
       try {
         final var failure = checkRevisionTarget(workspace.workspace(), filePath, ifMatch, false);
         if (failure != null) return failure;
-        return new HandlerResult.Success(200, workspaceService.createRevision(workspace.workspace(), filePath, message, userId).name());
+        return new HandlerResult.Success(200, workspaceService.createRevision(workspace.workspace(), filePath, message, userId, startAtRevision).name());
       } catch (WorkspaceFileOpException wfe) {
         return new HandlerResult.Failure(400, new WorkspaceFormattedError(wfe, "Could not create a revision of " + filePath));
       }

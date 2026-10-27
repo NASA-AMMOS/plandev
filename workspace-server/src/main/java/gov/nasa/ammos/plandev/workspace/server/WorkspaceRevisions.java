@@ -1,5 +1,6 @@
 package gov.nasa.ammos.plandev.workspace.server;
 
+import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistoryException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
 import gov.nasa.ammos.plandev.workspace.server.versioning.LastEdit;
@@ -330,17 +331,24 @@ public final class WorkspaceRevisions {
    * which serializes ordinal assignment, and passes the file's last edit at HEAD, which becomes the revision's. The tag
    * goes on the newest commit that changed the file or its sidecar ({@code git log -1 -- <file> <sidecar>}), whose
    * tree holds that same state.
+   *
+   * @param startAtRevision the name to give the file's first revision instead of "a", or null. Only allowed while the file has
+   *                no revisions; later revisions continue from it.
    */
   Revision create(
       final Path root,
       final String key,
       final String message,
       final String userId,
-      final LastEdit lastEdit)
-  throws IOException, GitAPIException
+      final LastEdit lastEdit,
+      final String startAtRevision)
+  throws IOException, GitAPIException, WorkspaceFileOpException
   {
     var mostRecentRevision = getMostRecentRevision(root, key);
-    final var ordinal = mostRecentRevision.map(value -> value.ordinal() + 1).orElse(1);
+    if (startAtRevision != null && mostRecentRevision.isPresent()) {
+      throw new WorkspaceFileOpException("%s already has revisions; startAtRevision is only allowed for its first revision.".formatted(key));
+    }
+    final var ordinal = startAtRevision != null ? ordinal(startAtRevision) : mostRecentRevision.map(value -> value.ordinal() + 1).orElse(1);
     final var fileId = mostRecentRevision.map(Revision::fileId).orElseGet(UUID::randomUUID);
     try (final var git = Git.open(root.toFile()); final var walk = new RevWalk(git.getRepository())) {
       final var head = git.getRepository().resolve(Constants.HEAD);
@@ -425,6 +433,16 @@ public final class WorkspaceRevisions {
     final var name = new StringBuilder();
     for (var n = ordinal; n > 0; n = (n - 1) / 26) name.append((char) ('a' + (n - 1) % 26));
     return name.reverse().toString();
+  }
+
+  /** The inverse of {@link #name}: a -> 1, z -> 26, aa -> 27, ... */
+  public static int ordinal(final String name) throws WorkspaceFileOpException {
+    if (!name.matches("[a-z]{1,6}")) { // "zzzzzz" is the longest name that fits an int ordinal comfortably
+      throw new WorkspaceFileOpException("Invalid revision name \"%s\": expected 1-6 lowercase letters.".formatted(name));
+    }
+    var ordinal = 0;
+    for (final var c : name.toCharArray()) ordinal = ordinal * 26 + (c - 'a' + 1);
+    return ordinal;
   }
 
   static String sidecarKey(final String key) {

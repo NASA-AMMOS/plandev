@@ -1296,6 +1296,29 @@ class WorkspaceGitServiceIntegrationTest {
       assertClean(WS1);
     }
 
+    /** A user or system Git config can set checkstat=minimal, which compares whole seconds; the repository pins it. */
+    @Test
+    void aSameSizeRewriteInTheSameSecondIsCommittedDespiteAnInheritedMinimalCheckstat() throws Exception {
+      bindings.saveAndGetEtag(WS1, fileA, "AAAA");
+      final var file = WS1.rootPath().resolve(fileA);
+      final var second = Instant.ofEpochSecond(Instant.now().getEpochSecond() - 3600);
+      Files.setLastModifiedTime(file, FileTime.from(second.plusMillis(100)));
+      try (final var git = open(WS1)) {
+        git.getRepository().getConfig().setString("core", null, "checkstat", "minimal");
+        git.getRepository().getConfig().save();
+        git.add().addFilepattern(".").call(); // the index records the .100 time
+      }
+      restartServer(); // so the repository is configured again
+
+      history.mutate(WS1, "rewrite", DEFAULT_USER, () -> {
+        Files.writeString(file, "BBBB");
+        Files.setLastModifiedTime(file, FileTime.from(second.plusMillis(600)));
+        return true;
+      }, r -> r);
+
+      assertEquals("BBBB", headBlob(WS1, fileA.toString()));
+    }
+
     private static String headBlob(final Workspace ws, final String path) throws Exception {
       try (final var git = open(ws)) {
         final var repo = git.getRepository();

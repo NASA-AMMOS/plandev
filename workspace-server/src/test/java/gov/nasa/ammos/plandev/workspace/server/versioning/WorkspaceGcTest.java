@@ -352,20 +352,28 @@ class WorkspaceGcTest {
   }
 
   @Test
-  void gcAllCollectsEveryMutatedWorkspaceAndSurvivesAFailure() throws Exception {
+  void eachChangeQueuesAGcCheckAndAFailedOneDoesNotStopLaterOnes() throws Exception {
     makeEligible(WS1);
     makeEligible(WS2);
     final var packDir = git(WS2, "objects/pack");
     Files.createDirectories(packDir);
     setWritable(packDir, false);
+    gc.start();
     try {
-      gc.gcAll();
+      addFiles(WS2, 1);
+      addFiles(WS1, 1);
+      awaitGc();
       assertTrue(packs(WS1) > 0);
     } finally {
       setWritable(packDir, true);
     }
-    gc.gcAll();
+    addFiles(WS2, 1);
+    awaitGc();
     assertTrue(packs(WS2) > 0);
+  }
 
+  /** Wait for every GC check queued so far: the GC thread runs them in order. */
+  private void awaitGc() throws Exception {
+    gc.executor.submit(() -> {}).get(1, TimeUnit.MINUTES);
   }
 }

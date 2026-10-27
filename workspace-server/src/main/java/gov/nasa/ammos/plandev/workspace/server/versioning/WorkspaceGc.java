@@ -13,23 +13,26 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.gitDirectory;
 
 /**
- * Daily Git garbage collection (GC) of workspace repositories.
+ * Git garbage collection (GC) of workspace repositories, on a background thread after each change.
  *
  * Why: Git writes every new version of a file, folder listing, commit and tag as its own small file under .git/objects,
  * and every branch and tag pointer as its own small file under .git/refs. These one-file-each entries are called
  * "loose". Over thousands of saves they pile up and slow reads. GC compresses the objects into a single "pack" file
  * and gathers the tag pointers into a single packed-refs file.
  *
- * When: once a day, for every workspace changed since the server started (only changes create Git objects). JGit's
- * automatic mode does nothing until a workspace has about 6,700 loose objects (gc.auto) or more than 50 pack files
- * (gc.autoPackLimit), so most daily runs are a quick check. Objects nothing refers to are deleted only once they are
- * two weeks old. A workspace that is busy saving is skipped until the next day.
+ * When: after every successful change to a workspace (only changes create Git objects), one workspace at a time; a
+ * workspace already waiting for a check is not queued twice. Most checks do nothing: JGit's automatic mode waits for
+ * about 6,700 loose objects (gc.auto) or more than 50 pack files (gc.autoPackLimit), which is roughly every thousand
+ * saves. Objects nothing refers to are deleted only once they are two weeks old. A workspace that is busy saving is
+ * skipped, and that save queues the next check.
  *
  * Interruptions: GC deletes old files only after their replacements are fully written, so a crash or restart mid-GC
  * leaves a valid repository. What it can leave behind is lock files (packed-refs.lock and the main branch's lock),
@@ -45,29 +48,33 @@ public final class WorkspaceGc {
   private static final List<String> GC_LOCKS = List.of("packed-refs.lock", "refs/heads/" + WorkspaceGitService.BRANCH + ".lock");
 
   private final WorkspaceGitService history;
+  private final Set<Workspace> queued = ConcurrentHashMap.newKeySet();
+  final ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
+    final var thread = new Thread(r, "workspace-gc");
+    thread.setDaemon(true);
+    return thread;
+  });
 
   public WorkspaceGc(final WorkspaceGitService history) {
     this.history = history;
   }
 
-  /** Start the daily cycle on its own daemon thread. */
+  /** Check each workspace for GC after every change to it. */
   public void start() {
-    final var executor = Executors.newSingleThreadScheduledExecutor(r -> {
-      final var thread = new Thread(r, "workspace-gc");
-      thread.setDaemon(true);
-      return thread;
-    });
-    executor.scheduleWithFixedDelay(this::gcAll, 1, 24, TimeUnit.HOURS);
+    history.onMutation(this::queue);
   }
 
-  void gcAll() {
-    for (final var workspace : history.workspacesMutatedSinceStartup()) {
+  /** Queue a GC check of a workspace, unless one is already waiting. Returns immediately. */
+  void queue(final Workspace workspace) {
+    if (!queued.add(workspace)) return;
+    executor.execute(() -> {
+      queued.remove(workspace); // a change from here on queues another check
       try {
         gcIfIdle(workspace);
-      } catch (Throwable t) { // a throw out of a scheduled task cancels every later run
-        logger.error("Git GC of workspace {} failed; retrying next cycle", workspace.id(), t);
+      } catch (Throwable t) {
+        logger.error("Git GC of workspace {} failed; its next change retries", workspace.id(), t);
       }
-    }
+    });
   }
 
   /** GC one workspace if it is idle, trusted and eligible. */
@@ -87,8 +94,10 @@ public final class WorkspaceGc {
     }
     try (final var repo = WorkspaceGitService.open(workspace).getRepository()) {
       final var gc = new GC((FileRepository) repo);
+      // TODO: Also GC by loose-object size if workspace disk use shows it matters. Automatic mode counts objects, not
+      // bytes, so a large file saved many times keeps each version as a full compressed copy until the count is reached
+      // (50 saves of a 5 MB sequence: 73 MB loose, 1.5 MB packed).
       gc.setAuto(true);
-      final var before = gc.getStatistics();
       final var start = System.nanoTime();
       WorkspaceGitService.createMarker(marker(workspace));
       // Keep main's pointer in its own loose file. A read looks for it in packed-refs and then in that file, so a read
@@ -103,8 +112,8 @@ public final class WorkspaceGc {
         mainLock.unlock();
         removeInterruptedGcLocks(workspace);
       }
-      logger.info("Git GC of workspace {} took {} ms. Before: {}. After: {}",
-                  workspace.id(), (System.nanoTime() - start) / 1_000_000, before, gc.getStatistics());
+      logger.info("Git GC of workspace {} took {} ms: {}",
+                  workspace.id(), (System.nanoTime() - start) / 1_000_000, gc.getStatistics());
       return true;
     }
   }

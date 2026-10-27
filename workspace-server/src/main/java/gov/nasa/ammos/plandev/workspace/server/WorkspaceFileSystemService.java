@@ -995,13 +995,14 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       final Workspace workspace,
       final Path filePath,
       final String message,
-      final String userId)
+      final String userId,
+      final String startAtRevision)
   throws NoSuchFileException, WorkspaceFileOpException, IOException, GitAPIException
   {
     gitService.requireLocked(workspace);
     final var root = workspace.rootPath();
     final var key = revisionKey(workspace, filePath);
-    return revisions.create(root, key, message, userId, gitService.lastEdit(workspace, root.resolve(key)));
+    return revisions.create(root, key, message, userId, gitService.lastEdit(workspace, root.resolve(key)), startAtRevision);
   }
 
   @Override

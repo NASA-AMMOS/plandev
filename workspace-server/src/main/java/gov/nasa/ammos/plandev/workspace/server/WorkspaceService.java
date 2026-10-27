@@ -359,11 +359,12 @@ public interface WorkspaceService {
 
   /**
    * Record the file's committed state as its next revision. Makes no commit. Caller holds the workspace lock.
+   * @param startAtRevision the name for the file's first revision instead of "a", or null
    * @return the new revision
    * @throws NoSuchFileException If the file does not exist
    * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory
    */
-  WorkspaceRevisions.Revision createRevision(final Workspace workspace, final Path filePath, final String message, final String userId)
+  WorkspaceRevisions.Revision createRevision(final Workspace workspace, final Path filePath, final String message, final String userId, final String startAtRevision)
   throws NoSuchFileException, WorkspaceFileOpException, IOException, GitAPIException;
 
   /**

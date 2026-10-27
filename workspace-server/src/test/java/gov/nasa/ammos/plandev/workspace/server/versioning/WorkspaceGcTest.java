@@ -140,13 +140,13 @@ class WorkspaceGcTest {
   void anEligibleRepositoryIsPackedAndKeepsItsHistoryAndRevisions() throws Exception {
     makeEligible(WS1);
     bindings.saveAndGetEtag(WS1, fileA, "v1");
-    assertInstanceOf(HandlerResult.Success.class, bindings.handleCreateRevision(WS1.id(), fileA, "*", "", DEFAULT_USER));
+    assertInstanceOf(HandlerResult.Success.class, bindings.handleCreateRevision(WS1.id(), fileA, "*", "", null, DEFAULT_USER));
     final var before = log(WS1);
 
     assertTrue(gc.gcIfIdle(WS1));
     assertFalse(gc.gcIfIdle(WS1), "packed, so no longer eligible");
     assertCollectedAndUsable(WS1, before);
-    assertInstanceOf(HandlerResult.Success.class, bindings.handleCreateRevision(WS1.id(), fileA, "*", "", DEFAULT_USER));
+    assertInstanceOf(HandlerResult.Success.class, bindings.handleCreateRevision(WS1.id(), fileA, "*", "", null, DEFAULT_USER));
     assertEquals(List.of("b", "a"), fs.listRevisions(WS1, fileA).stream().map(r -> r.name()).toList());
   }
 
@@ -208,7 +208,7 @@ class WorkspaceGcTest {
     makeEligible(WS1);
     for (final var content : List.of("v1", "v2")) {
       bindings.saveAndGetEtag(WS1, fileA, content);
-      assertInstanceOf(HandlerResult.Success.class, bindings.handleCreateRevision(WS1.id(), fileA, "*", "", DEFAULT_USER));
+      assertInstanceOf(HandlerResult.Success.class, bindings.handleCreateRevision(WS1.id(), fileA, "*", "", null, DEFAULT_USER));
     }
     final var all = Set.of(WS1.rootPath().resolve(fileA), WS1.rootPath().resolve("f0.txt"));
     final var expectedList = fs.listRevisions(WS1, fileA);

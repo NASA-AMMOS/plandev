@@ -103,7 +103,7 @@ class WorkspaceRevisionsScaleTest {
     time("lastEdits all cold", 10000, () -> new WorkspaceGitService().lastEdits(WS, all));
     time("save other + lastEdits all", 10000, () -> { save(git, root, OTHER); git.lastEdits(WS, all); });
     time("create", 1000, () -> assertInstanceOf(HandlerResult.Success.class,
-        bindings.handleCreateRevision(WS.id(), TARGET, "*", "", "bench")));
+        bindings.handleCreateRevision(WS.id(), TARGET, "*", "", null, "bench")));
     time("restore oldest", 1000, () -> assertInstanceOf(HandlerResult.Success.class,
         bindings.handleRestoreRevision(WS.id(), TARGET, oldest, "*", "bench")));
 
@@ -125,7 +125,7 @@ class WorkspaceRevisionsScaleTest {
     time("read oldest cold after gc", 2000, () -> new WorkspaceFileSystemService(repository, git).readRevision(WS, TARGET, oldest));
     final var count = fs.listRevisions(WS, TARGET).size();
     time("create after gc", 1000, () -> assertInstanceOf(HandlerResult.Success.class, // a loose tag among packed ones
-        bindings.handleCreateRevision(WS.id(), TARGET, "*", "", "bench")));
+        bindings.handleCreateRevision(WS.id(), TARGET, "*", "", null, "bench")));
     assertEquals(count + 4, new WorkspaceFileSystemService(repository, git).listRevisions(WS, TARGET).size()); // time runs 4
   }
 

@@ -1253,7 +1253,7 @@ class WorkspaceGitServiceIntegrationTest {
       assertEquals("AAAA", headBlob(WS1, "a.txt"), "not swept into an unrelated user's commit");
       assertEquals(Set.of("b.txt"), headDiff(WS1).stream().map(DiffEntry::getNewPath).collect(Collectors.toSet()));
 
-      final var refused = bindings.handleCreateRevision(WS1.id(), fileA, "*", "", DEFAULT_USER);
+      final var refused = bindings.handleCreateRevision(WS1.id(), fileA, "*", "", null, DEFAULT_USER);
       assertFailure(refused, 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
       assertTrue(refused.jsonResponse().toString().contains("a.txt was changed outside PlanDev"), refused.jsonResponse()::toString);
       assertEquals("BBBB", Files.readString(file), "the refused mutation's rollback leaves the file as found");
@@ -1261,7 +1261,7 @@ class WorkspaceGitServiceIntegrationTest {
 
       bindings.saveAndGetEtag(WS1, fileA, Files.readString(file)); // saving what the user sees records it
       assertEquals("BBBB", headBlob(WS1, "a.txt"));
-      assertInstanceOf(HandlerResult.Success.class, bindings.handleCreateRevision(WS1.id(), fileA, "*", "", DEFAULT_USER));
+      assertInstanceOf(HandlerResult.Success.class, bindings.handleCreateRevision(WS1.id(), fileA, "*", "", null, DEFAULT_USER));
       assertEquals("BBBB", new String(fs.readRevision(WS1, fileA, "a").orElseThrow().content(), StandardCharsets.UTF_8));
       assertClean(WS1);
     }
@@ -1904,7 +1904,7 @@ class WorkspaceGitServiceIntegrationTest {
   @Nested
   class Revisions {
     private String revise(final String path, final String message) {
-      final var result = bindings.handleCreateRevision(WS1.id(), Path.of(path), "*", message, DEFAULT_USER);
+      final var result = bindings.handleCreateRevision(WS1.id(), Path.of(path), "*", message, null, DEFAULT_USER);
       assertSuccess(result);
       return ((HandlerResult.Success) result).response();
     }
@@ -1921,9 +1921,28 @@ class WorkspaceGitServiceIntegrationTest {
     }
 
     @Test
-    void namesAreBijectiveBase26() {
+    void namesAreBijectiveBase26() throws Exception {
       assertEquals(List.of("a", "z", "aa", "az", "ba", "zz", "aaa"),
                    java.util.stream.IntStream.of(1, 26, 27, 52, 53, 702, 703).mapToObj(WorkspaceRevisions::name).toList());
+      for (final var ordinal : List.of(1, 26, 27, 52, 53, 702, 703, 321272406)) {
+        assertEquals(ordinal, WorkspaceRevisions.ordinal(WorkspaceRevisions.name(ordinal)));
+      }
+    }
+
+    @Test
+    void startAtRevisionNamesTheFirstRevisionOnly() throws Exception {
+      bindings.saveAndGetEtag(WS1, "a.txt", "v1");
+      assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of("a.txt"), "*", "", "A", DEFAULT_USER), 400, null);
+      assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of("a.txt"), "*", "", "", DEFAULT_USER), 400, null);
+      assertEquals(List.of(), names("a.txt"));
+
+      final var first = bindings.handleCreateRevision(WS1.id(), Path.of("a.txt"), "*", "", "az", DEFAULT_USER);
+      assertSuccess(first);
+      assertEquals("az", ((HandlerResult.Success) first).response());
+      assertEquals("ba", revise("a.txt", ""));
+      assertEquals(List.of("ba", "az"), names("a.txt"));
+      assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of("a.txt"), "*", "", "zz", DEFAULT_USER), 400, null);
+      assertEquals(List.of("ba", "az"), names("a.txt"));
     }
 
     @Test
@@ -1993,12 +2012,12 @@ class WorkspaceGitServiceIntegrationTest {
       bindings.saveAndGetEtag(WS1, "a.txt", "v2");
       final var commits = log(WS1).size();
 
-      assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of("a.txt"), etag, "", DEFAULT_USER), 412, null);
+      assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of("a.txt"), etag, "", null, DEFAULT_USER), 412, null);
       assertFailure(bindings.handleRestoreRevision(WS1.id(), Path.of("a.txt"), "a", etag, DEFAULT_USER), 412, null);
       assertFailure(bindings.handleRestoreRevision(WS1.id(), Path.of("a.txt"), "zz", "*", DEFAULT_USER), 404, "NO_SUCH_REVISION");
-      assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of("gone.txt"), etag, "", DEFAULT_USER), 412, null);
-      assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of("gone.txt"), "*", "", DEFAULT_USER), 404, null);
-      assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of(".a.txt.meta.seqdev"), "*", "", DEFAULT_USER), 400, null);
+      assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of("gone.txt"), etag, "", null, DEFAULT_USER), 412, null);
+      assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of("gone.txt"), "*", "", null, DEFAULT_USER), 404, null);
+      assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of(".a.txt.meta.seqdev"), "*", "", null, DEFAULT_USER), 400, null);
       assertEquals("v2", bindings.readFile(WS1, "a.txt"));
       assertEquals(List.of("a"), names("a.txt"));
       assertEquals(commits, log(WS1).size());

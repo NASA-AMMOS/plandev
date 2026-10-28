@@ -398,7 +398,7 @@ public final class WorkspaceRevisions {
     }
   }
 
-  private Optional<Revision> getMostRecentRevision(Path root, String key) throws IOException {
+  Optional<Revision> getMostRecentRevision(Path root, String key) throws IOException {
     final var existing = list(root, key);
     return existing.isEmpty() ? Optional.empty() : Optional.of(existing.getFirst());
   }

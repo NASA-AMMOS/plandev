@@ -376,6 +376,14 @@ public interface WorkspaceService {
   throws NoSuchFileException, WorkspaceFileOpException, IOException;
 
   /**
+   * Get the most recent revision of a file (see {@link WorkspaceRevisions}).
+   * @throws IOException If the file does not exist
+   * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory
+   */
+  Optional<WorkspaceRevisions.Revision> getMostRecentRevision(final Workspace workspace, final Path filePath)
+  throws NoSuchFileException, WorkspaceFileOpException, IOException;
+
+  /**
    * The newest of the file's revisions whose content and metadata equal the file's saved state, or empty if none does.
    *
    * @param revisions the file's revisions, as returned by {@link #listRevisions}

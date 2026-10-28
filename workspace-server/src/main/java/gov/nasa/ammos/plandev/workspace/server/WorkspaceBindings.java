@@ -605,7 +605,7 @@ public class WorkspaceBindings implements Plugin {
     logger.info(
       "Attempting to {}: {} to {} (from WS: {}, to WS: {}, overwrite: {}, user: {})",
       body.action(),
-      pathInfo.filePath(), 
+      pathInfo.filePath(),
       body.destinationPath(),
       sourceWorkspace,
       body.destinationWorkspaceId(),
@@ -2025,9 +2025,22 @@ public class WorkspaceBindings implements Plugin {
         return;
       }
 
-      final var historical = workspaceService.readRevision(workspaceService.getWorkspace(pathInfo.workspaceId), pathInfo.filePath, revision);
+      // Find and return the latest revision if requested
+      String effectiveRevision = revision;
+      if (revision == "latest") {
+        final var mostRecentRevision = workspaceService.getMostRecentRevision(workspaceService.getWorkspace(pathInfo.workspaceId), pathInfo.filePath);
+        if (mostRecentRevision.isPresent()) {
+          effectiveRevision = mostRecentRevision.get().name();
+        } else {
+          context.status(404).json(noSuchRevision(pathInfo.filePath, revision));
+          return;
+        }
+      }
+
+      // Otherwise, we read the historical revision.
+      final var historical = workspaceService.readRevision(workspaceService.getWorkspace(pathInfo.workspaceId), pathInfo.filePath, effectiveRevision);
       if (historical.isEmpty()) {
-        context.status(404).json(noSuchRevision(pathInfo.filePath, revision));
+        context.status(404).json(noSuchRevision(pathInfo.filePath, effectiveRevision));
         return;
       }
       // No ETag: this is not the file's current content, so it must never be sent back as If-Match.

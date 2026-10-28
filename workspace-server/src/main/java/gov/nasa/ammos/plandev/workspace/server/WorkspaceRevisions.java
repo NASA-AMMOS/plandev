@@ -97,8 +97,7 @@ public final class WorkspaceRevisions {
                            .add("pathAtRevision", path)
                            .add("message", message)
                            .add("createdAt", createdAt.toString())
-                           .add("createdBy", createdBy)
-                           .add("fileId", fileId.toString());
+                           .add("createdBy", createdBy);
       if (lastEdit == null || lastEdit.baseline()) {
         json.addNull("lastEditedBy").addNull("lastEditedAt");
       } else {

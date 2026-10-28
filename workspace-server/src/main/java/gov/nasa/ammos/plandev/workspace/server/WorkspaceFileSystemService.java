@@ -1014,6 +1014,15 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
+  public Optional<WorkspaceRevisions.Revision> getMostRecentRevision(
+      final Workspace workspace,
+      final Path filePath)
+  throws NoSuchFileException, WorkspaceFileOpException, IOException {
+    return revisions.getMostRecentRevision(
+        workspace.rootPath(), revisionKey(workspace, filePath));
+  }
+
+  @Override
   public Optional<WorkspaceRevisions.Revision> matchingRevision(
       final Workspace workspace, final Path filePath, final List<WorkspaceRevisions.Revision> revisionList)
   throws NoSuchFileException, WorkspaceFileOpException, IOException

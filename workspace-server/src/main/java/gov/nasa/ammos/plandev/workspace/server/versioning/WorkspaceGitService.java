@@ -25,6 +25,7 @@ import org.eclipse.jgit.treewalk.EmptyTreeIterator;
 import org.eclipse.jgit.treewalk.filter.AndTreeFilter;
 import org.eclipse.jgit.treewalk.filter.PathFilterGroup;
 import org.eclipse.jgit.treewalk.filter.TreeFilter;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,7 +48,6 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -61,11 +61,13 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 
 import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.gitDirectory;
 import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.internalDirectory;
 import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.toGitPath;
+import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.toWorkspaceRelativeGitPath;
+import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.validatePath;
+import static gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistoryException.inconsistent;
 
 /**
  * The single owner of workspace mutations and of the Git history that records them.
@@ -840,10 +842,12 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   private static void requireNoGitLocks(final Workspace workspace) {
     final var locks = existingGitLocks(workspace);
     if (locks.isEmpty()) return;
-    final var gitDir = gitDirectory(workspace);
-    final var names = locks.stream().map(path -> WorkspacePaths.GIT_DIR + "/" + WorkspacePaths.key(gitDir, path)).toList();
-    throw inconsistent("Workspace %d has Git lock files %s without a PlanDev recovery marker; they were left untouched."
-                           .formatted(workspace.id(), names));
+
+    final String errorMessage =
+        "Workspace %d has the following Git lock files without a SeqDev recovery marker:\n\t".formatted(workspace.id())
+        + String.join(", ", locks.stream().map(p -> toWorkspaceRelativeGitPath(workspace, p)).toList())
+        + "\nThese files have been left untouched.";
+    throw inconsistent(errorMessage);
   }
 
   private void removeStaleConfigLock(final Workspace workspace) throws IOException {
@@ -876,22 +880,22 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     final var root = workspace.rootPath();
     Files.walkFileTree(root, new SimpleFileVisitor<>() {
       @Override
-      public FileVisitResult preVisitDirectory(final Path dir, final BasicFileAttributes attrs) {
+      public @NotNull FileVisitResult preVisitDirectory(final @NotNull Path dir, final @NotNull BasicFileAttributes attrs) {
         if (dir.equals(root)) return FileVisitResult.CONTINUE;
         final var name = dir.getFileName().toString();
         if (dir.getParent().equals(root) && (name.equals(WorkspacePaths.GIT_DIR) || name.equals(WorkspacePaths.INTERNAL_DIR))) {
           return FileVisitResult.SKIP_SUBTREE;
         }
-        if (WorkspacePaths.filenameIsReserved(Path.of(name))) issuesFound.add(WorkspacePaths.key(root, dir));
+        if (WorkspacePaths.filenameIsReserved(Path.of(name))) issuesFound.add(toWorkspaceRelativeGitPath(workspace, dir));
         return FileVisitResult.CONTINUE;
       }
 
       @Override
-      public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) {
+      public @NotNull FileVisitResult visitFile(final @NotNull Path file, final @NotNull BasicFileAttributes attrs) {
         if (attrs.isSymbolicLink()) {
-          issuesFound.add(WorkspacePaths.key(root, file) + " (symbolic link)");
+          issuesFound.add(toWorkspaceRelativeGitPath(workspace, file) + " (symbolic link)");
         } else if (WorkspacePaths.filenameIsReserved(file)) {
-          issuesFound.add(WorkspacePaths.key(root, file));
+          issuesFound.add(toWorkspaceRelativeGitPath(workspace, file));
         }
         return FileVisitResult.CONTINUE;
       }

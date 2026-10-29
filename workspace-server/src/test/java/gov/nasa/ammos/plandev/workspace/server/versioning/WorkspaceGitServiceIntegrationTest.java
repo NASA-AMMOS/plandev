@@ -1668,7 +1668,7 @@ class WorkspaceGitServiceIntegrationTest {
       Files.createSymbolicLink(WS1.rootPath().resolve("toOutside"), outside.rootPath());
       Files.createSymbolicLink(WS1.rootPath().resolve("toInside"), Path.of("d"));
       final var listed = WorkspacePaths.walk(WS1.rootPath(), Integer.MAX_VALUE).stream()
-                                       .map(p -> WorkspacePaths.key(WS1.rootPath(), p)).toList();
+                                       .map(p -> WorkspacePaths.toWorkspaceRelativeGitPath(WS1, p)).toList();
       assertEquals(List.of("d", fileX.toString()), listed.stream().sorted().toList());
     }
   }

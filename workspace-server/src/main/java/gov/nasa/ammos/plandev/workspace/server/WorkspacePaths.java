@@ -202,9 +202,9 @@ public final class WorkspacePaths {
   //endregion
 
   // region Git Helpers
-  /** A workspace-relative Git path key.  */
-  public static String key(final Path root, final Path absolutePath) {
-    return toGitPath(root.normalize().relativize(absolutePath.normalize()));
+  /** Returns a workspace-relative Git-formatted Path.  */
+  public static String toWorkspaceRelativeGitPath(final Workspace workspace, final Path absolutePath) {
+    return toGitPath(workspace.rootPath().relativize(absolutePath.normalize()));
   }
 
   /**

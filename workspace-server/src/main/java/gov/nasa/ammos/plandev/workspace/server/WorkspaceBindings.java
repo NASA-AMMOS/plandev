@@ -51,6 +51,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -1976,8 +1977,9 @@ public class WorkspaceBindings implements Plugin {
       return;
     }
 
+    final var startAtRevision = body.getString("startAtRevision", null);
     respond(context, handleCreateRevision(pathInfo.workspaceId, pathInfo.filePath, ifMatch,
-        body.getString("message", ""), body.getString("startAtRevision", null), authorize(context).userId()));
+        body.getString("message", ""), startAtRevision == null ? null : startAtRevision.toLowerCase(Locale.ROOT), authorize(context).userId()));
   }
 
   public HandlerResult handleCreateRevision(int workspaceId, Path filePath, String ifMatch, String message, String startAtRevision, String userId) {

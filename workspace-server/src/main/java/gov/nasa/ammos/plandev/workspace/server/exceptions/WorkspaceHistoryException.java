@@ -29,4 +29,8 @@ public class WorkspaceHistoryException extends RuntimeException {
     super(message);
     this.kind = kind;
   }
+
+  public static WorkspaceHistoryException inconsistent(final String message) {
+    return new WorkspaceHistoryException(WorkspaceHistoryException.Kind.REPOSITORY_INCONSISTENT, message, null);
+  }
 }

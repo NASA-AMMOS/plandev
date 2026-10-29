@@ -659,8 +659,13 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   }
 
   /**
-   * PlanDev uses a deliberately small subset of Git: one branch, always checked out, no merges or other multi-step
-   * operations. Refuse to touch a repository outside that subset rather than switching branches or aborting anything.
+   * Ensure the following properties about the repository:
+   *   - it is currently in a SAFE state (it's not currently merging, rebasing, cherry-picking, etc.)
+   *   - it is not in "detached HEAD" mode (from, ie, checking out a tag
+   *   - it is on the "main" branch
+   * @param repo The repository to be checked out.
+   * @param allowUnborn Whether the HEAD is allowed to point to a branch that does not exist and has no commits.
+   *    Should only be set `true` in the `adopt` method. At all other times the branch should not be "unborn"
    */
   private static void requireExpectedGitState(final Repository repo, final boolean allowUnborn) throws IOException {
     final var root = repo.getWorkTree();
@@ -726,13 +731,13 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     // uses File.isDirectory(), which could follow a link in a damaged .git directory and delete outside it.
     Files.walkFileTree(gitDir, new SimpleFileVisitor<>() {
       @Override
-      public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
+      public @NotNull FileVisitResult visitFile(final @NotNull Path file, final @NotNull BasicFileAttributes attrs) throws IOException {
         Files.delete(file);
         return FileVisitResult.CONTINUE;
       }
 
       @Override
-      public FileVisitResult postVisitDirectory(final Path directory, final IOException error) throws IOException {
+      public @NotNull FileVisitResult postVisitDirectory(final @NotNull Path directory, final IOException error) throws IOException {
         if (error != null) throw error;
         Files.delete(directory);
         return FileVisitResult.CONTINUE;
@@ -952,7 +957,9 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
 
   /** Runs git add -A. Returns whether anything is staged relative to HEAD. */
   private static boolean stageAll(final Git git) throws GitAPIException {
+    // Stage all files in the repo including new files, excluding deleted files
     git.add().addFilepattern(".").call();
+    // Stage all changed files, including deleted files, excluding new files
     git.add().addFilepattern(".").setUpdate(true).call();
     final var status = git.status().call();
     return !(status.getAdded().isEmpty() && status.getChanged().isEmpty() && status.getRemoved().isEmpty());

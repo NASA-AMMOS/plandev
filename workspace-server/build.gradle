@@ -45,6 +45,8 @@ dependencies {
 
 test {
     useJUnitPlatform()
+    // The scale tests read these, so a run with a different scale must not be skipped as up to date.
+    inputs.property('scale', System.getenv('SCALE') ?: '1')
 }
 
 jacocoTestReport {

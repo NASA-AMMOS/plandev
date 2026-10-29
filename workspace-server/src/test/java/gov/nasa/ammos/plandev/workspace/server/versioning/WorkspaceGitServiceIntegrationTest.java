@@ -35,6 +35,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -42,6 +43,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
@@ -51,6 +53,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.resolveReadingPath;
 import static gov.nasa.ammos.plandev.workspace.server.utils.FlakyHistory.assertClean;
@@ -995,6 +999,35 @@ class WorkspaceGitServiceIntegrationTest {
       Files.writeString(WS1.rootPath().resolve(fileB), "legacy B");
     }
 
+    /**
+     * A repository native Git committed under autocrlf stores LF blobs for CRLF files, and its index matches the files'
+     * size and time. Adoption must record the bytes on disk, which only re-hashing (renormalizing) every file finds.
+     */
+    @Test
+    void adoptionRecordsTheBytesOnDiskWhenTheIndexWasWrittenUnderAutocrlf() throws Exception {
+      final var crlf = "line one\r\nline two\r\n";
+      try (final var git = Git.init().setDirectory(WS1.rootPath().toFile()).setInitialBranch("main").call()) {
+        git.getRepository().getConfig().setBoolean("core", null, "autocrlf", true);
+        git.getRepository().getConfig().save();
+        Files.writeString(WS1.rootPath().resolve(fileA), crlf);
+        git.add().addFilepattern(".").call();
+        git.commit().setMessage("native").setSign(false).call();
+        assertTrue(git.status().call().isClean());
+      }
+      try (final var git = open(WS1)) {
+        final var blob = git.getRepository().resolve("HEAD:" + fileA);
+        assertEquals("line one\nline two\n", new String(git.getRepository().open(blob).getBytes(), StandardCharsets.UTF_8));
+      }
+
+      bindings.saveAndGetEtag(WS1, fileB, "adopts the repository");
+
+      try (final var git = open(WS1)) {
+        final var blob = git.getRepository().resolve("HEAD:" + fileA);
+        assertEquals(crlf, new String(git.getRepository().open(blob).getBytes(), StandardCharsets.UTF_8));
+      }
+      assertClean(WS1);
+    }
+
     @Test
     void aWorkspaceWithoutGitIsInitializedOnItsFirstMutation() throws Exception {
       writeLegacyWorkspace();
@@ -1192,6 +1225,104 @@ class WorkspaceGitServiceIntegrationTest {
     void initWs() {
       for (final var path : List.of(fileA, fileB, goneFile, fileX)) {
         bindings.saveAndGetEtag(WS1, path, "v1");
+      }
+    }
+
+    /**
+     * An out-of-band rewrite that keeps the size, mode and the time the index recorded (cp -p, rsync -t, an extracted
+     * archive) is invisible to Git's stat-based status and to staging, as in native Git: history keeps the old bytes
+     * until the file is next saved. A revision must not record those old bytes as what the user sees, so it is refused.
+     */
+    @Test
+    void aRewriteThatKeepsSizeAndTimeIsNotRecordedAndBlocksRevisionsUntilSaved() throws Exception {
+      final var file = WS1.rootPath().resolve(fileA);
+      bindings.saveAndGetEtag(WS1, fileA, "AAAA");
+      final var saved = FileTime.from(Instant.now().minus(Duration.ofHours(1)));
+      Files.setLastModifiedTime(file, saved);
+      try (final var git = open(WS1)) {
+        git.add().addFilepattern(fileA.toString()).call(); // the index records that time, as after an older save
+      }
+      Files.writeString(file, "BBBB");
+      Files.setLastModifiedTime(file, saved);
+      try (final var git = open(WS1)) {
+        assertTrue(git.status().call().isClean(), "Git's stat check cannot see it");
+      }
+
+      bindings.saveAndGetEtag(WS1, fileB, "unrelated");
+      assertEquals("BBBB", Files.readString(file));
+      assertEquals("AAAA", headBlob(WS1, "a.txt"), "not swept into an unrelated user's commit");
+      assertEquals(Set.of("b.txt"), headDiff(WS1).stream().map(DiffEntry::getNewPath).collect(Collectors.toSet()));
+
+      final var refused = bindings.handleCreateRevision(WS1.id(), fileA, "*", "", null, DEFAULT_USER);
+      assertFailure(refused, 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
+      assertTrue(refused.jsonResponse().toString().contains("a.txt was changed outside PlanDev"), refused.jsonResponse()::toString);
+      assertEquals("BBBB", Files.readString(file), "the refused mutation's rollback leaves the file as found");
+      assertEquals(List.of(), fs.listRevisions(WS1, fileA));
+
+      bindings.saveAndGetEtag(WS1, fileA, Files.readString(file)); // saving what the user sees records it
+      assertEquals("BBBB", headBlob(WS1, "a.txt"));
+      assertInstanceOf(HandlerResult.Success.class, bindings.handleCreateRevision(WS1.id(), fileA, "*", "", null, DEFAULT_USER));
+      assertEquals("BBBB", new String(fs.readRevision(WS1, fileA, "a").orElseThrow().content(), StandardCharsets.UTF_8));
+      assertClean(WS1);
+    }
+
+    /**
+     * Copy keeps the source's time (COPY_ATTRIBUTES, for the executable bit) and move keeps it too, so an overwrite can
+     * leave the destination with the size and time the index recorded for its old bytes. The change must still be
+     * committed.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void anOverwriteWithTheSameSizeAndTimeIsCommitted(final boolean move) throws Exception {
+      bindings.saveAndGetEtag(WS1, fileA, "AAAA");
+      bindings.saveAndGetEtag(WS1, fileB, "BBBB");
+      final var time = FileTime.from(Instant.now().minus(Duration.ofHours(1)));
+      for (final var path : List.of("a.txt", "b.txt", ".a.txt.meta.seqdev", ".b.txt.meta.seqdev")) {
+        Files.setLastModifiedTime(WS1.rootPath().resolve(path), time);
+      }
+      try (final var git = open(WS1)) {
+        git.add().addFilepattern(".").call(); // the index records both at that time, as after saves on a coarse clock
+      }
+
+      final var result = move
+          ? bindings.handleMove(fileA, fileB, WS1, WS1, true)
+          : bindings.handleCopy(fileA, fileB, WS1, WS1, true);
+      assertInstanceOf(HandlerResult.Success.class, result, () -> result.jsonResponse().toString());
+
+      assertEquals("AAAA", Files.readString(WS1.rootPath().resolve(fileB)));
+      assertEquals("AAAA", headBlob(WS1, fileB.toString()));
+      final var sidecar = ".b.txt.meta.seqdev";
+      assertEquals(Files.readString(WS1.rootPath().resolve(sidecar)), headBlob(WS1, sidecar));
+      assertClean(WS1);
+    }
+
+    /** A user or system Git config can set checkstat=minimal, which compares whole seconds; the repository pins it. */
+    @Test
+    void aSameSizeRewriteInTheSameSecondIsCommittedDespiteAnInheritedMinimalCheckstat() throws Exception {
+      bindings.saveAndGetEtag(WS1, fileA, "AAAA");
+      final var file = WS1.rootPath().resolve(fileA);
+      final var second = Instant.ofEpochSecond(Instant.now().getEpochSecond() - 3600);
+      Files.setLastModifiedTime(file, FileTime.from(second.plusMillis(100)));
+      try (final var git = open(WS1)) {
+        git.getRepository().getConfig().setString("core", null, "checkstat", "minimal");
+        git.getRepository().getConfig().save();
+        git.add().addFilepattern(".").call(); // the index records the .100 time
+      }
+      restartServer(); // so the repository is configured again
+
+      history.mutate(WS1, "rewrite", DEFAULT_USER, () -> {
+        Files.writeString(file, "BBBB");
+        Files.setLastModifiedTime(file, FileTime.from(second.plusMillis(600)));
+        return true;
+      }, r -> r);
+
+      assertEquals("BBBB", headBlob(WS1, fileA.toString()));
+    }
+
+    private static String headBlob(final Workspace ws, final String path) throws Exception {
+      try (final var git = open(ws)) {
+        final var repo = git.getRepository();
+        return new String(repo.open(repo.resolve("HEAD:" + path)).getBytes(), StandardCharsets.UTF_8);
       }
     }
 
@@ -1768,5 +1899,200 @@ class WorkspaceGitServiceIntegrationTest {
                                                                    DEFAULT_USER,
                                                                    () -> fs.moveDirectory(WS1, Path.of("a"), WS2, Path.of("b")), r -> true));
     assertFalse(Files.exists(WS1.rootPath().resolve("x")));
+  }
+
+  @Nested
+  class Revisions {
+    private String revise(final String path, final String message) {
+      final var result = bindings.handleCreateRevision(WS1.id(), Path.of(path), "*", message, null, DEFAULT_USER);
+      assertSuccess(result);
+      return ((HandlerResult.Success) result).response();
+    }
+
+    /** Also checks the cached listing against one computed from scratch. */
+    private List<String> names(final String path) throws Exception {
+      final var warm = fs.listRevisions(WS1, Path.of(path));
+      assertEquals(new WorkspaceFileSystemService(wsRepo, history).listRevisions(WS1, Path.of(path)), warm);
+      return warm.stream().map(WorkspaceRevisions.Revision::name).toList();
+    }
+
+    private String contentAt(final String path, final String name) throws Exception {
+      return new String(fs.readRevision(WS1, Path.of(path), name).orElseThrow().content(), StandardCharsets.UTF_8);
+    }
+
+    @Test
+    void namesAreBijectiveBase26() throws Exception {
+      assertEquals(List.of("a", "z", "aa", "az", "ba", "zz", "aaa"),
+                   java.util.stream.IntStream.of(1, 26, 27, 52, 53, 702, 703).mapToObj(WorkspaceRevisions::name).toList());
+      for (final var ordinal : List.of(1, 26, 27, 52, 53, 702, 703, 321272406)) {
+        assertEquals(ordinal, WorkspaceRevisions.ordinal(WorkspaceRevisions.name(ordinal)));
+      }
+    }
+
+    @Test
+    void startAtRevisionNamesTheFirstRevisionOnly() throws Exception {
+      bindings.saveAndGetEtag(WS1, "a.txt", "v1");
+      assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of("a.txt"), "*", "", "A", DEFAULT_USER), 400, null);
+      assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of("a.txt"), "*", "", "", DEFAULT_USER), 400, null);
+      assertEquals(List.of(), names("a.txt"));
+
+      final var first = bindings.handleCreateRevision(WS1.id(), Path.of("a.txt"), "*", "", "az", DEFAULT_USER);
+      assertSuccess(first);
+      assertEquals("az", ((HandlerResult.Success) first).response());
+      assertEquals("ba", revise("a.txt", ""));
+      assertEquals(List.of("ba", "az"), names("a.txt"));
+      assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of("a.txt"), "*", "", "zz", DEFAULT_USER), 400, null);
+      assertEquals(List.of("ba", "az"), names("a.txt"));
+    }
+
+    @Test
+    void createListReadAndRestore() throws Exception {
+      bindings.saveAndGetEtag(WS1, "a.txt", "v1");
+      bindings.setUserMetadata(WS1, "a.txt", "draft");
+      final var commits = log(WS1).size();
+      assertEquals("a", revise("a.txt", "first"));
+      assertEquals(commits, log(WS1).size(), "a revision makes no commit");
+      assertClean(WS1);
+
+      final var etag = bindings.saveAndGetEtag(WS1, "a.txt", "v2");
+      bindings.setUserMetadata(WS1, "a.txt", "final");
+      assertEquals("b", revise("a.txt", ""));
+
+      final var revisions = fs.listRevisions(WS1, Path.of("a.txt"));
+      assertEquals(List.of("b", "a"), revisions.stream().map(WorkspaceRevisions.Revision::name).toList());
+      assertEquals("first", revisions.getLast().message());
+      assertEquals(DEFAULT_USER, revisions.getLast().toJson().getString("createdBy"));
+      assertEquals("a.txt", revisions.getLast().toJson().getString("pathAtRevision"));
+      assertEquals(DEFAULT_USER_IDENT, revisions.getLast().toJson().getString("lastEditedBy"));
+      assertFalse(revisions.getLast().toJson().isNull("lastEditedAt"));
+      assertEquals("v1", contentAt("a.txt", "a"));
+      assertEquals("draft", fs.readRevision(WS1, Path.of("a.txt"), "a").orElseThrow()
+                              .metadata().getJsonObject("user").getString("status"));
+
+      bindings.setReadOnly(WS1, fileA, true);
+      assertFailure(bindings.handleRestoreRevision(WS1.id(), Path.of("a.txt"), "a", etag, DEFAULT_USER), 423, null);
+      bindings.setReadOnly(WS1, fileA, false);
+
+      final var restored = bindings.handleRestoreRevision(WS1.id(), Path.of("a.txt"), "a", etag, DEFAULT_USER);
+      assertSuccess(restored);
+      assertEquals("v1", bindings.readFile(WS1, "a.txt"));
+      assertEquals(WorkspaceService.computeETag("v1".getBytes(StandardCharsets.UTF_8)),
+                   ((HandlerResult.Success) restored).etag().orElseThrow());
+      assertEquals("Restore a.txt to revision a", head(WS1).getFullMessage());
+      assertEquals("draft", bindings.getMetadata(WS1, "a.txt").getJsonObject("user").getString("status"));
+      assertFalse(bindings.getMetadata(WS1, "a.txt").getBoolean("readOnly", false), "readOnly is not restored");
+      assertEquals(List.of("b", "a"), names("a.txt"), "a restore makes no revision");
+      assertClean(WS1);
+    }
+
+    @Test
+    void revisionMetadataDerivesLastEditAsOfTheRevision() throws Exception {
+      bindings.saveAndGetEtag(WS1, "a.txt", "v1");
+      final var aliceBy = bindings.getMetadata(WS1, "a.txt").getString("lastEditedBy");
+      final var aliceAt = bindings.getMetadata(WS1, "a.txt").getString("lastEditedAt");
+      bindings.setUserMetadata(WS1, "a.txt", "draft"); // a metadata-only commit is not a content edit
+      revise("a.txt", "");
+      assertSuccess(bindings.handleFileUpload(WS1.id(), Path.of("a.txt"), upload("a.txt", "v2"), true, null, "bob"));
+      revise("a.txt", "");
+      final var bobBy = bindings.getMetadata(WS1, "a.txt").getString("lastEditedBy");
+
+      // Revision metadata reports the last edit exactly as live metadata did when the revision was made.
+      final var atA = fs.readRevision(WS1, Path.of("a.txt"), "a").orElseThrow().metadata();
+      assertEquals(aliceBy, atA.getString("lastEditedBy"));
+      assertEquals(aliceAt, atA.getString("lastEditedAt"));
+      assertEquals("draft", atA.getJsonObject("user").getString("status"));
+      assertEquals(bobBy, fs.readRevision(WS1, Path.of("a.txt"), "b").orElseThrow().metadata().getString("lastEditedBy"));
+      assertNotEquals(aliceBy, bobBy);
+    }
+
+    @Test
+    void preconditions() throws Exception {
+      final var etag = bindings.saveAndGetEtag(WS1, "a.txt", "v1");
+      revise("a.txt", "");
+      bindings.saveAndGetEtag(WS1, "a.txt", "v2");
+      final var commits = log(WS1).size();
+
+      assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of("a.txt"), etag, "", null, DEFAULT_USER), 412, null);
+      assertFailure(bindings.handleRestoreRevision(WS1.id(), Path.of("a.txt"), "a", etag, DEFAULT_USER), 412, null);
+      assertFailure(bindings.handleRestoreRevision(WS1.id(), Path.of("a.txt"), "zz", "*", DEFAULT_USER), 404, "NO_SUCH_REVISION");
+      assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of("gone.txt"), etag, "", null, DEFAULT_USER), 412, null);
+      assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of("gone.txt"), "*", "", null, DEFAULT_USER), 404, null);
+      assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of(".a.txt.meta.seqdev"), "*", "", null, DEFAULT_USER), 400, null);
+      assertEquals("v2", bindings.readFile(WS1, "a.txt"));
+      assertEquals(List.of("a"), names("a.txt"));
+      assertEquals(commits, log(WS1).size());
+      assertClean(WS1);
+    }
+
+    @Test
+    void theSavedStateMatchesTheNewestRevisionWithTheSameContentOrNone() throws Exception {
+      final Supplier<Optional<String>> matching = () -> {
+        try {
+          final var revisions = fs.listRevisions(WS1, Path.of("a.txt"));
+          return fs.matchingRevision(WS1, Path.of("a.txt"), revisions).map(WorkspaceRevisions.Revision::name);
+        } catch (Exception e) { throw new RuntimeException(e); }
+      };
+      bindings.saveAndGetEtag(WS1, "a.txt", "v1");
+      assertEquals(Optional.empty(), matching.get(), "no revisions yet");
+      revise("a.txt", "");
+      assertEquals(Optional.of("a"), matching.get());
+      revise("a.txt", "");
+      assertEquals(Optional.of("b"), matching.get(), "the newest of identical revisions");
+
+      bindings.saveAndGetEtag(WS1, "a.txt", "v2");
+      assertEquals(Optional.empty(), matching.get(), "changed since the latest revision");
+      bindings.saveAndGetEtag(WS1, "a.txt", "v1");
+      assertEquals(Optional.of("b"), matching.get(), "reverting the content matches again");
+    }
+
+    @Test
+    void aRevisionTagsTheCommitThatLastChangedTheFile() throws Exception {
+      bindings.saveAndGetEtag(WS1, "a.txt", "v1");
+      final var changed = head(WS1).copy();
+      bindings.saveAndGetEtag(WS1, "b.txt", "unrelated");
+      assertEquals(List.of(), names("a.txt")); // cached at the current HEAD, before the tag below exists
+
+      revise("a.txt", "");
+      assertEquals(List.of("a"), names("a.txt"), "a tag on an older, already-cached commit is still found");
+      assertEquals(changed, fs.listRevisions(WS1, Path.of("a.txt")).getFirst().commit());
+
+      revise("a.txt", "");
+      final var both = fs.listRevisions(WS1, Path.of("a.txt"));
+      assertEquals(both.get(0).commit(), both.get(1).commit(), "nothing changed between them");
+    }
+
+    @Test
+    void revisionsFollowRenamesButNotCopiesOrRecreation() throws Exception {
+      bindings.saveAndGetEtag(WS1, "a.txt", "v1");
+      revise("a.txt", "");
+      assertEquals(List.of("a"), names("a.txt")); // cached at the old path; the walk below reuses it after the moves
+      assertSuccess(bindings.handleCreateDirectory(WS1, Path.of("dir")));
+      assertSuccess(bindings.handleMove(Path.of("a.txt"), Path.of("dir/b.txt"), WS1, WS1, false));
+      bindings.saveAndGetEtag(WS1, "dir/b.txt", "v2");
+      assertSuccess(bindings.handleMove(Path.of("dir"), Path.of("moved"), WS1, WS1, false));
+      assertEquals(List.of("a"), names("moved/b.txt"));
+      assertEquals("v1", contentAt("moved/b.txt", "a"));
+      assertEquals("b", revise("moved/b.txt", ""));
+      assertEquals(List.of("b", "a"), names("moved/b.txt"), "a tag made on an already-cached HEAD");
+
+      assertSuccess(bindings.handleCopy(Path.of("moved/b.txt"), Path.of("copy.txt"), WS1, WS1, false));
+      assertEquals(List.of(), names("copy.txt"));
+
+      assertSuccess(bindings.handleDelete(WS1, Path.of("moved/b.txt")));
+      bindings.saveAndGetEtag(WS1, "moved/b.txt", "new file");
+      assertEquals(List.of(), names("moved/b.txt"));
+    }
+
+    @Test
+    void aMoveOverAnExistingFileBringsTheMovedFilesRevisions() throws Exception {
+      bindings.saveAndGetEtag(WS1, "x.txt", "x");
+      revise("x.txt", "x1");
+      bindings.saveAndGetEtag(WS1, "y.txt", "y");
+      revise("y.txt", "y1");
+      revise("y.txt", "y2");
+      assertSuccess(bindings.handleMove(Path.of("x.txt"), Path.of("y.txt"), WS1, WS1, true));
+      assertEquals(List.of("x1"), fs.listRevisions(WS1, Path.of("y.txt")).stream()
+                                    .map(WorkspaceRevisions.Revision::message).toList());
+    }
   }
 }

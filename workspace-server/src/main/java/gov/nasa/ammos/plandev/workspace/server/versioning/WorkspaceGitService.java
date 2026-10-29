@@ -60,6 +60,7 @@ import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
@@ -104,7 +105,7 @@ import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.toGitPath;
  * A small marker in .git distinguishes a mutation interrupted by a process crash from an unexplained external edit.
  * On the next mutation, a marked repository is restored to its current HEAD: this rolls back work whose commit did
  * not land and completes work whose commit did land, preserving unfinished bytes in .seqdev/recovery first.
- * The marker is removed only after the repository is clean.
+ * The marker is removed only after the repository is clean. An interrupted Git GC is recovered first ({@link WorkspaceGc}).
  *
  * Cross-workspace:
  * Two repositories cannot share a transaction. Commits are made in the order the caller
@@ -175,10 +176,12 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    */
   private record CachedLastEdit(ObjectId validAt, LastEdit edit) {}
 
-  // ponytail: one lock per workspace id, never evicted; a few bytes per workspace ever touched by this process.
+  // TODO: Evict idle workspaces' locks if their memory ever matters. There is one per workspace this process has
+  // touched, removed only when the workspace is deleted; a few bytes each.
   private final Map<Workspace, ReentrantLock> locks = new ConcurrentHashMap<>();
   private final Map<Workspace, Map<Path, CachedLastEdit>> lastEditCache = new ConcurrentHashMap<>();
   private final Set<Workspace> configured = ConcurrentHashMap.newKeySet();
+  private volatile Consumer<Workspace> afterMutation = workspace -> {};
   // Each request thread gets its own flag: nested entry on that thread sees true, while unrelated threads still see
   // their own initial false. inLockScope removes the thread's value when the outer operation finishes.
   private final ThreadLocal<Boolean> lockScopeActive = ThreadLocal.withInitial(() -> false);
@@ -247,7 +250,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       final var committed = new ArrayList<Workspace>();
       for (final var ws : workspaces) {
         try (final var git = open(ws)) {
-          if (stageAll(git)) {
+          if (stageAll(git, false)) {
             requireValidIndex(git.getRepository());
             commit(git, commits.get(ws), userIdent(userId));
           }
@@ -270,6 +273,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
         }
       }
       finishMutation(workspaces, null);
+      workspaces.forEach(afterMutation);
       return result;
     } finally {
       wsLocks.reversed().forEach(ReentrantLock::unlock);
@@ -290,6 +294,24 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
         locks.remove(workspace); // We no longer need the entry if this is workspace delete
       }
     });
+  }
+
+  /** Run an action under a workspace's lock only if it is free now; null if it is busy. Records no history. */
+  <T> T withLockIfIdle(final Workspace workspace, final Mutation<T> action) throws Exception {
+    return inLockScope(() -> {
+      final var lock = lockFor(workspace);
+      if (!lock.tryLock()) return null;
+      try {
+        return action.apply();
+      } finally {
+        lock.unlock();
+      }
+    });
+  }
+
+  /** Call {@code listener} with each workspace of every successful mutation, under its lock, so it must not block. */
+  void onMutation(final Consumer<Workspace> listener) {
+    afterMutation = listener;
   }
 
   private <T> T inLockScope(final Mutation<T> action) throws Exception {
@@ -326,7 +348,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
 
   /** The Git commit step. Overridable only so tests can inject a deterministic failure. */
   protected void commit(final Git git, final String message, final PersonIdent author) throws GitAPIException {
-    git.commit()
+    var commit = git.commit()
        .setMessage(message)
        .setAuthor(author)
        .setCommitter(systemIdentifier)
@@ -334,6 +356,13 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
        .setSign(false)
        .setNoVerify(true)
        .call();
+    logger.info(
+      "committed {} (message: {}, author: {} <{}>)",
+      commit.getId().abbreviate(12).name(),
+      commit.getShortMessage(),
+      commit.getAuthorIdent().getName(),
+      commit.getAuthorIdent().getEmailAddress()
+    );
   }
   //endregion
 
@@ -377,6 +406,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     if (!Files.isDirectory(workspace.rootPath())) {
       throw inconsistent("Workspace directory " + workspace.rootPath() + " is missing.");
     }
+    WorkspaceGc.removeInterruptedGcLocks(workspace);
     if (hasMarker(mutationMarker(workspace))) {
       if (!isManaged(workspace)) {
         throw inconsistent("Workspace at " + workspace.rootPath() + " has an interrupted-mutation marker but is not managed.");
@@ -619,7 +649,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       requireExpectedGitState(repo, true);
       configure(workspace, repo);
       final var unborn = repo.resolve(Constants.HEAD) == null;
-      if (stageAll(git) || unborn) {
+      if (stageAll(git, true) || unborn) {
         requireValidIndex(repo);
         commit(git, unborn ? INIT_MESSAGE : ADOPT_MESSAGE, systemIdentifier);
       }
@@ -684,6 +714,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     cfg.setString("core", null, "excludesFile", "/dev/null");
     cfg.setString("core", null, "attributesFile", "/dev/null");
     cfg.setString("core", null, "hooksPath", "/dev/null");
+    cfg.setString("core", null, "checkstat", "default"); // full-precision file times, whatever a user config says
     cfg.setBoolean("commit", null, "gpgSign", false);
     cfg.setBoolean("tag", null, "gpgSign", false);
     cfg.setString("gpg", null, "format", "openpgp");
@@ -740,7 +771,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   }
 
   /** Create the marker before workspace bytes change. Forcing this tiny file narrows the host-crash window cheaply. */
-  private static void createMarker(final Path marker) throws IOException {
+  static void createMarker(final Path marker) throws IOException {
     Files.createDirectories(marker.getParent());
     try (final var channel = FileChannel.open(
         marker,
@@ -817,7 +848,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     logger.warn("Recovered interrupted workspace mutation at {} to HEAD {}", workspace.rootPath(), head.name());
   }
 
-  private static List<Path> existingGitLocks(final Workspace workspace) {
+  static List<Path> existingGitLocks(final Workspace workspace) {
     final var gitDir = gitDirectory(workspace);
     return GIT_LOCKS.stream()
         .map(gitDir::resolve)
@@ -925,10 +956,16 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     return Git.open(workspace.rootPath().toFile());
   }
 
-  /** Runs git add -A. Returns whether anything is staged relative to HEAD. */
-  private static boolean stageAll(final Git git) throws GitAPIException {
-    git.add().addFilepattern(".").call();
-    git.add().addFilepattern(".").setUpdate(true).call();
+  /**
+   * Runs git add -A. Returns whether anything is staged relative to HEAD. Without renormalize, add visits only the
+   * files that differ from the index, by the same stat-then-content comparison as status, instead of re-hashing every
+   * tracked file. That is exact once PlanDev has written the index ({@link #configure} and the reserved names rule out
+   * filters and autocrlf), but adoption renormalizes: an index written by native Git under autocrlf or a clean filter
+   * can match a file's size and time while its blob holds different bytes.
+   */
+  private static boolean stageAll(final Git git, final boolean renormalize) throws GitAPIException {
+    git.add().addFilepattern(".").setRenormalize(renormalize).call();
+    git.add().addFilepattern(".").setUpdate(true).setRenormalize(renormalize).call();
     final var status = git.status().call();
     return !(status.getAdded().isEmpty() && status.getChanged().isEmpty() && status.getRemoved().isEmpty());
   }
@@ -959,6 +996,10 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   }
 
   private static final PersonIdent systemIdentifier = new PersonIdent("SeqDev", "Workspaces@SeqDev");
+
+  public static PersonIdent systemIdent() {
+    return systemIdentifier;
+  }
 
   private static PersonIdent userIdent(final String userId) {
     return new PersonIdent(userId, userId+"@SeqDev");

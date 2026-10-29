@@ -293,13 +293,10 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     // The moved file keeps its own metadata, never that of a file it overwrites
     if(Files.exists(oldMetadataPath)) {
       Files.move(oldMetadataPath, newMetadataPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-      markWritten(newMetadataPath); // updateMetadata below skips the write when nothing changes
+      markWritten(newMetadataPath);
     } else {
       Files.deleteIfExists(newMetadataPath);
     }
-    // Ensure the moved file has a sidecar; lastEdited* itself comes from the move's commit.
-    final var metadataUpdates = new MetadataUpdates.Builder(userId).build();
-    updateMetadata(destWorkspace, destFilePath, metadataUpdates, MetadataMergeBehavior.deepMerge);
 
     Files.move(oldPath, newPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
     markWritten(newPath);

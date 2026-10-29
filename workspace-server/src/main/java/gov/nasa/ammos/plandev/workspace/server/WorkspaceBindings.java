@@ -2029,7 +2029,7 @@ public class WorkspaceBindings implements Plugin {
 
       // Find and return the latest revision if requested
       String effectiveRevision = revision;
-      if ("latest".equals(revision)) {
+      if ("@latest".equals(revision)) {
         final var mostRecentRevision = workspaceService.getMostRecentRevision(workspaceService.getWorkspace(pathInfo.workspaceId), pathInfo.filePath);
         if (mostRecentRevision.isPresent()) {
           effectiveRevision = mostRecentRevision.get().name();

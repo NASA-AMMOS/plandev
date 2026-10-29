@@ -279,7 +279,7 @@ public class WorkspaceRequests implements AutoCloseable {
    * @return the APIResponse from the Workspace Server
    */
   public APIResponse listWorkspaceContents(String token, int workspaceId) {
-    final var options = RequestOptions.create().setHeader("Authorization ", "Bearer " +token);
+    final var options = RequestOptions.create().setHeader("Authorization", "Bearer " +token);
     return request.get(WS_URL.formatted(workspaceId), options);
   }
 

@@ -125,7 +125,7 @@ public class WorkspaceReadOnlyTests {
     assertEquals(7, updatedMetadataFile.size());
     assertEquals("1", updatedMetadataFile.getString("version"));
     assertEquals(test_owner.name(), updatedMetadataFile.getString("createdBy"));
-    assertEquals(test_owner.name(), updatedMetadataFile.getString("lastEditedBy"));
+    assertEquals(test_owner.workspaceName(), updatedMetadataFile.getString("lastEditedBy"));
     assertEquals(originalMetadataFile.getString("createdAt"), updatedMetadataFile.getString("createdAt"));
     assertEquals(originalMetadataFile.getString("lastEditedAt"), updatedMetadataFile.getString("lastEditedAt"));
     // This should still be set to "true"
@@ -342,7 +342,7 @@ public class WorkspaceReadOnlyTests {
       assertEquals(6, initialMetadataFile.size());
       assertEquals("1", initialMetadataFile.getString("version"));
       assertEquals(test_owner.name(), initialMetadataFile.getString("createdBy"));
-      assertEquals(test_owner.name(), initialMetadataFile.getString("lastEditedBy"));
+      assertEquals(test_owner.workspaceName(), initialMetadataFile.getString("lastEditedBy"));
       // These fields should be set to some instant
       assertTrue(initialMetadataFile.containsKey("createdAt"));
       assertTrue(initialMetadataFile.containsKey("lastEditedAt"));
@@ -364,7 +364,7 @@ public class WorkspaceReadOnlyTests {
       assertEquals(7, metadataFile.size());
       assertEquals("1", metadataFile.getString("version"));
       assertEquals(test_owner.name(), metadataFile.getString("createdBy"));
-      assertEquals(test_owner.name(), metadataFile.getString("lastEditedBy"));
+      assertEquals(test_owner.workspaceName(), metadataFile.getString("lastEditedBy"));
       assertEquals(initialMetadataFile.getString("createdAt"), metadataFile.getString("createdAt"));
       assertEquals(initialMetadataFile.getString("lastEditedAt"), metadataFile.getString("lastEditedAt"));
       // This should still be set to "false"

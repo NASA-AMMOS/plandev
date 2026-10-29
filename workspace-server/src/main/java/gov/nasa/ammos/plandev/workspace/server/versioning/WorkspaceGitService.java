@@ -939,10 +939,6 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     }
   }
 
-  static WorkspaceHistoryException inconsistent(final String message) {
-    return new WorkspaceHistoryException(WorkspaceHistoryException.Kind.REPOSITORY_INCONSISTENT, message, null);
-  }
-
   static String summarize(final Collection<String> paths) {
     final var shown = paths.stream().limit(20).toList();
     return paths.size() > shown.size() ? shown + " and " + (paths.size() - shown.size()) + " more" : shown.toString();

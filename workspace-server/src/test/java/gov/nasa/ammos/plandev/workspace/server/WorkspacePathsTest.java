@@ -21,18 +21,18 @@ class WorkspacePathsTest {
   final Workspace root = new Workspace(0, Path.of("/workspace/123"));
 
   @Test
-  void createsNormalizedGitPathKey() {
-    final var root = Path.of("workspace").toAbsolutePath().normalize();
-    final var file = root.resolve("one").resolve("discarded").resolve("..").resolve("two.txt");
-
-    assertEquals("one/two.txt", WorkspacePaths.key(root, file));
+  void createsNormalizedGitPathToWorkspaceRelativeGitPath() {
+    final var file = root.rootPath()
+                         .resolve("one")
+                         .resolve("discarded")
+                         .resolve("..")
+                         .resolve("two.txt");
+    assertEquals("one/two.txt", WorkspacePaths.toWorkspaceRelativeGitPath(root, file));
   }
 
   @Test
-  void createsEmptyKeyForWorkspaceRoot() {
-    final var root = Path.of("workspace").toAbsolutePath().normalize();
-
-    assertEquals("", WorkspacePaths.key(root.resolve("."), root));
+  void createsEmptyWorkspaceRelativeForToWorkspaceRootGitPath() {
+    assertEquals("", WorkspacePaths.toWorkspaceRelativeGitPath(root, root.rootPath()));
   }
 
   @Nested

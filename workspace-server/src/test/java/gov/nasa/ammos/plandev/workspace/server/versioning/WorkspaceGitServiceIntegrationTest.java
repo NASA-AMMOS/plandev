@@ -1946,6 +1946,16 @@ class WorkspaceGitServiceIntegrationTest {
     }
 
     @Test
+    void mostRecentRevisionIsTheNewest() throws Exception {
+      bindings.saveAndGetEtag(WS1, "a.txt", "v1");
+      assertEquals(Optional.empty(), fs.getMostRecentRevision(WS1, Path.of("a.txt")));
+      revise("a.txt", "");
+      bindings.saveAndGetEtag(WS1, "a.txt", "v2");
+      revise("a.txt", "");
+      assertEquals("b", fs.getMostRecentRevision(WS1, Path.of("a.txt")).orElseThrow().name());
+    }
+
+    @Test
     void createListReadAndRestore() throws Exception {
       bindings.saveAndGetEtag(WS1, "a.txt", "v1");
       bindings.setUserMetadata(WS1, "a.txt", "draft");

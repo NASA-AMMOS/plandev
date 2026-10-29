@@ -1027,12 +1027,14 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       // DirCacheCheckout may remove empty parents while restoring files. Snapshot the directories still present before
       // restoration so checkout cannot make the unsafe guess that they were all created by a failed operation.
       // This restore-only walk intentionally preserves both old directories and harmless new empty ones.
-      final var directoriesToKeep = WorkspacePaths.walk(workspace.rootPath(), Integer.MAX_VALUE).stream()
-          .filter(path -> Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
-          .sorted(Comparator.comparingInt(Path::getNameCount))
-          .toList();
+      final var directoriesToKeep = WorkspacePaths.walk(workspace.rootPath(), Integer.MAX_VALUE)
+                                                  .stream()
+                                                  .filter(path -> Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS))
+                                                  .sorted(Comparator.comparingInt(Path::getNameCount))
+                                                  .toList()
+                                                  .reversed();
 
-      // Move the branch back only if the operation's commit actually landed.
+      // Forcefully move the branch back if the HEAD has commits after "before"
       if (!before.equals(repo.resolve(Constants.HEAD))) {
         final var update = repo.updateRef(Constants.HEAD);
         update.setNewObjectId(before);
@@ -1054,17 +1056,16 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
         Files.deleteIfExists(workspace.rootPath().resolve(path));
       }
 
-      // Recreate directories removed by checkout, shallowest first. This may leave directories created by the failed
+      // Recreate directories removed by checkout, deepest first. This may leave directories created by the failed
       // operation, which is preferable to deleting a pre-existing directory that Git cannot identify or restore.
       for (final var directory : directoriesToKeep) {
-        if (Files.notExists(directory, LinkOption.NOFOLLOW_LINKS)
-            && Files.isDirectory(directory.getParent(), LinkOption.NOFOLLOW_LINKS))
-        {
-          Files.createDirectory(directory);
+        if (Files.notExists(directory, LinkOption.NOFOLLOW_LINKS)) {
+          Files.createDirectories(directory);
         }
       }
 
       requireClean(git, workspace);
+      walk.dispose();
     }
   }
   //endregion

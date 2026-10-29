@@ -1224,7 +1224,7 @@ class WorkspaceGitServiceIntegrationTest {
       assertEquals(1, json.getInt("version"));
       assertDoesNotThrow(() -> Instant.parse(json.getString("timestamp")));
       assertEquals(before.name(), json.getString("head"));
-      assertEquals("out-of-band filesystem change", json.getString("reason"));
+      assertEquals("external filesystem change", json.getString("reason"));
       assertTrue(incident.getFileName().toString().matches("[0-9]{8}T[0-9]{9}Z-[0-9a-f-]{36}"));
 
       final Map<String, String> expectedReturn = Map.of(fileA.toString(), "modified", goneFile.toString(), "deleted", "unrelated/nested/new.txt", "untracked");
@@ -1351,16 +1351,20 @@ class WorkspaceGitServiceIntegrationTest {
       assertClean(WS1);
     }
 
+    /**
+     * If there are external staged changes, they do not stashed away as an incident and do not block
+     * transactions on the Workspace.
+     */
     @Test
-    void stagedChangesStillBlockTheWholeWorkspaceWithoutAnIncident() throws Exception {
+    void stagedChangesDontBlockTheWorkspace() throws Exception {
       Files.writeString(WS1.rootPath().resolve(fileA), "X");
       try (final var git = open(WS1)) {
         git.add().addFilepattern(WorkspacePaths.toGitPath(fileA)).call();
       }
-      assertFailedWith(bindings.saveFile(WS1, fileA, "Y", "*"), "staged changes");
-      assertFailedWith(bindings.saveFile(WS1, fileB, "Y", "*"), "staged changes");
-      assertEquals("X", bindings.readFile(WS1, fileA));
-      assertFalse(Files.exists(WorkspaceGitService.recoveryDir(WS1)));
+      assertSuccess(bindings.saveFile(WS1, fileA, "Y", "*"));
+      assertSuccess(bindings.saveFile(WS1, fileB, "Y", "*"));
+      assertEquals("Y", bindings.readFile(WS1, fileA));
+      assertTrue(Files.exists(WorkspaceGitService.recoveryDir(WS1)));
     }
 
     @Test

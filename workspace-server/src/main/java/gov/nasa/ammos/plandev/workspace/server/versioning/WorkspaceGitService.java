@@ -411,19 +411,10 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   /** Staged residue is recoverable only with a trusted crash marker; normal requests reject it untouched. */
   private void heal(final Workspace workspace, final Git git, final boolean interrupted) throws IOException, GitAPIException {
     final var status = git.status().call();
-    final var staged = new TreeSet<String>();
-    staged.addAll(status.getAdded());
-    staged.addAll(status.getChanged());
-    staged.addAll(status.getRemoved());
-    staged.addAll(status.getConflicting());
-    if (!interrupted && !staged.isEmpty()) {
-      throw inconsistent("Workspace %d has staged changes that are not in its history: %s. They were left untouched."
-                             .formatted(workspace.id(), summarize(staged)));
-    }
     final var dirty = dirtyPaths(status);
     if (dirty.isEmpty()) return;
     final var head = git.getRepository().resolve(Constants.HEAD);
-    final var reason = interrupted ? "interrupted mutation recovery" : "out-of-band filesystem change";
+    final var reason = interrupted ? "interrupted mutation recovery" : "external filesystem change";
     final var incident = preserve(workspace, head, status, reason);
     try {
       if (!interrupted) createMarker(mutationMarker(workspace));
@@ -460,40 +451,48 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   {
     final var drift = dirtyPaths(status);
     final var now = Instant.now();
-    final var dir = recoveryDir(workspace).resolve(INCIDENT_TIME.format(now) + "-" + UUID.randomUUID());
+    final var recoveryDir = recoveryDir(workspace);
+    final var incidentDir = recoveryDir.resolve(INCIDENT_TIME.format(now) + "-" + UUID.randomUUID());
     final var root = workspace.rootPath();
     final var moved = new LinkedHashMap<Path, Path>();
+
     try {
-      // Check ancestors as well as the entry: NOFOLLOW_LINKS alone does not protect intermediate components.
+      if (Files.isSymbolicLink(recoveryDir)) {
+        throw new IOException(recoveryDir + " is not a directory");
+      }
+
+      // Create the incident directory
+      Files.createDirectories(incidentDir);
+
+      // Generate the incident report
+      final var paths = Json.createArrayBuilder();
       for (final var key : drift) {
-        final var file = root.resolve(key);
-        for (var ancestor = file; !ancestor.equals(root); ancestor = ancestor.getParent()) {
-          if (Files.isSymbolicLink(ancestor)) throw new IOException("Unsupported symbolic link: " + ancestor);
-        }
+        final var indexChange =
+                  status.getConflicting().contains(key) ? "conflicting"
+                : status.getAdded().contains(key) ? "added"
+                : status.getChanged().contains(key) ? "modified"
+                : status.getRemoved().contains(key) ? "deleted"
+                : "unchanged";
+        final var worktreeChange =
+                  status.getMissing().contains(key) ? "deleted"
+                : status.getModified().contains(key) ? "modified"
+                : status.getUntracked().contains(key) ? "untracked"
+                : "unchanged";
+
+        final var file = WorkspacePaths.resolveReadingPath(workspace, Path.of(key));
+
+        // Validate that the file, if it still exists, is regular (not, ie, a pipe)
         if (Files.exists(file, LinkOption.NOFOLLOW_LINKS) && !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
           throw new IOException("Not a regular file: " + file);
         }
-      }
-      for (final var directory : List.of(internalDirectory(workspace), recoveryDir(workspace))) {
-        if (Files.exists(directory, LinkOption.NOFOLLOW_LINKS) && !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
-          throw new IOException(directory + " is not a directory");
-        }
-      }
-      Files.createDirectories(recoveryDir(workspace));
-      Files.createDirectory(dir);
-      final var paths = Json.createArrayBuilder();
-      for (final var key : drift) {
-        final var indexChange = status.getConflicting().contains(key) ? "conflicting"
-            : status.getAdded().contains(key) ? "added" : status.getChanged().contains(key) ? "modified"
-            : status.getRemoved().contains(key) ? "deleted" : "unchanged";
-        final var worktreeChange = status.getMissing().contains(key) ? "deleted"
-            : status.getModified().contains(key) ? "modified" : status.getUntracked().contains(key) ? "untracked" : "unchanged";
-        final var file = root.resolve(key);
-        final var present = Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS);
-        final var path = Json.createObjectBuilder().add("path", key)
-            .add("change", worktreeChange.equals("unchanged") ? indexChange : worktreeChange)
-            .add("indexChange", indexChange).add("worktreeChange", worktreeChange).add("present", present);
-        if (present) path.add("executable", Files.isExecutable(file));
+
+        final var path = Json.createObjectBuilder()
+                             .add("path", key)
+                             .add("change", worktreeChange.equals("unchanged") ? indexChange : worktreeChange)
+                             .add("indexChange", indexChange)
+                             .add("worktreeChange", worktreeChange)
+                             .add("present", Files.exists(file))
+                             .add("executable", Files.isExecutable(file));
         paths.add(path);
       }
       final var json = Json.createObjectBuilder()
@@ -502,29 +501,35 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
                            .add("head", head.name())
                            .add("reason", reason)
                            .add("paths", paths);
-      // Write intent before moving bytes so a failed partial rollback still has an incident manifest.
-      WorkspacePaths.writeAtomically(workspace, dir.resolve("incident.json"), json.build().toString().getBytes(StandardCharsets.UTF_8));
+
+      // Write the incident report to the incident directory
+      WorkspacePaths.writeAtomically(workspace, incidentDir.resolve("incident.json"), json.build().toString().getBytes(StandardCharsets.UTF_8));
+
+      // Move existing files to the incident directory
       for (final var key : drift) {
         final var file = root.resolve(key);
-        if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) continue; // deletion: metadata only
-        final var target = dir.resolve("files").resolve(key);
+
+        // If the file doesn't exist (ie was deleted), skip it.
+        if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) continue;
+
+        final var target = incidentDir.resolve("files").resolve(key);
         Files.createDirectories(target.getParent());
         move(file, target);
         moved.put(file, target);
       }
-    } catch (IOException e) {
+    } catch (SecurityException | IOException e) {
       final var stranded = new ArrayList<String>();
       for (final var m : moved.reversed().entrySet()) {
         try {
           move(m.getValue(), m.getKey());
         } catch (IOException back) {
           e.addSuppressed(back);
-          stranded.add(WorkspacePaths.key(root, m.getKey()));
+          stranded.add(WorkspacePaths.toWorkspaceRelativeGitPath(workspace, m.getKey()));
         }
       }
       if (stranded.isEmpty()) {
         try {
-          deleteTree(dir);
+          deleteTree(incidentDir);
         } catch (IOException cleanup) {
           e.addSuppressed(cleanup);
         }
@@ -534,15 +539,15 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
                 .formatted(root, summarize(drift)), e);
       }
       logger.error("Workspace at {}: preserving {} failed and {} could not be moved back; they remain in {}",
-                   root, summarize(drift), stranded, dir, e);
+                   root, summarize(drift), stranded, incidentDir, e);
       throw new WorkspaceHistoryException(
           WorkspaceHistoryException.Kind.REPOSITORY_INCONSISTENT,
           "Workspace at %s: %s differ from managed history and could not be preserved; %s could not be moved back and "
               .formatted(root, summarize(drift), summarize(stranded))
-          + "remain in " + dir + ".", e);
+          + "remain in " + incidentDir + ".", e);
     }
-    pruneIncidents(workspace, dir);
-    return dir;
+    pruneIncidents(workspace, incidentDir);
+    return incidentDir;
   }
 
   /**
@@ -562,11 +567,16 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    * clock did. Best effort: the current incident is already written, so a failure here is logged and never fails the
    * mutation.
    */
-  private static void pruneIncidents(final Workspace workspace, final Path current) {
+  private static void pruneIncidents(final Workspace workspace, final Path currentIncident) {
     try (final var entries = Files.list(recoveryDir(workspace))) {
-      final var newestFirst = Stream.concat(Stream.of(current), entries.filter(p -> !p.equals(current))
-                                                                       .sorted(Comparator.reverseOrder())).toList();
-      for (final var old : newestFirst.subList(Math.min(MAX_INCIDENTS, newestFirst.size()), newestFirst.size())) deleteTree(old);
+      final var incidents = entries
+          .filter(p -> !p.equals(currentIncident))  // Exclude the current incident from the set so we don't accidentally delete it
+          .sorted(Comparator.reverseOrder()) // Sort the incidents newest to oldest
+          .toList();
+      // Remove the oldest incidents (-1 because currentIncident is not included
+      for(int i = MAX_INCIDENTS-1; i < incidents.size(); ++i) {
+        deleteTree(incidents.get(i));
+      }
     } catch (IOException | UncheckedIOException | SecurityException e) {
       logger.warn("Could not prune old recovery incidents in {}", recoveryDir(workspace), e);
     }
@@ -576,7 +586,9 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   private static void deleteTree(final Path dir) throws IOException {
     if (!Files.exists(dir, LinkOption.NOFOLLOW_LINKS)) return;
     try (final var paths = Files.walk(dir)) {
-      for (final var p : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(p);
+      for (final var p : paths.sorted(Comparator.reverseOrder()).toList()) {
+        Files.delete(p);
+      }
     }
   }
 
@@ -935,16 +947,12 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
 
   /** Every path that makes the repository not clean, per the definition in the class Javadoc. */
   protected static Set<String> dirtyPaths(final Status status) {
-    final var dirty = new TreeSet<String>();
-    dirty.addAll(status.getAdded());
-    dirty.addAll(status.getChanged());
-    dirty.addAll(status.getRemoved());
-    dirty.addAll(status.getMissing());
-    dirty.addAll(status.getModified());
-    dirty.addAll(status.getConflicting());
+    final var dirty = status.getUncommittedChanges();
     // Untracked files are listed individually; untracked *folders* add nothing beyond them except empty
     // directories, which are deliberately outside the definition.
     dirty.addAll(status.getUntracked());
+    // The system doesn't check for or handle ignored files, so if there are any there,
+    // they're problematic and must be cleaned up
     for (final var ignored : status.getIgnoredNotInIndex()) {
       if (!ignored.equals(WorkspacePaths.INTERNAL_DIR) && !ignored.startsWith(WorkspacePaths.INTERNAL_DIR + "/")) {
         dirty.add(ignored);

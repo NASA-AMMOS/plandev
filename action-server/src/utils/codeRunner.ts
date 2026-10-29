@@ -205,6 +205,15 @@ function validateParameters(
       errors.push(`Missing value for required ${typeStr} "${paramDefKey}"`);
     }
 
+    // a file parameter that cannot use the working copy needs a named revision for every file
+    const paramDefinitionFileRefs = paramDefinition as { allowWorkingCopy?: boolean; withRevision?: boolean };
+    if (paramDefinitionFileRefs.withRevision === true && paramDefinitionFileRefs.allowWorkingCopy === false && hasParamValue) {
+      const files = [parameters[paramDefKey]].flat();
+      if (!files.every(file => typeof file?.revision === "string" && file.revision.length > 0)) {
+        errors.push(`${typeStr} "${paramDefKey}" requires a revision for each file`);
+      }
+    }
+
     if (paramDefinition.type === "variant") {
       const allowedValues = paramDefinition.variants;
 

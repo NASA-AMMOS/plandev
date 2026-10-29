@@ -396,14 +396,10 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
 
   /** Validate managed Git state, then preserve and heal all ordinary filesystem drift before any mutation. */
   private void requireTrusted(final Workspace workspace) throws IOException, GitAPIException {
-    // configure() runs before the mutation marker and saves through .git/config.lock. If the process dies during that
-    // FileBasedConfig.save(), normal cleanup never runs and no marker exists to trigger general recovery. Under the
-    // single-owner deployment contract, a config lock found here is therefore stale and safe to remove before retrying.
-    removeStaleConfigLock(workspace);
+    handleStaleConfig(workspace);
     requireNoGitLocks(workspace);
     try (final var git = open(workspace)) {
       requireExpectedGitState(git.getRepository(), false);
-      configure(workspace, git.getRepository());
       requireValidIndex(git.getRepository());
       heal(workspace, git, false);
     }
@@ -850,14 +846,23 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     throw inconsistent(errorMessage);
   }
 
-  private void removeStaleConfigLock(final Workspace workspace) throws IOException {
+  /**
+   * If there is a `config.lock` present in a workspace,
+   * then the system must have gone down while updating the configuration file.
+   * This method removes the stale lock file, then reconfigures the workspace.
+   */
+  private void handleStaleConfig(final Workspace workspace) throws IOException {
     final var lock = gitDirectory(workspace).resolve("config.lock");
     if (!Files.exists(lock, LinkOption.NOFOLLOW_LINKS)) return;
     if (!Files.isRegularFile(lock, LinkOption.NOFOLLOW_LINKS)) {
       throw inconsistent("Git lock " + lock + " is not a regular file and was left untouched.");
     }
     Files.delete(lock);
+    // Reconfigure the workspace
     configured.remove(workspace);
+    try(final var git = open(workspace)) {
+      configure(workspace, git.getRepository());
+    }
   }
 
   /** A recovery marker proves these exact locks can only belong to the interrupted operation. */

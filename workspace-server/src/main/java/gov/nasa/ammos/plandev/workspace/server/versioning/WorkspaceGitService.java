@@ -913,11 +913,15 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     for (int i = 0; i < index.getEntryCount(); i++) {
       final var entry = index.getEntry(i);
       final var path = entry.getPathString();
-      final var mode = entry.getRawMode();
+      final var mode = entry.getFileMode();
       if (!FileMode.REGULAR_FILE.equals(mode) && !FileMode.EXECUTABLE_FILE.equals(mode)) {
-        bad.add(path + " (" + entry.getFileMode() + ")");
-      } else if (Arrays.stream(path.split("/")).anyMatch(p -> WorkspacePaths.filenameIsReserved(Path.of(p)))) {
-        bad.add(path);
+        bad.add(path + " (" + mode + ")");
+      } else {
+        try{
+          validatePath(repo.getWorkTree().toPath(), Path.of(path));
+        } catch (SecurityException se) {
+          bad.add(path);
+        }
       }
     }
     if (!bad.isEmpty()) {

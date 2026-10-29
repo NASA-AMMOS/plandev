@@ -213,6 +213,9 @@ function validateParameters(
         errors.push(`${typeStr} "${paramDefKey}" requires a revision for each file`);
       }
     }
+    if (paramDefinitionFileRefs.withRevision !== true && paramDefinitionFileRefs.allowWorkingCopy === false) {
+      errors.push(`${typeStr} "${paramDefKey}": allowWorkingCopy option cannot be set to 'false' if withRevision is not also set to 'true'`);
+    }
 
     if (paramDefinition.type === "variant") {
       const allowedValues = paramDefinition.variants;

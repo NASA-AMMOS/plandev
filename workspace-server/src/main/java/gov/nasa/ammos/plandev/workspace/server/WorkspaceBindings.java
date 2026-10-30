@@ -1993,6 +1993,8 @@ public class WorkspaceBindings implements Plugin {
         return new HandlerResult.Success(200, workspaceService.createRevision(workspace.workspace(), filePath, message, userId, startAtRevision).name());
       } catch (WorkspaceFileOpException wfe) {
         return new HandlerResult.Failure(400, new WorkspaceFormattedError(wfe, "Could not create a revision of " + filePath));
+      } catch (IllegalArgumentException iae) {
+        return new HandlerResult.Failure(400, new FormattedError(AerieService.WORKSPACE_SERVER, iae, "Could not create a revision of " + filePath));
       }
     });
   }
@@ -2096,7 +2098,7 @@ public class WorkspaceBindings implements Plugin {
    * Restore a file's contents to a specific revision, as a normal commit. Only restores the "user" field of the file's
    * metadata. Requires If-Match: the file's current ETag, or "*". Returns the file's new ETag.
    */
-  private void restoreRevision(Context context) throws NoSuchWorkspaceException {
+  private void restoreRevision(Context context) {
     final var pathInfo = PathInformation.of(context);
 
     // Permissions Check

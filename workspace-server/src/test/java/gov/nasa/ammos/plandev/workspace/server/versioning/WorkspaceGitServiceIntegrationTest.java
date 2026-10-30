@@ -1921,15 +1921,6 @@ class WorkspaceGitServiceIntegrationTest {
     }
 
     @Test
-    void namesAreBijectiveBase26() throws Exception {
-      assertEquals(List.of("a", "z", "aa", "az", "ba", "zz", "aaa"),
-                   java.util.stream.IntStream.of(1, 26, 27, 52, 53, 702, 703).mapToObj(WorkspaceRevisions::name).toList());
-      for (final var ordinal : List.of(1, 26, 27, 52, 53, 702, 703, 321272406)) {
-        assertEquals(ordinal, WorkspaceRevisions.ordinal(WorkspaceRevisions.name(ordinal)));
-      }
-    }
-
-    @Test
     void startAtRevisionNamesTheFirstRevisionOnly() throws Exception {
       bindings.saveAndGetEtag(WS1, "a.txt", "v1");
       assertFailure(bindings.handleCreateRevision(WS1.id(), Path.of("a.txt"), "*", "", "A", DEFAULT_USER), 400, null);
@@ -2035,7 +2026,7 @@ class WorkspaceGitServiceIntegrationTest {
     }
 
     @Test
-    void theSavedStateMatchesTheNewestRevisionWithTheSameContentOrNone() throws Exception {
+    void theSavedStateMatchesTheNewestRevisionWithTheSameContentOrNone() {
       final Supplier<Optional<String>> matching = () -> {
         try {
           final var revisions = fs.listRevisions(WS1, Path.of("a.txt"));

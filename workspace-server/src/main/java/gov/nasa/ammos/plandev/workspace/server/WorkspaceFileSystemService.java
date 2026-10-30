@@ -994,7 +994,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       final String message,
       final String userId,
       final String startAtRevision)
-  throws NoSuchFileException, WorkspaceFileOpException, IOException, GitAPIException
+  throws NoSuchFileException, WorkspaceFileOpException, IOException, GitAPIException, IllegalArgumentException
   {
     gitService.requireLocked(workspace);
     final var root = workspace.rootPath();

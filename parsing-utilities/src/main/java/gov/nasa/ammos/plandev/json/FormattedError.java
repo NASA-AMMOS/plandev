@@ -217,6 +217,9 @@ public class FormattedError {
   public FormattedError(AerieService service, IllegalArgumentException iae) {
     this(service, "ILLEGAL_ARGUMENT", iae);
   }
+  public FormattedError(AerieService service, IllegalArgumentException iae, String message) {
+    this(service, "ILLEGAL_ARGUMENT", message, iae);
+  }
 
   // JSONException
   public FormattedError(AerieService service, JsonException je){

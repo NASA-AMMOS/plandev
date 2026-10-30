@@ -365,7 +365,7 @@ public interface WorkspaceService {
    * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory
    */
   WorkspaceRevisions.Revision createRevision(final Workspace workspace, final Path filePath, final String message, final String userId, final String startAtRevision)
-  throws NoSuchFileException, WorkspaceFileOpException, IOException, GitAPIException;
+  throws NoSuchFileException, WorkspaceFileOpException, IOException, GitAPIException, IllegalArgumentException;
 
   /**
    * The file's revisions, newest first, following same-workspace renames (see {@link WorkspaceRevisions}).

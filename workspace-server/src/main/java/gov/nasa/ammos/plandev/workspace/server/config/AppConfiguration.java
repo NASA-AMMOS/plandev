@@ -1,5 +1,7 @@
 package gov.nasa.ammos.plandev.workspace.server.config;
 
+import gov.nasa.ammos.plandev.workspace.server.types.RevisionNamingConvention;
+
 import javax.json.JsonObject;
 import java.net.URI;
 import java.nio.file.Path;
@@ -12,10 +14,12 @@ public record AppConfiguration (
     JsonObject jwtSecret,
     URI hasuraGraphqlURI,
     String hasuraAdminSecret,
-    Store store
+    Store store,
+    RevisionNamingConvention convention
 ) {
   public AppConfiguration {
     Objects.requireNonNull(workspaceFileStore);
     Objects.requireNonNull(store);
+    Objects.requireNonNull(convention);
   }
 }

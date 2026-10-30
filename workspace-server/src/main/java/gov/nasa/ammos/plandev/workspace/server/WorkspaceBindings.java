@@ -23,6 +23,7 @@ import gov.nasa.ammos.plandev.workspace.server.types.PostActions;
 import gov.nasa.ammos.plandev.workspace.server.types.ItemType;
 import gov.nasa.ammos.plandev.workspace.server.types.PostBody;
 import gov.nasa.ammos.plandev.workspace.server.types.BulkPostItem;
+import gov.nasa.ammos.plandev.workspace.server.types.RevisionNamingConvention;
 import gov.nasa.ammos.plandev.workspace.server.types.Workspace;
 import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitService;
 import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceVersioningService;
@@ -71,18 +72,24 @@ public class WorkspaceBindings implements Plugin {
   private final WorkspaceVersioningService versioningService;
   private final PermissionsService permissionsService;
   private final String hasuraAdminSecret;
+  private final RevisionNamingConvention convention;
 
   public WorkspaceBindings(
       final JWTService jwtService,
       final WorkspaceService workspaceService,
       final WorkspaceVersioningService versioningService,
       final PermissionsService permissionsService,
-      final String hasuraAdminSecret) {
+      final String hasuraAdminSecret,
+      final RevisionNamingConvention convention) {
     this.jwtService = jwtService;
     this.workspaceService = workspaceService;
     this.versioningService = versioningService;
     this.permissionsService = permissionsService;
     this.hasuraAdminSecret = hasuraAdminSecret;
+    this.convention = convention;
+
+    // Set the convention
+    WorkspaceRevisions.convention = this.convention;
   }
 
   private record PathInformation(int workspaceId, Path filePath) {
@@ -1954,7 +1961,7 @@ public class WorkspaceBindings implements Plugin {
    *
    * Returns the new revision's name.
    */
-  private void createRevision(Context context) throws NoSuchWorkspaceException {
+  private void createRevision(Context context) {
     final var pathInfo = PathInformation.of(context);
     if(!checkPermissions(context, pathInfo.workspaceId, WorkspaceAction.create_file_revision)){
       return;
@@ -1976,13 +1983,31 @@ public class WorkspaceBindings implements Plugin {
           "Invalid body format. Expected an optional JSON object of the form {\"message\": \"...\", \"startAtRevision\": \"...\"}.")));
       return;
     }
+    String startAtRevision = null;
+    if(body.containsKey("startAtRevision")) {
+      switch (convention) {
+        case ALPHABETICAL -> startAtRevision = body.getString("startAtRevision").toLowerCase(Locale.ROOT);
+        case NUMERIC -> startAtRevision = String.valueOf(body.getInt("startAtRevision"));
+      }
+    }
 
-    final var startAtRevision = body.getString("startAtRevision", null);
-    respond(context, handleCreateRevision(pathInfo.workspaceId, pathInfo.filePath, ifMatch,
-        body.getString("message", ""), startAtRevision == null ? null : startAtRevision.toLowerCase(Locale.ROOT), authorize(context).userId()));
+    respond(context, handleCreateRevision(
+        pathInfo.workspaceId,
+        pathInfo.filePath,
+        ifMatch,
+        body.getString("message", ""),
+        startAtRevision,
+        authorize(context).userId()));
   }
 
-  public HandlerResult handleCreateRevision(int workspaceId, Path filePath, String ifMatch, String message, String startAtRevision, String userId) {
+  public HandlerResult handleCreateRevision(
+      int workspaceId,
+      Path filePath,
+      String ifMatch,
+      String message,
+      String startAtRevision,
+      String userId
+  ) {
     // Runs as a mutation for its lock and trust checks; a revision changes no file, so no commit is made.
     final var workspace = workspaceOrFailure(workspaceId);
     if (workspace.failure() != null) return workspace.failure();

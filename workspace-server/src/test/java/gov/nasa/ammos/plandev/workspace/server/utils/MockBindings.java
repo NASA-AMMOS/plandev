@@ -6,6 +6,7 @@ import gov.nasa.ammos.plandev.workspace.server.WorkspaceFileSystemService;
 import gov.nasa.ammos.plandev.workspace.server.WorkspacePaths;
 import gov.nasa.ammos.plandev.workspace.server.types.HandlerResult;
 import gov.nasa.ammos.plandev.workspace.server.types.MetadataMergeBehavior;
+import gov.nasa.ammos.plandev.workspace.server.types.RevisionNamingConvention;
 import gov.nasa.ammos.plandev.workspace.server.types.Workspace;
 import io.javalin.http.UploadedFile;
 import jakarta.servlet.http.Part;
@@ -31,9 +32,10 @@ public class MockBindings extends WorkspaceBindings {
 
   public MockBindings(
       final WorkspaceFileSystemService workspaceService,
-      final FlakyHistory versioningService
-  ) {
-    super(null, workspaceService, versioningService, null, "secret");
+      final FlakyHistory versioningService,
+      final RevisionNamingConvention convention
+      ) {
+    super(null, workspaceService, versioningService, null, "secret", convention);
     this.fs = workspaceService;
     this.history = versioningService;
   }

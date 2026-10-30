@@ -9,6 +9,7 @@ import gov.nasa.ammos.plandev.workspace.server.config.PostgresStore;
 import gov.nasa.ammos.plandev.workspace.server.config.Store;
 import gov.nasa.ammos.plandev.workspace.server.config.UnexpectedSubtypeError;
 import gov.nasa.ammos.plandev.workspace.server.postgres.WorkspacePostgresRepository;
+import gov.nasa.ammos.plandev.workspace.server.types.RevisionNamingConvention;
 import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGc;
 import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitService;
 import io.javalin.Javalin;
@@ -31,6 +32,9 @@ public final class WorkspaceAppDriver {
     // Fetch application configuration properties.
     final var configuration = loadConfiguration();
     final var stores = loadStores(configuration);
+
+    // Set the convention
+    WorkspaceRevisions.convention = configuration.convention();
 
     // Assemble the core non-web object graph.
     final var permissionsService = new PermissionsService(
@@ -145,7 +149,8 @@ public final class WorkspaceAppDriver {
             Integer.parseInt(getEnv("PLANDEV_DB_PORT", getEnv("AERIE_DB_PORT", "5432"))),
             getEnv("SEQUENCING_DB_USER", ""),
             getEnv("SEQUENCING_DB_PASSWORD", "")
-        )
+        ),
+        RevisionNamingConvention.parseConvention(getEnv("WORKSPACE_REVISION_NAMING_CONVENTION", "NUMERIC"))
     );
   }
 }

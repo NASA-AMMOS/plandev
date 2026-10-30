@@ -3,6 +3,7 @@ package gov.nasa.ammos.plandev.workspace.server;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistoryException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
+import gov.nasa.ammos.plandev.workspace.server.types.RevisionNamingConvention;
 import gov.nasa.ammos.plandev.workspace.server.versioning.LastEdit;
 import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitService;
 import org.eclipse.jgit.api.Git;
@@ -36,15 +37,14 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -72,6 +72,7 @@ public final class WorkspaceRevisions {
   static final String TAG_PREFIX = "plandev/revisions/";
   private static final String TYPE = "plandev-file-revision";
   private static final int VERSION = 1;
+  public static RevisionNamingConvention convention;
 
   public record Revision(
       int ordinal,
@@ -84,7 +85,7 @@ public final class WorkspaceRevisions {
       UUID fileId)
   {
     public String name() {
-      return WorkspaceRevisions.name(ordinal);
+      return convention.name(ordinal);
     }
 
     /**
@@ -341,13 +342,13 @@ public final class WorkspaceRevisions {
       final String userId,
       final LastEdit lastEdit,
       final String startAtRevision)
-  throws IOException, GitAPIException, WorkspaceFileOpException
+  throws IOException, GitAPIException, WorkspaceFileOpException, IllegalArgumentException
   {
     var mostRecentRevision = getMostRecentRevision(root, key);
     if (startAtRevision != null && mostRecentRevision.isPresent()) {
       throw new WorkspaceFileOpException("%s already has revisions; startAtRevision is only allowed for its first revision.".formatted(key));
     }
-    final var ordinal = startAtRevision != null ? ordinal(startAtRevision) : mostRecentRevision.map(value -> value.ordinal() + 1).orElse(1);
+    final var ordinal = startAtRevision != null ? convention.ordinal(startAtRevision) : mostRecentRevision.map(value -> value.ordinal() + 1).orElse(1);
     final var fileId = mostRecentRevision.map(Revision::fileId).orElseGet(UUID::randomUUID);
     try (final var git = Git.open(root.toFile()); final var walk = new RevWalk(git.getRepository())) {
       final var head = git.getRepository().resolve(Constants.HEAD);
@@ -425,23 +426,6 @@ public final class WorkspaceRevisions {
           repo.open(blobIds.contentBlobId()).getBytes(),
           WorkspaceGitService.applyLastEdit(metadata, revision.lastEdit()));
     }
-  }
-
-  /** 1 -> a, 26 -> z, 27 -> aa, ... (bijective base 26). */
-  public static String name(final int ordinal) {
-    final var name = new StringBuilder();
-    for (var n = ordinal; n > 0; n = (n - 1) / 26) name.append((char) ('a' + (n - 1) % 26));
-    return name.reverse().toString();
-  }
-
-  /** The inverse of {@link #name}: a -> 1, z -> 26, aa -> 27, ... */
-  public static int ordinal(final String name) throws WorkspaceFileOpException {
-    if (!name.matches("[a-z]{1,6}")) { // "zzzzzz" is the longest name that fits an int ordinal comfortably
-      throw new WorkspaceFileOpException("Invalid revision name \"%s\": expected 1-6 lowercase letters.".formatted(name));
-    }
-    var ordinal = 0;
-    for (final var c : name.toCharArray()) ordinal = ordinal * 26 + (c - 'a' + 1);
-    return ordinal;
   }
 
   static String sidecarKey(final String key) {
@@ -529,7 +513,7 @@ public final class WorkspaceRevisions {
           edit,
           UUID.fromString(json.getString("fileId"))));
     } catch (IncorrectObjectTypeException | JsonException | ClassCastException | NullPointerException
-             | java.time.format.DateTimeParseException e) {
+             | DateTimeParseException e) {
       logger.debug("Malformed revision tag {} in {}", id.name(), repo.getWorkTree(), e);
       return Optional.empty();
     }

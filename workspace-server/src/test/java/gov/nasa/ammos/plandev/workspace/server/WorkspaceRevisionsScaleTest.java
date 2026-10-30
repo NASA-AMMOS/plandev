@@ -89,7 +89,7 @@ class WorkspaceRevisionsScaleTest {
            .forEach(all::add); // lastEdits takes absolute paths
     }
 
-    final var oldest = WorkspaceRevisions.name(1);
+    final var oldest = WorkspaceRevisions.convention.name(1);
     System.out.printf("%s: %d commits, %d files, target every %d, %d revisions, %d other tags (setup %.1fs)%n",
         name, commits, all.size(), targetEvery, revisions, otherTags, (System.nanoTime() - start) / 1e9);
     // Budgets (ms, SCALE=1) are ~10x a laptop run, to absorb slow CI runners.

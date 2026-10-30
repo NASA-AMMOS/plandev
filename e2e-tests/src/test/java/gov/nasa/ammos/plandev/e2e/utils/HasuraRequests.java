@@ -1546,11 +1546,112 @@ public class HasuraRequests implements AutoCloseable {
    * Add a workspace collaborator
    */
   public void addWorkspaceCollaborator(User collaborator, int workspaceId) throws IOException {
+    addWorkspaceCollaborator(defaultHeaders, collaborator, workspaceId);
+  }
+
+  /**
+   * Add a workspace collaborator using the user's session
+   * @throws HasuraRequestFailure if the user is not allowed to manage the workspace's collaborators
+   */
+  public void addWorkspaceCollaborator(User as, User collaborator, int workspaceId) throws IOException {
+    addWorkspaceCollaborator(as.session(), collaborator, workspaceId);
+  }
+
+  private void addWorkspaceCollaborator(Map<String, String> headers, User collaborator, int workspaceId)
+  throws IOException {
     final var wsCollabBuilder = Json.createObjectBuilder()
                                     .add("workspace_id", workspaceId)
                                     .add("collaborator", collaborator.name());
     final var variables = Json.createObjectBuilder().add("collaborator", wsCollabBuilder).build();
-    makeRequest(GQL.ADD_WORKSPACE_COLLABORATOR, variables);
+    makeRequest(GQL.ADD_WORKSPACE_COLLABORATOR, variables, headers);
+  }
+
+  /**
+   * Create a deployment-defined role with the given workspace permissions.
+   * Hasura caches the role enum, so its metadata is reloaded before the permissions are set.
+   */
+  public void createUserRole(String role, JsonObject workspacePermissions) throws IOException {
+    makeRequest(GQL.CREATE_USER_ROLE, Json.createObjectBuilder().add("role", role).build());
+    final var reload = request.post("/v1/metadata", RequestOptions.create()
+        .setHeader("x-hasura-admin-secret", hasuraAdminSecret)
+        .setData("{\"type\":\"reload_metadata\",\"args\":{}}"));
+    if (!reload.ok()) throw new IOException(reload.statusText());
+    makeRequest(GQL.SET_ROLE_WORKSPACE_PERMISSIONS, Json.createObjectBuilder()
+        .add("role", role)
+        .add("workspace_permissions", workspacePermissions)
+        .build());
+  }
+
+  public void deleteUserRole(String role) throws IOException {
+    makeRequest(GQL.DELETE_USER_ROLE, Json.createObjectBuilder().add("role", role).build());
+  }
+
+  public void addUserAllowedRole(User user, String role) throws IOException {
+    makeRequest(GQL.ADD_USER_ALLOWED_ROLE, Json.createObjectBuilder()
+        .add("username", user.name()).add("role", role).build());
+  }
+
+  public void removeUserAllowedRole(User user, String role) throws IOException {
+    makeRequest(GQL.REMOVE_USER_ALLOWED_ROLE, Json.createObjectBuilder()
+        .add("username", user.name()).add("role", role).build());
+  }
+
+  /** Grant a role write access to the workspace, as the Aerie admin */
+  public void addWorkspaceRoleGrant(int workspaceId, String role) throws IOException {
+    addWorkspaceRoleGrant(defaultHeaders, workspaceId, role);
+  }
+
+  /**
+   * Grant a role write access to the workspace, using the user's session.
+   * @throws HasuraRequestFailure if the user is not allowed to manage the workspace's role grants
+   */
+  public void addWorkspaceRoleGrant(User user, int workspaceId, String role) throws IOException {
+    addWorkspaceRoleGrant(user.session(), workspaceId, role);
+  }
+
+  private void addWorkspaceRoleGrant(Map<String, String> headers, int workspaceId, String role) throws IOException {
+    final var grant = Json.createObjectBuilder().add("workspace_id", workspaceId).add("role", role);
+    makeRequest(GQL.ADD_WORKSPACE_ROLE_GRANT, Json.createObjectBuilder().add("grant", grant).build(), headers);
+  }
+
+  /** Revoke a role's write access to the workspace, as the Aerie admin */
+  public void removeWorkspaceRoleGrant(int workspaceId, String role) throws IOException {
+    removeWorkspaceRoleGrant(defaultHeaders, workspaceId, role);
+  }
+
+  /** @return the number of grants removed (zero if the user may not see/manage the grant) */
+  public int removeWorkspaceRoleGrant(User user, int workspaceId, String role) throws IOException {
+    return removeWorkspaceRoleGrant(user.session(), workspaceId, role);
+  }
+
+  private int removeWorkspaceRoleGrant(Map<String, String> headers, int workspaceId, String role) throws IOException {
+    return makeRequest(GQL.REMOVE_WORKSPACE_ROLE_GRANT,
+                       Json.createObjectBuilder().add("workspace_id", workspaceId).add("role", role).build(),
+                       headers)
+        .getJsonObject("delete_workspace_role_grants").getInt("affected_rows");
+  }
+
+  public int createActionDefinition(String name, int workspaceId) throws IOException {
+    return makeRequest(GQL.CREATE_ACTION_DEFINITION,
+                       Json.createObjectBuilder().add("name", name).add("workspace_id", workspaceId).build())
+        .getJsonObject("insert_action_definition_one").getInt("id");
+  }
+
+  /** @return the number of runs cancelled (zero if the user may not cancel runs in the action's workspace) */
+  public int cancelActionRun(User user, int actionRunId) throws IOException {
+    return makeRequest(GQL.CANCEL_ACTION_RUN, Json.createObjectBuilder().add("id", actionRunId).build(), user.session())
+        .getJsonObject("update_action_run").getInt("affected_rows");
+  }
+
+  /**
+   * Request a run of the action using the user's session.
+   * @throws HasuraRequestFailure if the user is not allowed to run actions in the action's workspace
+   */
+  public int createActionRun(User user, int actionDefinitionId) throws IOException {
+    return makeRequest(GQL.CREATE_ACTION_RUN,
+                       Json.createObjectBuilder().add("action_definition_id", actionDefinitionId).build(),
+                       user.session())
+        .getJsonObject("insert_action_run_one").getInt("id");
   }
   //endregion
 }

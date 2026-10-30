@@ -10,11 +10,13 @@ public enum WorkspacePermissionType implements PermissionType {
    */
   OWNER,
   /**
-   * The given user must be a collaborator on the given workspace
+   * The given user must be a collaborator on the given workspace,
+   * or a member of a role the workspace has granted access to
    */
   COLLABORATOR,
   /**
-   * The given user must be either the owner or a collaborator on the given workspace
+   * The given user must be either the owner or a collaborator on the given workspace,
+   * or a member of a role the workspace has granted access to
    */
   OWNER_COLLABORATOR,
 }

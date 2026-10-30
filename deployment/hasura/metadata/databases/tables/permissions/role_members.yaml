@@ -1,0 +1,5 @@
+table:
+  name: role_members
+  schema: permissions
+configuration:
+  custom_name: "role_members"

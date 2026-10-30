@@ -3,6 +3,7 @@ package gov.nasa.ammos.plandev.permissions.gql;
 import gov.nasa.ammos.plandev.permissions.HasuraAction;
 import gov.nasa.ammos.plandev.permissions.PlanPermissionType;
 import gov.nasa.ammos.plandev.permissions.OwnerOrCollaborator;
+import gov.nasa.ammos.plandev.permissions.WorkspaceAccess;
 import gov.nasa.ammos.plandev.permissions.WorkspaceAction;
 import gov.nasa.ammos.plandev.permissions.WorkspacePermissionType;
 import gov.nasa.ammos.plandev.permissions.exceptions.Forbidden;
@@ -144,14 +145,21 @@ public record GraphQLPermissionsService(
     return getOwnerCollaboratorStatus(response.getJsonObject("plan"), username);
   }
 
-  public OwnerOrCollaborator checkWorkspaceOwnerCollaborator(final WorkspaceId workspaceId, final String username)
+  /**
+   * Resolve the user's access to the workspace's root policy.
+   * Role membership is read from the database ({@code permissions.role_members}), never from the user's session.
+   */
+  public WorkspaceAccess getWorkspaceAccess(final WorkspaceId workspaceId, final String username)
   throws IOException, NoSuchWorkspaceException, GraphQLServiceException {
     final var query = """
-        query getWorkspaceOwnerCollaborators($id: Int!, $username: String!) {
+        query getWorkspaceAccess($id: Int!, $username: String!) {
           workspace: workspace_by_pk(id: $id) {
             owner
             collaborators(where: {collaborator: {_eq: $username}}) {
               collaborator
+            }
+            role_grants(where: {role_members: {username: {_eq: $username}}}) {
+              role
             }
           }
         }
@@ -167,7 +175,11 @@ public record GraphQLPermissionsService(
 
     if (response.isNull("workspace")) throw new NoSuchWorkspaceException(workspaceId);
 
-    return getOwnerCollaboratorStatus(response.getJsonObject("workspace"), username);
+    final var workspace = response.getJsonObject("workspace");
+    return new WorkspaceAccess(
+        username.equals(workspace.getString("owner")),
+        !workspace.getJsonArray("collaborators").isEmpty(),
+        !workspace.getJsonArray("role_grants").isEmpty());
   }
 
   /**

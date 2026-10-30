@@ -19,10 +19,23 @@ public enum GQL {
         plan_id
       }
     }"""),
+  ADD_USER_ALLOWED_ROLE("""
+    mutation addUserAllowedRole($username: String!, $role: user_roles_enum!) {
+      insert_users_allowed_roles_one(object: {username: $username, allowed_role: $role}) {
+        username
+      }
+    }"""),
   ADD_WORKSPACE_COLLABORATOR("""
     mutation addWorkspaceCollaborator($collaborator: workspace_collaborators_insert_input!) {
       insert_workspace_collaborators_one(object: $collaborator) {
         collaborator
+        workspace_id
+      }
+    }"""),
+  ADD_WORKSPACE_ROLE_GRANT("""
+    mutation addWorkspaceRoleGrant($grant: workspace_role_grants_insert_input!) {
+      insert_workspace_role_grants_one(object: $grant) {
+        role
         workspace_id
       }
     }"""),
@@ -50,6 +63,12 @@ public enum GQL {
         canceled
         reason
         status
+      }
+    }"""),
+  CANCEL_ACTION_RUN("""
+    mutation cancelActionRun($id: Int!) {
+      update_action_run(where: {id: {_eq: $id}}, _set: {canceled: true}) {
+        affected_rows
       }
     }"""),
   CHANGE_WS_OWNER("""
@@ -92,6 +111,23 @@ public enum GQL {
             }
           }
         }
+      }
+    }"""),
+  CREATE_ACTION_DEFINITION("""
+    mutation createActionDefinition($name: String!, $workspace_id: Int!) {
+      insert_action_definition_one(object: {name: $name, workspace_id: $workspace_id}) {
+        id
+      }
+    }"""),
+  CREATE_ACTION_RUN("""
+    mutation createActionRun($action_definition_id: Int!) {
+      insert_action_run_one(object: {
+        action_definition_id: $action_definition_id,
+        action_definition_revision: 0,
+        parameters: {},
+        settings: {}
+      }) {
+        id
       }
     }"""),
   CREATE_ACTIVITY_DIRECTIVE("""
@@ -178,6 +214,12 @@ public enum GQL {
         goal_id
         goal_invocation_id
         priority
+      }
+    }"""),
+  CREATE_USER_ROLE("""
+    mutation createUserRole($role: String!) {
+      insert_user_roles_one(object: {role: $role}) {
+        role
       }
     }"""),
   CREATE_USER("""
@@ -307,6 +349,12 @@ public enum GQL {
     mutation DeleteSimPreset($templateId: Int!) {
       delete_simulation_template_by_pk(id: $templateId) {
         id
+      }
+    }"""),
+  DELETE_USER_ROLE("""
+    mutation deleteUserRole($role: String!) {
+      delete_user_roles_by_pk(role: $role) {
+        role
       }
     }"""),
   DELETE_USER("""
@@ -711,6 +759,18 @@ public enum GQL {
         span_id
       }
     }"""),
+  REMOVE_USER_ALLOWED_ROLE("""
+    mutation removeUserAllowedRole($username: String!, $role: user_roles_enum!) {
+      delete_users_allowed_roles_by_pk(username: $username, allowed_role: $role) {
+        username
+      }
+    }"""),
+  REMOVE_WORKSPACE_ROLE_GRANT("""
+    mutation removeWorkspaceRoleGrant($workspace_id: Int!, $role: user_roles_enum!) {
+      delete_workspace_role_grants(where: {workspace_id: {_eq: $workspace_id}, role: {_eq: $role}}) {
+        affected_rows
+      }
+    }"""),
   SCHEDULE("""
     query Schedule($specificationId: Int!) {
       schedule(specificationId: $specificationId){
@@ -790,6 +850,12 @@ public enum GQL {
         _set: {action_permissions: $action_permissions})
       {
         action_permissions
+      }
+    }"""),
+  SET_ROLE_WORKSPACE_PERMISSIONS("""
+    mutation setRoleWorkspacePermissions($role: user_roles_enum!, $workspace_permissions: jsonb!) {
+      update_user_role_permission_by_pk(pk_columns: {role: $role}, _set: {workspace_permissions: $workspace_permissions}) {
+        role
       }
     }"""),
   UPDATE_SCHEDULING_SPEC_GOALS_ARGUMENTS("""

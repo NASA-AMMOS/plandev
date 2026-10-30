@@ -17,6 +17,7 @@ begin;
 
   -- Views
   \ir views/permissions/users_and_roles.sql
+  \ir views/permissions/role_members.sql
 
   -- Functions
   \ir functions/permissions/get_role.sql

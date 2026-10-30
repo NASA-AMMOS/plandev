@@ -140,15 +140,18 @@ public final class PermissionsService {
   throws IOException, GraphQLServiceException, NoSuchWorkspaceException {
     return switch (permissionType) {
       case NO_CHECK -> true;
-      case OWNER -> getWorkspacePermissions(username, workspaceId).isOwner();
-      case COLLABORATOR -> getWorkspacePermissions(username, workspaceId).isCollaborator();
-      case OWNER_COLLABORATOR -> getWorkspacePermissions(username, workspaceId).isOwnerOrCollaborator();
+      case OWNER -> getWorkspacePermissions(username, workspaceId).owner();
+      case COLLABORATOR -> getWorkspacePermissions(username, workspaceId).hasCollaboratorAccess();
+      case OWNER_COLLABORATOR -> {
+        final var access = getWorkspacePermissions(username, workspaceId);
+        yield access.owner() || access.hasCollaboratorAccess();
+      }
     };
   }
 
-  private OwnerOrCollaborator getWorkspacePermissions(final String username, final WorkspaceId workspaceId)
+  private WorkspaceAccess getWorkspacePermissions(final String username, final WorkspaceId workspaceId)
   throws IOException, GraphQLServiceException, NoSuchWorkspaceException
   {
-    return gqlService.checkWorkspaceOwnerCollaborator(workspaceId, username);
+    return gqlService.getWorkspaceAccess(workspaceId, username);
   }
 }

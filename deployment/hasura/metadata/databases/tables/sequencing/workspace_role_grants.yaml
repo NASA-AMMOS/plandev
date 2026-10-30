@@ -1,0 +1,50 @@
+table:
+  name: workspace_role_grants
+  schema: sequencing
+configuration:
+  custom_name: "workspace_role_grants"
+object_relationships:
+  - name: workspace
+    using:
+      foreign_key_constraint_on: workspace_id
+array_relationships:
+  - name: role_members
+    using:
+      manual_configuration:
+        remote_table:
+          name: role_members
+          schema: permissions
+        column_mapping:
+          role: role
+select_permissions:
+  - role: aerie_admin
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: user
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+  - role: viewer
+    permission:
+      columns: '*'
+      filter: {}
+      allow_aggregations: true
+insert_permissions:
+  - role: aerie_admin
+    permission:
+      columns: [workspace_id, role]
+      check: {}
+  - role: user
+    permission:
+      columns: [workspace_id, role]
+      check: {"workspace":{"owner":{"_eq":"X-Hasura-User-Id"}}}
+delete_permissions:
+  - role: aerie_admin
+    permission:
+      filter: {}
+  - role: user
+    permission:
+      filter: {"workspace":{"owner":{"_eq":"X-Hasura-User-Id"}}}

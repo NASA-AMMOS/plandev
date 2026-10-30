@@ -14,6 +14,7 @@
 - "!include permissions/user_role_permission.yaml"
 - "!include permissions/users.yaml"
 - "!include permissions/users_and_roles_view.yaml"
+- "!include permissions/role_members.yaml"
 
 ##############
 #### TAGS ####
@@ -181,6 +182,7 @@
 - "!include sequencing/sequence_to_simulated_activity.yaml"
 - "!include sequencing/workspace.yaml"
 - "!include sequencing/workspace_collaborators.yaml"
+- "!include sequencing/workspace_role_grants.yaml"
 - "!include sequencing/sequence_filter.yaml"
 - "!include sequencing/sequence_template.yaml"
 - "!include sequencing/expanded_templates.yaml"

@@ -2,6 +2,7 @@ package gov.nasa.ammos.plandev.workspace.server.versioning;
 
 import gov.nasa.ammos.plandev.workspace.server.WorkspaceFileSystemService;
 import gov.nasa.ammos.plandev.workspace.server.types.HandlerResult;
+import gov.nasa.ammos.plandev.workspace.server.types.RevisionNamingConvention;
 import gov.nasa.ammos.plandev.workspace.server.types.Workspace;
 import gov.nasa.ammos.plandev.workspace.server.utils.FlakyHistory;
 import gov.nasa.ammos.plandev.workspace.server.utils.MockBindings;
@@ -69,7 +70,7 @@ class WorkspaceGcTest {
   private void restartServer() {
     history = new FlakyHistory();
     fs = new WorkspaceFileSystemService(wsRepo, history);
-    bindings = new MockBindings(fs, history);
+    bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
     gc = new WorkspaceGc(history);
   }
 

@@ -5,6 +5,7 @@ import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpExcepti
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistoryException;
 import gov.nasa.ammos.plandev.workspace.server.types.HandlerResult;
 import gov.nasa.ammos.plandev.workspace.server.types.MetadataMergeBehavior;
+import gov.nasa.ammos.plandev.workspace.server.types.RevisionNamingConvention;
 import gov.nasa.ammos.plandev.workspace.server.types.Workspace;
 import gov.nasa.ammos.plandev.workspace.server.utils.FlakyHistory;
 import gov.nasa.ammos.plandev.workspace.server.utils.MockBindings;
@@ -106,7 +107,7 @@ class WorkspaceGitServiceIntegrationTest {
   private void restartServer() {
     history = new FlakyHistory();
     fs = new WorkspaceFileSystemService(wsRepo, history);
-    bindings = new MockBindings(fs, history);
+    bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
   }
 
   //region Helpers

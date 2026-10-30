@@ -33,9 +33,6 @@ public final class WorkspaceAppDriver {
     final var configuration = loadConfiguration();
     final var stores = loadStores(configuration);
 
-    // Set the convention
-    WorkspaceRevisions.convention = configuration.convention();
-
     // Assemble the core non-web object graph.
     final var permissionsService = new PermissionsService(
         new GraphQLPermissionsService(configuration.hasuraGraphqlURI(), configuration.hasuraAdminSecret()));
@@ -44,7 +41,9 @@ public final class WorkspaceAppDriver {
         stores.workspace,
         stores.history,
         permissionsService,
-        configuration.hasuraAdminSecret());
+        configuration.hasuraAdminSecret(),
+        configuration.convention()
+    );
     // Configure an HTTP server.
     // Default Javalin Jetty server has a QueuedThreadPool with maxThreads to 250
     final var server = new Server(new QueuedThreadPool(250));

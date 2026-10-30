@@ -1,6 +1,7 @@
 package gov.nasa.ammos.plandev.workspace.server;
 
 import gov.nasa.ammos.plandev.workspace.server.types.HandlerResult;
+import gov.nasa.ammos.plandev.workspace.server.types.RevisionNamingConvention;
 import gov.nasa.ammos.plandev.workspace.server.types.Workspace;
 import gov.nasa.ammos.plandev.workspace.server.utils.WorkspaceTestRepository;
 import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitService;
@@ -81,7 +82,7 @@ class WorkspaceRevisionsScaleTest {
     generate(root, commits, files, targetEvery, revisions, otherTags, 16 * 1024);
     final var git = new WorkspaceGitService();
     final var fs = new WorkspaceFileSystemService(repository, git);
-    final var bindings = new WorkspaceBindings(null, fs, git, null, "");
+    final var bindings = new WorkspaceBindings(null, fs, git, null, "", RevisionNamingConvention.ALPHABETICAL);
     save(git, root, OTHER); // adopts the generated repository, as a legacy workspace's first mutation would
     final Set<Path> all = new HashSet<>();
     try (final var paths = Files.walk(root)) {

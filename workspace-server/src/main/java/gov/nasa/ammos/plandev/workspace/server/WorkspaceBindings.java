@@ -2009,20 +2009,46 @@ public class WorkspaceBindings implements Plugin {
       String startAtRevision,
       String userId
   ) {
-    // Runs as a mutation for its lock and trust checks; a revision changes no file, so no commit is made.
-    final var workspace = workspaceOrFailure(workspaceId);
-    if (workspace.failure() != null) return workspace.failure();
-    return mutate(workspace.workspace(), userId, "Create revision of " + filePath, () -> {
-      try {
-        final var failure = checkRevisionTarget(workspace.workspace(), filePath, ifMatch, false);
-        if (failure != null) return failure;
-        return new HandlerResult.Success(200, workspaceService.createRevision(workspace.workspace(), filePath, message, userId, startAtRevision).name());
-      } catch (WorkspaceFileOpException wfe) {
-        return new HandlerResult.Failure(400, new WorkspaceFormattedError(wfe, "Could not create a revision of " + filePath));
-      } catch (IllegalArgumentException iae) {
-        return new HandlerResult.Failure(400, new FormattedError(AerieService.WORKSPACE_SERVER, iae, "Could not create a revision of " + filePath));
-      }
-    });
+    try {
+      // Runs as a mutation for its lock and trust checks; a revision changes no file, so no commit is made.
+      final var workspace = workspaceService.getWorkspace(workspaceId);
+      return mutate(
+          workspace, userId, "Create revision of " + filePath, () -> {
+            try {
+              final var failure = checkRevisionTarget(workspace, filePath, ifMatch, false);
+              if (failure != null) return failure;
+              return new HandlerResult.Success(
+                  200,
+                  workspaceService
+                      .createRevision(
+                          workspace,
+                          filePath,
+                          message,
+                          userId,
+                          startAtRevision)
+                      .name());
+            } catch (WorkspaceFileOpException wfe) {
+              return new HandlerResult.Failure(
+                  400,
+                  new WorkspaceFormattedError(
+                      wfe,
+                      "Could not create a revision of " + filePath));
+            } catch (IllegalArgumentException iae) {
+              return new HandlerResult.Failure(
+                  400,
+                  new FormattedError(
+                      AerieService.WORKSPACE_SERVER,
+                      iae,
+                      "Could not create a revision of " + filePath));
+            }
+          });
+    } catch (NoSuchWorkspaceException wse) {
+      return new HandlerResult.Failure(404, new WorkspaceFormattedError(wse));
+    } catch (SQLException sqle) {
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, sqle);
+      logger.warn("CREATE REVISION: SQL Exception: {}", fe);
+      return new HandlerResult.Failure(500, fe);
+    }
   }
 
   /**
@@ -2152,21 +2178,35 @@ public class WorkspaceBindings implements Plugin {
   }
 
   public HandlerResult handleRestoreRevision(int workspaceId, Path filePath, String revision, String ifMatch, String userId) {
-    final var workspace = workspaceOrFailure(workspaceId);
-    if (workspace.failure() != null) return workspace.failure();
-    return mutate(workspace.workspace(), userId, "Restore %s to revision %s".formatted(filePath, revision), () -> {
-      try {
-        final var failure = checkRevisionTarget(workspace.workspace(), filePath, ifMatch, true);
-        if (failure != null) return failure;
-        final var etag = workspaceService.restoreRevision(workspace.workspace(), filePath, revision, userId);
-        if (etag.isEmpty()) {
-          return new HandlerResult.Failure(404, noSuchRevision(filePath, revision));
-        }
-        return new HandlerResult.Success(200, "%s restored to revision %s".formatted(filePath, revision), etag);
-      } catch (WorkspaceFileOpException wfe) {
-        return new HandlerResult.Failure(400, new WorkspaceFormattedError(wfe, "Could not restore revision %s of %s".formatted(revision, filePath)));
-      }
-    });
+    try {
+      final var workspace = workspaceService.getWorkspace(workspaceId);
+      return mutate(
+          workspace, userId, "Restore %s to revision %s".formatted(filePath, revision), () -> {
+            try {
+              final var failure = checkRevisionTarget(workspace, filePath, ifMatch, true);
+              if (failure != null) return failure;
+              final var etag = workspaceService.restoreRevision(workspace, filePath, revision, userId);
+              if (etag.isEmpty()) {
+                return new HandlerResult.Failure(404, noSuchRevision(filePath, revision));
+              }
+              return new HandlerResult.Success(200, "%s restored to revision %s".formatted(filePath, revision), etag);
+            } catch (WorkspaceFileOpException wfe) {
+              return new HandlerResult.Failure(
+                  400,
+                  new WorkspaceFormattedError(
+                      wfe,
+                      "Could not restore revision %s of %s".formatted(
+                          revision,
+                          filePath)));
+            }
+          });
+    } catch (NoSuchWorkspaceException wse) {
+      return new HandlerResult.Failure(404, new WorkspaceFormattedError(wse));
+    } catch (SQLException sqle) {
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, sqle);
+      logger.warn("RESTORE REVISION: SQL Exception: {}", fe);
+      return new HandlerResult.Failure(500, fe);
+    }
   }
 
   /**
@@ -2192,20 +2232,6 @@ public class WorkspaceBindings implements Plugin {
       if (!currentETag.equals(ifMatch)) return conflict(workspace, filePath, currentETag);
     }
     return null;
-  }
-
-  private record WorkspaceOrFailure(Workspace workspace, HandlerResult.Failure failure) {}
-
-  private WorkspaceOrFailure workspaceOrFailure(final int workspaceId) {
-    try {
-      return new WorkspaceOrFailure(workspaceService.getWorkspace(workspaceId), null);
-    } catch (SQLException sqle) {
-      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, sqle);
-      logger.warn("REVISION: SQL Exception: {}", fe);
-      return new WorkspaceOrFailure(null, new HandlerResult.Failure(500, fe));
-    } catch (NoSuchWorkspaceException nsw) {
-      return new WorkspaceOrFailure(null, new HandlerResult.Failure(404, new WorkspaceFormattedError(nsw)));
-    }
   }
   //endregion
 }

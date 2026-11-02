@@ -76,8 +76,11 @@ public final class WorkspaceGitGarbageCollector {
   /** GC one workspace if it is idle, trusted and eligible. */
   boolean gcIfIdle(final Workspace workspace) throws Exception {
     final var ran = history.withLockIfIdle(workspace, () -> gcLocked(workspace));
-    if (ran == null) logger.info("Skipped Git GC of workspace {}: busy", workspace.id());
-    return Boolean.TRUE.equals(ran);
+    if (ran == null) {
+      logger.info("Skipped Git GC of workspace {}: busy", workspace.id());
+      return false;
+    }
+    return ran;
   }
 
   private boolean gcLocked(final Workspace workspace) throws Exception {

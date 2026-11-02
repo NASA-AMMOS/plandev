@@ -35,6 +35,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.nio.file.attribute.FileTime;
 import java.time.Duration;
@@ -55,7 +56,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 
 import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.resolveReadingPath;
 import static gov.nasa.ammos.plandev.workspace.server.utils.FlakyHistory.assertClean;
@@ -1230,41 +1230,102 @@ class WorkspaceGitServiceIntegrationTest {
     }
 
     /**
-     * An out-of-band rewrite that keeps the size, mode and the time the index recorded (cp -p, rsync -t, an extracted
-     * archive) is invisible to Git's stat-based status and to staging, as in native Git: history keeps the old bytes
-     * until the file is next saved. A revision must not record those old bytes as what the user sees, so it is refused.
+     * If a file is externally modified in such a way that the size, mode, and time of update are not changed, then
+     * Git's "status" is unable to detect that the file has been changed.
+     * Attempting to creating a revision in this state fails until the file is updated.
+     * This example uses "git add"
      */
     @Test
-    void aRewriteThatKeepsSizeAndTimeIsNotRecordedAndBlocksRevisionsUntilSaved() throws Exception {
-      final var file = WS1.rootPath().resolve(fileA);
+    void invisibleEditBlocksCreateRevision() throws Exception {
+      final var fileAPath = WS1.rootPath().resolve(fileA);
       bindings.saveAndGetEtag(WS1, fileA, "AAAA");
-      final var saved = FileTime.from(Instant.now().minus(Duration.ofHours(1)));
-      Files.setLastModifiedTime(file, saved);
-      try (final var git = open(WS1)) {
-        git.add().addFilepattern(fileA.toString()).call(); // the index records that time, as after an older save
-      }
-      Files.writeString(file, "BBBB");
-      Files.setLastModifiedTime(file, saved);
-      try (final var git = open(WS1)) {
-        assertTrue(git.status().call().isClean(), "Git's stat check cannot see it");
-      }
-
       bindings.saveAndGetEtag(WS1, fileB, "unrelated");
-      assertEquals("BBBB", Files.readString(file));
-      assertEquals("AAAA", headBlob(WS1, "a.txt"), "not swept into an unrelated user's commit");
-      assertEquals(Set.of("b.txt"), headDiff(WS1).stream().map(DiffEntry::getNewPath).collect(Collectors.toSet()));
 
+      // Externally change the file's modified time
+      final var saved = FileTime.from(Instant.now().minus(Duration.ofHours(1)));
+      Files.setLastModifiedTime(fileAPath, saved);
+
+      // Externally add the file to git
+      final var pb = new ProcessBuilder("git", "add", fileA.toString())
+          .directory(WS1.rootPath().toFile());
+      final var proc = pb.start();
+      final var errors = new String(proc.getErrorStream().readAllBytes(), StandardCharsets.UTF_8);
+      assumeTrue(errors.isBlank());
+      proc.waitFor();
+      proc.destroy();
+
+      // Externally change the file's contents, setting the modified time back to the time it was before `git add`
+      Files.writeString(fileAPath, "BBBB");
+      Files.setLastModifiedTime(fileAPath, saved);
+
+      // Validate that a JGit Status check comes back as clean
+      try (final var git = open(WS1)) {
+        assertTrue(git.status().call().isClean());
+      }
+
+      // Attempting to create a revision for this file is blocked
       final var refused = bindings.handleCreateRevision(WS1.id(), fileA, "*", "", null, DEFAULT_USER);
       assertFailure(refused, 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
-      assertTrue(refused.jsonResponse().toString().contains("a.txt was changed outside PlanDev"), refused.jsonResponse()::toString);
-      assertEquals("BBBB", Files.readString(file), "the refused mutation's rollback leaves the file as found");
+      final var error = refused.jsonResponse().asJsonObject();
+      assertEquals(
+          "a.txt was changed outside PlanDev and differs from its history; save it before creating a revision.",
+          error.getString("message"));
       assertEquals(List.of(), fs.listRevisions(WS1, fileA));
 
-      bindings.saveAndGetEtag(WS1, fileA, Files.readString(file)); // saving what the user sees records it
-      assertEquals("BBBB", headBlob(WS1, "a.txt"));
-      assertInstanceOf(HandlerResult.Success.class, bindings.handleCreateRevision(WS1.id(), fileA, "*", "", null, DEFAULT_USER));
+      // The file's contents are NOT restored to their last saved state
+      assertEquals("BBBB", Files.readString(fileAPath));
+      assertEquals("AAAA", headBlob(WS1, "a.txt"));
+
+      // This state does not block unrelated files from being revisioned.
+      assertSuccess(bindings.handleCreateRevision(WS1.id(), fileB, "*", "", null, DEFAULT_USER));
+
+      // This state does not block the problem file from being copied
+      assertSuccess(bindings.handleCopy(fileA, fileX, WS1, WS1, true));
+      // ... However, it is the externally-modified contents that are copied.
+      assertEquals("BBBB", Files.readString(WS1.rootPath().resolve(fileX)));
+
+      // Saving the stuck file fixes it and allows it to receive revisions again
+      bindings.saveAndGetEtag(WS1, fileA, Files.readString(fileAPath));
+      assertSuccess(bindings.handleCreateRevision(WS1.id(), fileA, "*", "", null, DEFAULT_USER));
       assertEquals("BBBB", new String(fs.readRevision(WS1, fileA, "a").orElseThrow().content(), StandardCharsets.UTF_8));
       assertClean(WS1);
+    }
+
+    /**
+     * If a file is externally modified in such a way that the size, mode, and time of update are not changed, then
+     * Git's "status" is unable to detect that the file has been changed.
+     * Attempting to creating a revision in this state fails until the file is updated.
+     * This example uses "cp -p"
+     */
+    @Test
+    void externalCopyPreservingSizeAndMtimeCannotCreateStaleRevision() throws Exception {
+      // Normal save
+      bindings.saveAndGetEtag(WS1, fileA, "AAAA");
+      final var file = WS1.rootPath().resolve(fileA);
+      final var originalMtime = Files.getLastModifiedTime(file);
+
+      // Make external replacement with the same size and mtime
+      final var replacement = tmp.resolve("replacement.txt");
+      Files.writeString(replacement, "BBBB");
+      Files.setLastModifiedTime(replacement, originalMtime);
+
+      // replace file preserving attributes
+      Files.copy(replacement, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+
+      assertEquals("BBBB", Files.readString(file));
+      assertEquals(originalMtime, Files.getLastModifiedTime(file));
+
+      // JGit misses the change despite the different contents
+      try (final var git = open(WS1)) {
+        assertTrue(git.status().call().isClean());
+      }
+      assertEquals("AAAA", headBlob(WS1, "a.txt"));
+
+      // requireOnDiskAsRecorded prevents a revision of stale contents
+      final var result = bindings.handleCreateRevision(WS1.id(), fileA, "*", "", null, DEFAULT_USER);
+
+      assertFailure(result, 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
+      assertEquals("BBBB", Files.readString(file));
     }
 
     /**

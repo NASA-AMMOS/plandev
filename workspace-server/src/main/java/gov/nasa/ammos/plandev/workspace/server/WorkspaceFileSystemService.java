@@ -63,11 +63,12 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   final WorkspaceRepository workspaceRepository;
   final WorkspaceGitService gitService;
-  private final WorkspaceRevisions revisions = new WorkspaceRevisions();
+  private final WorkspaceRevisions revisions;
 
   public WorkspaceFileSystemService(final WorkspaceRepository workspaceRepository, final WorkspaceGitService gitService) {
     this.workspaceRepository = workspaceRepository;
     this.gitService = gitService;
+    this.revisions = new WorkspaceRevisions(gitService);
   }
 
   /**
@@ -997,17 +998,15 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   throws NoSuchFileException, WorkspaceFileOpException, IOException, GitAPIException, IllegalArgumentException
   {
     gitService.requireLocked(workspace);
-    final var root = workspace.rootPath();
     final var key = revisionKey(workspace, filePath);
-    return revisions.create(root, key, message, userId, gitService.lastEdit(workspace, root.resolve(key)), startAtRevision);
+    return revisions.create(workspace, key, message, userId, gitService.lastEdit(workspace, resolveReadingPath(workspace, filePath)), startAtRevision);
   }
 
   @Override
   public List<WorkspaceRevisions.Revision> listRevisions(final Workspace workspace, final Path filePath)
   throws NoSuchFileException, WorkspaceFileOpException, IOException
   {
-    final var root = workspace.rootPath();
-    return revisions.list(root, revisionKey(workspace, filePath));
+    return revisions.list(workspace, revisionKey(workspace, filePath));
   }
 
   @Override
@@ -1016,7 +1015,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       final Path filePath)
   throws NoSuchFileException, WorkspaceFileOpException, IOException {
     return revisions.getMostRecentRevision(
-        workspace.rootPath(), revisionKey(workspace, filePath));
+        workspace, revisionKey(workspace, filePath));
   }
 
   @Override
@@ -1024,16 +1023,15 @@ public class WorkspaceFileSystemService implements WorkspaceService {
       final Workspace workspace, final Path filePath, final List<WorkspaceRevisions.Revision> revisionList)
   throws NoSuchFileException, WorkspaceFileOpException, IOException
   {
-    return revisions.matching(workspace.rootPath(), revisionKey(workspace, filePath), revisionList);
+    return revisions.matching(workspace, revisionKey(workspace, filePath), revisionList);
   }
 
   @Override
   public Optional<WorkspaceRevisions.HistoricalFile> readRevision(final Workspace workspace, final Path filePath, final String name)
   throws NoSuchFileException, WorkspaceFileOpException, IOException
   {
-    final var root = workspace.rootPath();
-    final var revision = revisions.find(root, revisionKey(workspace, filePath), name);
-    return revision.isEmpty() ? Optional.empty() : Optional.of(WorkspaceRevisions.read(root, revision.get()));
+    final var revision = revisions.find(workspace, revisionKey(workspace, filePath), name);
+    return revision.isEmpty() ? Optional.empty() : Optional.of(WorkspaceRevisions.read(workspace, revision.get()));
   }
 
   @Override
@@ -1043,7 +1041,6 @@ public class WorkspaceFileSystemService implements WorkspaceService {
     gitService.requireLocked(workspace);
     final var historical = readRevision(workspace, filePath, name);
     if (historical.isEmpty()) return Optional.empty();
-    final var root = workspace.rootPath();
     final var etag = writeContent(workspace, resolveWritingPath(workspace, filePath), new ByteArrayInputStream(historical.get().content()));
 
     // Only the user-managed "user" field comes back; readOnly and the system fields stay as they are now.
@@ -1061,14 +1058,13 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   private String revisionKey(final Workspace workspace, final Path filePath)
   throws NoSuchFileException, WorkspaceFileOpException
   {
-    final var root = workspace.rootPath();
     final var path = WorkspacePaths.resolveReadingPath(workspace, filePath);
     if (RenderType.isAerieMetadataFile(path.getFileName().toString())) {
       throw new WorkspaceFileOpException("Metadata files do not have revisions.");
     }
     if (Files.isDirectory(path)) throw new WorkspaceFileOpException("Directories do not have revisions.");
     if (!Files.isRegularFile(path)) throw new NoSuchFileException(workspace, filePath);
-    return WorkspacePaths.key(root, path);
+    return WorkspacePaths.toWorkspaceRelativeGitPath(workspace, path);
   }
   //endregion
 }

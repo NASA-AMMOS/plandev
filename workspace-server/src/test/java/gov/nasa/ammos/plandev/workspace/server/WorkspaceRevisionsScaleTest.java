@@ -110,7 +110,7 @@ class WorkspaceRevisionsScaleTest {
 
     // GC, pruning everything unreachable now rather than after two weeks: every revision and commit survives, warm
     // caches stay right, and the history reads are timed again on the packed repository.
-    final var revisionsBefore = everyRevision(root);
+    final var revisionsBefore = everyRevision(WS);
     final var commitsBefore = mainCommits(root);
     final var bytesBefore = bytes(root.resolve(".git"));
     final var gcStart = System.nanoTime();
@@ -119,7 +119,7 @@ class WorkspaceRevisionsScaleTest {
     }
     System.out.printf("  %-28s %9.1f ms (.git %.1f -> %.1f MB)%n", "gc",
                       (System.nanoTime() - gcStart) / 1e6, bytesBefore / 1e6, bytes(root.resolve(".git")) / 1e6);
-    assertEquals(revisionsBefore, everyRevision(root));
+    assertEquals(revisionsBefore, everyRevision(WS));
     assertEquals(commitsBefore, mainCommits(root));
     assertEquals(new WorkspaceFileSystemService(repository, git).listRevisions(WS, TARGET), fs.listRevisions(WS, TARGET));
     time("list cold after gc", 2000, () -> new WorkspaceFileSystemService(repository, git).listRevisions(WS, TARGET));
@@ -131,12 +131,12 @@ class WorkspaceRevisionsScaleTest {
   }
 
   /** Revision name -> its JSON, commit, content hash and metadata, for every file with revisions, read cold. */
-  private static Map<String, String> everyRevision(Path root) throws Exception {
-    final var revisions = new WorkspaceRevisions();
+  private static Map<String, String> everyRevision(Workspace workspace) throws Exception {
+    final var revisions = new WorkspaceRevisions(new WorkspaceGitService());
     final var all = new TreeMap<String, String>();
     for (final var path : List.of(TARGET, OTHER)) {
-      for (final var revision : revisions.list(root, path.toString())) {
-        final var file = WorkspaceRevisions.read(root, revision);
+      for (final var revision : revisions.list(workspace, path.toString())) {
+        final var file = WorkspaceRevisions.read(workspace, revision);
         final var hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(file.content()));
         all.put(path + "@" + revision.name(), revision.toJson() + " " + revision.commit().name() + " " + hash + " " + file.metadata());
       }

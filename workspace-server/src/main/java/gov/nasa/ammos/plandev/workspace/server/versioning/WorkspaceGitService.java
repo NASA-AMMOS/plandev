@@ -980,7 +980,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   //endregion
 
   //region Git helpers
-  protected static Git open(final Workspace workspace) throws IOException {
+  public static Git open(final Workspace workspace) throws IOException {
     // Opens <root>/.git only; never discovers a repository in a parent directory. Closing the Git closes the repo.
     return Git.open(workspace.rootPath().toFile());
   }

@@ -4,9 +4,9 @@ import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpExcepti
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistoryException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
 import gov.nasa.ammos.plandev.workspace.server.types.RevisionNamingConvention;
+import gov.nasa.ammos.plandev.workspace.server.types.Workspace;
 import gov.nasa.ammos.plandev.workspace.server.versioning.LastEdit;
 import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitService;
-import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.errors.IncorrectObjectTypeException;
 import org.eclipse.jgit.lib.Constants;
@@ -48,6 +48,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitService.open;
+
 /**
  * Per-file revisions: explicit, immutable, named bookmarks (a, b, ..., z, aa, ...) of a file's committed state.
  *
@@ -73,6 +75,10 @@ public final class WorkspaceRevisions {
   private static final String TYPE = "plandev-file-revision";
   private static final int VERSION = 1;
   public static RevisionNamingConvention convention;
+
+  private final WorkspaceGitService gitService;
+
+  public WorkspaceRevisions(final WorkspaceGitService gitService) {this.gitService = gitService;}
 
   public record Revision(
       int ordinal,
@@ -167,9 +173,11 @@ public final class WorkspaceRevisions {
   /**
    * A file's revisions, newest first. Lock-free.
    */
-  List<Revision> list(final Path root, final String key) throws IOException {
-    if (!Files.isDirectory(root.resolve(WorkspacePaths.GIT_DIR), LinkOption.NOFOLLOW_LINKS)) return List.of();
-    try (final var repo = open(root); final var walk = new RevWalk(repo)) {
+  List<Revision> list(final Workspace workspace, final String key) throws IOException {
+    if(!gitService.isManaged(workspace)) return List.of();
+    try (final var git = open(workspace);
+         final var repo = git.getRepository();
+         final var walk = new RevWalk(repo)) {
       // Resolve HEAD before listing tags, so every listed tag is on a commit at or before it.
       final var headCommitId = repo.resolve(Constants.HEAD);
       if (headCommitId == null) return List.of();
@@ -306,9 +314,9 @@ public final class WorkspaceRevisions {
    * The newest of {@code revisions} (the file's at {@code key}, newest first) whose content and sidecar are byte-identical to the
    * file's at HEAD, or empty if none is. A save that reverts the file to an older revision matches that revision.
    */
-  Optional<Revision> matching(final Path root, final String key, final List<Revision> revisions) throws IOException {
+  Optional<Revision> matching(final Workspace workspace, final String key, final List<Revision> revisions) throws IOException {
     if (revisions.isEmpty()) return Optional.empty();
-    try (final var repo = open(root); final var walk = new RevWalk(repo)) {
+    try (final var git = open(workspace); final var repo = git.getRepository(); final var walk = new RevWalk(repo)) {
       final var head = repo.resolve(Constants.HEAD);
       if (head == null) return Optional.empty();
       final var reader = walk.getObjectReader();
@@ -322,8 +330,8 @@ public final class WorkspaceRevisions {
     }
   }
 
-  Optional<Revision> find(final Path root, final String key, final String name) throws IOException {
-    return list(root, key).stream().filter(r -> r.name().equals(name)).findFirst();
+  Optional<Revision> find(final Workspace workspace, final String key, final String name) throws IOException {
+    return list(workspace, key).stream().filter(r -> r.name().equals(name)).findFirst();
   }
 
   /**
@@ -336,7 +344,7 @@ public final class WorkspaceRevisions {
    *                no revisions; later revisions continue from it.
    */
   Revision create(
-      final Path root,
+      final Workspace workspace,
       final String key,
       final String message,
       final String userId,
@@ -344,15 +352,15 @@ public final class WorkspaceRevisions {
       final String startAtRevision)
   throws IOException, GitAPIException, WorkspaceFileOpException, IllegalArgumentException
   {
-    var mostRecentRevision = getMostRecentRevision(root, key);
+    var mostRecentRevision = getMostRecentRevision(workspace, key);
     if (startAtRevision != null && mostRecentRevision.isPresent()) {
       throw new WorkspaceFileOpException("%s already has revisions; startAtRevision is only allowed for its first revision.".formatted(key));
     }
     final var ordinal = startAtRevision != null ? convention.ordinal(startAtRevision) : mostRecentRevision.map(value -> value.ordinal() + 1).orElse(1);
     final var fileId = mostRecentRevision.map(Revision::fileId).orElseGet(UUID::randomUUID);
-    try (final var git = Git.open(root.toFile()); final var walk = new RevWalk(git.getRepository())) {
+    try (final var git = open(workspace); final var walk = new RevWalk(git.getRepository())) {
       final var head = git.getRepository().resolve(Constants.HEAD);
-      requireOnDiskAsRecorded(root, key, fileBlobIds(walk.getObjectReader(), walk.parseCommit(head).getTree(), key));
+      requireOnDiskAsRecorded(workspace, key, fileBlobIds(walk.getObjectReader(), walk.parseCommit(head).getTree(), key));
       // TODO: Cache this if creating revisions of rarely edited files in long histories gets slow. It walks back,
       // uncached and under the lock, to the file's last change.
       final var changed = walk.parseCommit(
@@ -371,7 +379,7 @@ public final class WorkspaceRevisions {
          .call();
 
       // Update the file id cache
-      final var workspaceFileIdCache = fileIdCache.get(root.normalize().resolve(WorkspacePaths.GIT_DIR).getParent());
+      final var workspaceFileIdCache = fileIdCache.get(workspace.rootPath());
       if (workspaceFileIdCache != null) {
         workspaceFileIdCache.put(key, new CachedFileId(head, Optional.of(revision.fileId())));
       }
@@ -382,24 +390,28 @@ public final class WorkspaceRevisions {
   /**
    * Verify that the file's content and sidecar (if it exists) on disk match the blobs from the given commit
    */
-  private static void requireOnDiskAsRecorded(final Path root, final String key, final FileBlobIds recorded)
+  private static void requireOnDiskAsRecorded(final Workspace workspace, final String key, final FileBlobIds recorded)
   throws IOException
   {
-    final var hasher = new ObjectInserter.Formatter();
-    final var sidecar = root.resolve(sidecarKey(key));
-    final var onDisk = new FileBlobIds(
-        hasher.idFor(Constants.OBJ_BLOB, Files.readAllBytes(root.resolve(key))),
-        Files.exists(sidecar, LinkOption.NOFOLLOW_LINKS)
-            ? hasher.idFor(Constants.OBJ_BLOB, Files.readAllBytes(sidecar))
-            : ObjectId.zeroId());
-    if (!onDisk.equals(recorded)) {
-      throw new WorkspaceHistoryException(WorkspaceHistoryException.Kind.REPOSITORY_INCONSISTENT,
-          "%s was changed outside PlanDev and differs from its history; save it before creating a revision.".formatted(key));
+    try(final var hasher = new ObjectInserter.Formatter()) {
+      final var metadataFile =
+          workspace.rootPath().resolve(sidecarKey(key));
+      final var onDisk = new FileBlobIds(
+          hasher.idFor(Constants.OBJ_BLOB, Files.readAllBytes(workspace.rootPath().resolve(key))),
+          Files.exists(metadataFile, LinkOption.NOFOLLOW_LINKS)
+              ? hasher.idFor(Constants.OBJ_BLOB, Files.readAllBytes(metadataFile))
+              : ObjectId.zeroId());
+      if (!onDisk.equals(recorded)) {
+        throw new WorkspaceHistoryException(
+            WorkspaceHistoryException.Kind.REPOSITORY_INCONSISTENT,
+            "%s was changed outside PlanDev and differs from its history; save it before creating a revision.".formatted(
+                key));
+      }
     }
   }
 
-  Optional<Revision> getMostRecentRevision(Path root, String key) throws IOException {
-    final var existing = list(root, key);
+  Optional<Revision> getMostRecentRevision(Workspace workspace, String key) throws IOException {
+    final var existing = list(workspace, key);
     return existing.isEmpty() ? Optional.empty() : Optional.of(existing.getFirst());
   }
 
@@ -409,8 +421,8 @@ public final class WorkspaceRevisions {
    * lastEditedBy/lastEditedAt from the last edit recorded with the revision, exactly as live metadata uses the last
    * edit at HEAD. Lock-free.
    */
-  static HistoricalFile read(final Path root, final Revision revision) throws IOException {
-    try (final var repo = open(root); final var walk = new RevWalk(repo)) {
+  static HistoricalFile read(final Workspace workspace, final Revision revision) throws IOException {
+    try (final var git = open(workspace); final var repo = git.getRepository(); final var walk = new RevWalk(repo)) {
       final var tree = walk.parseCommit(revision.commit()).getTree();
       final var blobIds = fileBlobIds(walk.getObjectReader(), tree, revision.path());
       if (blobIds == null) throw new IOException("Revision %s of %s is missing from commit %s"
@@ -569,9 +581,5 @@ public final class WorkspaceRevisions {
     final var name = path.substring(path.lastIndexOf('/') + 1);
     final var sameName = candidates.stream().filter(c -> c.endsWith("/" + name) || c.equals(name)).toList();
     return sameName.size() == 1 ? sameName.getFirst() : null;
-  }
-
-  private static Repository open(final Path root) throws IOException {
-    return Git.open(root.toFile()).getRepository();
   }
 }

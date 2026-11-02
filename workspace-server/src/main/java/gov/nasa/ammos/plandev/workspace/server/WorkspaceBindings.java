@@ -1978,10 +1978,21 @@ public class WorkspaceBindings implements Plugin {
 
     final JsonObject body;
     try {
+      if(!context.body().isBlank() && !ContentType.JSON.equals(context.contentType())) {
+        context.status(400).json(
+            new WorkspaceFormattedError(new MalformedRequest("Body must be type " + ContentType.JSON)));
+        return;
+      }
       body = context.body().isBlank() ? JsonValue.EMPTY_JSON_OBJECT : Json.createReader(new StringReader(context.body())).readObject();
     } catch (JsonException | ClassCastException e) {
+      final var helpText = """
+      {
+          "message": text,                    // Optional. A description of the revision.
+          "startAtRevision": text             // Optional. Only valid for files that have not yet been revisioned.
+                                              // If provided, the file's revisions will start at this value
+       }""";
       context.status(400).json(new WorkspaceFormattedError(new MalformedRequest(
-          "Invalid body format. Expected an optional JSON object of the form {\"message\": \"...\", \"startAtRevision\": \"...\"}.")));
+          "Invalid body format. Expected body format is an optional JSON object with the form:\n\n"+helpText)));
       return;
     }
     String startAtRevision = null;
@@ -2166,6 +2177,7 @@ public class WorkspaceBindings implements Plugin {
       return;
     }
 
+    // If-Match must be provided, as the file must exist to have its revision restored
     final var ifMatch = context.header("If-Match");
     if (ifMatch == null) {
       context

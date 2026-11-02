@@ -1918,7 +1918,7 @@ class WorkspaceGitServiceIntegrationTest {
     private List<String> names(final String path) throws Exception {
       final var warm = fs.listRevisions(WS1, Path.of(path));
       assertEquals(new WorkspaceFileSystemService(wsRepo, history).listRevisions(WS1, Path.of(path)), warm);
-      return warm.stream().map(WorkspaceRevisions.Revision::name).toList();
+      return warm.stream().map(WorkspaceRevisionService.Revision::name).toList();
     }
 
     private String contentAt(final String path, final String name) throws Exception {
@@ -1965,7 +1965,7 @@ class WorkspaceGitServiceIntegrationTest {
       assertEquals("b", revise("a.txt", ""));
 
       final var revisions = fs.listRevisions(WS1, Path.of("a.txt"));
-      assertEquals(List.of("b", "a"), revisions.stream().map(WorkspaceRevisions.Revision::name).toList());
+      assertEquals(List.of("b", "a"), revisions.stream().map(WorkspaceRevisionService.Revision::name).toList());
       assertEquals("first", revisions.getLast().message());
       assertEquals(DEFAULT_USER, revisions.getLast().toJson().getString("createdBy"));
       assertEquals("a.txt", revisions.getLast().toJson().getString("pathAtRevision"));
@@ -2035,7 +2035,7 @@ class WorkspaceGitServiceIntegrationTest {
       final Supplier<Optional<String>> matching = () -> {
         try {
           final var revisions = fs.listRevisions(WS1, Path.of("a.txt"));
-          return fs.matchingRevision(WS1, Path.of("a.txt"), revisions).map(WorkspaceRevisions.Revision::name);
+          return fs.matchingRevision(WS1, Path.of("a.txt"), revisions).map(WorkspaceRevisionService.Revision::name);
         } catch (Exception e) { throw new RuntimeException(e); }
       };
       bindings.saveAndGetEtag(WS1, "a.txt", "v1");
@@ -2098,7 +2098,7 @@ class WorkspaceGitServiceIntegrationTest {
       revise("y.txt", "y2");
       assertSuccess(bindings.handleMove(Path.of("x.txt"), Path.of("y.txt"), WS1, WS1, true));
       assertEquals(List.of("x1"), fs.listRevisions(WS1, Path.of("y.txt")).stream()
-                                    .map(WorkspaceRevisions.Revision::message).toList());
+                                    .map(WorkspaceRevisionService.Revision::message).toList());
     }
   }
 }

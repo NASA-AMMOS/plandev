@@ -89,7 +89,7 @@ public class WorkspaceBindings implements Plugin {
     this.convention = convention;
 
     // Set the convention
-    WorkspaceRevisions.convention = this.convention;
+    WorkspaceRevisionService.convention = this.convention;
   }
 
   private record PathInformation(int workspaceId, Path filePath) {

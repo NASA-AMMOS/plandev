@@ -51,7 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Locally, {@code SCALE=10 ./gradlew :workspace-server:test --tests '*ScaleTest*' -i} multiplies every history length
  * and only reports.
  */
-class WorkspaceRevisionsScaleTest {
+class WorkspaceRevisionServiceScaleTest {
   private static Workspace WS;
   private static final int SCALE = Integer.parseInt(System.getenv().getOrDefault("SCALE", "1"));
   private static final Path TARGET = Path.of("seq/target.seq");
@@ -90,7 +90,7 @@ class WorkspaceRevisionsScaleTest {
            .forEach(all::add); // lastEdits takes absolute paths
     }
 
-    final var oldest = WorkspaceRevisions.convention.name(1);
+    final var oldest = WorkspaceRevisionService.convention.name(1);
     System.out.printf("%s: %d commits, %d files, target every %d, %d revisions, %d other tags (setup %.1fs)%n",
         name, commits, all.size(), targetEvery, revisions, otherTags, (System.nanoTime() - start) / 1e9);
     // Budgets (ms, SCALE=1) are ~10x a laptop run, to absorb slow CI runners.
@@ -132,11 +132,11 @@ class WorkspaceRevisionsScaleTest {
 
   /** Revision name -> its JSON, commit, content hash and metadata, for every file with revisions, read cold. */
   private static Map<String, String> everyRevision(Workspace workspace) throws Exception {
-    final var revisions = new WorkspaceRevisions(new WorkspaceGitService());
+    final var revisions = new WorkspaceRevisionService(new WorkspaceGitService());
     final var all = new TreeMap<String, String>();
     for (final var path : List.of(TARGET, OTHER)) {
       for (final var revision : revisions.list(workspace, path.toString())) {
-        final var file = WorkspaceRevisions.read(workspace, revision);
+        final var file = WorkspaceRevisionService.read(workspace, revision);
         final var hash = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(file.content()));
         all.put(path + "@" + revision.name(), revision.toJson() + " " + revision.commit().name() + " " + hash + " " + file.metadata());
       }
@@ -206,7 +206,7 @@ class WorkspaceRevisionsScaleTest {
         final var path = c % targetEvery == 0 ? TARGET.toString() : "d%02d/f%03d.seq".formatted(other % 20, other++ % files);
         final var content = "%s @ %d%n".formatted(path, c);
         blobs.put(path, blob(inserter, path.startsWith("d00/") ? content + padding : content));
-        blobs.putIfAbsent(WorkspaceRevisions.sidecarKey(path), sidecar);
+        blobs.putIfAbsent(WorkspaceRevisionService.sidecarKey(path), sidecar);
         final var commit = new CommitBuilder();
         commit.setTreeId(tree(inserter, blobs));
         if (parent != null) commit.setParentId(parent);
@@ -248,14 +248,14 @@ class WorkspaceRevisionsScaleTest {
   private static void tag(Git git, List<ObjectId> commits, String path, UUID fileId) throws Exception {
     try (final var walk = new RevWalk(git.getRepository())) {
       for (var i = 0; i < commits.size(); i++) {
-        final var revision = new WorkspaceRevisions.Revision(
+        final var revision = new WorkspaceRevisionService.Revision(
             i + 1, path, "", "bench", Instant.now(), commits.get(i), null, fileId);
         git.tag()
-           .setName(WorkspaceRevisions.TAG_PREFIX + UUID.randomUUID())
+           .setName(WorkspaceRevisionService.TAG_PREFIX + UUID.randomUUID())
            .setObjectId(walk.parseCommit(commits.get(i)))
            .setAnnotated(true)
            .setTagger(new PersonIdent("bench", ""))
-           .setMessage(WorkspaceRevisions.annotation(revision))
+           .setMessage(WorkspaceRevisionService.annotation(revision))
            .call();
       }
     }

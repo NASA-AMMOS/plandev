@@ -69,8 +69,8 @@ import static gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitSer
  * or stops if the path did not exist before. So revisions follow renames, and copies, re-created paths and files
  * arriving from another workspace start with none.
  */
-public final class WorkspaceRevisions {
-  private static final Logger logger = LoggerFactory.getLogger(WorkspaceRevisions.class);
+public final class WorkspaceRevisionService {
+  private static final Logger logger = LoggerFactory.getLogger(WorkspaceRevisionService.class);
   static final String TAG_PREFIX = "plandev/revisions/";
   private static final String TYPE = "plandev-file-revision";
   private static final int VERSION = 1;
@@ -78,7 +78,7 @@ public final class WorkspaceRevisions {
 
   private final WorkspaceGitService gitService;
 
-  public WorkspaceRevisions(final WorkspaceGitService gitService) {this.gitService = gitService;}
+  public WorkspaceRevisionService(final WorkspaceGitService gitService) {this.gitService = gitService;}
 
   public record Revision(
       int ordinal,

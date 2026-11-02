@@ -1,7 +1,7 @@
 package gov.nasa.ammos.plandev.workspace.server.versioning;
 
 import gov.nasa.ammos.plandev.workspace.server.WorkspaceFileSystemService;
-import gov.nasa.ammos.plandev.workspace.server.WorkspaceRevisions;
+import gov.nasa.ammos.plandev.workspace.server.WorkspaceRevisionService;
 import gov.nasa.ammos.plandev.workspace.server.types.HandlerResult;
 import gov.nasa.ammos.plandev.workspace.server.types.RevisionNamingConvention;
 import gov.nasa.ammos.plandev.workspace.server.types.Workspace;
@@ -149,7 +149,7 @@ class WorkspaceGitGarbageCollectorTest {
     assertFalse(gc.gcIfIdle(WS1), "packed, so no longer eligible");
     assertCollectedAndUsable(WS1, before);
     assertInstanceOf(HandlerResult.Success.class, bindings.handleCreateRevision(WS1.id(), fileA, "*", "", null, DEFAULT_USER));
-    assertEquals(List.of("b", "a"), fs.listRevisions(WS1, fileA).stream().map(WorkspaceRevisions.Revision::name).toList());
+    assertEquals(List.of("b", "a"), fs.listRevisions(WS1, fileA).stream().map(WorkspaceRevisionService.Revision::name).toList());
   }
 
   @Test

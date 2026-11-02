@@ -364,23 +364,23 @@ public interface WorkspaceService {
    * @throws NoSuchFileException If the file does not exist
    * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory
    */
-  WorkspaceRevisions.Revision createRevision(final Workspace workspace, final Path filePath, final String message, final String userId, final String startAtRevision)
+  WorkspaceRevisionService.Revision createRevision(final Workspace workspace, final Path filePath, final String message, final String userId, final String startAtRevision)
   throws NoSuchFileException, WorkspaceFileOpException, IOException, GitAPIException, IllegalArgumentException;
 
   /**
-   * The file's revisions, newest first, following same-workspace renames (see {@link WorkspaceRevisions}).
+   * The file's revisions, newest first, following same-workspace renames (see {@link WorkspaceRevisionService}).
    * @throws NoSuchFileException If the file does not exist
    * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory
    */
-  List<WorkspaceRevisions.Revision> listRevisions(final Workspace workspace, final Path filePath)
+  List<WorkspaceRevisionService.Revision> listRevisions(final Workspace workspace, final Path filePath)
   throws NoSuchFileException, WorkspaceFileOpException, IOException;
 
   /**
-   * Get the most recent revision of a file (see {@link WorkspaceRevisions}).
+   * Get the most recent revision of a file (see {@link WorkspaceRevisionService}).
    * @throws IOException If the file does not exist
    * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory
    */
-  Optional<WorkspaceRevisions.Revision> getMostRecentRevision(final Workspace workspace, final Path filePath)
+  Optional<WorkspaceRevisionService.Revision> getMostRecentRevision(final Workspace workspace, final Path filePath)
   throws NoSuchFileException, WorkspaceFileOpException, IOException;
 
   /**
@@ -388,8 +388,8 @@ public interface WorkspaceService {
    *
    * @param revisions the file's revisions, as returned by {@link #listRevisions}
    */
-  Optional<WorkspaceRevisions.Revision> matchingRevision(
-      final Workspace workspace, final Path filePath, final List<WorkspaceRevisions.Revision> revisions)
+  Optional<WorkspaceRevisionService.Revision> matchingRevision(
+      final Workspace workspace, final Path filePath, final List<WorkspaceRevisionService.Revision> revisions)
   throws NoSuchFileException, WorkspaceFileOpException, IOException;
 
   /**
@@ -397,7 +397,7 @@ public interface WorkspaceService {
    * @throws NoSuchFileException If the file does not exist
    * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory
    */
-  Optional<WorkspaceRevisions.HistoricalFile> readRevision(final Workspace workspace, final Path filePath, final String name)
+  Optional<WorkspaceRevisionService.HistoricalFile> readRevision(final Workspace workspace, final Path filePath, final String name)
   throws NoSuchFileException, WorkspaceFileOpException, IOException;
 
   /**

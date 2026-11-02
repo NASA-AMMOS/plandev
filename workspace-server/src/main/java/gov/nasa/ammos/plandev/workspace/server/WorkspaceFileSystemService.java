@@ -63,12 +63,12 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   final WorkspaceRepository workspaceRepository;
   final WorkspaceGitService gitService;
-  private final WorkspaceRevisions revisions;
+  private final WorkspaceRevisionService revisions;
 
   public WorkspaceFileSystemService(final WorkspaceRepository workspaceRepository, final WorkspaceGitService gitService) {
     this.workspaceRepository = workspaceRepository;
     this.gitService = gitService;
-    this.revisions = new WorkspaceRevisions(gitService);
+    this.revisions = new WorkspaceRevisionService(gitService);
   }
 
   /**
@@ -989,7 +989,7 @@ public class WorkspaceFileSystemService implements WorkspaceService {
 
   //region Revisions
   @Override
-  public WorkspaceRevisions.Revision createRevision(
+  public WorkspaceRevisionService.Revision createRevision(
       final Workspace workspace,
       final Path filePath,
       final String message,
@@ -1003,14 +1003,14 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
-  public List<WorkspaceRevisions.Revision> listRevisions(final Workspace workspace, final Path filePath)
+  public List<WorkspaceRevisionService.Revision> listRevisions(final Workspace workspace, final Path filePath)
   throws NoSuchFileException, WorkspaceFileOpException, IOException
   {
     return revisions.list(workspace, revisionKey(workspace, filePath));
   }
 
   @Override
-  public Optional<WorkspaceRevisions.Revision> getMostRecentRevision(
+  public Optional<WorkspaceRevisionService.Revision> getMostRecentRevision(
       final Workspace workspace,
       final Path filePath)
   throws NoSuchFileException, WorkspaceFileOpException, IOException {
@@ -1019,19 +1019,19 @@ public class WorkspaceFileSystemService implements WorkspaceService {
   }
 
   @Override
-  public Optional<WorkspaceRevisions.Revision> matchingRevision(
-      final Workspace workspace, final Path filePath, final List<WorkspaceRevisions.Revision> revisionList)
+  public Optional<WorkspaceRevisionService.Revision> matchingRevision(
+      final Workspace workspace, final Path filePath, final List<WorkspaceRevisionService.Revision> revisionList)
   throws NoSuchFileException, WorkspaceFileOpException, IOException
   {
     return revisions.matching(workspace, revisionKey(workspace, filePath), revisionList);
   }
 
   @Override
-  public Optional<WorkspaceRevisions.HistoricalFile> readRevision(final Workspace workspace, final Path filePath, final String name)
+  public Optional<WorkspaceRevisionService.HistoricalFile> readRevision(final Workspace workspace, final Path filePath, final String name)
   throws NoSuchFileException, WorkspaceFileOpException, IOException
   {
     final var revision = revisions.find(workspace, revisionKey(workspace, filePath), name);
-    return revision.isEmpty() ? Optional.empty() : Optional.of(WorkspaceRevisions.read(workspace, revision.get()));
+    return revision.isEmpty() ? Optional.empty() : Optional.of(WorkspaceRevisionService.read(workspace, revision.get()));
   }
 
   @Override

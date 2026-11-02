@@ -9,8 +9,11 @@ package gov.nasa.ammos.plandev.permissions;
  * @param roleGranted the user belongs to a role the workspace has granted write access to
  */
 public record WorkspaceAccess(boolean owner, boolean collaborator, boolean roleGranted) {
-  /** Collaborator-equivalent access: an explicit collaborator, or a member of a granted role. */
-  boolean hasCollaboratorAccess() {
-    return collaborator || roleGranted;
+  /**
+   * Collaborator-equivalent access: an explicit collaborator, or a member of a granted role
+   * (when the action can be conferred by a role grant).
+   */
+  boolean hasCollaboratorAccess(final WorkspaceAction action) {
+    return collaborator || (roleGranted && action.roleGrantable());
   }
 }

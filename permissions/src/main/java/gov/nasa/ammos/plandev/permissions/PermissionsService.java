@@ -64,7 +64,7 @@ public final class PermissionsService {
   ) throws PermissionsException {
     try {
       final var permissionType = getWorkspaceActionPermission(action, role);
-      final var authorized = canPerformWorkspaceAction(permissionType, username, workspaceId);
+      final var authorized = canPerformWorkspaceAction(action, permissionType, username, workspaceId);
       if (!authorized) throw new Forbidden(action, role, username, permissionType, workspaceId);
     } catch (Forbidden f) {
       throw new PermissionsException(403, new PermissionsFormattedError(f));
@@ -134,6 +134,7 @@ public final class PermissionsService {
   }
 
   private boolean canPerformWorkspaceAction(
+      final WorkspaceAction action,
       final WorkspacePermissionType permissionType,
       final String username,
       final WorkspaceId workspaceId)
@@ -141,10 +142,10 @@ public final class PermissionsService {
     return switch (permissionType) {
       case NO_CHECK -> true;
       case OWNER -> getWorkspacePermissions(username, workspaceId).owner();
-      case COLLABORATOR -> getWorkspacePermissions(username, workspaceId).hasCollaboratorAccess();
+      case COLLABORATOR -> getWorkspacePermissions(username, workspaceId).hasCollaboratorAccess(action);
       case OWNER_COLLABORATOR -> {
         final var access = getWorkspacePermissions(username, workspaceId);
-        yield access.owner() || access.hasCollaboratorAccess();
+        yield access.owner() || access.hasCollaboratorAccess(action);
       }
     };
   }

@@ -76,6 +76,8 @@ public class WorkspaceRoleGrantsTests {
                                    .add("read_file_directory", "NO_CHECK")
                                    .add("write_file_directory", "OWNER_COLLABORATOR")
                                    .add("delete_file_directory", "OWNER_COLLABORATOR")
+                                   // Even where a role lets collaborators delete a workspace, a role grant must not
+                                   .add("delete_workspace", "OWNER_COLLABORATOR")
                                    .build();
     hasura.createUserRole(opsRole, writeAndDelete);
     hasura.createUserRole(scienceRole, writeAndDelete);
@@ -209,6 +211,7 @@ public class WorkspaceRoleGrantsTests {
     assertEquals(200, write(opsWriterToken));
 
     assertEquals(403, wsServer.deleteWorkspace(opsWriterToken, workspaceId).status());
+    assertEquals(403, wsServer.deleteWorkspace(opsDefaultToken, workspaceId).status()); // active role is opsRole
     assertThrows(HasuraRequestFailure.class, () -> hasura.addWorkspaceRoleGrant(opsWriter, workspaceId, scienceRole));
     assertEquals(0, hasura.removeWorkspaceRoleGrant(opsWriter, workspaceId, opsRole));
     assertThrows(HasuraRequestFailure.class, () -> hasura.addWorkspaceCollaborator(opsWriter, outsider, workspaceId));

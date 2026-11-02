@@ -71,8 +71,8 @@ import static gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitSer
  */
 public final class WorkspaceRevisionService {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceRevisionService.class);
-  static final String TAG_PREFIX = "plandev/revisions/";
-  private static final String TYPE = "plandev-file-revision";
+  static final String TAG_PREFIX = "seqdev/revisions/";
+  private static final String TYPE = "seqedev-file-revision";
   private static final int VERSION = 1;
   public static RevisionNamingConvention convention;
 

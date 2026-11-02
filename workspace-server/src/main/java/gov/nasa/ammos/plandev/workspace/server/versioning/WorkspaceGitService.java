@@ -182,8 +182,8 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
    */
   private record CachedLastEdit(ObjectId validAt, LastEdit edit) {}
 
-  // TODO: Evict idle workspaces' locks if their memory ever matters. There is one per workspace this process has
-  // touched, removed only when the workspace is deleted; a few bytes each.
+  // TODO: Evict idle workspaces' locks if their memory ever matters. There is one lock per workspace this process has
+  // touched, removed only when the workspace is deleted; a lock is few bytes each.
   private final Map<Workspace, ReentrantLock> locks = new ConcurrentHashMap<>();
   private final Map<Workspace, Map<Path, CachedLastEdit>> lastEditCache = new ConcurrentHashMap<>();
   private final Set<Workspace> configured = ConcurrentHashMap.newKeySet();

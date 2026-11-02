@@ -1,5 +1,6 @@
 package gov.nasa.ammos.plandev.workspace.server;
 
+import gov.nasa.ammos.plandev.workspace.server.exceptions.NoSuchFileException;
 import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceFileOpException;
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
 import gov.nasa.ammos.plandev.workspace.server.types.Workspace;
@@ -205,6 +206,19 @@ public final class WorkspacePaths {
   /** Returns a workspace-relative Git-formatted Path.  */
   public static String toWorkspaceRelativeGitPath(final Workspace workspace, final Path absolutePath) {
     return toGitPath(workspace.rootPath().relativize(absolutePath.normalize()));
+  }
+
+  /** The workspace-relative Git path of an existing content file; directories and sidecars have no revisions. */
+  public static String resolveRevisionGitPath(final Workspace workspace, final Path filePath)
+  throws NoSuchFileException, WorkspaceFileOpException
+  {
+    final var path = resolveReadingPath(workspace, filePath);
+    if (RenderType.isAerieMetadataFile(path.getFileName().toString())) {
+      throw new WorkspaceFileOpException("Metadata files do not have revisions.");
+    }
+    if (Files.isDirectory(path)) throw new WorkspaceFileOpException("Directories do not have revisions.");
+    if (!Files.isRegularFile(path)) throw new NoSuchFileException(workspace, filePath);
+    return toWorkspaceRelativeGitPath(workspace, path);
   }
 
   /**

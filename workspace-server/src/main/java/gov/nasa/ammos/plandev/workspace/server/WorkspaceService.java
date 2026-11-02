@@ -359,6 +359,10 @@ public interface WorkspaceService {
 
   /**
    * Record the file's committed state as its next revision. Makes no commit. Caller holds the workspace lock.
+   * @param workspace the workspace the file lives in
+   * @param filePath the path to the file
+   * @param message the revision's message
+   * @param userId the user creating the revision; null or blank records the system identity
    * @param startAtRevision the name for the file's first revision instead of "a", or null
    * @return the new revision
    * @throws NoSuchFileException If the file does not exist
@@ -369,6 +373,9 @@ public interface WorkspaceService {
 
   /**
    * The file's revisions, newest first, following same-workspace renames (see {@link WorkspaceRevisionService}).
+   * @param workspace the workspace the file lives in
+   * @param filePath the path to the file
+   * @return the file's revisions, empty if it has none
    * @throws NoSuchFileException If the file does not exist
    * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory
    */
@@ -377,7 +384,10 @@ public interface WorkspaceService {
 
   /**
    * Get the most recent revision of a file (see {@link WorkspaceRevisionService}).
-   * @throws IOException If the file does not exist
+   * @param workspace the workspace the file lives in
+   * @param filePath the path to the file
+   * @return the file's newest revision, or empty if it has none
+   * @throws NoSuchFileException If the file does not exist
    * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory
    */
   Optional<WorkspaceRevisionService.Revision> getMostRecentRevision(final Workspace workspace, final Path filePath)
@@ -386,7 +396,11 @@ public interface WorkspaceService {
   /**
    * The newest of the file's revisions whose content and metadata equal the file's saved state, or empty if none does.
    *
+   * @param workspace the workspace the file lives in
+   * @param filePath the path to the file
    * @param revisions the file's revisions, as returned by {@link #listRevisions}
+   * @throws NoSuchFileException If the file does not exist
+   * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory
    */
   Optional<WorkspaceRevisionService.Revision> matchingRevision(
       final Workspace workspace, final Path filePath, final List<WorkspaceRevisionService.Revision> revisions)
@@ -394,6 +408,9 @@ public interface WorkspaceService {
 
   /**
    * The content and committed metadata of one of the file's revisions, or empty if it has no revision by that name.
+   * @param workspace the workspace the file lives in
+   * @param filePath the path to the file
+   * @param name the revision's name
    * @throws NoSuchFileException If the file does not exist
    * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory
    */
@@ -403,6 +420,10 @@ public interface WorkspaceService {
   /**
    * Replace the file's content and the "user" field of its metadata with one of its revisions'. Caller holds the
    * workspace lock and has checked readOnly and If-Match.
+   * @param workspace the workspace the file lives in
+   * @param filePath the path to the file
+   * @param name the name of the revision to restore
+   * @param userId the user restoring the revision
    * @return the file's new ETag, or empty if it has no revision by that name
    * @throws NoSuchFileException If the file does not exist
    * @throws WorkspaceFileOpException If "filePath" refers to a metadata file or directory

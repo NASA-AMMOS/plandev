@@ -48,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * In CI (no SCALE set) the histories are small and every timing must stay under a generous budget, so only an
  * order-of-magnitude regression (say, a cache that stopped working, or a walk that became per-path) fails it.
- * Locally, {@code SCALE=10 ./gradlew :workspace-server:test --tests '*ScaleTest*' -i} multiplies every history length
+ * Locally, {@code SCALE=10 ./gradlew :workspace-server:test --tests '*ScaleTest*' -i --rerun-tasks} multiplies every history length
  * and only reports.
  */
 class WorkspaceRevisionServiceScaleTest {

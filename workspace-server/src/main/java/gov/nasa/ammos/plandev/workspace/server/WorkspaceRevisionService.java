@@ -74,6 +74,7 @@ public final class WorkspaceRevisionService {
   static final String TAG_PREFIX = "seqdev/revisions/";
   private static final String TYPE = "seqedev-file-revision";
   private static final int VERSION = 1;
+  // The workspace server uses one configured convention for all workspaces in the process.
   public static RevisionNamingConvention convention;
 
   private final WorkspaceGitService gitService;

@@ -639,10 +639,7 @@ public class WorkspaceBindings implements Plugin {
             userId
         );
         switch (moveResults){
-          case HandlerResult.Success success -> {
-        success.etag().ifPresent(et -> context.header("ETag", et));
-        context.status(success.status()).result(success.response());
-      }
+          case HandlerResult.Success success -> context.status(success.status()).result(success.response());
           case HandlerResult.Failure failure -> context.status(failure.status()).json(failure.error());
         }
       }
@@ -661,10 +658,7 @@ public class WorkspaceBindings implements Plugin {
             userId
         );
         switch (copyResults) {
-          case HandlerResult.Success success -> {
-        success.etag().ifPresent(et -> context.header("ETag", et));
-        context.status(success.status()).result(success.response());
-      }
+          case HandlerResult.Success success -> context.status(success.status()).result(success.response());
           case HandlerResult.Failure failure -> context.status(failure.status()).json(failure.error());
         }
       }
@@ -682,10 +676,7 @@ public class WorkspaceBindings implements Plugin {
     final var deleteResults = handleDelete(pathInfo.workspaceId, pathInfo.filePath, authorize(context).userId());
 
     switch (deleteResults){
-      case HandlerResult.Success success -> {
-        success.etag().ifPresent(et -> context.header("ETag", et));
-        context.status(success.status()).result(success.response());
-      }
+      case HandlerResult.Success success -> context.status(success.status()).result(success.response());
       case HandlerResult.Failure failure -> context.status(failure.status()).json(failure.error());
     }
   }
@@ -2038,6 +2029,12 @@ public class WorkspaceBindings implements Plugin {
                           userId,
                           startAtRevision)
                       .name());
+            } catch (NoSuchFileException nsf) {
+              return new HandlerResult.Failure(404, new WorkspaceFormattedError(nsf));
+            } catch (IOException ioe) {
+              final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ioe);
+              logger.warn("CREATE REVISION: IO EXCEPTION: {}", fe);
+              return new HandlerResult.Failure(500, fe);
             } catch (WorkspaceFileOpException wfe) {
               return new HandlerResult.Failure(
                   400,
@@ -2070,7 +2067,7 @@ public class WorkspaceBindings implements Plugin {
    *  - If the query param "revision" is absent: returns {"revisions": [all file revisions, newest to oldest], "matchingRevision": name of the newest revision whose
    *    content and metadata equal the file's saved state, or null}.
    */
-  private void getFileRevision(Context context) throws NoSuchWorkspaceException, NoSuchFileException, IOException, SQLException {
+  private void getFileRevision(Context context) {
     final var pathInfo = PathInformation.of(context);
 
     // Permissions Check
@@ -2117,6 +2114,18 @@ public class WorkspaceBindings implements Plugin {
       context.status(200).result(historical.get().content());
     } catch (WorkspaceFileOpException wfe) {
       context.status(400).json(new WorkspaceFormattedError(wfe, "Could not get revisions of " + pathInfo.filePath));
+    } catch (NoSuchFileException nsf) {
+      context.status(404).json(new WorkspaceFormattedError(nsf));
+    } catch (NoSuchWorkspaceException nsw) {
+      context.status(404).json(new WorkspaceFormattedError(nsw));
+    } catch (IOException ioe) {
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ioe);
+      logger.warn("GET REVISION: IO EXCEPTION: {}", fe);
+      context.status(500).json(fe);
+    } catch (SQLException sql) {
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, sql);
+      logger.warn("GET REVISION: SQL EXCEPTION: {}", fe);
+      context.status(500).json(fe);
     }
   }
 
@@ -2125,7 +2134,7 @@ public class WorkspaceBindings implements Plugin {
    *
    * Returns {"versionMetadata": {name, message, createdAt, createdBy}, "fileMetadata": {...}}.
    */
-  private void getRevisionMetadata(Context context) throws NoSuchWorkspaceException, NoSuchFileException, IOException, SQLException {
+  private void getRevisionMetadata(Context context) {
     final var pathInfo = PathInformation.of(context);
 
     // Permissions Check
@@ -2154,6 +2163,18 @@ public class WorkspaceBindings implements Plugin {
                                    .toString());
     } catch (WorkspaceFileOpException wfe) {
       context.status(400).json(new WorkspaceFormattedError(wfe, "Could not get revision metadata of " + pathInfo.filePath));
+    } catch (NoSuchFileException nsf) {
+      context.status(404).json(new WorkspaceFormattedError(nsf));
+    } catch (NoSuchWorkspaceException nsw) {
+      context.status(404).json(new WorkspaceFormattedError(nsw));
+    } catch (IOException ioe) {
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, ioe);
+      logger.warn("GET REVISION METADATA: IO EXCEPTION: {}", fe);
+      context.status(500).json(fe);
+    } catch (SQLException sql) {
+      final var fe = new FormattedError(AerieService.WORKSPACE_SERVER, sql);
+      logger.warn("GET REVISION METADATA: SQL EXCEPTION: {}", fe);
+      context.status(500).json(fe);
     }
   }
 

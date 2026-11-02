@@ -187,10 +187,10 @@ public final class WorkspaceRevisionService {
       if (fileId.isEmpty()) return List.of();
 
       // Every revision tag in the repository, for any file, by its file id
-      final var revisionsByFileId = revisionsByFileId(repo, walk);
-      var fileRevisions = revisionsByFileId.get(fileId.get());
-      if (fileRevisions == null) return List.of();
-      return fileRevisions.stream().sorted(Comparator.comparingInt(Revision::ordinal).reversed()).toList();
+      final var fileRevisions = revisionsForFile(repo, walk, fileId.get());
+      // Sort the revisions into newest-first order
+      fileRevisions.sort(Comparator.comparingInt(Revision::ordinal).reversed());
+      return fileRevisions;
     }
   }
 
@@ -476,14 +476,22 @@ public final class WorkspaceRevisionService {
     return byCommit;
   }
 
-  /** Every well-formed revision tag, grouped by its file id. Anything else under the prefix is ignored. */
-  private Map<UUID, List<Revision>> revisionsByFileId(final Repository repo, final RevWalk walk) throws IOException {
-    final var byFileId = new HashMap<UUID, List<Revision>>();
+  /**
+   * Every well-formed revision tag that belongs to the file, identified by its file id.
+   */
+  private List<Revision> revisionsForFile(final Repository repo, final RevWalk walk, final UUID fileId) throws IOException {
+    final var fileRevisions = new ArrayList<Revision>();
+
     for (final var ref : repo.getRefDatabase().getRefsByPrefix(Constants.R_TAGS + TAG_PREFIX)) {
       var revision = getParsedTagAndUpdateCache(repo, walk, ref);
-      revision.ifPresent(r -> byFileId.computeIfAbsent(r.fileId(), k -> new ArrayList<>()).add(r));
+      revision.ifPresent(r -> {
+        if(fileId.equals(r.fileId)) {
+          fileRevisions.add(r);
+        }
+      });
     }
-    return byFileId;
+
+    return fileRevisions;
   }
 
   /** Given a ref (tag), get the parsed version of the tag + metadata, updating the cache if necessary */

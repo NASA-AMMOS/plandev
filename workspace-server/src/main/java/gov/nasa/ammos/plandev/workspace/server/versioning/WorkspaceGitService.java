@@ -106,7 +106,7 @@ import static gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistor
  * A small marker in .git distinguishes a mutation interrupted by a process crash from an unexplained external edit.
  * On the next mutation, a marked repository is restored to its current HEAD: this rolls back work whose commit did
  * not land and completes work whose commit did land, preserving unfinished bytes in .seqdev/recovery first.
- * The marker is removed only after the repository is clean. An interrupted Git GC is recovered first ({@link WorkspaceGc}).
+ * The marker is removed only after the repository is clean. An interrupted Git GC is recovered first ({@link WorkspaceGitGarbageCollector}).
  *
  * Cross-workspace:
  * Two repositories cannot share a transaction. Commits are made in the order the caller
@@ -139,7 +139,7 @@ import static gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistor
  */
 public class WorkspaceGitService implements WorkspaceVersioningService {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceGitService.class);
-  private final WorkspaceGc garbageCollector;
+  private final WorkspaceGitGarbageCollector garbageCollector;
 
   static final String INIT_MESSAGE = "Initialize workspace history";
   static final String ADOPT_MESSAGE = "Adopt workspace into history";
@@ -167,7 +167,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       "logs/refs/heads/" + BRANCH + ".lock");
 
   public WorkspaceGitService() {
-    this.garbageCollector = new WorkspaceGc(this);
+    this.garbageCollector = new WorkspaceGitGarbageCollector(this);
   }
 
   @FunctionalInterface
@@ -406,7 +406,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
     if (!Files.isDirectory(workspace.rootPath())) {
       throw inconsistent("Workspace directory " + workspace.rootPath() + " is missing.");
     }
-    WorkspaceGc.removeInterruptedGcLocks(workspace);
+    WorkspaceGitGarbageCollector.removeInterruptedGcLocks(workspace);
     if (hasMarker(mutationMarker(workspace))) {
       if (!isManaged(workspace)) {
         throw inconsistent("Workspace at " + workspace.rootPath() + " has an interrupted-mutation marker but is not managed.");

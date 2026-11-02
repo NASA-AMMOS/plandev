@@ -41,8 +41,8 @@ import static gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistor
  * proves those locks were GC's, so {@link #removeInterruptedGcLocks} deletes them and the marker before the next save
  * or GC. JGit's own "GC running" file, gc.pid, is ignored once it is 12 hours old.
  */
-public final class WorkspaceGc {
-  private static final Logger logger = LoggerFactory.getLogger(WorkspaceGc.class);
+public final class WorkspaceGitGarbageCollector {
+  private static final Logger logger = LoggerFactory.getLogger(WorkspaceGitGarbageCollector.class);
   static final String GC_MARKER = "seqdev-gc-in-progress";
   // The locks a GC holds that WorkspaceGitService rejects: JGit locks packed-refs while rewriting it (and each loose
   // tag file it deletes, which nothing checks or reads), and gcLocked locks main.
@@ -56,7 +56,7 @@ public final class WorkspaceGc {
     return thread;
   });
 
-  public WorkspaceGc(final WorkspaceGitService history) {
+  public WorkspaceGitGarbageCollector(final WorkspaceGitService history) {
     this.history = history;
   }
 

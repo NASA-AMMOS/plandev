@@ -1,6 +1,7 @@
 package gov.nasa.ammos.plandev.workspace.server.versioning;
 
 import gov.nasa.ammos.plandev.workspace.server.WorkspaceFileSystemService;
+import gov.nasa.ammos.plandev.workspace.server.WorkspaceRevisions;
 import gov.nasa.ammos.plandev.workspace.server.types.HandlerResult;
 import gov.nasa.ammos.plandev.workspace.server.types.RevisionNamingConvention;
 import gov.nasa.ammos.plandev.workspace.server.types.Workspace;
@@ -45,8 +46,8 @@ import static gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitSer
 import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
-/** {@link WorkspaceGc}: eligibility, skipping, failure, and recovery from an interrupted GC. */
-class WorkspaceGcTest {
+/** {@link WorkspaceGitGarbageCollector}: eligibility, skipping, failure, and recovery from an interrupted GC. */
+class WorkspaceGitGarbageCollectorTest {
   private static final Path fileA = Path.of("a.txt");
 
   @TempDir Path tmp;
@@ -54,7 +55,7 @@ class WorkspaceGcTest {
   private FlakyHistory history;
   private WorkspaceFileSystemService fs;
   private MockBindings bindings;
-  private WorkspaceGc gc;
+  private WorkspaceGitGarbageCollector gc;
   private Workspace WS1;
   private Workspace WS2;
   private int files = 0;
@@ -71,7 +72,7 @@ class WorkspaceGcTest {
     history = new FlakyHistory();
     fs = new WorkspaceFileSystemService(wsRepo, history);
     bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
-    gc = new WorkspaceGc(history);
+    gc = new WorkspaceGitGarbageCollector(history);
   }
 
   /** One mutation adding n new files. */
@@ -117,7 +118,7 @@ class WorkspaceGcTest {
   private void assertCollectedAndUsable(final Workspace ws, final List<RevCommit> history) throws Exception {
     assertEquals(0, looseIn17(ws));
     assertTrue(packs(ws) > 0);
-    assertFalse(Files.exists(WorkspaceGc.marker(ws)));
+    assertFalse(Files.exists(WorkspaceGitGarbageCollector.marker(ws)));
     assertEquals(List.of(), WorkspaceGitService.existingGitLocks(ws));
     bindings.saveAndGetEtag(ws, fileA, "after gc");
     assertEquals("after gc", bindings.readFile(ws, fileA));
@@ -134,7 +135,7 @@ class WorkspaceGcTest {
     addFiles(WS1, 20);
     assertFalse(gc.gcIfIdle(WS1));
     assertEquals(0, packs(WS1));
-    assertFalse(Files.exists(WorkspaceGc.marker(WS1)));
+    assertFalse(Files.exists(WorkspaceGitGarbageCollector.marker(WS1)));
   }
 
   @Test
@@ -148,7 +149,7 @@ class WorkspaceGcTest {
     assertFalse(gc.gcIfIdle(WS1), "packed, so no longer eligible");
     assertCollectedAndUsable(WS1, before);
     assertInstanceOf(HandlerResult.Success.class, bindings.handleCreateRevision(WS1.id(), fileA, "*", "", null, DEFAULT_USER));
-    assertEquals(List.of("b", "a"), fs.listRevisions(WS1, fileA).stream().map(r -> r.name()).toList());
+    assertEquals(List.of("b", "a"), fs.listRevisions(WS1, fileA).stream().map(WorkspaceRevisions.Revision::name).toList());
   }
 
   @Test
@@ -270,7 +271,7 @@ class WorkspaceGcTest {
 
   /** What a process death during GC's RefDirectory.pack, while a pack was being written, leaves behind. */
   private void simulateInterruptedGc(final Workspace ws) throws IOException {
-    createMarker(WorkspaceGc.marker(ws));
+    createMarker(WorkspaceGitGarbageCollector.marker(ws));
     Files.writeString(git(ws, "packed-refs.lock"), "# pack-refs with: peeled fully-peeled sorted\n");
     Files.writeString(git(ws, "refs/heads/main.lock"), "");
     Files.writeString(git(ws, "gc.pid"), "1 crashed-host");
@@ -287,7 +288,7 @@ class WorkspaceGcTest {
     restartServer();
 
     bindings.saveAndGetEtag(WS1, fileA, "after crash");
-    assertFalse(Files.exists(WorkspaceGc.marker(WS1)));
+    assertFalse(Files.exists(WorkspaceGitGarbageCollector.marker(WS1)));
     assertFalse(Files.exists(git(WS1, "packed-refs.lock")));
     assertFalse(Files.exists(git(WS1, "refs/heads/main.lock")));
     assertEquals(before, log(WS1).subList(1, before.size() + 1));
@@ -318,13 +319,13 @@ class WorkspaceGcTest {
   @Test
   void aGcMarkerDoesNotExplainOtherLocks() throws Exception {
     bindings.saveAndGetEtag(WS1, fileA, "original");
-    createMarker(WorkspaceGc.marker(WS1));
+    createMarker(WorkspaceGitGarbageCollector.marker(WS1));
     Files.writeString(git(WS1, "index.lock"), "");
     assertFailure(bindings.saveFile(WS1, fileA, "changed", "*"), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
     assertTrue(Files.exists(git(WS1, "index.lock")));
     Files.delete(git(WS1, "index.lock"));
 
-    createMarker(WorkspaceGc.marker(WS1));
+    createMarker(WorkspaceGitGarbageCollector.marker(WS1));
     Files.createDirectory(git(WS1, "packed-refs.lock"));
     assertFailure(bindings.saveFile(WS1, fileA, "changed", "*"), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
     assertTrue(Files.isDirectory(git(WS1, "packed-refs.lock")));
@@ -340,7 +341,7 @@ class WorkspaceGcTest {
     assumeTrue(!Files.isWritable(packDir), "permissions are not enforced for this user");
     try {
       assertThrows(IOException.class, () -> gc.gcIfIdle(WS1));
-      assertFalse(Files.exists(WorkspaceGc.marker(WS1)));
+      assertFalse(Files.exists(WorkspaceGitGarbageCollector.marker(WS1)));
       assertEquals(List.of(), WorkspaceGitService.existingGitLocks(WS1));
       bindings.saveAndGetEtag(WS1, fileA, "after failed gc");
       assertClean(WS1);
@@ -359,7 +360,6 @@ class WorkspaceGcTest {
     final var packDir = git(WS2, "objects/pack");
     Files.createDirectories(packDir);
     setWritable(packDir, false);
-    gc.start();
     try {
       addFiles(WS2, 1);
       addFiles(WS1, 1);

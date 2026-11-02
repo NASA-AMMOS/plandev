@@ -62,6 +62,7 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static gov.nasa.ammos.plandev.workspace.server.WorkspaceFormattedError.noSuchRevision;
 import static io.javalin.apibuilder.ApiBuilder.before;
 import static io.javalin.apibuilder.ApiBuilder.path;
 
@@ -2205,14 +2206,6 @@ public class WorkspaceBindings implements Plugin {
     } catch (NoSuchWorkspaceException nsw) {
       return new WorkspaceOrFailure(null, new HandlerResult.Failure(404, new WorkspaceFormattedError(nsw)));
     }
-  }
-
-  private static FormattedError noSuchRevision(final Path filePath, final String revision) {
-    return new FormattedError(
-        AerieService.WORKSPACE_SERVER,
-        "NO_SUCH_REVISION",
-        "%s has no revision %s".formatted(filePath, revision),
-        Optional.empty());
   }
   //endregion
 }

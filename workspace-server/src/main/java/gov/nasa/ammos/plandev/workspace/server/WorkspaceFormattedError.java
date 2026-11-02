@@ -11,6 +11,7 @@ import gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistoryExcept
 import gov.nasa.ammos.plandev.workspace.server.postgres.NoSuchWorkspaceException;
 
 import javax.json.Json;
+import java.nio.file.Path;
 import java.util.Optional;
 
 /**
@@ -80,6 +81,14 @@ final class WorkspaceFormattedError extends FormattedError {
 
   public WorkspaceFormattedError(WorkspaceHistoryException whe) {
     super(AerieService.WORKSPACE_SERVER, whe.kind.errorType, whe);
+  }
+
+  public static FormattedError noSuchRevision(final Path filePath, final String revision) {
+    return new FormattedError(
+        AerieService.WORKSPACE_SERVER,
+        "NO_SUCH_REVISION",
+        "%s has no revision %s".formatted(filePath, revision),
+        Optional.empty());
   }
 
   /**

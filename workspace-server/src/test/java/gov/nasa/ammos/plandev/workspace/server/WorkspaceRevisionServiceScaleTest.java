@@ -29,15 +29,16 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
+import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.gitDirectory;
+import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.resolveReadingPath;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -52,7 +53,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * and only reports.
  */
 class WorkspaceRevisionServiceScaleTest {
-  private static Workspace WS;
   private static final int SCALE = Integer.parseInt(System.getenv().getOrDefault("SCALE", "1"));
   private static final Path TARGET = Path.of("seq/target.seq");
   private static final UUID TARGET_FILE_ID = UUID.nameUUIDFromBytes(TARGET.toString().getBytes());
@@ -76,19 +76,20 @@ class WorkspaceRevisionServiceScaleTest {
   void scenario(String name, int commits, int files, int targetEvery, int revisions, int otherTags) throws Throwable {
     commits *= SCALE;
     final var repository = new WorkspaceTestRepository(tmp.toRealPath());
-    WS = repository.createWorkspace("ws1");
+    final var WS = repository.createWorkspace("revisionsScaleTest");
     final var root = WS.rootPath();
     final var start = System.nanoTime();
-    generate(root, commits, files, targetEvery, revisions, otherTags, 16 * 1024);
+    generate(WS, commits, files, targetEvery, revisions, otherTags, 16 * 1024);
     final var git = new WorkspaceGitService();
     final var fs = new WorkspaceFileSystemService(repository, git);
     final var bindings = new WorkspaceBindings(null, fs, git, null, "", RevisionNamingConvention.ALPHABETICAL);
-    save(git, root, OTHER); // adopts the generated repository, as a legacy workspace's first mutation would
-    final Set<Path> all = new HashSet<>();
-    try (final var paths = Files.walk(root)) {
-      paths.filter(p -> Files.isRegularFile(p) && !root.relativize(p).toString().matches("(.*/)?\\..*")) // no dot files or dirs
-           .forEach(all::add); // lastEdits takes absolute paths
-    }
+    save(git, WS, OTHER); // adopts the generated repository, as a legacy workspace's first mutation would
+
+    // Get all regular files in the workspace
+    final var all = WorkspacePaths.walk(root, Integer.MAX_VALUE) // Filters out reserved paths
+                                  .stream()
+                                  .filter(Files::isRegularFile) // Filter out directories
+                                  .collect(Collectors.toSet());
 
     final var oldest = WorkspaceRevisionService.convention.name(1);
     System.out.printf("%s: %d commits, %d files, target every %d, %d revisions, %d other tags (setup %.1fs)%n",
@@ -99,10 +100,10 @@ class WorkspaceRevisionServiceScaleTest {
     final var listed = fs.listRevisions(WS, TARGET);
     // Matches no revision unless the target is unchanged since the latest one, so this is usually a scan of all of them.
     time("matchingRevision", 300, () -> fs.matchingRevision(WS, TARGET, listed));
-    time("save other + list", 1500, () -> { save(git, root, OTHER); fs.listRevisions(WS, TARGET); });
+    time("save other + list", 1500, () -> { save(git, WS, OTHER); fs.listRevisions(WS, TARGET); });
     time("read oldest cold", 2000, () -> new WorkspaceFileSystemService(repository, git).readRevision(WS, TARGET, oldest));
     time("lastEdits all cold", 10000, () -> new WorkspaceGitService().lastEdits(WS, all));
-    time("save other + lastEdits all", 10000, () -> { save(git, root, OTHER); git.lastEdits(WS, all); });
+    time("save other + lastEdits all", 10000, () -> { save(git, WS, OTHER); git.lastEdits(WS, all); });
     time("create", 1000, () -> assertInstanceOf(HandlerResult.Success.class,
         bindings.handleCreateRevision(WS.id(), TARGET, "*", "", null, "bench")));
     time("restore oldest", 1000, () -> assertInstanceOf(HandlerResult.Success.class,
@@ -112,13 +113,13 @@ class WorkspaceRevisionServiceScaleTest {
     // caches stay right, and the history reads are timed again on the packed repository.
     final var revisionsBefore = everyRevision(WS);
     final var commitsBefore = mainCommits(root);
-    final var bytesBefore = bytes(root.resolve(".git"));
+    final var bytesBefore = bytes(gitDirectory(WS));
     final var gcStart = System.nanoTime();
     try (final var g = Git.open(root.toFile())) {
       g.gc().setExpire(new Date()).call();
     }
     System.out.printf("  %-28s %9.1f ms (.git %.1f -> %.1f MB)%n", "gc",
-                      (System.nanoTime() - gcStart) / 1e6, bytesBefore / 1e6, bytes(root.resolve(".git")) / 1e6);
+                      (System.nanoTime() - gcStart) / 1e6, bytesBefore / 1e6, bytes(gitDirectory(WS)) / 1e6);
     assertEquals(revisionsBefore, everyRevision(WS));
     assertEquals(commitsBefore, mainCommits(root));
     assertEquals(new WorkspaceFileSystemService(repository, git).listRevisions(WS, TARGET), fs.listRevisions(WS, TARGET));
@@ -176,9 +177,9 @@ class WorkspaceRevisionServiceScaleTest {
 
   private static int saves = 0;
 
-  private static void save(WorkspaceGitService git, Path root, Path path) throws Exception {
-    git.mutate(WS, "Update " + path, "bench", () -> {
-      Files.writeString(root.resolve(path), "save " + saves++ + "\n");
+  private static void save(WorkspaceGitService git, Workspace workspace, Path path) throws Exception {
+    git.mutate(workspace, "Update " + path, "bench", () -> {
+      Files.writeString(resolveReadingPath(workspace, path), "save " + saves++ + "\n");
       return true;
     }, result -> result);
   }
@@ -188,7 +189,7 @@ class WorkspaceRevisionServiceScaleTest {
    * d00 get the same largeBytes of random text appended, so versions of them differ by a few bytes, as edits to a large
    * sequence would.
    */
-  static void generate(Path root, int commits, int files, int targetEvery, int revisions, int otherTags, int largeBytes)
+  static void generate(Workspace workspace, int commits, int files, int targetEvery, int revisions, int otherTags, int largeBytes)
   throws Exception
   {
     final var blobs = new TreeMap<String, ObjectId>(); // workspace-relative path -> blob
@@ -197,7 +198,7 @@ class WorkspaceRevisionServiceScaleTest {
     final var random = new Random(42);
     final var padding = new StringBuilder();
     while (padding.length() < largeBytes) padding.append(Long.toHexString(random.nextLong()));
-    try (final var git = Git.init().setDirectory(root.toFile()).setInitialBranch("main").call();
+    try (final var git = Git.init().setDirectory(workspace.rootPath().toFile()).setInitialBranch("main").call();
          final var inserter = git.getRepository().newObjectInserter()) {
       final var sidecar = blob(inserter, "{}");
       ObjectId parent = null;

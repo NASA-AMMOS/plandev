@@ -63,8 +63,8 @@ class WorkspaceGitGarbageCollectorTest {
   @BeforeEach
   void setUp() throws IOException {
     wsRepo = new WorkspaceTestRepository(tmp.toRealPath());
-    WS1 = wsRepo.createWorkspace("ws1");
-    WS2 = wsRepo.createWorkspace("ws2");
+    WS1 = wsRepo.createWorkspace("gcWorkspace1");
+    WS2 = wsRepo.createWorkspace("gcWorkspace2");
     restartServer();
   }
 

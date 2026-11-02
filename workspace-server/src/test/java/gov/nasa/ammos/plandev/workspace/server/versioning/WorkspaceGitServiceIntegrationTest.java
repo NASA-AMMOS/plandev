@@ -17,6 +17,9 @@ import org.eclipse.jgit.lib.FileMode;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.treewalk.TreeWalk;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -57,6 +60,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.gitDirectory;
 import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.resolveReadingPath;
 import static gov.nasa.ammos.plandev.workspace.server.utils.FlakyHistory.assertClean;
 import static gov.nasa.ammos.plandev.workspace.server.utils.FlakyHistory.createMarker;
@@ -86,28 +90,17 @@ class WorkspaceGitServiceIntegrationTest {
   private static final Path goneFile = Path.of("gone.txt");
   private static final Path fileX = Path.of("d/x.txt");
 
-  @TempDir Path tmp;
-  private WorkspaceTestRepository wsRepo;
-  private FlakyHistory history;
-  private WorkspaceFileSystemService fs;
-  private MockBindings bindings;
+  @TempDir static Path tmp;
+  private static WorkspaceTestRepository wsRepo;
 
-  private Workspace WS1;
-  private Workspace WS2;
-
-  @BeforeEach
-  void setUp() throws IOException {
+  @BeforeAll
+  static void beforeAll() throws IOException {
     wsRepo = new WorkspaceTestRepository(tmp.toRealPath());
-    WS1 = wsRepo.createWorkspace("ws1");
-    WS2 = wsRepo.createWorkspace("ws2");
-    restartServer();
   }
 
-  /** Recreate all in-memory coordination state while keeping the workspace disks, as a process restart would. */
-  private void restartServer() {
-    history = new FlakyHistory();
-    fs = new WorkspaceFileSystemService(wsRepo, history);
-    bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+  @AfterAll
+  static void afterAl() {
+    wsRepo.close();
   }
 
   //region Helpers
@@ -145,13 +138,34 @@ class WorkspaceGitServiceIntegrationTest {
 
   /** Initialize a workspace's history (an empty directory creation is a no-op mutation). */
   // TODO: This method shouldn't be necessary
-  private void initWorkspace(final Workspace ws) {
+  private void initWorkspace(final Workspace ws, MockBindings bindings) {
     assertSuccess(bindings.handleCreateDirectory(ws.id(), Path.of("scratch"), DEFAULT_USER));
   }
   //endregion
 
   @Nested
   class Save {
+    private Workspace WS1;
+    private FlakyHistory history;
+    private WorkspaceFileSystemService fs;
+    private MockBindings bindings;
+
+    @BeforeEach
+    void setUp() throws IOException {
+      WS1 = wsRepo.createWorkspace("saveWorkspace1");
+
+      // Restart sever
+      history = new FlakyHistory();
+      fs = new WorkspaceFileSystemService(wsRepo, history);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+    }
+
+    @AfterEach
+    void tearDown() {
+      wsRepo.deleteWorkspace(WS1);
+    }
+
+
     @Test
     void saveCreatesACommitAndLeavesTheRepoClean() throws Exception {
       final var etag = bindings.saveAndGetEtag(WS1, "seq/a.txt", "command A;");
@@ -238,6 +252,25 @@ class WorkspaceGitServiceIntegrationTest {
 
   @Nested
   class LastEdits {
+    private Workspace WS1;
+    private FlakyHistory history;
+    private MockBindings bindings;
+
+    @BeforeEach
+    void setUp() throws IOException {
+      WS1 = wsRepo.createWorkspace("lastEditsWorkspace1");
+
+      // Restart sever
+      history = new FlakyHistory();
+      final var fs = new WorkspaceFileSystemService(wsRepo, history);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+    }
+
+    @AfterEach
+    void tearDown() {
+      wsRepo.deleteWorkspace(WS1);
+    }
+
     @Test
     void resolvesOnlyRequestedContentPathsAndReusesPerPathCache() throws Exception {
       bindings.saveAndGetEtag(WS1, fileA, "a1");
@@ -284,6 +317,25 @@ class WorkspaceGitServiceIntegrationTest {
 
   @Nested
   class FailureSemantics {
+    private FlakyHistory history;
+    private MockBindings bindings;
+
+    private Workspace WS1;
+
+    @BeforeEach
+    void setUp() throws IOException {
+      WS1 = wsRepo.createWorkspace("failureWorkspace1");
+
+      // Restart sever
+      history = new FlakyHistory();
+      final var fs = new WorkspaceFileSystemService(wsRepo, history);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+    }
+
+    @AfterEach
+    void tearDown() {
+      wsRepo.deleteWorkspace(WS1);
+    }
     /**
      * Deterministic injection at the mutation boundary: every kind of file change is rolled back. Empty directories
      * are not versioned state, so the layout of empty directories is not part of what rollback guarantees.
@@ -377,6 +429,32 @@ class WorkspaceGitServiceIntegrationTest {
 
   @Nested
   class CrashRecovery {
+    private FlakyHistory history;
+    private MockBindings bindings;
+
+    private Workspace WS1;
+    private Workspace WS2;
+
+    @BeforeEach
+    void setUp() throws IOException {
+      WS1 = wsRepo.createWorkspace("crashWorkspace1");
+      WS2 = wsRepo.createWorkspace("crashWorkspace2");
+      restartServer();
+    }
+
+    @AfterEach
+    void tearDown() {
+      wsRepo.deleteWorkspace(WS1);
+      wsRepo.deleteWorkspace(WS2);
+    }
+
+    /** Recreate all in-memory coordination state while keeping the workspace disks, as a process restart would. */
+    private void restartServer() {
+      history = new FlakyHistory();
+      final var fs = new WorkspaceFileSystemService(wsRepo, history);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+    }
+
     @Test
     void stagedAndWorktreeResiduePreservesCurrentBytesAndBothStates() throws Exception {
       bindings.saveAndGetEtag(WS1, fileA, "original");
@@ -516,8 +594,8 @@ class WorkspaceGitServiceIntegrationTest {
 
     @Test
     void aCrossWorkspaceCrashAfterTheDestinationCommitRecoversAsACopy() throws Exception {
-      initWorkspace(WS1);
-      initWorkspace(WS2);
+      initWorkspace(WS1, bindings);
+      initWorkspace(WS2, bindings);
       bindings.saveAndGetEtag(WS1, fileA, "content");
       final var sourceHead = head(WS1);
       createMarker(mutationMarker(WS1));
@@ -558,7 +636,7 @@ class WorkspaceGitServiceIntegrationTest {
       Files.writeString(indexLock, "stale");
 
       restartServer();
-      initWorkspace(WS1);
+      initWorkspace(WS1, bindings);
 
       assertTrue(history.isManaged(WS1));
       assertTrue(headTree(WS1).contains("legacy.txt"));
@@ -576,7 +654,7 @@ class WorkspaceGitServiceIntegrationTest {
       Files.writeString(partialGit.resolve("unfinished"), "partial initialization");
 
       restartServer();
-      initWorkspace(WS1);
+      initWorkspace(WS1, bindings);
 
       assertTrue(history.isManaged(WS1));
       assertTrue(headTree(WS1).contains("legacy.txt"));
@@ -588,6 +666,25 @@ class WorkspaceGitServiceIntegrationTest {
 
   @Nested
   class FileOperations {
+    private MockBindings bindings;
+
+    private Workspace WS1;
+
+    @BeforeEach
+    void setUp() throws IOException {
+      WS1 = wsRepo.createWorkspace("fileOpWorkspace1");
+
+      // Restart sever
+      final var history = new FlakyHistory();
+      final var fs = new WorkspaceFileSystemService(wsRepo, history);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+    }
+
+    @AfterEach
+    void tearDown() {
+      wsRepo.deleteWorkspace(WS1);
+    }
+
     @Test
     void renameIsRecordedAsARename() throws Exception {
       bindings.saveAndGetEtag(WS1, fileA, "content");
@@ -639,10 +736,46 @@ class WorkspaceGitServiceIntegrationTest {
 
   @Nested
   class DirectoryOperations {
+    private FlakyHistory history;
+    private WorkspaceFileSystemService fs;
+    private MockBindings bindings;
+
+    private Workspace WS1;
+    private Workspace WS2;
+
     @BeforeEach
-    void populate() {
+    void setUp() throws IOException {
+      WS1 = wsRepo.createWorkspace("dirOpsWorkspace1");
+      WS2 = wsRepo.createWorkspace("dirOpsWorkspace2");
+
+      // Restart sever
+      history = new FlakyHistory();
+      fs = new WorkspaceFileSystemService(wsRepo, history);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+
       bindings.saveAndGetEtag(WS1, fileX, "x");
       bindings.saveAndGetEtag(WS1, "d/sub/y.txt", "y");
+    }
+
+    @AfterEach
+    void tearDown() {
+      wsRepo.deleteWorkspace(WS1);
+      wsRepo.deleteWorkspace(WS2);
+    }
+
+    @Test
+    void everyFileSystemMutationRequiresTheLock() {
+      assertThrows(IllegalStateException.class, () -> fs.createDirectory(WS1, Path.of("x")));
+      assertThrows(IllegalStateException.class, () -> fs.deleteFile(WS1, Path.of("x")));
+      assertThrows(IllegalStateException.class, () -> fs.saveFile(WS1, Path.of("x"), upload("x", "x"), DEFAULT_USER));
+      assertThrows(IllegalStateException.class, () -> fs.copyDirectory(WS1, Path.of("x"), WS2, Path.of("y"), DEFAULT_USER));
+      final var commits = new LinkedHashMap<Workspace, String>();
+      commits.put(WS1, "only ws1");
+      // Holding one workspace's lock does not authorize mutating another
+      assertThrows(IllegalStateException.class, () -> history.mutate(commits,
+                                                                     DEFAULT_USER,
+                                                                     () -> fs.moveDirectory(WS1, Path.of("a"), WS2, Path.of("b")), r -> true));
+      assertFalse(Files.exists(WS1.rootPath().resolve("x")));
     }
 
     @Test
@@ -695,10 +828,30 @@ class WorkspaceGitServiceIntegrationTest {
 
   @Nested
   class CrossWorkspace {
+    private FlakyHistory history;
+    private MockBindings bindings;
+
+    private Workspace WS1;
+    private Workspace WS2;
+
     @BeforeEach
-    void initBoth() {
-      initWorkspace(WS1);
-      initWorkspace(WS2);
+    void setUp() throws IOException {
+      WS1 = wsRepo.createWorkspace("crossWorkspace1");
+      WS2 = wsRepo.createWorkspace("crossWorkspace2");
+
+      // Restart sever
+      history = new FlakyHistory();
+      final var fs = new WorkspaceFileSystemService(wsRepo, history);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+
+      initWorkspace(WS1, bindings);
+      initWorkspace(WS2, bindings);
+    }
+
+    @AfterEach
+    void tearDown() {
+      wsRepo.deleteWorkspace(WS1);
+      wsRepo.deleteWorkspace(WS2);
     }
 
     @Test
@@ -721,8 +874,8 @@ class WorkspaceGitServiceIntegrationTest {
       assertTrue(Set.of(fileA.toString(), ".a.txt.meta.seqdev").containsAll(head));
       assertEquals(2, head.size());
       assertEquals(Set.of(), headTree(WS1));
-      assertEquals("Move a.txt -> workspace 2:a.txt", head(WS1).getFullMessage());
-      assertEquals("Move workspace 1:a.txt -> a.txt", head(WS2).getFullMessage());
+      assertEquals("Move a.txt -> workspace %d:a.txt".formatted(WS2.id()), head(WS1).getFullMessage());
+      assertEquals("Move workspace %d:a.txt -> a.txt".formatted(WS1.id()), head(WS2).getFullMessage());
       assertClean(WS1);
       assertClean(WS2);
     }
@@ -815,9 +968,29 @@ class WorkspaceGitServiceIntegrationTest {
 
   @Nested
   class InternalPaths {
+    private WorkspaceFileSystemService fs;
+    private MockBindings bindings;
+
+    private Workspace WS1;
+    private Workspace WS2;
+
     @BeforeEach
-    void initWs() {
+    void setUp() throws IOException {
+      WS1 = wsRepo.createWorkspace("internalWorkspace1");
+      WS2 = wsRepo.createWorkspace("internalWorkspace2");
+
+      // Restart sever
+      final var history = new FlakyHistory();
+      fs = new WorkspaceFileSystemService(wsRepo, history);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+
       bindings.saveAndGetEtag(WS1, fileA, "content");
+    }
+
+    @AfterEach
+    void tearDown() {
+      wsRepo.deleteWorkspace(WS1);
+      wsRepo.deleteWorkspace(WS2);
     }
 
     @Test
@@ -867,10 +1040,32 @@ class WorkspaceGitServiceIntegrationTest {
 
   @Nested
   class Concurrency {
+    private FlakyHistory history;
+    private MockBindings bindings;
+
+    private Workspace WS1;
+    private Workspace WS2;
+
+    @BeforeEach
+    void setUp() throws IOException {
+      WS1 = wsRepo.createWorkspace("concurrencyWorkspace1");
+      WS2 = wsRepo.createWorkspace("concurrencyWorkspace2");
+      // Restart sever
+      history = new FlakyHistory();
+      final var fs = new WorkspaceFileSystemService(wsRepo, history);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+    }
+
+    @AfterEach
+    void tearDown() {
+      wsRepo.deleteWorkspace(WS1);
+      wsRepo.deleteWorkspace(WS2);
+    }
+
     @Test
     void nestedWorkspaceLockAcquisitionIsRejected() throws Exception {
-      initWorkspace(WS1);
-      initWorkspace(WS2);
+      initWorkspace(WS1, bindings);
+      initWorkspace(WS2, bindings);
 
       final var nestedMutation = assertThrows(IllegalStateException.class, () ->
           history.mutate(WS1, "outer", DEFAULT_USER, () ->
@@ -884,7 +1079,7 @@ class WorkspaceGitServiceIntegrationTest {
     /** A second mutation cannot run between the first one's filesystem write and its commit. */
     @Test
     void mutationsDoNotInterleaveBetweenWriteAndCommit() throws Exception {
-      initWorkspace(WS1);
+      initWorkspace(WS1, bindings);
       final var firstWrote = new CountDownLatch(1);
       final var releaseFirst = new CountDownLatch(1);
       final var secondEntered = new AtomicBoolean(false);
@@ -919,7 +1114,7 @@ class WorkspaceGitServiceIntegrationTest {
 
     @Test
     void concurrentSavesAllLandInHistory() throws Exception {
-      initWorkspace(WS1);
+      initWorkspace(WS1, bindings);
       final var commitsBefore = log(WS1).size();
       try(final var pool = Executors.newFixedThreadPool(4)) {
         final var tasks = new ArrayList<Future<?>>();
@@ -948,6 +1143,14 @@ class WorkspaceGitServiceIntegrationTest {
 
   @Nested
   class WorkspaceInitialization {
+    private FlakyHistory history;
+
+    @BeforeEach
+    void beforeEach() {
+      // Restart sever
+      history = new FlakyHistory();
+    }
+
     @Test
     void newWorkspaceGetsManagedHistoryBeforeItsFirstMutation() throws Exception {
       final var newWS = wsRepo.createWorkspace("new");
@@ -991,6 +1194,30 @@ class WorkspaceGitServiceIntegrationTest {
 
   @Nested
   class LegacyWorkspaceAdoption {
+    private FlakyHistory history;
+    private WorkspaceFileSystemService fs;
+    private MockBindings bindings;
+
+    private Workspace WS1;
+    private Workspace WS2;
+
+    @BeforeEach
+    void setUp() throws IOException {
+      WS1 = wsRepo.createWorkspace("legacyWorkspace1");
+      WS2 = wsRepo.createWorkspace("legacyWorkspace2");
+
+      // Restart sever
+      history = new FlakyHistory();
+      fs = new WorkspaceFileSystemService(wsRepo, history);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+    }
+
+    @AfterEach
+    void tearDown() {
+      wsRepo.deleteWorkspace(WS1);
+      wsRepo.deleteWorkspace(WS2);
+    }
+
     private void writeLegacyWorkspace() throws IOException {
       Files.createDirectories(WS1.rootPath().resolve("seq"));
       Files.writeString(WS1.rootPath().resolve("seq/a.txt"), "legacy A");
@@ -1032,7 +1259,7 @@ class WorkspaceGitServiceIntegrationTest {
     @Test
     void aWorkspaceWithoutGitIsInitializedOnItsFirstMutation() throws Exception {
       writeLegacyWorkspace();
-      initWorkspace(WS1);
+      initWorkspace(WS1, bindings);
 
       final var commits = log(WS1);
       assertEquals(1, commits.size(), "creating an empty directory adds nothing beyond the baseline");
@@ -1064,7 +1291,7 @@ class WorkspaceGitServiceIntegrationTest {
     void lockScanIgnoresMetadataSuffixWithoutAContentName() throws Exception {
       writeLegacyWorkspace();
       Files.writeString(WS1.rootPath().resolve("seq/.meta.seqdev"), "{\"readOnly\":true}");
-      initWorkspace(WS1);
+      initWorkspace(WS1, bindings);
 
       final var readOnly = fs.getReadOnlyFiles(WS1, Path.of("seq"));
 
@@ -1075,9 +1302,9 @@ class WorkspaceGitServiceIntegrationTest {
     @Test
     void initializationIsIdempotent() throws Exception {
       writeLegacyWorkspace();
-      initWorkspace(WS1);
+      initWorkspace(WS1, bindings);
       final var head = head(WS1);
-      initWorkspace(WS1);
+      initWorkspace(WS1, bindings);
       assertSuccess(bindings.handleCreateDirectory(WS1, Path.of("another")));
       assertEquals(head, head(WS1));
       assertEquals(1, log(WS1).size());
@@ -1086,7 +1313,7 @@ class WorkspaceGitServiceIntegrationTest {
 
     @Test
     void aNewWorkspaceStartsWithAnEmptyBaseline() throws Exception {
-      initWorkspace(WS2);
+      initWorkspace(WS2, bindings);
       assertEquals(1, log(WS2).size());
       assertEquals(Set.of(), headTree(WS2));
       assertClean(WS2);
@@ -1104,7 +1331,7 @@ class WorkspaceGitServiceIntegrationTest {
     @Test
     void metadataOnlyUpdatesPreserveLegacyLastEditAndReadOnly() throws Exception {
       writeLegacyWorkspace();
-      initWorkspace(WS1);
+      initWorkspace(WS1, bindings);
 
       bindings.setUserMetadata(WS1, "seq/a.txt", "approved");
 
@@ -1119,7 +1346,7 @@ class WorkspaceGitServiceIntegrationTest {
     @Test
     void contentMutationMakesGitHistoryAuthoritative() throws Exception {
       writeLegacyWorkspace();
-      initWorkspace(WS1);
+      initWorkspace(WS1, bindings);
       bindings.setReadOnly(WS1, Path.of("seq/a.txt"), false);
       assertEquals("dave", fs.getLastEditInfo(WS1, Path.of("seq/a.txt")).lastEditedBy(),
                    "changing metadata is not a content edit");
@@ -1134,12 +1361,28 @@ class WorkspaceGitServiceIntegrationTest {
   /** Managed Git structure must remain trusted before drift can be healed. */
   @Nested
   class Trust {
-    private static final String INCONSISTENT = "WORKSPACE_REPOSITORY_INCONSISTENT";
+    private FlakyHistory history;
+    private MockBindings bindings;
+
+    private Workspace WS1;
 
     @BeforeEach
-    void initWs() {
+    void setUp() throws IOException {
+      WS1 = wsRepo.createWorkspace("trustWorkspace1");
+
+      // Restart sever
+      history = new FlakyHistory();
+      final var fs = new WorkspaceFileSystemService(wsRepo, history);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+
       bindings.saveAndGetEtag(WS1, fileA, "v1");
     }
+
+    @AfterEach
+    void tearDown() {
+      wsRepo.deleteWorkspace(WS1);
+    }
+    private static final String INCONSISTENT = "WORKSPACE_REPOSITORY_INCONSISTENT";
 
     /** Asserts a save is refused and changes nothing: no file, no commit. */
     private String assertRefused() throws Exception {
@@ -1222,11 +1465,40 @@ class WorkspaceGitServiceIntegrationTest {
   /** Recovery always heals the whole workspace, including drift unrelated to the upcoming mutation. */
   @Nested
   class Drift {
+    private FlakyHistory history;
+    private WorkspaceFileSystemService fs;
+    private MockBindings bindings;
+
+    private Workspace WS1;
+    private Workspace shortPathWS;
+
     @BeforeEach
-    void initWs() {
+    void setUp() throws IOException {
+      WS1 = wsRepo.createWorkspace("driftWorkspace1");
+
+      // A workspace with an exceptionally short path, to be used in socket testing
+      // (which has a short max path length)
+      shortPathWS = wsRepo.createWorkspace("a");
+      restartServer();
+
+      // Init the workspaces
       for (final var path : List.of(fileA, fileB, goneFile, fileX)) {
         bindings.saveAndGetEtag(WS1, path, "v1");
+        bindings.saveAndGetEtag(shortPathWS, path, "v1");
       }
+    }
+
+    @AfterEach
+    void tearDown() {
+      wsRepo.deleteWorkspace(WS1);
+      wsRepo.deleteWorkspace(shortPathWS);
+    }
+
+    /** Recreate all in-memory coordination state while keeping the workspace disks, as a process restart would. */
+    private void restartServer() {
+      history = new FlakyHistory();
+      fs = new WorkspaceFileSystemService(wsRepo, history);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
     }
 
     /**
@@ -1360,7 +1632,7 @@ class WorkspaceGitServiceIntegrationTest {
 
     /** A user or system Git config can set checkstat=minimal, which compares whole seconds; the repository pins it. */
     @Test
-    void aSameSizeRewriteInTheSameSecondIsCommittedDespiteAnInheritedMinimalCheckstat() throws Exception {
+    void configIsResetOnServerRestart() throws Exception {
       bindings.saveAndGetEtag(WS1, fileA, "AAAA");
       final var file = WS1.rootPath().resolve(fileA);
       final var second = Instant.ofEpochSecond(Instant.now().getEpochSecond() - 3600);
@@ -1370,7 +1642,7 @@ class WorkspaceGitServiceIntegrationTest {
         git.getRepository().getConfig().save();
         git.add().addFilepattern(".").call(); // the index records the .100 time
       }
-      restartServer(); // so the repository is configured again
+      restartServer();
 
       history.mutate(WS1, "rewrite", DEFAULT_USER, () -> {
         Files.writeString(file, "BBBB");
@@ -1505,14 +1777,14 @@ class WorkspaceGitServiceIntegrationTest {
     @Test
     void aSpecialFileIsRejectedWithoutMovingOtherDrift() throws Exception {
       assumeTrue(POSIX);
-      Files.writeString(WS1.rootPath().resolve(fileA), "external bytes");
-      final var socket = WS1.rootPath().resolve("special.sock");
+      Files.writeString(resolveReadingPath(shortPathWS, fileA), "external bytes");
+      final var socket = resolveReadingPath(shortPathWS, Path.of("special.sock"));
       try (final var server = ServerSocketChannel.open(StandardProtocolFamily.UNIX)) {
         server.bind(UnixDomainSocketAddress.of(socket));
-        assertFailure(bindings.saveFile(WS1, fileB, "intended bytes", "*"), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
-        assertEquals("external bytes", bindings.readFile(WS1, fileA));
+        assertFailure(bindings.saveFile(shortPathWS, fileB, "intended bytes", "*"), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
+        assertEquals("external bytes", bindings.readFile(shortPathWS, fileA));
         assertTrue(Files.exists(socket));
-        assertEquals(List.of(), incidents(WS1));
+        assertEquals(List.of(), incidents(shortPathWS));
       }
     }
 
@@ -1721,6 +1993,26 @@ class WorkspaceGitServiceIntegrationTest {
 
   @Nested
   class Adoption {
+    private FlakyHistory history;
+    private MockBindings bindings;
+
+    private Workspace WS1;
+
+    @BeforeEach
+    void setUp() throws IOException {
+      WS1 = wsRepo.createWorkspace("adoptionWorkspace1");
+
+      // Restart sever
+      history = new FlakyHistory();
+      final var fs = new WorkspaceFileSystemService(wsRepo, history);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+    }
+
+    @AfterEach
+    void tearDown() {
+      wsRepo.deleteWorkspace(WS1);
+    }
+
     private Git foreignRepo(final Workspace ws, final String branch) throws GitAPIException, IOException {
       final var git = Git.init().setDirectory(ws.rootPath().toFile()).setInitialBranch(branch).call();
       final var cfg = git.getRepository().getConfig();
@@ -1777,7 +2069,7 @@ class WorkspaceGitServiceIntegrationTest {
       final var arbitrary = WS1.rootPath().resolve(".seqdev/state.json");
       Files.writeString(arbitrary, "no schema");
 
-      initWorkspace(WS1);
+      initWorkspace(WS1, bindings);
 
       assertTrue(history.isManaged(WS1));
       assertEquals("no schema", Files.readString(arbitrary));
@@ -1803,12 +2095,29 @@ class WorkspaceGitServiceIntegrationTest {
 
   @Nested
   class Symlinks {
+    private WorkspaceFileSystemService fs;
+    private MockBindings bindings;
+
+    private Workspace WS1;
     private Workspace outside;
 
     @BeforeEach
-    void setUpLinks() throws IOException {
+    void setUp() throws IOException {
+      WS1 = wsRepo.createWorkspace("outsideWorkspace1");
+
+      // Restart sever
+      final var history = new FlakyHistory();
+      fs = new WorkspaceFileSystemService(wsRepo, history);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+
       outside = wsRepo.createWorkspace("outside");
       Files.writeString(outside.rootPath().resolve("secret.txt"), "secret");
+    }
+
+    @AfterEach
+    void tearDown() {
+      wsRepo.deleteWorkspace(WS1);
+      wsRepo.deleteWorkspace(outside);
     }
 
     @Test
@@ -1872,6 +2181,25 @@ class WorkspaceGitServiceIntegrationTest {
    */
   @Nested
   class CopySemantics {
+    private MockBindings bindings;
+
+    private Workspace WS1;
+
+    @BeforeEach
+    void setUp() throws IOException {
+      WS1 = wsRepo.createWorkspace("copyWorkspace1");
+
+      // Restart sever
+      final var history = new FlakyHistory();
+      final var fs = new WorkspaceFileSystemService(wsRepo, history);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+    }
+
+    @AfterEach
+    void tearDown() {
+      wsRepo.deleteWorkspace(WS1);
+    }
+
     /** Destination has carol's sidecar with user metadata; source has no sidecar at all. */
     private void sourceWithoutSidecarAndDestinationWithOne() throws Exception {
       assertSuccess(bindings.handleFileUpload(WS1.id(), Path.of("dest.txt"), upload("dest.txt", "old"), true, null, "carol"));
@@ -1952,23 +2280,28 @@ class WorkspaceGitServiceIntegrationTest {
     }
   }
 
-  @Test
-  void everyFileSystemMutationRequiresTheLock() {
-    assertThrows(IllegalStateException.class, () -> fs.createDirectory(WS1, Path.of("x")));
-    assertThrows(IllegalStateException.class, () -> fs.deleteFile(WS1, Path.of("x")));
-    assertThrows(IllegalStateException.class, () -> fs.saveFile(WS1, Path.of("x"), upload("x", "x"), DEFAULT_USER));
-    assertThrows(IllegalStateException.class, () -> fs.copyDirectory(WS1, Path.of("x"), WS2, Path.of("y"), DEFAULT_USER));
-    final var commits = new LinkedHashMap<Workspace, String>();
-    commits.put(WS1, "only ws1");
-    // Holding one workspace's lock does not authorize mutating another
-    assertThrows(IllegalStateException.class, () -> history.mutate(commits,
-                                                                   DEFAULT_USER,
-                                                                   () -> fs.moveDirectory(WS1, Path.of("a"), WS2, Path.of("b")), r -> true));
-    assertFalse(Files.exists(WS1.rootPath().resolve("x")));
-  }
-
   @Nested
   class Revisions {
+    private FlakyHistory history;
+    private WorkspaceFileSystemService fs;
+    private MockBindings bindings;
+
+    private Workspace WS1;
+
+    @BeforeEach
+    void setUp() throws IOException {
+      WS1 = wsRepo.createWorkspace("revisionsWorkspace1");
+      // Restart sever
+      history = new FlakyHistory();
+      fs = new WorkspaceFileSystemService(wsRepo, history);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+    }
+
+    @AfterEach
+    void tearDown() {
+      wsRepo.deleteWorkspace(WS1);
+    }
+
     private String revise(final String path, final String message) {
       final var result = bindings.handleCreateRevision(WS1.id(), Path.of(path), "*", message, null, DEFAULT_USER);
       assertSuccess(result);

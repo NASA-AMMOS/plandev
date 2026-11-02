@@ -10,7 +10,6 @@ import gov.nasa.ammos.plandev.workspace.server.config.Store;
 import gov.nasa.ammos.plandev.workspace.server.config.UnexpectedSubtypeError;
 import gov.nasa.ammos.plandev.workspace.server.postgres.WorkspacePostgresRepository;
 import gov.nasa.ammos.plandev.workspace.server.types.RevisionNamingConvention;
-import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGc;
 import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitService;
 import io.javalin.Javalin;
 import io.javalin.config.SizeUnit;
@@ -83,7 +82,6 @@ public final class WorkspaceAppDriver {
 
     // Start the HTTP server.
     workspaceServer.start(configuration.httpPort());
-    new WorkspaceGc(stores.history).start();
 
     // Shutdown the server when the app exits
     Runtime.getRuntime().addShutdownHook(new Thread(workspaceServer::close));

@@ -19,6 +19,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.gitDirectory;
+import static gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistoryException.inconsistent;
 
 /**
  * Git garbage collection (GC) of workspace repositories, on a background thread after each change.
@@ -59,11 +60,6 @@ public final class WorkspaceGc {
     this.history = history;
   }
 
-  /** Check each workspace for GC after every change to it. */
-  public void start() {
-    history.onMutation(this::queue);
-  }
-
   /** Queue a GC check of a workspace, unless one is already waiting. Returns immediately. */
   void queue(final Workspace workspace) {
     if (!queued.add(workspace)) return;
@@ -92,7 +88,7 @@ public final class WorkspaceGc {
       logger.warn("Skipped Git GC of workspace {}: it has Git locks", workspace.id());
       return false;
     }
-    try (final var repo = WorkspaceGitService.open(workspace).getRepository()) {
+    try (final var git = WorkspaceGitService.open(workspace); final var repo = git.getRepository()) {
       final var gc = new GC((FileRepository) repo);
       // TODO: Also GC by loose-object size if workspace disk use shows it matters. Automatic mode counts objects, not
       // bytes, so a large file saved many times keeps each version as a full compressed copy until the count is reached
@@ -133,7 +129,7 @@ public final class WorkspaceGc {
       final var lock = gitDirectory(workspace).resolve(name);
       if (!Files.exists(lock, LinkOption.NOFOLLOW_LINKS)) continue;
       if (!Files.isRegularFile(lock, LinkOption.NOFOLLOW_LINKS)) {
-        throw WorkspaceGitService.inconsistent("Git lock " + lock + " is not a regular file and was left untouched.");
+        throw inconsistent("Git lock " + lock + " is not a regular file and was left untouched.");
       }
       Files.delete(lock);
       logger.warn("Removed {} left by an interrupted Git GC of workspace {}", name, workspace.id());

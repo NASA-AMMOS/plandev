@@ -60,7 +60,6 @@ import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import static gov.nasa.ammos.plandev.workspace.server.WorkspacePaths.gitDirectory;
@@ -140,6 +139,7 @@ import static gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistor
  */
 public class WorkspaceGitService implements WorkspaceVersioningService {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceGitService.class);
+  private final WorkspaceGc garbageCollector;
 
   static final String INIT_MESSAGE = "Initialize workspace history";
   static final String ADOPT_MESSAGE = "Adopt workspace into history";
@@ -166,6 +166,10 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
       "logs/HEAD.lock",
       "logs/refs/heads/" + BRANCH + ".lock");
 
+  public WorkspaceGitService() {
+    this.garbageCollector = new WorkspaceGc(this);
+  }
+
   @FunctionalInterface
   public interface Mutation<T> {
     T apply() throws Exception;
@@ -183,7 +187,6 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
   private final Map<Workspace, ReentrantLock> locks = new ConcurrentHashMap<>();
   private final Map<Workspace, Map<Path, CachedLastEdit>> lastEditCache = new ConcurrentHashMap<>();
   private final Set<Workspace> configured = ConcurrentHashMap.newKeySet();
-  private volatile Consumer<Workspace> afterMutation = workspace -> {};
   // Each request thread gets its own flag: nested entry on that thread sees true, while unrelated threads still see
   // their own initial false. inLockScope removes the thread's value when the outer operation finishes.
   private final ThreadLocal<Boolean> lockScopeActive = ThreadLocal.withInitial(() -> false);
@@ -275,7 +278,7 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
         }
       }
       finishMutation(workspaces, null);
-      workspaces.forEach(afterMutation);
+      workspaces.forEach(garbageCollector::queue);
       return result;
     } finally {
       wsLocks.reversed().forEach(ReentrantLock::unlock);
@@ -309,14 +312,6 @@ public class WorkspaceGitService implements WorkspaceVersioningService {
         lock.unlock();
       }
     });
-  }
-
-  /**
-   * Every workspace this process has taken the lock of since it started, which includes every workspace it has mutated
-   * (and may include deleted ones). Only mutations create Git objects, so these are the only workspaces GC can help.
-   */
-  Set<Workspace> workspacesMutatedSinceStartup() {
-    return Set.copyOf(locks.keySet());
   }
 
   private <T> T inLockScope(final Mutation<T> action) throws Exception {

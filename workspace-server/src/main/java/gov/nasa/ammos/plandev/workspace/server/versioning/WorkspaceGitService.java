@@ -139,7 +139,7 @@ import static gov.nasa.ammos.plandev.workspace.server.exceptions.WorkspaceHistor
  */
 public class WorkspaceGitService implements WorkspaceVersioningService {
   private static final Logger logger = LoggerFactory.getLogger(WorkspaceGitService.class);
-  private final WorkspaceGitGarbageCollector garbageCollector;
+  protected final WorkspaceGitGarbageCollector garbageCollector;
 
   static final String INIT_MESSAGE = "Initialize workspace history";
   static final String ADOPT_MESSAGE = "Adopt workspace into history";

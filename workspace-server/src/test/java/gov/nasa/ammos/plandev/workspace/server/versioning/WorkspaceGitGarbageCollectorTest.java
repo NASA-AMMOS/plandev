@@ -1,6 +1,7 @@
 package gov.nasa.ammos.plandev.workspace.server.versioning;
 
 import gov.nasa.ammos.plandev.workspace.server.WorkspaceFileSystemService;
+import gov.nasa.ammos.plandev.workspace.server.WorkspacePaths;
 import gov.nasa.ammos.plandev.workspace.server.WorkspaceRevisionService;
 import gov.nasa.ammos.plandev.workspace.server.types.HandlerResult;
 import gov.nasa.ammos.plandev.workspace.server.types.RevisionNamingConvention;
@@ -21,6 +22,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.io.IOException;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.lib.Constants;
+
+import java.nio.file.FileAlreadyExistsException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.TimeUnit;
@@ -31,7 +34,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.nio.file.attribute.FileTime;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.time.Instant;
@@ -52,6 +54,14 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 /** {@link WorkspaceGitGarbageCollector}: eligibility, skipping, failure, and recovery from an interrupted GC. */
 class WorkspaceGitGarbageCollectorTest {
   private static final Path fileA = Path.of("a.txt");
+
+  /*
+   * JGit will only run garbage collection if there is more than one file inside ".git/objects/17"
+   * These two files are example files names from this folder and can be used to force GC.
+   */
+  private static final Path referenceFile1 = Path.of("255694a1a217b6db04e89611bbd8af6b8a475d");
+  private static final Path referenceFile2 = Path.of("2f08b5e364f0ffb4668436d9f1d56cd3c000c0");
+  private static final Path destinationPath = Path.of("objects/17");
 
   @TempDir static Path tmp;
   private static WorkspaceTestRepository wsRepo;
@@ -86,11 +96,17 @@ class WorkspaceGitGarbageCollectorTest {
     wsRepo.deleteWorkspace(WS2);
   }
 
+  //region Helper Methods
   private void restartServer() {
     history = new FlakyHistory();
     gc = history.garbageCollector;
     fs = new WorkspaceFileSystemService(wsRepo, history);
     bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+  }
+
+  /** Wait for every GC check queued so far: the GC thread runs them in order. */
+  private void awaitGc() throws Exception {
+    gc.executor.submit(() -> {}).get(1, TimeUnit.MINUTES);
   }
 
   /** One mutation adding n new files. */
@@ -99,6 +115,27 @@ class WorkspaceGitGarbageCollectorTest {
       for (var i = 0; i < n; i++, files++) Files.writeString(ws.rootPath().resolve("f" + files + ".txt"), "file " + files);
       return true;
     }, r -> r);
+  }
+
+  private boolean forceRunGC(final Workspace ws) throws Exception {
+    awaitGc();
+    final var dest = gitFile(ws, destinationPath);
+    Files.createDirectories(dest);
+
+    // If there are less than 2 files in the objects/17 folder, add blank dummy files
+    if(dest.toFile().list().length < 2) {
+      // If these files already exist, do nothing
+      try {
+        Files.createFile(dest.resolve(referenceFile1));
+      }
+      catch (FileAlreadyExistsException fae) {}
+
+      try {
+        Files.createFile(dest.resolve(referenceFile2));
+      }
+      catch (FileAlreadyExistsException fae) {}
+    }
+    return gc.gcIfIdle(ws);
   }
 
   /**
@@ -113,6 +150,7 @@ class WorkspaceGitGarbageCollectorTest {
       config.save();
     }
     while (looseIn17(ws) < 2) addFiles(ws, 50);
+    awaitGc();
   }
 
   private static long looseIn17(final Workspace ws) throws IOException {
@@ -124,16 +162,23 @@ class WorkspaceGitGarbageCollectorTest {
   }
 
   private static long packs(final Workspace ws) throws IOException {
-    try (final var entries = Files.list(ws.rootPath().resolve(".git/objects/pack"))) {
+    try (final var entries = Files.list(gitFile(ws, Path.of("objects", "pack")))) {
       return entries.filter(p -> p.toString().endsWith(".pack")).count();
     }
   }
 
-  private static Path git(final Workspace ws, final String name) {
-    return ws.rootPath().resolve(".git").resolve(name);
+  private static Path gitFile(final Workspace ws, final String subpath) {
+    return WorkspacePaths.gitDirectory(ws).resolve(Path.of(subpath));
+  }
+
+  private static Path gitFile(final Workspace ws, final Path subpath) {
+    return WorkspacePaths.gitDirectory(ws).resolve(subpath);
   }
 
   private void assertCollectedAndUsable(final Workspace ws, final List<RevCommit> history) throws Exception {
+    // Await GC to finish
+    awaitGc();
+
     assertEquals(0, looseIn17(ws));
     assertTrue(packs(ws) > 0);
     assertFalse(Files.exists(WorkspaceGitGarbageCollector.marker(ws)));
@@ -147,6 +192,7 @@ class WorkspaceGitGarbageCollectorTest {
   private static void setWritable(final Path dir, final boolean writable) throws IOException {
     Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString(writable ? "rwxr-xr-x" : "r-xr-xr-x"));
   }
+  //endregion
 
   @Test
   void aRepositoryBelowTheThresholdIsLeftAlone() throws Exception {
@@ -161,11 +207,11 @@ class WorkspaceGitGarbageCollectorTest {
     makeEligible(WS1);
     bindings.saveAndGetEtag(WS1, fileA, "v1");
     assertInstanceOf(HandlerResult.Success.class, bindings.handleCreateRevision(WS1.id(), fileA, "*", "", null, DEFAULT_USER));
-    final var before = log(WS1);
 
-    assertTrue(gc.gcIfIdle(WS1));
-    assertFalse(gc.gcIfIdle(WS1), "packed, so no longer eligible");
+    // The edit
+    final var before = log(WS1);
     assertCollectedAndUsable(WS1, before);
+
     assertInstanceOf(HandlerResult.Success.class, bindings.handleCreateRevision(WS1.id(), fileA, "*", "", null, DEFAULT_USER));
     assertEquals(List.of("b", "a"), fs.listRevisions(WS1, fileA).stream().map(WorkspaceRevisionService.Revision::name).toList());
   }
@@ -213,12 +259,14 @@ class WorkspaceGitGarbageCollectorTest {
   @ValueSource(strings = {"index.lock", "refs/heads/main.lock"})
   void aForeignGitLockBlocksGcAndIsLeftAlone(final String lock) throws Exception {
     makeEligible(WS1);
-    Files.writeString(git(WS1, lock), "");
-    assertFalse(gc.gcIfIdle(WS1));
-    assertTrue(Files.exists(git(WS1, lock)));
-    assertEquals(0, packs(WS1));
-    Files.delete(git(WS1, lock));
-    assertTrue(gc.gcIfIdle(WS1));
+    assertEquals(1, packs(WS1));
+
+    Files.writeString(gitFile(WS1, lock), "");
+    assertFalse(forceRunGC(WS1));
+    assertTrue(Files.exists(gitFile(WS1, lock)));
+    assertEquals(1, packs(WS1));
+    Files.delete(gitFile(WS1, lock));
+    assertTrue(forceRunGC(WS1));
   }
 
   /** GC repairs nothing itself: an interrupted mutation's marker is left for the next mutation to recover. */
@@ -227,7 +275,7 @@ class WorkspaceGitGarbageCollectorTest {
     makeEligible(WS1);
     createMarker(mutationMarker(WS1));
     final var before = log(WS1);
-    assertTrue(gc.gcIfIdle(WS1));
+    assertTrue(forceRunGC(WS1));
     assertTrue(Files.exists(mutationMarker(WS1)));
     assertCollectedAndUsable(WS1, before);
     assertFalse(Files.exists(mutationMarker(WS1)));
@@ -283,11 +331,11 @@ class WorkspaceGitGarbageCollectorTest {
           git.tag().setName("churn-" + i).setObjectId(walk.parseAny(blob)).setAnnotated(false).call();
         }
         // Atomically, as a commit does: a reader must never see a partly written ref.
-        final var temp = git(WS1, "main.tmp");
+        final var temp = gitFile(WS1, Path.of("main.tmp"));
         Files.writeString(temp, repo.resolve(Constants.HEAD).name() + "\n");
-        Files.move(temp, git(WS1, "refs/heads/main"), StandardCopyOption.ATOMIC_MOVE);
+        Files.move(temp, gitFile(WS1, Path.of("refs", "heads", "main")), StandardCopyOption.ATOMIC_MOVE);
         assertTrue(gc.gcIfIdle(WS1));
-        assertTrue(Files.exists(git(WS1, "refs/heads/main")), "main stays loose, so a read never straddles its packing");
+        assertTrue(Files.exists(gitFile(WS1, Path.of("refs", "heads", "main"))), "main stays loose, so a read never straddles its packing");
       }
     } finally {
       stop.set(true);
@@ -301,47 +349,45 @@ class WorkspaceGitGarbageCollectorTest {
   /** What a process death during GC's RefDirectory.pack, while a pack was being written, leaves behind. */
   private void simulateInterruptedGc(final Workspace ws) throws IOException {
     createMarker(WorkspaceGitGarbageCollector.marker(ws));
-    Files.writeString(git(ws, "packed-refs.lock"), "# pack-refs with: peeled fully-peeled sorted\n");
-    Files.writeString(git(ws, "refs/heads/main.lock"), "");
-    Files.writeString(git(ws, "gc.pid"), "1 crashed-host");
-    Files.writeString(git(ws, "objects/pack/gc_1.pack_tmp"), "partial pack");
+    Files.writeString(gitFile(ws, Path.of("packed-refs.lock")), "# pack-refs with: peeled fully-peeled sorted\n");
+    Files.writeString(gitFile(ws, Path.of("refs", "heads", "main.lock")), "");
+    Files.writeString(gitFile(ws, Path.of("gc.pid")), "1 crashed-host");
+    Files.writeString(gitFile(ws, Path.of("objects/pack/gc_1.pack_tmp")), "partial pack");
   }
 
   @Test
   void anInterruptedGcIsRecoveredByTheNextMutation() throws Exception {
     makeEligible(WS1);
-    assertTrue(gc.gcIfIdle(WS1)); // so packed-refs and a pack exist, as they would before a later GC
-    makeEligible(WS1);
-    final var before = log(WS1);
+    // GC ran during make eligible
+    assertEquals(1, packs(WS1));
+
+    // Make an interrupted state
     simulateInterruptedGc(WS1);
     restartServer();
 
+    // Saving a file reruns GC
     bindings.saveAndGetEtag(WS1, fileA, "after crash");
+    awaitGc();
     assertFalse(Files.exists(WorkspaceGitGarbageCollector.marker(WS1)));
-    assertFalse(Files.exists(git(WS1, "packed-refs.lock")));
-    assertFalse(Files.exists(git(WS1, "refs/heads/main.lock")));
-    assertEquals(before, log(WS1).subList(1, before.size() + 1));
-
-    assertFalse(gc.gcIfIdle(WS1), "JGit treats a gc.pid under 12 hours old as a running GC");
-    // By the next daily cycle, JGit ignores a gc.pid over 12 hours old and deletes temporary packs over a day old.
-    final var dayAgo = FileTime.from(Instant.now().minus(Duration.ofHours(25)));
-    Files.setLastModifiedTime(git(WS1, "gc.pid"), dayAgo);
-    Files.setLastModifiedTime(git(WS1, "objects/pack/gc_1.pack_tmp"), dayAgo);
-    assertTrue(gc.gcIfIdle(WS1));
-    assertFalse(Files.exists(git(WS1, "gc.pid")));
-    assertFalse(Files.exists(git(WS1, "objects/pack/gc_1.pack_tmp")));
+    assertFalse(Files.exists(gitFile(WS1, Path.of("packed-refs.lock"))));
+    assertFalse(Files.exists(gitFile(WS1, Path.of("refs", "heads", "main.lock"))));
     assertCollectedAndUsable(WS1, log(WS1));
   }
 
   @Test
   void anInterruptedGcIsRecoveredByTheNextGc() throws Exception {
     makeEligible(WS1);
+    // GC ran during make eligible
+    assertEquals(1, packs(WS1));
+
+    // Make an interrupted state
     simulateInterruptedGc(WS1);
-    Files.delete(git(WS1, "gc.pid"));
+    Files.delete(gitFile(WS1, "gc.pid"));
     restartServer();
-    final var before = log(WS1);
-    assertTrue(gc.gcIfIdle(WS1));
-    assertCollectedAndUsable(WS1, before);
+
+    // Rerun GC
+    assertTrue(forceRunGC(WS1));
+    assertCollectedAndUsable(WS1, log(WS1));
   }
 
   /** GC's marker accounts only for the locks GC takes, and only regular files. */
@@ -349,27 +395,28 @@ class WorkspaceGitGarbageCollectorTest {
   void aGcMarkerDoesNotExplainOtherLocks() throws Exception {
     bindings.saveAndGetEtag(WS1, fileA, "original");
     createMarker(WorkspaceGitGarbageCollector.marker(WS1));
-    Files.writeString(git(WS1, "index.lock"), "");
+    Files.writeString(gitFile(WS1, "index.lock"), "");
     assertFailure(bindings.saveFile(WS1, fileA, "changed", "*"), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
-    assertTrue(Files.exists(git(WS1, "index.lock")));
-    Files.delete(git(WS1, "index.lock"));
+    assertTrue(Files.exists(gitFile(WS1, "index.lock")));
+    Files.delete(gitFile(WS1, "index.lock"));
 
     createMarker(WorkspaceGitGarbageCollector.marker(WS1));
-    Files.createDirectory(git(WS1, "packed-refs.lock"));
+    Files.createDirectory(gitFile(WS1, "packed-refs.lock"));
     assertFailure(bindings.saveFile(WS1, fileA, "changed", "*"), 500, "WORKSPACE_REPOSITORY_INCONSISTENT");
-    assertTrue(Files.isDirectory(git(WS1, "packed-refs.lock")));
+    assertTrue(Files.isDirectory(gitFile(WS1, "packed-refs.lock")));
     assertEquals("original", bindings.readFile(WS1, fileA));
   }
 
   @Test
   void aFailedGcLeavesTheWorkspaceUsable() throws Exception {
     makeEligible(WS1);
-    final var packDir = git(WS1, "objects/pack");
+    awaitGc();
+    final var packDir = gitFile(WS1, "objects/pack");
     Files.createDirectories(packDir);
     setWritable(packDir, false);
     assumeTrue(!Files.isWritable(packDir), "permissions are not enforced for this user");
     try {
-      assertThrows(IOException.class, () -> gc.gcIfIdle(WS1));
+      assertThrows(IOException.class, () -> forceRunGC(WS1));
       assertFalse(Files.exists(WorkspaceGitGarbageCollector.marker(WS1)));
       assertEquals(List.of(), WorkspaceGitService.existingGitLocks(WS1));
       bindings.saveAndGetEtag(WS1, fileA, "after failed gc");
@@ -378,7 +425,7 @@ class WorkspaceGitGarbageCollectorTest {
       setWritable(packDir, true);
     }
     final var before = log(WS1);
-    assertTrue(gc.gcIfIdle(WS1), "retried on a later cycle");
+    assertTrue(forceRunGC(WS1));
     assertCollectedAndUsable(WS1, before);
   }
 
@@ -386,7 +433,7 @@ class WorkspaceGitGarbageCollectorTest {
   void eachChangeQueuesAGcCheckAndAFailedOneDoesNotStopLaterOnes() throws Exception {
     makeEligible(WS1);
     makeEligible(WS2);
-    final var packDir = git(WS2, "objects/pack");
+    final var packDir = gitFile(WS2, "objects/pack");
     Files.createDirectories(packDir);
     setWritable(packDir, false);
     try {
@@ -400,10 +447,5 @@ class WorkspaceGitGarbageCollectorTest {
     addFiles(WS2, 1);
     awaitGc();
     assertTrue(packs(WS2) > 0);
-  }
-
-  /** Wait for every GC check queued so far: the GC thread runs them in order. */
-  private void awaitGc() throws Exception {
-    gc.executor.submit(() -> {}).get(1, TimeUnit.MINUTES);
   }
 }

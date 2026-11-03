@@ -158,21 +158,32 @@ class WorkspaceGitGarbageCollectorTest {
     final var entered = new CountDownLatch(1);
     final var release = new CountDownLatch(1);
     try (final var executor = Executors.newSingleThreadExecutor()) {
-      final var mutation = executor.submit(() -> history.mutate(WS1, "slow", DEFAULT_USER, () -> {
+      try {
+        final var mutation = executor.submit(() -> history.mutate(
+            WS1, "slow", DEFAULT_USER, () -> {
+              entered.countDown();
+              release.await();
+              Files.writeString(WS1.rootPath().resolve(fileA), "slow");
+              return true;
+            }, r -> r));
+        entered.await();
+        final var start = Instant.now();
+        assertFalse(gc.gcIfIdle(WS1));
+        assertTrue(Duration.between(start, Instant.now()).toMillis() < 1000);
+        // 1 pack from GC that happened after `makeEligible`
+        assertEquals(1, packs(WS1));
+        release.countDown();
+        assertTrue(mutation.get());
+      } finally {
+        // Ensure that the countDown locks are actually released in the event of a failure
         entered.countDown();
-        release.await();
-        Files.writeString(WS1.rootPath().resolve(fileA), "slow");
-        return true;
-      }, r -> r));
-      entered.await();
-      final var start = Instant.now();
-      assertFalse(gc.gcIfIdle(WS1));
-      assertTrue(Duration.between(start, Instant.now()).toMillis() < 1000);
-      assertEquals(0, packs(WS1));
-      release.countDown();
-      assertTrue(mutation.get());
+        release.countDown();
+      }
     }
-    assertTrue(gc.gcIfIdle(WS1));
+    // Nothing new to pack
+    assertFalse(gc.gcIfIdle(WS1));
+    assertEquals(1, packs(WS1));
+    // File has been updated
     assertEquals("slow", bindings.readFile(WS1, fileA));
   }
 

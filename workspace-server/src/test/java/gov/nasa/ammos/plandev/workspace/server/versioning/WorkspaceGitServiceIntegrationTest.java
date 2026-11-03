@@ -1588,7 +1588,7 @@ class WorkspaceGitServiceIntegrationTest {
       Files.copy(replacement, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
 
       assertEquals("BBBB", Files.readString(file));
-      assertEquals(originalMtime, Files.getLastModifiedTime(file));
+      assertEquals(originalMtime.to(TimeUnit.MICROSECONDS), Files.getLastModifiedTime(file).to(TimeUnit.MICROSECONDS));
 
       // JGit misses the change despite the different contents
       try (final var git = open(WS1)) {

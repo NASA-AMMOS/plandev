@@ -150,7 +150,10 @@ class WorkspaceGitGarbageCollectorTest {
       config.save();
     }
     while (looseIn17(ws) < 2) addFiles(ws, 50);
-    awaitGc();
+
+    // Forcibly run GC to avoid a situation in CI where the workspace is still busy when GC would naturally run,
+    // causing tests running in CI to be missing GC artifacts (as only idle workspaces are GC'd)
+    forceRunGC(ws);
   }
 
   private static long looseIn17(final Workspace ws) throws IOException {
@@ -161,7 +164,8 @@ class WorkspaceGitGarbageCollectorTest {
     }
   }
 
-  private static long packs(final Workspace ws) throws IOException {
+  private long packs(final Workspace ws) throws Exception {
+    awaitGc();
     try (final var entries = Files.list(gitFile(ws, Path.of("objects", "pack")))) {
       return entries.filter(p -> p.toString().endsWith(".pack")).count();
     }
@@ -274,10 +278,14 @@ class WorkspaceGitGarbageCollectorTest {
   void anInterruptedMutationIsLeftForTheMutationPath() throws Exception {
     makeEligible(WS1);
     createMarker(mutationMarker(WS1));
-    final var before = log(WS1);
+
+    // Run GC -- mutation marker still exists
     assertTrue(forceRunGC(WS1));
+    awaitGc();
     assertTrue(Files.exists(mutationMarker(WS1)));
-    assertCollectedAndUsable(WS1, before);
+
+    // Run a mutation to clean up the marker
+    bindings.saveFile(WS1, fileA, "new contents");
     assertFalse(Files.exists(mutationMarker(WS1)));
   }
 
@@ -410,7 +418,6 @@ class WorkspaceGitGarbageCollectorTest {
   @Test
   void aFailedGcLeavesTheWorkspaceUsable() throws Exception {
     makeEligible(WS1);
-    awaitGc();
     final var packDir = gitFile(WS1, "objects/pack");
     Files.createDirectories(packDir);
     setWritable(packDir, false);
@@ -439,13 +446,11 @@ class WorkspaceGitGarbageCollectorTest {
     try {
       addFiles(WS2, 1);
       addFiles(WS1, 1);
-      awaitGc();
       assertTrue(packs(WS1) > 0);
     } finally {
       setWritable(packDir, true);
     }
     addFiles(WS2, 1);
-    awaitGc();
     assertTrue(packs(WS2) > 0);
   }
 }

@@ -91,7 +91,7 @@ public final class WorkspaceGitGarbageCollector {
       logger.warn("Skipped Git GC of workspace {}: it has Git locks", workspace.id());
       return false;
     }
-    try (final var git = WorkspaceGitService.open(workspace); final var repo = git.getRepository()) {
+    try (final var repo = WorkspaceGitService.open(workspace).getRepository()) {
       final var gc = new GC((FileRepository) repo);
       // TODO: Also GC by loose-object size if workspace disk use shows it matters. Automatic mode counts objects, not
       // bytes, so a large file saved many times keeps each version as a full compressed copy until the count is reached

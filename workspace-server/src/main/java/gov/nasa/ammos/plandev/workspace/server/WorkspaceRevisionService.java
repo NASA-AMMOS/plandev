@@ -176,9 +176,7 @@ public final class WorkspaceRevisionService {
    */
   List<Revision> list(final Workspace workspace, final String key) throws IOException {
     if(!gitService.isManaged(workspace)) return List.of();
-    try (final var git = open(workspace);
-         final var repo = git.getRepository();
-         final var walk = new RevWalk(repo)) {
+    try (final var repo = open(workspace).getRepository(); final var walk = new RevWalk(repo)) {
       // Resolve HEAD before listing tags, so every listed tag is on a commit at or before it.
       final var headCommitId = repo.resolve(Constants.HEAD);
       if (headCommitId == null) return List.of();
@@ -317,7 +315,7 @@ public final class WorkspaceRevisionService {
    */
   Optional<Revision> matching(final Workspace workspace, final String key, final List<Revision> revisions) throws IOException {
     if (revisions.isEmpty()) return Optional.empty();
-    try (final var git = open(workspace); final var repo = git.getRepository(); final var walk = new RevWalk(repo)) {
+    try (final var repo = open(workspace).getRepository(); final var walk = new RevWalk(repo)) {
       final var head = repo.resolve(Constants.HEAD);
       if (head == null) return Optional.empty();
       final var reader = walk.getObjectReader();
@@ -423,7 +421,7 @@ public final class WorkspaceRevisionService {
    * edit at HEAD. Lock-free.
    */
   static HistoricalFile read(final Workspace workspace, final Revision revision) throws IOException {
-    try (final var git = open(workspace); final var repo = git.getRepository(); final var walk = new RevWalk(repo)) {
+    try (final var repo = open(workspace).getRepository(); final var walk = new RevWalk(repo)) {
       final var tree = walk.parseCommit(revision.commit()).getTree();
       final var blobIds = fileBlobIds(walk.getObjectReader(), tree, revision.path());
       if (blobIds == null) throw new IOException("Revision %s of %s is missing from commit %s"

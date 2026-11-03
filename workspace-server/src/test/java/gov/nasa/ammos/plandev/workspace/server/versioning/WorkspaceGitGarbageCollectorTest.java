@@ -9,6 +9,9 @@ import gov.nasa.ammos.plandev.workspace.server.utils.FlakyHistory;
 import gov.nasa.ammos.plandev.workspace.server.utils.MockBindings;
 import gov.nasa.ammos.plandev.workspace.server.utils.WorkspaceTestRepository;
 import org.eclipse.jgit.revwalk.RevCommit;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -50,8 +53,8 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 class WorkspaceGitGarbageCollectorTest {
   private static final Path fileA = Path.of("a.txt");
 
-  @TempDir Path tmp;
-  private WorkspaceTestRepository wsRepo;
+  @TempDir static Path tmp;
+  private static WorkspaceTestRepository wsRepo;
   private FlakyHistory history;
   private WorkspaceFileSystemService fs;
   private MockBindings bindings;
@@ -60,19 +63,34 @@ class WorkspaceGitGarbageCollectorTest {
   private Workspace WS2;
   private int files = 0;
 
+  @BeforeAll
+  static void beforeAll() throws IOException {
+    wsRepo = new WorkspaceTestRepository(tmp.toRealPath());
+  }
+
+  @AfterAll
+  static void afterAll() {
+    wsRepo.close();
+  }
+
   @BeforeEach
   void setUp() throws IOException {
-    wsRepo = new WorkspaceTestRepository(tmp.toRealPath());
     WS1 = wsRepo.createWorkspace("gcWorkspace1");
     WS2 = wsRepo.createWorkspace("gcWorkspace2");
     restartServer();
   }
 
+  @AfterEach
+  void teardown() {
+    wsRepo.deleteWorkspace(WS1);
+    wsRepo.deleteWorkspace(WS2);
+  }
+
   private void restartServer() {
     history = new FlakyHistory();
+    gc = history.garbageCollector;
     fs = new WorkspaceFileSystemService(wsRepo, history);
     bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
-    gc = new WorkspaceGitGarbageCollector(history);
   }
 
   /** One mutation adding n new files. */

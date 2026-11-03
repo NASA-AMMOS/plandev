@@ -1967,25 +1967,32 @@ public class WorkspaceBindings implements Plugin {
       return;
     }
 
+    // Get the body
     final JsonObject body;
-    try {
-      if(!context.body().isBlank() && !ContentType.JSON.equals(context.contentType())) {
+    if(context.body().isBlank()) {
+      body = JsonValue.EMPTY_JSON_OBJECT;
+    } else {
+      if(!ContentType.JSON.equals(context.contentType())) {
         context.status(400).json(
             new WorkspaceFormattedError(new MalformedRequest("Body must be type " + ContentType.JSON)));
         return;
       }
-      body = context.body().isBlank() ? JsonValue.EMPTY_JSON_OBJECT : Json.createReader(new StringReader(context.body())).readObject();
-    } catch (JsonException | ClassCastException e) {
-      final var helpText = """
-      {
+
+      try(final var reader = Json.createReader(new StringReader(context.body()))) {
+        body = reader.readObject();
+      } catch (JsonException | ClassCastException e) {
+        final var helpText = """
+        {
           "message": text,                    // Optional. A description of the revision.
           "startAtRevision": text             // Optional. Only valid for files that have not yet been revisioned.
                                               // If provided, the file's revisions will start at this value
-       }""";
-      context.status(400).json(new WorkspaceFormattedError(new MalformedRequest(
-          "Invalid body format. Expected body format is an optional JSON object with the form:\n\n"+helpText)));
-      return;
+        }""";
+        context.status(400).json(new WorkspaceFormattedError(new MalformedRequest(
+            "Invalid body format. Expected body format is an optional JSON object with the form:\n\n"+helpText)));
+        return;
+      }
     }
+
     String startAtRevision = null;
     if(body.containsKey("startAtRevision")) {
       switch (convention) {

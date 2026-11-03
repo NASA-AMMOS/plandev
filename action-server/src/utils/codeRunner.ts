@@ -2,7 +2,7 @@
 import * as vm from "node:vm";
 import type { PoolClient } from "pg";
 import { createLogger, format, transports } from "winston";
-import { ActionsAPI, ActionParameterDefinitions, ActionSettingDefinitions } from "@nasa-jpl/plandev-actions";
+import { ActionsAPI, ActionParameterDefinitions, ActionSettingDefinitions, FileRef } from "@nasa-jpl/plandev-actions";
 import { configuration } from "../config";
 import type { ActionConfig, ActionExports, ActionResponse } from "../type/types";
 
@@ -206,14 +206,14 @@ function validateParameters(
     }
 
     // a file parameter that cannot use the working copy needs a named revision for every file
-    const paramDefinitionFileRefs = paramDefinition as { allowWorkingCopy?: boolean; withRevision?: boolean };
-    if (paramDefinitionFileRefs.withRevision === true && paramDefinitionFileRefs.allowWorkingCopy === false && hasParamValue) {
-      const files = [parameters[paramDefKey]].flat();
+    if ("withRevision" in paramDefinition && paramDefinition.withRevision === true && paramDefinition.allowWorkingCopy === false && hasParamValue) {
+      const files: FileRef[] = [parameters[paramDefKey]].flat();
       if (!files.every(file => typeof file?.revision === "string" && file.revision.length > 0)) {
         errors.push(`${typeStr} "${paramDefKey}" requires a revision for each file`);
       }
     }
-    if (paramDefinitionFileRefs.withRevision !== true && paramDefinitionFileRefs.allowWorkingCopy === false) {
+    // the types forbid this combination, but plain JS actions aren't type-checked
+    if ("allowWorkingCopy" in paramDefinition && paramDefinition.withRevision !== true && (paramDefinition.allowWorkingCopy as boolean) === false) {
       errors.push(`${typeStr} "${paramDefKey}": allowWorkingCopy option cannot be set to 'false' if withRevision is not also set to 'true'`);
     }
 

@@ -12,9 +12,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.text.ParseException;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -83,7 +85,9 @@ public final class WorkspaceGitGarbageCollector {
     return ran;
   }
 
-  private boolean gcLocked(final Workspace workspace) throws Exception {
+  private boolean gcLocked(final Workspace workspace)
+  throws IOException, ParseException, ExecutionException, InterruptedException
+  {
     if (!history.isManaged(workspace)) return false;
     removeInterruptedGcLocks(workspace);
     // Load-bearing: GC's finally removes packed-refs and main ref locks, so it must not start while anyone else's exist.

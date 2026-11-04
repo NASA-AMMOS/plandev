@@ -604,7 +604,13 @@ public class WorkspaceFileSystemService implements WorkspaceService {
         .stream()
         .filter(p -> !Files.isDirectory(p) && !RenderType.isAerieMetadataFile(p.getFileName().toString()))
         .collect(Collectors.toSet());
-    final var lastEditsMap = gitService.lastEdits(workspace, filteredInputs);
+
+    Map<Path, LastEdit> lastEditsMap;
+    try {
+      lastEditsMap = gitService.lastEdits(workspace, filteredInputs);
+    } catch (WorkspaceHistoryException whe) {
+      lastEditsMap = Map.of();
+    }
 
     for (final var path : resolvedPaths) {
       if(Files.isDirectory(path) || RenderType.isAerieMetadataFile(path.getFileName().toString())) {

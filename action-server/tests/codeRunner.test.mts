@@ -218,4 +218,43 @@ test("Code Runner jsRunner Tests", async () => {
       }
     }
   });
+
+  await test("file parameters that cannot use the working copy need a revision on every file", async () => {
+    const code = `
+    exports = {
+      parameterDefinitions: {
+        pinned: { type: "file", withRevision: true, allowWorkingCopy: false },
+        pinnedList: { type: "sequenceList", withRevision: true, allowWorkingCopy: false },
+        anyRevision: { type: "file", withRevision: true },
+        plain: { type: "file" },
+      },
+      settingDefinitions: { pinnedSetting: { type: "file", withRevision: true, allowWorkingCopy: false } },
+    };
+    function main(actionParameters, actionSettings) {
+      return actionParameters;
+    }`;
+    const run = (parameters: object, settings: object = {}) =>
+      jsExecute(code, parameters, settings, undefined, {} as PoolClient, 1, undefined);
+
+    // nothing selected, working copies where they are allowed, and named revisions all run
+    const ok = await run({
+      anyRevision: { path: "a.seq" },
+      pinned: { path: "a.seq", revision: "b" },
+      pinnedList: [{ path: "a.seq", revision: "b" }, { path: "c.seq", revision: "a" }],
+      plain: "a.seq",
+    }, { pinnedSetting: { path: "a.seq", revision: "a" } });
+    assert.strictEqual(ok.errors, null);
+    assert.strictEqual((await run({})).errors, null);
+
+    // a missing revision is rejected before the action runs, for parameters and settings alike
+    const missingParameter = await run({ pinned: { path: "a.seq" } });
+    assert.strictEqual(missingParameter.results, null);
+    assert.match(missingParameter.errors?.message ?? "", /parameter "pinned" requires a revision for each file/);
+
+    const missingInList = await run({ pinnedList: [{ path: "a.seq", revision: "b" }, { path: "c.seq" }] });
+    assert.match(missingInList.errors?.message ?? "", /parameter "pinnedList" requires a revision for each file/);
+
+    const missingSetting = await run({}, { pinnedSetting: { path: "a.seq" } });
+    assert.match(missingSetting.errors?.message ?? "", /setting "pinnedSetting" requires a revision for each file/);
+  });
 });

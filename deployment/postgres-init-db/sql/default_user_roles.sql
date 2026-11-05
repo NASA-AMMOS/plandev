@@ -50,6 +50,7 @@ set action_permissions = '{
     }',
   workspace_permissions = '{
       "create_workspace": "NO_CHECK",
+      "create_file_revision": "OWNER_COLLABORATOR",
       "delete_file_directory": "OWNER_COLLABORATOR",
       "delete_workspace": "OWNER",
       "list_workspace_contents": "NO_CHECK",

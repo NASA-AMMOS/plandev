@@ -182,7 +182,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals(5, metadataFile.size());
       assertEquals("1", metadataFile.getString("version"));
       assertEquals(test_owner.name(), metadataFile.getString("createdBy"));
-      assertEquals(test_owner.name(), metadataFile.getString("lastEditedBy"));
+      assertEquals(test_owner.workspaceName(), metadataFile.getString("lastEditedBy"));
       assertDoesNotThrow(() -> Instant.parse(metadataFile.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(metadataFile.getString("lastEditedAt")));
     }
@@ -297,7 +297,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals(6, updatedMetadataFile.size());
       assertEquals("1", updatedMetadataFile.getString("version"));
       assertEquals(test_owner.name(), updatedMetadataFile.getString("createdBy"));
-      assertEquals(test_owner.name(), updatedMetadataFile.getString("lastEditedBy"));
+      assertEquals(test_owner.workspaceName(), updatedMetadataFile.getString("lastEditedBy"));
       assertFalse(updatedMetadataFile.getBoolean("readOnly"));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("lastEditedAt")));
@@ -786,7 +786,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals(5, updatedMetadataFile.size());
       assertEquals("1", updatedMetadataFile.getString("version"));
       assertEquals(test_owner.name(), updatedMetadataFile.getString("createdBy"));
-      assertEquals(test_owner.name(), updatedMetadataFile.getString("lastEditedBy"));
+      assertEquals(test_owner.workspaceName(), updatedMetadataFile.getString("lastEditedBy"));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("lastEditedAt")));
     }
@@ -1218,7 +1218,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals(5, originalMetadata.size());
       assertEquals("1", originalMetadata.getString("version"));
       assertEquals(test_owner.name(), originalMetadata.getString("createdBy"));
-      assertEquals(test_owner.name(), originalMetadata.getString("lastEditedBy"));
+      assertEquals(test_owner.workspaceName(), originalMetadata.getString("lastEditedBy"));
       assertDoesNotThrow(() -> Instant.parse(originalMetadata.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(originalMetadata.getString("lastEditedAt")));
 
@@ -1241,23 +1241,25 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals(5, updatedMetadataFile.size());
       assertEquals("1", updatedMetadataFile.getString("version"));
       assertEquals(test_nonOwner.name(), updatedMetadataFile.getString("createdBy"));
-      assertEquals(test_nonOwner.name(), updatedMetadataFile.getString("lastEditedBy"));
+      assertEquals(test_nonOwner.workspaceName(), updatedMetadataFile.getString("lastEditedBy"));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("lastEditedAt")));
 
-      // Confirm that the timestamps are now later
+      // Confirm that the timestamps are now later.
+      // lastEditedAt is derived from the file's latest commit, whose timestamp has one-second precision.
       final var originalCreatedAt = Instant.parse(originalMetadata.getString("createdAt"));
       final var updatedCreatedAt = Instant.parse(updatedMetadataFile.getString("createdAt"));
       final var originalLastEditedAt = Instant.parse(originalMetadata.getString("lastEditedAt"));
       final var updatedLastEditedAt = Instant.parse(updatedMetadataFile.getString("lastEditedAt"));
 
       assertTrue(updatedCreatedAt.isAfter(originalCreatedAt));
-      assertTrue(updatedLastEditedAt.isAfter(originalLastEditedAt));
+      assertFalse(updatedLastEditedAt.isBefore(originalLastEditedAt));
     }
 
     /**
      * If the metadata for a file is deleted,
      * it is reconstructed as much as possible the next time the metadata is edited.
+     * lastEdited* describes the file's content, which a metadata edit does not change.
      */
     @Test
     void reconstructMetadataAfterDeletionMetadataEdit() {
@@ -1269,7 +1271,7 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals(5, originalMetadata.size());
       assertEquals("1", originalMetadata.getString("version"));
       assertEquals(test_owner.name(), originalMetadata.getString("createdBy"));
-      assertEquals(test_owner.name(), originalMetadata.getString("lastEditedBy"));
+      assertEquals(test_owner.workspaceName(), originalMetadata.getString("lastEditedBy"));
       assertDoesNotThrow(() -> Instant.parse(originalMetadata.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(originalMetadata.getString("lastEditedAt")));
 
@@ -1292,19 +1294,17 @@ public class MetadataWorkspaceRoutesTests {
       assertEquals(6, updatedMetadataFile.size());
       assertEquals("1", updatedMetadataFile.getString("version"));
       assertEquals(test_nonOwner.name(), updatedMetadataFile.getString("createdBy"));
-      assertEquals(test_nonOwner.name(), updatedMetadataFile.getString("lastEditedBy"));
+      assertEquals(test_owner.workspaceName(), updatedMetadataFile.getString("lastEditedBy"));
       assertFalse(updatedMetadataFile.getBoolean("readOnly"));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("createdAt")));
       assertDoesNotThrow(() -> Instant.parse(updatedMetadataFile.getString("lastEditedAt")));
 
-      // Confirm that the timestamps are now later
+      // createdAt is reconstructed; lastEditedAt is unchanged because the file's content was not edited
       final var originalCreatedAt = Instant.parse(originalMetadata.getString("createdAt"));
       final var updatedCreatedAt = Instant.parse(updatedMetadataFile.getString("createdAt"));
-      final var originalLastEditedAt = Instant.parse(originalMetadata.getString("lastEditedAt"));
-      final var updatedLastEditedAt = Instant.parse(updatedMetadataFile.getString("lastEditedAt"));
 
       assertTrue(updatedCreatedAt.isAfter(originalCreatedAt));
-      assertTrue(updatedLastEditedAt.isAfter(originalLastEditedAt));
+      assertEquals(originalMetadata.getString("lastEditedAt"), updatedMetadataFile.getString("lastEditedAt"));
     }
   }
 }

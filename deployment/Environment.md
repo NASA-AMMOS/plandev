@@ -106,7 +106,10 @@ See the [environment variables document](https://github.com/NASA-AMMOS/plandev-g
 | `HASURA_GRAPHQL_JWT_SECRET`             | The JWT secret for JSON web token auth                                   | `string` |                               |
 | `HASURA_GRAPHQL_ADMIN_SECRET`           | The admin secret for Hasura which gives admin access if used.            | `string` |                               |
 | `HASURA_GRAPHQL_URL`                    | URI of the PlanDev GraphQL API from within the container                 | `string` | http://hasura:8080/v1/graphql |
-| `WORKSPACE_REVISION_NAMING_CONVENTION`  | Naming convention to use for file revisions - "NUMERIC" or "ALPHABETIC"  | `string` | NUMERIC                       |
+| `WORKSPACE_REVISION_NAMING_CONVENTION`  | Naming convention to use for file revisions - "NUMERIC" or "ALPHABETIC"* | `string` | NUMERIC                       |
+
+**NOTE:** When using `WORKSPACE_REVISION_NAMING_CONVENTION`, you must also set the the variable `PUBLIC_WORKSPACE_REVISION_NAMING_CONVENTION` on the
+Plandev UI container to the same value, or else the UI will not behave correctly. See the [UI environment variables document](https://github.com/NASA-AMMOS/plandev-ui/blob/develop/docs/ENVIRONMENT.md)
 
 
 ## PlanDev Action Server
@@ -134,14 +137,14 @@ See the [environment variables document](https://github.com/NASA-AMMOS/plandev-u
 
 ## Hasura
 
-| Name                          | Description                                                   | Type     |
-|-------------------------------|---------------------------------------------------------------|----------|
-| `PLANDEV_DATABASE_URL`        | Url of the PlanDev Postgres database.                         | `string` |
-| `PLANDEV_MERLIN_URL`          | Url of the Merlin service.                                    | `string` |
-| `PLANDEV_SCHEDULER_URL`       | Url of the Scheduler service.                                 | `string` |
-| `PLANDEV_SEQUENCING_URL`      | Url of the Sequencing service.                                | `string` |
-| `HASURA_GRAPHQL_ADMIN_SECRET` | The admin secret for Hasura which gives admin access if used. | `string` |
-| `HASURA_GRAPHQL_JWT_SECRET`   | The JWT secret for JSON web token auth. Also in Gateway.      | `string` |
+| Name                                     | Description                                                   | Type     |
+|------------------------------------------|---------------------------------------------------------------|----------|
+| `PLANDEV_DATABASE_URL`                   | Url of the PlanDev Postgres database.                         | `string` |
+| `PLANDEV_MERLIN_URL`                     | Url of the Merlin service.                                    | `string` |
+| `PLANDEV_SCHEDULER_URL`                  | Url of the Scheduler service.                                 | `string` |
+| `PLANDEV_SEQUENCING_URL`                 | Url of the Sequencing service.                                | `string` |
+| `HASURA_GRAPHQL_ADMIN_SECRET`            | The admin secret for Hasura which gives admin access if used. | `string` |
+| `HASURA_GRAPHQL_JWT_SECRET`              | The JWT secret for JSON web token auth. Also in Gateway.      | `string` |
 
 Additionally, Hasura provides documentation on it's own environment variables you can use to fine-tune your deployment:
 

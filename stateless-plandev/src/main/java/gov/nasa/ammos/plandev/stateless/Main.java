@@ -22,7 +22,7 @@ import javax.json.Json;
 import javax.json.stream.JsonGenerator;
 
 public class Main {
-  private static final String VERSION = "v4.4.0";
+  private static final String VERSION = "v4.5.0";
   private static final String FOOTER = "\nStateless PlanDev "+VERSION;
 
   private static final Option HELP_OPTION = new Option("h", "help", false, "display this message and exit");

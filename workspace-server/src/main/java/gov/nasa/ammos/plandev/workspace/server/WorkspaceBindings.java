@@ -1996,7 +1996,7 @@ public class WorkspaceBindings implements Plugin {
     String startAtRevision = null;
     if(body.containsKey("startAtRevision")) {
       switch (convention) {
-        case ALPHABETICAL -> startAtRevision = body.getString("startAtRevision").toLowerCase(Locale.ROOT);
+        case ALPHABETIC -> startAtRevision = body.getString("startAtRevision").toLowerCase(Locale.ROOT);
         case NUMERIC -> startAtRevision = String.valueOf(body.getInt("startAtRevision"));
       }
     }

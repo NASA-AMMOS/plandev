@@ -94,18 +94,20 @@ See the [environment variables document](https://github.com/NASA-AMMOS/plandev-g
 
 ## PlanDev Workspaces
 
-| Name                          | Description                                                   | Type     | Default                       |
-|-------------------------------|---------------------------------------------------------------|----------|-------------------------------|
-| `PLANDEV_DB`                  | The name of the PlanDev DB                                    | `string` | plandev                       |
-| `PLANDEV_DB_HOST`             | Hostname of Postgres instance                                 | `string` | postgres                      |
-| `PLANDEV_DB_PORT`             | Port of Postgres instance                                     | `number` | 5432                          |
-| `SEQUENCING_DB_USER`          | Username of the Sequencing DB User                            | `string` | sequencing_service            |
-| `SEQUENCING_DB_PASSWORD`      | Password of the Sequencing DB User                            | `string` |                               |
-| `WORKSPACE_STORE`             | Local storage for Workspace files within the contaner         | `string` | /usr/src/ws                   |
-| `WORKSPACE_PORT`              | Port within the container the server will run on              | `number` | 28000                         |
-| `HASURA_GRAPHQL_JWT_SECRET`   | The JWT secret for JSON web token auth                        | `string` |                               |
-| `HASURA_GRAPHQL_ADMIN_SECRET` | The admin secret for Hasura which gives admin access if used. | `string` |                               |
-| `HASURA_GRAPHQL_URL`          | URI of the PlanDev GraphQL API from within the container      | `string` | http://hasura:8080/v1/graphql |
+| Name                                    | Description                                                              | Type     | Default                       |
+|-----------------------------------------|--------------------------------------------------------------------------|----------|-------------------------------|
+| `PLANDEV_DB`                            | The name of the PlanDev DB                                               | `string` | plandev                       |
+| `PLANDEV_DB_HOST`                       | Hostname of Postgres instance                                            | `string` | postgres                      |
+| `PLANDEV_DB_PORT`                       | Port of Postgres instance                                                | `number` | 5432                          |
+| `SEQUENCING_DB_USER`                    | Username of the Sequencing DB User                                       | `string` | sequencing_service            |
+| `SEQUENCING_DB_PASSWORD`                | Password of the Sequencing DB User                                       | `string` |                               |
+| `WORKSPACE_STORE`                       | Local storage for Workspace files within the contaner                    | `string` | /usr/src/ws                   |
+| `WORKSPACE_PORT`                        | Port within the container the server will run on                         | `number` | 28000                         |
+| `HASURA_GRAPHQL_JWT_SECRET`             | The JWT secret for JSON web token auth                                   | `string` |                               |
+| `HASURA_GRAPHQL_ADMIN_SECRET`           | The admin secret for Hasura which gives admin access if used.            | `string` |                               |
+| `HASURA_GRAPHQL_URL`                    | URI of the PlanDev GraphQL API from within the container                 | `string` | http://hasura:8080/v1/graphql |
+| `WORKSPACE_REVISION_NAMING_CONVENTION`  | Naming convention to use for file revisions - "NUMERIC" or "ALPHABETIC"  | `string` | NUMERIC                       |
+
 
 ## PlanDev Action Server
 

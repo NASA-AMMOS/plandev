@@ -1,4 +1,4 @@
-FROM node:24.20.0-bookworm-slim AS base
+FROM node:24.22.1-bookworm-slim AS base
 
 # Install jemalloc
 # Update gnutls to pick up debian security fixes flagged by trivy (may not be needed after base image update)

@@ -1121,6 +1121,7 @@ public class PermissionsTest {
           """
               {
                 "create_workspace": "NO_CHECK",
+                "create_file_revision": "OWNER_COLLABORATOR",
                 "delete_workspace": "OWNER",
                 "list_workspace_contents": "OWNER_COLLABORATOR",
                 "read_file_directory": "NO_CHECK",

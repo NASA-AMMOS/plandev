@@ -9,6 +9,8 @@ import gov.nasa.ammos.plandev.workspace.server.config.PostgresStore;
 import gov.nasa.ammos.plandev.workspace.server.config.Store;
 import gov.nasa.ammos.plandev.workspace.server.config.UnexpectedSubtypeError;
 import gov.nasa.ammos.plandev.workspace.server.postgres.WorkspacePostgresRepository;
+import gov.nasa.ammos.plandev.workspace.server.types.RevisionNamingConvention;
+import gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitService;
 import io.javalin.Javalin;
 import io.javalin.config.SizeUnit;
 import org.eclipse.jetty.server.LowResourceMonitor;
@@ -36,8 +38,11 @@ public final class WorkspaceAppDriver {
     final var workspaceBindings = new WorkspaceBindings(
         stores.jwt,
         stores.workspace,
+        stores.history,
         permissionsService,
-        configuration.hasuraAdminSecret());
+        configuration.hasuraAdminSecret(),
+        configuration.convention()
+    );
     // Configure an HTTP server.
     // Default Javalin Jetty server has a QueuedThreadPool with maxThreads to 250
     final var server = new Server(new QueuedThreadPool(250));
@@ -82,7 +87,7 @@ public final class WorkspaceAppDriver {
     Runtime.getRuntime().addShutdownHook(new Thread(workspaceServer::close));
   }
 
-  private record Stores (JWTService jwt, WorkspaceService workspace) {}
+  private record Stores (JWTService jwt, WorkspaceService workspace, WorkspaceGitService history) {}
 
   private static Stores loadStores(final AppConfiguration config) {
     final var store = config.store();
@@ -102,8 +107,10 @@ public final class WorkspaceAppDriver {
       final var hikariDataSource = new HikariDataSource(hikariConfig);
 
       final var jwt = new JWTService(config.jwtSecret());
-      final var workspace = new WorkspaceFileSystemService(new WorkspacePostgresRepository(config.workspaceFileStore(), hikariDataSource));
-      return new Stores(jwt, workspace);
+      final var repository = new WorkspacePostgresRepository(config.workspaceFileStore(), hikariDataSource);
+      final var history = new WorkspaceGitService();
+      final var workspace = new WorkspaceFileSystemService(repository, history);
+      return new Stores(jwt, workspace, history);
     } else {
       throw new UnexpectedSubtypeError(Store.class, store);
     }
@@ -139,7 +146,8 @@ public final class WorkspaceAppDriver {
             Integer.parseInt(getEnv("PLANDEV_DB_PORT", getEnv("AERIE_DB_PORT", "5432"))),
             getEnv("SEQUENCING_DB_USER", ""),
             getEnv("SEQUENCING_DB_PASSWORD", "")
-        )
+        ),
+        RevisionNamingConvention.parseConvention(getEnv("WORKSPACE_REVISION_NAMING_CONVENTION", "NUMERIC"))
     );
   }
 }

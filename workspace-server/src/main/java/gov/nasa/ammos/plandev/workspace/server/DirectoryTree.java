@@ -2,6 +2,8 @@ package gov.nasa.ammos.plandev.workspace.server;
 
 import gov.nasa.ammos.plandev.workspace.server.postgres.RenderType;
 import gov.nasa.ammos.plandev.workspace.server.types.MetadataKeys;
+import gov.nasa.ammos.plandev.workspace.server.versioning.LastEdit;
+import org.apache.commons.lang3.tuple.Pair;
 
 import javax.json.Json;
 import javax.json.JsonArray;
@@ -18,6 +20,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+
+import static gov.nasa.ammos.plandev.workspace.server.versioning.WorkspaceGitService.applyLastEdit;
 
 /**
  * A tree representing the contents of a directory on the file system.
@@ -37,8 +41,13 @@ public class DirectoryTree {
    * @param inputList a list of Paths contained within the root directory
    * @param extensionMappings a map of file extensions to RenderTypes.
    *    Used to determine the RenderType of file paths
+   * @param metadataMap A map from the files in the inputList to their metadata
    */
-  public DirectoryTree(Path root, List<Path> inputList, Map<String, RenderType> extensionMappings, boolean withMetadata) {
+  public DirectoryTree(
+      Path root,
+      List<Path> inputList,
+      Map<String, RenderType> extensionMappings,
+      Map<Path, Pair<Path, LastEdit>> metadataMap) {
     if(!root.toFile().isDirectory()) {
       throw new IllegalArgumentException("Cannot create a DirectoryTree from a file.");
     }
@@ -49,7 +58,7 @@ public class DirectoryTree {
         this.root.addChild(new DirectoryNode(path));
       } else {
         final var rType = RenderType.getRenderType(path.getFileName().toString(), extensionMappings);
-        this.root.addChild(new FileNode(path, rType, withMetadata));
+        this.root.addChild(new FileNode(path, rType, metadataMap));
       }
     }
   }
@@ -79,13 +88,13 @@ public class DirectoryTree {
       this.readOnly = false;
     }
 
-    FileNode(Path path, RenderType renderType, boolean getMetadata) {
+    FileNode(Path path, RenderType renderType, Map<Path, Pair<Path, LastEdit>> metadataView) {
       this.path = path;
       this.renderType = renderType;
       this.name = path.getFileName().toString();
 
       // Check if we even need to get the file's metadata
-      if (!getMetadata || renderType == RenderType.METADATA) {
+      if (metadataView.isEmpty() || renderType == RenderType.METADATA) {
         this.metadata = Optional.empty();
         this.metadataStatus = Optional.empty();
         this.readOnly = false;
@@ -93,7 +102,9 @@ public class DirectoryTree {
       }
 
       // Check if the metadata file exists
-      final var metadataFile = this.path.resolveSibling(RenderType.toMetadataFileName(name)).toFile();
+      final var metadataInformation = metadataView.get(path);
+      final var metadataFile = metadataInformation.getKey().toFile();
+      final var lastEdited = metadataInformation.getValue();
       if (!metadataFile.exists() || metadataFile.isDirectory()) {
         this.metadata = Optional.empty();
         this.metadataStatus = Optional.of(MetadataStatus.missing);
@@ -102,9 +113,9 @@ public class DirectoryTree {
       }
 
       // Attempt to read the metadata file
-      final JsonObject fileContents;
+      final JsonObject metadata;
       try(final var reader = Json.createReader(new FileReader(metadataFile))){
-        fileContents = reader.readObject();
+        metadata = applyLastEdit(reader.readObject(), lastEdited);
       } catch (FileNotFoundException fnf) {
         this.metadata = Optional.empty();
         this.metadataStatus = Optional.of(MetadataStatus.missing);
@@ -118,18 +129,18 @@ public class DirectoryTree {
       }
 
       // Validate metadata file
-      if(!validateMetadataFile(fileContents)) {
+      if(!validateMetadataFile(metadata)) {
         this.metadata = Optional.empty();
         this.metadataStatus = Optional.of(MetadataStatus.malformed);
         this.readOnly = false;
         return;
       }
 
-      this.metadata = Optional.of(fileContents);
+      this.metadata = Optional.of(metadata);
       this.metadataStatus = Optional.of(MetadataStatus.ok);
 
       // Set "readOnly", if it's present in the metadata
-      readOnly = fileContents.getBoolean("readOnly", false);
+      readOnly = metadata.getBoolean("readOnly", false);
     }
 
     private boolean validateMetadataFile(JsonObject metadata) throws JsonException {

@@ -1,4 +1,4 @@
-FROM postgres:16.14-bookworm
+FROM postgres:16.15-bookworm
 
 # Update gnutls to pick up debian security fixes flagged by trivy (may not be needed after base image update)
 RUN apt-get update \

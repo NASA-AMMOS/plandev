@@ -5,10 +5,12 @@ import gov.nasa.ammos.plandev.constraints.TypescriptCodeGenerationService;
 import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader;
 import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
 import gov.nasa.ammos.plandev.merlin.server.exceptions.NoSuchPlanException;
+import gov.nasa.ammos.plandev.merlin.server.http.InvalidJsonEntityException;
 import gov.nasa.ammos.plandev.merlin.server.models.PlanId;
 import gov.nasa.ammos.plandev.merlin.server.models.SimulationDatasetId;
 import gov.nasa.ammos.plandev.types.MissionModelId;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -23,8 +25,12 @@ public class TypescriptCodeGenerationServiceAdapter {
     this.planService = planService;
   }
 
-  public String generateTypescriptTypes(final MissionModelId missionModelId, final Optional<PlanId> planId, final Optional<SimulationDatasetId> simulationDatasetId)
-  throws MissionModelService.NoSuchMissionModelException, NoSuchPlanException, MissionModelLoader.MissionModelLoadException
+  public String generateTypescriptTypes(
+      final MissionModelId missionModelId,
+      final Optional<PlanId> planId,
+      final Optional<SimulationDatasetId> simulationDatasetId)
+  throws MissionModelService.NoSuchMissionModelException, NoSuchPlanException,
+         MissionModelLoader.MissionModelLoadException, InvalidJsonEntityException, IOException
   {
     return TypescriptCodeGenerationService
         .generateTypescriptTypes(
@@ -56,9 +62,12 @@ public class TypescriptCodeGenerationServiceAdapter {
       final PlanService planService,
       final Optional<PlanId> planId,
       final Optional<SimulationDatasetId> simulationDatasetId
-  ) throws MissionModelService.NoSuchMissionModelException, NoSuchPlanException, MissionModelLoader.MissionModelLoadException {
+  )
+  throws MissionModelService.NoSuchMissionModelException, NoSuchPlanException,
+         MissionModelLoader.MissionModelLoadException, InvalidJsonEntityException, IOException
+  {
     final var simulatedResourceSchemas = missionModelService.getResourceSchemas(modelId);
-    final var results = new HashMap<String, ValueSchema>(simulatedResourceSchemas);
+    final var results = new HashMap<>(simulatedResourceSchemas);
     if (planId.isPresent()) {
         final var externalResourceSchemas = planService.getExternalResourceSchemas(planId.get(), simulationDatasetId);
         results.putAll(externalResourceSchemas);

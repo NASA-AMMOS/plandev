@@ -293,4 +293,4 @@ after delete on merlin.external_event
 referencing old table as old_rows
 for each statement execute function merlin.queue_derived_events_refresh_on_delete();
 
-call migrations.mark_migration_applied('38');
+call migrations.mark_migration_applied('40');

@@ -1,5 +1,7 @@
 package gov.nasa.ammos.plandev.merlin.server.remotes;
 
+import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
+import gov.nasa.ammos.plandev.merlin.server.remotes.postgres.FailedUpdateException;
 import gov.nasa.ammos.plandev.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import gov.nasa.ammos.plandev.merlin.protocol.types.ValueSchema;
@@ -16,6 +18,8 @@ import gov.nasa.ammos.plandev.types.Plan;
 import gov.nasa.ammos.plandev.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.nio.file.Path;
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +42,18 @@ public interface PlanRepository {
   RevisionData getPlanRevisionData(PlanId planId) throws NoSuchPlanException;
 
   List<ConstraintRecord> getPlanConstraints(PlanId planId) throws NoSuchPlanException;
+
+  void markPlanReadOnly(PlanId planId) throws NoSuchPlanException;
+
+  void createExternalSimDataset(
+      int requestId,
+      PlanId planId,
+      Timestamp simulationStart,
+      Timestamp simulationEnd,
+      Map<String, SerializedValue> simulationArguments,
+      Path resultsFilePath,
+      String requestedBy
+  ) throws SQLException;
 
   long addExternalDataset(
       PlanId planId,

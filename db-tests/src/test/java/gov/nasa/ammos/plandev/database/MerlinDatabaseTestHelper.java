@@ -75,7 +75,7 @@ public final class MerlinDatabaseTestHelper {
           .executeQuery(
               //language=sql
               """
-              INSERT INTO merlin.mission_model (name, mission, owner, version, jar_id)
+              INSERT INTO merlin.mission_model (name, mission, owner, version, definition_file_id)
               VALUES ('test-mission-model-%s', 'test-mission', '%s', '0', %s)
               RETURNING id;
               """.formatted(UUID.randomUUID().toString(), username, fileId)
@@ -134,6 +134,19 @@ public final class MerlinDatabaseTestHelper {
           INSERT INTO merlin.plan_collaborators (plan_id, collaborator)
           VALUES (%d, '%s');
           """.formatted(planId, username)
+      );
+    }
+  }
+
+  void setPlanReadOnly(final int planId, final boolean readOnly) throws SQLException {
+    try (final var statement = connection.createStatement()) {
+      statement.execute(
+          //language=SQL
+          """
+          update merlin.plan
+          set is_read_only = %b
+          where id = %d;
+          """.formatted(readOnly, planId)
       );
     }
   }

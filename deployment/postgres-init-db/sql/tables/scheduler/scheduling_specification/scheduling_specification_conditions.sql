@@ -67,3 +67,9 @@ create trigger increment_revision_on_condition_delete
   before delete on scheduler.scheduling_specification_conditions
   for each row
   execute function scheduler.increment_spec_revision_on_conditions_spec_delete();
+
+create trigger forbid_scheduling_condition_insert_plan_readonly
+  before insert on scheduler.scheduling_specification_conditions
+  for each row
+  execute function scheduler.check_plan_readonly_insert_update();
+

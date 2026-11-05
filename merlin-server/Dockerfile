@@ -4,7 +4,7 @@ COPY build/distributions/*.tar /usr/src/app/server.tar
 RUN mkdir -p /usr/src/app/extracted \
     && tar --strip-components 1 -xf /usr/src/app/server.tar -C /usr/src/app/extracted
 
-FROM node:24.18.0-bookworm-slim AS dsl-node-builder
+FROM node:24.22.1-bookworm-slim AS dsl-node-builder
 
 WORKDIR /opt/constraints-dsl-compiler
 

@@ -91,6 +91,17 @@ public final class PostgresSpecificationRepository implements SpecificationRepos
   }
 
   @Override
+  public PlanReadOnlyCheckResult checkPlanReadOnlyModelExecutable(final SpecificationId specificationId)
+  throws SQLException
+  {
+    try (final var connection = this.dataSource.getConnection()) {
+      try (final var checkAction = new CheckPlanReadOnlyAction(connection)) {
+        return checkAction.get(specificationId.id());
+      }
+    }
+  }
+
+  @Override
   public void updateGoalParameterSchema(final GoalId goalId, final ValueSchema schema) {
     try (final var connection = this.dataSource.getConnection()) {
       try (final var getGoalAction = new UpdateSchedulingGoalParameterSchemaAction(connection)) {

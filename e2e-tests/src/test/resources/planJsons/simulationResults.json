@@ -1,0 +1,136 @@
+{
+  "spans": [
+    {
+      "span_id": 1,
+      "type": "Calibrate",
+      "directive_id": 1,
+      "start_offset": 3600000000,
+      "duration": 600000000,
+      "arguments": {
+        "detector": "primary",
+        "cycles": 3
+      }
+    },
+    {
+      "span_id": 2,
+      "type": "TakeImage",
+      "directive_id": 2,
+      "start_offset": 7200000000,
+      "duration": 120000000,
+      "arguments": {
+        "target": "Crater Rim A",
+        "count": 4,
+        "mode": "AUTO",
+        "compression": {
+          "algorithm": "lossless",
+          "quality": 9
+        },
+        "filters": [
+          "IR",
+          "VIS"
+        ]
+      },
+      "computed_attributes": {
+        "image_id": "IMG-0001",
+        "bytes": 24576000
+      }
+    },
+    {
+      "span_id": 3,
+      "type": "DownlinkChunk",
+      "parent_id": 2,
+      "start_offset": 7260000000,
+      "duration": 45000000,
+      "arguments": {
+        "bytes": 12288000
+      }
+    },
+    {
+      "span_id": 4,
+      "type": "DownlinkChunk",
+      "parent_id": 2,
+      "start_offset": 7320000000,
+      "arguments": {
+        "bytes": 12288000
+      }
+    }
+  ],
+  "profiles": {
+    "/battery/state_of_charge": {
+      "type": "real",
+      "schema": {
+        "type": "struct",
+        "items": {
+          "initial": {
+            "type": "real"
+          },
+          "rate": {
+            "type": "real"
+          }
+        },
+        "metadata": {
+          "unit": "fraction"
+        }
+      },
+      "segments": [
+        {
+          "duration": 3600000000,
+          "dynamics": {
+            "initial": 0.92,
+            "rate": 0.0
+          }
+        },
+        {
+          "duration": 600000000,
+          "dynamics": {
+            "initial": 0.92,
+            "rate": -0.00002
+          }
+        },
+        {
+          "duration": 1800000000
+        },
+        {
+          "duration": 80400000000,
+          "dynamics": {
+            "initial": 0.88,
+            "rate": 0.000001
+          }
+        }
+      ]
+    },
+    "/camera/mode": {
+      "type": "discrete",
+      "schema": {
+        "type": "variant",
+        "variants": [
+          {
+            "key": "IDLE",
+            "label": "Idle"
+          },
+          {
+            "key": "IMAGING",
+            "label": "Imaging"
+          }
+        ]
+      },
+      "segments": [
+        {
+          "duration": 7200000000,
+          "dynamics": "IDLE"
+        },
+        {
+          "duration": 120000000,
+          "dynamics": "IMAGING"
+        },
+        {
+          "duration": 1800000000
+        },
+        {
+          "duration": 77280000000,
+          "dynamics": "IDLE"
+        }
+      ]
+    }
+  }
+}

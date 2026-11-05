@@ -426,6 +426,18 @@ public class TagsTests {
   record Tag(int id, String name, String color, String owner) {}
   //endregion
 
+  /**
+   * Read-Only plans can have their tag associations updated
+   */
+  @Test
+  void readOnlyPlanTags() throws SQLException {
+    final var planId = merlinHelper.insertPlan(missionModelId);
+    merlinHelper.setPlanReadOnly(planId, true);
+
+    assertDoesNotThrow(() -> assignTagToPlan(planId, tagId));
+    assertDoesNotThrow(() -> removeTagFromPlan(planId, tagId));
+  }
+
   @Test
   void tagsAssociateCorrectly() throws SQLException {
     final var secondTagId = insertTag("Banana");

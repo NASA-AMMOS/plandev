@@ -6,6 +6,7 @@ import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.options.FilePayload;
 import com.microsoft.playwright.options.FormData;
 import com.microsoft.playwright.options.RequestOptions;
+import gov.nasa.ammos.plandev.e2e.types.PlanImportRequest;
 import gov.nasa.ammos.plandev.e2e.types.User;
 
 import javax.json.Json;
@@ -81,6 +82,41 @@ public class GatewayRequests implements AutoCloseable {
   @Override
   public void close() {
     request.dispose();
+  }
+
+  /**
+   * Upload and extract a plan.json with attached model information.
+   * It's recommended to call the HasuraRequest method "importPlan" instead of this method directly,
+   * as "importPlan" will await the extraction to succeed, or automatically fail the test in the event the extraction fails.
+   * @param jsonPath Path to JSON file, relative to the "resources/planJsons" folder
+   * @param name The name to use for the uploaded Plan
+   * @return The Request ID for the extraction
+   */
+  public PlanImportRequest uploadJsonModel(Path jsonPath, String name) throws IOException {
+    // Build File Payload
+    final Path absolutePath = Path.of("src", "test", "resources", "planJsons").resolve(jsonPath);
+    final byte[] buffer = Files.readAllBytes(absolutePath);
+    final FilePayload payload = new FilePayload(
+        absolutePath.getFileName().toString(),
+        "application/json",
+        buffer);
+
+    final var response = request.post(
+        "/importPlan", RequestOptions.create()
+                               .setHeader("Authorization", "Bearer " + token)
+                               .setMultipart(FormData.create().set("plan_file", payload).set("name", name)));
+
+    // Process Response
+    if (!response.ok()) {
+      throw new IOException(response.statusText());
+    }
+
+    final JsonObject bodyJson = RequestBodyHelper.getBody(response);
+    if (bodyJson.containsKey("errors")) {
+      System.err.println("Errors in response: \n" + bodyJson.get("errors"));
+      throw new RuntimeException(bodyJson.toString());
+    }
+    return PlanImportRequest.fromJson(bodyJson);
   }
 
   /**

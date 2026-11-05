@@ -6,13 +6,16 @@ create function merlin.duplicate_plan(_plan_id integer, new_plan_name text, new_
   security definer
   language plpgsql as $$
   declare
-    validate_plan_id integer;
     new_plan_id integer;
     created_snapshot_id integer;
 begin
-  select id from merlin.plan where plan.id = _plan_id into validate_plan_id;
-  if(validate_plan_id is null) then
+  if not exists(select from merlin.plan where plan.id = _plan_id) then
     raise exception 'Plan % does not exist.', _plan_id;
+  end if;
+
+  -- Check that the plan is not readonly
+  if (select is_read_only from merlin.plan where plan.id = _plan_id) then
+    raise exception 'Cannot branch a read only plan.';
   end if;
 
   select merlin.create_snapshot(_plan_id) into created_snapshot_id;

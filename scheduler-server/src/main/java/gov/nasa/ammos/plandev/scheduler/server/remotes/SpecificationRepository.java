@@ -8,7 +8,10 @@ import gov.nasa.ammos.plandev.scheduler.model.GoalId;
 import gov.nasa.ammos.plandev.scheduler.server.models.GoalType;
 import gov.nasa.ammos.plandev.scheduler.server.models.Specification;
 import gov.nasa.ammos.plandev.scheduler.server.models.SpecificationId;
+import gov.nasa.ammos.plandev.scheduler.server.remotes.postgres.PlanReadOnlyCheckResult;
 import gov.nasa.ammos.plandev.scheduler.server.remotes.postgres.SpecificationRevisionData;
+
+import java.sql.SQLException;
 
 public interface SpecificationRepository {
   // Queries
@@ -16,5 +19,6 @@ public interface SpecificationRepository {
   throws NoSuchSpecificationException, SpecificationLoadException;
   SpecificationRevisionData getSpecificationRevisionData(SpecificationId specificationId) throws NoSuchSpecificationException;
   GoalType getGoal(GoalId goalId) throws NoSuchSchedulingGoalException;
+  PlanReadOnlyCheckResult checkPlanReadOnlyModelExecutable(SpecificationId specificationId) throws SQLException;
   void updateGoalParameterSchema(GoalId goalId, ValueSchema schema);
 }

@@ -68,7 +68,7 @@ public class ConstraintsDSLCompilationService {
       final Optional<SimulationDatasetId> simulationDatasetId,
       final String constraintTypescript
   ) throws MissionModelService.NoSuchMissionModelException, NoSuchPlanException,
-           MissionModelLoader.MissionModelLoadException
+           MissionModelLoader.MissionModelLoadException, InvalidJsonEntityException, IOException
   {
     final long startNanos = System.nanoTime();
     logger.info("Compiling constraint DSL ({} characters)", constraintTypescript.length());

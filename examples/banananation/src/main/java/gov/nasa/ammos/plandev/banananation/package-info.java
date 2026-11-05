@@ -27,6 +27,7 @@
 @WithActivityType(ControllableDurationActivity.class)
 @WithActivityType(RipenBananaActivity.class)
 @WithActivityType(ExceptionActivity.class)
+@WithActivityType(StressResourcesActivity.class)
 
 @WithSubsystem("Prepare")
 @WithSubsystem("Eat")
@@ -51,6 +52,7 @@ import gov.nasa.ammos.plandev.banananation.activities.ParameterTestActivity;
 import gov.nasa.ammos.plandev.banananation.activities.PeelBananaActivity;
 import gov.nasa.ammos.plandev.banananation.activities.PickBananaActivity;
 import gov.nasa.ammos.plandev.banananation.activities.RipenBananaActivity;
+import gov.nasa.ammos.plandev.banananation.activities.StressResourcesActivity;
 import gov.nasa.ammos.plandev.banananation.activities.ThrowBananaActivity;
 import gov.nasa.ammos.plandev.contrib.serialization.rulesets.BasicValueMappers;
 import gov.nasa.ammos.plandev.merlin.framework.annotations.MissionModel;

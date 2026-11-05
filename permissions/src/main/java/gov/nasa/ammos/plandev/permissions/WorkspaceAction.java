@@ -7,4 +7,5 @@ public enum WorkspaceAction implements Action {
   list_workspace_contents,
   read_file_directory,
   write_file_directory,
+  create_file_revision
 }

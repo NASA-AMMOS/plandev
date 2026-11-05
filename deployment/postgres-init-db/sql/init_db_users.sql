@@ -39,6 +39,8 @@ begin;
   alter default privileges in schema permissions grant execute on routines to :"gateway_user";
   -- The Gateway is in charge of managing uploaded files
   grant select, insert, update, delete on merlin.uploaded_file to :"gateway_user";
+  -- The Gateway and Merlin share responsibility for Plan Import Requests
+  grant select, insert, update, delete on merlin.plan_import_request to :"gateway_user";
 
   -----------------------------
   -- Merlin User Permissions --

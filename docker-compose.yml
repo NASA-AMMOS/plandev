@@ -47,7 +47,7 @@ services:
       PLANDEV_DB_PORT: 5432
       GATEWAY_DB_USER: "${GATEWAY_USERNAME}"
       GATEWAY_DB_PASSWORD: "${GATEWAY_PASSWORD}"
-    image: "ghcr.io/nasa-ammos/plandev-gateway:develop"
+    image: 'ghcr.io/nasa-ammos/plandev-gateway:${GATEWAY_IMAGE_TAG:-develop}'
     ports: ["9000:9000"]
     restart: always
     volumes:
@@ -146,6 +146,7 @@ services:
       SEQUENCING_DB_PASSWORD: "${SEQUENCING_PASSWORD}"
       WORKSPACE_STORE: /usr/src/ws
       WORKSPACE_PORT: 28000
+      WORKSPACE_REVISION_NAMING_CONVENTION: "NUMERIC"
       HASURA_GRAPHQL_JWT_SECRET: "${HASURA_GRAPHQL_JWT_SECRET}"
       HASURA_GRAPHQL_ADMIN_SECRET: "${HASURA_GRAPHQL_ADMIN_SECRET}"
       HASURA_GRAPHQL_URL: http://hasura:8080/v1/graphql

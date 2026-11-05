@@ -13,10 +13,7 @@ declare
   start_time_supplying timestamptz;
   duration_supplying interval;
 begin
-  if plan_id_receiving = plan_id_supplying then
-    raise exception 'Cannot create a merge request between a plan and itself.';
-  end if;
-
+  -- Check that the specified plans both exist
   select id, model_id, start_time, duration
   from merlin.plan
   where plan.id = plan_id_receiving
@@ -31,6 +28,16 @@ begin
   into validate_planIds, model_id_supplying, start_time_supplying, duration_supplying;
   if validate_planIds is null then
     raise exception 'Plan supplying changes (Plan %) does not exist.', plan_id_supplying;
+  end if;
+
+  -- If the plans exist, ensure they are not the same plan
+  if plan_id_receiving = plan_id_supplying then
+    raise exception 'Cannot create a merge request between a plan and itself.';
+  end if;
+
+  -- Ensure that the plan receiving changes isn't read only
+  if (select is_read_only from merlin.plan where plan.id = plan_id_receiving) then
+    raise exception 'Cannot create a merge request. Plan to receive changes is read only.';
   end if;
 
   select merlin.create_snapshot(plan_id_supplying) into supplying_snapshot_id;

@@ -14,4 +14,8 @@ public record User(String name, String defaultRole, String[] allowedRoles, Map<S
     session.forEach(builder::add);
     return builder.build();
   }
+
+  public String workspaceName() {
+    return "%s <%s@SeqDev>".formatted(name, name);
+  }
 }

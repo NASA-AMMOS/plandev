@@ -1,5 +1,6 @@
 package gov.nasa.ammos.plandev.merlin.server.mocks;
 
+import gov.nasa.ammos.plandev.merlin.server.models.InsertExternalSimulationInput;
 import gov.nasa.ammos.plandev.procedural.timeline.payloads.ExternalEvent;
 import gov.nasa.ammos.plandev.merlin.protocol.types.Duration;
 import gov.nasa.ammos.plandev.merlin.protocol.types.SerializedValue;
@@ -19,6 +20,7 @@ import gov.nasa.ammos.plandev.types.Plan;
 import gov.nasa.ammos.plandev.types.Timestamp;
 import org.apache.commons.lang3.tuple.Pair;
 
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -82,6 +84,16 @@ public final class StubPlanService implements PlanService {
     return List.of();
   }
 
+  @Override
+  public void markPlanReadOnly(final PlanId planId) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void addExternalSimulationDataset(final InsertExternalSimulationInput request, final Path resultsFilePath) {
+    throw new UnsupportedOperationException("StubPlanService does not store external simulation datasets");
+  }
+
 
   @Override
   public long addExternalDataset(
@@ -89,7 +101,6 @@ public final class StubPlanService implements PlanService {
       final Optional<SimulationDatasetId> simulationDatasetId,
       final Timestamp datasetStart,
       final ProfileSet profileSet)
-  throws NoSuchPlanException
   {
     return 0;
   }
@@ -103,7 +114,7 @@ public final class StubPlanService implements PlanService {
   public List<Pair<Duration, ProfileSet>> getExternalDatasets(
       final PlanId planId,
       final SimulationDatasetId simulationDatasetId
-      ) throws NoSuchPlanException
+      )
   {
     return List.of();
   }
@@ -112,12 +123,12 @@ public final class StubPlanService implements PlanService {
   public Map<String, List<ExternalEvent>> getExternalEvents(
       final PlanId planId,
       final Instant horizonStart
-      ) throws NoSuchPlanException {
+      ) {
     return Map.of();
   }
 
   @Override
-  public Map<String, ValueSchema> getExternalResourceSchemas(final PlanId planId, final Optional<SimulationDatasetId> simulationDatasetId) throws NoSuchPlanException {
+  public Map<String, ValueSchema> getExternalResourceSchemas(final PlanId planId, final Optional<SimulationDatasetId> simulationDatasetId) {
     return Map.of("external resource", ValueSchema.BOOLEAN);
   }
 

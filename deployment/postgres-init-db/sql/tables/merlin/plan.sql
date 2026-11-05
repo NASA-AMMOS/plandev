@@ -12,6 +12,7 @@ create table merlin.plan (
     on update cascade,
 
   is_locked boolean not null default false,
+  is_read_only boolean not null default false,
 
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -63,7 +64,11 @@ comment on column merlin.plan.start_time is e''
 comment on column merlin.plan.parent_id is e''
   'The plan id of the parent of this plan. May be NULL if this plan does not have a parent.';
 comment on column merlin.plan.is_locked is e''
-  'A boolean representing whether this plan can be deleted and if changes can happen to the activities of this plan.';
+  'A temporary lock on the receiving plan while a merge is in progress. '
+  'Blocks activity directive changes, plan start/duration changes, and plan deletion. '
+  'Managed by the merge workflow independently of the is_read_only setting.';
+comment on column merlin.plan.is_read_only is e''
+  'When true, prohibits changes to the plan''s activity directives and time bounds.';
 comment on column merlin.plan.created_at is e''
   'The time at which this plan was created.';
 comment on column merlin.plan.updated_at is e''
@@ -161,8 +166,9 @@ declare
   old_plan_end timestamptz;
   new_plan_end timestamptz;
 begin
-  -- Catch Plan_Locked
+  -- Catch Plan Locked or Read Only
   call merlin.plan_locked_exception(old.id);
+  call merlin.plan_readonly_exception(old.id);
 
   -- Set variables
   old_plan_end := old.start_time + old.duration;
@@ -197,8 +203,9 @@ declare
   start_time_difference interval;
   end_time_difference interval;
 begin
-  -- Catch Plan_Locked
+  -- Catch Plan Locked or Read Only
   call merlin.plan_locked_exception(old.id);
+  call merlin.plan_readonly_exception(old.id);
 
   -- Set variables
   old_plan_end := old.start_time + old.duration;
@@ -308,11 +315,53 @@ begin
   set parent_id = old.parent_id
   where
     parent_id = old.id;
+
+  -- Delete the simulation datasets associated with this plan
+  -- Done here to avoid a foreign key update introducing NULL values to NON-NULL columns
+  delete from merlin.simulation_dataset sd
+    using merlin.simulation s
+  where s.plan_id = old.id
+    and sd.simulation_id = s.id;
+
   return old;
 end
 $$;
 
-create trigger cleanup_on_delete_trigger
+create trigger cleanup_before_delete_trigger
   before delete on merlin.plan
   for each row
 execute function merlin.cleanup_on_delete();
+
+create function merlin.cascade_delete_readonly_model()
+  returns trigger
+  language plpgsql as $$
+begin
+  -- Don't delete the model if the plan is not readonly
+  if not old.is_read_only then
+    return old;
+  end if;
+
+  -- Don't delete the model if another plan is using it
+  if exists(select from merlin.plan
+            where plan.id != old.id
+              and plan.model_id = old.model_id) then
+    return old;
+  end if;
+
+  -- Don't delete the model if it's executable
+  if (select is_executable from merlin.mission_model where id = old.model_id) then
+    return old;
+  end if;
+
+  -- Otherwise, delete the plan's mission model
+  delete from merlin.mission_model
+  where id = old.model_id;
+
+  return old;
+end
+$$;
+
+create trigger cleanup_after_delete_trigger
+  after delete on merlin.plan
+  for each row
+execute function merlin.cascade_delete_readonly_model();

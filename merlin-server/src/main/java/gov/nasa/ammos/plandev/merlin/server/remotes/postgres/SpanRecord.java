@@ -6,7 +6,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
-/*package-local*/ record SpanRecord(
+public record SpanRecord(
     String type,
     Instant start,
     Optional<Duration> duration,

@@ -113,4 +113,4 @@ for each statement execute function merlin.refresh_derived_events_on_trigger();
 comment on materialized view merlin.derived_events is e''
   'Derives the final event set for each derivation group.';
 
-call migrations.mark_migration_rolled_back('38');
+call migrations.mark_migration_rolled_back('40');

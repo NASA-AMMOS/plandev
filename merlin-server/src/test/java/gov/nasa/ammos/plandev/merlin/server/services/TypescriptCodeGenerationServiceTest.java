@@ -2,12 +2,14 @@ package gov.nasa.ammos.plandev.merlin.server.services;
 
 import gov.nasa.ammos.plandev.merlin.driver.MissionModelLoader;
 import gov.nasa.ammos.plandev.merlin.server.exceptions.NoSuchPlanException;
+import gov.nasa.ammos.plandev.merlin.server.http.InvalidJsonEntityException;
 import gov.nasa.ammos.plandev.merlin.server.mocks.StubMissionModelService;
 import gov.nasa.ammos.plandev.merlin.server.mocks.StubPlanService;
 import gov.nasa.ammos.plandev.merlin.server.models.PlanId;
 import gov.nasa.ammos.plandev.types.MissionModelId;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -15,7 +17,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class TypescriptCodeGenerationServiceTest {
 
   @Test
-  void testCodeGen() throws MissionModelService.NoSuchMissionModelException, NoSuchPlanException, MissionModelLoader.MissionModelLoadException {
+  void testCodeGen()
+  throws MissionModelService.NoSuchMissionModelException, NoSuchPlanException,
+         MissionModelLoader.MissionModelLoadException, InvalidJsonEntityException, IOException
+  {
     final var codeGenService = new TypescriptCodeGenerationServiceAdapter(new StubMissionModelService(), new StubPlanService());
     final var expected = codeGenService.generateTypescriptTypes(new MissionModelId(1L),
                                                                 Optional.of(new PlanId(1L)), Optional.empty());

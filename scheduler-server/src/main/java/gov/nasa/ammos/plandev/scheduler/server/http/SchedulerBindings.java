@@ -8,6 +8,7 @@ import java.io.StringReader;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import static gov.nasa.ammos.plandev.scheduler.server.http.ResponseSerializers.serializeScheduleResultsResponse;
 import static gov.nasa.ammos.plandev.scheduler.server.http.SchedulerParsers.hasuraBulkProcedureArgumentsP;
@@ -148,6 +149,32 @@ public record SchedulerBindings(
 
       permissionsService.check(HasuraAction.schedule, session.hasuraRole(), session.hasuraUserId(), permissionsSpecId);
 
+      // Non-executable models and Read-Only plans cannot be scheduled
+      final var checkStatus = this.specificationService.checkPlanReadOnlyModelExecutability(specificationId);
+      if(checkStatus.planReadOnly()) {
+        ctx.status(405).json(new FormattedError(
+            AerieService.SCHEDULER_SERVER,
+            "METHOD_NOT_ALLOWED",
+            "Plan is marked as read only and cannot be scheduled.",
+            Optional.empty(),
+            Json.createObjectBuilder()
+                .add("plan_id", checkStatus.planId().id())
+                .build()));
+        return;
+      }
+      if(!checkStatus.modelExecutable()) {
+        ctx.status(405).json(new FormattedError(
+            AerieService.SCHEDULER_SERVER,
+            "METHOD_NOT_ALLOWED",
+            "Mission Model for Plan is marked as non-executable and cannot be used in scheduling.",
+            Optional.empty(),
+            Json.createObjectBuilder()
+                .add("plan_id", checkStatus.planId().id())
+                .add("model_id", checkStatus.modelId().id())
+                .build()));
+        return;
+      }
+
       final var response = this.scheduleAction.run(specificationId, session);
       ctx.result(serializeScheduleResultsResponse(response).toString());
     } catch (final PermissionsException pe) {
@@ -162,6 +189,10 @@ public record SchedulerBindings(
       ctx.status(400).json(new SchedulerFormattedError(ex));
     } catch (final NoSuchSpecificationException ex) {
       ctx.status(404).json(new SchedulerFormattedError(ex));
+    } catch (SQLException ex) {
+      final var fe = new FormattedError(AerieService.SCHEDULER_SERVER, ex);
+      logger.warn("Schedule: SQL Exception: {}", fe);
+      ctx.status(500).json(fe);
     }
   }
 

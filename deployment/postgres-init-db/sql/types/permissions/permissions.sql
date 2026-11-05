@@ -70,6 +70,7 @@ create type permissions.function_permission_key
 create type permissions.workspace_permission_key
  as enum (
    'create_workspace',
+   'create_file_revision',
    'delete_file_directory',
    'delete_workspace',
    'list_workspace_contents',

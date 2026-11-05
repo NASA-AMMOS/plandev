@@ -1,7 +1,7 @@
 package gov.nasa.ammos.plandev.workspace.server.types;
 
 public enum RevisionNamingConvention {
-  ALPHABETICAL {
+  ALPHABETIC {
     // This is equal to 26^6 + 26^5 + 26^4 + 26^3 + 26^2 + 26
     private static final int MAX_ORDINAL = 321272406;
 
@@ -92,8 +92,8 @@ public enum RevisionNamingConvention {
   public abstract int ordinal(final String name) throws IllegalArgumentException;
 
   public static RevisionNamingConvention parseConvention(String name) {
-    if (name.equalsIgnoreCase("ALPHABETICAL")) {
-      return ALPHABETICAL;
+    if (name.equalsIgnoreCase("ALPHABETIC")) {
+      return ALPHABETIC;
     }
     if (name.equalsIgnoreCase("NUMERIC")) {
       return NUMERIC;

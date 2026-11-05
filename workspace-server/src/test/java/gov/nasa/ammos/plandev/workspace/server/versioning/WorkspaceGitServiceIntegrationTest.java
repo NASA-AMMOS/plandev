@@ -157,7 +157,7 @@ class WorkspaceGitServiceIntegrationTest {
       // Restart sever
       history = new FlakyHistory();
       fs = new WorkspaceFileSystemService(wsRepo, history);
-      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETIC);
     }
 
     @AfterEach
@@ -263,7 +263,7 @@ class WorkspaceGitServiceIntegrationTest {
       // Restart sever
       history = new FlakyHistory();
       final var fs = new WorkspaceFileSystemService(wsRepo, history);
-      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETIC);
     }
 
     @AfterEach
@@ -329,7 +329,7 @@ class WorkspaceGitServiceIntegrationTest {
       // Restart sever
       history = new FlakyHistory();
       final var fs = new WorkspaceFileSystemService(wsRepo, history);
-      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETIC);
     }
 
     @AfterEach
@@ -455,7 +455,7 @@ class WorkspaceGitServiceIntegrationTest {
     private void restartServer() {
       history = new FlakyHistory();
       final var fs = new WorkspaceFileSystemService(wsRepo, history);
-      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETIC);
     }
 
     @Test
@@ -680,7 +680,7 @@ class WorkspaceGitServiceIntegrationTest {
       // Restart sever
       final var history = new FlakyHistory();
       final var fs = new WorkspaceFileSystemService(wsRepo, history);
-      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETIC);
     }
 
     @AfterEach
@@ -754,7 +754,7 @@ class WorkspaceGitServiceIntegrationTest {
       // Restart sever
       history = new FlakyHistory();
       fs = new WorkspaceFileSystemService(wsRepo, history);
-      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETIC);
 
       bindings.saveAndGetEtag(WS1, fileX, "x");
       bindings.saveAndGetEtag(WS1, "d/sub/y.txt", "y");
@@ -845,7 +845,7 @@ class WorkspaceGitServiceIntegrationTest {
       // Restart sever
       history = new FlakyHistory();
       final var fs = new WorkspaceFileSystemService(wsRepo, history);
-      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETIC);
 
       initWorkspace(WS1, bindings);
       initWorkspace(WS2, bindings);
@@ -985,7 +985,7 @@ class WorkspaceGitServiceIntegrationTest {
       // Restart sever
       final var history = new FlakyHistory();
       fs = new WorkspaceFileSystemService(wsRepo, history);
-      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETIC);
 
       bindings.saveAndGetEtag(WS1, fileA, "content");
     }
@@ -1056,7 +1056,7 @@ class WorkspaceGitServiceIntegrationTest {
       // Restart sever
       history = new FlakyHistory();
       final var fs = new WorkspaceFileSystemService(wsRepo, history);
-      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETIC);
     }
 
     @AfterEach
@@ -1212,7 +1212,7 @@ class WorkspaceGitServiceIntegrationTest {
       // Restart sever
       history = new FlakyHistory();
       fs = new WorkspaceFileSystemService(wsRepo, history);
-      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETIC);
     }
 
     @AfterEach
@@ -1376,7 +1376,7 @@ class WorkspaceGitServiceIntegrationTest {
       // Restart sever
       history = new FlakyHistory();
       final var fs = new WorkspaceFileSystemService(wsRepo, history);
-      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETIC);
 
       bindings.saveAndGetEtag(WS1, fileA, "v1");
     }
@@ -1501,7 +1501,7 @@ class WorkspaceGitServiceIntegrationTest {
     private void restartServer() {
       history = new FlakyHistory();
       fs = new WorkspaceFileSystemService(wsRepo, history);
-      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETIC);
     }
 
     /**
@@ -2009,7 +2009,7 @@ class WorkspaceGitServiceIntegrationTest {
       // Restart sever
       history = new FlakyHistory();
       final var fs = new WorkspaceFileSystemService(wsRepo, history);
-      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETIC);
     }
 
     @AfterEach
@@ -2112,7 +2112,7 @@ class WorkspaceGitServiceIntegrationTest {
       // Restart sever
       final var history = new FlakyHistory();
       fs = new WorkspaceFileSystemService(wsRepo, history);
-      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETIC);
 
       outside = wsRepo.createWorkspace("outside");
       Files.writeString(outside.rootPath().resolve("secret.txt"), "secret");
@@ -2196,7 +2196,7 @@ class WorkspaceGitServiceIntegrationTest {
       // Restart sever
       final var history = new FlakyHistory();
       final var fs = new WorkspaceFileSystemService(wsRepo, history);
-      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETIC);
     }
 
     @AfterEach
@@ -2296,7 +2296,7 @@ class WorkspaceGitServiceIntegrationTest {
       // Restart sever
       history = new FlakyHistory();
       fs = new WorkspaceFileSystemService(wsRepo, history);
-      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+      bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETIC);
     }
 
     @AfterEach

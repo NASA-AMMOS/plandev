@@ -16,8 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 
 public class RevisionsNamingConventionTests {
   @Nested
-  class Alphabetical {
-    private final RevisionNamingConvention alphaRevision = RevisionNamingConvention.ALPHABETICAL;
+  class Alphabetic {
+    private final RevisionNamingConvention alphaRevision = RevisionNamingConvention.ALPHABETIC;
     // This is equal to 26^6 + 26^5 + 26^4 + 26^3 + 26^2 + 26
     private static final int MAX_ORDINAL = 321272406;
 

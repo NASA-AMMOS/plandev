@@ -82,7 +82,7 @@ class WorkspaceRevisionServiceScaleTest {
     generate(WS, commits, files, targetEvery, revisions, otherTags, 16 * 1024);
     final var git = new WorkspaceGitService();
     final var fs = new WorkspaceFileSystemService(repository, git);
-    final var bindings = new WorkspaceBindings(null, fs, git, null, "", RevisionNamingConvention.ALPHABETICAL);
+    final var bindings = new WorkspaceBindings(null, fs, git, null, "", RevisionNamingConvention.ALPHABETIC);
     save(git, WS, OTHER); // adopts the generated repository, as a legacy workspace's first mutation would
 
     // Get all regular files in the workspace

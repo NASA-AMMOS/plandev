@@ -101,7 +101,7 @@ class WorkspaceGitGarbageCollectorTest {
     history = new FlakyHistory();
     gc = history.garbageCollector;
     fs = new WorkspaceFileSystemService(wsRepo, history);
-    bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETICAL);
+    bindings = new MockBindings(fs, history, RevisionNamingConvention.ALPHABETIC);
   }
 
   /** Wait for every GC check queued so far: the GC thread runs them in order. */

@@ -12,6 +12,7 @@ create table merlin.derived_events (
   event_type_name text not null,
   duration interval not null,
   start_time timestamp with time zone not null,
+  end_time timestamp with time zone not null,
   source_range tstzmultirange not null,
   valid_at timestamp with time zone not null,
   attributes jsonb not null,
@@ -38,6 +39,9 @@ create index derived_events_event_type_name_index
 comment on table merlin.derived_events is e''
   'Caches the final event set for each derivation group. Do not modify directly.';
 
+comment on column merlin.derived_events.end_time is e''
+  'The end of this event, computed as start_time + duration each time the table is refreshed.';
+
 -- Group-scoped derivation needs an index whose leading column is the derivation group.
 create index external_event_derivation_group_source_key_index
   on merlin.external_event (derivation_group_name, source_key);
@@ -51,6 +55,7 @@ returns table (
   event_type_name text,
   duration interval,
   start_time timestamp with time zone,
+  end_time timestamp with time zone,
   source_range tstzmultirange,
   valid_at timestamp with time zone,
   attributes jsonb
@@ -67,6 +72,7 @@ as $$
       output.event_type_name,
       output.duration,
       output.start_time,
+      output.end_time,
       output.source_range,
       output.valid_at,
       output.attributes
@@ -79,6 +85,7 @@ as $$
       ee.duration,
       s.derivation_group_name,
       ee.start_time,
+      ee.start_time + ee.duration as end_time,
       s.source_range,
       s.valid_at,
       ee.attributes
@@ -152,6 +159,7 @@ begin
     event_type_name,
     duration,
     start_time,
+    end_time,
     source_range,
     valid_at,
     attributes
@@ -163,6 +171,7 @@ begin
     d.event_type_name,
     d.duration,
     d.start_time,
+    d.end_time,
     d.source_range,
     d.valid_at,
     d.attributes

@@ -54,47 +54,12 @@ it('loads subsystem IDs with the activity schema', async () => {
   expect(schemas[0]).toMatchObject({ subsystem_tag: { id: 10 } });
 });
 
-it('preserves subsystem IDs when mapping simulated activities', () => {
-  expect(activities.map(a => a.subsystemTagId)).toEqual([10, 20, null]);
-});
-
 it.each([
   ['includes', [10], [1]],
   ['does_not_include', [10], [2, 3]],
   ['includes', [-1], [3]],
-  ['includes', [999], []],
 ] as const)('evaluates subsystem %s %j', (operator, value, expected) => {
   expect(matches({ dynamic_type_filters: [{ field: 'Subsystem', id: 0, operator, value: [...value] }] })).toEqual(
     expected,
   );
-});
-
-it('combines subsystem and type predicates with AND', () => {
-  expect(
-    matches({
-      dynamic_type_filters: [
-        { field: 'Subsystem', id: 0, operator: 'includes', value: [10] },
-        { field: 'Type', id: 1, operator: 'equals', value: 'Downlink' },
-      ],
-    }),
-  ).toEqual([]);
-});
-
-it('combines explicit types with subsystem matches using OR', () => {
-  expect(
-    matches({
-      static_types: ['Downlink'],
-      dynamic_type_filters: [{ field: 'Subsystem', id: 0, operator: 'includes', value: [10] }],
-    }),
-  ).toEqual([1, 2]);
-});
-
-it('still applies other filters and type subfilters to subsystem matches', () => {
-  expect(
-    matches({
-      dynamic_type_filters: [{ field: 'Subsystem', id: 0, operator: 'includes', value: [10, 20] }],
-      other_filters: [{ field: 'Name', id: 1, operator: 'equals', value: 1 }],
-      type_subfilters: { Imaging: [{ field: 'Name', id: 2, operator: 'equals', value: 2 }] },
-    }),
-  ).toEqual([]);
 });

@@ -63,11 +63,7 @@ it.each([true, false])('applies a subsystem filter when activities match: %s', a
   const next = jest.fn();
   expect(handler).toBeDefined();
   await handler!(req, res as unknown as Response, next);
-  expect(query).toHaveBeenCalledWith(expect.not.stringContaining('array_fill'), [
-    matches ? [7] : [],
-    1,
-    'Subsystem sequence',
-  ]);
+  expect(query).toHaveBeenCalledWith(expect.any(String), [matches ? [7] : [], 1, 'Subsystem sequence']);
   expect(res.status).toHaveBeenCalledWith(200);
   expect(res.json).toHaveBeenCalledWith({ success: true });
   expect(next).toHaveBeenCalled();

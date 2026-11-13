@@ -25,6 +25,9 @@ export const activitySchemaBatchLoader: BatchLoader<
       }) {
         name
         parameters
+        subsystem_tag {
+          id
+        }
         computed_attributes_value_schema
         model_id
       }
@@ -105,6 +108,7 @@ interface GraphQLActivityParameter {
 }
 
 export interface GraphQLActivitySchema {
+  subsystem_tag?: { id: number } | null;
   name: string;
   parameters: { [key: string]: GraphQLActivityParameter };
   requiredParameters: string[];

@@ -229,6 +229,7 @@ export interface SimulatedActivity<
   startTime: Temporal.Instant;
   endTime: Temporal.Instant | null;
   activityTypeName: string;
+  subsystemTagId?: number | null;
 }
 
 export interface GQLSpan<
@@ -284,6 +285,7 @@ export function mapGraphQLActivityInstance(
     endTime,
     simulationDatasetId: activityInstance.simulation_dataset_id,
     activityTypeName: activityInstance.activity_type_name,
+    subsystemTagId: activitySchema.subsystem_tag?.id ?? null,
     attributes: {
       arguments: Object.entries(activityInstance.attributes.arguments).reduce((acc, [key, value]) => {
         const param = activitySchema.parameters[key];

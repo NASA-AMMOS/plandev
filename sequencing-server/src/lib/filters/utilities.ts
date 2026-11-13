@@ -101,6 +101,8 @@ function directiveOrSpanMatchesDynamicFilters(
         let matches = false;
         if (curr.field === 'Type') {
             matches = matchesDynamicFilter(simulatedActivity.activityTypeName, curr.operator, curr.value);
+        } else if (curr.field === 'Subsystem') {
+            matches = matchesDynamicFilter(simulatedActivity.subsystemTagId ?? -1, curr.operator, curr.value);
         } else if (curr.field === 'Name') {
             matches = matchesDynamicFilter(simulatedActivity.id, curr.operator, curr.value);
         } else if (curr.field === 'Parameter' && curr.subfield) {

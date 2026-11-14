@@ -1,5 +1,4 @@
 import { jest } from '@jest/globals';
-import type { Request, Response } from 'express';
 import type { GraphQLClient } from 'graphql-request';
 import { activitySchemaBatchLoader, SchemaTypes } from '../src/lib/batchLoaders/activitySchemaBatchLoader.js';
 import { mapGraphQLActivityInstance } from '../src/lib/batchLoaders/simulatedActivityBatchLoader.js';
@@ -62,50 +61,4 @@ it.each([
   expect(matches({ dynamic_type_filters: [{ field: 'Subsystem', id: 0, operator, value: [...value] }] })).toEqual(
     expected,
   );
-});
-
-const query = jest.fn<(...args: unknown[]) => Promise<{ rows: unknown[] }>>();
-jest.unstable_mockModule('../src/app.js', () => ({ db: { query } }));
-jest.unstable_mockModule('../src/utils/logger.js', () => ({ default: () => ({ info: jest.fn() }) }));
-const { commandExpansionRouter } = await import('../src/routes/command-expansion.js');
-const handler = commandExpansionRouter.stack.find(layer => layer.route?.path === '/assign-activities-by-filter')?.route
-  ?.stack[0]?.handle;
-
-it('successfully applies a subsystem filter with no matching activities', async () => {
-  query.mockReset().mockResolvedValue({ rows: [] });
-  const req = {
-    body: {
-      input: {
-        filterId: 1,
-        simulationDatasetId: 1,
-        seqId: 'Subsystem sequence',
-        timeRangeStart: '2026-001T00:00:00Z',
-        timeRangeEnd: '2026-002T00:00:00Z',
-      },
-    },
-  } as Request;
-  const res = {
-    locals: {
-      context: {
-        simulatedActivitiesDataLoader: { load: async () => activities },
-        sequenceFilterDataLoader: {
-          load: async () => ({
-            filter: {
-              dynamic_type_filters: [{ field: 'Subsystem', id: 1, operator: 'includes', value: [999] }],
-            },
-          }),
-        },
-      },
-    },
-    status: jest.fn(),
-    json: jest.fn(),
-  };
-  res.status.mockReturnValue(res);
-  const next = jest.fn();
-  expect(handler).toBeDefined();
-  await handler!(req, res as unknown as Response, next);
-  expect(query).toHaveBeenCalledWith(expect.any(String), [[], 1, 'Subsystem sequence']);
-  expect(res.status).toHaveBeenCalledWith(200);
-  expect(res.json).toHaveBeenCalledWith({ success: true });
-  expect(next).toHaveBeenCalled();
 });

@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.ArrayList;
 import java.util.TreeSet;
 import java.util.Set;
 import java.nio.charset.StandardCharsets;
@@ -117,25 +118,29 @@ class WorkspaceGitGarbageCollectorTest {
     }, r -> r);
   }
 
+  /**
+   * Run GC, padding objects/17 with empty dummy files if needed to make it eligible. The dummies are not valid objects,
+   * and their names are real blob ids ("file 177", "file 715"): JGit only removes one if that blob happens to be in a
+   * pack, so any it leaves would show up as a loose object. Remove exactly the ones created here, whatever GC did.
+   */
   private boolean forceRunGC(final Workspace ws) throws Exception {
     awaitGc();
     final var dest = gitFile(ws, destinationPath);
     Files.createDirectories(dest);
 
-    // If there are less than 2 files in the objects/17 folder, add blank dummy files
-    if(dest.toFile().list().length < 2) {
-      // If these files already exist, do nothing
-      try {
-        Files.createFile(dest.resolve(referenceFile1));
+    final var created = new ArrayList<Path>();
+    try {
+      if (dest.toFile().list().length < 2) {
+        for (final var name : List.of(referenceFile1, referenceFile2)) {
+          try {
+            created.add(Files.createFile(dest.resolve(name)));
+          } catch (FileAlreadyExistsException fae) {} // a real object: neither ours to track nor to delete
+        }
       }
-      catch (FileAlreadyExistsException fae) {}
-
-      try {
-        Files.createFile(dest.resolve(referenceFile2));
-      }
-      catch (FileAlreadyExistsException fae) {}
+      return gc.gcIfIdle(ws);
+    } finally {
+      for (final var dummy : created) Files.deleteIfExists(dummy); // GC may already have pruned it
     }
-    return gc.gcIfIdle(ws);
   }
 
   /**

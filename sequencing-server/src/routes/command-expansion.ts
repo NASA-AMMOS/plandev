@@ -162,7 +162,11 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   const { simulation_dataset  } = await graphqlClient.request<{
     simulation_dataset: {
       status: string,
-      canceled: boolean
+      canceled: boolean,
+      simulation_specification: {
+        sim_spec_id: number,
+        plan_id: number
+      }
     }
   }>(
       gql`
@@ -170,6 +174,10 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
         simulation_status: simulation_dataset_by_pk(id: $id) {
           status
           canceled
+          simulation_specification: simulation {
+            sim_spec_id: id
+            plan_id
+          }
         }
       }`,
       { id: simulationDatasetId },
@@ -193,31 +201,36 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     const { constraint_request } = await graphqlClient.request<{
       constraint_request: {
         constraints_run: {
+          constraint_invocation_id: number,
           results: {
+            constraint_id: number,
+            constraint_revision: number,
+            arguments: object,
             errors: object[],
-            results: {
-              gaps: object[],
-              violations: object[]
-            }
+            violations: object[]
           }
         }[]
       }[]
     }>(
       gql`
-        query GetLatestConstraintViolations($simulationDatasetId: Int!) {
-          constraint_request (
-            where: { simulation_dataset_id: { _eq: $simulationDatasetId } }
-            order_by: { requested_at: desc }
-            limit: 1
-          ) {
-            constraints_run {
-              results {
-                errors
-                results
-              }
+      query GetLatestConstraintViolations($simulationDatasetId: Int!) {
+        constraint_request(
+          where: {simulation_dataset_id: {_eq: $simulationDatasetId}},
+          order_by: {requested_at: desc},
+          limit: 1
+        ) {
+          constraints_run(order_by: {order: asc}) {
+            constraint_invocation_id
+            results {
+              constraint_id
+              constraint_revision
+              arguments
+              errors
+              violations: results(path: "violations")
             }
           }
         }
+      }
       `,
       { simulationDatasetId },
     );
@@ -249,7 +262,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
 
     // Verify that no constraints had violations
     const numViolations = latestRequest.constraints_run.reduce(
-      (total, run) => total + (run.results?.results?.violations?.length ?? 0),
+      (total, run) => total + (run.results?.violations?.length ?? 0),
       0,
     );
     if (numViolations > 0) {
@@ -258,6 +271,116 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
           (numViolations > 1) ? 'are' : 'is'
         } ${numViolations} violation${(numViolations > 1) ? 's' : ''}.`,
       );
+    }
+
+    // Get the id of the latest simulation dataset for this plan.
+    // This will always return exactly one value
+    const { latest_dataset } = await graphqlClient.request<{
+      latest_dataset: [
+        {
+          id: number
+        }
+      ]
+    }>(
+      gql`
+      query LatestSimulationDataset($simSpecId: Int!) {
+        latest_dataset: simulation_dataset(
+          # Get just the latest object
+          limit: 1,
+          order_by: {id: desc},
+          # Filter to just simulations for the same plan (identified by the sim spec id)
+          where: {simulation_id: {_eq: $simSpecId}}
+        ){
+            id
+        }
+      }`,
+      { simSpecId: simulation_dataset.simulation_specification.sim_spec_id },
+    );
+
+    /*
+     * If simulationDatasetId is the latest simulation dataset, check that the most recent constraints check is up-to-date
+     * This is defined as:
+     *   - all enabled constraints were checked
+     *   - the version of the constraints checked match the version on the spec
+     *   - the arguments used on the constraint match the constraint's current arguments
+     * This step is skipped if simulationDatasetId refers to a historical dataset, as there is no concept of a
+     * constraint specification specifically for a historical simulation dataset.
+     */
+    if(latest_dataset[0].id === simulationDatasetId) {
+      // Get the current constraint specification
+      const { constraint_specification } = await graphqlClient.request<{
+        constraint_specification: {
+          constraint_invocation_id: number,
+          constraint_id: number,
+          constraint_revision: number,
+          arguments: object,
+          constraint_metadata: {
+            latest_version: [
+              { revision: number }
+            ]
+          }
+        }[]
+      }>(
+          gql`
+          query ConstraintSpecification($planId: Int!) {
+            constraint_specification(
+              order_by: {order: asc},
+              where: {_and: {plan_id: {_eq: $planId}, enabled: {_eq: true}}}
+            ){
+              constraint_invocation_id: invocation_id
+              constraint_id
+              constraint_revision
+              arguments
+              # Preemptively get the latest revision for the constraint
+              constraint_metadata {
+                latest_version: versions(limit: 1, order_by: {revision: desc}) {
+                  revision
+                }
+              }
+            }
+          }`,
+          { planId: simulation_dataset.simulation_specification.plan_id },
+      );
+
+      // Flatten constraint revision data, replacing "latest" entries (represented in the DB by a NULL value)
+      // with the concrete value of the latest revision
+      const concrete_constraint_spec = constraint_specification.flatMap((old_form) => {
+        return {
+          constraint_invocation_id: old_form.constraint_invocation_id,
+          constraint_id: old_form.constraint_id,
+          constraint_revision: old_form.constraint_revision == null ?
+              old_form.constraint_metadata.latest_version[0].revision
+              : old_form.constraint_revision,
+          arguments: old_form.arguments
+        }
+      });
+
+      /*
+       * For each constraint run in the latest request, find and remove it from the concrete version of the spec
+       * (Filtering the concrete spec in this way means that if the latest constraint run checked every constraint
+       *  on the spec plus additional constraints that have since been disabled or removed, those additional
+       *  constraints do not block command expansion)
+       */
+      latestRequest.constraints_run.forEach((constraint) => {
+        const index = concrete_constraint_spec.indexOf({
+          constraint_invocation_id: constraint.constraint_invocation_id,
+          constraint_id: constraint.results.constraint_id,
+          constraint_revision: constraint.results.constraint_revision,
+          arguments: constraint.results.arguments
+        });
+        concrete_constraint_spec.splice(index, 1);
+      });
+
+      // If there are any constraints left in the concrete spec, then the latest run is not valid
+      const uncheckedConstraints = concrete_constraint_spec.length;
+      if(uncheckedConstraints > 0) {
+        throw new Error(
+            `POST /command-expansion/expand-all-sequence-templates:
+            Expansion for simulation dataset ${simulationDatasetId} failed, as ${uncheckedConstraints}
+            constraint${(uncheckedConstraints > 1) ? 's' : ''} ${(uncheckedConstraints > 1) ? 'have' : 'has'}
+            not been checked.`,
+        );
+      }
     }
   }
 

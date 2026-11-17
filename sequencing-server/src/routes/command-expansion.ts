@@ -161,19 +161,21 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   //    We may not run command expansion against an incomplete (including pending/canceled) or failed simulation
   const { simulation_dataset  } = await graphqlClient.request<{
     simulation_dataset: {
-      status: string
+      status: string,
+      canceled: boolean
     }
   }>(
       gql`
       query GetSimulationStatus($id: Int!) {
         simulation_status: simulation_dataset_by_pk(id: $id) {
           status
+          canceled
         }
       }`,
       { id: simulationDatasetId },
   );
 
-  if(simulation_dataset === undefined || simulation_dataset.status != "success") {
+  if(simulation_dataset === undefined || simulation_dataset.canceled || simulation_dataset.status !== "success") {
     throw new Error(
         `POST /command-expansion/expand-all-sequence-templates:
         Expansion for simulation dataset ${simulationDatasetId} failed: Simulation is not in state "success"`,

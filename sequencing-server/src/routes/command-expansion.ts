@@ -1,19 +1,20 @@
 import type {Context} from '../app.js';
-import { db, graphqlClient } from '../app.js';
-import express from 'express';
+import {db, graphqlClient} from '../app.js';
+import express, {Request, Response} from 'express';
 import getLogger from '../utils/logger.js';
-import { getUsername } from '../utils/hasura.js';
-import type { SimulatedActivity } from '../lib/batchLoaders/simulatedActivityBatchLoader.js';
-import { Mustache } from '../lib/mustache/util/index.js';
-import { seqnBuilder } from '../builders/seqnBuilder.js';
-import type { ExpandedActivity, SeqBuilder } from '../types/seqBuilder.js';
-import { applyActivityLayerFilter } from '../lib/filters/utilities.js';
-import { convertDoyToYmd } from '../lib/mustache/util/time.js';
-import { stringifyActivity } from '../lib/mustache/util/activity.js';
-import { stolBuilder } from '../builders/stolBuilder.js';
-import { concatBuilder } from "../builders/concatBuilder.js";
-import { SequencingLanguage } from '../lib/mustache/enums/language.js';
-import { gql } from 'graphql-request';
+import {getUsername} from '../utils/hasura.js';
+import type {SimulatedActivity} from '../lib/batchLoaders/simulatedActivityBatchLoader.js';
+import {Mustache} from '../lib/mustache/util/index.js';
+import {seqnBuilder} from '../builders/seqnBuilder.js';
+import type {ExpandedActivity, SeqBuilder} from '../types/seqBuilder.js';
+import {applyActivityLayerFilter} from '../lib/filters/utilities.js';
+import {convertDoyToYmd} from '../lib/mustache/util/time.js';
+import {stringifyActivity} from '../lib/mustache/util/activity.js';
+import {stolBuilder} from '../builders/stolBuilder.js';
+import {concatBuilder} from "../builders/concatBuilder.js";
+import {SequencingLanguage} from '../lib/mustache/enums/language.js';
+import {gql} from 'graphql-request';
+import {ErrorType, ErrorWithStatusCode, type FormattedError} from "../utils/ErrorWithStatusCode.js";
 
 const logger = getLogger('app');
 
@@ -42,8 +43,10 @@ commandExpansionRouter.post('/assign-activities-by-filter', async (req, res, nex
 
   // Verify that timeRangeStart < timeRangeEnd
   if (timeRangeStart.epochMicroseconds > timeRangeEnd.epochMicroseconds) {
-    throw new Error(
-      `POST /command-expansion/assign-activities-by-filter: Provided start time (${timeRangeStart.toString()}) greater than end time (${timeRangeEnd.toString()}) for filtration.`,
+    throw new ErrorWithStatusCode(
+        `Provided start time (${timeRangeStart.toString()}) greater than end time (${timeRangeEnd.toString()}) for filtration.`,
+        400,
+        ErrorType.VALIDATION
     );
   }
 
@@ -71,9 +74,10 @@ commandExpansionRouter.post('/assign-activities-by-filter', async (req, res, nex
     seqId
   ]);
   if (rows.length < 1) {
-    throw new Error(
-      `POST /command-expansion/assign-activities-by-filter: Entries failed to be created for filtered activities.`,
-    );
+    throw new ErrorWithStatusCode(
+        `Entries failed to be created for filtered activities.`,
+        500,
+        ErrorType.DATABASE);
   }
   logger.info(`POST /command-expansion/assign-activities-by-filter: Inserted entries for filtered activities.`);
 
@@ -122,7 +126,7 @@ commandExpansionRouter.post('/put-template', async (req, res, next) => {
   );
 
   if (rows.length < 1) {
-    throw new Error(`POST /put-template: No template was updated in the database`);
+    throw new ErrorWithStatusCode(`No template was updated in the database`, 500, ErrorType.DATABASE);
   }
 
   const id = rows[0].id;
@@ -184,23 +188,30 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   );
 
   if(simulation_dataset == null) {
-    throw new Error(
-        `POST /command-expansion/expand-all-sequence-templates:
-        Expansion for simulation dataset ${simulationDatasetId} failed: No such simulation dataset exists.`,
+    throw new ErrorWithStatusCode(
+        `No such simulation dataset exists with id ${simulationDatasetId}.`,
+        404,
+        ErrorType.NO_SUCH_SIM_DATASET,
+        { simulationDatasetId: simulationDatasetId }
     );
   }
 
   if(simulation_dataset.canceled) {
-    throw new Error(
-        `POST /command-expansion/expand-all-sequence-templates:
-        Expansion for simulation dataset ${simulationDatasetId} failed: Simulation was canceled.`,
+    throw new ErrorWithStatusCode(
+        `Cannot use simulation dataset ${simulationDatasetId}: Simulation was canceled.`,
+        400,
+        ErrorType.INVALID_SIM,
+        { simulationDatasetId: simulationDatasetId }
     );
   }
 
   if(simulation_dataset.status !== "success") {
-    throw new Error(
-        `POST /command-expansion/expand-all-sequence-templates:
-        Expansion for simulation dataset ${simulationDatasetId} failed: Simulation is not in state "success"`,
+    throw new ErrorWithStatusCode(
+        `Cannot use simulation dataset ${simulationDatasetId}: Simulation `
+        + `${simulation_dataset.status == "failed" ? "failed" : "is not complete"}.`,
+        400,
+        ErrorType.INVALID_SIM,
+        { simulation_dataset : simulationDatasetId, simulation_status: simulation_dataset.status }
     );
   }
 
@@ -255,9 +266,11 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
 
     // If latestRequest is undefined, there must have been nothing in the "constraint_request" array.
     if (latestRequest === undefined) {
-      throw new Error(
-          `POST /command-expansion/expand-all-sequence-templates:
-          Expansion for simulation dataset ${simulationDatasetId} failed: Constraints have not yet been checked.`,
+      throw new ErrorWithStatusCode(
+          `Cannot run expansion: Constraints have not yet been checked against simulation dataset ${simulationDatasetId}.
+          (To skip constraint validation, use the 'force' flag.)`,
+          400,
+          ErrorType.INVALID_CONSTRAINTS
       );
     }
 
@@ -267,10 +280,11 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
         0
     );
     if (numErrors > 0) {
-      throw new Error(
-          `POST /command-expansion/expand-all-sequence-templates:
-          Expansion for simulation dataset ${simulationDatasetId} failed:
-          ${numErrors} constraint${(numErrors > 1) ? 's' : ''} encountered errors when ran.`,
+      throw new ErrorWithStatusCode(
+          `Cannot run expansion: ${numErrors} constraint${(numErrors > 1) ? 's' : ''} encountered errors in latest constraint run for simulation dataset ${simulationDatasetId}.
+          (To skip constraint validation, use the 'force' flag.)`,
+          400,
+          ErrorType.INVALID_CONSTRAINTS
       );
     }
 
@@ -280,10 +294,13 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       0,
     );
     if (numViolations > 0) {
-      throw new Error(
-        `POST /command-expansion/expand-all-sequence-templates: Expansion for simulation dataset ${simulationDatasetId} failed, as there ${
-          (numViolations > 1) ? 'are' : 'is'
-        } ${numViolations} violation${(numViolations > 1) ? 's' : ''}.`,
+      throw new ErrorWithStatusCode(
+          `Cannot run expansion: there ${
+              (numViolations > 1) ? 'were' : 'was'
+          } ${numViolations} violation${(numViolations > 1) ? 's' : ''} in the latest constraint run for simulation dataset ${simulationDatasetId}.
+        (To skip constraint validation, use the 'force' flag.)`,
+          400,
+          ErrorType.INVALID_CONSTRAINTS
       );
     }
 
@@ -388,11 +405,14 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       // If there are any constraints left in the concrete spec, then the latest run is not valid
       const uncheckedConstraints = concrete_constraint_spec.length;
       if(uncheckedConstraints > 0) {
-        throw new Error(
-            `POST /command-expansion/expand-all-sequence-templates:
-            Expansion for simulation dataset ${simulationDatasetId} failed, as ${uncheckedConstraints}
-            constraint${(uncheckedConstraints > 1) ? 's' : ''} ${(uncheckedConstraints > 1) ? 'have' : 'has'}
-            not been checked.`,
+        throw new ErrorWithStatusCode(
+            `Cannot run expansion: ${uncheckedConstraints}
+             constraint${(uncheckedConstraints > 1) ? 's' : ''} ${(uncheckedConstraints > 1) ? 'have' : 'has'}
+            not been checked.
+            (To skip constraint validation, use the 'force' flag.)`,
+            400,
+            ErrorType.INVALID_CONSTRAINTS,
+            { uncheckedConstraints: concrete_constraint_spec }
         );
       }
     }
@@ -411,8 +431,11 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   //        the same language. While this constraint will remain true its exact enforcement and therefore implementation in SQL
   //        and here may be subject to change.
   if (sequenceTemplates.length === 0) {
-    throw new Error(
-      `POST /command-expansion/expand-all-sequence-templates: No sequence templates found for modelId=(${modelId}).`,
+    throw new ErrorWithStatusCode(
+        `No sequence templates found for modelId=(${modelId}).`,
+        404,
+        ErrorType.EXPANSION_RUN_FAILURE,
+        { modelId: modelId }
     );
   }
 
@@ -428,8 +451,11 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   }, [] as string[])
 
   if (languages.length > 1) {
-    throw new Error(
-      `POST /command-expansion/expand-all-sequence-templates: Sequence templates found for modelId=(${modelId}) using different languages (${languages}).`
+    throw new ErrorWithStatusCode(
+        `Sequence templates found for modelId=(${modelId}) using different languages (${languages}).`,
+        400,
+        ErrorType.EXPANSION_RUN_FAILURE,
+        { languages: languages }
     )
   }
 
@@ -442,8 +468,11 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   } else if (languages[0] === SequencingLanguage.TEXT) {
     seqBuilder = concatBuilder
   } else {
-    throw new Error(
-      `POST /command-expansion/expand-all-sequence-templates: Unsupported sequence language "${languages[0]}"`,
+    throw new ErrorWithStatusCode(
+        `Unsupported sequence language "${languages[0]}"`,
+        400,
+        ErrorType.UNSUPPORTED_LANGUAGE,
+        { language: languages[0]}
     );
   }
 
@@ -474,8 +503,11 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }
     else {
       if (!filteredActivities) {
-        throw new Error(
-          `POST /command-expansion/expand-all-sequence-templates: No activities associated with seqId: ${seqId}.`,
+        throw new ErrorWithStatusCode(
+          `No activities associated with seqId: ${seqId}.`,
+            404,
+            ErrorType.EXPANSION_RUN_FAILURE,
+            { sequenceId: seqId, filter: seqIdToFilteredActivities[seqId] }
         );
       }
       else {
@@ -578,25 +610,33 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }
     catch (e) {
       if (e instanceof Error) {
-        throw new Error(
-          `POST /command-expansion/expand-all-sequence-templates: Database insertion failed with "${e.message}"`
+        throw new ErrorWithStatusCode(
+            `Database insertion failed with "${e.message}"`,
+            500,
+            ErrorType.DATABASE,
+            undefined,
+            e
         )
-      }
-      else if (e instanceof String) {
-        throw new Error(
-          `POST /command-expansion/expand-all-sequence-templates: Database insertion failed with "${e}"`
+      } else if (e instanceof String) {
+        throw new ErrorWithStatusCode(
+            `Database insertion failed with "${e}"`,
+            500,
+            ErrorType.DATABASE
         )
-      }
-      else {
-        throw new Error(
-          `POST /command-expansion/expand-all-sequence-templates: Database insertion failed with "${JSON.stringify(e)}"`
+      } else {
+        throw new ErrorWithStatusCode(
+            `Database insertion failed with "${JSON.stringify(e)}"`,
+            500,
+            ErrorType.DATABASE
         )
       }
     }
 
     if (rows.length < 1) {
-      throw new Error(
-        `POST /command-expansion/expand-all-sequence-templates: No expanded sequences (templates) were inserted into the database`,
+      throw new ErrorWithStatusCode(
+          `No expanded sequences (templates) were inserted into the database`,
+          500,
+          ErrorType.DATABASE
       );
     }
     const expandedSequenceId = rows[0].id;
@@ -612,3 +652,17 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
 
   return next();
 });
+
+commandExpansionRouter.use(formatError);
+
+function formatError(err: Error | ErrorWithStatusCode, req: Request, res: Response, _next: any) {
+  let formattedError: FormattedError;
+  if(err instanceof ErrorWithStatusCode) {
+    formattedError = err.format()
+  } else {
+    formattedError = new ErrorWithStatusCode(err.message, 500, ErrorType.INTERNAL, undefined, err).format();
+  }
+
+  console.error(`${req.method} ${req.path}: ${formattedError}`);
+  res.status(500).json(formattedError);
+}

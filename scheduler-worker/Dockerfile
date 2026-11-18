@@ -36,5 +36,9 @@ ENV SCHEDULING_DSL_COMPILER_ROOT="/usr/src/app/scheduling-dsl-compiler/"
 ENV SCHEDULING_DSL_COMPILER_COMMAND="./build/main.js"
 ENV NODE_PATH="/usr/local/bin/node"
 
+# CVE-2026-114938 (Java4Shell): disable the HotSpot Base64 intrinsic until the base image ships a patched JDK.
+# JAVA_TOOL_OPTIONS (not JAVA_OPTS) so docker-compose `JAVA_OPTS:` overrides cannot drop it. Arch-safe (x86-64 and ARM64).
+ENV JAVA_TOOL_OPTIONS="-XX:-UseBASE64Intrinsics"
+
 WORKDIR /usr/src/app
 ENTRYPOINT ["/usr/src/app/bin/scheduler-worker"]

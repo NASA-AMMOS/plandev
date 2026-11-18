@@ -87,7 +87,7 @@ public class FormattedError {
    * @param cause the root cause of the exception.
    */
   public FormattedError(AerieService service, String type, String message, Optional<String> cause, JsonValue data) {
-    this.type = "INTERNAL_ERROR";
+    this.type = type;
     this.message = message;
     this.service = service;
     this.cause = cause;

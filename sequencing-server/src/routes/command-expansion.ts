@@ -171,7 +171,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   }>(
       gql`
       query GetSimulationStatus($id: Int!) {
-        simulation_status: simulation_dataset_by_pk(id: $id) {
+        simulation_dataset: simulation_dataset_by_pk(id: $id) {
           status
           canceled
           simulation_specification: simulation {
@@ -183,7 +183,21 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
       { id: simulationDatasetId },
   );
 
-  if(simulation_dataset === undefined || simulation_dataset.canceled || simulation_dataset.status !== "success") {
+  if(simulation_dataset == null) {
+    throw new Error(
+        `POST /command-expansion/expand-all-sequence-templates:
+        Expansion for simulation dataset ${simulationDatasetId} failed: No such simulation dataset exists.`,
+    );
+  }
+
+  if(simulation_dataset.canceled) {
+    throw new Error(
+        `POST /command-expansion/expand-all-sequence-templates:
+        Expansion for simulation dataset ${simulationDatasetId} failed: Simulation was canceled.`,
+    );
+  }
+
+  if(simulation_dataset.status !== "success") {
     throw new Error(
         `POST /command-expansion/expand-all-sequence-templates:
         Expansion for simulation dataset ${simulationDatasetId} failed: Simulation is not in state "success"`,

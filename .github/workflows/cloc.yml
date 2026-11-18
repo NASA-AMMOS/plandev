@@ -27,7 +27,7 @@ jobs:
           sudo apt-get install --yes cloc
       - name: Run cloc
         run: |
-          for f in $(ls -D); do
+          for f in *; do
             echo "======================="
             echo "$f"
             echo "======================="

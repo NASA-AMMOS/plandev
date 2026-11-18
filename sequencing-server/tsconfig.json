@@ -1,4 +1,5 @@
 {
+  "sourceMap": true,
   "extends": "@tsconfig/node16-strictest-esm/tsconfig.json",
   "exclude": [
     "sequencing_file_store",

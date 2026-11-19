@@ -55,25 +55,15 @@ commandExpansionRouter.post('/assign-activities-by-filter', async (req, res, nex
   let filteredActivities: SimulatedActivity<Record<string, unknown>, Record<string, unknown>>[] = applyActivityLayerFilter(sequenceFilter.filter, simulatedActivities, timeRangeStart, timeRangeEnd);
 
   // 3. Create new entries in sequencing.seqeunce_to_simulated_activity for just the filtered, simulated activities and the passed-in seqId
-  const { rows } = await db.query(`
+  await db.query(`
       insert into sequencing.sequence_to_simulated_activity (simulated_activity_id, simulation_dataset_id, seq_id)
-      select *
-      from unnest(
-           $1::int[],
-           array_fill($2::int, array [array_length($1::int[], 1)]),
-           array_fill($3::text, array [array_length($1::int[], 1)])
-      )
-      returning simulated_activity_id;
+      select simulated_activity_id, $2::int, $3::text
+      from unnest($1::int[]) as activities(simulated_activity_id);
 `, [
     filteredActivities.map(entry => entry.id),
     simulationDatasetId,
     seqId
   ]);
-  if (rows.length < 1) {
-    throw new Error(
-      `POST /command-expansion/assign-activities-by-filter: Entries failed to be created for filtered activities.`,
-    );
-  }
   logger.info(`POST /command-expansion/assign-activities-by-filter: Inserted entries for filtered activities.`);
 
   //    3c. Return

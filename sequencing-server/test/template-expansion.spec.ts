@@ -276,6 +276,12 @@ describe('template expansion', () => {
     // Run Filter
     await assignActivitiesByFilter(graphqlClient, filterId, simulationArtifactPk.simulationDatasetId, seqId, "2020-001T00:00:00Z", "2020-001T00:00:40Z")
 
+    // An interval with no matching activities should succeed without changing the sequence.
+    expect(await assignActivitiesByFilter(
+      graphqlClient, filterId, simulationArtifactPk.simulationDatasetId, seqId,
+      "2020-001T23:00:00Z", "2020-002T00:00:00Z"
+    )).toBe(true);
+
     // Expand Plan
     const expandedTemplates: { [seqId: string]: string } = await expandTemplates(graphqlClient, missionModelId, [seqId], simulationArtifactPk.simulationDatasetId);
 
@@ -695,7 +701,7 @@ CMD SEQUENCE=FINAL_B AT=2020-001/00:00:30.030`) // expect interleaving!
   describe('Plaintext sequences', () => {
     let language = 'TEXT';
 
-    it.only('should format dates and simply concatenate strings', async () => {
+    it('should format dates and simply concatenate strings', async () => {
       let seqId = 'TextSequenceMerge';
 
       await insertSequenceTemplate(

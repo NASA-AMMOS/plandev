@@ -1,18 +1,20 @@
-import type { Context } from '../app.js';
-import { db } from '../app.js';
-import express from 'express';
+import type {Context} from '../app.js';
+import {db, graphqlClient} from '../app.js';
+import express, {Request, Response} from 'express';
 import getLogger from '../utils/logger.js';
-import { getUsername } from '../utils/hasura.js';
-import type { SimulatedActivity } from '../lib/batchLoaders/simulatedActivityBatchLoader.js';
-import { Mustache } from '../lib/mustache/util/index.js';
-import { seqnBuilder } from '../builders/seqnBuilder.js';
-import type { ExpandedActivity, SeqBuilder } from '../types/seqBuilder.js';
-import { applyActivityLayerFilter } from '../lib/filters/utilities.js';
-import { convertDoyToYmd } from '../lib/mustache/util/time.js';
-import { stringifyActivity } from '../lib/mustache/util/activity.js';
-import { stolBuilder } from '../builders/stolBuilder.js';
-import { concatBuilder } from "../builders/concatBuilder.js";
-import { SequencingLanguage } from '../lib/mustache/enums/language.js';
+import {getUsername} from '../utils/hasura.js';
+import type {SimulatedActivity} from '../lib/batchLoaders/simulatedActivityBatchLoader.js';
+import {Mustache} from '../lib/mustache/util/index.js';
+import {seqnBuilder} from '../builders/seqnBuilder.js';
+import type {ExpandedActivity, SeqBuilder} from '../types/seqBuilder.js';
+import {applyActivityLayerFilter} from '../lib/filters/utilities.js';
+import {convertDoyToYmd} from '../lib/mustache/util/time.js';
+import {stringifyActivity} from '../lib/mustache/util/activity.js';
+import {stolBuilder} from '../builders/stolBuilder.js';
+import {concatBuilder} from "../builders/concatBuilder.js";
+import {SequencingLanguage} from '../lib/mustache/enums/language.js';
+import {gql} from 'graphql-request';
+import {ErrorType, ErrorWithStatusCode, type FormattedError} from "../utils/ErrorWithStatusCode.js";
 
 const logger = getLogger('app');
 
@@ -41,8 +43,10 @@ commandExpansionRouter.post('/assign-activities-by-filter', async (req, res, nex
 
   // Verify that timeRangeStart < timeRangeEnd
   if (timeRangeStart.epochMicroseconds > timeRangeEnd.epochMicroseconds) {
-    throw new Error(
-      `POST /command-expansion/assign-activities-by-filter: Provided start time (${timeRangeStart.toString()}) greater than end time (${timeRangeEnd.toString()}) for filtration.`,
+    throw new ErrorWithStatusCode(
+        `Provided start time (${timeRangeStart.toString()}) greater than end time (${timeRangeEnd.toString()}) for filtration.`,
+        400,
+        ErrorType.VALIDATION
     );
   }
 
@@ -70,9 +74,10 @@ commandExpansionRouter.post('/assign-activities-by-filter', async (req, res, nex
     seqId
   ]);
   if (rows.length < 1) {
-    throw new Error(
-      `POST /command-expansion/assign-activities-by-filter: Entries failed to be created for filtered activities.`,
-    );
+    throw new ErrorWithStatusCode(
+        `Entries failed to be created for filtered activities.`,
+        500,
+        ErrorType.DATABASE);
   }
   logger.info(`POST /command-expansion/assign-activities-by-filter: Inserted entries for filtered activities.`);
 
@@ -121,7 +126,7 @@ commandExpansionRouter.post('/put-template', async (req, res, next) => {
   );
 
   if (rows.length < 1) {
-    throw new Error(`POST /put-template: No template was updated in the database`);
+    throw new ErrorWithStatusCode(`No template was updated in the database`, 500, ErrorType.DATABASE);
   }
 
   const id = rows[0].id;
@@ -137,15 +142,16 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
    * {
    *    modelId: Int!,
    *    simulationDatasetId: Int!,
-   *    seqIds: [Int!]!
+   *    seqIds: [Int!]!,
+   *    force: Boolean
    * }
    */
 
-  // const defaultTemplate = "CMD {{format-as-date startTime}} {{name}} {{duration}}"; //req.body.input.template;
   const context: Context = res.locals['context'];
 
   //  0. Extract stuff from request
   // needed to uniquely identify sequence templates, along with activity type
+  const force = req.body.input.force !== undefined ? (req.body.input.force as boolean) : false;
   const modelId = req.body.input.modelId as number;
   const simulationDatasetId = req.body.input.simulationDatasetId as number;
   const seqIds = (req.body.input.seqIds as number[]).filter((val, index, arr) => arr.indexOf(val) == index); // remove duplicates, if they're even possible
@@ -154,7 +160,265 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     simulationDatasetId
   }
 
-  //  1. Load simulated activities and templates
+  //  1. State Validation
+  //  1a. Determine that the Simulation status is "success"
+  //    We may not run command expansion against an incomplete (including pending/canceled) or failed simulation
+  const { simulation_dataset  } = await graphqlClient.request<{
+    simulation_dataset: {
+      status: string,
+      canceled: boolean,
+      simulation_specification: {
+        sim_spec_id: number,
+        plan_id: number
+      }
+    }
+  }>(
+      gql`
+      query GetSimulationStatus($id: Int!) {
+        simulation_dataset: simulation_dataset_by_pk(id: $id) {
+          status
+          canceled
+          simulation_specification: simulation {
+            sim_spec_id: id
+            plan_id
+          }
+        }
+      }`,
+      { id: simulationDatasetId },
+  );
+
+  if(simulation_dataset == null) {
+    throw new ErrorWithStatusCode(
+        `No such simulation dataset exists with id ${simulationDatasetId}.`,
+        404,
+        ErrorType.NO_SUCH_SIM_DATASET,
+        { simulationDatasetId: simulationDatasetId }
+    );
+  }
+
+  if(simulation_dataset.canceled) {
+    throw new ErrorWithStatusCode(
+        `Cannot use simulation dataset ${simulationDatasetId}: Simulation was canceled.`,
+        400,
+        ErrorType.INVALID_SIM,
+        { simulationDatasetId: simulationDatasetId }
+    );
+  }
+
+  if(simulation_dataset.status !== "success") {
+    throw new ErrorWithStatusCode(
+        `Cannot use simulation dataset ${simulationDatasetId}: Simulation `
+        + `${simulation_dataset.status == "failed" ? "failed" : "is not complete"}.`,
+        400,
+        ErrorType.INVALID_SIM,
+        { simulation_dataset : simulationDatasetId, simulation_status: simulation_dataset.status }
+    );
+  }
+
+  //  1b. [OPTIONAL] Verify that for the given simulationDatasetId, constraints:
+  //      - are up to date (have been run at least once against the simulation dataset)
+  //      - have no violations
+  //      - have no errors
+  if (!force) {
+    // We only block on *violations*. We intentionally don't fail on stale sims,
+    // unchecked constraints, or constraint errors — only on confirmed violations
+    // in the most recent constraint request for this simulation dataset.
+    const { constraint_request } = await graphqlClient.request<{
+      constraint_request: {
+        constraints_run: {
+          constraint_invocation_id: number,
+          results: {
+            constraint_id: number,
+            constraint_revision: number,
+            arguments: object,
+            errors: object[],
+            violations: object[]
+          }
+        }[]
+      }[]
+    }>(
+      gql`
+      query GetLatestConstraintViolations($simulationDatasetId: Int!) {
+        constraint_request(
+          where: {simulation_dataset_id: {_eq: $simulationDatasetId}},
+          order_by: {requested_at: desc},
+          limit: 1
+        ) {
+          constraints_run(order_by: {order: asc}) {
+            constraint_invocation_id
+            results {
+              constraint_id
+              constraint_revision
+              arguments
+              errors
+              violations: results(path: "violations")
+            }
+          }
+        }
+      }
+      `,
+      { simulationDatasetId },
+    );
+
+    // Because of the limit 1, there should be at most 1 object in the "constraint_request" array
+    // Regardless, they are ordered by requested time descending, so the first entry is the latest.
+    const latestRequest = constraint_request[0];
+
+    // If latestRequest is undefined, there must have been nothing in the "constraint_request" array.
+    if (latestRequest === undefined) {
+      throw new ErrorWithStatusCode(
+          `Cannot run expansion: Constraints have not yet been checked against simulation dataset ${simulationDatasetId}.
+          (To skip constraint validation, use the 'force' flag.)`,
+          400,
+          ErrorType.INVALID_CONSTRAINTS
+      );
+    }
+
+    // Verify that no constraints had runtime errors
+    const numErrors = latestRequest.constraints_run.reduce(
+        (total, run) => total + (run.results.errors?.length ?? 0),
+        0
+    );
+    if (numErrors > 0) {
+      throw new ErrorWithStatusCode(
+          `Cannot run expansion: ${numErrors} constraint${(numErrors > 1) ? 's' : ''} encountered errors in latest constraint run for simulation dataset ${simulationDatasetId}.
+          (To skip constraint validation, use the 'force' flag.)`,
+          400,
+          ErrorType.INVALID_CONSTRAINTS
+      );
+    }
+
+    // Verify that no constraints had violations
+    const numViolations = latestRequest.constraints_run.reduce(
+      (total, run) => total + (run.results?.violations?.length ?? 0),
+      0,
+    );
+    if (numViolations > 0) {
+      throw new ErrorWithStatusCode(
+          `Cannot run expansion: there ${
+              (numViolations > 1) ? 'were' : 'was'
+          } ${numViolations} violation${(numViolations > 1) ? 's' : ''} in the latest constraint run for simulation dataset ${simulationDatasetId}.
+        (To skip constraint validation, use the 'force' flag.)`,
+          400,
+          ErrorType.INVALID_CONSTRAINTS
+      );
+    }
+
+    // Get the id of the latest simulation dataset for this plan.
+    // This will always return exactly one value
+    const { latest_dataset } = await graphqlClient.request<{
+      latest_dataset: [
+        {
+          id: number
+        }
+      ]
+    }>(
+      gql`
+      query LatestSimulationDataset($simSpecId: Int!) {
+        latest_dataset: simulation_dataset(
+          # Get just the latest object
+          limit: 1,
+          order_by: {id: desc},
+          # Filter to just simulations for the same plan (identified by the sim spec id)
+          where: {simulation_id: {_eq: $simSpecId}}
+        ){
+            id
+        }
+      }`,
+      { simSpecId: simulation_dataset.simulation_specification.sim_spec_id },
+    );
+
+    /*
+     * If simulationDatasetId is the latest simulation dataset, check that the most recent constraints check is up-to-date
+     * This is defined as:
+     *   - all enabled constraints were checked
+     *   - the version of the constraints checked match the version on the spec
+     *   - the arguments used on the constraint match the constraint's current arguments
+     * This step is skipped if simulationDatasetId refers to a historical dataset, as there is no concept of a
+     * constraint specification specifically for a historical simulation dataset.
+     */
+    if(latest_dataset[0].id === simulationDatasetId) {
+      // Get the current constraint specification
+      const { constraint_specification } = await graphqlClient.request<{
+        constraint_specification: {
+          constraint_invocation_id: number,
+          constraint_id: number,
+          constraint_revision: number,
+          arguments: object,
+          constraint_metadata: {
+            latest_version: [
+              { revision: number }
+            ]
+          }
+        }[]
+      }>(
+          gql`
+          query ConstraintSpecification($planId: Int!) {
+            constraint_specification(
+              order_by: {order: asc},
+              where: {_and: {plan_id: {_eq: $planId}, enabled: {_eq: true}}}
+            ){
+              constraint_invocation_id: invocation_id
+              constraint_id
+              constraint_revision
+              arguments
+              # Preemptively get the latest revision for the constraint
+              constraint_metadata {
+                latest_version: versions(limit: 1, order_by: {revision: desc}) {
+                  revision
+                }
+              }
+            }
+          }`,
+          { planId: simulation_dataset.simulation_specification.plan_id },
+      );
+
+      // Flatten constraint revision data, replacing "latest" entries (represented in the DB by a NULL value)
+      // with the concrete value of the latest revision
+      const concrete_constraint_spec = constraint_specification.flatMap((old_form) => {
+        return {
+          constraint_invocation_id: old_form.constraint_invocation_id,
+          constraint_id: old_form.constraint_id,
+          constraint_revision: old_form.constraint_revision == null ?
+              old_form.constraint_metadata.latest_version[0].revision
+              : old_form.constraint_revision,
+          arguments: old_form.arguments
+        }
+      });
+
+      /*
+       * For each constraint run in the latest request, find and remove it from the concrete version of the spec
+       * (Filtering the concrete spec in this way means that if the latest constraint run checked every constraint
+       *  on the spec plus additional constraints that have since been disabled or removed, those additional
+       *  constraints do not block command expansion)
+       */
+      latestRequest.constraints_run.forEach((constraint) => {
+        const index = concrete_constraint_spec.indexOf({
+          constraint_invocation_id: constraint.constraint_invocation_id,
+          constraint_id: constraint.results.constraint_id,
+          constraint_revision: constraint.results.constraint_revision,
+          arguments: constraint.results.arguments
+        });
+        concrete_constraint_spec.splice(index, 1);
+      });
+
+      // If there are any constraints left in the concrete spec, then the latest run is not valid
+      const uncheckedConstraints = concrete_constraint_spec.length;
+      if(uncheckedConstraints > 0) {
+        throw new ErrorWithStatusCode(
+            `Cannot run expansion: ${uncheckedConstraints}
+             constraint${(uncheckedConstraints > 1) ? 's' : ''} ${(uncheckedConstraints > 1) ? 'have' : 'has'}
+            not been checked.
+            (To skip constraint validation, use the 'force' flag.)`,
+            400,
+            ErrorType.INVALID_CONSTRAINTS,
+            { uncheckedConstraints: concrete_constraint_spec }
+        );
+      }
+    }
+  }
+
+  //  2. Load simulated activities and templates
   const [sequenceTemplates, filteredSimulatedActivitiesBySeqId] = await Promise.all([
     context.sequenceTemplateDataLoader.load({ modelId }),
     context.simulatedActivityInstanceBySeqIdBatchLoader.loadMany(seqIds.map(seqId => {
@@ -162,13 +426,16 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }))
   ]);
 
-  //  2. Determine the language being used (SeqN vs. STOL)
+  //  3. Determine the language being used (SeqN vs. STOL)
   //        Presently, we assume based on a database constraint, that all templates pulled for a given model/parcel combo have
   //        the same language. While this constraint will remain true its exact enforcement and therefore implementation in SQL
   //        and here may be subject to change.
   if (sequenceTemplates.length === 0) {
-    throw new Error(
-      `POST /command-expansion/expand-all-sequence-templates: No sequence templates found for modelId=(${modelId}).`,
+    throw new ErrorWithStatusCode(
+        `No sequence templates found for modelId=(${modelId}).`,
+        404,
+        ErrorType.EXPANSION_RUN_FAILURE,
+        { modelId: modelId }
     );
   }
 
@@ -184,8 +451,11 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   }, [] as string[])
 
   if (languages.length > 1) {
-    throw new Error(
-      `POST /command-expansion/expand-all-sequence-templates: Sequence templates found for modelId=(${modelId}) using different languages (${languages}).`
+    throw new ErrorWithStatusCode(
+        `Sequence templates found for modelId=(${modelId}) using different languages (${languages}).`,
+        400,
+        ErrorType.EXPANSION_RUN_FAILURE,
+        { languages: languages }
     )
   }
 
@@ -198,12 +468,15 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
   } else if (languages[0] === SequencingLanguage.TEXT) {
     seqBuilder = concatBuilder
   } else {
-    throw new Error(
-      `POST /command-expansion/expand-all-sequence-templates: Unsupported sequence language "${languages[0]}"`,
+    throw new ErrorWithStatusCode(
+        `Unsupported sequence language "${languages[0]}"`,
+        400,
+        ErrorType.UNSUPPORTED_LANGUAGE,
+        { language: languages[0]}
     );
   }
 
-  //  3. Pair seqId/SimulatedActivity lists; aggregate all simulated, filtered, activities
+  //  4. Pair seqId/SimulatedActivity lists; aggregate all simulated, filtered, activities
   let seqIdToFilteredActivities: { [seqId: string]: { id: number, startOffset: Temporal.Duration }[] } = {};
   let allFilteredActivities: { [id: number]: SimulatedActivity<Record<string, unknown>, Record<string, unknown>> } = [];
 
@@ -230,8 +503,11 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }
     else {
       if (!filteredActivities) {
-        throw new Error(
-          `POST /command-expansion/expand-all-sequence-templates: No activities associated with seqId: ${seqId}.`,
+        throw new ErrorWithStatusCode(
+          `No activities associated with seqId: ${seqId}.`,
+            404,
+            ErrorType.EXPANSION_RUN_FAILURE,
+            { sequenceId: seqId, filter: seqIdToFilteredActivities[seqId] }
         );
       }
       else {
@@ -240,7 +516,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }
   }
 
-  //  4. Create a list of all activity types that are being used.
+  //  5. Create a list of all activity types that are being used.
   const allActivityTypes: string[] = []
   for (const entry of Object.entries(allFilteredActivities)) {
     const activityTypeName = entry[1].activityTypeName
@@ -249,7 +525,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }
   }
 
-  //  5. Correlate each activity type in use with the compiled template for the given model.
+  //  6. Correlate each activity type in use with the compiled template for the given model.
   const activityTypeNameToTemplate: { [name: string]: Mustache } = {}
   for (const sequenceTemplate of sequenceTemplates) {
     let activityTypeName = sequenceTemplate.activity_type;
@@ -261,7 +537,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }
   }
 
-  //  6. Build ExpandedActivity for each activity, a.k.a., run the template expansion for all activities
+  //  7. Build ExpandedActivity for each activity, a.k.a., run the template expansion for all activities
   const expandedActivities: {
     [id: number]:
     {
@@ -297,7 +573,7 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }
   }
 
-  // 7. Having expanded each simulated activity, now iterate through each seqId to collect the expanded activities for that seqId
+  // 8. Having expanded each simulated activity, now iterate through each seqId to collect the expanded activities for that seqId
   let expandedSequencesBySeqId: { [seqId: string]: string } = {};
   for (const seqId of Object.keys(seqIdToFilteredActivities)) {
     let filteredActivities = seqIdToFilteredActivities[seqId];
@@ -334,25 +610,33 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
     }
     catch (e) {
       if (e instanceof Error) {
-        throw new Error(
-          `POST /command-expansion/expand-all-sequence-templates: Database insertion failed with "${e.message}"`
+        throw new ErrorWithStatusCode(
+            `Database insertion failed with "${e.message}"`,
+            500,
+            ErrorType.DATABASE,
+            undefined,
+            e
         )
-      }
-      else if (e instanceof String) {
-        throw new Error(
-          `POST /command-expansion/expand-all-sequence-templates: Database insertion failed with "${e}"`
+      } else if (e instanceof String) {
+        throw new ErrorWithStatusCode(
+            `Database insertion failed with "${e}"`,
+            500,
+            ErrorType.DATABASE
         )
-      }
-      else {
-        throw new Error(
-          `POST /command-expansion/expand-all-sequence-templates: Database insertion failed with "${JSON.stringify(e)}"`
+      } else {
+        throw new ErrorWithStatusCode(
+            `Database insertion failed with "${JSON.stringify(e)}"`,
+            500,
+            ErrorType.DATABASE
         )
       }
     }
 
     if (rows.length < 1) {
-      throw new Error(
-        `POST /command-expansion/expand-all-sequence-templates: No expanded sequences (templates) were inserted into the database`,
+      throw new ErrorWithStatusCode(
+          `No expanded sequences (templates) were inserted into the database`,
+          500,
+          ErrorType.DATABASE
       );
     }
     const expandedSequenceId = rows[0].id;
@@ -368,3 +652,17 @@ commandExpansionRouter.post('/expand-all-sequence-templates', async (req, res, n
 
   return next();
 });
+
+commandExpansionRouter.use(formatError);
+
+function formatError(err: Error | ErrorWithStatusCode, req: Request, res: Response, _next: any) {
+  let formattedError: FormattedError;
+  if(err instanceof ErrorWithStatusCode) {
+    formattedError = err.format()
+  } else {
+    formattedError = new ErrorWithStatusCode(err.message, 500, ErrorType.INTERNAL, undefined, err).format();
+  }
+
+  console.error(`${req.method} ${req.path}: ${formattedError}`);
+  res.status(500).json(formattedError);
+}

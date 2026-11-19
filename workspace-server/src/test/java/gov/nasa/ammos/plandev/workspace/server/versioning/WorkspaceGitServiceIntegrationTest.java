@@ -207,7 +207,7 @@ class WorkspaceGitServiceIntegrationTest {
       final var commits = log(WS1).size();
 
       final var stale = bindings.saveFile(WS1, fileA, "v3", etag1);
-      assertFailure(stale, 412, null);
+      assertFailure(stale, 412, "SAVE_CONFLICT");
       assertEquals(etag2, stale.jsonResponse().asJsonObject().getJsonObject("data").getString("currentETag"));
       assertEquals(DEFAULT_USER_IDENT, stale.jsonResponse().asJsonObject().getJsonObject("data").getString("lastEditedBy"));
       assertEquals("v2", bindings.readFile(WS1, fileA));

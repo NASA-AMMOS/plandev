@@ -58,6 +58,7 @@ task internalTest(type: Test) {
 
   testLogging {
     exceptionFormat = 'full'
+    showStandardStreams = true
   }
 }
 

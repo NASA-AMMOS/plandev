@@ -2,7 +2,9 @@ package gov.nasa.ammos.plandev.e2e.utils;
 
 import com.microsoft.playwright.APIRequest;
 import com.microsoft.playwright.APIRequestContext;
+import com.microsoft.playwright.APIResponse;
 import com.microsoft.playwright.Playwright;
+import com.microsoft.playwright.PlaywrightException;
 import com.microsoft.playwright.options.FilePayload;
 import com.microsoft.playwright.options.FormData;
 import com.microsoft.playwright.options.RequestOptions;
@@ -14,6 +16,9 @@ import javax.json.JsonObject;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 public class GatewayRequests implements AutoCloseable {
   private final APIRequestContext request;
@@ -146,22 +151,47 @@ public class GatewayRequests implements AutoCloseable {
         "application/java-archive",
         buffer);
 
-    final var response = request.post(
-        "/file", RequestOptions.create()
-                               .setHeader("Authorization", "Bearer " + token)
-                               .setMultipart(FormData.create().set("file", payload)));
+    // temporary - keep track of request ID + add logs to track random flakey upload failures
+    final var requestId = UUID.randomUUID().toString();
+    final var fileName = absolutePath.getFileName();
+    final var options = RequestOptions.create()
+                                      .setHeader("Authorization", "Bearer " + token)
+                                      .setHeader("X-Request-Id", requestId)
+                                      .setMultipart(FormData.create().set("file", payload));
 
-    // Process Response
+    System.out.printf("jar upload start requestId=%s at=%s file=%s bytes=%d%n",
+                      requestId, Instant.now(), fileName, buffer.length);
+
+    final long start = System.nanoTime();
+    final APIResponse response;
+    try {
+      response = request.post("/file", options);
+    } catch (PlaywrightException ex) {
+      final long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+      throw new IOException(
+          "POST /file failed for %s (requestId=%s, bytes=%d, elapsedMs=%d)"
+              .formatted(fileName, requestId, buffer.length, elapsedMs),
+          ex);
+    }
+
+    final long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+    System.out.printf("jar upload response requestId=%s status=%d elapsedMs=%d%n",
+                      requestId, response.status(), elapsedMs);
+
     if (!response.ok()) {
-      throw new IOException(response.statusText());
+      throw new IOException("POST /file returned %d %s (requestId=%s)"
+                                .formatted(response.status(), response.statusText(), requestId));
     }
 
     final JsonObject bodyJson = RequestBodyHelper.getBody(response);
     if (bodyJson.containsKey("errors")) {
-      System.err.println("Errors in response: \n" + bodyJson.get("errors"));
-      throw new RuntimeException(bodyJson.toString());
+      throw new IOException("POST /file returned errors (requestId=%s): %s"
+                                .formatted(requestId, bodyJson.get("errors")));
     }
-    return bodyJson.getInt("id");
+
+    final int fileId = bodyJson.getInt("id");
+    System.out.printf("jar upload accepted requestId=%s fileId=%d%n", requestId, fileId);
+    return fileId;
   }
 
   public void uploadExternalSourceEventTypes(JsonObject schema) {

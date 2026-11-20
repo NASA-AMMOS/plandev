@@ -9,10 +9,10 @@ let missionModelId: number;
 beforeAll(async () => {
   graphqlClient = await getGraphQLClient();
   missionModelId = await uploadMissionModel(graphqlClient);
-});
+}, 45000);
 
 afterAll(async () => {
-  await removeMissionModel(graphqlClient, missionModelId);
+  if (missionModelId !== undefined) await removeMissionModel(graphqlClient, missionModelId);
 });
 
 it('should load activity schemas', async () => {

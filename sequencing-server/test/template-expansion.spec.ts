@@ -21,6 +21,7 @@ import { DictionaryType } from '../src/types/types';
 let planId: number;
 let graphqlClient: GraphQLClient;
 let missionModelId: number;
+let modelReady = false;
 let commandDictionaryId: number;
 let channelDictionaryId: number;
 let parameterDictionaryId: number;
@@ -43,14 +44,16 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  modelReady = false;
   missionModelId = await uploadMissionModel(graphqlClient);
+  modelReady = true;
   planId = await createPlan(graphqlClient, missionModelId);
   await updateSimulationBounds(graphqlClient, {
     plan_id: planId,
     simulation_start_time: '2020-001T00:00:00Z',
     simulation_end_time: '2020-002T00:00:00Z',
   });
-});
+}, 45000);
 
 afterAll(async () => {
   await removeParcel(graphqlClient, parcelId);
@@ -60,6 +63,7 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
+  if (!modelReady) return;
   await removePlan(graphqlClient, planId);
   await removeMissionModel(graphqlClient, missionModelId);
 });

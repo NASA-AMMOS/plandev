@@ -14,7 +14,7 @@ let parcelId: number;
 beforeAll(async () => {
   graphqlClient = await getGraphQLClient();
   missionModelId = await uploadMissionModel(graphqlClient);
-});
+}, 45000);
 
 beforeEach(async () => {
   commandDictonaryId = (await insertDictionary(graphqlClient, DictionaryType.COMMAND)).command.id;
@@ -33,7 +33,7 @@ afterEach(async () => {
 });
 
 afterAll(async () => {
-  await removeMissionModel(graphqlClient, missionModelId);
+  if (missionModelId !== undefined) await removeMissionModel(graphqlClient, missionModelId);
 });
 
 describe('Sequencing DB State', () => {

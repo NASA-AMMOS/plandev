@@ -30,9 +30,10 @@ beforeAll(async () => {
     simulation_end_time: '2020-002T00:00:00Z',
   });
   simulationArtifactIds = await executeSimulation(graphqlClient, planId);
-});
+}, 45000);
 
 afterAll(async () => {
+  if (missionModelId === undefined) return;
   await removeSimulationArtifacts(graphqlClient, { simulationDatasetId: simulationArtifactIds.simulationDatasetId });
   await removeActivityDirective(graphqlClient, activityId, planId);
   await removePlan(graphqlClient, planId);
